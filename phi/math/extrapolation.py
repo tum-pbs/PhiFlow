@@ -591,7 +591,7 @@ SYMMETRIC = _SymmetricExtrapolation(3)
 REFLECT = _ReflectExtrapolation(4)
 """ Like SYMMETRIC but the edge values are not copied and only occur once per seam. """
 NONE = _NoExtrapolation(-1)
-""" Raises AssertionError when used to determine outside values. """
+""" Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. """
 
 
 def combine_sides(extrapolations: dict) -> Extrapolation:

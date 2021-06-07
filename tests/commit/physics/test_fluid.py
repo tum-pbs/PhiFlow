@@ -22,7 +22,7 @@ class FluidTest(TestCase):
         velocity = DOMAIN.vector_grid(0, grid_type)
         for _ in range(2):
             velocity += smoke * (0, 0.1) >> velocity
-            velocity, _ = fluid.make_incompressible(velocity, DOMAIN)
+            velocity, _ = fluid.make_incompressible(velocity)
         math.assert_close(divergence(velocity).values, 0, abs_tolerance=2e-5)
         return velocity.values
 
@@ -32,7 +32,7 @@ class FluidTest(TestCase):
         velocity = DOMAIN.vector_grid(0, grid_type)
         for _ in range(2):
             velocity += smoke * (0, 0.1) >> velocity
-            velocity, _ = fluid.make_incompressible(velocity, DOMAIN)
+            velocity, _ = fluid.make_incompressible(velocity)
         math.assert_close(divergence(velocity).values, 0, abs_tolerance=2e-5)
         return velocity.values
 
@@ -92,7 +92,7 @@ class FluidTest(TestCase):
             with backend:
                 velocity = param = velocity0.with_(values=math.tensor(velocity0.values))
                 with math.record_gradients(param.values):
-                    velocity, _ = fluid.make_incompressible(velocity, DOMAIN)
+                    velocity, _ = fluid.make_incompressible(velocity)
                     loss = field.l2_loss(velocity)
                     assert math.isfinite(loss).all
                     grad = math.gradients(loss, param.values)

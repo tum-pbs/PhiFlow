@@ -98,6 +98,6 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
         if ftype == 'CenteredGrid':
             return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extrapolation)
         elif ftype == 'StaggeredGrid':
-            data_ = unstack_staggered_tensor(data)
+            data_ = unstack_staggered_tensor(data, extrapolation)
             return StaggeredGrid(data_, bounds=geom.Box(lower, upper), extrapolation=extrapolation)
     raise NotImplementedError(f"{ftype} not implemented ({implemented_types})")

@@ -106,7 +106,7 @@ class IncompressibleFlow(Physics):
         result: SolveInfo = None
         div = field.divergence(velocity)
         if self.make_input_divfree:
-            velocity, result = make_incompressible(velocity, fluid.domain, obstacles)
+            velocity, result = make_incompressible(velocity, obstacles)
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
@@ -121,7 +121,7 @@ class IncompressibleFlow(Physics):
         divergent_velocity = velocity
         # --- Pressure solve_linear ---
         if self.make_output_divfree:
-            velocity, result = make_incompressible(velocity, fluid.domain, obstacles)
+            velocity, result = make_incompressible(velocity, obstacles)
         solve_info = {
             'pressure': result.x,
             'iterations': result.iterations,

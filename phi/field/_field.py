@@ -66,7 +66,7 @@ class Field:
 
     def __rshift__(self, other: 'SampledField'):
         """
-        Resampling operator.
+        Resampling operator with change of extrapolation.
 
         Args:
             other: instance of SampledField
@@ -74,7 +74,10 @@ class Field:
         Returns:
             Copy of other with values and extrapolation from this Field.
         """
-        return self.at(other)
+        if isinstance(self, SampledField):
+            return self.with_(extrapolation=other.extrapolation).at(other)
+        else:
+            return self.at(other)
 
     def __getitem__(self, item: dict) -> 'Field':
         """

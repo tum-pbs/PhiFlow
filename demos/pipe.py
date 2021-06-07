@@ -9,8 +9,8 @@ BOUNDARY_MASK = StaggeredGrid(HardGeometryMask(Box[:0.5, :]), **DOMAIN)
 velocity = StaggeredGrid(0, **DOMAIN)
 pressure = None
 
-for _ in view('velocity, pressure', display='velocity', play=False).range():
+for _ in view('velocity, pressure', display='velocity').range():
     velocity = advect.semi_lagrangian(velocity, velocity, DT)
     velocity = velocity * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (1, 0)
-    velocity, pressure = fluid.make_incompressible(velocity, [OPEN, CLOSED], solve=Solve('CG-adaptive', 1e-5, 0, x0=pressure))
+    velocity, pressure = fluid.make_incompressible(velocity, solve=Solve('CG-adaptive', 1e-5, 0, x0=pressure))
     velocity = diffuse.explicit(velocity, 0.1, DT)

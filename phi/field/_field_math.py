@@ -14,6 +14,8 @@ from ..math.backend import Backend
 
 
 def bake_extrapolation(grid: GridType) -> GridType:
+    if grid.extrapolation == math.extrapolation.NONE:
+        return grid
     if isinstance(grid, StaggeredGrid):
         values = grid.values.unstack('vector')
         padded = []
@@ -33,7 +35,7 @@ def laplace(field: GridType, axes=None) -> GridType:
     return result
 
 
-def spatial_gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim='vector'):
+def spatial_gradient(field: CenteredGrid, extrapolation: math.Extrapolation = None, type: type = CenteredGrid, stack_dim='vector'):
     """
     Finite difference spatial_gradient.
 
@@ -53,12 +55,14 @@ def spatial_gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim='
 
     """
     assert isinstance(field, Grid)
+    if extrapolation is None:
+        extrapolation = field.extrapolation.spatial_gradient()
     if type == CenteredGrid:
         values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference='central', padding=field.extrapolation, stack_dim=stack_dim)
-        return CenteredGrid(values, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
+        return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
     elif type == StaggeredGrid:
         assert stack_dim == 'vector'
-        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.spatial_gradient())
+        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, extrapolation)
     raise NotImplementedError(f"{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.")
 
 
@@ -108,12 +112,15 @@ def stagger(field: CenteredGrid,
     all_upper = []
     if type == StaggeredGrid:
         for dim in field.shape.spatial.names:
-            all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation))
-            all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation))
+            lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
+            all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation) if lo_valid else field.values[{dim: slice(0, -1)}])
+            all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation) if up_valid else field.values[{dim: slice(1, None)}])
         all_upper = math.channel_stack(all_upper, 'vector')
         all_lower = math.channel_stack(all_lower, 'vector')
         values = face_function(all_lower, all_upper)
-        return StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
+        result = StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
+        assert result.shape.spatial == field.shape.spatial
+        return result
     elif type == CenteredGrid:
         left, right = math.shift(field.values, (-1, 1), padding=field.extrapolation, stack_dim='vector')
         values = face_function(left, right)
@@ -138,6 +145,7 @@ def divergence(field: Grid) -> CenteredGrid:
         Divergence field as `CenteredGrid`
     """
     if isinstance(field, StaggeredGrid):
+        field = bake_extrapolation(field)
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
             div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).gradient[0]

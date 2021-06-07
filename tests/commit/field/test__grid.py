@@ -12,7 +12,7 @@ class GridTest(TestCase):
     def test_staggered_grid_sizes_by_extrapolation(self):
         s = shape(x=20, y=10)
         for initializer in [0, Noise(vector=2), (0, 1), Sphere((0, 0), 1)]:
-            g_const = StaggeredGrid(initializer, 0, resolution=s)
+            g_const = StaggeredGrid(initializer, extrapolation.ZERO, resolution=s)
             self.assertEqual(g_const.shape, shape(x=20, y=10, vector=2))
             self.assertEqual(g_const.values.vector[0].shape, shape(x=19, y=10))
             g_periodic = StaggeredGrid(initializer, extrapolation.PERIODIC, resolution=s)

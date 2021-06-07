@@ -513,7 +513,7 @@ class ShiftLinTracer(Tensor):
         self._shape = shape
         self._sparse_coo = None
 
-    def native(self, order: str or tuple or list = None):
+    def native(self, order: str or tuple or list or Shape = None):
         """
         Evaluates the value of the linear operation applied to the original source tensor.
         

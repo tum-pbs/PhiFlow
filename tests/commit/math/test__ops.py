@@ -64,7 +64,6 @@ class TestMathFunctions(TestCase):
         grads_coords = []
         for backend in BACKENDS:
             if backend.supports(Backend.gradients):
-                print(backend)
                 with backend:
                     grid = math.tensor([0., 1, 2, 3], 'x')
                     coords = math.tensor([0.5, 1.5], 'points')

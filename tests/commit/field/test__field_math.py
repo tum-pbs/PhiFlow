@@ -7,7 +7,7 @@ from phi import math
 from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask
 from phi.geom import Box
 from phi import field
-from phi.math import Solve
+from phi.math import Solve, extrapolation
 from phi.math.backend import Backend
 from phi.physics import Domain
 
@@ -24,7 +24,7 @@ class TestFieldMath(TestCase):
         self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
 
     def test_divergence_centered(self):
-        v = field.CenteredGrid(math.ones(x=3, y=3), Box[0:1, 0:1], math.extrapolation.ZERO) * (1, 0)  # flow to the right
+        v = CenteredGrid(math.ones(x=3, y=3), extrapolation.ZERO, bounds=Box[0:1, 0:1]) * (1, 0)  # flow to the right
         div = field.divergence(v).values
         math.assert_close(div.y[0], (1.5, 0, -1.5))
 
@@ -128,15 +128,15 @@ class TestFieldMath(TestCase):
         grid = Domain(x=4, y=3).scalar_grid(0)
         for backend in BACKENDS:
             converted = field.convert(grid, backend)
-            self.assertTrue(backend.is_tensor(converted.values.native(), True))
+            self.assertEqual(converted.values.default_backend, backend)
 
     def test_convert_point_cloud(self):
         points = Domain(x=4, y=3).points(math.random_uniform(points=4, vector=2)).with_(values=math.random_normal(points=4, vector=2))
         for backend in BACKENDS:
             converted = field.convert(points, backend)
-            self.assertTrue(backend.is_tensor(converted.values.native(), True))
-            self.assertTrue(backend.is_tensor(converted.elements.center.native(), True))
-            self.assertTrue(backend.is_tensor(converted.elements.radius.native(), True))
+            self.assertEqual(converted.values.default_backend, backend)
+            self.assertEqual(converted.elements.center.default_backend, backend)
+            self.assertEqual(converted.elements.radius.default_backend, backend)
 
     def test_center_of_mass(self):
         density = Domain(x=4, y=3).scalar_grid(HardGeometryMask(Box[0:1, 1:2]))
@@ -152,7 +152,7 @@ class TestFieldMath(TestCase):
         math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))
 
     def test_integrate_all(self):
-        grid = field.grid(field.Noise(vector=2), math.shape(x=10, y=10), Box[0:10, 0:10])
+        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:10, 0:10])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y'))
-        grid = field.grid(field.Noise(vector=2), math.shape(x=10, y=10), Box[0:1, 0:1])
+        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:1, 0:1])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y') / 100)

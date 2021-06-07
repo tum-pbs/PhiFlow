@@ -6,8 +6,9 @@ from typing import Tuple
 from phi import math, field
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
 from phi.geom import union
-from ._boundaries import Domain, _create_boundary_conditions
+from ..math import extrapolation
 from ..math._tensors import copy_with
+from ..math.extrapolation import combine_sides
 
 
 def make_incompressible(velocity: Grid,
@@ -28,42 +29,38 @@ def make_incompressible(velocity: Grid,
       pressure: solved pressure field, `CenteredGrid`
     """
     input_velocity = velocity
-    # active_extrapolation = {PERIODIC: PERIODIC, else 0}
-    accessible_extrapolation = velocity.extrapolation / math.extrapolation.BOUNDARY  # {PERIODIC: PERIODIC, BOUNDARY: 1, 0: 0}
-    pressure_extrapolation = velocity.extrapolation.integral()
-
-    active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds)
+    accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
+    active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=extrapolation.NONE)
     accessible = active.with_(extrapolation=accessible_extrapolation)
-    hard_bcs = field.stagger(accessible, math.minimum, accessible_extrapolation, type=type(velocity))
+    hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
     velocity = apply_boundary_conditions(velocity, obstacles)  # .with_(extrapolation=v_bc_div)
     div = divergence(velocity) * active
     if input_velocity.extrapolation in (math.extrapolation.ZERO, math.extrapolation.PERIODIC):
         div = _balance_divergence(div, active)
-        # math.assert_close(field.mean(div), 0, abs_tolerance=1e-6)
 
     # Solve pressure
     @math.jit_compile_linear
     def laplace(p):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
         # TODO active, hard_bcs are actually arguments
-        grad = spatial_gradient(p, type(velocity))
+        grad = spatial_gradient(p, input_velocity.extrapolation, type=type(velocity))
         grad *= hard_bcs
-        grad = grad.with_(extrapolation=input_velocity.extrapolation)  # TODO is this necessary?
         div = divergence(grad)
         lap = where(active, div, p)
         return lap
 
     if solve.x0 is None:
+        pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
         solve = copy_with(solve, x0=CenteredGrid(0, resolution=div.resolution, bounds=div.bounds, extrapolation=pressure_extrapolation))
     pressure = field.solve_linear(laplace, y=div, solve=solve)
     if input_velocity.extrapolation in (math.extrapolation.ZERO, math.extrapolation.PERIODIC):
         def pressure_backward(_p, _p_, dp: CenteredGrid):
             # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
-            active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=dp.resolution, bounds=dp.bounds)
+            active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=dp.resolution, bounds=dp.bounds, extrapolation=extrapolation.NONE)
             return _balance_divergence(dp, active),
         pressure = math.custom_gradient(lambda p: p, pressure_backward)(pressure)
     # Subtract grad pressure
-    gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
-    velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
+    velocity = velocity - grad_pressure
     return velocity, pressure
 
 
@@ -84,21 +81,38 @@ def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
     Returns:
         Velocity of same type as `velocity`
     """
-    velocity = field.bake_extrapolation(velocity)
-    if obstacles:
-        bcs = 1 - (HardGeometryMask(union([obstacle.geometry for obstacle in obstacles])) >> velocity)
-        velocity *= bcs
-        # Add obstacle velocity to fluid
-        for obstacle in obstacles:
-            if not obstacle.is_stationary:
-                obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) >> velocity
-                angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None).at(velocity)
-                obs_vel = angular_velocity + obstacle.velocity
-                velocity = (1 - obs_mask) * velocity + obs_mask * obs_vel
+    # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
+    for obstacle in obstacles:
+        obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) >> velocity
+        if obstacle.is_stationary:
+            velocity = (1 - obs_mask) * velocity
+        else:
+            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) >> velocity
+            velocity = (1 - obs_mask) * velocity + obs_mask * (angular_velocity + obstacle.velocity)
     return velocity
 
 
-def _infer_pressure_extrapolation_from_velocity(velocity_extraplation: math.Extrapolation):
-    raise NotImplementedError()
+def _pressure_extrapolation(vext: math.Extrapolation):
+    if vext == extrapolation.PERIODIC:
+        return extrapolation.PERIODIC
+    elif vext == extrapolation.BOUNDARY:
+        return extrapolation.ZERO
+    elif isinstance(vext, extrapolation.ConstantExtrapolation):
+        return extrapolation.BOUNDARY
+    elif isinstance(vext, extrapolation._MixedExtrapolation):
+        return combine_sides({dim: (_pressure_extrapolation(lo), _pressure_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+    else:
+        raise ValueError(f"Unsupported extrapolation: {type(vext)}")
 
 
+def _accessible_extrapolation(vext: math.Extrapolation):
+    if vext == extrapolation.PERIODIC:
+        return extrapolation.PERIODIC
+    elif vext == extrapolation.BOUNDARY:
+        return extrapolation.ONE
+    elif isinstance(vext, extrapolation.ConstantExtrapolation):
+        return extrapolation.ZERO
+    elif isinstance(vext, extrapolation._MixedExtrapolation):
+        return combine_sides({dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+    else:
+        raise ValueError(f"Unsupported extrapolation: {type(vext)}")

@@ -682,12 +682,12 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
         if extrap is None:
             result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial.names, grid.shape.channel]),
                                          grid.shape.index(grid.shape.spatial),
-                                         reshaped_native(coordinates, [batch, *coordinates.shape.non_batch.names]),
+                                         reshaped_native(coordinates, [batch, *coordinates.shape.spatial.names, 'vector']),
                                          'undefined')
         elif extrap.native_grid_sample_mode:
             result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial.names, grid.shape.channel]),
                                          grid.shape.index(grid.shape.spatial),
-                                         reshaped_native(coordinates, [batch, *coordinates.shape.non_batch.names]),
+                                         reshaped_native(coordinates, [batch, *coordinates.shape.spatial.names, 'vector']),
                                          extrap.native_grid_sample_mode)
         if result is NotImplemented:
             # pad one layer
@@ -702,7 +702,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
                 inner_coordinates = coordinates + 1
             result = backend.grid_sample(reshaped_native(grid_padded, [batch, *grid_padded.shape.spatial.names, grid.shape.channel]),
                                          grid.shape.index(grid.shape.spatial),
-                                         reshaped_native(inner_coordinates, [batch, *coordinates.shape.non_batch.names]),
+                                         reshaped_native(inner_coordinates, [batch, *coordinates.shape.spatial.names, 'vector']),
                                          'boundary')
         if result is not NotImplemented:
             result = reshaped_tensor(result, [grid.shape.batch & coordinates.shape.batch, *coordinates.shape.spatial.names, grid.shape.channel])
@@ -1041,8 +1041,8 @@ def dot(x: Tensor,
     """
     x_dims = _resolve_dims(x_dims, x.shape)
     y_dims = _resolve_dims(y_dims, y.shape)
-    x_native = x.native()
-    y_native = y.native()
+    x_native = x.native(x.shape)
+    y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)
     remaining_shape_x = x.shape.without(x_dims)
     remaining_shape_y = y.shape.without(y_dims)

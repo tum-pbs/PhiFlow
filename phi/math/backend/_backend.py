@@ -905,10 +905,13 @@ class Backend:
         Interpolates a regular grid at the specified coordinates.
 
         Args:
-          grid: Tensor
-          spatial_dims: Dimension indices that correspond to coordinate vectors
-          coordinates: Tensor of floating grid indices. The last dimension must match `spatial_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
-          extrapolation: Values to use for coordinates outside the grid. One of `('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')`.
+            grid: Tensor
+            spatial_dims: Dimension indices that correspond to coordinate vectors
+            coordinates: Tensor of floating grid indices.
+                The last dimension must match `spatial_dims`.
+                The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+            extrapolation: Values to use for coordinates outside the grid.
+                One of `('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')`.
 
         Returns:
             sampled values with linear interpolation

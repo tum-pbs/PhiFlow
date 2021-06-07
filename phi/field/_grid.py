@@ -345,7 +345,15 @@ class StaggeredGrid(Grid):
         return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
     def staggered_tensor(self):
-        return stack_staggered_components(self.values)
+        padded = []
+        for dim, component in zip(self.resolution.names, math.unstack(self.values, 'vector')):
+            widths = {d: (0, 1) for d in self.resolution.names}
+            lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
+            widths[dim] = (int(not lo_valid), int(not up_valid))
+            padded.append(math.pad(component, widths, mode=self.extrapolation))
+        result = math.channel_stack(padded, 'vector')
+        assert result.shape.is_uniform
+        return result
 
     def _op2(self, other, operator):
         if isinstance(other, StaggeredGrid) and self.bounds == other.bounds and self.shape.spatial == other.shape.spatial:
@@ -356,18 +364,14 @@ class StaggeredGrid(Grid):
             return SampledField._op2(self, other, operator)
 
 
-def unstack_staggered_tensor(data: Tensor) -> TensorStack:
+def unstack_staggered_tensor(data: Tensor, extrapolation: math.Extrapolation) -> TensorStack:
     sliced = []
     for dim, component in zip(data.shape.spatial.names, data.unstack('vector')):
-        sliced.append(component[{d: slice(None, -1) for d in data.shape.spatial.without(dim).names}])
+        lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
+        slices = {d: slice(0, -1) for d in data.shape.spatial.names}
+        slices[dim] = slice(int(not lo_valid), - int(not up_valid) or None)
+        sliced.append(component[slices])
     return math.channel_stack(sliced, 'vector')
-
-
-def stack_staggered_components(data: Tensor) -> Tensor:
-    padded = []
-    for dim, component in zip(data.shape.spatial.names, data.unstack('vector')):
-        padded.append(math.pad(component, {d: (0, 1) for d in data.shape.spatial.without(dim).names}, mode=math.extrapolation.ZERO))
-    return math.channel_stack(padded, 'vector')
 
 
 def _validate_staggered_values(values: TensorStack):

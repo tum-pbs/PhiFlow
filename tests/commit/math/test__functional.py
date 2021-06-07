@@ -2,7 +2,8 @@ from unittest import TestCase
 
 import phi
 from phi import math, field
-from phi.math import Solve, Diverged, wrap, tensor, SolveTape
+from phi.field import CenteredGrid
+from phi.math import Solve, Diverged, wrap, tensor, SolveTape, extrapolation
 from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
@@ -153,16 +154,16 @@ class TestFunctional(TestCase):
     def test_solve_linear_matrix(self):
         for backend in BACKENDS:
             with backend:
-                y = field.grid(1, math.shape(x=3))
-                x0 = field.grid(0, math.shape(x=3))
+                y = CenteredGrid(1, extrapolation.ZERO, x=3)
+                x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
                 for method in ['CG', 'CG-adaptive', 'auto']:
                     solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
                     x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
                     math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3, msg=backend)
 
     def test_linear_solve_matrix_batched(self):  # TODO also test batched matrix
-        y = field.grid(1, math.shape(x=3)) * (1, 2)
-        x0 = field.grid(0, math.shape(x=3))
+        y = CenteredGrid(1, extrapolation.ZERO, x=3) * (1, 2)
+        x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
         for method in ['CG', 'CG-adaptive', 'auto']:
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
@@ -176,18 +177,16 @@ class TestFunctional(TestCase):
 
         for backend in BACKENDS:
             with backend:
-                x0 = field.grid(0, math.shape(x=3))
+                x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
                 for method in ['CG']:
-                    x = solve(field.grid(0, math.shape(x=3)), method=method)
-                    print(x.values)
+                    x = solve(CenteredGrid(0, extrapolation.ZERO, x=3), method=method)
                     math.assert_close(x.values, 0, abs_tolerance=1e-3)
-                    x = solve(field.grid(1, math.shape(x=3)), method=method)
-                    print(x.values)
+                    x = solve(CenteredGrid(1, extrapolation.ZERO, x=3), method=method)
                     math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
 
     def test_linear_solve_matrix_tape(self):
-        y = field.grid(1, math.shape(x=3)) * (1, 2)
-        x0 = field.grid(0, math.shape(x=3))
+        y = CenteredGrid(1, extrapolation.ZERO, x=3) * (1, 2)
+        x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
         for method in ['CG', 'CG-adaptive', 'auto']:
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             with math.SolveTape() as solves:
@@ -205,8 +204,8 @@ class TestFunctional(TestCase):
             # math.print(solves[solve].x.vector[1])
 
     def test_solve_linear_function_batched(self):
-        y = field.grid(1, math.shape(x=3)) * (1, 2)
-        x0 = field.grid(0, math.shape(x=3))
+        y = CenteredGrid(1, extrapolation.ZERO, x=3) * (1, 2)
+        x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
         for method in ['CG', 'CG-adaptive', 'auto']:
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
@@ -246,11 +245,11 @@ class TestFunctional(TestCase):
 
         for backend in BACKENDS:
             with backend:
-                x0 = field.grid(0, math.shape(x=3))
+                x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
 
                 for method in ['CG', 'CG-adaptive', 'auto']:
-                    x = solve(field.grid(0, math.shape(x=3)), method=method)
+                    x = solve(CenteredGrid(0, extrapolation.ZERO, x=3), method=method)
                     math.assert_close(x.values, 0, abs_tolerance=1e-3)
-                    x = solve(field.grid(1, math.shape(x=3)), method=method)
+                    x = solve(CenteredGrid(1, extrapolation.ZERO, x=3), method=method)
                     math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
 

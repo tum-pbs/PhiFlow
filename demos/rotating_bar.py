@@ -4,14 +4,14 @@ This demo shows how to simulate fluid flow with moving or rotating obstacles.
 from phi.flow import *
 
 
-DOMAIN = Domain(x=100, y=100, boundaries=CLOSED, bounds=Box[0:100, 0:100])
+DOMAIN = dict(x=100, y=100, bounds=Box[0:100, 0:100])
 DT = 1.0
 obstacle = Obstacle(Box[47:53, 20:70], angular_velocity=0.05)
-obstacle_mask = DOMAIN.scalar_grid(obstacle.geometry)  # to show in user interface
-velocity = DOMAIN.staggered_grid((1, 0))
+obstacle_mask = CenteredGrid(obstacle.geometry, extrapolation.ZERO, **DOMAIN)  # to show in user interface
+velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 
-for frame in view(framerate=10, display=('velocity', 'obstacle_mask')).range():
+for frame in view(velocity, obstacle_mask, framerate=10, display=('velocity', 'obstacle_mask')).range():
     obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(-obstacle.angular_velocity * DT))  # rotate bar
     velocity = advect.mac_cormack(velocity, velocity, DT)
-    velocity, pressure = fluid.make_incompressible(velocity, DOMAIN, (obstacle,))
-    obstacle_mask = DOMAIN.scalar_grid(obstacle.geometry)
+    velocity, pressure = fluid.make_incompressible(velocity, (obstacle,))
+    obstacle_mask = CenteredGrid(obstacle.geometry, extrapolation.ZERO, **DOMAIN)

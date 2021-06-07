@@ -33,7 +33,7 @@ class Tensor:
     When backed by an editable native tensor, e.g. a `numpy.ndarray`, do not edit the underlying data structure.
     """
 
-    def native(self, order: str or tuple or list = None):
+    def native(self, order: str or tuple or list or Shape = None):
         """
         Returns a native tensor object with the dimensions ordered according to `order`.
         
@@ -677,7 +677,7 @@ class NativeTensor(Tensor):
         self._native = native_tensor
         self._shape = shape
 
-    def native(self, order: str or tuple or list = None):
+    def native(self, order: str or tuple or list or Shape = None):
         order = parse_dim_order(order, check_rank=self.rank)
         if order is None or tuple(order) == self.shape.names:
             return self._native
@@ -826,7 +826,7 @@ class CollapsedTensor(Tensor):  # package-private
         else:
             return self
 
-    def native(self, order: str or tuple or list = None):
+    def native(self, order: str or tuple or list or Shape = None):
         if self.is_cached:
             return self._cached.native(order)
         order = parse_dim_order(order, check_rank=self.rank)
@@ -1002,7 +1002,7 @@ class TensorStack(Tensor):
     def shape(self):
         return self._shape
 
-    def native(self, order: str or tuple or list = None):
+    def native(self, order: str or tuple or list or Shape = None):
         if self._cached is not None:
             return self._cached.native(order=order)
         else:
