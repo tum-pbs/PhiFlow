@@ -19,7 +19,7 @@ class Sphere(Geometry):
 
     def __init__(self, center, radius):
         self._center = wrap(center)
-        assert 'vector' in self._center.shape, "center must have a 'vector' dimension"
+        assert 'vector' in self._center.shape, f"Sphere.center must have a 'vector' dimension. Try ({center},) * rank."
         self._radius = wrap(radius)
 
     @property

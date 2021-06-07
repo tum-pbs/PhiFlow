@@ -33,6 +33,7 @@ from phi.math import (
 )
 from ._field_math import (
     assert_close, convert,
+    bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,

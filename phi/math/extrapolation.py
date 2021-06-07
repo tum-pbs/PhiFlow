@@ -20,11 +20,8 @@ class Extrapolation:
         They play a vital role in padding and sampling.
 
         Args:
-          pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
+            pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
         The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
-
-        Returns:
-
         """
         self.pad_rank = pad_rank
 
@@ -38,6 +35,10 @@ class Extrapolation:
 
     def spatial_gradient(self) -> 'Extrapolation':
         """Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation."""
+        raise NotImplementedError()
+
+    def valid_outer_faces(self, dim):
+        """ `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. """
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
@@ -137,6 +138,9 @@ class ConstantExtrapolation(Extrapolation):
 
     def spatial_gradient(self):
         return ZERO
+
+    def valid_outer_faces(self, dim):
+        return False, False
 
     def pad(self, value: Tensor, widths: dict):
         """
@@ -286,6 +290,9 @@ class _CopyExtrapolation(Extrapolation):
 
     def __value_attrs__(self):
         return ()
+
+    def valid_outer_faces(self, dim):
+        return True, True
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
         value = value._simplify()
@@ -458,6 +465,9 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def spatial_gradient(self):
         return self
 
+    def valid_outer_faces(self, dim):
+        return True, False
+
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         return coordinates % shape.spatial
 
@@ -524,6 +534,50 @@ class _ReflectExtrapolation(_CopyExtrapolation):
         return (shape - 1) - math.abs_((shape - 1) - coordinates)
 
 
+class _NoExtrapolation(Extrapolation):
+    def to_dict(self) -> dict:
+        return {}
+
+    def pad(self, value: Tensor, widths: dict) -> Tensor:
+        return value
+
+    def spatial_gradient(self) -> 'Extrapolation':
+        return self
+
+    def valid_outer_faces(self, dim):
+        return True, True
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
+        raise AssertionError("Invalid extrapolation")
+
+    def __repr__(self):
+        return "none"
+
+    def __add__(self, other):
+        return self
+
+    def __radd__(self, other):
+        return self
+
+    def __sub__(self, other):
+        return self
+
+    def __rsub__(self, other):
+        return self
+
+    def __mul__(self, other):
+        return self
+
+    def __rmul__(self, other):
+        return self
+
+    def __truediv__(self, other):
+        return self
+
+    def __rtruediv__(self, other):
+        return self
+
+
 ZERO = ConstantExtrapolation(0)
 """ Extrapolates with the constant value 0 """
 ONE = ConstantExtrapolation(1)
@@ -536,6 +590,8 @@ SYMMETRIC = _SymmetricExtrapolation(3)
 """ Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. """
 REFLECT = _ReflectExtrapolation(4)
 """ Like SYMMETRIC but the edge values are not copied and only occur once per seam. """
+NONE = _NoExtrapolation(-1)
+""" Raises AssertionError when used to determine outside values. """
 
 
 def combine_sides(extrapolations: dict) -> Extrapolation:
@@ -572,7 +628,7 @@ class _MixedExtrapolation(Extrapolation):
         Args:
           extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
         """
-        Extrapolation.__init__(self, None)
+        Extrapolation.__init__(self, None, )
         self.ext = {dim: (e, e) if isinstance(e, Extrapolation) else tuple(e) for dim, e in extrapolations.items()}
 
     def to_dict(self) -> dict:
@@ -602,8 +658,11 @@ class _MixedExtrapolation(Extrapolation):
         return repr(self.ext)
 
     def spatial_gradient(self) -> Extrapolation:
-        return combine_sides({ax: (es[0].spatial_gradient(), es[1].spatial_gradient())
-                              for ax, es in self.ext.items()})
+        return combine_sides({ax: (es[0].spatial_gradient(), es[1].spatial_gradient()) for ax, es in self.ext.items()})
+
+    def valid_outer_faces(self, dim):
+        e_lower, e_upper = self.ext[dim]
+        return e_lower.valid_outer_faces(dim)[0], e_upper.valid_outer_faces(dim)[1]
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
         """

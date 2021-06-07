@@ -13,6 +13,20 @@ from ..math._tensors import variable_attributes, copy_with
 from ..math.backend import Backend
 
 
+def bake_extrapolation(grid: GridType) -> GridType:
+    if isinstance(grid, StaggeredGrid):
+        values = grid.values.unstack('vector')
+        padded = []
+        for dim, value in zip(grid.shape.spatial.names, values):
+            lower, upper = grid.extrapolation.valid_outer_faces(dim)
+            padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation))
+        return StaggeredGrid(math.channel_stack(padded, 'vector'), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
+    elif isinstance(grid, CenteredGrid):
+        return pad(grid, 1).with_(extrapolation=math.extrapolation.NONE)
+    else:
+        raise ValueError(f"Not a valid grid: {grid}")
+
+
 def laplace(field: GridType, axes=None) -> GridType:
     """ Finite-difference laplace operator for Grids. See `phi.math.laplace()`. """
     result = field._op1(lambda tensor: math.laplace(tensor, dx=field.dx, padding=field.extrapolation, dims=axes))

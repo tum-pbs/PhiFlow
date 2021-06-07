@@ -369,17 +369,16 @@ class GridCell(BaseBox):
         center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
 
-    def extend_symmetric(self, dims: str or list or tuple, cells: int):
-        dim_mask = np.array(self.resolution.mask(dims)) * cells
+    def stagger(self, dim: str, lower: bool, upper: bool):
+        dim_mask = np.array(self.resolution.mask(dim))
         unit = self.bounds.size / self.resolution * dim_mask
-        delta_size = unit / 2
-        bounds = Box(self.bounds.lower - delta_size, self.bounds.upper + delta_size)
-        ext_res = self.resolution.sizes + dim_mask
+        bounds = Box(self.bounds.lower + unit * (-0.5 if lower else 0.5), self.bounds.upper + unit * (0.5 if upper else -0.5))
+        ext_res = self.resolution.sizes + dim_mask * (int(lower) + int(upper) - 1)
         return GridCell(self.resolution.with_sizes(ext_res), bounds)
 
-    def face_centers(self, staggered_name='staggered'):
-        face_centers = [self.extend_symmetric(dim, 1).center for dim in self.shape.spatial.names]
-        return math.channel_stack(face_centers, staggered_name)
+    # def face_centers(self, staggered_name='staggered'):
+    #     face_centers = [self.extend_symmetric(dim).center for dim in self.shape.spatial.names]
+    #     return math.channel_stack(face_centers, staggered_name)
 
     @property
     def shape(self):

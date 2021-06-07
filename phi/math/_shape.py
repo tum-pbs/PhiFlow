@@ -285,7 +285,7 @@ class Shape:
         assert self.rank == 1, "int(Shape) is only defined for shapes of rank 1."
         return self.sizes[0]
 
-    def mask(self, names: tuple or list or set):
+    def mask(self, names: tuple or list or set or 'Shape'):
         """
         Returns a binary sequence corresponding to the names of this Shape.
         A value of 1 means that a dimension of this Shape is contained in `names`.
@@ -300,6 +300,8 @@ class Shape:
         """
         if isinstance(names, str):
             names = [names]
+        elif isinstance(names, Shape):
+            names = names.names
         mask = [1 if name in names else 0 for name in self.names]
         return tuple(mask)
 
