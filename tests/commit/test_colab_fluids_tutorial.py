@@ -43,7 +43,7 @@ class ColabNotebookTest(TestCase):
                             buoyancy_force = smoke * (0, 0.5) >> velocity
                             velocity = advect.semi_lagrangian(velocity, velocity, dt=1) + buoyancy_force
                             velocity, _ = fluid.make_incompressible(velocity)
-                        loss = math.mean(field.l2_loss(diffuse.explicit(smoke - field.stop_gradient(smoke.inflow_loc[-1]), 1, 1, 10)))
+                        loss = field.l2_loss(diffuse.explicit(smoke - field.stop_gradient(smoke.inflow_loc[-1]), 1, 1, 10))
                         return loss, smoke, velocity
 
                     initial_smoke = DOMAIN.scalar_grid(math.zeros(inflow_loc=4))

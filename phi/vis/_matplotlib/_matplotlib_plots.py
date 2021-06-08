@@ -8,6 +8,7 @@ import numpy as np
 from matplotlib import animation
 
 from phi import math
+from phi.geom import Sphere, BaseBox
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name
 from phi.field import Grid, StaggeredGrid, PointCloud
@@ -51,7 +52,7 @@ def plot(field: SampledField, title=False, show_color_bar=True, size=(12, 5), sa
                 axes[b].set_title(sub_title)
     _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args)
     plt.tight_layout()
-    return fig, axes
+    return fig
 
 
 def animate(fields: SampledField, dim='frames',
@@ -93,36 +94,50 @@ def animate(fields: SampledField, dim='frames',
 
 def _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args):
     if isinstance(field, Grid) and field.shape.channel.volume == 1:
+        left, bottom = field.bounds.lower.vector.unstack_spatial('x,y')
+        right, top = field.bounds.upper.vector.unstack_spatial('x,y')
+        extent = (float(left), float(right), float(bottom), float(top))
         if same_scale:
             plt_args['vmin'] = math.min(b_values).native()
             plt_args['vmax'] = math.max(b_values).native()
         for b in range(batch_size):
-            im = axes[b].imshow(b_values.batch[b].numpy('y,x'), origin='lower', **plt_args)
+            im = axes[b].imshow(b_values.batch[b].numpy('y,x'), origin='lower', extent=extent, **plt_args)
             if show_color_bar:
                 plt.colorbar(im, ax=axes[b])
     elif isinstance(field, Grid):  # vector field
         if isinstance(field, StaggeredGrid):
             field = field.at_centers()
         for b in range(batch_size):
-            x, y = field.points.vector.unstack_spatial('x,y', to_numpy=True)
+            x, y = [d.numpy('x,y') for d in field.points.vector.unstack_spatial('x,y')]
             data = math.join_dimensions(field.values, field.shape.batch, 'batch').batch[b]
-            u, v = data.vector.unstack_spatial('x,y', to_numpy=True)
+            u, v = [d.numpy('x,y') for d in data.vector.unstack_spatial('x,y')]
             color = axes[b].xaxis.label.get_color()
             axes[b].quiver(x-u/2, y-v/2, u, v, color=color)
     elif isinstance(field, PointCloud):
         for b in range(batch_size):
             points = math.join_dimensions(field.points, field.points.shape.batch.without('points'), 'batch').batch[b]
-            x, y = points.vector.unstack_spatial('x,y', to_numpy=True)
-            color = field.color.points.unstack(len(x), to_python=True)
+            x, y = [d.numpy() for d in points.vector.unstack_spatial('x,y')]
+            color = [str(d) for d in field.color.points.unstack(len(x))]
             if field.bounds:
-                lower = field.bounds.lower.vector.unstack_spatial('x,y', to_python=True)
-                upper = field.bounds.upper.vector.unstack_spatial('x,y', to_python=True)
+                lower_x, lower_y = [float(d) for d in field.bounds.lower.vector.unstack_spatial('x,y')]
+                upper_x, upper_y = [float(d) for d in field.bounds.upper.vector.unstack_spatial('x,y')]
             else:
-                lower = [np.min(x), np.min(y)]
-                upper = [np.max(x), np.max(y)]
-            axes[b].scatter(x, y, marker='o', color=color)
-            axes[b].set_xlim((lower[0], upper[0]))
-            axes[b].set_ylim((lower[1], upper[1]))
+                lower_x, lower_y = [np.min(x), np.min(y)]
+                upper_x, upper_y = [np.max(x), np.max(y)]
+            if isinstance(field.elements, Sphere):
+                shape = 'o'
+                size = float(field.elements.bounding_radius())
+            elif isinstance(field.elements, BaseBox):
+                shape = 's'
+                size = float(field.elements.bounding_half_extent())
+            else:
+                shape = 'X'
+                size = float(field.elements.bounding_radius())
+            axes[b].set_xlim((lower_x, upper_x))
+            axes[b].set_ylim((lower_y, upper_y))
+            M = axes[b].transData.get_matrix()
+            x_scale, y_scale = M[0, 0], M[1, 1]
+            axes[b].scatter(x, y, marker=shape, color=color, s=(size * 2 * x_scale) ** 2)
     else:
         raise NotImplementedError(f"No figure recipe for {field}")
 

@@ -79,20 +79,24 @@ def _plot(field: SampledField,
         fig.update_yaxes(range=y_range)
         fig.update_layout(showlegend=False)
     elif field.spatial_rank == 2 and isinstance(field, PointCloud):
-        x, y = field.points.vector.unstack_spatial('x,y', to_numpy=True)
-        color = field.color.points.unstack(len(x), to_python=True)
+        x, y = [d.numpy() for d in field.points.vector.unstack_spatial('x,y')]
+        color = [str(d) for d in field.color.points.unstack(len(x))]
         if field.bounds:
-            lower = field.bounds.lower.vector.unstack_spatial('x,y', to_python=True)
-            upper = field.bounds.upper.vector.unstack_spatial('x,y', to_python=True)
+            lower_x, lower_y = [float(d) for d in field.bounds.lower.vector.unstack_spatial('x,y')]
+            upper_x, upper_y = [float(d) for d in field.bounds.upper.vector.unstack_spatial('x,y')]
         else:
-            lower = [numpy.min(x), numpy.min(y)]
-            upper = [numpy.max(x), numpy.max(y)]
-        radius = field.elements.bounding_radius() * size[1] / (upper[1] - lower[1])
+            lower_x, lower_y = [numpy.min(x), numpy.min(y)]
+            upper_x, upper_y = [numpy.max(x), numpy.max(y)]
+        radius = field.elements.bounding_radius() * size[1] / (upper_y - lower_y)
         radius = math.maximum(radius, 2)
-        marker = graph_objects.scatter.Marker(size=(2 * radius).points.optional_unstack(to_python=True), color=color, sizemode='diameter')
+        if radius.rank == 0:
+            marker_size = 2 * float(radius)
+        else:
+            marker_size = (2 * radius).unstack('points')
+        marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter')
         fig.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
-        fig.update_xaxes(range=[lower[0], upper[0]])
-        fig.update_yaxes(range=[lower[1], upper[1]])
+        fig.update_xaxes(range=[lower_x, upper_x])
+        fig.update_yaxes(range=[lower_y, upper_y])
         fig.update_layout(showlegend=False)
     else:
         raise NotImplementedError(f"No figure recipe for {field}")
