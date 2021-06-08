@@ -634,7 +634,9 @@ class TorchBackend(Backend):
                 assert t.requires_grad
             output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            grads = torch.autograd.grad(loss, wrt_args)  # TODO this does not work during jit for some reason
+            if loss.ndim > 0:
+                loss = loss.sum()
+            grads = torch.autograd.grad(loss, wrt_args)  # grad() cannot be called during jit trace
             if get_output:
                 loss = loss.detach()
                 if aux is not None:

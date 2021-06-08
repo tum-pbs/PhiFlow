@@ -154,10 +154,13 @@ class JaxBackend(Backend):
         if get_output:
             @wraps(f)
             def aux_f(*args):
-                result = f(*args)
-                if isinstance(result, (tuple, list)) and len(result) == 1:
-                    result = result[0]
-                return (result[0], result[1:]) if isinstance(result, (tuple, list)) else (result, None)
+                output = f(*args)
+                if isinstance(output, (tuple, list)) and len(output) == 1:
+                    output = output[0]
+                result = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+                if result[0].ndim > 0:
+                    result = jnp.sum(result[0]), result[1]
+                return result
             jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
             @wraps(f)
             def unwrap_outputs(*args):
@@ -167,8 +170,11 @@ class JaxBackend(Backend):
         else:
             @wraps(f)
             def nonaux_f(*args):
-                result = f(*args)
-                return result[0] if isinstance(result, (tuple, list)) else result
+                output = f(*args)
+                result = output[0] if isinstance(output, (tuple, list)) else output
+                if result.ndim > 0:
+                    result = jnp.sum(result)
+                return result
             return jax.grad(nonaux_f, argnums=wrt, has_aux=False)
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
