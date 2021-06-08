@@ -1,6 +1,7 @@
 # Testing Poisson Solvers
 from unittest import TestCase
 import numpy as np
+from phi.physics._boundaries import Domain, PERIODIC
 from phi.flow import *
 import matplotlib.pyplot as plt
 from functools import partial
