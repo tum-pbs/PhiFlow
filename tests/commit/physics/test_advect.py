@@ -2,7 +2,8 @@ from unittest import TestCase
 
 from phi import field
 from phi.field import Noise
-from phi.physics import Domain, advect
+from phi.physics import advect
+from phi.physics._boundaries import Domain
 
 
 def _test_advection(adv):

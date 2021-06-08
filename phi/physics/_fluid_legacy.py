@@ -2,7 +2,8 @@ import warnings
 
 from phi import math, struct, field
 from phi.field import CenteredGrid, StaggeredGrid
-from . import advect, Obstacle
+from . import advect
+from ._boundaries import Obstacle
 from ._effect import Gravity, effect_applied, gravity_tensor, FieldEffect
 from ._physics import Physics, StateDependency, State
 from .fluid import make_incompressible

@@ -3,7 +3,8 @@ from unittest import TestCase
 from phi import math, field
 from phi.geom import Box, Sphere
 from phi.field import StaggeredGrid, CenteredGrid, divergence, Noise
-from phi.physics import Domain, CLOSED, fluid, OPEN
+from phi.physics import fluid
+from phi.physics._boundaries import Domain, STICKY, OPEN
 from phi.tf import TENSORFLOW
 from phi.torch import TORCH
 
@@ -17,7 +18,7 @@ class FluidTest(TestCase):
     # Backend-independent abstract tests
 
     def _test_make_incompressible(self, grid_type):
-        DOMAIN = Domain(x=16, y=16, boundaries=CLOSED, bounds=Box[0:100, 0:100])
+        DOMAIN = Domain(x=16, y=16, boundaries=STICKY, bounds=Box[0:100, 0:100])
         smoke = DOMAIN.scalar_grid(Sphere(center=(50, 10), radius=5))
         velocity = DOMAIN.vector_grid(0, grid_type)
         for _ in range(2):
@@ -27,7 +28,7 @@ class FluidTest(TestCase):
         return velocity.values
 
     def _test_make_incompressible_batched(self, grid_type):
-        DOMAIN = Domain(x=16, y=16, boundaries=CLOSED, bounds=Box[0:100, 0:100])
+        DOMAIN = Domain(x=16, y=16, boundaries=STICKY, bounds=Box[0:100, 0:100])
         smoke = DOMAIN.scalar_grid(Sphere(center=(math.random_uniform(batch=2) * 100, 10), radius=5))
         velocity = DOMAIN.vector_grid(0, grid_type)
         for _ in range(2):

@@ -4,7 +4,7 @@ from phi import field
 from phi.field import Noise, CenteredGrid, StaggeredGrid
 from phi.geom import Box, Sphere
 from phi.math import shape, extrapolation
-from phi.physics import Domain
+from phi.physics._boundaries import Domain
 
 
 class GridTest(TestCase):

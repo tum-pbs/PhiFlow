@@ -1,7 +1,7 @@
 from phi import math, field
 
 from phi.math._tensors import copy_with
-from phi.physics import Domain, Obstacle
+from ._boundaries import Domain, Obstacle
 from phi.field import StaggeredGrid, CenteredGrid, PointCloud, Grid, extrapolate_valid
 from phi.geom import union, Sphere
 

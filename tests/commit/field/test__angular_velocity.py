@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math
 from phi.field import AngularVelocity
-from phi.physics import Domain
+from phi.physics._boundaries import Domain
 
 
 class TestAngularVelocity(TestCase):

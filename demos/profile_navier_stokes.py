@@ -2,6 +2,8 @@
 Profiles the common fluid operations advection and pressure solve.
 The profile is stored in the working directory and can be viewed with e.g. with Google chrome.
 """
+
+from phi.physics._boundaries import Domain, STICKY as CLOSED
 from phi.flow import *
 # from phi.torch.flow import *
 # from phi.tf.flow import *

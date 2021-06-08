@@ -5,6 +5,7 @@ Fluid simulation with additional marker fields that are passively transported wi
 The dense marker is sampled on a regular grid while the sparse marker is a collection of particles.
 """
 
+from phi.physics._boundaries import Domain, STICKY as CLOSED
 from phi.flow import *
 
 

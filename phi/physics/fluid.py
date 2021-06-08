@@ -28,6 +28,7 @@ def make_incompressible(velocity: Grid,
       velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
     """
+    assert isinstance(obstacles, (tuple, list)), f"obstacles must be a tuple or list but got {type(obstacles)}"
     input_velocity = velocity
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
     active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=extrapolation.NONE)

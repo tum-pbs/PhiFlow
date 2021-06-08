@@ -4,7 +4,7 @@ import numpy
 
 from phi import math
 from phi.field import Noise
-from phi.physics import Domain
+from phi.physics._boundaries import Domain
 
 
 class TestFieldMath(TestCase):

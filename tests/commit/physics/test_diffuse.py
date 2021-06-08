@@ -1,24 +1,23 @@
 from unittest import TestCase
 
 from phi import math, field
+from phi.field import CenteredGrid
 from phi.math import extrapolation, NotConverged
-from phi.physics import Domain, diffuse, PERIODIC, OPEN
+from phi.physics import diffuse
 
 
 class TestDiffusion(TestCase):
 
     def test_constant_diffusion(self):
-        DOMAIN = Domain(x=4, y=3, boundaries=PERIODIC)
-        grid = DOMAIN.scalar_grid(1)
+        grid = CenteredGrid(1, extrapolation.PERIODIC, x=4, y=3)
         explicit = diffuse.explicit(grid, 1, 1, substeps=10)
         implicit = diffuse.implicit(grid, 1, 1, order=2)
         fourier = diffuse.fourier(grid, 1, 1)
         math.assert_close(grid.values, explicit.values, implicit.values, fourier.values)
 
     def test_equality_1d_periodic(self):
-        DOMAIN = Domain(x=200, boundaries=PERIODIC)
         DIFFUSIVITY = 0.5
-        grid = DOMAIN.scalar_grid((1,) * 100 + (0,) * 100)
+        grid = CenteredGrid((1,) * 100 + (0,) * 100, extrapolation.PERIODIC, x=200)
         explicit = diffuse.explicit(grid, DIFFUSIVITY, 1, substeps=1000)
         implicit = diffuse.implicit(grid, DIFFUSIVITY, 1, order=10)
         fourier = diffuse.fourier(grid, DIFFUSIVITY, 1)
@@ -37,9 +36,8 @@ class TestDiffusion(TestCase):
         field.assert_close(grid, back_explicit, back_implicit, back_fourier, rel_tolerance=0, abs_tolerance=0.1)
 
     def test_consistency_implicit(self):
-        DOMAIN = Domain(x=200, boundaries=PERIODIC)
         DIFFUSIVITY = 0.5
-        grid = DOMAIN.scalar_grid((1,) * 100 + (0,) * 100)
+        grid = CenteredGrid((1,) * 100 + (0,) * 100, extrapolation.PERIODIC, x=200)
         for extrap in (extrapolation.ZERO, extrapolation.BOUNDARY, extrapolation.PERIODIC):
             grid = grid.with_(extrapolation=extrap)
             implicit = diffuse.implicit(grid, DIFFUSIVITY, 1, order=10)
@@ -47,9 +45,8 @@ class TestDiffusion(TestCase):
             field.assert_close(grid, back_implicit, rel_tolerance=0, abs_tolerance=0.1)
 
     def test_implicit_stability(self):
-        DOMAIN = Domain(x=6, boundaries=PERIODIC)
         DIFFUSIVITY = 10
-        grid = DOMAIN.scalar_grid((1,) * 3 + (0,) * 3)
+        grid = CenteredGrid((1,) * 3 + (0,) * 3, extrapolation.PERIODIC, x=6)
         try:
             implicit = diffuse.implicit(grid, DIFFUSIVITY, 1, order=10)
             print(implicit.values)

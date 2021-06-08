@@ -47,12 +47,12 @@ OPEN = {
     'accessible': ONE,
 }
 
-SLIPPERY = {
-    'scalar': BOUNDARY,
-    'vector': combine_sides({'normal': ZERO, 'parallel': BOUNDARY}),  # TODO mixed extrapolation types not yet supported
-    'active': ZERO,
-    'accessible': ZERO,
-}
+# SLIPPERY = {
+#     'scalar': BOUNDARY,
+#     'vector': combine_sides({'normal': ZERO, 'parallel': BOUNDARY}),  # TODO mixed extrapolation types not yet supported
+#     'active': ZERO,
+#     'accessible': ZERO,
+# }
 
 STICKY = {
     'scalar': BOUNDARY,
@@ -351,7 +351,7 @@ class Obstacle(State):
     It can also have a linear and angular velocity.
     """
 
-    def __init__(self, geometry, material=SLIPPERY, velocity=0, tags=('obstacle',), **kwargs):
+    def __init__(self, geometry, material=STICKY, velocity=0, tags=('obstacle',), **kwargs):
         State.__init__(self, **struct.kwargs(locals()))
 
     @struct.constant()
@@ -360,7 +360,7 @@ class Obstacle(State):
         assert isinstance(geometry, Geometry)
         return geometry
 
-    @struct.constant(default=SLIPPERY)
+    @struct.constant(default=STICKY)
     def material(self, material):
         """ Boundary conditions to apply inside and on the surface of the obstacle. """
         assert isinstance(material, dict)

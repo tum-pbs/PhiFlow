@@ -21,12 +21,11 @@ from .physics import fluid, flip, advect, diffuse
 from .math import DType, Solve
 from .geom import Geometry, Sphere, Box
 from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
-from .physics import Domain, Obstacle
 from .vis import view, Viewer, control
+from .physics._boundaries import Obstacle
 
 # Constants
 from .math import PI
-from .physics import OPEN, CLOSED, PERIODIC
 
 # Functions
 from .math import wrap, tensor, shape

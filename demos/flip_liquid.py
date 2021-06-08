@@ -3,6 +3,7 @@
 A liquid block collides with a rotated obstacle and falls into a liquid pool.
 """
 
+from phi.physics._boundaries import Domain, STICKY as CLOSED
 from phi.flow import *
 # from phi.torch.flow import *
 # from phi.tf.flow import *

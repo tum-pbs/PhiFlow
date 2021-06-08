@@ -1,6 +1,8 @@
 """ Point Cloud Demo
 Demonstrates working with PointCloud objects and plotting them.
 """
+
+from phi.physics._boundaries import Domain, STICKY as CLOSED
 from phi.flow import *
 
 

@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from phi.flow import *
+from phi.physics._boundaries import Domain, STICKY
 
 
 def step(particles, domain, dt, accessible):
@@ -17,7 +18,7 @@ class FlipTest(TestCase):
 
     def test_falling_block_short(self):
         """ Tests if a block of liquid has a constant shape during free fall for 4 steps. """
-        DOMAIN = Domain(x=32, y=128, boundaries=CLOSED, bounds=Box[0:32, 0:128])
+        DOMAIN = Domain(x=32, y=128, boundaries=STICKY, bounds=Box[0:32, 0:128])
         DT = 0.05
         ACCESSIBLE = DOMAIN.accessible_mask([], type=StaggeredGrid)
         PARTICLES = DOMAIN.distribute_points(union(Box[12:20, 110:120])) * (0, -10)
@@ -35,7 +36,7 @@ class FlipTest(TestCase):
     def test_respect_boundaries(self):
         """ Tests if particles really get puhsed outside of obstacles and domain boundaries. """
         SIZE = 64
-        DOMAIN = Domain(x=SIZE, y=SIZE, boundaries=CLOSED, bounds=Box[0:SIZE, 0:SIZE])
+        DOMAIN = Domain(x=SIZE, y=SIZE, boundaries=STICKY, bounds=Box[0:SIZE, 0:SIZE])
         OBSTACLE = Box[20:40, 10:30]
         PARTICLES = DOMAIN.distribute_points(union(Box[20:38, 20:50], Box[50:60, 10:50]), center=True) * (10, 0)
         PARTICLES = advect.points(PARTICLES, PARTICLES, 1)

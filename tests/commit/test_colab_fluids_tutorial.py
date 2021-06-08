@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi.flow import *
 from phi.math.backend import Backend
-
+from phi.physics._boundaries import STICKY, Domain
 
 BACKENDS = phi.detect_backends()
 
@@ -13,7 +13,7 @@ class ColabNotebookTest(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.record_gradients):
                 with backend:
-                    DOMAIN = Domain(x=32, y=40, boundaries=CLOSED, bounds=Box[0:32, 0:40])
+                    DOMAIN = Domain(x=32, y=40, boundaries=STICKY, bounds=Box[0:32, 0:40])
                     INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], 'inflow_loc,vector')
                     INFLOW = DOMAIN.grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
 
@@ -25,7 +25,7 @@ class ColabNotebookTest(TestCase):
                             smoke = advect.mac_cormack(smoke, velocity, dt=1) + INFLOW
                             buoyancy_force = smoke * (0, 0.5) >> velocity
                             velocity = advect.semi_lagrangian(velocity, velocity, dt=1) + buoyancy_force
-                            velocity, _ = fluid.make_incompressible(velocity, DOMAIN)
+                            velocity, _ = fluid.make_incompressible(velocity)
                         loss = math.mean(field.l2_loss(smoke - field.stop_gradient(smoke.inflow_loc[-1])))
                         grad = math.gradients(loss, initial_velocity.values)
 
@@ -33,7 +33,7 @@ class ColabNotebookTest(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.functional_gradient):
                 with backend:
-                    DOMAIN = Domain(x=32, y=40, boundaries=CLOSED, bounds=Box[0:32, 0:40])
+                    DOMAIN = Domain(x=32, y=40, boundaries=STICKY, bounds=Box[0:32, 0:40])
                     INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], 'inflow_loc,vector')
                     INFLOW = DOMAIN.scalar_grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
 
@@ -42,7 +42,7 @@ class ColabNotebookTest(TestCase):
                             smoke = advect.mac_cormack(smoke, velocity, dt=1) + INFLOW
                             buoyancy_force = smoke * (0, 0.5) >> velocity
                             velocity = advect.semi_lagrangian(velocity, velocity, dt=1) + buoyancy_force
-                            velocity, _ = fluid.make_incompressible(velocity, DOMAIN)
+                            velocity, _ = fluid.make_incompressible(velocity)
                         loss = math.mean(field.l2_loss(diffuse.explicit(smoke - field.stop_gradient(smoke.inflow_loc[-1]), 1, 1, 10)))
                         return loss, smoke, velocity
 

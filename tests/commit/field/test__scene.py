@@ -5,7 +5,7 @@ from os.path import dirname, abspath, join, basename
 from phi import math
 from phi import field
 from phi.field import Scene
-from phi.physics import Domain, CLOSED
+from phi.physics._boundaries import Domain, STICKY as CLOSED
 
 
 DIR = join(dirname(dirname(dirname(dirname(abspath(__file__))))), 'test_data')

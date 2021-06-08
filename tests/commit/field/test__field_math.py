@@ -9,7 +9,7 @@ from phi.geom import Box
 from phi import field
 from phi.math import Solve, extrapolation
 from phi.math.backend import Backend
-from phi.physics import Domain
+from phi.physics._boundaries import Domain
 
 
 BACKENDS = phi.detect_backends()

@@ -4,7 +4,7 @@
 """
 
 from .flow import *
-from .physics._boundaries import Obstacle, OPEN, SLIPPERY, STICKY, PERIODIC, Domain
+from .physics._boundaries import Obstacle, OPEN, STICKY, PERIODIC, Domain
 from .physics._effect import FieldEffect, GROW, ADD, FIX, Inflow, Accelerator, ConstantVelocity, HeatSource, ColdSource, Fan, Gravity
 from .physics._world import World, world, obstacle_mask
 from .physics._fluid_legacy import Fluid, IncompressibleFlow, GeometryMovement
@@ -17,5 +17,5 @@ box = Box
 SampledField = PointCloud
 
 NO_SLIP = STICKY
-NO_STICK = SLIPPERY
-CLOSED = SLIPPERY
+# NO_STICK = SLIPPERY
+# CLOSED = SLIPPERY
