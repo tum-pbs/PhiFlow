@@ -225,7 +225,7 @@ class Domain:
         if result.shape.channel_rank == 0:
             result = result.with_(values=math.expand_channel(result.values, vector=self.rank))
         else:
-            assert result.shape.vector == self.rank
+            assert result.shape.get_size('vector') == self.rank
         return result
 
     def staggered_grid(self,

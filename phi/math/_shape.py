@@ -114,10 +114,10 @@ class Shape:
         else:
             raise ValueError(dim)
 
-    def __getattr__(self, name):
-        if name in self.names:
-            return self.get_size(name)
-        raise AttributeError("Shape has no attribute '%s'" % (name,))
+    # def __getattr__(self, name):
+    #     if name in self.names:
+    #         return self.get_size(name)
+    #     raise AttributeError("Shape has no attribute '%s'" % (name,))
 
     def get_type(self, name: str or tuple or list or 'Shape'):
         if isinstance(name, str):

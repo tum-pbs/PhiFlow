@@ -421,9 +421,9 @@ def _rank(rank):
 
 
 def _fill_spatial_with_singleton(shape: Shape):
-    if shape.spatial.rank == shape.vector:
+    if shape.spatial.rank == shape.get_size('vector'):
         return shape
     else:
         assert shape.spatial.rank == 0, shape
-        names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.vector) for i in range(shape.vector)]
-        return shape.combined(spatial_shape([1] * shape.vector, names=names))
+        names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.get_size('vector')) for i in range(shape.get_size('vector'))]
+        return shape.combined(spatial_shape([1] * shape.get_size('vector'), names=names))

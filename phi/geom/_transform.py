@@ -47,9 +47,9 @@ class RotatedGeometry(Geometry):
     def global_to_child(self, location):
         """ Inverse transform. """
         delta = location - self.center
-        if location.shape.vector == 2:
+        if location.shape.get_size('vector') == 2:
             rotated = self._rotate(delta)
-        elif location.shape.vector == 3:
+        elif location.shape.get_size('vector') == 3:
             raise NotImplementedError('not yet implemented')  # ToDo apply angle
         else:
             raise NotImplementedError('Rotation only supported in 2D and 3D')

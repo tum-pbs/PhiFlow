@@ -35,16 +35,16 @@ class TestMathFunctions(TestCase):
 
     def test_concat(self):
         c = math.concat([math.zeros(b=3, a=2), math.ones(a=2, b=4)], 'b')
-        self.assertEqual(2, c.shape.a)
-        self.assertEqual(7, c.shape.b)
+        self.assertEqual(2, c.shape.get_size('a'))
+        self.assertEqual(7, c.shape.get_size('b'))
         math.assert_close(c.b[:3], 0)
         math.assert_close(c.b[3:], 1)
 
     def test_nonzero(self):
         c = math.concat([math.zeros(b=3, a=2), math.ones(a=2, b=4)], 'b')
         nz = math.nonzero(c)
-        self.assertEqual(nz.shape.nonzero, 8)
-        self.assertEqual(nz.shape.vector, 2)
+        self.assertEqual(nz.shape.get_size('nonzero'), 8)
+        self.assertEqual(nz.shape.get_size('vector'), 2)
 
     def test_maximum(self):
         v = math.ones(x=4, y=3, vector=2)
@@ -97,8 +97,8 @@ class TestMathFunctions(TestCase):
         grid = math.tensor([[(0, 1)], [(0, 0)]], 'batch,x,y')
         nz = math.nonzero(grid, list_dim='nonzero', index_dim='vector')
         self.assertEqual(('batch', 'nonzero', 'vector'), nz.shape.names)
-        self.assertEqual(1, nz.batch[0].shape.nonzero)
-        self.assertEqual(0, nz.batch[1].shape.nonzero)
+        self.assertEqual(1, nz.batch[0].shape.get_size('nonzero'))
+        self.assertEqual(0, nz.batch[1].shape.get_size('nonzero'))
 
     def test_sum_collapsed(self):
         ones = math.ones(x=40000, y=30000)

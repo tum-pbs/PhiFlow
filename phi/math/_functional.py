@@ -215,7 +215,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             return self.f(*args, **kwargs)
         backend = math.choose_backend_t(*tensors)
         if not backend.supports(Backend.sparse_tensor):
-            warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
+            # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
             return self.nl_jit(*args, **kwargs)
         natives, shapes = disassemble_tensors(tensors)
         key = SignatureKey(None, nest, shapes, kwargs, backend, not all_available(*tensors))
