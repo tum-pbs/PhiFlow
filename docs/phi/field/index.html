@@ -31,7 +31,7 @@
 <li><code><a title="phi.field.Noise" href="#phi.field.Noise">Noise</a></code> is a function that produces a procedurally generated noise field</li>
 </ul>
 <p>Use <code>grid()</code> to create a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> from data or by sampling another <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>.
-Alternatively, the <code><a title="phi.physics.Domain" href="../physics/index.html#phi.physics.Domain">Domain</a></code> class provides convenience methods for grid creation.</p>
+Alternatively, the <code>phi.physics.Domain</code> class provides convenience methods for grid creation.</p>
 <p>All fields can be sampled at physical locations or volumes using <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code> or <code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>.</p>
 <p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
 <details class="source">
@@ -60,7 +60,7 @@ See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fi
 from ._field import Field, SampledField, unstack, sample, reduce_sample
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
-from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor, stack_staggered_components
+from ._grid import Grid, CenteredGrid, StaggeredGrid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
@@ -73,6 +73,7 @@ from phi.math import (
 )
 from ._field_math import (
     assert_close, convert,
+    bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,
@@ -154,6 +155,31 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
     values = [(f &gt;&gt; f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.bake_extrapolation"><code class="name flex">
+<span>def <span class="ident">bake_extrapolation</span></span>(<span>grid: ~GridType) ‑> ~GridType</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def bake_extrapolation(grid: GridType) -&gt; GridType:
+    if grid.extrapolation == math.extrapolation.NONE:
+        return grid
+    if isinstance(grid, StaggeredGrid):
+        values = grid.values.unstack(&#39;vector&#39;)
+        padded = []
+        for dim, value in zip(grid.shape.spatial.names, values):
+            lower, upper = grid.extrapolation.valid_outer_faces(dim)
+            padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation))
+        return StaggeredGrid(math.channel_stack(padded, &#39;vector&#39;), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
+    elif isinstance(grid, CenteredGrid):
+        return pad(grid, 1).with_(extrapolation=math.extrapolation.NONE)
+    else:
+        raise ValueError(f&#34;Not a valid grid: {grid}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.batch_stack"><code class="name flex">
@@ -358,7 +384,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
         grad = math.spatial_gradient(field.values, dx=field.dx, difference=&#39;forward&#39;, padding=None, stack_dim=&#39;vector&#39;)
         result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
         bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
-        return StaggeredGrid(result, bounds, field.extrapolation.spatial_gradient())
+        return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -399,6 +425,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
         Divergence field as `CenteredGrid`
     &#34;&#34;&#34;
     if isinstance(field, StaggeredGrid):
+        field = bake_extrapolation(field)
         components = []
         for i, dim in enumerate(field.shape.spatial.names):
             div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).gradient[0]
@@ -427,14 +454,14 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <pre><code class="python">def downsample2x(grid: Grid) -&gt; GridType:
     if isinstance(grid, CenteredGrid):
         values = math.downsample2x(grid.values, grid.extrapolation)
-        return CenteredGrid(values, grid.bounds, grid.extrapolation)
+        return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
     elif isinstance(grid, StaggeredGrid):
         values = []
         for dim, centered_grid in zip(grid.shape.spatial.names, unstack(grid, &#39;vector&#39;)):
             odd_discarded = centered_grid.values[{dim: slice(None, None, 2)}]
             others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
             values.append(others_interpolated)
-        return StaggeredGrid(math.channel_stack(values, &#39;vector&#39;), grid.bounds, grid.extrapolation)
+        return StaggeredGrid(math.channel_stack(values, &#39;vector&#39;), bounds=grid.bounds, extrapolation=grid.extrapolation)
     else:
         raise ValueError(type(grid))</code></pre>
 </details>
@@ -1583,7 +1610,7 @@ The output of <code>f</code> must match <code>y</code>.</dd>
 </details>
 </dd>
 <dt id="phi.field.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, type: type = phi.field._grid.CenteredGrid, stack_dim='vector')</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, type: type = phi.field._grid.CenteredGrid, stack_dim='vector')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finite difference spatial_gradient.</p>
@@ -1608,7 +1635,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def spatial_gradient(field: CenteredGrid, type: type = CenteredGrid, stack_dim=&#39;vector&#39;):
+<pre><code class="python">def spatial_gradient(field: CenteredGrid, extrapolation: math.Extrapolation = None, type: type = CenteredGrid, stack_dim=&#39;vector&#39;):
     &#34;&#34;&#34;
     Finite difference spatial_gradient.
 
@@ -1628,12 +1655,14 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 
     &#34;&#34;&#34;
     assert isinstance(field, Grid)
+    if extrapolation is None:
+        extrapolation = field.extrapolation.spatial_gradient()
     if type == CenteredGrid:
         values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim), difference=&#39;central&#39;, padding=field.extrapolation, stack_dim=stack_dim)
-        return CenteredGrid(values, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
+        return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
     elif type == StaggeredGrid:
         assert stack_dim == &#39;vector&#39;
-        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, field.extrapolation.spatial_gradient())
+        return stagger(field, lambda lower, upper: (upper - lower) / field.dx, extrapolation)
     raise NotImplementedError(f&#34;{type(field)} not supported. Only CenteredGrid and StaggeredGrid allowed.&#34;)</code></pre>
 </details>
 </dd>
@@ -1648,22 +1677,6 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 </summary>
 <pre><code class="python">def sqrt(x) -&gt; Tensor:
     return _backend_op1(x, Backend.sqrt)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.stack_staggered_components"><code class="name flex">
-<span>def <span class="ident">stack_staggered_components</span></span>(<span>data: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stack_staggered_components(data: Tensor) -&gt; Tensor:
-    padded = []
-    for dim, component in zip(data.shape.spatial.names, data.unstack(&#39;vector&#39;)):
-        padded.append(math.pad(component, {d: (0, 1) for d in data.shape.spatial.without(dim).names}, mode=math.extrapolation.ZERO))
-    return math.channel_stack(padded, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.stagger"><code class="name flex">
@@ -1731,12 +1744,15 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     all_upper = []
     if type == StaggeredGrid:
         for dim in field.shape.spatial.names:
-            all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation))
-            all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation))
+            lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
+            all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation) if lo_valid else field.values[{dim: slice(0, -1)}])
+            all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation) if up_valid else field.values[{dim: slice(1, None)}])
         all_upper = math.channel_stack(all_upper, &#39;vector&#39;)
         all_lower = math.channel_stack(all_lower, &#39;vector&#39;)
         values = face_function(all_lower, all_upper)
-        return StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
+        result = StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
+        assert result.shape.spatial == field.shape.spatial
+        return result
     elif type == CenteredGrid:
         left, right = math.shift(field.values, (-1, 1), padding=field.extrapolation, stack_dim=&#39;vector&#39;)
         values = face_function(left, right)
@@ -1898,22 +1914,6 @@ The dimension can be batch, spatial or channel.</p>
     return tuple(field[{dim: i}] for i in range(size))</code></pre>
 </details>
 </dd>
-<dt id="phi.field.unstack_staggered_tensor"><code class="name flex">
-<span>def <span class="ident">unstack_staggered_tensor</span></span>(<span>data: phi.math._tensors.Tensor) ‑> phi.math._tensors.TensorStack</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack_staggered_tensor(data: Tensor) -&gt; TensorStack:
-    sliced = []
-    for dim, component in zip(data.shape.spatial.names, data.unstack(&#39;vector&#39;)):
-        sliced.append(component[{d: slice(None, -1) for d in data.shape.spatial.without(dim).names}])
-    return math.channel_stack(sliced, &#39;vector&#39;)</code></pre>
-</details>
-</dd>
 <dt id="phi.field.upsample2x"><code class="name flex">
 <span>def <span class="ident">upsample2x</span></span>(<span>grid: ~GridType) ‑> ~GridType</span>
 </code></dt>
@@ -1926,7 +1926,7 @@ The dimension can be batch, spatial or channel.</p>
 <pre><code class="python">def upsample2x(grid: GridType) -&gt; GridType:
     if isinstance(grid, CenteredGrid):
         values = math.upsample2x(grid.values, grid.extrapolation)
-        return CenteredGrid(values, grid.bounds, grid.extrapolation)
+        return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
     elif isinstance(grid, StaggeredGrid):
         raise NotImplementedError()
     else:
@@ -2217,6 +2217,8 @@ Has to be one of the following:</p>
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
+        assert isinstance(extrapolation, math.Extrapolation)
+        # extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
         if resolution is None and not resolution_:
             assert isinstance(values, math.Tensor), &#34;Grid resolution must be specified when &#39;values&#39; is not a Tensor.&#34;
             resolution = values.shape.spatial
@@ -2240,8 +2242,6 @@ Has to be one of the following:</p>
         if values.dtype.kind not in (float, complex):
             values = math.to_float(values)
         assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
-        if not isinstance(extrapolation, math.Extrapolation):
-            extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
         Grid.__init__(self, elements, values, extrapolation, values.shape.spatial, bounds)
 
     def with_(self,
@@ -2253,7 +2253,7 @@ Has to be one of the following:</p>
         assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
         values = values if values is not None else self.values
         extrapolation = extrapolation if extrapolation is not None else self._extrapolation
-        return CenteredGrid(values, extrapolation, self.bounds)
+        return CenteredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
 
     def __getitem__(self, item: dict):
         values = self._values[{dim: slice(sel, sel + 1) if isinstance(sel, int) and dim in self.shape.spatial else sel for dim, sel in item.items()}]
@@ -2353,7 +2353,7 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
     assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
     values = values if values is not None else self.values
     extrapolation = extrapolation if extrapolation is not None else self._extrapolation
-    return CenteredGrid(values, extrapolation, self.bounds)</code></pre>
+    return CenteredGrid(values, extrapolation=extrapolation, bounds=self.bounds)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2524,7 +2524,7 @@ def shape(self) -&gt; Shape:
 
     def __rshift__(self, other: &#39;SampledField&#39;):
         &#34;&#34;&#34;
-        Resampling operator.
+        Resampling operator with change of extrapolation.
 
         Args:
             other: instance of SampledField
@@ -2532,7 +2532,10 @@ def shape(self) -&gt; Shape:
         Returns:
             Copy of other with values and extrapolation from this Field.
         &#34;&#34;&#34;
-        return self.at(other)
+        if isinstance(self, SampledField):
+            return self.with_(extrapolation=other.extrapolation).at(other)
+        else:
+            return self.at(other)
 
     def __getitem__(self, item: dict) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -3064,9 +3067,9 @@ Each time values are sampled from a Noise field, a new noise field is generated.
         lowest_frequency = 0.1
         weight_mask = math.to_float(k &gt; lowest_frequency)
         # --- Compute 1/k ---
-        k.native()[(0,) * len(k.shape)] = np.inf
+        k._native[(0,) * len(k.shape)] = np.inf
         inv_k = 1 / k
-        inv_k.native()[(0,) * len(k.shape)] = 0
+        inv_k._native[(0,) * len(k.shape)] = 0
         # --- Compute result ---
         fft = rndj * inv_k ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))
@@ -3126,9 +3129,9 @@ def shape(self):
     lowest_frequency = 0.1
     weight_mask = math.to_float(k &gt; lowest_frequency)
     # --- Compute 1/k ---
-    k.native()[(0,) * len(k.shape)] = np.inf
+    k._native[(0,) * len(k.shape)] = np.inf
     inv_k = 1 / k
-    inv_k.native()[(0,) * len(k.shape)] = 0
+    inv_k._native[(0,) * len(k.shape)] = 0
     # --- Compute result ---
     fft = rndj * inv_k ** self.smoothness * weight_mask
     array = math.real(math.ifft(fft))
@@ -4729,7 +4732,7 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: Any, extrapolation: numbers.Number, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
+<span>(</span><span>values: Any, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -4789,7 +4792,7 @@ Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.ch
 
     def __init__(self,
                  values: Any,
-                 extrapolation: Number or math.Extrapolation or math.Tensor,
+                 extrapolation: math.Extrapolation,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
@@ -4812,20 +4815,24 @@ Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.ch
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
+        assert isinstance(extrapolation, math.Extrapolation)
+        # extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
         if resolution is None and not resolution_:
             assert isinstance(values, TensorStack), &#34;Grid resolution must be specified when &#39;values&#39; is not a Tensor.&#34;
             values = _validate_staggered_values(values)
             any_dim = values.shape.spatial.names[0]
             x = values.vector[any_dim]
-            resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - 1)
+            ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
+            delta = int(ext_lower) + int(ext_upper) - 1
+            resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - delta)
             bounds = bounds or Box(0, math.wrap(resolution, &#39;vector&#39;))
-            elements = staggered_elements(resolution, bounds)
+            elements = staggered_elements(resolution, bounds, extrapolation)
         else:
             resolution = (resolution or math.EMPTY_SHAPE) &amp; math.spatial_shape(resolution_)
             bounds = bounds or Box(0, math.wrap(resolution, &#39;vector&#39;))
-            elements = staggered_elements(resolution, bounds)
+            elements = staggered_elements(resolution, bounds, extrapolation)
             if isinstance(values, math.Tensor):
-                values = expand_staggered(values, resolution)
+                values = expand_staggered(values, resolution, extrapolation)
             elif isinstance(values, Geometry):
                 values = reduce_sample(HardGeometryMask(values), elements)
             elif isinstance(values, Field):
@@ -4833,13 +4840,16 @@ Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.ch
             elif callable(values):
                 values = values(elements.center)
                 assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
+                assert &#39;vector_&#39; in values.shape
+                if &#39;vector&#39; in values.shape:
+                    values = math.channel_stack([values.vector_[i].vector[i] for i in range(resolution.rank)], &#39;vector&#39;)
+                else:
+                    values = values.vector_.as_channel(&#39;vector&#39;)
             else:
-                values = expand_staggered(math.tensor(values), resolution)
+                values = expand_staggered(math.tensor(values), resolution, extrapolation)
         if values.dtype.kind not in (float, complex):
             values = math.to_float(values)
         assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
-        if not isinstance(extrapolation, math.Extrapolation):
-            extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
         Grid.__init__(self, elements, values, extrapolation, resolution, bounds)
 
     def with_(self,
@@ -4889,14 +4899,22 @@ Use <code><a title="phi.math.channel_stack" href="../math/index.html#phi.math.ch
         if &#39;vector&#39; in item:
             if isinstance(item[&#39;vector&#39;], int):
                 dim = self.shape.spatial.names[item[&#39;vector&#39;]]
-                comp_cells = GridCell(self.resolution, bounds).extend_symmetric(dim, 1)
+                comp_cells = GridCell(self.resolution, bounds).stagger(dim, *self.extrapolation.valid_outer_faces(dim))
                 return CenteredGrid(values, bounds=comp_cells.bounds, extrapolation=extrapolation)
             else:
                 assert isinstance(item[&#39;vector&#39;], slice) and not item[&#39;vector&#39;].start and not item[&#39;vector&#39;].stop
-        return StaggeredGrid(values, bounds, extrapolation)
+        return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
     def staggered_tensor(self):
-        return stack_staggered_components(self.values)
+        padded = []
+        for dim, component in zip(self.resolution.names, math.unstack(self.values, &#39;vector&#39;)):
+            widths = {d: (0, 1) for d in self.resolution.names}
+            lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
+            widths[dim] = (int(not lo_valid), int(not up_valid))
+            padded.append(math.pad(component, widths, mode=self.extrapolation))
+        result = math.channel_stack(padded, &#39;vector&#39;)
+        assert result.shape.is_uniform
+        return result
 
     def _op2(self, other, operator):
         if isinstance(other, StaggeredGrid) and self.bounds == other.bounds and self.shape.spatial == other.shape.spatial:
@@ -4983,7 +5001,15 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def staggered_tensor(self):
-    return stack_staggered_components(self.values)</code></pre>
+    padded = []
+    for dim, component in zip(self.resolution.names, math.unstack(self.values, &#39;vector&#39;)):
+        widths = {d: (0, 1) for d in self.resolution.names}
+        lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
+        widths[dim] = (int(not lo_valid), int(not up_valid))
+        padded.append(math.pad(component, widths, mode=self.extrapolation))
+    result = math.channel_stack(padded, &#39;vector&#39;)
+    assert result.shape.is_uniform
+    return result</code></pre>
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.with_"><code class="name flex">
@@ -5023,9 +5049,10 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="phi.field.abs" href="#phi.field.abs">abs</a></code></li>
 <li><code><a title="phi.field.assert_close" href="#phi.field.assert_close">assert_close</a></code></li>
+<li><code><a title="phi.field.bake_extrapolation" href="#phi.field.bake_extrapolation">bake_extrapolation</a></code></li>
 <li><code><a title="phi.field.batch_stack" href="#phi.field.batch_stack">batch_stack</a></code></li>
 <li><code><a title="phi.field.cast" href="#phi.field.cast">cast</a></code></li>
 <li><code><a title="phi.field.ceil" href="#phi.field.ceil">ceil</a></code></li>
@@ -5069,14 +5096,12 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.solve_nonlinear" href="#phi.field.solve_nonlinear">solve_nonlinear</a></code></li>
 <li><code><a title="phi.field.spatial_gradient" href="#phi.field.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.field.sqrt" href="#phi.field.sqrt">sqrt</a></code></li>
-<li><code><a title="phi.field.stack_staggered_components" href="#phi.field.stack_staggered_components">stack_staggered_components</a></code></li>
 <li><code><a title="phi.field.stagger" href="#phi.field.stagger">stagger</a></code></li>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
 <li><code><a title="phi.field.to_float" href="#phi.field.to_float">to_float</a></code></li>
 <li><code><a title="phi.field.to_int32" href="#phi.field.to_int32">to_int32</a></code></li>
 <li><code><a title="phi.field.to_int64" href="#phi.field.to_int64">to_int64</a></code></li>
 <li><code><a title="phi.field.unstack" href="#phi.field.unstack">unstack</a></code></li>
-<li><code><a title="phi.field.unstack_staggered_tensor" href="#phi.field.unstack_staggered_tensor">unstack_staggered_tensor</a></code></li>
 <li><code><a title="phi.field.upsample2x" href="#phi.field.upsample2x">upsample2x</a></code></li>
 <li><code><a title="phi.field.vec_abs" href="#phi.field.vec_abs">vec_abs</a></code></li>
 <li><code><a title="phi.field.vec_squared" href="#phi.field.vec_squared">vec_squared</a></code></li>

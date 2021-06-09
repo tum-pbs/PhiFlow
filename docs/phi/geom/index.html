@@ -1783,17 +1783,16 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
 
-    def extend_symmetric(self, dims: str or list or tuple, cells: int):
-        dim_mask = np.array(self.resolution.mask(dims)) * cells
+    def stagger(self, dim: str, lower: bool, upper: bool):
+        dim_mask = np.array(self.resolution.mask(dim))
         unit = self.bounds.size / self.resolution * dim_mask
-        delta_size = unit / 2
-        bounds = Box(self.bounds.lower - delta_size, self.bounds.upper + delta_size)
-        ext_res = self.resolution.sizes + dim_mask
+        bounds = Box(self.bounds.lower + unit * (-0.5 if lower else 0.5), self.bounds.upper + unit * (0.5 if upper else -0.5))
+        ext_res = self.resolution.sizes + dim_mask * (int(lower) + int(upper) - 1)
         return GridCell(self.resolution.with_sizes(ext_res), bounds)
 
-    def face_centers(self, staggered_name=&#39;staggered&#39;):
-        face_centers = [self.extend_symmetric(dim, 1).center for dim in self.shape.spatial.names]
-        return math.channel_stack(face_centers, staggered_name)
+    # def face_centers(self, staggered_name=&#39;staggered&#39;):
+    #     face_centers = [self.extend_symmetric(dim).center for dim in self.shape.spatial.names]
+    #     return math.channel_stack(face_centers, staggered_name)
 
     @property
     def shape(self):
@@ -1960,38 +1959,6 @@ def upper(self):
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.geom.GridCell.extend_symmetric"><code class="name flex">
-<span>def <span class="ident">extend_symmetric</span></span>(<span>self, dims: str, cells: int)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def extend_symmetric(self, dims: str or list or tuple, cells: int):
-    dim_mask = np.array(self.resolution.mask(dims)) * cells
-    unit = self.bounds.size / self.resolution * dim_mask
-    delta_size = unit / 2
-    bounds = Box(self.bounds.lower - delta_size, self.bounds.upper + delta_size)
-    ext_res = self.resolution.sizes + dim_mask
-    return GridCell(self.resolution.with_sizes(ext_res), bounds)</code></pre>
-</details>
-</dd>
-<dt id="phi.geom.GridCell.face_centers"><code class="name flex">
-<span>def <span class="ident">face_centers</span></span>(<span>self, staggered_name='staggered')</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def face_centers(self, staggered_name=&#39;staggered&#39;):
-    face_centers = [self.extend_symmetric(dim, 1).center for dim in self.shape.spatial.names]
-    return math.channel_stack(face_centers, staggered_name)</code></pre>
-</details>
-</dd>
 <dt id="phi.geom.GridCell.list_cells"><code class="name flex">
 <span>def <span class="ident">list_cells</span></span>(<span>self, dim_name)</span>
 </code></dt>
@@ -2073,6 +2040,23 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
     else:
         center = self.center + delta
         return Cuboid(center, self.half_size)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.stagger"><code class="name flex">
+<span>def <span class="ident">stagger</span></span>(<span>self, dim: str, lower: bool, upper: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stagger(self, dim: str, lower: bool, upper: bool):
+    dim_mask = np.array(self.resolution.mask(dim))
+    unit = self.bounds.size / self.resolution * dim_mask
+    bounds = Box(self.bounds.lower + unit * (-0.5 if lower else 0.5), self.bounds.upper + unit * (0.5 if upper else -0.5))
+    ext_res = self.resolution.sizes + dim_mask * (int(lower) + int(upper) - 1)
+    return GridCell(self.resolution.with_sizes(ext_res), bounds)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.GridCell.unstack"><code class="name flex">
@@ -2404,7 +2388,7 @@ Defined through center position and radius.</p>
 
     def __init__(self, center, radius):
         self._center = wrap(center)
-        assert &#39;vector&#39; in self._center.shape, &#34;center must have a &#39;vector&#39; dimension&#34;
+        assert &#39;vector&#39; in self._center.shape, f&#34;Sphere.center must have a &#39;vector&#39; dimension. Try ({center},) * rank.&#34;
         self._radius = wrap(radius)
 
     @property
@@ -2750,8 +2734,6 @@ The geometry is rotated about its center point.</p>
 <ul class="two-column">
 <li><code><a title="phi.geom.GridCell.bounds" href="#phi.geom.GridCell.bounds">bounds</a></code></li>
 <li><code><a title="phi.geom.GridCell.center" href="#phi.geom.GridCell.center">center</a></code></li>
-<li><code><a title="phi.geom.GridCell.extend_symmetric" href="#phi.geom.GridCell.extend_symmetric">extend_symmetric</a></code></li>
-<li><code><a title="phi.geom.GridCell.face_centers" href="#phi.geom.GridCell.face_centers">face_centers</a></code></li>
 <li><code><a title="phi.geom.GridCell.grid_size" href="#phi.geom.GridCell.grid_size">grid_size</a></code></li>
 <li><code><a title="phi.geom.GridCell.half_size" href="#phi.geom.GridCell.half_size">half_size</a></code></li>
 <li><code><a title="phi.geom.GridCell.list_cells" href="#phi.geom.GridCell.list_cells">list_cells</a></code></li>
@@ -2762,6 +2744,7 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.GridCell.shape" href="#phi.geom.GridCell.shape">shape</a></code></li>
 <li><code><a title="phi.geom.GridCell.shifted" href="#phi.geom.GridCell.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.GridCell.size" href="#phi.geom.GridCell.size">size</a></code></li>
+<li><code><a title="phi.geom.GridCell.stagger" href="#phi.geom.GridCell.stagger">stagger</a></code></li>
 <li><code><a title="phi.geom.GridCell.unstack" href="#phi.geom.GridCell.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.GridCell.upper" href="#phi.geom.GridCell.upper">upper</a></code></li>
 </ul>

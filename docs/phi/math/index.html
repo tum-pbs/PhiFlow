@@ -487,8 +487,8 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
     &#34;&#34;&#34;
     def uniform_boolean_mask(x: Tensor, mask_1d: Tensor):
         if dim in x.shape:
-            x_native = x.native()
-            mask_native = mask_1d.native()
+            x_native = x.native(x.shape.names)  # order does not matter
+            mask_native = mask_1d.native()  # only has 1 dim
             backend = choose_backend(x_native, mask_native)
             result_native = backend.boolean_mask(x_native, mask_native, axis=x.shape.index(dim))
             new_shape = x.shape.with_sizes(backend.staticshape(result_native))
@@ -1090,8 +1090,8 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
     &#34;&#34;&#34;
     x_dims = _resolve_dims(x_dims, x.shape)
     y_dims = _resolve_dims(y_dims, y.shape)
-    x_native = x.native()
-    y_native = y.native()
+    x_native = x.native(x.shape)
+    y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)
     remaining_shape_x = x.shape.without(x_dims)
     remaining_shape_y = y.shape.without(y_dims)
@@ -1365,7 +1365,7 @@ x00
     def binarize(x):
         return math.divide_no_nan(x, x)
 
-    distance_cells = min(distance_cells, max(values.shape))
+    distance_cells = min(distance_cells, max(values.shape.sizes))
     for _ in range(distance_cells):
         valid = binarize(valid)
         valid_values = valid * values
@@ -2726,7 +2726,7 @@ see <code><a title="phi.math.backend.Backend.prefers_channels_last" href="backen
 <dd>
 <div class="desc"><p>Get spatial indices of non-zero / True values.</p>
 <p>Batch dimensions are preserved by this operation.
-If channel dimensions are present, this method returns the indices where any entry is nonzero.</p>
+If channel dimensions are present, this method returns the indices where any component is nonzero.</p>
 <p>Implementations:</p>
 <ul>
 <li>NumPy: <a href="https://numpy.org/doc/stable/reference/generated/numpy.argwhere.html"><code>numpy.argwhere</code></a></li>
@@ -2754,7 +2754,7 @@ If channel dimensions are present, this method returns the indices where any ent
     Get spatial indices of non-zero / True values.
     
     Batch dimensions are preserved by this operation.
-    If channel dimensions are present, this method returns the indices where any entry is nonzero.
+    If channel dimensions are present, this method returns the indices where any component is nonzero.
 
     Implementations:
 
@@ -2775,8 +2775,8 @@ If channel dimensions are present, this method returns the indices where any ent
     if value.shape.channel_rank &gt; 0:
         value = sum_(abs(value), value.shape.channel)
 
-    def unbatched_nonzero(value):
-        native = value.native()
+    def unbatched_nonzero(value: Tensor):
+        native = reshaped_native(value, [*value.shape.spatial])
         backend = choose_backend(native)
         indices = backend.nonzero(native)
         indices_shape = Shape(backend.staticshape(indices), (list_dim, index_dim), (BATCH_DIM, CHANNEL_DIM))
@@ -4224,7 +4224,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
         new_shape = value.shape.without(dim).expand(split_dims.sizes[0], split_dims.name, split_dims.types[0], pos=value.shape.index(dim))
         return value._with_shape_replaced(new_shape)
     else:
-        native = value.native()
+        native = value.native(value.shape.names)
         new_shape = value.shape.without(dim)
         i = value.shape.index(dim)
         for size, name, dim_type in split_dims.dimensions:
@@ -5161,8 +5161,7 @@ This may indicate that no solution exists.</p>
 <dt><strong><code>pad_rank</code></strong></dt>
 <dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.</dd>
 </dl>
-<p>The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</p>
-<p>Returns:</p></div>
+<p>The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5176,11 +5175,8 @@ This may indicate that no solution exists.</p>
         They play a vital role in padding and sampling.
 
         Args:
-          pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
+            pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
         The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
-
-        Returns:
-
         &#34;&#34;&#34;
         self.pad_rank = pad_rank
 
@@ -5194,6 +5190,10 @@ This may indicate that no solution exists.</p>
 
     def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
         &#34;&#34;&#34;Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def valid_outer_faces(self, dim):
+        &#34;&#34;&#34; `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. &#34;&#34;&#34;
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
@@ -5276,6 +5276,7 @@ This may indicate that no solution exists.</p>
 <li><a title="phi.math.extrapolation.ConstantExtrapolation" href="extrapolation.html#phi.math.extrapolation.ConstantExtrapolation">ConstantExtrapolation</a></li>
 <li>phi.math.extrapolation._CopyExtrapolation</li>
 <li>phi.math.extrapolation._MixedExtrapolation</li>
+<li>phi.math.extrapolation._NoExtrapolation</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -5482,6 +5483,20 @@ This is the default implementation.</p>
     return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.Extrapolation.valid_outer_faces"><code class="name flex">
+<span>def <span class="ident">valid_outer_faces</span></span>(<span>self, dim)</span>
+</code></dt>
+<dd>
+<div class="desc"><p><code>(lower: bool, upper: bool)</code> indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def valid_outer_faces(self, dim):
+    &#34;&#34;&#34; `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="phi.math.LinearFunction"><code class="flex name class">
@@ -5537,7 +5552,7 @@ This is the default implementation.</p>
             return self.f(*args, **kwargs)
         backend = math.choose_backend_t(*tensors)
         if not backend.supports(Backend.sparse_tensor):
-            warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;)
+            # warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;)
             return self.nl_jit(*args, **kwargs)
         natives, shapes = disassemble_tensors(tensors)
         key = SignatureKey(None, nest, shapes, kwargs, backend, not all_available(*tensors))
@@ -5763,10 +5778,10 @@ All arguments must have same length.</p>
         else:
             raise ValueError(dim)
 
-    def __getattr__(self, name):
-        if name in self.names:
-            return self.get_size(name)
-        raise AttributeError(&#34;Shape has no attribute &#39;%s&#39;&#34; % (name,))
+    # def __getattr__(self, name):
+    #     if name in self.names:
+    #         return self.get_size(name)
+    #     raise AttributeError(&#34;Shape has no attribute &#39;%s&#39;&#34; % (name,))
 
     def get_type(self, name: str or tuple or list or &#39;Shape&#39;):
         if isinstance(name, str):
@@ -5934,7 +5949,7 @@ All arguments must have same length.</p>
         assert self.rank == 1, &#34;int(Shape) is only defined for shapes of rank 1.&#34;
         return self.sizes[0]
 
-    def mask(self, names: tuple or list or set):
+    def mask(self, names: tuple or list or set or &#39;Shape&#39;):
         &#34;&#34;&#34;
         Returns a binary sequence corresponding to the names of this Shape.
         A value of 1 means that a dimension of this Shape is contained in `names`.
@@ -5949,6 +5964,8 @@ All arguments must have same length.</p>
         &#34;&#34;&#34;
         if isinstance(names, str):
             names = [names]
+        elif isinstance(names, Shape):
+            names = names.names
         mask = [1 if name in names else 0 for name in self.names]
         return tuple(mask)
 
@@ -7145,7 +7162,7 @@ A value of 1 means that a dimension of this Shape is contained in <code>names</c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mask(self, names: tuple or list or set):
+<pre><code class="python">def mask(self, names: tuple or list or set or &#39;Shape&#39;):
     &#34;&#34;&#34;
     Returns a binary sequence corresponding to the names of this Shape.
     A value of 1 means that a dimension of this Shape is contained in `names`.
@@ -7160,6 +7177,8 @@ A value of 1 means that a dimension of this Shape is contained in <code>names</c
     &#34;&#34;&#34;
     if isinstance(names, str):
         names = [names]
+    elif isinstance(names, Shape):
+        names = names.names
     mask = [1 if name in names else 0 for name in self.names]
     return tuple(mask)</code></pre>
 </details>
@@ -8058,7 +8077,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     When backed by an editable native tensor, e.g. a `numpy.ndarray`, do not edit the underlying data structure.
     &#34;&#34;&#34;
 
-    def native(self, order: str or tuple or list = None):
+    def native(self, order: str or tuple or list or Shape = None):
         &#34;&#34;&#34;
         Returns a native tensor object with the dimensions ordered according to `order`.
         
@@ -8229,7 +8248,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                 if self.rank == 0:
                     return str(self.numpy())
                 elif self.shape.volume is not None and self.shape.volume &lt;= 6:
-                    content = list(np.reshape(self.numpy(), [-1]))
+                    content = list(np.reshape(self.numpy(self.shape.names), [-1]))
                     content = &#39;, &#39;.join([repr(number) for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
                         if self.shape.name == &#39;vector&#39;:
@@ -8761,7 +8780,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def native(self, order: str or tuple or list = None):
+<pre><code class="python">def native(self, order: str or tuple or list or Shape = None):
     &#34;&#34;&#34;
     Returns a native tensor object with the dimensions ordered according to `order`.
     
@@ -8911,7 +8930,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
     def __repr__(self):
         return f&#34;Dimension &#39;{self.name}&#39; of {self.tensor.shape}&#34;
 
-    def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -&gt; tuple:
+    def unstack(self, size: int or None = None) -&gt; tuple:
         &#34;&#34;&#34;
         See `unstack_spatial()`.
 
@@ -8919,8 +8938,6 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
             size: (optional)
                 None: unstack along this dimension, error if dimension does not exist
                 int: repeating unstack if dimension does not exist
-            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
 
         Returns:
             sliced tensors
@@ -8934,42 +8951,27 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
                 result = unstacked
             else:
                 result = (self.tensor,) * size
-        if to_numpy or to_python:
-            result = tuple(component.numpy() for component in result)
-            if to_python:
-                result = tuple(component.tolist() for component in result)
         return result
 
-    def optional_unstack(self, to_numpy=False, to_python=False):
+    def optional_unstack(self):
         &#34;&#34;&#34;
         Unstacks the `Tensor` along this dimension if the dimension is listed in the `Shape`.
         Otherwise returns the original `Tensor`.
-
-        Args:
-            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
 
         Returns:
             `tuple` of sliced tensors or original `Tensor`
         &#34;&#34;&#34;
         if self.exists:
-            return self.unstack(to_numpy=to_numpy, to_python=to_python)
+            return self.unstack()
         else:
-            if to_numpy or to_python:
-                result = self.tensor.numpy()
-                if to_python:
-                    return result.tolist()
-                return result
             return self.tensor
 
-    def unstack_spatial(self, components: str or tuple or list, to_numpy=False, to_python=False) -&gt; tuple:
+    def unstack_spatial(self, components: str or tuple or list) -&gt; tuple:
         &#34;&#34;&#34;
         Slices the tensor along this dimension, returning only the selected components in the specified order.
 
         Args:
-            components:
-            to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-            to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+            components: Spatial dimension names as comma-separated `str` or sequence of `str`.
 
         Returns:
             selected components
@@ -8986,10 +8988,6 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
                 result.append(self.tensor[{self.name: component_index}])
         else:
             result = [self.tensor] * len(components)
-        if to_numpy or to_python:
-            result = tuple(component.numpy() for component in result)
-            if to_python:
-                result = tuple(component.tolist() for component in result)
         return tuple(result)
 
     @property
@@ -9224,44 +9222,28 @@ def size(self):
 </details>
 </dd>
 <dt id="phi.math.TensorDim.optional_unstack"><code class="name flex">
-<span>def <span class="ident">optional_unstack</span></span>(<span>self, to_numpy=False, to_python=False)</span>
+<span>def <span class="ident">optional_unstack</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Unstacks the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> along this dimension if the dimension is listed in the <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.
 Otherwise returns the original <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>to_numpy</code></strong></dt>
-<dd>Whether to convert the selected data to <code>numpy.ndarray</code> objects.</dd>
-<dt><strong><code>to_python</code></strong></dt>
-<dd>Whether to convert the selected data to Python types, i.e. <code>int, float, complex, bool, tuple, list</code>.</dd>
-</dl>
 <h2 id="returns">Returns</h2>
 <p><code>tuple</code> of sliced tensors or original <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def optional_unstack(self, to_numpy=False, to_python=False):
+<pre><code class="python">def optional_unstack(self):
     &#34;&#34;&#34;
     Unstacks the `Tensor` along this dimension if the dimension is listed in the `Shape`.
     Otherwise returns the original `Tensor`.
-
-    Args:
-        to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-        to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
 
     Returns:
         `tuple` of sliced tensors or original `Tensor`
     &#34;&#34;&#34;
     if self.exists:
-        return self.unstack(to_numpy=to_numpy, to_python=to_python)
+        return self.unstack()
     else:
-        if to_numpy or to_python:
-            result = self.tensor.numpy()
-            if to_python:
-                return result.tolist()
-            return result
         return self.tensor</code></pre>
 </details>
 </dd>
@@ -9281,7 +9263,7 @@ Otherwise returns the original <code><a title="phi.math.Tensor" href="#phi.math.
 </details>
 </dd>
 <dt id="phi.math.TensorDim.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, size: int = None, to_numpy=False, to_python=False) ‑> tuple</span>
+<span>def <span class="ident">unstack</span></span>(<span>self, size: int = None) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See <code>unstack_spatial()</code>.</p>
@@ -9291,10 +9273,6 @@ Otherwise returns the original <code><a title="phi.math.Tensor" href="#phi.math.
 <dd>(optional)
 None: unstack along this dimension, error if dimension does not exist
 int: repeating unstack if dimension does not exist</dd>
-<dt><strong><code>to_numpy</code></strong></dt>
-<dd>Whether to convert the selected data to <code>numpy.ndarray</code> objects.</dd>
-<dt><strong><code>to_python</code></strong></dt>
-<dd>Whether to convert the selected data to Python types, i.e. <code>int, float, complex, bool, tuple, list</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>sliced tensors</p></div>
@@ -9302,7 +9280,7 @@ int: repeating unstack if dimension does not exist</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(self, size: int or None = None, to_numpy=False, to_python=False) -&gt; tuple:
+<pre><code class="python">def unstack(self, size: int or None = None) -&gt; tuple:
     &#34;&#34;&#34;
     See `unstack_spatial()`.
 
@@ -9310,8 +9288,6 @@ int: repeating unstack if dimension does not exist</dd>
         size: (optional)
             None: unstack along this dimension, error if dimension does not exist
             int: repeating unstack if dimension does not exist
-        to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-        to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
 
     Returns:
         sliced tensors
@@ -9325,25 +9301,18 @@ int: repeating unstack if dimension does not exist</dd>
             result = unstacked
         else:
             result = (self.tensor,) * size
-    if to_numpy or to_python:
-        result = tuple(component.numpy() for component in result)
-        if to_python:
-            result = tuple(component.tolist() for component in result)
     return result</code></pre>
 </details>
 </dd>
 <dt id="phi.math.TensorDim.unstack_spatial"><code class="name flex">
-<span>def <span class="ident">unstack_spatial</span></span>(<span>self, components: str, to_numpy=False, to_python=False) ‑> tuple</span>
+<span>def <span class="ident">unstack_spatial</span></span>(<span>self, components: str) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Slices the tensor along this dimension, returning only the selected components in the specified order.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt>components:</dt>
-<dt><strong><code>to_numpy</code></strong></dt>
-<dd>Whether to convert the selected data to <code>numpy.ndarray</code> objects.</dd>
-<dt><strong><code>to_python</code></strong></dt>
-<dd>Whether to convert the selected data to Python types, i.e. <code>int, float, complex, bool, tuple, list</code>.</dd>
+<dt><strong><code>components</code></strong></dt>
+<dd>Spatial dimension names as comma-separated <code>str</code> or sequence of <code>str</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>selected components</p></div>
@@ -9351,14 +9320,12 @@ int: repeating unstack if dimension does not exist</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack_spatial(self, components: str or tuple or list, to_numpy=False, to_python=False) -&gt; tuple:
+<pre><code class="python">def unstack_spatial(self, components: str or tuple or list) -&gt; tuple:
     &#34;&#34;&#34;
     Slices the tensor along this dimension, returning only the selected components in the specified order.
 
     Args:
-        components:
-        to_numpy: Whether to convert the selected data to `numpy.ndarray` objects.
-        to_python: Whether to convert the selected data to Python types, i.e. `int, float, complex, bool, tuple, list`.
+        components: Spatial dimension names as comma-separated `str` or sequence of `str`.
 
     Returns:
         selected components
@@ -9375,10 +9342,6 @@ int: repeating unstack if dimension does not exist</dd>
             result.append(self.tensor[{self.name: component_index}])
     else:
         result = [self.tensor] * len(components)
-    if to_numpy or to_python:
-        result = tuple(component.numpy() for component in result)
-        if to_python:
-            result = tuple(component.tolist() for component in result)
     return tuple(result)</code></pre>
 </details>
 </dd>
@@ -9742,6 +9705,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.Extrapolation.spatial_gradient" href="#phi.math.Extrapolation.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.math.Extrapolation.to_dict" href="#phi.math.Extrapolation.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.Extrapolation.transform_coordinates" href="#phi.math.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
+<li><code><a title="phi.math.Extrapolation.valid_outer_faces" href="#phi.math.Extrapolation.valid_outer_faces">valid_outer_faces</a></code></li>
 </ul>
 </li>
 <li>

@@ -29,7 +29,7 @@
 <pre><code class="python">from phi import math, field
 
 from phi.math._tensors import copy_with
-from phi.physics import Domain, Obstacle
+from ._boundaries import Domain, Obstacle
 from phi.field import StaggeredGrid, CenteredGrid, PointCloud, Grid, extrapolate_valid
 from phi.geom import union, Sphere
 
@@ -177,7 +177,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 <dt><strong><code>particles</code></strong></dt>
 <dd>Pointcloud holding the current positions of the particles</dd>
 <dt><strong><code>obstacles</code></strong></dt>
-<dd>Sequence of <code><a title="phi.physics.Obstacle" href="index.html#phi.physics.Obstacle">Obstacle</a></code> objects or binary StaggeredGrid marking through-flow cell faces</dd>
+<dd>Sequence of <code>phi.physics.Obstacle</code> objects or binary StaggeredGrid marking through-flow cell faces</dd>
 <dt><strong><code>solve</code></strong> :&ensp;<code>Optional</code></dt>
 <dd>Parameters for the pressure solve_linear</dd>
 <dt><strong><code>pressure_guess</code></strong> :&ensp;<code>Optional</code></dt>

@@ -821,14 +821,11 @@ The output of math operations has the same precision as its inputs.</p>
 
     def nonzero(self, values):
         &#34;&#34;&#34;
-        
-
         Args:
-          values: 
+            values: Tensor with only spatial dimensions
 
         Returns:
-          
-
+            non-zero multi-indices as tensor of shape (nnz, vector)
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -998,14 +995,10 @@ The output of math operations has the same precision as its inputs.</p>
 
     def boolean_mask(self, x, mask, axis=0):
         &#34;&#34;&#34;
-
         Args:
-            x:
-            mask:
+            x: tensor with any number of dimensions
+            mask: 1D mask tensor
             axis: Axis index &gt;= 0
-
-        Returns:
-
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -1378,10 +1371,13 @@ The output of math operations has the same precision as its inputs.</p>
         Interpolates a regular grid at the specified coordinates.
 
         Args:
-          grid: Tensor
-          spatial_dims: Dimension indices that correspond to coordinate vectors
-          coordinates: Tensor of floating grid indices. The last dimension must match `spatial_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
-          extrapolation: Values to use for coordinates outside the grid. One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
+            grid: Tensor
+            spatial_dims: Dimension indices that correspond to coordinate vectors
+            coordinates: Tensor of floating grid indices.
+                The last dimension must match `spatial_dims`.
+                The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+            extrapolation: Values to use for coordinates outside the grid.
+                One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
 
         Returns:
             sampled values with linear interpolation
@@ -1760,26 +1756,23 @@ The first dimension of <code>values</code> and <code>indices</code> is the batch
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
 <dl>
-<dt>x:</dt>
-<dt>mask:</dt>
+<dt><strong><code>x</code></strong></dt>
+<dd>tensor with any number of dimensions</dd>
+<dt><strong><code>mask</code></strong></dt>
+<dd>1D mask tensor</dd>
 <dt><strong><code>axis</code></strong></dt>
 <dd>Axis index &gt;= 0</dd>
-</dl>
-<p>Returns:</p></div>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def boolean_mask(self, x, mask, axis=0):
     &#34;&#34;&#34;
-
     Args:
-        x:
-        mask:
+        x: tensor with any number of dimensions
+        mask: 1D mask tensor
         axis: Axis index &gt;= 0
-
-    Returns:
-
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -2401,9 +2394,12 @@ Higher dimensions may not be supported.</p>
 <dt><strong><code>spatial_dims</code></strong></dt>
 <dd>Dimension indices that correspond to coordinate vectors</dd>
 <dt><strong><code>coordinates</code></strong></dt>
-<dd>Tensor of floating grid indices. The last dimension must match <code>spatial_dims</code>. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
+<dd>Tensor of floating grid indices.
+The last dimension must match <code>spatial_dims</code>.
+The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
-<dd>Values to use for coordinates outside the grid. One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')</code>.</dd>
+<dd>Values to use for coordinates outside the grid.
+One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>sampled values with linear interpolation</p></div>
@@ -2416,10 +2412,13 @@ Higher dimensions may not be supported.</p>
     Interpolates a regular grid at the specified coordinates.
 
     Args:
-      grid: Tensor
-      spatial_dims: Dimension indices that correspond to coordinate vectors
-      coordinates: Tensor of floating grid indices. The last dimension must match `spatial_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
-      extrapolation: Values to use for coordinates outside the grid. One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
+        grid: Tensor
+        spatial_dims: Dimension indices that correspond to coordinate vectors
+        coordinates: Tensor of floating grid indices.
+            The last dimension must match `spatial_dims`.
+            The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+        extrapolation: Values to use for coordinates outside the grid.
+            One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
 
     Returns:
         sampled values with linear interpolation
@@ -3019,23 +3018,21 @@ This method need not provide a gradient for the operation.</p>
 <div class="desc"><h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd>&nbsp;</dd>
+<dd>Tensor with only spatial dimensions</dd>
 </dl>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p>non-zero multi-indices as tensor of shape (nnz, vector)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def nonzero(self, values):
     &#34;&#34;&#34;
-    
-
     Args:
-      values: 
+        values: Tensor with only spatial dimensions
 
     Returns:
-      
-
+        non-zero multi-indices as tensor of shape (nnz, vector)
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
