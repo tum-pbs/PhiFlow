@@ -594,17 +594,15 @@ NONE = _NoExtrapolation(-1)
 """ Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. """
 
 
-def combine_sides(extrapolations: dict) -> Extrapolation:
+def combine_sides(**extrapolations: Extrapolation or tuple) -> Extrapolation:
     """
-    Create a single Extrapolation object that uses different extrapolations for different sides of a box.
+    Specify extrapolations for each side / face of a box.
 
     Args:
-      extrapolations: dict mapping dim: str -> extrapolation or (lower, upper)
-      extrapolations: dict: 
+        **extrapolations: map from dim: str -> `Extrapolation` or `tuple` (lower, upper)
 
     Returns:
-      single extrapolation
-
+        `Extrapolation`
     """
     values = set()
     for ext in extrapolations.values():
@@ -641,14 +639,14 @@ class _MixedExtrapolation(Extrapolation):
         if isinstance(other, _MixedExtrapolation):
             return self.ext == other.ext
         else:
-            simplified = combine_sides(self.ext)
+            simplified = combine_sides(**self.ext)
             if not isinstance(simplified, _MixedExtrapolation):
                 return simplified == other
             else:
                 return False
 
     def __hash__(self):
-        simplified = combine_sides(self.ext)
+        simplified = combine_sides(**self.ext)
         if not isinstance(simplified, _MixedExtrapolation):
             return hash(simplified)
         else:
@@ -658,7 +656,7 @@ class _MixedExtrapolation(Extrapolation):
         return repr(self.ext)
 
     def spatial_gradient(self) -> Extrapolation:
-        return combine_sides({ax: (es[0].spatial_gradient(), es[1].spatial_gradient()) for ax, es in self.ext.items()})
+        return combine_sides(**{ax: (es[0].spatial_gradient(), es[1].spatial_gradient()) for ax, es in self.ext.items()})
 
     def valid_outer_faces(self, dim):
         e_lower, e_upper = self.ext[dim]
@@ -708,7 +706,7 @@ class _MixedExtrapolation(Extrapolation):
 
     def __getitem__(self, item):
         if isinstance(item, dict):
-            return combine_sides({dim: (e1[item], e2[item]) for dim, (e1, e2) in self.ext.items()})
+            return combine_sides(**{dim: (e1[item], e2[item]) for dim, (e1, e2) in self.ext.items()})
         else:
             dim, face = item
             return self.ext[dim][face]
@@ -734,9 +732,9 @@ class _MixedExtrapolation(Extrapolation):
     def _op2(self, other, operator):
         if isinstance(other, _MixedExtrapolation):
             assert self.ext.keys() == other.ext.keys()
-            return combine_sides({ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
+            return combine_sides(**{ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
         else:
-            return combine_sides({ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
+            return combine_sides(**{ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
 
 
 def from_dict(dictionary: dict) -> Extrapolation:

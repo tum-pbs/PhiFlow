@@ -34,7 +34,7 @@ def _create_boundary_conditions(obj: dict or tuple or list, spatial_dims: tuple)
         for key in keys:
             dim_to_extrap = {dim: (extrap[0][key], extrap[1][key]) if isinstance(extrap, (tuple, list)) else extrap[key]
                              for dim, extrap in zip(spatial_dims, obj)}
-            result[key] = combine_sides(dim_to_extrap)
+            result[key] = combine_sides(**dim_to_extrap)
         return result
     else:
         raise ValueError(obj)

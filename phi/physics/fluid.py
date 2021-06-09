@@ -101,7 +101,7 @@ def _pressure_extrapolation(vext: math.Extrapolation):
     elif isinstance(vext, extrapolation.ConstantExtrapolation):
         return extrapolation.BOUNDARY
     elif isinstance(vext, extrapolation._MixedExtrapolation):
-        return combine_sides({dim: (_pressure_extrapolation(lo), _pressure_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+        return combine_sides(**{dim: (_pressure_extrapolation(lo), _pressure_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
     else:
         raise ValueError(f"Unsupported extrapolation: {type(vext)}")
 
@@ -114,6 +114,6 @@ def _accessible_extrapolation(vext: math.Extrapolation):
     elif isinstance(vext, extrapolation.ConstantExtrapolation):
         return extrapolation.ZERO
     elif isinstance(vext, extrapolation._MixedExtrapolation):
-        return combine_sides({dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+        return combine_sides(**{dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
     else:
         raise ValueError(f"Unsupported extrapolation: {type(vext)}")
