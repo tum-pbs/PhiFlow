@@ -41,13 +41,22 @@ def make_incompressible(velocity: Grid,
 
     # Solve pressure
     @math.jit_compile_linear
-    def laplace(p):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
-        # TODO active, hard_bcs are actually arguments
+    def laplace(p):
         grad = spatial_gradient(p, input_velocity.extrapolation, type=type(velocity))
         grad *= hard_bcs
         div = divergence(grad)
         lap = where(active, div, p)
         return lap
+
+    # def laplace(p, hard_bcs, active):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
+    #     # TODO active, hard_bcs are actually arguments
+    #     grad = spatial_gradient(p, input_velocity.extrapolation, type=type(velocity))
+    #     grad *= hard_bcs
+    #     div = divergence(grad)
+    #     lap = where(active, div, p)
+    #     return lap
+    #
+    # laplace = math.jit_compile_linear(laplace, hard_bcs=hard_bcs, active=active)
 
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)

@@ -17,8 +17,8 @@ from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, spatial_shape, EMPTY_SHAPE, batch_shape, channel_shape, shape
-from ._tensors import wrap, tensor, tensors, Tensor, TensorDim, TensorLike
+from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, collection, merge_shapes
+from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
@@ -27,9 +27,9 @@ from ._ops import (
     map_ as map,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
-    batch_stack, spatial_stack, channel_stack, unstack, concat,
+    stack, unstack, concat,
     pad,
-    join_dimensions, split_dimension, flatten, expand, expand_batch, expand_spatial, expand_channel, transpose,  # reshape operations
+    join_dimensions, split_dimension, flatten, expand, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce

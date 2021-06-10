@@ -3,7 +3,7 @@ from typing import TypeVar, Callable
 from phi import math
 from phi.geom import Geometry
 from phi.math import Shape, Tensor, Extrapolation
-from phi.math._shape import SPATIAL_DIM, BATCH_DIM, CHANNEL_DIM
+from phi.math._shape import SPATIAL_DIM, BATCH_DIM, CHANNEL_DIM, channel
 
 
 class Field:
@@ -294,7 +294,7 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
     assert 'vector' not in geometry.shape
     if 'vector_' in geometry.shape:
         sampled = [field._sample(p) for p in geometry.unstack('vector_')]
-        return math.channel_stack(sampled, 'vector_')
+        return math.stack(sampled, channel('vector_'))
     else:
         return field._sample(geometry)
 
@@ -319,7 +319,7 @@ def reduce_sample(field: Field, geometry: Geometry) -> math.Tensor:
     if 'vector_' in geometry.shape:
         components = unstack(field, 'vector') if 'vector' in field.shape else (field,) * geometry.shape.get_size('vector_')
         sampled = [c._sample(p) for c, p in zip(components, geometry.unstack('vector_'))]
-        return math.channel_stack(sampled, 'vector')
+        return math.stack(sampled, channel('vector'))
     else:
         return field._sample(geometry)
 

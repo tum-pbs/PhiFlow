@@ -9,9 +9,10 @@ from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any
 import numpy as np
 
 from . import _ops as math
-from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, batch_stack, \
+from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, \
     sum_, to_float
-from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, shape, vector_add, combine_safe
+from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, vector_add, merge_shapes, spatial, collection, \
+    batch
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, \
     disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap
 from .backend import choose_backend, Backend, get_current_profile, get_precision
@@ -232,7 +233,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         tracer = self._get_or_trace(key)
 
         def print_stencil(**indices):
-            pos = shape(**indices)
+            pos = spatial(**indices)
             print(f"{self.f.__name__}: {pos} = {' + '.join(f'{val[indices]} * {vector_add(pos, offset)}' for offset, val in tracer.val.items() if (val[indices] != 0).all)}")
 
         return print_stencil
@@ -580,7 +581,7 @@ class ShiftLinTracer(Tensor):
         # TODO sort indices?
         self._sparse_coo = FixedShiftSparseTensor((out_shape.volume, src_shape.volume),
                                                   set(self.val.keys()), rows, cols,
-                                                  NativeTensor(vals, shape(nnz=len(vals))),
+                                                  NativeTensor(vals, collection(nnz=len(vals))),
                                                   self.dependent_dims)
         return self._sparse_coo
 
@@ -589,7 +590,7 @@ class ShiftLinTracer(Tensor):
 
     @property
     def dependent_dims(self):
-        return reduce(Shape.combined, [t.shape for t in self.val.values()], EMPTY_SHAPE)
+        return merge_shapes(*[t.shape for t in self.val.values()])
 
     @property
     def independent_dims(self):
@@ -633,9 +634,9 @@ class ShiftLinTracer(Tensor):
             assert isinstance(shift, Shape)
             for dim, delta in reversed(tuple(shifts.items())):
                 if dim not in values.shape:
-                    values = math._expand_dims(values, self._shape.only(dim))  # dim order may be scrambled
+                    values = math.expand(values, self._shape.only(dim))  # dim order may be scrambled
                 if delta:
-                    shift = shift.with_size(dim, shift.get_size(dim) + delta) if dim in shift else shift.expand(delta, dim, SPATIAL_DIM)
+                    shift = shift.with_size(dim, shift.get_size(dim) + delta) if dim in shift else shift.expand(spatial(**{dim: delta}))
             val[shift] = val_fun(values)
         return ShiftLinTracer(self.source, val, new_shape)
 
@@ -673,8 +674,8 @@ class ShiftLinTracer(Tensor):
             zeros_for_missing_other: perform `operator` where `other == 0`
         """
         if isinstance(other, ShiftLinTracer):
-            assert self.source is other.source
-            assert self._shape == other._shape
+            assert self.source is other.source, "Multiple linear tracers are not yet supported."
+            assert self._shape.alphabetically() == other._shape.alphabetically(), f"Tracers have different shapes: {self._shape} and {other._shape}"
             values = {}
             for dim_shift in self.val.keys():
                 if dim_shift in other.val:
@@ -1020,21 +1021,21 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
-    batch = combine_safe(*[t.shape for t in x0_tensors]).batch
+    batch_dims = merge_shapes(*[t.shape for t in x0_tensors]).batch
     x0_natives = []
     for t in x0_tensors:
         t._expand()
         assert t.shape.is_uniform
-        x0_natives.append(reshaped_native(t, [batch, t.shape.non_batch], force_expand=True))
+        x0_natives.append(reshaped_native(t, [batch_dims, t.shape.non_batch], force_expand=True))
     x0_flat = backend.concat(x0_natives, -1)
 
-    def unflatten_assemble(x_flat, additional_dims=()):
+    def unflatten_assemble(x_flat, additional_dims: Shape = EMPTY_SHAPE):
         i = 0
         x_tensors = []
         for x0_native, x0_tensor in zip(x0_natives, x0_tensors):
             vol = backend.shape(x0_native)[-1]
             flat_native = x_flat[..., i:i + vol]
-            x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch, x0_tensor.shape.non_batch]))
+            x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch_dims, x0_tensor.shape.non_batch]))
             i += vol
         x = assemble_tree(x0_nest, x_tensors)
         return x
@@ -1046,32 +1047,32 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        return y_tensors[0].sum, reshaped_native(y_tensors[0], [batch])
+        return y_tensors[0].sum, reshaped_native(y_tensors[0], [batch_dims])
 
-    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
-    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
+    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
+    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     t = time.perf_counter()
     ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
     t = time.perf_counter() - t
     if not trj:
         assert isinstance(ret, SolveResult)
-        converged = reshaped_tensor(ret.converged, [batch])
-        diverged = reshaped_tensor(ret.diverged, [batch])
+        converged = reshaped_tensor(ret.converged, [batch_dims])
+        diverged = reshaped_tensor(ret.diverged, [batch_dims])
         x = unflatten_assemble(ret.x)
-        iterations = reshaped_tensor(ret.iterations, [batch])
-        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
-        residual = reshaped_tensor(ret.residual, [batch])
+        iterations = reshaped_tensor(ret.iterations, [batch_dims])
+        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch_dims])
+        residual = reshaped_tensor(ret.residual, [batch_dims])
         result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
     else:  # trajectory
         assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret)
-        converged = reshaped_tensor(ret[-1].converged, [batch])
-        diverged = reshaped_tensor(ret[-1].diverged, [batch])
+        converged = reshaped_tensor(ret[-1].converged, [batch_dims])
+        diverged = reshaped_tensor(ret[-1].diverged, [batch_dims])
         x = unflatten_assemble(ret[-1].x)
-        x_ = unflatten_assemble(backend.stack([r.x for r in ret]), additional_dims=('trajectory',))
-        residual = batch_stack([reshaped_tensor(r.residual, [batch]) for r in ret], 'trajectory')
-        iterations = reshaped_tensor(ret[-1].iterations, [batch])
-        function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], 'trajectory')
+        x_ = unflatten_assemble(backend.stack([r.x for r in ret]), additional_dims=batch('trajectory'))
+        residual = stack([reshaped_tensor(r.residual, [batch_dims]) for r in ret], batch('trajectory'))
+        iterations = reshaped_tensor(ret[-1].iterations, [batch_dims])
+        function_evaluations = stack([reshaped_tensor(r.function_evaluations, [batch_dims]) for r in ret], batch('trajectory'))
         result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)
@@ -1161,12 +1162,12 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
                           active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
     y_nest, (y_tensor,) = disassemble_tree(y)
     x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
-    batch = (y_tensor.shape & x0_tensor.shape).without(active_dims)
-    x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch, active_dims], force_expand=True))
-    y_native = backend.as_tensor(reshaped_native(y_tensor, [batch, active_dims], force_expand=True))
-    rtol = backend.to_float(reshaped_native(solve.relative_tolerance, [batch], force_expand=True))
-    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch], force_expand=True))
-    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch], force_expand=True))
+    batch_dims = (y_tensor.shape & x0_tensor.shape).without(active_dims)
+    x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch_dims, active_dims], force_expand=True))
+    y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, active_dims], force_expand=True))
+    rtol = backend.to_float(reshaped_native(solve.relative_tolerance, [batch_dims], force_expand=True))
+    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
+    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     if trj:
         assert all_available(y_tensor, x0_tensor), "Cannot record linear solve in jit mode"
@@ -1175,28 +1176,28 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
     t = time.perf_counter() - t
     if not trj:
         assert isinstance(ret, SolveResult)
-        converged = reshaped_tensor(ret.converged, [batch])
-        diverged = reshaped_tensor(ret.diverged, [batch])
-        x = assemble_tree(x0_nest, [reshaped_tensor(ret.x, [batch, active_dims])])
-        iterations = reshaped_tensor(ret.iterations, [batch])
-        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch])
+        converged = reshaped_tensor(ret.converged, [batch_dims])
+        diverged = reshaped_tensor(ret.diverged, [batch_dims])
+        x = assemble_tree(x0_nest, [reshaped_tensor(ret.x, [batch_dims, active_dims])])
+        iterations = reshaped_tensor(ret.iterations, [batch_dims])
+        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch_dims])
         if ret.residual is not None:
-            residual = assemble_tree(y_nest, [reshaped_tensor(ret.residual, [batch, active_dims])])
+            residual = assemble_tree(y_nest, [reshaped_tensor(ret.residual, [batch_dims, active_dims])])
         elif _SOLVE_TAPES:
             residual = backend.linear(native_lin_op, ret.x) - y_native
-            residual = assemble_tree(y_nest, [reshaped_tensor(residual, [batch, active_dims])])
+            residual = assemble_tree(y_nest, [reshaped_tensor(residual, [batch_dims, active_dims])])
         else:
             residual = None
         result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
     else:  # trajectory
         assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret), f"Trajectory recording failed: got {type(ret)}"
-        converged = reshaped_tensor(ret[-1].converged, [batch])
-        diverged = reshaped_tensor(ret[-1].diverged, [batch])
-        x = assemble_tree(x0_nest, [reshaped_tensor(ret[-1].x, [batch, active_dims])])
-        x_ = assemble_tree(x0_nest, [batch_stack([reshaped_tensor(r.x, [batch, active_dims]) for r in ret], 'trajectory')])
-        residual = assemble_tree(y_nest, [batch_stack([reshaped_tensor(r.residual, [batch, active_dims]) for r in ret], 'trajectory')])
-        iterations = reshaped_tensor(ret[-1].iterations, [batch])
-        function_evaluations = batch_stack([reshaped_tensor(r.function_evaluations, [batch]) for r in ret], 'trajectory')
+        converged = reshaped_tensor(ret[-1].converged, [batch_dims])
+        diverged = reshaped_tensor(ret[-1].diverged, [batch_dims])
+        x = assemble_tree(x0_nest, [reshaped_tensor(ret[-1].x, [batch_dims, active_dims])])
+        x_ = assemble_tree(x0_nest, [stack([reshaped_tensor(r.x, [batch_dims, active_dims]) for r in ret], batch('trajectory'))])
+        residual = assemble_tree(y_nest, [stack([reshaped_tensor(r.residual, [batch_dims, active_dims]) for r in ret], batch('trajectory'))])
+        iterations = reshaped_tensor(ret[-1].iterations, [batch_dims])
+        function_evaluations = stack([reshaped_tensor(r.function_evaluations, [batch_dims]) for r in ret], batch('trajectory'))
         result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)

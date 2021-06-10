@@ -6,7 +6,7 @@ Extrapolations are used for padding tensors and sampling coordinates lying outsi
 from typing import Union
 
 from .backend import choose_backend
-from ._shape import Shape
+from ._shape import Shape, channel
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -61,7 +61,7 @@ class Extrapolation:
             values.append(value)
             if widths[dim][True] > 0:
                 values.append(self.pad_values(value, widths[dim][True], dim, True))
-            value = math.concat(values, dim)
+            value = math.concat(values, value.shape[dim])
         return value
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
@@ -102,7 +102,7 @@ class Extrapolation:
           transformed coordinates
 
         """
-        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, 'vector'))
+        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, channel('vector')))
 
     @property
     def is_copy_pad(self):
@@ -184,7 +184,7 @@ class ConstantExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
-            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+            return TensorStack(tensors, value.stack_dim)
         elif is_tracer(value):
             assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
@@ -326,7 +326,7 @@ class _CopyExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
-            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+            return TensorStack(tensors, value.stack_dim)
         elif is_tracer(value):
             return self._pad_linear_tracer(value, widths)
         else:
@@ -399,7 +399,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             edge = value[{dimension: slice(-1, None)}]
         else:
             edge = value[{dimension: slice(1)}]
-        return math.concat([edge] * width, dimension)
+        return math.concat([edge] * width, value.shape[dimension])
 
     def _pad_linear_tracer(self, value: '_trace.ShiftLinTracer', widths: dict) -> '_trace.ShiftLinTracer':
         """
@@ -478,7 +478,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
             return value[{dimension: slice(-width, None)}]
 
     def _pad_linear_tracer(self, value: '_trace.ShiftLinTracer', widths: dict) -> '_trace.ShiftLinTracer':
-        if value.shape.get_size(tuple(widths.keys())) != value.source.shape.get_size(tuple(widths.keys())):
+        if value.shape.get_sizes(tuple(widths.keys())) != value.source.shape.get_sizes(tuple(widths.keys())):
             raise NotImplementedError("Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor." % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
         return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
@@ -700,9 +700,9 @@ class _MixedExtrapolation(Extrapolation):
                 upper = dim_extrapolations[1].transform_coordinates(dim_coords, dim)
                 result.append(math.where(dim_coords <= 0, lower, upper))
         if 'vector' in result[0].shape:
-            return math.concat(result, 'vector')
+            return math.concat(result, channel('vector'))
         else:
-            return math.channel_stack(result, 'vector')
+            return math.stack(result, channel('vector'))
 
     def __getitem__(self, item):
         if isinstance(item, dict):

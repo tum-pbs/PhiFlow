@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise
 from phi.geom import Sphere, Box
-from phi.math import extrapolation, wrap
+from phi.math import extrapolation, wrap, collection, channel
 from phi.vis._matplotlib._matplotlib_plots import plot
 import matplotlib.pyplot as plt
 
@@ -32,7 +32,7 @@ class TestMatplotlibPlots(TestCase):
 
     def test_plot_point_cloud(self):
         plt.close()
-        points = wrap([(.2, .4), (.9, .8)], 'points, vector')
+        points = wrap([(.2, .4), (.9, .8)], collection('points'), channel('vector'))
         cloud = PointCloud(Sphere(points, radius=.1))
         fig = plot(cloud)
         assert isinstance(fig, plt.Figure)
@@ -40,7 +40,7 @@ class TestMatplotlibPlots(TestCase):
 
     def test_plot_point_cloud_bounded(self):
         plt.close()
-        points = wrap([(.2, .4), (.9, .8)], 'points, vector')
+        points = wrap([(.2, .4), (.9, .8)], collection('points'), channel('vector'))
         cloud = PointCloud(Sphere(points, radius=0.1), bounds=Box(0, [1, 1]))
         fig = plot(cloud)
         assert isinstance(fig, plt.Figure)

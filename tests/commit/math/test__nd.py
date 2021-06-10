@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import wrap, extrapolation, Tensor, PI, tensor
+from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial
 
 import numpy as np
 import os
@@ -13,7 +13,7 @@ REF_DATA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'reference_
 class TestMathNDNumpy(TestCase):
 
     def test_gradient_scalar(self):
-        ones = tensor(np.ones([2, 4, 3]), 'batch,x,y')
+        ones = tensor(np.ones([2, 4, 3]), batch('batch'), spatial('x,y'))
         cases = dict(difference=('central', 'forward', 'backward'),
                      padding=(extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
@@ -56,8 +56,8 @@ class TestMathNDNumpy(TestCase):
         half_size = math.downsample2x(meshgrid, extrapolation.BOUNDARY)
         math.print(meshgrid, 'Full size')
         math.print(half_size, 'Half size')
-        math.assert_close(half_size.vector[0], wrap([[0.5, 2.5], [0.5, 2.5]], names='y,x'))
-        math.assert_close(half_size.vector[1], wrap([[-0.5, -0.5], [-2, -2]], names='y,x'))
+        math.assert_close(half_size.vector[0], wrap([[0.5, 2.5], [0.5, 2.5]], spatial('y,x')))
+        math.assert_close(half_size.vector[1], wrap([[-0.5, -0.5], [-2, -2]], spatial('y,x')))
 
     def test_upsample2x(self):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1, -2))
@@ -71,10 +71,10 @@ class TestMathNDNumpy(TestCase):
     def test_extrapolate_valid_3x3_sanity(self):
         values = tensor([[0, 0, 0],
                          [0, 1, 0],
-                         [0, 0, 0]], 'x, y')
+                         [0, 0, 0]], spatial('x, y'))
         valid = values
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
-        expected_values = math.ones(x=3, y=3)
+        expected_values = math.ones(spatial(x=3, y=3))
         expected_valid = extrapolated_values
         assert extrapolated_values == expected_values
         assert extrapolated_valid == expected_valid
@@ -82,16 +82,16 @@ class TestMathNDNumpy(TestCase):
     def test_extrapolate_valid_3x3(self):
         valid = tensor([[0, 0, 0],
                         [0, 0, 1],
-                        [1, 0, 0]], 'x, y')
+                        [1, 0, 0]], spatial('x, y'))
         values = tensor([[1, 0, 2],
                          [0, 0, 4],
-                         [2, 0, 0]], 'x, y')
+                         [2, 0, 0]], spatial('x, y'))
         expected_valid = tensor([[0, 1, 1],
                                  [1, 1, 1],
-                                 [1, 1, 1]], 'x, y')
+                                 [1, 1, 1]], spatial('x, y'))
         expected_values = tensor([[1, 4, 4],
                                   [2, 3, 4],
-                                  [2, 3, 4]], 'x, y')
+                                  [2, 3, 4]], spatial('x, y'))
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
         assert extrapolated_values == expected_values
         assert extrapolated_valid == expected_valid
@@ -100,19 +100,19 @@ class TestMathNDNumpy(TestCase):
         valid = tensor([[0, 0, 0, 0],
                         [0, 0, 1, 0],
                         [1, 0, 0, 0],
-                        [0, 0, 0, 0]], 'x, y')
+                        [0, 0, 0, 0]], spatial('x, y'))
         values = tensor([[1, 0, 0, 0],
                          [0, 0, 4, 0],
                          [2, 0, 0, 0],
-                         [0, 0, 0, 1]], 'x, y')
+                         [0, 0, 0, 1]], spatial('x, y'))
         expected_valid = tensor([[1, 1, 1, 1],
                                  [1, 1, 1, 1],
                                  [1, 1, 1, 1],
-                                 [1, 1, 1, 1]], 'x, y')
+                                 [1, 1, 1, 1]], spatial('x, y'))
         expected_values = tensor([[3, 4, 4, 4],
                                   [2, 3, 4, 4],
                                   [2, 3, 4, 4],
-                                  [2, 2, 3.25, 4]], 'x, y')
+                                  [2, 2, 3.25, 4]], spatial('x, y'))
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
         assert extrapolated_values == expected_values
         assert extrapolated_valid == expected_valid
@@ -126,7 +126,7 @@ class TestMathNDNumpy(TestCase):
                          [1, 0, 0]],
                         [[0, 0, 0],
                          [0, 0, 0],
-                         [0, 0, 0]]], 'x, y, z')
+                         [0, 0, 0]]], spatial('x, y, z'))
         values = tensor([[[0, 0, 0],
                           [0, 0, 0],
                           [0, 0, 0]],
@@ -135,7 +135,7 @@ class TestMathNDNumpy(TestCase):
                           [2, 0, 0]],
                          [[0, 0, 0],
                           [0, 0, 0],
-                          [0, 0, 0]]], 'x, y, z')
+                          [0, 0, 0]]], spatial('x, y, z'))
         expected_valid = tensor([[[0, 1, 1],
                                   [1, 1, 1],
                                   [1, 1, 0]],
@@ -144,7 +144,7 @@ class TestMathNDNumpy(TestCase):
                                   [1, 1, 0]],
                                  [[0, 1, 1],
                                   [1, 1, 1],
-                                  [1, 1, 0]]], 'x, y, z')
+                                  [1, 1, 0]]], spatial('x, y, z'))
         expected_values = tensor([[[0, 4, 4],
                                    [2, 3, 4],
                                    [2, 2, 0]],
@@ -153,7 +153,7 @@ class TestMathNDNumpy(TestCase):
                                    [2, 2, 0]],
                                   [[0, 4, 4],
                                    [2, 3, 4],
-                                   [2, 2, 0]]], 'x, y, z')
+                                   [2, 2, 0]]], spatial('x, y, z'))
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 1)
         assert extrapolated_values == expected_values
         assert extrapolated_valid == expected_valid
@@ -167,7 +167,7 @@ class TestMathNDNumpy(TestCase):
                          [1, 0, 0]],
                         [[0, 0, 0],
                          [0, 0, 0],
-                         [0, 0, 0]]], 'x, y, z')
+                         [0, 0, 0]]], spatial('x, y, z'))
         values = tensor([[[0, 0, 0],
                           [0, 0, 0],
                           [0, 0, 0]],
@@ -176,8 +176,8 @@ class TestMathNDNumpy(TestCase):
                           [2, 0, 0]],
                          [[0, 0, 0],
                           [0, 0, 0],
-                          [0, 0, 0]]], 'x, y, z')
-        expected_valid = math.ones(x=3, y=3, z=3)
+                          [0, 0, 0]]], spatial('x, y, z'))
+        expected_valid = math.ones(spatial(x=3, y=3, z=3))
         expected_values = tensor([[[3, 4, 4],
                                    [2, 3, 4],
                                    [2, 2, 3]],
@@ -186,7 +186,7 @@ class TestMathNDNumpy(TestCase):
                                    [2, 2, 3]],
                                   [[3, 4, 4],
                                    [2, 3, 4],
-                                   [2, 2, 3]]], 'x, y, z')
+                                   [2, 2, 3]]], spatial('x, y, z'))
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
         assert extrapolated_values == expected_values
         assert extrapolated_valid == expected_valid
@@ -271,8 +271,8 @@ class TestMathNDNumpy(TestCase):
                 dx = params['dx']
                 padding = extrapolation.PERIODIC
                 ref = self.arakawa_reference_implementation(np.pad(d1.copy(), 1, mode='wrap'), np.pad(d2.copy(), 1, mode='wrap'), dx)[1:-1, 1:-1]
-                d1_tensor = field.CenteredGrid(values=math.tensor(d1, names=['x', 'y']), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
-                d2_tensor = field.CenteredGrid(values=math.tensor(d2, names=['x', 'y']), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
+                d1_tensor = field.CenteredGrid(values=math.tensor(d1, spatial('x,y')), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
+                d2_tensor = field.CenteredGrid(values=math.tensor(d2, spatial('x,y')), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
                 val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor.values, d2_tensor.values, dx)
                 # try:
                 math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)

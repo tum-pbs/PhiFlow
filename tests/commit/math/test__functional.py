@@ -3,7 +3,7 @@ from unittest import TestCase
 import phi
 from phi import math, field
 from phi.field import CenteredGrid
-from phi.math import Solve, Diverged, wrap, tensor, SolveTape, extrapolation
+from phi.math import Solve, Diverged, wrap, tensor, SolveTape, extrapolation, spatial, batch, channel
 from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
@@ -18,7 +18,7 @@ class TestFunctional(TestCase):
 
         for backend in BACKENDS:
             with backend:
-                x = math.ones(x=4)
+                x = math.ones(spatial(x=4))
                 trace_count_0 = len(scalar_mul.traces)
                 math.assert_close(scalar_mul(x, fac=1), 1, msg=backend)
                 if backend.supports(Backend.jit_compile):
@@ -29,16 +29,16 @@ class TestFunctional(TestCase):
                 math.assert_close(scalar_mul(x, fac=2), 2, msg=backend)
                 if backend.supports(Backend.jit_compile):
                     self.assertEqual(len(scalar_mul.traces), trace_count_0 + 2)
-                math.assert_close(scalar_mul(math.zeros(x=4), fac=2), 0, msg=backend)
+                math.assert_close(scalar_mul(math.zeros(spatial(x=4)), fac=2), 0, msg=backend)
                 if backend.supports(Backend.jit_compile):
                     self.assertEqual(len(scalar_mul.traces), trace_count_0 + 2)
-                math.assert_close(scalar_mul(math.zeros(y=4), fac=2), 0, msg=backend)
+                math.assert_close(scalar_mul(math.zeros(spatial(y=4)), fac=2), 0, msg=backend)
                 if backend.supports(Backend.jit_compile):
                     self.assertEqual(len(scalar_mul.traces), trace_count_0 + 3)
 
     def test_jit_compile_linear(self):
         math.GLOBAL_AXIS_ORDER.x_last()
-        x = math.random_normal(batch=3, x=4, y=3)  # , vector=2
+        x = math.random_normal(batch(batch=3) & spatial(x=4, y=3))  # , vector=2
 
         def linear_function(val):
             val = -val
@@ -104,7 +104,7 @@ class TestFunctional(TestCase):
             return x.x[:2]
 
         def grad(_x, _y, df):
-            return math.flatten(math.expand(df * 0, tmp=2)),
+            return math.flatten(math.expand(df * 0, batch(tmp=2))),
 
         def loss(x):
             fg = math.custom_gradient(f, grad)
@@ -112,9 +112,9 @@ class TestFunctional(TestCase):
             return math.l1_loss(y)
 
         for backend in BACKENDS:
-            if backend.supports(Backend.custom_gradient) and backend.name != 'Jax':
+            if backend.supports(Backend.custom_gradient):  # and backend.name != 'Jax':
                 with backend:
-                    custom_loss_grad, = math.functional_gradient(loss, get_output=False)(math.ones(x=4))
+                    custom_loss_grad, = math.functional_gradient(loss, get_output=False)(math.ones(spatial(x=4)))
                     math.assert_close(custom_loss_grad, 0, msg=backend.name)
 
     def test_minimize(self):
@@ -124,12 +124,12 @@ class TestFunctional(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.functional_gradient):
                 with backend:
-                    x0 = tensor([0, 0, 0], 'x'), tensor([-1, -1, -1], 'y')
+                    x0 = tensor([0, 0, 0], spatial('x')), tensor([-1, -1, -1], spatial('y'))
                     x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
                     math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
                     math.assert_close(y, -1, abs_tolerance=1e-3, msg=backend.name)
 
-                    x0 = tensor([[0, 0, 0], [1, 1, 1]], 'batch,x'), tensor([[0, 0, 0], [-1, -1, -1]], 'batch,y')
+                    x0 = tensor([[0, 0, 0], [1, 1, 1]], batch('batch'), spatial('x')), tensor([[0, 0, 0], [-1, -1, -1]], batch('batch'), spatial('y'))
                     x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
                     math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
                     math.assert_close(y, -1, abs_tolerance=1e-3, msg=backend.name)
@@ -209,17 +209,17 @@ class TestFunctional(TestCase):
         for method in ['CG', 'CG-adaptive', 'auto']:
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], 'vector,x'), abs_tolerance=1e-3)
+            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], channel('vector'), spatial('x')), abs_tolerance=1e-3)
             with math.SolveTape() as solves:
                 x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], 'vector,x'), abs_tolerance=1e-3)
+            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], channel('vector'), spatial('x')), abs_tolerance=1e-3)
             assert len(solves) == 1
             assert solves[0] == solves[solve]
             math.assert_close(solves[solve].residual.values, 0, abs_tolerance=1e-3)
 
     def test_solve_diverge(self):
-        y = math.ones(x=2) * (1, 2)
-        x0 = math.zeros(x=2)
+        y = math.ones(spatial(x=2)) * (1, 2)
+        x0 = math.zeros(spatial(x=2))
         for method in ['CG']:
             solve = Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             try:

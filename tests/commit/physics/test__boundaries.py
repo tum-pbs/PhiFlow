@@ -4,6 +4,7 @@ import numpy
 
 from phi import math
 from phi.field import Noise
+from phi.math import spatial, channel
 from phi.physics._boundaries import Domain
 
 
@@ -49,6 +50,6 @@ class TestFieldMath(TestCase):
     def test_custom_spatial_dims(self):
         domain = Domain(a=4, b=3)
         grid = domain.scalar_grid(1)
-        self.assertEqual(math.shape(a=4, b=3), grid.shape)
+        self.assertEqual(spatial(a=4, b=3), grid.shape)
         grid = domain.staggered_grid(1)
-        self.assertEqual(math.shape(a=4, b=3, vector=2), grid.shape)
+        self.assertEqual(spatial(a=4, b=3) & channel(vector=2), grid.shape)

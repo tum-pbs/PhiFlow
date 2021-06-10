@@ -37,7 +37,7 @@ from ._field_math import (
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,
-    concat, batch_stack, channel_stack,
+    concat, stack,
     where,
     vec_squared, vec_abs,
     downsample2x, upsample2x,

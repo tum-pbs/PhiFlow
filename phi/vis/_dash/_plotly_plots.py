@@ -92,7 +92,7 @@ def _plot(field: SampledField,
         if radius.rank == 0:
             marker_size = 2 * float(radius)
         else:
-            marker_size = (2 * radius).unstack('points')
+            marker_size = (2 * radius).unstack(radius.shape.collection.name)
         marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter')
         fig.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         fig.update_xaxes(range=[lower_x, upper_x])
@@ -108,7 +108,7 @@ def real_values(field: SampledField):
 
 def figure_shape(field: SampledField):
     if isinstance(field, PointCloud):
-        return field.shape.without('points').batch
+        return field.shape.batch
     else:
         return field.shape.batch
 

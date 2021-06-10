@@ -36,7 +36,7 @@ Extrapolations are used for padding tensors and sampling coordinates lying outsi
 from typing import Union
 
 from .backend import choose_backend
-from ._shape import Shape
+from ._shape import Shape, channel
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -91,7 +91,7 @@ class Extrapolation:
             values.append(value)
             if widths[dim][True] &gt; 0:
                 values.append(self.pad_values(value, widths[dim][True], dim, True))
-            value = math.concat(values, dim)
+            value = math.concat(values, value.shape[dim])
         return value
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
@@ -132,7 +132,7 @@ class Extrapolation:
           transformed coordinates
 
         &#34;&#34;&#34;
-        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))
+        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, channel(&#39;vector&#39;)))
 
     @property
     def is_copy_pad(self):
@@ -214,7 +214,7 @@ class ConstantExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
-            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+            return TensorStack(tensors, value.stack_dim)
         elif is_tracer(value):
             assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
@@ -356,7 +356,7 @@ class _CopyExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
-            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+            return TensorStack(tensors, value.stack_dim)
         elif is_tracer(value):
             return self._pad_linear_tracer(value, widths)
         else:
@@ -429,7 +429,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             edge = value[{dimension: slice(-1, None)}]
         else:
             edge = value[{dimension: slice(1)}]
-        return math.concat([edge] * width, dimension)
+        return math.concat([edge] * width, value.shape[dimension])
 
     def _pad_linear_tracer(self, value: &#39;_trace.ShiftLinTracer&#39;, widths: dict) -&gt; &#39;_trace.ShiftLinTracer&#39;:
         &#34;&#34;&#34;
@@ -508,7 +508,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
             return value[{dimension: slice(-width, None)}]
 
     def _pad_linear_tracer(self, value: &#39;_trace.ShiftLinTracer&#39;, widths: dict) -&gt; &#39;_trace.ShiftLinTracer&#39;:
-        if value.shape.get_size(tuple(widths.keys())) != value.source.shape.get_size(tuple(widths.keys())):
+        if value.shape.get_sizes(tuple(widths.keys())) != value.source.shape.get_sizes(tuple(widths.keys())):
             raise NotImplementedError(&#34;Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor.&#34; % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
         return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
@@ -624,17 +624,15 @@ NONE = _NoExtrapolation(-1)
 &#34;&#34;&#34; Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. &#34;&#34;&#34;
 
 
-def combine_sides(extrapolations: dict) -&gt; Extrapolation:
+def combine_sides(**extrapolations: Extrapolation or tuple) -&gt; Extrapolation:
     &#34;&#34;&#34;
-    Create a single Extrapolation object that uses different extrapolations for different sides of a box.
+    Specify extrapolations for each side / face of a box.
 
     Args:
-      extrapolations: dict mapping dim: str -&gt; extrapolation or (lower, upper)
-      extrapolations: dict: 
+        **extrapolations: map from dim: str -&gt; `Extrapolation` or `tuple` (lower, upper)
 
     Returns:
-      single extrapolation
-
+        `Extrapolation`
     &#34;&#34;&#34;
     values = set()
     for ext in extrapolations.values():
@@ -671,14 +669,14 @@ class _MixedExtrapolation(Extrapolation):
         if isinstance(other, _MixedExtrapolation):
             return self.ext == other.ext
         else:
-            simplified = combine_sides(self.ext)
+            simplified = combine_sides(**self.ext)
             if not isinstance(simplified, _MixedExtrapolation):
                 return simplified == other
             else:
                 return False
 
     def __hash__(self):
-        simplified = combine_sides(self.ext)
+        simplified = combine_sides(**self.ext)
         if not isinstance(simplified, _MixedExtrapolation):
             return hash(simplified)
         else:
@@ -688,7 +686,7 @@ class _MixedExtrapolation(Extrapolation):
         return repr(self.ext)
 
     def spatial_gradient(self) -&gt; Extrapolation:
-        return combine_sides({ax: (es[0].spatial_gradient(), es[1].spatial_gradient()) for ax, es in self.ext.items()})
+        return combine_sides(**{ax: (es[0].spatial_gradient(), es[1].spatial_gradient()) for ax, es in self.ext.items()})
 
     def valid_outer_faces(self, dim):
         e_lower, e_upper = self.ext[dim]
@@ -732,13 +730,13 @@ class _MixedExtrapolation(Extrapolation):
                 upper = dim_extrapolations[1].transform_coordinates(dim_coords, dim)
                 result.append(math.where(dim_coords &lt;= 0, lower, upper))
         if &#39;vector&#39; in result[0].shape:
-            return math.concat(result, &#39;vector&#39;)
+            return math.concat(result, channel(&#39;vector&#39;))
         else:
-            return math.channel_stack(result, &#39;vector&#39;)
+            return math.stack(result, channel(&#39;vector&#39;))
 
     def __getitem__(self, item):
         if isinstance(item, dict):
-            return combine_sides({dim: (e1[item], e2[item]) for dim, (e1, e2) in self.ext.items()})
+            return combine_sides(**{dim: (e1[item], e2[item]) for dim, (e1, e2) in self.ext.items()})
         else:
             dim, face = item
             return self.ext[dim][face]
@@ -764,9 +762,9 @@ class _MixedExtrapolation(Extrapolation):
     def _op2(self, other, operator):
         if isinstance(other, _MixedExtrapolation):
             assert self.ext.keys() == other.ext.keys()
-            return combine_sides({ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
+            return combine_sides(**{ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
         else:
-            return combine_sides({ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
+            return combine_sides(**{ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
 
 
 def from_dict(dictionary: dict) -&gt; Extrapolation:
@@ -833,34 +831,30 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.math.extrapolation.combine_sides"><code class="name flex">
-<span>def <span class="ident">combine_sides</span></span>(<span>extrapolations: dict) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+<span>def <span class="ident">combine_sides</span></span>(<span>**extrapolations: <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a>) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Create a single Extrapolation object that uses different extrapolations for different sides of a box.</p>
+<div class="desc"><p>Specify extrapolations for each side / face of a box.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>extrapolations</code></strong></dt>
-<dd>dict mapping dim: str -&gt; extrapolation or (lower, upper)</dd>
-<dt><strong><code>extrapolations</code></strong></dt>
-<dd>dict: </dd>
+<dt><strong><code>**extrapolations</code></strong></dt>
+<dd>map from dim: str -&gt; <code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code> or <code>tuple</code> (lower, upper)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>single extrapolation</p></div>
+<p><code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def combine_sides(extrapolations: dict) -&gt; Extrapolation:
+<pre><code class="python">def combine_sides(**extrapolations: Extrapolation or tuple) -&gt; Extrapolation:
     &#34;&#34;&#34;
-    Create a single Extrapolation object that uses different extrapolations for different sides of a box.
+    Specify extrapolations for each side / face of a box.
 
     Args:
-      extrapolations: dict mapping dim: str -&gt; extrapolation or (lower, upper)
-      extrapolations: dict: 
+        **extrapolations: map from dim: str -&gt; `Extrapolation` or `tuple` (lower, upper)
 
     Returns:
-      single extrapolation
-
+        `Extrapolation`
     &#34;&#34;&#34;
     values = set()
     for ext in extrapolations.values():
@@ -1006,7 +1000,7 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
-            return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+            return TensorStack(tensors, value.stack_dim)
         elif is_tracer(value):
             assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
@@ -1214,7 +1208,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
             return self.pad(value._cache(), widths)
         inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
         tensors = [self.pad(t, inner_widths) for t in value.tensors]
-        return TensorStack(tensors, value.stack_dim_name, value.stack_dim_type)
+        return TensorStack(tensors, value.stack_dim)
     elif is_tracer(value):
         assert self.is_zero()
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
@@ -1305,7 +1299,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
             values.append(value)
             if widths[dim][True] &gt; 0:
                 values.append(self.pad_values(value, widths[dim][True], dim, True))
-            value = math.concat(values, dim)
+            value = math.concat(values, value.shape[dim])
         return value
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
@@ -1346,7 +1340,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
           transformed coordinates
 
         &#34;&#34;&#34;
-        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))
+        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, channel(&#39;vector&#39;)))
 
     @property
     def is_copy_pad(self):
@@ -1438,7 +1432,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
         values.append(value)
         if widths[dim][True] &gt; 0:
             values.append(self.pad_values(value, widths[dim][True], dim, True))
-        value = math.concat(values, dim)
+        value = math.concat(values, value.shape[dim])
     return value</code></pre>
 </details>
 </dd>
@@ -1569,7 +1563,7 @@ This is the default implementation.</p>
       transformed coordinates
 
     &#34;&#34;&#34;
-    return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, &#39;vector&#39;))</code></pre>
+    return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, channel(&#39;vector&#39;)))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.extrapolation.Extrapolation.valid_outer_faces"><code class="name flex">

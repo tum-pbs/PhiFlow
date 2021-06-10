@@ -70,13 +70,22 @@ def make_incompressible(velocity: Grid,
 
     # Solve pressure
     @math.jit_compile_linear
-    def laplace(p):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
-        # TODO active, hard_bcs are actually arguments
+    def laplace(p):
         grad = spatial_gradient(p, input_velocity.extrapolation, type=type(velocity))
         grad *= hard_bcs
         div = divergence(grad)
         lap = where(active, div, p)
         return lap
+
+    # def laplace(p, hard_bcs, active):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
+    #     # TODO active, hard_bcs are actually arguments
+    #     grad = spatial_gradient(p, input_velocity.extrapolation, type=type(velocity))
+    #     grad *= hard_bcs
+    #     div = divergence(grad)
+    #     lap = where(active, div, p)
+    #     return lap
+    #
+    # laplace = math.jit_compile_linear(laplace, hard_bcs=hard_bcs, active=active)
 
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
@@ -130,7 +139,7 @@ def _pressure_extrapolation(vext: math.Extrapolation):
     elif isinstance(vext, extrapolation.ConstantExtrapolation):
         return extrapolation.BOUNDARY
     elif isinstance(vext, extrapolation._MixedExtrapolation):
-        return combine_sides({dim: (_pressure_extrapolation(lo), _pressure_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+        return combine_sides(**{dim: (_pressure_extrapolation(lo), _pressure_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
     else:
         raise ValueError(f&#34;Unsupported extrapolation: {type(vext)}&#34;)
 
@@ -143,7 +152,7 @@ def _accessible_extrapolation(vext: math.Extrapolation):
     elif isinstance(vext, extrapolation.ConstantExtrapolation):
         return extrapolation.ZERO
     elif isinstance(vext, extrapolation._MixedExtrapolation):
-        return combine_sides({dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+        return combine_sides(**{dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
     else:
         raise ValueError(f&#34;Unsupported extrapolation: {type(vext)}&#34;)</code></pre>
 </details>
@@ -255,13 +264,22 @@ Cells outside far away will be unaffected.</p>
 
     # Solve pressure
     @math.jit_compile_linear
-    def laplace(p):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
-        # TODO active, hard_bcs are actually arguments
+    def laplace(p):
         grad = spatial_gradient(p, input_velocity.extrapolation, type=type(velocity))
         grad *= hard_bcs
         div = divergence(grad)
         lap = where(active, div, p)
         return lap
+
+    # def laplace(p, hard_bcs, active):  # TODO when called during backward, the forward jit is already done but tracers are still referenced...
+    #     # TODO active, hard_bcs are actually arguments
+    #     grad = spatial_gradient(p, input_velocity.extrapolation, type=type(velocity))
+    #     grad *= hard_bcs
+    #     div = divergence(grad)
+    #     lap = where(active, div, p)
+    #     return lap
+    #
+    # laplace = math.jit_compile_linear(laplace, hard_bcs=hard_bcs, active=active)
 
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)

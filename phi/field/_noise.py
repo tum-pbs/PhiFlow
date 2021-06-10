@@ -2,7 +2,7 @@ import numpy as np
 
 from phi import math
 from phi.geom import GridCell, Geometry
-from phi.math import random_normal, Tensor
+from phi.math import random_normal, Tensor, channel
 from ._field import Field
 
 
@@ -14,7 +14,7 @@ class Noise(Field):
     Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
     """
 
-    def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **dims):
+    def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **channel_dims):
         """
         Args:
           shape: Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.
@@ -24,7 +24,7 @@ class Noise(Field):
         """
         self.scale = scale
         self.smoothness = smoothness
-        self._shape = shape & math.shape(**dims)
+        self._shape = shape & channel(**channel_dims)
 
     @property
     def shape(self):
@@ -36,7 +36,7 @@ class Noise(Field):
         raise NotImplementedError(f"{type(geometry)} not supported. Only GridCell allowed.")
 
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
-        shape = (self._shape if shape is None else shape).combined(resolution)
+        shape = (self._shape if shape is None else shape) & resolution
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
         with math.NUMPY:
             k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units

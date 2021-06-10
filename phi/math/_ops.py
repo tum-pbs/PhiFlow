@@ -9,11 +9,10 @@ from typing import Tuple, Callable, Any
 import numpy as np
 
 from . import extrapolation as e_
-from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, Shape, EMPTY_SHAPE,
-                     spatial_shape, shape as shape_, dim_type, combine_safe, parse_dim_order,
-                     batch_shape, channel_shape, COLLECTION_DIM)
+from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, COLLECTION_DIM, Shape, EMPTY_SHAPE,
+                     spatial, batch, channel, collection, merge_shapes, parse_dim_order)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
-    custom_op2, tensors, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
+    custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
     assemble_tensors, disassemble_tree, assemble_tree, value_attributes
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
 from .backend._dtype import DType, combine_types
@@ -168,8 +167,8 @@ def reshaped_native(value: Tensor,
         if isinstance(group, Shape):
             present = value.shape.only(group)
             if force_expand is True or present.volume > 1 or (force_expand is not False and group.only(force_expand).volume > 1):
-                value = _expand_dims(value, group)
-            value = join_dimensions(value, group, f"group{i}")
+                value = expand(value, group)
+            value = join_dimensions(value, group, batch(f"group{i}"))
             order.append(f"group{i}")
         else:
             assert isinstance(group, str), f"Groups must be either str or Shape but got {group}"
@@ -189,7 +188,7 @@ def reshaped_tensor(value: Any,
 
     Args:
         value: Native tensor or tensor-like.
-        groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
+        groups: Sequence of dimension groups to be joined as `tuple[Shape]` or `list[Shape]`.
         check_sizes: If True, group sizes must match the sizes of `value` exactly. Otherwise, allows singleton dimensions.
         convert: If True, converts the data to the native format of the current default backend.
             If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
@@ -197,17 +196,16 @@ def reshaped_tensor(value: Any,
     Returns:
         `Tensor` with all dimensions from `groups`
     """
-    names = [group if isinstance(group, str) else f'group{i}' for i, group in enumerate(groups)]
-    value = tensor(value, names, convert=convert)
+    assert all(isinstance(g, Shape) for g in groups), "groups must be a sequence of Shapes"
+    dims = [batch(f'group{i}') for i, group in enumerate(groups)]
+    value = tensor(value, *dims, convert=convert)
     for i, group in enumerate(groups):
-        if isinstance(group, Shape):
-            if value.shape.get_size(f'group{i}') == group.volume:
-                value = split_dimension(value, f'group{i}', group)
-            else:
-                if check_sizes:
-                    raise AssertionError()
-                value = value.dimension(f'group{i}')[0]  # remove group dim
-                value = _expand_dims(value, group)
+        if value.shape.get_size(f'group{i}') == group.volume:
+            value = split_dimension(value, f'group{i}', group)
+        elif check_sizes:
+            raise AssertionError(f"Group {group} does not match dimension {i} of value {value.shape}")
+        else:
+            value = split_dimension(value, f'group{i}', group)
     return value
 
 
@@ -256,8 +254,8 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
     if channels_last is None:
         backend = choose_backend_t(*inputs, prefer_default=True)
         channels_last = backend.prefers_channels_last()
-    batch = combine_safe(*[i.shape.batch for i in inputs])
-    spatial = combine_safe(*[i.shape.spatial for i in inputs])
+    batch = merge_shapes(*[i.shape.batch for i in inputs])
+    spatial = merge_shapes(*[i.shape.spatial for i in inputs])
     natives = []
     for i in inputs:
         groups = (batch, *i.shape.spatial.names, i.shape.channel) if channels_last else (batch, i.shape.channel, *i.shape.spatial.names)
@@ -340,7 +338,7 @@ def map_(function, *values: Tensor) -> Tensor:
     Returns:
         `Tensor` of same shape as `value`.
     """
-    shape = combine_safe(*[v.shape for v in values])
+    shape = merge_shapes(*[v.shape for v in values])
     values_reshaped = [CollapsedTensor(v, shape) for v in values]
     flat = [flatten(v) for v in values_reshaped]
     result = []
@@ -352,18 +350,17 @@ def map_(function, *values: Tensor) -> Tensor:
     return wrap(result).vector.split(shape)
 
 
-def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None, **dimensions):
-    shape &= shape_(**dimensions)
+def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None):
     if shape.is_non_uniform:
         stack_dim = shape.shape.without('dims')[0:1]
         shapes = shape.unstack(stack_dim.name)
         tensors = [_initialize(uniform_initializer, s, dtype) for s in shapes]
-        return _stack(tensors, stack_dim.name, stack_dim.types[0])
+        return stack(tensors, stack_dim)
     else:
         return uniform_initializer(shape, dtype)
 
 
-def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
+def zeros(shape=EMPTY_SHAPE, dtype=None):
     """
     Define a tensor with specified shape with value 0 / False everywhere.
     
@@ -372,14 +369,12 @@ def zeros(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     Args:
       shape: base tensor shape (Default value = EMPTY_SHAPE)
       dtype: data type (Default value = None)
-      dimensions: additional dimensions, types are determined from names
-      **dimensions: 
 
     Returns:
       tensor of specified shape
 
     """
-    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
+    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype)
 
 
 def zeros_like(obj):
@@ -388,7 +383,7 @@ def zeros_like(obj):
     return assemble_tree(nest, values0)
 
 
-def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
+def ones(shape=EMPTY_SHAPE, dtype=None):
     """
     Define a tensor with specified shape with value 1 / True everywhere.
     
@@ -397,21 +392,19 @@ def ones(shape=EMPTY_SHAPE, dtype=None, **dimensions):
     Args:
       shape: base tensor shape (Default value = EMPTY_SHAPE)
       dtype: data type (Default value = None)
-      dimensions: additional dimensions, types are determined from names
-      **dimensions: 
 
     Returns:
       tensor of specified shape
 
     """
-    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype, **dimensions)
+    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype)
 
 
 def ones_like(tensor: Tensor):
     return zeros(tensor.shape, dtype=tensor.dtype) + 1
 
 
-def random_normal(shape=EMPTY_SHAPE, dtype: DType=None, **dimensions):
+def random_normal(shape=EMPTY_SHAPE, dtype: DType=None):
     """
     Creates a `Tensor` with the specified shape, filled with random values distributed according to a normal / Gaussian distribution.
 
@@ -425,7 +418,6 @@ def random_normal(shape=EMPTY_SHAPE, dtype: DType=None, **dimensions):
     Args:
         shape: (optional) Base `Shape`
         dtype: (optional) `DType`. If `None`, a float tensor with the current default precision is created, see `get_precision()`.
-        **dimensions: Additional Tensor dimensions, e.g. `x=64`.
 
     Returns:
         `Tensor`
@@ -436,17 +428,17 @@ def random_normal(shape=EMPTY_SHAPE, dtype: DType=None, **dimensions):
         native = native if dtype is None else native.astype(dtype)
         return NativeTensor(native, shape)
 
-    return _initialize(uniform_random_normal, shape, dtype, **dimensions)
+    return _initialize(uniform_random_normal, shape, dtype)
 
 
-def random_uniform(shape=EMPTY_SHAPE, dtype=None, **dimensions):
+def random_uniform(shape=EMPTY_SHAPE, dtype=None):
 
     def uniform_random_uniform(shape, dtype):
         native = choose_backend(*shape.sizes, prefer_default=True).random_uniform(shape.sizes)
         native = native if dtype is None else native.astype(dtype)
         return NativeTensor(native, shape)
 
-    return _initialize(uniform_random_uniform, shape, dtype, **dimensions)
+    return _initialize(uniform_random_uniform, shape, dtype)
 
 
 def transpose(x, axes):
@@ -487,21 +479,23 @@ def fftfreq(resolution: Shape, dx: Tensor or float = 1, dtype: DType = None):
     Returns:
         `Tensor` holding the frequencies of the corresponding values computed by math.fft
     """
-    resolution = spatial_shape(resolution)
-    k = meshgrid(**{dim: np.fft.fftfreq(int(n)) for dim, n in resolution.named_sizes})
+    k = meshgrid(**{dim: np.fft.fftfreq(int(n)) for dim, n in resolution.spatial.named_sizes})
     k /= dx
     return to_float(k) if dtype is None else cast(k, dtype)
 
 
-def meshgrid(**dimensions):
+def meshgrid(dim_type=spatial, stack_dim=channel('vector'), **dimensions: int or Tensor) -> Tensor:
     """
-    generate a TensorStack meshgrid from keyword dimensions
+    Generate a mesh-grid `Tensor` from keyword dimensions.
 
     Args:
-      **dimensions: 
+        **dimensions: Mesh-grid dimensions, mapping names to values.
+            Values may be `int`, 1D `Tensor` or 1D native tensor.
+        dim_type: Dimension type of mesh-grid dimensions, one of `spatial`, `channel`, `batch`, `collection`.
+        stack_dim: Vector dimension along which grids are stacked.
 
     Returns:
-
+        Mesh-grid `Tensor`
     """
     assert 'vector' not in dimensions
     dim_values = []
@@ -522,57 +516,54 @@ def meshgrid(**dimensions):
             dim_sizes.append(shape[0])
     backend = choose_backend(*dim_values, prefer_default=True)
     indices_list = backend.meshgrid(*dim_values)
-    grid_shape = Shape(dim_sizes, dimensions.keys(), [SPATIAL_DIM] * len(dim_values))
+    grid_shape = dim_type(**{dim: size for dim, size in zip(dimensions.keys(), dim_sizes)})
     channels = [NativeTensor(t, grid_shape) for t in indices_list]
-    return TensorStack(channels, 'vector', CHANNEL_DIM)
+    return stack(channels, stack_dim)
 
 
-def linspace(start, stop, number: int, dim='linspace'):
+def linspace(start, stop, number: int, dim: Shape = channel('linspace')):
+    assert dim.rank == 1
     native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
-    return NativeTensor(native, shape_(**{dim: number}))
+    return NativeTensor(native, dim.with_sizes([number]))
 
 
-def arange(start_or_stop: int, stop: int or None = None, step=1, dim='range'):
+def arange(dim: Shape, start_or_stop: int, stop: int or None = None, step=1):
     if stop is None:
         start, stop = 0, start_or_stop
     else:
         start = start_or_stop
     native = choose_backend(start, stop, prefer_default=True).range(start, stop, step, DType(int, 32))
-    return NativeTensor(native, shape_(**{dim: stop - start}))
+    return NativeTensor(native, dim.with_sizes([stop - start]))
 
 
-def range_tensor(shape: Shape, **dims):
-    shape &= shape_(**dims)
-    data = arange(0, shape.volume)
+def range_tensor(shape: Shape):
+    data = arange(spatial('range'), 0, shape.volume)
     result = split_dimension(data, 'range', shape)
     return result
 
 
-def channel_stack(values, dim: str):
-    return _stack(values, dim, CHANNEL_DIM)
+def stack(values: tuple or list, dim: Shape):
+    """
+    Lazy stack.
+    Stacks `values` along the new dimension `dim`.
 
+    Args:
+        values: Sequence of `Tensor` objects to be stacked.
+        dim: Single-dimension `Shape`. This dimension must not be present with any of the `values`.
 
-def batch_stack(values, dim: str = 'batch'):
-    return _stack(values, dim, BATCH_DIM)
-
-
-def spatial_stack(values, dim: str):
-    return _stack(values, dim, SPATIAL_DIM)
-
-
-def _stack(values: tuple or list,
-           dim: str,
-           dim_type: str):
+    Returns:
+        `Tensor` containing `values` stacked along `dim`.
+    """
     values = cast_same(*values)
 
     def inner_stack(*values):
-        return TensorStack(values, dim, dim_type)
+        return TensorStack(values, dim)
 
     result = broadcast_op(inner_stack, values)
     return result
 
 
-def concat(values: tuple or list, dim: str) -> Tensor:
+def concat(values: tuple or list, dim: Shape) -> Tensor:
     """
     Concatenates a sequence of tensors along one dimension.
     The shapes of all values must be equal, except for the size of the concat dimension.
@@ -588,6 +579,7 @@ def concat(values: tuple or list, dim: str) -> Tensor:
 
     """
     assert len(values) > 0, "concat() got empty sequence"
+    assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got '{dim}' of type {type(dim)}"
     broadcast_shape = values[0].shape
     natives = [v.native(order=broadcast_shape.names) for v in values]
     backend = choose_backend(*natives)
@@ -595,7 +587,7 @@ def concat(values: tuple or list, dim: str) -> Tensor:
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
 
 
-def pad(value: Tensor, widths: dict, mode: 'extrapolation_.Extrapolation') -> Tensor:
+def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation') -> Tensor:
     """
     Pads a tensor along the specified dimensions, determining the added values using the given extrapolation_.
     
@@ -618,7 +610,7 @@ def pad(value: Tensor, widths: dict, mode: 'extrapolation_.Extrapolation') -> Te
 
 def closest_grid_values(grid: Tensor,
                         coordinates: Tensor,
-                        extrap: 'extrapolation_.Extrapolation',
+                        extrap: 'e_.Extrapolation',
                         stack_dim_prefix='closest_'):
     """
     Finds the neighboring grid points in all spatial directions and returns their values.
@@ -639,14 +631,14 @@ def closest_grid_values(grid: Tensor,
 
 def _closest_grid_values(grid: Tensor,
                          coordinates: Tensor,
-                         extrap: 'extrapolation_.Extrapolation',
+                         extrap: 'e_.Extrapolation',
                          stack_dim_prefix='closest_'):
     # alternative method: pad array for all 2^d combinations, then stack to simplify gather.
     # --- Pad tensor where transform is not possible ---
     non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
                     for dim in grid.shape.spatial.names}
     grid = extrap.pad(grid, non_copy_pad)
-    coordinates += wrap([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], 'vector')
+    coordinates += wrap([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], channel('vector'))
     # --- Transform coordiantes ---
     min_coords = to_int32(floor(coordinates))
     max_coords = extrap.transform_coordinates(min_coords + 1, grid.shape)
@@ -662,7 +654,7 @@ def _closest_grid_values(grid: Tensor,
         else:
             values_left = left_right(is_hi_by_axis_left, ax_idx + 1)
             values_right = left_right(is_hi_by_axis_right, ax_idx + 1)
-        return spatial_stack([values_left, values_right], f"{stack_dim_prefix}{grid.shape.spatial.names[ax_idx]}")
+        return stack([values_left, values_right], channel(f"{stack_dim_prefix}{grid.shape.spatial.names[ax_idx]}"))
 
     result = left_right(np.array([False] * grid.shape.spatial_rank), 0)
     return result
@@ -680,14 +672,14 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
         backend = choose_backend_t(grid, coordinates)
         result = NotImplemented
         if extrap is None:
-            result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial.names, grid.shape.channel]),
-                                         grid.shape.index(grid.shape.spatial),
-                                         reshaped_native(coordinates, [batch, *coordinates.shape.spatial.names, 'vector']),
+            result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial, grid.shape.channel]),
+                                         grid.shape.indices(grid.shape.spatial),
+                                         reshaped_native(coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
                                          'undefined')
         elif extrap.native_grid_sample_mode:
-            result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial.names, grid.shape.channel]),
-                                         grid.shape.index(grid.shape.spatial),
-                                         reshaped_native(coordinates, [batch, *coordinates.shape.spatial.names, 'vector']),
+            result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial, grid.shape.channel]),
+                                         grid.shape.indices(grid.shape.spatial),
+                                         reshaped_native(coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
                                          extrap.native_grid_sample_mode)
         if result is NotImplemented:
             # pad one layer
@@ -701,18 +693,15 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
             else:
                 inner_coordinates = coordinates + 1
             result = backend.grid_sample(reshaped_native(grid_padded, [batch, *grid_padded.shape.spatial.names, grid.shape.channel]),
-                                         grid.shape.index(grid.shape.spatial),
-                                         reshaped_native(inner_coordinates, [batch, *coordinates.shape.spatial.names, 'vector']),
+                                         grid.shape.indices(grid.shape.spatial),
+                                         reshaped_native(inner_coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
                                          'boundary')
         if result is not NotImplemented:
-            result = reshaped_tensor(result, [grid.shape.batch & coordinates.shape.batch, *coordinates.shape.spatial.names, grid.shape.channel])
-            # result_shape = shape_(batch=max(grid.shape.batch.volume, coordinates.shape.batch.volume)) & coordinates_batched.shape.spatial & grid_batched.shape.channel
-            # result = NativeTensor(result, result_shape)
-            # result = result.batch.split(grid.shape.batch & coordinates.shape.batch).vector.split(grid.shape.channel)
+            result = reshaped_tensor(result, [grid.shape.batch & coordinates.shape.batch, *coordinates.shape.collection, *coordinates.shape.spatial, grid.shape.channel])
             return result
     # fallback to slower grid sampling
     neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, 'closest_')
-    binary = meshgrid(**{f'closest_{dim}': (0, 1) for dim in grid.shape.spatial.names})
+    binary = meshgrid(**{f'closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, dim_type=channel)
     right_weights = coordinates % 1
     binary, right_weights = join_spaces(binary, right_weights)
     weights = prod(binary * right_weights + (1 - binary) * (1 - right_weights), 'vector')
@@ -721,8 +710,8 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
 
 
 def join_spaces(*tensors):
-    spatial = functools.reduce(lambda s1, s2: s1.combined(s2, combine_spatial=True), [t.shape.spatial for t in tensors])
-    return [CollapsedTensor(t, t.shape.non_spatial & spatial) for t in tensors]
+    spatial_dims = merge_shapes(*[t.shape.spatial for t in tensors])
+    return [CollapsedTensor(t, t.shape.non_spatial & spatial_dims) for t in tensors]
 
 
 def broadcast_op(operation: Callable,
@@ -733,7 +722,7 @@ def broadcast_op(operation: Callable,
         iter_dims = set()
         for tensor in tensors:
             if isinstance(tensor, TensorStack) and tensor.requires_broadcast:
-                iter_dims.add(tensor.stack_dim_name)
+                iter_dims.add(tensor.stack_dim.name)
     if len(iter_dims) == 0:
         return operation(*tensors)
     else:
@@ -744,7 +733,7 @@ def broadcast_op(operation: Callable,
         size = None
         unstacked = []
         for tensor in tensors:
-            if dim in tensor.shape:
+            if dim in tensor.shape.names:
                 unstacked_tensor = tensor.unstack(dim)
                 unstacked.append(unstacked_tensor)
                 if size is None:
@@ -760,7 +749,7 @@ def broadcast_op(operation: Callable,
             gathered = [t[i] if isinstance(t, tuple) else t for t in unstacked]
             result_unstacked.append(broadcast_op(operation, gathered, iter_dims=set(iter_dims) - {dim}))
         if not no_return:
-            return TensorStack(result_unstacked, dim, dim_type)
+            return TensorStack(result_unstacked, Shape([None], [dim], [dim_type]))
 
 
 def split_dimension(value: Tensor, dim: str, split_dims: Shape):
@@ -783,14 +772,14 @@ def split_dimension(value: Tensor, dim: str, split_dims: Shape):
     if split_dims.rank == 0:
         return value.dimension(dim)[0]  # remove dim
     if split_dims.rank == 1:
-        new_shape = value.shape.without(dim).expand(split_dims.sizes[0], split_dims.name, split_dims.types[0], pos=value.shape.index(dim))
+        new_shape = value.shape.without(dim).expand(split_dims, pos=value.shape.index(dim))
         return value._with_shape_replaced(new_shape)
     else:
         native = value.native(value.shape.names)
         new_shape = value.shape.without(dim)
         i = value.shape.index(dim)
-        for size, name, dim_type in split_dims.dimensions:
-            new_shape = new_shape.expand(size, name, dim_type, pos=i)
+        for d in split_dims:
+            new_shape = new_shape.expand(d, pos=i)
             i += 1
         native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
         return NativeTensor(native_reshaped, new_shape)
@@ -798,7 +787,7 @@ def split_dimension(value: Tensor, dim: str, split_dims: Shape):
 
 def join_dimensions(value: Tensor,
                     dims: Shape or tuple or list,
-                    joined_dim_name: str,
+                    joined: Shape,
                     pos: int or None = None):
     """
     Compresses multiple dimensions into a single dimension by concatenating the elements.
@@ -815,7 +804,7 @@ def join_dimensions(value: Tensor,
     Args:
         value: Tensor containing the dimensions `dims`.
         dims: Dimensions to be compressed in the specified order.
-        joined_dim_name: Name of the new dimension.
+        joined: Name and type of the new dimension.
         pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
 
     Returns:
@@ -823,22 +812,21 @@ def join_dimensions(value: Tensor,
     """
     dims = dims.names if isinstance(dims, Shape) else dims
     if len(dims) == 0 or all(dim not in value.shape for dim in dims):
-        return CollapsedTensor(value, value.shape.expand(1, joined_dim_name, dim_type(joined_dim_name), pos))
+        return CollapsedTensor(value, value.shape.expand(joined.with_sizes([1]), pos))
     if len(dims) == 1:
-        new_shape = value.shape.with_names([joined_dim_name if name == dims[0] else name for name in value.shape.names])
+        new_shape = value.shape.with_names([joined.name if name == dims[0] else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
     order = value.shape.order_group(dims)
     native = value.native(order)
-    types = value.shape.get_type(dims)
-    dim_type_ = types[0] if len(set(types)) == 1 else BATCH_DIM
     if pos is None:
         pos = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims).expand(value.shape.only(dims).volume, joined_dim_name, dim_type_, pos)
+    new_shape = value.shape.without(dims).expand(joined.with_sizes([value.shape.only(dims).volume]), pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
 
 
-def flatten(value: Tensor, flat_dim: str = 'flat'):
+def flatten(value: Tensor, flat_dim: Shape = collection('flat')):
+    assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     return join_dimensions(value, value.shape, flat_dim)
 
 
@@ -862,13 +850,15 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
       tensor containing dimensions of all inputs
 
     """
-    condition, value_true, value_false = tensors(condition, value_true, value_false)
+    condition = tensor(condition)
+    value_true = tensor(value_true)
+    value_false = tensor(value_false)
     shape, (c, vt, vf) = broadcastable_native_tensors(condition, value_true, value_false)
     result = choose_backend(c, vt, vf).where(c, vt, vf)
     return NativeTensor(result, shape)
 
 
-def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
+def nonzero(value: Tensor, list_dim: Shape = collection('nonzero'), index_dim: Shape = channel('vector')):
     """
     Get spatial indices of non-zero / True values.
     
@@ -884,8 +874,8 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
 
     Args:
         value: spatial tensor to find non-zero / True values in.
-        list_dim: name of dimension listing non-zero values (Default value = 'nonzero')
-        index_dim: name of index dimension (Default value = 'vector')
+        list_dim: Dimension listing non-zero values.
+        index_dim: Index dimension.
 
     Returns:
         `Tensor` of shape (batch dims..., `list_dim`=#non-zero, `index_dim`=value.shape.spatial_rank)
@@ -898,7 +888,7 @@ def nonzero(value: Tensor, list_dim='nonzero', index_dim='vector'):
         native = reshaped_native(value, [*value.shape.spatial])
         backend = choose_backend(native)
         indices = backend.nonzero(native)
-        indices_shape = Shape(backend.staticshape(indices), (list_dim, index_dim), (BATCH_DIM, CHANNEL_DIM))
+        indices_shape = Shape(backend.staticshape(indices), (list_dim.name, index_dim.name), (list_dim.type, index_dim.type))
         return NativeTensor(indices, indices_shape)
 
     return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)
@@ -925,7 +915,7 @@ def _reduce(value: Tensor or list or tuple,
         return value
     if isinstance(value, (tuple, list)):
         values = [wrap(v) for v in value]
-        value = _stack(values, '_reduce', BATCH_DIM)
+        value = stack(values, batch('_reduce'))
         if dim is None:
             pass  # continue below
         elif dim == 0:
@@ -1047,7 +1037,7 @@ def dot(x: Tensor,
     remaining_shape_x = x.shape.without(x_dims)
     remaining_shape_y = y.shape.without(y_dims)
     if remaining_shape_y.only(remaining_shape_x).is_empty:  # no shared batch dimensions -> tensordot
-        result_native = backend.tensordot(x_native, x.shape.index(x_dims), y_native, y.shape.index(y_dims))
+        result_native = backend.tensordot(x_native, x.shape.indices(x_dims), y_native, y.shape.indices(y_dims))
     else:  # shared batch dimensions -> einsum
         REDUCE_LETTERS = list('ijklmn')
         KEEP_LETTERS = list('abcdefgh')
@@ -1066,7 +1056,7 @@ def dot(x: Tensor,
         keep_letters = list('abcdefgh')[:-len(KEEP_LETTERS)]
         subscripts = f'{"".join(x_letters)},{"".join(y_letters)}->{"".join(keep_letters)}'
         result_native = backend.einsum(subscripts, x_native, y_native)
-    result_shape = combine_safe(x.shape.without(x_dims), y.shape.without(y_dims))  # don't check group match
+    result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))  # don't check group match
     return NativeTensor(result_native, result_shape)
 
 
@@ -1277,7 +1267,7 @@ def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
 
 def convolve(value: Tensor,
              kernel: Tensor,
-             extrapolation: 'extrapolation_.Extrapolation' = None) -> Tensor:
+             extrapolation: 'e_.Extrapolation' = None) -> Tensor:
     """
     Computes the convolution of `value` and `kernel` along the spatial axes of `kernel`.
 
@@ -1304,7 +1294,7 @@ def convolve(value: Tensor,
     native_value = reshaped_native(value, (batch, in_channels, *conv_shape.names), force_expand=batch)
     backend = choose_backend(native_value, native_kernel)
     native_result = backend.conv(native_value, native_kernel, zero_padding=extrapolation == e_.ZERO)
-    result = reshaped_tensor(native_result, (batch, out_channels, *conv_shape.names))
+    result = reshaped_tensor(native_result, (batch, out_channels, *conv_shape))
     return result
 
 
@@ -1346,7 +1336,7 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
         else:
             total = int(sum_(to_int64(mask_1d)))
             new_shape = mask_1d.shape.with_sizes([total])
-            return _expand_dims(x, new_shape)
+            return expand(x, new_shape)
 
     return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=mask.shape.without(dim))
 
@@ -1357,19 +1347,19 @@ def gather(values: Tensor, indices: Tensor):
     native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
-    result = reshaped_tensor(native_result, [batch, *indices.shape.spatial, values.shape.channel])
+    result = reshaped_tensor(native_result, [batch, *indices.shape.non_channel.non_batch, values.shape.channel])
     return result
 
 
 def scatter(base_grid: Tensor or Shape,
             indices: Tensor,
             values: Tensor,
-            scatter_dims: str or tuple or list or 'Shape',
             mode: str = 'update',
             outside_handling: str = 'discard',
             indices_gradient=False):
     """
     Scatters `values` into `base_grid` at `indices`.
+    Collection dimensions of `indices` and/or `values` are reduced during scattering.
     Depending on `mode`, this method has one of the following effects:
 
     * `mode='update'`: Replaces the values of `base_grid` at `indices` by `values`. The result is undefined if `indices` contains duplicates.
@@ -1390,8 +1380,6 @@ def scatter(base_grid: Tensor or Shape,
             This dimension is optional if the spatial rank is 1.
             Must also contain all `scatter_dims`.
         values: `Tensor` of values to scatter at `indices`.
-        scatter_dims: Dimensions of `values` and/or `indices` to reduce during scattering.
-            These dimensions are not treated as batch dimensions.
         mode: Scatter mode as `str`. One of ('add', 'mean', 'update')
         outside_handling: Defines how indices lying outside the bounds of `base_grid` are handled.
 
@@ -1408,23 +1396,8 @@ def scatter(base_grid: Tensor or Shape,
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert indices.shape.channel.names == ('vector',) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
-
-    batches = (values.shape.non_channel & indices.shape.non_channel).without(scatter_dims)
-    lists = indices.shape.only(scatter_dims)
-    channels = (grid_shape.channel & values.shape.channel).without(scatter_dims)
-    # --- Reshape base_grid to (batch, *base_grid.shape, vector) ---
-    shaped_base_grid = join_dimensions(base_grid, batches, 'batch_', pos=0)
-    shaped_base_grid = join_dimensions(shaped_base_grid, channels, 'vector_', pos=-1)
-    # --- Reshape indices to (batch, list, vector) ---
-    shaped_indices = join_dimensions(indices, batches, 'batch_', pos=0)
-    shaped_indices = join_dimensions(shaped_indices, lists, 'list_', pos=1)
-    # --- Reshape values to (batch, list, vector) and expand it to all elements / indices ---
-    values = _expand_dims(values, channels)
-    values = ones(indices.shape.batch) * values
-    shaped_values = join_dimensions(values, batches, 'batch_', pos=0)
-    shaped_values = join_dimensions(shaped_values, lists, 'list_', pos=1)
-    shaped_values = join_dimensions(shaped_values, channels, 'vector_', pos=-1)
-
+    batches = values.shape.non_channel.non_collection & indices.shape.non_channel.non_collection
+    channels = grid_shape.channel & values.shape.channel
     # --- Set up grid ---
     if isinstance(base_grid, Shape):
         with choose_backend_t(indices, values):
@@ -1433,20 +1406,21 @@ def scatter(base_grid: Tensor or Shape,
             base_grid += math.nan
     # --- Handle outside indices ---
     if outside_handling == 'clamp':
-        shaped_indices = clip(shaped_indices, 0, tensor(grid_shape.spatial, 'vector') - 1)
+        indices = clip(indices, 0, tensor(grid_shape.spatial, channel('vector')) - 1)
     elif outside_handling == 'discard':
-        indices_inside = min_((round_(shaped_indices) >= tensor(0.)) &
-                              (round_(shaped_indices) < tensor(grid_shape.spatial, 'vector')), 'vector')
-        shaped_indices = shaped_indices.list_[indices_inside]
-        shaped_values = shaped_values.list_[indices_inside]
-        if shaped_indices.shape.is_non_uniform:
+        indices_inside = min_((round_(indices) >= 0) & (round_(indices) < tensor(grid_shape.spatial, channel('vector'))), 'vector')
+        indices = boolean_mask(indices, indices.shape.collection.name, indices_inside)
+        if collection(values).rank > 0:
+            values = boolean_mask(values, values.shape.collection.name, indices_inside)
+        if indices.shape.is_non_uniform:
             raise NotImplementedError()
+    lists = indices.shape.collection & values.shape.collection
 
-    def scatter_forward(shaped_base_grid_, shaped_indices_, shaped_values_):
-        shaped_indices_ = to_int32(round_(shaped_indices_))
-        native_grid = reshaped_native(base_grid, (batches, *base_grid.shape.spatial.names, channels), force_expand=True)
-        native_values = shaped_values_.native('batch_, list_, vector_')
-        native_indices = shaped_indices_.native('batch_, list_, vector')
+    def scatter_forward(base_grid, indices, values):
+        indices = to_int32(round_(indices))
+        native_grid = reshaped_native(base_grid, [batches, *base_grid.shape.spatial.names, channels], force_expand=True)
+        native_values = reshaped_native(values, [batches, lists, channels], force_expand=True)
+        native_indices = reshaped_native(indices, [batches, lists, 'vector'], force_expand=True)
         backend = choose_backend(native_indices, native_values, native_grid)
         if mode in ('add', 'update'):
             native_result = backend.scatter(native_grid, native_indices, native_values, mode=mode)
@@ -1456,7 +1430,7 @@ def scatter(base_grid: Tensor or Shape,
             count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode='add')
             native_result = summed / backend.maximum(count, 1)
             native_result = backend.where(count == 0, native_grid, native_result)
-        return tensor(native_result, shaped_base_grid_.shape)
+        return reshaped_tensor(native_result, [batches, *spatial(base_grid), channels], check_sizes=True)
 
     def scatter_backward(shaped_base_grid_, shaped_indices_, shaped_values_, output, d_output):
         from ._nd import spatial_gradient
@@ -1470,8 +1444,8 @@ def scatter(base_grid: Tensor or Shape,
         from phi.math import custom_gradient
         scatter_function = custom_gradient(scatter_forward, scatter_backward)
 
-    result = scatter_function(shaped_base_grid, shaped_indices, shaped_values)
-    return reshaped_tensor(result, (batches, *base_grid.shape.spatial.names, channels), check_sizes=True)
+    result = scatter_function(base_grid, indices, values)
+    return result
 
 
 def fft(x: Tensor) -> Tensor:
@@ -1527,19 +1501,7 @@ def dtype(x):
         return choose_backend(x).dtype(x)
 
 
-def expand_batch(value: Tensor, **dims):
-    return _expand_dims(value, batch_shape(dims))
-
-
-def expand_spatial(value: Tensor, **dims):
-    return _expand_dims(value, spatial_shape(dims))
-
-
-def expand_channel(value: Tensor, **dims):
-    return _expand_dims(value, channel_shape(dims))
-
-
-def expand(value: Tensor, add_shape: Shape = EMPTY_SHAPE, **dims):
+def expand(value: Tensor, dims: Shape):
     """
     Adds dimensions to a `Tensor` by implicitly repeating the tensor values along the new dimensions.
     If `value` already contains some of the new dimensions, a size and type check is performed instead.
@@ -1554,24 +1516,21 @@ def expand(value: Tensor, add_shape: Shape = EMPTY_SHAPE, **dims):
 
     Args:
         value: `Tensor`
-        add_shape: Dimensions to be added as `Shape`
-        **dims: Additional dimensions to be added. Dimension types will be inferred from their names.
+        dims: Dimensions to be added as `Shape`
 
     Returns:
         Expanded `Tensor`.
     """
-    return _expand_dims(value, add_shape & shape_(**dims))
-
-
-def _expand_dims(value: Tensor, new_dims: Shape):
     value = wrap(value)
     shape = value.shape
-    for size, dim, dim_type in new_dims.reversed.dimensions:
+    for dim in dims.reversed:
         if dim in value.shape:
-            assert shape.get_size(dim) == size, f"Cannot expand tensor with shape {shape} by dimension {dim}={size}"
-            assert shape.get_type(dim) == dim_type, f"Cannot expand tensor with shape {shape} by dimension {dim} of type '{type}' because the dimension types do not match"
+            assert dim.size is None or shape.get_size(dim.name) == dim.size, f"Cannot expand tensor with shape {shape} by dimension {dim}"
+            assert shape.get_type(dim.name) == dim.type, f"Cannot expand tensor with shape {shape} by dimension {dim} of type '{dim.type}' because the dimension types do not match"
         else:
-            shape = shape.expand(size, dim, dim_type)
+            if dim.size is None:
+                dim = dim.with_sizes([1])
+            shape = shape.expand(dim)
     return CollapsedTensor(value, shape)
 
 

@@ -4,7 +4,7 @@ from phi import math
 from phi.geom import Geometry, GridCell, Box
 from ._field import SampledField
 from ..geom._stack import GeometryStack
-from ..math import Tensor
+from ..math import Tensor, collection
 
 
 class PointCloud(SampledField):
@@ -41,10 +41,8 @@ class PointCloud(SampledField):
         self._add_overlapping = add_overlapping
         assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
         self._bounds = bounds
-        assert 'points' in self.shape, "Cannot create PointCloud without 'points' dimension. Add it either to elements or to values as batch dimension."
-        if color is None:
-            color = '#0060ff'
-        self._color = math.wrap(color, names='points') if isinstance(color, (tuple, list)) else math.wrap(color)
+        color = '#0060ff' if color is None else color
+        self._color = math.wrap(color, collection('points')) if isinstance(color, (tuple, list)) else math.wrap(color)
 
     @property
     def shape(self):
@@ -94,7 +92,7 @@ class PointCloud(SampledField):
             return self._grid_scatter(geometry.bounds, geometry.resolution)
         elif isinstance(geometry, GeometryStack):
             sampled = [self._sample(g) for g in geometry.geometries]
-            return math.batch_stack(sampled, geometry.stack_dim_name)
+            return math.stack(sampled, geometry.stack_dim)
         else:
             raise NotImplementedError()
 
@@ -117,7 +115,7 @@ class PointCloud(SampledField):
         base = math.zeros(resolution)
         if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
             base += self.extrapolation.value
-        scattered = math.scatter(base, closest_index, self.values, scatter_dims=('points',), mode=mode, outside_handling='discard')
+        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling='discard')
         return scattered
 
     def __repr__(self):
@@ -126,10 +124,10 @@ class PointCloud(SampledField):
     def __and__(self, other):
         assert isinstance(other, PointCloud)
         from ._field_math import concat
-        return concat(self, other, dim='points')
+        return concat([self, other], collection('points'))
 
 
 def nonzero(field: SampledField):
-    indices = math.nonzero(field.values, list_dim='points')
+    indices = math.nonzero(field.values, list_dim=collection('points'))
     elements = field.elements[indices]
     return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds, color=None)

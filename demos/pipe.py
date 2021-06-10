@@ -3,7 +3,7 @@ Simulates a viscous fluid flowing through a horizontal pipe.
 """
 from phi.flow import *
 
-DOMAIN = dict(x=50, y=32, extrapolation=extrapolation.combine_sides(dict(x=extrapolation.BOUNDARY, y=extrapolation.ZERO)))
+DOMAIN = dict(x=50, y=32, extrapolation=extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.ZERO))
 DT = 1.0
 BOUNDARY_MASK = StaggeredGrid(HardGeometryMask(Box[:0.5, :]), **DOMAIN)
 velocity = StaggeredGrid(0, **DOMAIN)

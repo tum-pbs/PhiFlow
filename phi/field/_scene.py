@@ -1,19 +1,17 @@
 # coding=utf-8
 import inspect
 import json
-import logging
 import os
 import re
 import shutil
 import sys
 import warnings
-from os.path import join, isfile, isdir, abspath, expanduser, basename, dirname, split
-
-import numpy as np
+from os.path import join, isfile, isdir, abspath, expanduser, basename, split
 
 from phi import struct, math, __version__ as phi_version
 from ._field import Field, SampledField
 from ._field_io import read, write
+from ..math import Shape, batch
 
 
 def read_sim_frame(directory: math.Tensor,
@@ -138,8 +136,8 @@ class Scene(object):
         return self._paths
 
     @staticmethod
-    def batch_stack(*scenes: 'Scene', dim: str = 'batch') -> 'Scene':
-        return Scene(math.batch_stack([s._paths for s in scenes], dim))
+    def stack(*scenes: 'Scene', dim: Shape = batch('batch')) -> 'Scene':
+        return Scene(math.stack([s._paths for s in scenes], dim))
 
     @staticmethod
     def create(parent_directory: str,
@@ -162,7 +160,7 @@ class Scene(object):
         Returns:
             Single `Scene` object representing the new scene(s).
         """
-        shape = (shape & math.shape(**dimensions)).to_batch()
+        shape = (shape & math.batch(**dimensions)).to_batch()
         parent_directory = expanduser(parent_directory)
         abs_dir = abspath(parent_directory)
         if not isdir(abs_dir):
@@ -185,7 +183,7 @@ class Scene(object):
     @staticmethod
     def list(parent_directory: str,
              include_other: bool = False,
-             dim: str or None = None) -> 'Scene' or tuple:
+             dim: Shape or None = None) -> 'Scene' or tuple:
         """
         Lists all scenes inside the given directory.
 
@@ -230,7 +228,7 @@ class Scene(object):
             assert id is None, f"Got id={id} but directory is already a Scene."
             return directory
         if isinstance(directory, (tuple, list)):
-            directory = math.wrap(directory, 'scenes')
+            directory = math.wrap(directory, batch('scenes'))
         directory = math.map(lambda d: expanduser(d), math.wrap(directory))
         if id is None:
             paths = directory

@@ -5,9 +5,9 @@ from phi import math, struct, field
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, HardGeometryMask
 from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
 from phi.geom import Geometry
-from phi.math import Tensor
+from phi.math import Tensor, channel, collection
 from phi.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
-from phi.math import spatial_shape
+from phi.math import spatial
 from ._physics import State
 from ..math.extrapolation import combine_sides
 
@@ -47,13 +47,6 @@ OPEN = {
     'accessible': ONE,
 }
 
-# SLIPPERY = {
-#     'scalar': BOUNDARY,
-#     'vector': combine_sides({'normal': ZERO, 'parallel': BOUNDARY}),  # TODO mixed extrapolation types not yet supported
-#     'active': ZERO,
-#     'accessible': ZERO,
-# }
-
 STICKY = {
     'scalar': BOUNDARY,
     'vector': ZERO,
@@ -88,12 +81,12 @@ class Domain:
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
         warnings.warn("Domain is deprecated. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", DeprecationWarning)
-        self.resolution: math.Shape = spatial_shape(resolution) & spatial_shape(resolution_)
+        self.resolution: math.Shape = spatial(resolution) & spatial(**resolution_)
         assert self.resolution.rank > 0, "Cannot create Domain because no dimensions were specified."
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """
         self.boundaries: dict = _create_boundary_conditions(boundaries, self.resolution.names)
         """ Outer boundary conditions. """
-        self.bounds: Box = Box(0, math.wrap(self.resolution, names='vector')) if bounds is None else bounds
+        self.bounds: Box = Box(0, math.wrap(self.resolution, channel('vector'))) if bounds is None else bounds
         """ Physical dimensions of the domain. """
 
     def __repr__(self):
@@ -188,7 +181,7 @@ class Domain:
             pass
         else:
             try:
-                value = math.wrap(value, names=self.resolution.names)
+                value = math.wrap(value, self.resolution)
             except AssertionError:
                 pass
             value = math.wrap(value)
@@ -223,7 +216,7 @@ class Domain:
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
         result = type(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
         if result.shape.channel_rank == 0:
-            result = result.with_(values=math.expand_channel(result.values, vector=self.rank))
+            result = result.with_(values=math.expand(result.values, channel(vector=self.rank)))
         else:
             assert result.shape.get_size('vector') == self.rank
         return result
@@ -312,11 +305,11 @@ class Domain:
         # --- Parse points: tuple / list ---
         if isinstance(points, (tuple, list)):
             if len(points) == 0:  # no points
-                points = math.zeros(points=0, vector=1)
+                points = math.zeros(collection(points=0), channel(vector=1))
             elif isinstance(points[0], Number):  # single point
-                points = math.tensor([points], 'points, vector')
+                points = math.tensor([points], collection('points'), channel('vector'))
             else:
-                points = math.tensor(points, 'points, vector')
+                points = math.tensor(points, collection('points'), channel('vector'))
         elements = Sphere(points, radius)
         if values is None:
             values = math.tensor(1.)
@@ -395,11 +388,11 @@ def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool
     Returns:
         A tensor containing the positions of the generated points.
     """
-    indices = math.to_float(math.nonzero(mask, list_dim='points'))
+    indices = math.to_float(math.nonzero(mask, list_dim=collection('points')))
     temp = []
     for _ in range(points_per_cell):
         if center:
             temp.append(indices + 0.5)
         else:
             temp.append(indices + (math.random_uniform(indices.shape)))
-    return math.concat(temp, dim='points')
+    return math.concat(temp, dim=collection('points'))

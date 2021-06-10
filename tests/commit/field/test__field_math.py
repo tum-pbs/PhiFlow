@@ -7,7 +7,7 @@ from phi import math
 from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask
 from phi.geom import Box
 from phi import field
-from phi.math import Solve, extrapolation
+from phi.math import Solve, extrapolation, collection, channel, spatial
 from phi.math.backend import Backend
 from phi.physics._boundaries import Domain
 
@@ -20,11 +20,11 @@ class TestFieldMath(TestCase):
     def test_gradient(self):
         domain = Domain(x=4, y=3)
         phi = domain.grid() * (1, 2)
-        grad = field.spatial_gradient(phi, stack_dim='spatial_gradient')
+        grad = field.spatial_gradient(phi, stack_dim=channel('spatial_gradient'))
         self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
 
     def test_divergence_centered(self):
-        v = CenteredGrid(math.ones(x=3, y=3), extrapolation.ZERO, bounds=Box[0:1, 0:1]) * (1, 0)  # flow to the right
+        v = CenteredGrid(1, extrapolation.ZERO, bounds=Box[0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
         div = field.divergence(v).values
         math.assert_close(div.y[0], (1.5, 0, -1.5))
 
@@ -74,7 +74,7 @@ class TestFieldMath(TestCase):
     def test_downsample_staggered_2d(self):
         grid = Domain(x=32, y=40).staggered_grid(1)
         downsampled = field.downsample2x(grid)
-        self.assertEqual(math.shape(x=16, y=20, vector=2).alphabetically(), downsampled.shape.alphabetically())
+        self.assertEqual((spatial(x=16, y=20) & channel(vector=2)).alphabetically(), downsampled.shape.alphabetically())
 
     def test_abs(self):
         grid = Domain(x=4, y=3).staggered_grid(-1)
@@ -131,7 +131,7 @@ class TestFieldMath(TestCase):
             self.assertEqual(converted.values.default_backend, backend)
 
     def test_convert_point_cloud(self):
-        points = Domain(x=4, y=3).points(math.random_uniform(points=4, vector=2)).with_(values=math.random_normal(points=4, vector=2))
+        points = Domain(x=4, y=3).points(math.random_uniform(collection(points=4) & channel(vector=2))).with_(values=math.random_normal(collection(points=4) & channel(vector=2)))
         for backend in BACKENDS:
             converted = field.convert(points, backend)
             self.assertEqual(converted.values.default_backend, backend)

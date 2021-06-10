@@ -8,8 +8,8 @@ import numpy as np
 from . import _ops as math
 from . import extrapolation as extrapolation
 from ._config import GLOBAL_AXIS_ORDER
-from ._ops import channel_stack
-from ._shape import Shape
+from ._ops import stack
+from ._shape import Shape, channel, batch, spatial
 from ._tensors import Tensor, TensorLike, variable_values
 from ._tensors import wrap
 from .extrapolation import Extrapolation
@@ -24,11 +24,12 @@ def vec_abs(vec: Tensor):
 
 
 def vec_squared(vec: Tensor):
-    return math.sum_(vec ** 2, dim=vec.shape.channel.names)
+    return math.sum_(vec ** 2, dim=channel('vector'))
 
 
 def cross_product(vec1: Tensor, vec2: Tensor):
-    vec1, vec2 = math.tensors(vec1, vec2)
+    vec1 = math.tensor(vec1)
+    vec2 = math.tensor(vec2)
     spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
     if spatial_rank == 2:  # Curl in 2D
         assert vec2.vector.exists
@@ -42,9 +43,9 @@ def cross_product(vec1: Tensor, vec2: Tensor):
         else:
             v2_x, v2_y = vec2.vector.unstack()
             if GLOBAL_AXIS_ORDER.is_x_first:
-                return vec1 * math.channel_stack([-v2_y, v2_x], 'vector')
+                return vec1 * math.stack([-v2_y, v2_x], channel('vector'))
             else:
-                return vec1 * math.channel_stack([v2_y, -v2_x], 'vector')
+                return vec1 * math.stack([v2_y, -v2_x], channel('vector'))
     elif spatial_rank == 3:  # Curl in 3D
         raise NotImplementedError(f'spatial_rank={spatial_rank} not yet implemented')
     else:
@@ -197,7 +198,7 @@ def shift(x: Tensor,
           offsets: tuple,
           dims: tuple or None = None,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
-          stack_dim: str or None = 'shift') -> list:
+          stack_dim: Shape or None = channel('shift')) -> list:
     """
     shift Tensor by a fixed offset and abiding by extrapolation
 
@@ -229,7 +230,7 @@ def shift(x: Tensor,
             else:
                 slices = {dim: slice(pad_lower + offset, (-pad_upper + offset) or None) if dim == dimension else slice(None, None) for dim in dims}
             components.append(x[slices])
-        offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
+        offset_tensors.append(stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors
 
 
@@ -279,7 +280,7 @@ def spatial_gradient(grid: Tensor,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: tuple or None = None,
-                     stack_dim: str = 'gradient'):
+                     stack_dim: Shape = channel('gradient')):
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
@@ -335,10 +336,10 @@ def laplace(x: Tensor,
 
     """
     if not isinstance(dx, (int, float)):
-        dx = wrap(dx, names='_laplace')
+        dx = wrap(dx, batch('_laplace'))
     if isinstance(x, Extrapolation):
         return x.spatial_gradient()
-    left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim='_laplace')
+    left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch('_laplace'))
     result = (left + right - 2 * center) / dx
     result = math.sum_(result, '_laplace')
     return result
@@ -444,12 +445,12 @@ def upsample2x(grid: Tensor,
       double-size grid
 
     """
-    for i, dim in enumerate(grid.shape.spatial.only(dims).names):
-        left, center, right = shift(grid, (-1, 0, 1), (dim,), padding, None)
+    for i, dim in enumerate(grid.shape.spatial.only(dims)):
+        left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
-        stacked = math.spatial_stack([interp_left, interp_right], '_interleave')
-        grid = math.join_dimensions(stacked, (dim, '_interleave'), dim)
+        stacked = math.stack([interp_left, interp_right], spatial('_interleave'))
+        grid = math.join_dimensions(stacked, (dim.name, '_interleave'), dim)
     return grid
 
 
@@ -495,12 +496,12 @@ def poisson_bracket(grid1, grid2):
             len(set(list(grid1.dx) + list(grid2.dx))) == 1]):
         return _periodic_2d_arakawa_poisson_bracket(grid1.values, grid2.values, grid1.dx)
     else:
-        raise NotImplementedError("\n".join[
+        raise NotImplementedError("\n".join([
                                       "Not implemented for:"
                                       f"ranks ({grid1.rank}, {grid2.rank}) != 2",
                                       f"boundary ({grid1.boundary}, {grid2.boundary}) != {extrapolation.PERIODIC}",
                                       f"dx uniform ({grid1.dx}, {grid2.dx})"
-                                  ])
+                                  ]))
 
 
 def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: float):

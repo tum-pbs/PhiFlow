@@ -5,7 +5,7 @@ from phi import math
 
 from ._field import Field
 from ..geom import Geometry
-from ..math import Shape, GLOBAL_AXIS_ORDER
+from ..math import Shape, GLOBAL_AXIS_ORDER, spatial
 
 
 class AngularVelocity(Field):
@@ -24,7 +24,7 @@ class AngularVelocity(Field):
         self.falloff = falloff
         self.component = component
         spatial_names = [GLOBAL_AXIS_ORDER.axis_name(i, location.vector.size) for i in range(location.vector.size)]
-        self._shape = location.shape.combined(math.spatial_shape([1] * location.vector.size, spatial_names))
+        self._shape = location.shape & spatial(**{dim: 1 for dim in spatial_names})
 
     def _sample(self, geometry: Geometry) -> math.Tensor:
         points = geometry.center

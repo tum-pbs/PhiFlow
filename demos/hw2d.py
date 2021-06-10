@@ -107,7 +107,7 @@ def diffuse(arr, N, dx):
 def step_gradient_2d(plasma, phi, N=0, nu=0, c1=0, arak=0, kappa=0, dt=0):
     """time gradient of model"""
     # Calculate Gradients
-    grad_phi = field.spatial_gradient(phi, stack_dim="gradient")
+    grad_phi = field.spatial_gradient(phi, stack_dim=channel("gradient"))
     dx_p, dy_p = grad_phi.values.gradient.unstack_spatial("x,y")
     # Get difference
     diff = phi - plasma.density
@@ -166,9 +166,9 @@ def rk4_step(dt, physics_params, gradient_func=step_gradient_2d, **kwargs):
 
 
 domain = dict(extrapolation=extrapolation.PERIODIC, bounds=Box[0:L, 0:L])
-density = CenteredGrid(math.random_normal(x=x, y=y), **domain) * scale
-omega = CenteredGrid(math.random_normal(x=x, y=y), **domain) * scale
-phi = CenteredGrid(math.random_normal(x=x, y=y), **domain) * scale
+density = CenteredGrid(math.random_normal(spatial(x=x, y=y)), **domain) * scale
+omega = CenteredGrid(math.random_normal(spatial(x=x, y=y)), **domain) * scale
+phi = CenteredGrid(math.random_normal(spatial(x=x, y=y)), **domain) * scale
 age = 0
 rk4 = partial(rk4_step, physics_params=PARAMS)
 print(

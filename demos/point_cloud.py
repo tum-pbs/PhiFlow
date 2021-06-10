@@ -12,7 +12,7 @@ DOMAIN = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box(0, (100, 100)))
 points1 = DOMAIN.points((1, 1), color='#ba0a04')
 points2 = DOMAIN.points((20, 20), color='#344feb')
 # points = points1 & points2
-points = field.concat(points1, points2, dim='points')
+points = field.concat([points1, points2], collection('points'))
 
 # Advection
 velocity = DOMAIN.vector_grid([-1, 1])

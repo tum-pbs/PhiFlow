@@ -79,7 +79,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.geom.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>geometries: tuple, dim: str, sizes: tuple = None)</span>
+<span>def <span class="ident">concat</span></span>(<span>geometries: tuple, dim: phi.math._shape.Shape, sizes: tuple = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenates multiple geometries of the same type.</p>
@@ -99,7 +99,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def concat(geometries: tuple or list,
-           dim: str,
+           dim: Shape,
            sizes: tuple or list or None = None):
     &#34;&#34;&#34;
     Concatenates multiple geometries of the same type.
@@ -115,7 +115,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     if all(isinstance(g, type(geometries[0])) for g in geometries):
         characteristics = [{a: getattr(g, a) for a in variable_attributes(g)} for g in geometries]
         if sizes is not None:
-            characteristics = [{key: math.expand(val, **{dim: size}) for key, val in c.items()}
+            characteristics = [{key: math.expand(val, dim) for key, val in c.items()}
                                for c, size in zip(characteristics, sizes)]
         new_attributes = {}
         for key in characteristics[0].keys():
@@ -156,7 +156,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.geom.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>*geometries: phi.geom._geom.Geometry, dim: str)</span>
+<span>def <span class="ident">stack</span></span>(<span>geometries: List[phi.geom._geom.Geometry], dim: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -164,8 +164,8 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(*geometries: Geometry, dim: str):
-    return GeometryStack(geometries, dim, dim_type(dim))</code></pre>
+<pre><code class="python">def stack(geometries: List[Geometry], dim: Shape):
+    return GeometryStack(geometries, dim)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.union"><code class="name flex">

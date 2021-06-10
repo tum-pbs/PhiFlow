@@ -3,7 +3,7 @@ import numpy as np
 from phi import math, geom
 from ._field import SampledField
 from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor
-from ._field_math import batch_stack
+from ._field_math import stack
 from ..math._tensors import NativeTensor
 
 
@@ -75,10 +75,10 @@ def read(file: str or math.Tensor, convert_to_backend=True) -> SampledField:
         if file.rank == 0:
             return read_single_field(file.native(), convert_to_backend=convert_to_backend)
         else:
-            dim = file.shape.names[0]
-            files = file.unstack(dim)
+            dim = file.shape[0]
+            files = file.unstack(dim.name)
             fields = [read(file_, convert_to_backend=convert_to_backend) for file_ in files]
-            return batch_stack(*fields, dim=dim)
+            return stack(fields, dim)
     else:
         raise ValueError(file)
 

@@ -1,4 +1,3 @@
-from numbers import Number
 from typing import TypeVar, Any
 
 from phi import math
@@ -7,7 +6,7 @@ from . import HardGeometryMask
 from ._field import SampledField, Field, sample, reduce_sample
 from ..geom._stack import GeometryStack
 from ..math import Shape
-from ..math._shape import CHANNEL_DIM
+from ..math._shape import spatial, channel
 from ..math._tensors import TensorStack, Tensor
 
 
@@ -134,11 +133,11 @@ class CenteredGrid(Grid):
         if resolution is None and not resolution_:
             assert isinstance(values, math.Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
             resolution = values.shape.spatial
-            bounds = bounds or Box(0, math.wrap(resolution, 'vector'))
+            bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = GridCell(resolution, bounds)
         else:
-            resolution = (resolution or math.EMPTY_SHAPE) & math.spatial_shape(resolution_)
-            bounds = bounds or Box(0, math.wrap(resolution, 'vector'))
+            resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
+            bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = GridCell(resolution, bounds)
             if isinstance(values, math.Tensor):
                 values = math.expand(values, resolution)
@@ -178,7 +177,7 @@ class CenteredGrid(Grid):
             return math.mean(self._values, self._resolution)
         if isinstance(geometry, GeometryStack):
             sampled = [self.sample(g) for g in geometry.geometries]
-            return math.batch_stack(sampled, geometry.stack_dim_name)
+            return math.stack(sampled, geometry.stack_dim)
         if isinstance(geometry, GridCell):
             if self.elements == geometry:
                 return self.values
@@ -257,18 +256,17 @@ class StaggeredGrid(Grid):
         assert isinstance(extrapolation, math.Extrapolation)
         # extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
         if resolution is None and not resolution_:
-            assert isinstance(values, TensorStack), "Grid resolution must be specified when 'values' is not a Tensor."
-            values = _validate_staggered_values(values)
+            assert isinstance(values, Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
             any_dim = values.shape.spatial.names[0]
             x = values.vector[any_dim]
             ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
             delta = int(ext_lower) + int(ext_upper) - 1
             resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - delta)
-            bounds = bounds or Box(0, math.wrap(resolution, 'vector'))
+            bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
-            resolution = (resolution or math.EMPTY_SHAPE) & math.spatial_shape(resolution_)
-            bounds = bounds or Box(0, math.wrap(resolution, 'vector'))
+            resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
+            bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
             if isinstance(values, math.Tensor):
                 values = expand_staggered(values, resolution, extrapolation)
@@ -281,7 +279,7 @@ class StaggeredGrid(Grid):
                 assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
                 assert 'vector_' in values.shape
                 if 'vector' in values.shape:
-                    values = math.channel_stack([values.vector_[i].vector[i] for i in range(resolution.rank)], 'vector')
+                    values = math.stack([values.vector_[i].vector[i] for i in range(resolution.rank)], channel('vector'))
                 else:
                     values = values.vector_.as_channel('vector')
             else:
@@ -298,7 +296,7 @@ class StaggeredGrid(Grid):
               **other_attributes) -> 'StaggeredGrid':
         assert elements is None
         assert not other_attributes, f"Invalid attributes for type {type(self)}: {other_attributes}"
-        values = _validate_staggered_values(values) if values is not None else self.values
+        values = values if values is not None else self.values
         return StaggeredGrid(values, bounds=self.bounds, extrapolation=extrapolation if extrapolation is not None else self._extrapolation)
 
     @property
@@ -307,7 +305,7 @@ class StaggeredGrid(Grid):
 
     def _sample(self, geometry: Geometry) -> Tensor:
         channels = [sample(component, geometry) for component in self.vector.unstack()]
-        return math.channel_stack(channels, 'vector')
+        return math.stack(channels, channel('vector'))
 
     def closest_values(self, points: Geometry):
         assert 'vector' not in points.shape
@@ -316,7 +314,7 @@ class StaggeredGrid(Grid):
             channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
         else:
             channels = [component.closest_values(points) for component in self.vector.unstack()]
-        return math.channel_stack(channels, 'vector')
+        return math.stack(channels, channel('vector'))
 
     def at_centers(self) -> CenteredGrid:
         return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
@@ -332,7 +330,7 @@ class StaggeredGrid(Grid):
                         values.append(val[{dim: slice(sel.start, sel.stop + 1)}])
                     else:
                         values.append(val[{dim: sel}])
-                values = math.channel_stack(values, 'vector')
+                values = math.stack(values, channel('vector'))
         extrapolation = self._extrapolation[item]
         bounds = GridCell(self._resolution, self._bounds)[item].bounds
         if 'vector' in item:
@@ -351,7 +349,7 @@ class StaggeredGrid(Grid):
             lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
             widths[dim] = (int(not lo_valid), int(not up_valid))
             padded.append(math.pad(component, widths, mode=self.extrapolation))
-        result = math.channel_stack(padded, 'vector')
+        result = math.stack(padded, channel('vector'))
         assert result.shape.is_uniform
         return result
 
@@ -371,17 +369,7 @@ def unstack_staggered_tensor(data: Tensor, extrapolation: math.Extrapolation) ->
         slices = {d: slice(0, -1) for d in data.shape.spatial.names}
         slices[dim] = slice(int(not lo_valid), - int(not up_valid) or None)
         sliced.append(component[slices])
-    return math.channel_stack(sliced, 'vector')
-
-
-def _validate_staggered_values(values: TensorStack):
-    if 'vector' in values.shape:
-        return values
-    else:
-        if 'staggered' in values.shape:
-            return values.staggered.as_channel('vector')
-        else:
-            raise ValueError("values needs to have 'vector' or 'staggered' dimension")
+    return math.stack(sliced, channel('vector'))
 
 
 def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extrapolation):
@@ -390,7 +378,7 @@ def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extra
     for dim in resolution.names:
         lower, upper = extrapolation.valid_outer_faces(dim)
         grids.append(cells.stagger(dim, lower, upper))
-    return GeometryStack(grids, 'vector_', CHANNEL_DIM)
+    return GeometryStack(grids, channel('vector_'))
 
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extrapolation):
@@ -400,4 +388,4 @@ def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extr
     for dim, component in zip(resolution.spatial.names, components):
         comp_cells = cells.stagger(dim, *extrapolation.valid_outer_faces(dim))
         tensors.append(math.expand(component, comp_cells.resolution))
-    return math.channel_stack(tensors, 'vector')
+    return math.stack(tensors, channel('vector'))

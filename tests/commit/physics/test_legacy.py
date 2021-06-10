@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from phi import struct, math
 from phi.geom import Sphere, Box
+from phi.math import batch, channel
 from phi.physics._boundaries import Domain, Obstacle
 from phi.physics._effect import Fan, Inflow
 from phi.physics._fluid_legacy import Fluid, IncompressibleFlow
@@ -63,8 +64,8 @@ class TestLegacyPhysics(TestCase):
             print()
             return fluid.density.values.batch[0], fluid.velocity.values.batch[0]
 
-        d1, v1 = simulate(math.tensor([[5, 16], [5, 4]], names='batch,vector'))
-        d2, v2 = simulate(math.tensor([[5, 16], [5, 16]], names='batch,vector'))
+        d1, v1 = simulate(math.tensor([[5, 16], [5, 4]], batch('batch'), channel('vector')))
+        d2, v2 = simulate(math.tensor([[5, 16], [5, 16]], batch('batch'), channel('vector')))
 
         math.assert_close(d1, d2)
         math.assert_close(v1, v2)

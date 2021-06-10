@@ -1,12 +1,30 @@
 from unittest import TestCase
 
 from phi import math, field
-from phi.field import CenteredGrid
+from phi.field import CenteredGrid, Noise, StaggeredGrid
 from phi.math import extrapolation, NotConverged
 from phi.physics import diffuse
 
 
 class TestDiffusion(TestCase):
+
+    def test_diffuse_centered_batched(self):
+        grid = CenteredGrid(Noise(batch=2, vector=2), extrapolation.PERIODIC, x=4, y=3)
+        diffuse.explicit(grid, 1, 1, substeps=10)
+        diffuse.implicit(grid, 1, 1, order=2)
+        diffuse.fourier(grid, 1, 1)
+
+    def test_diffuse_staggered_batched(self):
+        grid = StaggeredGrid(Noise(batch=2, vector=2), extrapolation.PERIODIC, x=4, y=3)
+        diffuse.explicit(grid, 1, 1, substeps=10)
+        diffuse.implicit(grid, 1, 1, order=2)
+        diffuse.fourier(grid, 1, 1)
+        grid = StaggeredGrid(Noise(batch=2, vector=2), extrapolation.ZERO, x=4, y=3)
+        diffuse.explicit(grid, 1, 1, substeps=10)
+        diffuse.implicit(grid, 1, 1, order=2)
+        grid = StaggeredGrid(Noise(batch=2, vector=2), extrapolation.BOUNDARY, x=4, y=3)
+        diffuse.explicit(grid, 1, 1, substeps=10)
+        diffuse.implicit(grid, 1, 1, order=2)
 
     def test_constant_diffusion(self):
         grid = CenteredGrid(1, extrapolation.PERIODIC, x=4, y=3)

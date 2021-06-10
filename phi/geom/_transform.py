@@ -2,7 +2,7 @@ import warnings
 from numbers import Number
 
 from phi import math
-from phi.math import GLOBAL_AXIS_ORDER, Tensor
+from phi.math import GLOBAL_AXIS_ORDER, Tensor, channel
 from ._geom import Geometry
 from ._sphere import Sphere
 
@@ -42,7 +42,7 @@ class RotatedGeometry(Geometry):
             x, y = y, x
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
-        return math.channel_stack([rot_y, rot_x], 'vector')
+        return math.stack([rot_y, rot_x], channel('vector'))
 
     def global_to_child(self, location):
         """ Inverse transform. """

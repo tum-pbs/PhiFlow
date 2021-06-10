@@ -8,7 +8,7 @@ import numpy as np
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
-                     parse_dim_order, shape_stack, parse_dim_names, dim_type, combine_safe)
+                     parse_dim_order, shape_stack, merge_shapes, channel)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend
 from .backend._dtype import DType
@@ -315,7 +315,7 @@ class Tensor:
         """
         raise NotImplementedError()
 
-    def dimension(self, name) -> 'TensorDim':
+    def dimension(self, name: str or Shape) -> 'TensorDim':
         """
         Returns a reference to a specific dimension of this tensor.
         This is equivalent to the syntax `tensor.<name>`.
@@ -328,7 +328,12 @@ class Tensor:
         Returns:
             `TensorDim` corresponding to a dimension of this tensor
         """
-        return TensorDim(self, name)
+        if isinstance(name, str):
+            return TensorDim(self, name)
+        elif isinstance(name, Shape):
+            return TensorDim(self, name.name)
+        else:
+            raise ValueError(name)
 
     def __getattr__(self, name):
         if name.startswith('_'):
@@ -688,7 +693,7 @@ class NativeTensor(Tensor):
         for name in order:
             if name not in self.shape:
                 native = backend.expand_dims(native, axis=-1)
-                shape = shape.expand(1, name, CHANNEL_DIM, pos=-1)
+                shape = shape.expand(channel(**{name: 1}), pos=-1)
         # --- Transpose ---
         perm = shape.perm(order)
         native = backend.transpose(native, perm)
@@ -735,7 +740,7 @@ class NativeTensor(Tensor):
 
     def flip(self, *dims: str) -> 'Tensor':
         dims = [dim for dim in dims if dim in self._shape]
-        native = choose_backend(self._native).flip(self._native, self._shape.index(dims))
+        native = choose_backend(self._native).flip(self._native, self._shape.indices(dims))
         return NativeTensor(native, self._shape)
 
     def unstack(self, dimension):
@@ -772,7 +777,7 @@ class NativeTensor(Tensor):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         backend = choose_backend(self._native)
-        result = native_function(backend, self._native, dim=self._shape.index(dims))
+        result = native_function(backend, self._native, dim=self._shape.indices(dims))
         return NativeTensor(result, self._shape.without(dims))
 
 
@@ -882,7 +887,7 @@ class CollapsedTensor(Tensor):  # package-private
             inner_dict = {name: selection for name, selection in selection.items() if name in self._inner.shape}
             inner = self._inner._getitem(inner_dict)
             new_shape = self.shape.after_gather(selection)
-            inner.shape.combined(new_shape, combine_spatial=True)  # check that sizes match
+            merge_shapes(inner.shape, new_shape)  # check that sizes match
             return CollapsedTensor(inner, new_shape)
 
     def flip(self, *dims: str) -> 'Tensor':
@@ -947,7 +952,7 @@ class CollapsedTensor(Tensor):  # package-private
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         inner_dims = [dim for dim in dims if dim in self._inner.shape]
-        inner_reduce = self._inner._tensor_reduce(inner_dims, native_function, collapsed_function, unaffected_function)
+        inner_reduce = self._inner._tensor_reduce(tuple(inner_dims), native_function, collapsed_function, unaffected_function)
         collapsed_dims = self._shape.without(self._inner.shape)
         final_shape = self._shape.without(dims)
         total_reduce = collapsed_function(inner_reduce, collapsed_dims.only(dims))
@@ -965,16 +970,16 @@ class TensorStack(Tensor):
 
     """
 
-    def __init__(self, components, dim_name, dim_type):
+    def __init__(self, components: tuple or list, stack_dim: Shape):
+        assert isinstance(stack_dim, Shape) and stack_dim.rank == 1, f"stack_dim must be a single-dimension Shape object but got {type(stack_dim)}"
         for t in components:
             assert isinstance(t, Tensor)
             assert t.dtype == components[0].dtype, f"Stacked tensors must have the same data type but got {[t.dtype for t in components]}"
-            assert dim_name not in t.shape, f"Cannot stack along '{dim_name}' because the dimension already exists."
+            assert stack_dim.name not in t.shape, f"Cannot stack along '{stack_dim.name}' because the dimension already exists."
         self.tensors = tuple(components)
-        self.stack_dim_name = dim_name
-        self.stack_dim_type = dim_type
+        self.stack_dim = stack_dim.with_sizes([len(components)])
         self._varying_shapes = any([v.shape != components[0].shape for v in components[1:]])
-        self._shape = shape_stack(dim_name, dim_type, *[t.shape for t in self.tensors])
+        self._shape = shape_stack(self.stack_dim, *[t.shape for t in self.tensors])
         self._cached = None
 
     @property
@@ -990,7 +995,7 @@ class TensorStack(Tensor):
             if self.requires_broadcast:
                 return None
             natives = [t.native(order=self._shape.names) for t in self.tensors]
-            native = choose_backend(*natives).concat(natives, axis=self.shape.index(self.stack_dim_name))
+            native = choose_backend(*natives).concat(natives, axis=self.shape.index(self.stack_dim.name))
             self._cached = NativeTensor(native, self._shape)
         return self._cached
 
@@ -1008,10 +1013,10 @@ class TensorStack(Tensor):
         else:
             order = parse_dim_order(order, check_rank=self.rank)
             # Is only the stack dimension shifted?
-            if order is not None and self._shape.without(self.stack_dim_name).names == tuple(filter(lambda name: name != self.stack_dim_name, order)):
-                inner_order = [dim for dim in order if dim != self.stack_dim_name]
+            if order is not None and self._shape.without(self.stack_dim).names == tuple(filter(lambda name: name != self.stack_dim.name, order)):
+                inner_order = [dim for dim in order if dim != self.stack_dim.name]
                 natives = [t.native(inner_order) for t in self.tensors]
-                native = choose_backend(*natives).stack(natives, axis=tuple(order).index(self.stack_dim_name))
+                native = choose_backend(*natives).stack(natives, axis=tuple(order).index(self.stack_dim.name))
                 return native
             assert not self.shape.is_non_uniform, f"Cannot convert non-uniform tensor with shape {self.shape} to native tensor."
             return self._cache().native(order=order)
@@ -1020,51 +1025,51 @@ class TensorStack(Tensor):
         if self._cached is not None:
             return self._cached._with_shape_replaced(new_shape)
         else:
-            stack_dim_name = new_shape.names[self._shape.index(self.stack_dim_name)]
-            inner_shape = new_shape.without(stack_dim_name)
+            new_stack_dim = new_shape[self._shape.index(self.stack_dim.name)]
+            inner_shape = new_shape.without(new_stack_dim)
             tensors = [t._with_shape_replaced(inner_shape) for t in self.tensors]
-            return TensorStack(tensors, stack_dim_name, new_shape.get_type(stack_dim_name))
+            return TensorStack(tensors, new_stack_dim)
 
     def _getitem(self, selection: dict):
         if self._cached is not None:
             return self._cached._getitem(selection)
-        if (self.stack_dim_name not in selection or len(selection) != 1) and not self.requires_broadcast:
+        if (self.stack_dim.name not in selection or len(selection) != 1) and not self.requires_broadcast:
             return self._cache()._getitem(selection)
         # --- Inner dims ---
-        inner_dict = {dim: sel for dim, sel in selection.items() if dim != self.stack_dim_name}
+        inner_dict = {dim: sel for dim, sel in selection.items() if dim != self.stack_dim.name}
         tensors = self.tensors
         if len(inner_dict) > 0:
             tensors = [t[inner_dict] for t in tensors]
         # --- stack dimension ---
-        if self.stack_dim_name in selection:
-            selection = selection[self.stack_dim_name]
+        if self.stack_dim.name in selection:
+            selection = selection[self.stack_dim.name]
             if isinstance(selection, int):
                 return self.tensors[selection]
             elif isinstance(selection, slice):
-                return TensorStack(tensors[selection], self.stack_dim_name, self.shape.get_type(self.stack_dim_name))
+                return TensorStack(tensors[selection], self.stack_dim)
             else:
                 raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allwoed")
         else:
-            return TensorStack(tensors, self.stack_dim_name, self.shape.get_type(self.stack_dim_name))
+            return TensorStack(tensors, self.stack_dim)
 
     def flip(self, *dims: str) -> 'Tensor':
         if self._cached is not None:
             return self._cached.flip(*dims)
         else:
             tensors = [t.flip(*dims) for t in self.tensors]
-            if self.stack_dim_name in dims:
+            if self.stack_dim.name in dims:
                 tensors = tensors[::-1]
-            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
+            return TensorStack(tensors, self.stack_dim)
 
     def unstack(self, dimension):
         if self._cached is not None:
             return self._cached.unstack(dimension)
-        if dimension == self.stack_dim_name:
+        if dimension == self.stack_dim.name:
             return self.tensors
         else:
             if self.requires_broadcast:
                 unstacked = [t.unstack(dimension) for t in self.tensors]
-                result = [TensorStack(items, self.stack_dim_name, self.stack_dim_type) for items in zip(*unstacked)]
+                result = [TensorStack(items, self.stack_dim) for items in zip(*unstacked)]
                 return result
             else:
                 return self._cache().unstack(dimension=dimension)
@@ -1072,19 +1077,19 @@ class TensorStack(Tensor):
     def _op1(self, native_function):
         if self.requires_broadcast:
             tensors = [t._op1(native_function) for t in self.tensors]
-            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
+            return TensorStack(tensors, self.stack_dim)
         else:
             return self._cache()._op1(native_function)
 
     def _op2(self, other, operator, native_function):
         other = self._tensor(other)
         if self.requires_broadcast:
-            if self.stack_dim_name in other.shape:
-                other = other.unstack(self.stack_dim_name)
+            if self.stack_dim.name in other.shape:
+                other = other.unstack(self.stack_dim.name)
                 tensors = [operator(t1, t2) for t1, t2 in zip(self.tensors, other)]
             else:
                 tensors = [operator(t, other) for t in self.tensors]
-            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
+            return TensorStack(tensors, self.stack_dim)
         elif isinstance(other, (CollapsedTensor, NativeTensor)):
             return op2_native(self, other, native_function)
         elif isinstance(other, TensorStack) and not other.requires_broadcast:
@@ -1103,7 +1108,7 @@ class TensorStack(Tensor):
             return self._cached._with_natives_replaced(natives)
         else:
             tensors = [t._with_natives_replaced(natives) for t in self.tensors]
-            return TensorStack(tensors, self.stack_dim_name, self.stack_dim_type)
+            return TensorStack(tensors, self.stack_dim)
 
     def _expand(self):
         if self.requires_broadcast:
@@ -1130,10 +1135,10 @@ class TensorStack(Tensor):
         if self._cached is not None:
             return self._cached._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
         # --- inner reduce ---
-        inner_axes = [dim for dim in dims if dim != self.stack_dim_name]
+        inner_axes = [dim for dim in dims if dim != self.stack_dim.name]
         red_inners = [t._tensor_reduce(inner_axes, native_function, collapsed_function, unaffected_function) for t in self.tensors]
         # --- outer reduce ---
-        if self.stack_dim_name in dims:
+        if self.stack_dim.name in dims:
             if any([t._is_special for t in red_inners]):
                 return sum(red_inners[1:], red_inners[0])  # TODO this may not always be the sum
             else:
@@ -1143,27 +1148,11 @@ class TensorStack(Tensor):
                 result = native_function(backend, backend.stack(natives), dim=0)  # TODO not necessary if tensors are CollapsedTensors
                 return NativeTensor(result, red_inners[0].shape)
         else:
-            return TensorStack(red_inners, self.stack_dim_name, self.stack_dim_type)
-
-
-def tensors(*objects: Tensor or Shape or tuple or list or numbers.Number,
-            names: str or tuple or list = None,
-            convert: bool = True):
-    """
-    Calls `tensor()` on multiple arguments independently.
-
-    Example:
-
-        scalar_tensor, vector_tensor = tensors(0, (1, 2, 3))
-
-    Returns:
-        Sequence of same length as `objects`.
-    """
-    return [tensor(obj, names, convert) for obj in objects]
+            return TensorStack(red_inners, self.stack_dim)
 
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
-           names: str or tuple or list = None,
+           *shape: Shape,
            convert: bool = True) -> Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
     """
     Create a Tensor from the specified `data`.
@@ -1194,7 +1183,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
 
     Args:
       data: native tensor, scalar, sequence, Shape or Tensor
-      names: Dimension names. Dimension types are inferred from the names.
+      shape: Ordered dimensions and types. If sizes are defined, they will be checked against `data`.`
       convert: If True, converts the data to the native format of the current default backend.
         If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
 
@@ -1205,24 +1194,32 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
     Returns:
       Tensor containing same values as data
     """
+    assert all(isinstance(s, Shape) for s in shape), f"Cannot create tensor because shape needs to be one or multiple Shape instances but got {shape}"
+    if len(shape) > 1:
+        shape_ = shape[0]
+        for s in shape[1:]:
+            shape_ = shape_.extend(s)
+        shape = shape_
+    elif len(shape) == 1:
+        shape = shape[0]
+    elif len(shape) == 0:
+        shape = None
     if isinstance(data, Tensor):
         if convert:
-            backend = choose_backend(*data._natives())
+            backend = data.default_backend
             if backend != default_backend():
                 data = data._op1(lambda n: convert_(n, use_dlpack=False))
-        if names is None:
+        if shape is None:
             return data
         else:
-            names = parse_dim_names(names, data.rank)
-            names = [n if n is not None else o for n, o in zip(names, data.shape.names)]
-            types = [dim_type(n) if n is not None else o for n, o in zip(names, data.shape.types)]
-            new_shape = Shape(data.shape.sizes, names, types)
-            return data._with_shape_replaced(new_shape)
+            if None in shape.sizes:
+                shape = shape.with_sizes(data.shape.sizes)
+            return data._with_shape_replaced(shape)
     elif isinstance(data, Shape):
-        assert names is not None
+        assert shape is not None
         data = data.sizes
     elif isinstance(data, (numbers.Number, bool, str)):
-        assert not names, f"Trying to create a zero-dimensional Tensor from value '{data}' but names={names}"
+        assert not shape, f"Trying to create a zero-dimensional Tensor from value '{data}' but shape={shape}"
         if convert:
             data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, EMPTY_SHAPE)
@@ -1231,26 +1228,28 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         if array.dtype != object:
             data = array
         else:
-            elements = tensors(*data, names=None if names is None else names[1:], convert=convert)
-            common_shape = combine_safe(*[e.shape for e in elements])
-            rank = 1 + common_shape.rank
-            stack_dim = 'vector' if names is None else parse_dim_names(names, rank)[0]
+            inner_shape = [] if shape is None else [shape[1:]]
+            elements = [tensor(d, *inner_shape, convert=convert) for d in data]
+            common_shape = merge_shapes(*[e.shape for e in elements])
+            stack_dim = channel('vector') if shape is None else shape[0].with_sizes([len(elements)])
             assert all(stack_dim not in t.shape for t in elements), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in elements]
             from ._ops import cast_same
             elements = cast_same(*elements)
-            return TensorStack(elements, dim_name=stack_dim, dim_type=dim_type(stack_dim))
+            return TensorStack(elements, stack_dim)
     try:
         backend = choose_backend(data)
-        if names is None:
+        if shape is None:
             assert backend.ndims(data) <= 1, "Specify dimension names for tensors with more than 1 dimension"
-            names = ['vector'] * backend.ndims(data)  # [] or ['vector']
-            types = [CHANNEL_DIM] * backend.ndims(data)
+            shape = Shape(data.shape, ['vector'] * backend.ndims(data), [CHANNEL_DIM] * backend.ndims(data))  # [] or ['vector']
         else:
-            names = parse_dim_names(names, len(data.shape))
-            assert None not in names, f"All names must be specified but got {names}"
-            types = [dim_type(n) for n in names]
-        shape = Shape(data.shape, names, types)
+            # fill in sizes or check them
+            sizes = backend.staticshape(data)
+            assert len(sizes) == len(shape), f"Rank of given shape {shape} does not match data with sizes {sizes}"
+            for size, s in zip(sizes, shape.sizes):
+                if s is not None:
+                    assert s == size, f"Given shape {shape} does not match data with sizes {sizes}. Consider leaving the sizes undefined."
+            shape = shape.with_sizes(sizes)
         if convert:
             data = convert_(data, use_dlpack=False)
         return NativeTensor(data, shape)
@@ -1259,9 +1258,9 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
 
 
 def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
-         names: str or tuple or list = None) -> Tensor:
+         *shape: Shape) -> Tensor:
     """ Short for `phi.math.tensor()` with `convert=False`. """
-    return tensor(data, names=names, convert=False)  # TODO inline, simplify
+    return tensor(data, *shape, convert=False)  # TODO inline, simplify
 
 
 def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), convert=False):
@@ -1270,7 +1269,7 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
     elif isinstance(data, Shape):
         assert compat_shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
         assert data.rank == compat_shape.channel.volume
-        return wrap(data.spatial.sizes, names=compat_shape.channel.names)
+        return wrap(data.spatial.sizes, *compat_shape.channel)
     else:
         backend = choose_backend(*compat_natives, data)
         try:
@@ -1283,9 +1282,9 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
         elif len(shape) == compat_shape.rank:
             return NativeTensor(other_tensor, compat_shape.with_sizes(shape))
         elif len(shape) == compat_shape.channel.rank:
-            other_tensor = wrap(data, names=compat_shape.channel.names)
+            other_tensor = wrap(data, compat_shape.channel)
             return other_tensor
-        elif len(shape) == 1 and compat_shape.channel.rank == 0:
+        elif len(shape) == 1:
             return NativeTensor(other_tensor, Shape(shape, ['vector'], [CHANNEL_DIM]))
         else:
             raise ValueError("Cannot broadcast object of rank %d to tensor with shape %s" % (backend.ndims(data), compat_shape))
@@ -1303,7 +1302,7 @@ def broadcastable_native_tensors(*tensors):
       shape, native tensors)
 
     """
-    broadcast_shape = combine_safe(*[t.shape for t in tensors])
+    broadcast_shape = merge_shapes(*[t.shape for t in tensors])
     natives = [t.native(order=broadcast_shape.names) if t.rank > 0 else t.native() for t in tensors]
     return broadcast_shape, natives
 
@@ -1330,7 +1329,8 @@ def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_func
     Returns:
 
     """
-    x, y = tensors(x, y, convert=False)
+    x = wrap(x)
+    y = wrap(y)
     result = x._op2(y, l_operator, l_native_function)
     if result is NotImplemented:
         result = y._op2(x, r_operator or l_operator, r_native_function or l_native_function)
@@ -1377,8 +1377,8 @@ def _assemble_pop(natives: list, shape: Shape):
             raise NotImplementedError('More than one non-uniform dimension not supported.')
         shapes = shape.unstack(s2.name)
         tensors = [NativeTensor(natives.pop(0), s) for s in shapes]
-        from phi.math._ops import _stack
-        return _stack(tensors, s2.name, s2.types[0])
+        from phi.math._ops import stack
+        return TensorStack(tensors, s2)
 
 
 class _TensorLikeType(type):

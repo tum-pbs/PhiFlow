@@ -4,7 +4,7 @@ from typing import Dict
 import numpy as np
 
 from phi import math
-from phi.math import Tensor, Shape, spatial_shape, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
+from phi.math import Tensor, Shape, spatial, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
 from phi.math._tensors import variable_attributes, copy_with
 
 
@@ -426,4 +426,4 @@ def _fill_spatial_with_singleton(shape: Shape):
     else:
         assert shape.spatial.rank == 0, shape
         names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.get_size('vector')) for i in range(shape.get_size('vector'))]
-        return shape.combined(spatial_shape([1] * shape.get_size('vector'), names=names))
+        return shape & spatial(**{n: 1 for n in names})

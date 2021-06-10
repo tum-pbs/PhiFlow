@@ -25,10 +25,14 @@ on fluid simulations. This is a great place to get started with Φ<sub>Flow</sub
 
 ### API Documentation
 
-The [API documentation](phi) is generated using [pdoc](https://pdoc3.github.io/pdoc/).
+The [API documentation](phi) is generated using [pdoc3](https://pdoc3.github.io/pdoc/).
 To manually generate the documentation, add the PhiFlow directory to your Python path and run
 ```bash
 $ pdoc --html --output-dir docs --force phi
+```
+To simply view the documentation, you can host a local web server using
+```bash
+$ pdoc --http phi
 ```
 
 ### Other Documentation

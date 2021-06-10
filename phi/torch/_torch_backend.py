@@ -268,6 +268,10 @@ class TorchBackend(Backend):
         coordinates = self.as_tensor(coordinates)
         if coordinates.shape[0] != grid.shape[0]:  # repeating yields wrong result
             return NotImplemented
+        if coordinates.ndim != grid.ndim or coordinates.ndim not in (4, 5):
+            return NotImplemented  # torchf.grid_sample cannot handle this case
+        if coordinates.dtype.is_floating_point and not grid.dtype.is_complex and not grid.dtype.is_floating_point:
+            grid = self.to_float(grid)
         resolution = torch.tensor(self.staticshape(grid)[2:], dtype=coordinates.dtype, device=coordinates.device)
         coordinates = 2 * coordinates / (resolution - 1) - 1
         coordinates = torch.flip(coordinates, dims=[-1])

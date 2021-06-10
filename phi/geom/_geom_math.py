@@ -1,10 +1,11 @@
 from phi import math
 from ._geom import Geometry
+from ..math import Shape
 from ..math._tensors import variable_attributes, copy_with
 
 
 def concat(geometries: tuple or list,
-           dim: str,
+           dim: Shape,
            sizes: tuple or list or None = None):
     """
     Concatenates multiple geometries of the same type.
@@ -20,7 +21,7 @@ def concat(geometries: tuple or list,
     if all(isinstance(g, type(geometries[0])) for g in geometries):
         characteristics = [{a: getattr(g, a) for a in variable_attributes(g)} for g in geometries]
         if sizes is not None:
-            characteristics = [{key: math.expand(val, **{dim: size}) for key, val in c.items()}
+            characteristics = [{key: math.expand(val, dim) for key, val in c.items()}
                                for c, size in zip(characteristics, sizes)]
         new_attributes = {}
         for key in characteristics[0].keys():
