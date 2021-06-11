@@ -24,9 +24,9 @@ def choose_backend_t(*values, prefer_default=False) -> Backend:
     return choose_backend(*natives, prefer_default=prefer_default)
 
 
-def convert(value: Tensor, backend: Backend = None, use_dlpack=True):
+def convert(x, backend: Backend = None, use_dlpack=True):
     """
-    Convert the native representation of a `Tensor` to the native format of `backend`.
+    Convert the native representation of a `Tensor` or `TensorLike` to the native format of `backend`.
 
     *Warning*: This operation breaks the automatic differentiation chain.
 
@@ -34,13 +34,18 @@ def convert(value: Tensor, backend: Backend = None, use_dlpack=True):
         `phi.math.backend.convert()`.
 
     Args:
-        value: `Tensor` to convert.
+        x: `Tensor` to convert. If `x` is a `TensorLike`, its variable attributes are converted.
         backend: Target backend. If `None`, uses the current default backend, see `phi.math.backend.default_backend()`.
 
     Returns:
         `Tensor` with native representation belonging to `backend`.
     """
-    return value._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))
+    if isinstance(x, Tensor):
+        return x._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))
+    elif isinstance(x, TensorLike):
+        return copy_with(x, **{a: convert(getattr(x, a), backend, use_dlpack=use_dlpack) for a in variable_attributes(x)})
+    else:
+        return choose_backend(x).as_tensor(x)
 
 
 def all_available(*values: Tensor) -> bool:

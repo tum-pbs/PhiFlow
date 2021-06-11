@@ -25,14 +25,14 @@ from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from phi.math import (
-    abs, sign, round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, to_float, to_int32, to_int64,
+    abs, sign, round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
     stop_gradient,
     jit_compile, jit_compile_linear, functional_gradient,
     solve_linear, solve_nonlinear, minimize,
     l2_loss, l1_loss, frequency_loss,
 )
 from ._field_math import (
-    assert_close, convert,
+    assert_close,
     bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,

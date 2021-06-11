@@ -208,17 +208,6 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
     return result
 
 
-def convert(field: SampledField, backend: Backend = None, use_dlpack=True):
-    if isinstance(field, Grid):
-        return field.with_(values=math.convert(field.values, backend, use_dlpack=use_dlpack))
-    elif isinstance(field, PointCloud):
-        attrs = {a: getattr(field.elements, a) for a in variable_attributes(field.elements)}
-        elements = copy_with(field.elements, **{a: math.convert(v, backend, use_dlpack=use_dlpack) for a, v in attrs.items()})
-        return field.with_(elements=elements, values=math.convert(field.values, backend, use_dlpack=use_dlpack))
-    else:
-        raise ValueError(field)
-
-
 def data_bounds(field: SampledField):
     data = field.points
     min_vec = math.min(data, dim=data.shape.spatial.names)
