@@ -7,6 +7,9 @@ from ..geom import Geometry
 
 
 class ConstantField(Field):
+    """
+    Deprecated.
+    """
 
     def __init__(self, value=1.0):
         warnings.warn("ConstantField is deprecated. Use numbers or tuples instead.", DeprecationWarning)

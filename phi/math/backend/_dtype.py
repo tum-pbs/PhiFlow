@@ -2,23 +2,24 @@ import numpy as np
 
 
 class DType:
+    """
+    Instances of `DType` represent the kind and size of data elements.
+    The data type of a `Tensor` can be obtained via `phi.math.Tensor.dtype`.
+
+    The following kinds of data types are supported:
+
+    * `float` with 32 / 64 bits
+    * `complex` with 64 / 128 bits
+    * `int` with 8 / 16 / 32 / 64 bits
+    * `bool` with 8 bits
+    * `str` with 8*n* bits
+
+    Unlike with many computing libraries, there are no global variables corresponding to the available types.
+    Instead, data types can simply be instantiated as needed.
+    """
 
     def __init__(self, kind: type, bits: int = 8):
         """
-        Instances of `DType` represent the kind and size of data elements.
-        The data type of a `Tensor` can be obtained via `phi.math.Tensor.dtype`.
-
-        The following kinds of data types are supported:
-
-        * `float` with 32 / 64 bits
-        * `complex` with 64 / 128 bits
-        * `int` with 8 / 16 / 32 / 64 bits
-        * `bool` with 8 bits
-        * `str` with 8*n* bits
-
-        Unlike with many computing libraries, there are no global variables corresponding to the available types.
-        Instead, data types can simply be instantiated as needed.
-
         Args:
             kind: Python type, one of `(bool, int, float, complex, str)`
             bits: number of bits per element, a multiple of 8.

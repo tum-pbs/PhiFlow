@@ -65,14 +65,14 @@ from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from phi.math import (
-    abs, sign, round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, to_float, to_int32, to_int64,
+    abs, sign, round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
     stop_gradient,
     jit_compile, jit_compile_linear, functional_gradient,
     solve_linear, solve_nonlinear, minimize,
     l2_loss, l1_loss, frequency_loss,
 )
 from ._field_math import (
-    assert_close, convert,
+    assert_close,
     bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
@@ -163,12 +163,30 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <span>def <span class="ident">bake_extrapolation</span></span>(<span>grid: ~GridType) ‑> ~GridType</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Pads <code>grid</code> with its current extrapolation.
+For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>s, the resulting grid will have a consistent shape, independent of the original extrapolation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>grid</code></strong></dt>
+<dd><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Padded grid with extrapolation <code><a title="phi.math.extrapolation.NONE" href="../math/extrapolation.html#phi.math.extrapolation.NONE">NONE</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bake_extrapolation(grid: GridType) -&gt; GridType:
+    &#34;&#34;&#34;
+    Pads `grid` with its current extrapolation.
+    For `StaggeredGrid`s, the resulting grid will have a consistent shape, independent of the original extrapolation.
+
+    Args:
+        grid: `CenteredGrid` or `StaggeredGrid`.
+
+    Returns:
+        Padded grid with extrapolation `phi.math.extrapolation.NONE`.
+    &#34;&#34;&#34;
     if grid.extrapolation == math.extrapolation.NONE:
         return grid
     if isinstance(grid, StaggeredGrid):
@@ -252,12 +270,28 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <span>def <span class="ident">center_of_mass</span></span>(<span>density: phi.field._field.SampledField)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Compute the center of mass of a density field.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>density</code></strong></dt>
+<dd>Scalar <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> holding only batch dimensions.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def center_of_mass(density: SampledField):
+    &#34;&#34;&#34;
+    Compute the center of mass of a density field.
+
+    Args:
+        density: Scalar `SampledField`
+
+    Returns:
+        `Tensor` holding only batch dimensions.
+    &#34;&#34;&#34;
     assert &#39;vector&#39; not in density.shape
     return mean(density.points * density) / mean(density)</code></pre>
 </details>
@@ -288,23 +322,48 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 </details>
 </dd>
 <dt id="phi.field.convert"><code class="name flex">
-<span>def <span class="ident">convert</span></span>(<span>field: phi.field._field.SampledField, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
+<span>def <span class="ident">convert</span></span>(<span>x, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Convert the native representation of a <code>Tensor</code> or <code>TensorLike</code> to the native format of <code>backend</code>.</p>
+<p><em>Warning</em>: This operation breaks the automatic differentiation chain.</p>
+<p>See Also:
+<code><a title="phi.math.backend.convert" href="../math/backend/index.html#phi.math.backend.convert">convert()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code>Tensor</code> to convert. If <code>x</code> is a <code>TensorLike</code>, its variable attributes are converted.</dd>
+<dt><strong><code>backend</code></strong></dt>
+<dd>Target backend. If <code>None</code>, uses the current default backend, see <code><a title="phi.math.backend.default_backend" href="../math/backend/index.html#phi.math.backend.default_backend">default_backend()</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> with native representation belonging to <code>backend</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def convert(field: SampledField, backend: Backend = None, use_dlpack=True):
-    if isinstance(field, Grid):
-        return field.with_(values=math.convert(field.values, backend, use_dlpack=use_dlpack))
-    elif isinstance(field, PointCloud):
-        attrs = {a: getattr(field.elements, a) for a in variable_attributes(field.elements)}
-        elements = copy_with(field.elements, **{a: math.convert(v, backend, use_dlpack=use_dlpack) for a, v in attrs.items()})
-        return field.with_(elements=elements, values=math.convert(field.values, backend, use_dlpack=use_dlpack))
+<pre><code class="python">def convert(x, backend: Backend = None, use_dlpack=True):
+    &#34;&#34;&#34;
+    Convert the native representation of a `Tensor` or `TensorLike` to the native format of `backend`.
+
+    *Warning*: This operation breaks the automatic differentiation chain.
+
+    See Also:
+        `phi.math.backend.convert()`.
+
+    Args:
+        x: `Tensor` to convert. If `x` is a `TensorLike`, its variable attributes are converted.
+        backend: Target backend. If `None`, uses the current default backend, see `phi.math.backend.default_backend()`.
+
+    Returns:
+        `Tensor` with native representation belonging to `backend`.
+    &#34;&#34;&#34;
+    if isinstance(x, Tensor):
+        return x._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))
+    elif isinstance(x, TensorLike):
+        return copy_with(x, **{a: convert(getattr(x, a), backend, use_dlpack=use_dlpack) for a in variable_attributes(x)})
     else:
-        raise ValueError(field)</code></pre>
+        return choose_backend(x).as_tensor(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.cos"><code class="name flex">
@@ -398,12 +457,35 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <span>def <span class="ident">downsample2x</span></span>(<span>grid: phi.field._grid.Grid) ‑> ~GridType</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Reduces the number of sample points by a factor of 2 in each spatial dimension.
+The new values are determined via linear interpolation.</p>
+<p>See Also:
+<code><a title="phi.field.upsample2x" href="#phi.field.upsample2x">upsample2x()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>grid</code></strong></dt>
+<dd><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> of same type as <code>grid</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def downsample2x(grid: Grid) -&gt; GridType:
+    &#34;&#34;&#34;
+    Reduces the number of sample points by a factor of 2 in each spatial dimension.
+    The new values are determined via linear interpolation.
+
+    See Also:
+        `upsample2x()`.
+
+    Args:
+        grid: `CenteredGrid` or `StaggeredGrid`.
+
+    Returns:
+        `Grid` of same type as `grid`.
+    &#34;&#34;&#34;
     if isinstance(grid, CenteredGrid):
         values = math.downsample2x(grid.values, grid.extrapolation)
         return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
@@ -953,16 +1035,32 @@ For <code>TensorLike</code> objects, only value the sum over all value attribute
 </details>
 </dd>
 <dt id="phi.field.mean"><code class="name flex">
-<span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField)</span>
+<span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes the mean value by reducing all spatial / collection dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mean(field: SampledField):
-    return math.mean(field.values, field.shape.spatial)</code></pre>
+<pre><code class="python">def mean(field: SampledField) -&gt; math.Tensor:
+    &#34;&#34;&#34;
+    Computes the mean value by reducing all spatial / collection dimensions.
+
+    Args:
+        field: `SampledField`
+
+    Returns:
+        `phi.math.Tensor`
+    &#34;&#34;&#34;
+    return math.mean(field.values, field.shape.non_channel.non_batch)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.minimize"><code class="name flex">
@@ -1149,15 +1247,36 @@ The function output must have the same dimension layout as the inputs and the ba
 </details>
 </dd>
 <dt id="phi.field.pad"><code class="name flex">
-<span>def <span class="ident">pad</span></span>(<span>grid: phi.field._grid.Grid, widths: int)</span>
+<span>def <span class="ident">pad</span></span>(<span>grid: ~GridType, widths: int) ‑> ~GridType</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Pads a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> using its current extrapolation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>grid</code></strong></dt>
+<dd><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code></dd>
+<dt><strong><code>widths</code></strong></dt>
+<dd>Either <code>int</code> or <code>(lower, upper)</code> to pad the same number of cells in all spatial dimensions
+or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> of the same type as <code>grid</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pad(grid: Grid, widths: int or tuple or list or dict):
+<pre><code class="python">def pad(grid: GridType, widths: int or tuple or list or dict) -&gt; GridType:
+    &#34;&#34;&#34;
+    Pads a `Grid` using its current extrapolation.
+
+    Args:
+        grid: `CenteredGrid` or `StaggeredGrid`
+        widths: Either `int` or `(lower, upper)` to pad the same number of cells in all spatial dimensions
+            or `dict` mapping dimension names to `(lower, upper)`.
+
+    Returns:
+        `Grid` of the same type as `grid`
+    &#34;&#34;&#34;
     if isinstance(widths, int):
         widths = {axis: (widths, widths) for axis in grid.shape.spatial.names}
     elif isinstance(widths, (tuple, list)):
@@ -1898,12 +2017,35 @@ The dimension can be batch, spatial or channel.</p>
 <span>def <span class="ident">upsample2x</span></span>(<span>grid: ~GridType) ‑> ~GridType</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Increases the number of sample points by a factor of 2 in each spatial dimension.
+The new values are determined via linear interpolation.</p>
+<p>See Also:
+<code><a title="phi.field.downsample2x" href="#phi.field.downsample2x">downsample2x()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>grid</code></strong></dt>
+<dd><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> of same type as <code>grid</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def upsample2x(grid: GridType) -&gt; GridType:
+    &#34;&#34;&#34;
+    Increases the number of sample points by a factor of 2 in each spatial dimension.
+    The new values are determined via linear interpolation.
+
+    See Also:
+        `downsample2x()`.
+
+    Args:
+        grid: `CenteredGrid` or `StaggeredGrid`.
+
+    Returns:
+        `Grid` of same type as `grid`.
+    &#34;&#34;&#34;
     if isinstance(grid, CenteredGrid):
         values = math.upsample2x(grid.values, grid.extrapolation)
         return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
@@ -2038,20 +2180,22 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 <span>(</span><span>location: phi.math._tensors.Tensor, strength: phi.math._tensors.Tensor = 1.0, falloff: collections.abc.Callable = None, component: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all fields.</p>
-<p>Important implementations:</p>
-<ul>
-<li>CenteredGrid</li>
-<li>StaggeredGrid</li>
-<li>PointCloud</li>
-<li>Noise</li>
-</ul>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p></div>
+<div class="desc"><p>Model of a single vortex or set of vortices.
+The falloff of the velocity magnitude can be controlled.</p>
+<p>Without a specified falloff, the velocity increases linearly with the distance from the vortex center.
+This is the case with rotating rigid bodies, for example.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class AngularVelocity(Field):
+    &#34;&#34;&#34;
+    Model of a single vortex or set of vortices.
+    The falloff of the velocity magnitude can be controlled.
+
+    Without a specified falloff, the velocity increases linearly with the distance from the vortex center.
+    This is the case with rotating rigid bodies, for example.
+    &#34;&#34;&#34;
 
     def __init__(self,
                  location: math.Tensor or tuple or list or Number,
@@ -2343,20 +2487,15 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <span>(</span><span>value=1.0)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for all fields.</p>
-<p>Important implementations:</p>
-<ul>
-<li>CenteredGrid</li>
-<li>StaggeredGrid</li>
-<li>PointCloud</li>
-<li>Noise</li>
-</ul>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p></div>
+<div class="desc"><p>Deprecated.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class ConstantField(Field):
+    &#34;&#34;&#34;
+    Deprecated.
+    &#34;&#34;&#34;
 
     def __init__(self, value=1.0):
         warnings.warn(&#34;ConstantField is deprecated. Use numbers or tuples instead.&#34;, DeprecationWarning)
@@ -3128,8 +3267,7 @@ def shape(self):
 <span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
-<p>A point cloud consists of elements at arbitrary locations.
+<div class="desc"><p>A point cloud consists of elements at arbitrary locations.
 A value or vector is associated with each element.</p>
 <p>Outside of elements, the value of the field is determined by the extrapolation.</p>
 <p>All points belonging to one example must be listed in the 'points' dimension.</p>
@@ -3156,6 +3294,19 @@ When sampling this field on a grid, scatter functions may be used.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class PointCloud(SampledField):
+    &#34;&#34;&#34;
+    A point cloud consists of elements at arbitrary locations.
+    A value or vector is associated with each element.
+
+    Outside of elements, the value of the field is determined by the extrapolation.
+
+    All points belonging to one example must be listed in the &#39;points&#39; dimension.
+
+    Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
+    When sampling this field on a grid, scatter functions may be used.
+
+    See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
+    &#34;&#34;&#34;
 
     def __init__(self,
                  elements: Geometry,
@@ -3165,18 +3316,6 @@ When sampling this field on a grid, scatter functions may be used.</p>
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
         &#34;&#34;&#34;
-        A point cloud consists of elements at arbitrary locations.
-        A value or vector is associated with each element.
-
-        Outside of elements, the value of the field is determined by the extrapolation.
-
-        All points belonging to one example must be listed in the &#39;points&#39; dimension.
-
-        Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-        When sampling this field on a grid, scatter functions may be used.
-
-        See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
-
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements

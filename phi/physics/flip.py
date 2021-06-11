@@ -1,8 +1,11 @@
+"""
+Functions for running fluid implicit particle (FLIP) and particle-in-cell (PIC) simulations.
+"""
 from phi import math, field
 
 from phi.math._tensors import copy_with
 from ._boundaries import Domain, Obstacle
-from phi.field import StaggeredGrid, CenteredGrid, PointCloud, Grid, extrapolate_valid
+from phi.field import StaggeredGrid, PointCloud, Grid, extrapolate_valid
 from phi.geom import union, Sphere
 
 
@@ -17,10 +20,9 @@ def make_incompressible(velocity: StaggeredGrid,
     Args:
         velocity: Current velocity field as StaggeredGrid
         domain: Domain object
-        particles: Pointcloud holding the current positions of the particles
+        particles: `PointCloud` holding the current positions of the particles
         obstacles: Sequence of `phi.physics.Obstacle` objects or binary StaggeredGrid marking through-flow cell faces
-        solve (Optional): Parameters for the pressure solve_linear
-        pressure_guess (Optional): Initial pressure guess as CenteredGrid
+        solve: Parameters for the pressure solve_linear
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`

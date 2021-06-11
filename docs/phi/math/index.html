@@ -927,17 +927,17 @@ The shapes of all values must be equal, except for the size of the concat dimens
 </details>
 </dd>
 <dt id="phi.math.convert"><code class="name flex">
-<span>def <span class="ident">convert</span></span>(<span>value: phi.math._tensors.Tensor, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
+<span>def <span class="ident">convert</span></span>(<span>x, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Convert the native representation of a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to the native format of <code><a title="phi.math.backend" href="backend/index.html">phi.math.backend</a></code>.</p>
+<div class="desc"><p>Convert the native representation of a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> to the native format of <code><a title="phi.math.backend" href="backend/index.html">phi.math.backend</a></code>.</p>
 <p><em>Warning</em>: This operation breaks the automatic differentiation chain.</p>
 <p>See Also:
 <code><a title="phi.math.backend.convert" href="backend/index.html#phi.math.backend.convert">convert()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to convert.</dd>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to convert. If <code>x</code> is a <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>, its variable attributes are converted.</dd>
 <dt><strong><code>backend</code></strong></dt>
 <dd>Target backend. If <code>None</code>, uses the current default backend, see <code><a title="phi.math.backend.default_backend" href="backend/index.html#phi.math.backend.default_backend">default_backend()</a></code>.</dd>
 </dl>
@@ -947,9 +947,9 @@ The shapes of all values must be equal, except for the size of the concat dimens
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def convert(value: Tensor, backend: Backend = None, use_dlpack=True):
+<pre><code class="python">def convert(x, backend: Backend = None, use_dlpack=True):
     &#34;&#34;&#34;
-    Convert the native representation of a `Tensor` to the native format of `backend`.
+    Convert the native representation of a `Tensor` or `TensorLike` to the native format of `backend`.
 
     *Warning*: This operation breaks the automatic differentiation chain.
 
@@ -957,13 +957,18 @@ The shapes of all values must be equal, except for the size of the concat dimens
         `phi.math.backend.convert()`.
 
     Args:
-        value: `Tensor` to convert.
+        x: `Tensor` to convert. If `x` is a `TensorLike`, its variable attributes are converted.
         backend: Target backend. If `None`, uses the current default backend, see `phi.math.backend.default_backend()`.
 
     Returns:
         `Tensor` with native representation belonging to `backend`.
     &#34;&#34;&#34;
-    return value._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))</code></pre>
+    if isinstance(x, Tensor):
+        return x._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))
+    elif isinstance(x, TensorLike):
+        return copy_with(x, **{a: convert(getattr(x, a), backend, use_dlpack=use_dlpack) for a in variable_attributes(x)})
+    else:
+        return choose_backend(x).as_tensor(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.convolve"><code class="name flex">
@@ -1373,7 +1378,7 @@ If <code>value</code> already contains some of the new dimensions, a size and ty
     for dim in dims.reversed:
         if dim in value.shape:
             assert dim.size is None or shape.get_size(dim.name) == dim.size, f&#34;Cannot expand tensor with shape {shape} by dimension {dim}&#34;
-            assert shape.get_type(dim.name) == dim.type, f&#34;Cannot expand tensor with shape {shape} by dimension {dim} of type &#39;{dim.type}&#39; because the dimension types do not match&#34;
+            assert shape.get_type(dim.name) == dim.type, f&#34;Cannot expand tensor with shape {shape} by dimension {dim} of type &#39;{dim.type}&#39; because the dimension types do not match. Original type of &#39;{dim.name}&#39; was {shape.get_type(dim.name)}.&#34;
         else:
             if dim.size is None:
                 dim = dim.with_sizes([1])
@@ -5140,23 +5145,24 @@ Instead, data types can simply be instantiated as needed.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class DType:
+    &#34;&#34;&#34;
+    Instances of `DType` represent the kind and size of data elements.
+    The data type of a `Tensor` can be obtained via `phi.math.Tensor.dtype`.
+
+    The following kinds of data types are supported:
+
+    * `float` with 32 / 64 bits
+    * `complex` with 64 / 128 bits
+    * `int` with 8 / 16 / 32 / 64 bits
+    * `bool` with 8 bits
+    * `str` with 8*n* bits
+
+    Unlike with many computing libraries, there are no global variables corresponding to the available types.
+    Instead, data types can simply be instantiated as needed.
+    &#34;&#34;&#34;
 
     def __init__(self, kind: type, bits: int = 8):
         &#34;&#34;&#34;
-        Instances of `DType` represent the kind and size of data elements.
-        The data type of a `Tensor` can be obtained via `phi.math.Tensor.dtype`.
-
-        The following kinds of data types are supported:
-
-        * `float` with 32 / 64 bits
-        * `complex` with 64 / 128 bits
-        * `int` with 8 / 16 / 32 / 64 bits
-        * `bool` with 8 bits
-        * `str` with 8*n* bits
-
-        Unlike with many computing libraries, there are no global variables corresponding to the available types.
-        Instead, data types can simply be instantiated as needed.
-
         Args:
             kind: Python type, one of `(bool, int, float, complex, str)`
             bits: number of bits per element, a multiple of 8.
@@ -5285,29 +5291,29 @@ This may indicate that no solution exists.</p>
 <span>class <span class="ident">Extrapolation</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Extrapolations are used to determine values of grids or other structures outside the sampled bounds.</p>
-<p>They play a vital role in padding and sampling.</p>
+<div class="desc"><p>Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
+They play a vital role in padding and sampling.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>pad_rank</code></strong></dt>
-<dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.</dd>
-</dl>
-<p>The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</p></div>
+<dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.
+The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Extrapolation:
+    &#34;&#34;&#34;
+    Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
+    They play a vital role in padding and sampling.
+    &#34;&#34;&#34;
 
     def __init__(self, pad_rank):
         &#34;&#34;&#34;
-        Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
-
-        They play a vital role in padding and sampling.
-
         Args:
             pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
-        The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
+                The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         &#34;&#34;&#34;
         self.pad_rank = pad_rank
 
@@ -8177,21 +8183,22 @@ result: SolveInfo = solves[0]  # get by index
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class SolveTape:
+    &#34;&#34;&#34;
+    Used to record additional information about solves invoked via `solve_linear()`, `solve_nonlinear()` or `minimize()`.
+    While a `SolveTape` is active, certain performance optimizations and algorithm implementations may be disabled.
+
+    To access a `SolveInfo` of a recorded solve, use
+    ```python
+    solve = Solve(method, ...)
+    with SolveTape() as solves:
+        x = math.solve_linear(f, y, solve)
+    result: SolveInfo = solves[solve]  # get by Solve
+    result: SolveInfo = solves[0]  # get by index
+    ```
+    &#34;&#34;&#34;
 
     def __init__(self, record_trajectories=False):
         &#34;&#34;&#34;
-        Used to record additional information about solves invoked via `solve_linear()`, `solve_nonlinear()` or `minimize()`.
-        While a `SolveTape` is active, certain performance optimizations and algorithm implementations may be disabled.
-
-        To access a `SolveInfo` of a recorded solve, use
-        ```python
-        solve = Solve(method, ...)
-        with SolveTape() as solves:
-            x = math.solve_linear(f, y, solve)
-        result: SolveInfo = solves[solve]  # get by Solve
-        result: SolveInfo = solves[0]  # get by index
-        ```
-
         Args:
             record_trajectories: When enabled, the entries of `SolveInfo` will contain an additional batch dimension named `trajectory`.
         &#34;&#34;&#34;

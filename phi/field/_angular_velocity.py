@@ -9,6 +9,13 @@ from ..math import Shape, GLOBAL_AXIS_ORDER, spatial
 
 
 class AngularVelocity(Field):
+    """
+    Model of a single vortex or set of vortices.
+    The falloff of the velocity magnitude can be controlled.
+
+    Without a specified falloff, the velocity increases linearly with the distance from the vortex center.
+    This is the case with rotating rigid bodies, for example.
+    """
 
     def __init__(self,
                  location: math.Tensor or tuple or list or Number,

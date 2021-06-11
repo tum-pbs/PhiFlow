@@ -14,6 +14,16 @@ from ..math.backend import Backend
 
 
 def bake_extrapolation(grid: GridType) -> GridType:
+    """
+    Pads `grid` with its current extrapolation.
+    For `StaggeredGrid`s, the resulting grid will have a consistent shape, independent of the original extrapolation.
+
+    Args:
+        grid: `CenteredGrid` or `StaggeredGrid`.
+
+    Returns:
+        Padded grid with extrapolation `phi.math.extrapolation.NONE`.
+    """
     if grid.extrapolation == math.extrapolation.NONE:
         return grid
     if isinstance(grid, StaggeredGrid):
@@ -215,8 +225,17 @@ def data_bounds(field: SampledField):
     return Box(min_vec, max_vec)
 
 
-def mean(field: SampledField):
-    return math.mean(field.values, field.shape.spatial)
+def mean(field: SampledField) -> math.Tensor:
+    """
+    Computes the mean value by reducing all spatial / collection dimensions.
+
+    Args:
+        field: `SampledField`
+
+    Returns:
+        `phi.math.Tensor`
+    """
+    return math.mean(field.values, field.shape.non_channel.non_batch)
 
 
 def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
@@ -225,11 +244,31 @@ def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
 
 
 def center_of_mass(density: SampledField):
+    """
+    Compute the center of mass of a density field.
+
+    Args:
+        density: Scalar `SampledField`
+
+    Returns:
+        `Tensor` holding only batch dimensions.
+    """
     assert 'vector' not in density.shape
     return mean(density.points * density) / mean(density)
 
 
-def pad(grid: Grid, widths: int or tuple or list or dict):
+def pad(grid: GridType, widths: int or tuple or list or dict) -> GridType:
+    """
+    Pads a `Grid` using its current extrapolation.
+
+    Args:
+        grid: `CenteredGrid` or `StaggeredGrid`
+        widths: Either `int` or `(lower, upper)` to pad the same number of cells in all spatial dimensions
+            or `dict` mapping dimension names to `(lower, upper)`.
+
+    Returns:
+        `Grid` of the same type as `grid`
+    """
     if isinstance(widths, int):
         widths = {axis: (widths, widths) for axis in grid.shape.spatial.names}
     elif isinstance(widths, (tuple, list)):
@@ -247,6 +286,19 @@ def pad(grid: Grid, widths: int or tuple or list or dict):
 
 
 def downsample2x(grid: Grid) -> GridType:
+    """
+    Reduces the number of sample points by a factor of 2 in each spatial dimension.
+    The new values are determined via linear interpolation.
+
+    See Also:
+        `upsample2x()`.
+
+    Args:
+        grid: `CenteredGrid` or `StaggeredGrid`.
+
+    Returns:
+        `Grid` of same type as `grid`.
+    """
     if isinstance(grid, CenteredGrid):
         values = math.downsample2x(grid.values, grid.extrapolation)
         return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
@@ -262,6 +314,19 @@ def downsample2x(grid: Grid) -> GridType:
 
 
 def upsample2x(grid: GridType) -> GridType:
+    """
+    Increases the number of sample points by a factor of 2 in each spatial dimension.
+    The new values are determined via linear interpolation.
+
+    See Also:
+        `downsample2x()`.
+
+    Args:
+        grid: `CenteredGrid` or `StaggeredGrid`.
+
+    Returns:
+        `Grid` of same type as `grid`.
+    """
     if isinstance(grid, CenteredGrid):
         values = math.upsample2x(grid.values, grid.extrapolation)
         return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)

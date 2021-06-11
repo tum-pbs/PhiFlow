@@ -1,8 +1,6 @@
 from unittest import TestCase
 import importlib
 
-MAX_UNDOC_FRAC = 0.25  # Acceptable fraction of undocumented wildcard imports
-
 
 def get_undocumented_wildcards(modulename):
     namespace = importlib.import_module(modulename)
@@ -28,19 +26,19 @@ class TestWildcardImportDocs(TestCase):
         """
         undocumented, loc_len = get_undocumented_wildcards(modulename)
         undocumented_fraction = len(undocumented) / loc_len
-        self.assertLess(undocumented_fraction, max_undoc_frac, f"{len(undocumented)/loc_len:.2%} of {modulename} imports undocumented. Missing Docstrings in {len(undocumented)}/{loc_len}:\n- " + "\n- ".join(undocumented))
+        self.assertLessEqual(undocumented_fraction, max_undoc_frac, f"{len(undocumented)/loc_len:.2%} of {modulename} imports undocumented. Missing Docstrings in {len(undocumented)}/{loc_len}:\n- " + "\n- ".join(undocumented))
 
     def test_phi_flow(self):
-        self.assert_less_undocumented_wc("phi.flow", MAX_UNDOC_FRAC)
+        self.assert_less_undocumented_wc("phi.flow", 0)
 
     def test_phi_math(self):
-        self.assert_less_undocumented_wc("phi.math", MAX_UNDOC_FRAC * 3)
+        self.assert_less_undocumented_wc("phi.math", 0.3)
 
     def test_phi_physics(self):
-        self.assert_less_undocumented_wc("phi.physics", MAX_UNDOC_FRAC)
+        self.assert_less_undocumented_wc("phi.physics", 0.1)
 
     def test_phi_field(self):
-        self.assert_less_undocumented_wc("phi.field", MAX_UNDOC_FRAC * 2)
+        self.assert_less_undocumented_wc("phi.field", 0.2)
 
     def test_phi_struct(self):
-        self.assert_less_undocumented_wc("phi.struct", MAX_UNDOC_FRAC * 2)
+        self.assert_less_undocumented_wc("phi.struct", 0.4)

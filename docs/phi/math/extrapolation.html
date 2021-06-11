@@ -42,16 +42,16 @@ from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
 
 class Extrapolation:
+    &#34;&#34;&#34;
+    Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
+    They play a vital role in padding and sampling.
+    &#34;&#34;&#34;
 
     def __init__(self, pad_rank):
         &#34;&#34;&#34;
-        Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
-
-        They play a vital role in padding and sampling.
-
         Args:
             pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
-        The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
+                The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         &#34;&#34;&#34;
         self.pad_rank = pad_rank
 
@@ -921,14 +921,12 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
 </code></dt>
 <dd>
 <div class="desc"><p>Extrapolate with a constant value.</p>
-<p>Extrapolations are used to determine values of grids or other structures outside the sampled bounds.</p>
-<p>They play a vital role in padding and sampling.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>pad_rank</code></strong></dt>
-<dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.</dd>
-</dl>
-<p>The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</p></div>
+<dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.
+The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1237,29 +1235,29 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 <span>(</span><span>pad_rank)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Extrapolations are used to determine values of grids or other structures outside the sampled bounds.</p>
-<p>They play a vital role in padding and sampling.</p>
+<div class="desc"><p>Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
+They play a vital role in padding and sampling.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>pad_rank</code></strong></dt>
-<dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.</dd>
-</dl>
-<p>The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</p></div>
+<dd>low-ranking extrapolations are handled first during mixed-extrapolation padding.
+The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Extrapolation:
+    &#34;&#34;&#34;
+    Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
+    They play a vital role in padding and sampling.
+    &#34;&#34;&#34;
 
     def __init__(self, pad_rank):
         &#34;&#34;&#34;
-        Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
-
-        They play a vital role in padding and sampling.
-
         Args:
             pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
-        The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
+                The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         &#34;&#34;&#34;
         self.pad_rank = pad_rank
 

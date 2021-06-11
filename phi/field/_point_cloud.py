@@ -8,6 +8,19 @@ from ..math import Tensor, collection
 
 
 class PointCloud(SampledField):
+    """
+    A point cloud consists of elements at arbitrary locations.
+    A value or vector is associated with each element.
+
+    Outside of elements, the value of the field is determined by the extrapolation.
+
+    All points belonging to one example must be listed in the 'points' dimension.
+
+    Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
+    When sampling this field on a grid, scatter functions may be used.
+
+    See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
+    """
 
     def __init__(self,
                  elements: Geometry,
@@ -17,18 +30,6 @@ class PointCloud(SampledField):
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
         """
-        A point cloud consists of elements at arbitrary locations.
-        A value or vector is associated with each element.
-
-        Outside of elements, the value of the field is determined by the extrapolation.
-
-        All points belonging to one example must be listed in the 'points' dimension.
-
-        Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-        When sampling this field on a grid, scatter functions may be used.
-
-        See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
-
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements

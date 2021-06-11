@@ -12,16 +12,16 @@ from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
 
 class Extrapolation:
+    """
+    Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
+    They play a vital role in padding and sampling.
+    """
 
     def __init__(self, pad_rank):
         """
-        Extrapolations are used to determine values of grids or other structures outside the sampled bounds.
-
-        They play a vital role in padding and sampling.
-
         Args:
             pad_rank: low-ranking extrapolations are handled first during mixed-extrapolation padding.
-        The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
+                The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         """
         self.pad_rank = pad_rank
 
