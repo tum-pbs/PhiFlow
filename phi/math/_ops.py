@@ -594,23 +594,25 @@ def concat(values: tuple or list, dim: Shape) -> Tensor:
 
 def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation') -> Tensor:
     """
-    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation_.
-    
-    This is equivalent to calling `mode.pad(value, widths)`.
+    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
+    Unlike `Extrapolation.pad()`, this function can handle negative widths which slice off outer values.
 
     Args:
-      value: tensor to be padded
-      widths: name: str -> (lower: int, upper: int)
-      mode: Extrapolation object
-      value: Tensor: 
-      widths: dict: 
-      mode: 'extrapolation_.Extrapolation': 
+        value: `Tensor` to be padded
+        widths: `dict` mapping dimension name (`str`) to `(lower, upper)`
+            where `lower` and `upper` are `int` that can be positive (pad), negative (slice) or zero (pass).
+        mode: `Extrapolation` used to determine values added from positive `widths`.
 
     Returns:
-      padded Tensor
-
+        Padded `Tensor`
     """
-    return mode.pad(value, widths)
+    has_negative_widths = any(w[0] < 0 or w[1] < 0 for w in widths.values())
+    slices = None
+    if has_negative_widths:
+        slices = {dim: slice(max(0, -w[0]), min(0, w[1]) or None) for dim, w in widths.items()}
+        widths = {dim: (max(0, w[0]), max(0, w[1])) for dim, w in widths.items()}
+    result = mode.pad(value, widths)
+    return result[slices] if has_negative_widths else result
 
 
 def closest_grid_values(grid: Tensor,

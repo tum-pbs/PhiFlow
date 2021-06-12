@@ -126,8 +126,10 @@ def stagger(field: CenteredGrid,
     if type == StaggeredGrid:
         for dim in field.shape.spatial.names:
             lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
-            all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation) if lo_valid else field.values[{dim: slice(0, -1)}])
-            all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation) if up_valid else field.values[{dim: slice(1, None)}])
+            width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
+            width_upper = {dim: (int(lo_valid) - 1, int(lo_valid and up_valid))}
+            all_lower.append(math.pad(field.values, width_lower, field.extrapolation))
+            all_upper.append(math.pad(field.values, width_upper, field.extrapolation))
         all_upper = math.stack(all_upper, channel('vector'))
         all_lower = math.stack(all_lower, channel('vector'))
         values = face_function(all_lower, all_upper)

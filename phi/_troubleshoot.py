@@ -1,5 +1,7 @@
 from contextlib import contextmanager
 
+from phi.math import batch, spatial
+
 
 def assert_minimal_config():  # raises AssertionError
     import sys
@@ -16,7 +18,7 @@ def assert_minimal_config():  # raises AssertionError
     from phi import flow
     from phi import math
     with math.NUMPY:
-        a = math.ones(batch=8, x=64)
+        a = math.ones(batch(batch=8), spatial(x=64))
         math.assert_close(a + a, 2)
 
 
@@ -47,7 +49,7 @@ def troubleshoot_tensorflow():
         return f"Installed but device initialization failed with error: {err}"
     with tf.TENSORFLOW:
         try:
-            math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
+            math.assert_close(math.ones(batch(batch=8), spatial(x=64)) + math.ones(batch(batch=8), spatial(x=64)), 2)
             # TODO cuDNN math.convolve(math.ones(batch=8, x=64), math.ones(x=4))
         except BaseException as err:
             return f"Installed but tests failed with error: {err}"
@@ -82,7 +84,7 @@ def troubleshoot_torch():
         return f"Installed but device initialization failed with error: {err}"
     with torch.TORCH:
         try:
-            math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
+            math.assert_close(math.ones(batch(batch=8), spatial(x=64)) + math.ones(batch(batch=8), spatial(x=64)), 2)
         except BaseException as err:
             return f"Installed but tests failed with error: {err}"
     return f"Installed, {gpu_count} GPUs available."
@@ -105,7 +107,7 @@ def troubleshoot_jax():
         return f"Installed but device initialization failed with error: {err}"
     with jax.JAX:
         try:
-            math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
+            math.assert_close(math.ones(batch(batch=8), spatial(x=64)) + math.ones(batch(batch=8), spatial(x=64)), 2)
         except BaseException as err:
             return f"Installed but tests failed with error: {err}"
     return f"Installed, {gpu_count} GPUs available."

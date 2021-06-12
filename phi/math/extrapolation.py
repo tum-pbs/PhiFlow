@@ -55,6 +55,7 @@ class Extrapolation:
 
         """
         for dim in widths:
+            assert (w > 0 for w in widths[dim]), "Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead."
             values = []
             if widths[dim][False] > 0:
                 values.append(self.pad_values(value, widths[dim][False], dim, False))
