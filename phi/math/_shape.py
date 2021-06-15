@@ -331,7 +331,8 @@ class Shape:
         return tuple(mask)
 
     def __repr__(self):
-        strings = [f"{name}={size}" for size, name, _ in self.dimensions]
+        TYPE_ABBR = {SPATIAL_DIM: "ˢ", CHANNEL_DIM: "ᵛ", COLLECTION_DIM: "ᶜ", BATCH_DIM: "ᵇ"}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
+        strings = [f"{name}{TYPE_ABBR.get(dim_type, '')}={size}" for size, name, dim_type in self.dimensions]
         return '(' + ', '.join(strings) + ')'
 
     def __eq__(self, other):
