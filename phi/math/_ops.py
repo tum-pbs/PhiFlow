@@ -10,7 +10,7 @@ import numpy as np
 
 from . import extrapolation as e_
 from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, COLLECTION_DIM, Shape, EMPTY_SHAPE,
-                     spatial, batch, channel, collection, merge_shapes, parse_dim_order)
+                     spatial, batch, channel, collection, merge_shapes, parse_dim_order, concat_shapes)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
     assemble_tensors, disassemble_tree, assemble_tree, value_attributes
@@ -224,7 +224,7 @@ def copy(value: Tensor):
     Returns:
         Copy of `value`.
     """
-    if value._is_special:
+    if value._is_tracer:
         warnings.warn("Tracing tensors cannot be copied.")
         return value
     return value._op1(lambda native: choose_backend(native).copy(native))
@@ -355,7 +355,8 @@ def map_(function, *values: Tensor) -> Tensor:
     return wrap(result).vector.split(shape)
 
 
-def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None):
+def _initialize(uniform_initializer, shapes: tuple, dtype=None):
+    shape = concat_shapes(*shapes)
     if shape.is_non_uniform:
         stack_dim = shape.shape.without('dims')[0:1]
         shapes = shape.unstack(stack_dim.name)
@@ -365,7 +366,7 @@ def _initialize(uniform_initializer, shape=EMPTY_SHAPE, dtype=None):
         return uniform_initializer(shape, dtype)
 
 
-def zeros(shape=EMPTY_SHAPE, dtype=None):
+def zeros(*shape: Shape, dtype: DType = None):
     """
     Define a tensor with specified shape with value 0 / False everywhere.
     
@@ -388,7 +389,7 @@ def zeros_like(obj):
     return assemble_tree(nest, values0)
 
 
-def ones(shape=EMPTY_SHAPE, dtype=None):
+def ones(*shape: Shape, dtype: DType = None):
     """
     Define a tensor with specified shape with value 1 / True everywhere.
     
@@ -409,7 +410,7 @@ def ones_like(tensor: Tensor):
     return zeros(tensor.shape, dtype=tensor.dtype) + 1
 
 
-def random_normal(shape=EMPTY_SHAPE, dtype: DType=None):
+def random_normal(*shape: Shape, dtype: DType = None):
     """
     Creates a `Tensor` with the specified shape, filled with random values distributed according to a normal / Gaussian distribution.
 
@@ -436,7 +437,7 @@ def random_normal(shape=EMPTY_SHAPE, dtype: DType=None):
     return _initialize(uniform_random_normal, shape, dtype)
 
 
-def random_uniform(shape=EMPTY_SHAPE, dtype=None):
+def random_uniform(*shape: Shape, dtype: DType = None):
 
     def uniform_random_uniform(shape, dtype):
         native = choose_backend(*shape.sizes, prefer_default=True).random_uniform(shape.sizes)

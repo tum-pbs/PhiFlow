@@ -2,10 +2,9 @@ import time
 import types
 import uuid
 import warnings
-from copy import copy
-from functools import reduce
 from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any
 
+import logging
 import numpy as np
 
 from . import _ops as math
@@ -106,7 +105,10 @@ class JitFunction:
         self.grad_jit = GradientFunction(f.f, f.wrt, f.get_output, jit=True) if isinstance(f, GradientFunction) else None
 
     def _jit_compile(self, in_key: SignatureKey):
+        logging.debug(f"jit: {self.f.__name__} called with new key. shapes={[s.volume for s in in_key.shapes]}, kwargs={list(in_key.kwargs)}.")
+
         def jit_f_native(*natives, **kwargs):
+            logging.debug(f"jit: Tracing {self.f.__name__}")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.nest, in_tensors)
@@ -135,6 +137,10 @@ class JitFunction:
 
     def __repr__(self):
         return f"jit({self.f.__name__})"
+
+    @property
+    def __name__(self):
+        return self.f.__name__
 
 
 def jit_compile(f: Callable) -> Callable:
@@ -186,13 +192,15 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         self.nl_jit = JitFunction(f)  # for backends that do not support sparse matrices
 
     def _trace(self, in_key: SignatureKey) -> 'ShiftLinTracer':
-        assert len(in_key.shapes) == 1, "Linear functions only support one argument."
+        assert in_key.shapes[0].is_uniform, f"math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}"
         with in_key.backend:
             x = math.ones(in_key.shapes[0])
             tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape)
         f_input = assemble_tree(in_key.nest, [tracer])
         assert isinstance(f_input, tuple)
-        result = self.f(*f_input)
+        condition_args = [in_key.kwargs[f'_condition_arg[{i}]'] for i in range(in_key.kwargs['n_condition_args'])]
+        kwargs = {k: v for k, v in in_key.kwargs.items() if not (k.startswith('_condition_arg[') or k == 'n_condition_args')}
+        result = self.f(*f_input, *condition_args, **kwargs)
         _, result_tensors = disassemble_tree(result)
         assert len(result_tensors) == 1, f"Linear function must return a single Tensor or tensor-like but got {result}"
         result_tensor = result_tensors[0]
@@ -200,12 +208,14 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         return result_tensor
 
     def _get_or_trace(self, key: SignatureKey):
-        if key in self.tracers:
+        if not key.tracing and key in self.tracers:
             return self.tracers[key]
         else:
             tracer = self._trace(key)
             if not key.tracing:
                 self.tracers[key] = tracer
+                if len(self.tracers) >= 4:
+                    warnings.warn(f"The compiled linear function '{self.f.__name__}' was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().")
             return tracer
 
     def __call__(self, *args: X, **kwargs) -> Y:
@@ -223,8 +233,11 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         tracer = self._get_or_trace(key)
         return tracer.apply(tensors[0])
 
-    def sparse_coordinate_matrix(self, *args, **kwargs):
-        key, _ = key_from_args(*args, cache=False, **kwargs)
+    def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+        kwargs['n_condition_args'] = len(condition_args)
+        for i, c_arg in enumerate(condition_args):
+            kwargs[f'_condition_arg[{i}]'] = c_arg
+        key, _ = key_from_args(x, cache=False, **kwargs)
         assert key.backend.supports(Backend.sparse_tensor)
         return self._get_or_trace(key).get_sparse_coordinate_matrix()
 
@@ -239,7 +252,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         return print_stencil
 
 
-def jit_compile_linear(f: Callable[[X], Y]) -> 'LinearFunction[X, Y]':
+def jit_compile_linear(f: Callable[[X], Y]) -> 'LinearFunction[X, Y]':  # TODO add cache control method, e.g. max_traces
     """
     Compile an optimized representation of the linear function `f`.
     For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
@@ -256,7 +269,10 @@ def jit_compile_linear(f: Callable[[X], Y]) -> 'LinearFunction[X, Y]':
         `jit_compile()`
 
     Args:
-        f: Linear function with `Tensor` positional arguments and return value(s).
+        f: Function that is linear in its positional arguments.
+            All positional arguments must be of type `Tensor` and `f` must return a `Tensor`.
+            `f` may be conditioned on keyword arguments.
+            However, passing different values for these will cause `f` to be re-traced unless the conditioning arguments are also being traced.
 
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
@@ -278,6 +294,7 @@ class GradientFunction:
 
     def _trace_grad(self, in_key: SignatureKey, wrt_natives):
         def f_native(*natives, **kwargs):
+            logging.debug(f"Tracing gradient of {self.f.__name__}")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.nest, in_tensors)
@@ -315,6 +332,10 @@ class GradientFunction:
 
     def __repr__(self):
         return f"grad({self.f.__name__})"
+
+    @property
+    def __name__(self):
+        return self.f.__name__
 
     def _track_wrt(self, args):
         wrt_tensors = []
@@ -441,7 +462,11 @@ class CustomGradientFunction:
                 return list(incomplete._natives())
         elif isinstance(nest, (tuple, list)):
             if incomplete is None:
-                raise NotImplementedError()
+                natives = []
+                for item in nest:
+                    natives_item = CustomGradientFunction.incomplete_tree_to_natives(None, item, complete_shapes)
+                    natives.extend(natives_item)
+                return type(nest)(natives)
             else:
                 assert type(nest) == type(incomplete) and len(nest) == len(incomplete)
                 natives = []
@@ -608,7 +633,7 @@ class ShiftLinTracer(Tensor):
         raise NotImplementedError()
 
     @property
-    def _is_special(self) -> bool:
+    def _is_tracer(self) -> bool:
         return True
 
     def _getitem(self, selection: dict):
@@ -1119,11 +1144,11 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     return minimize(min_func, solve)
 
 
-def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -> X:
+def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or list = (), f_kwargs: dict = None) -> X:
     """
     Solves the system of linear equations *f(x) = y* and returns *x*.
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
-    This will use a matrix representation of `f` to solve the linear system.
+    Then, an optimized representation of `f` (such as a sparse matrix) will be used to solve the linear system.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 
@@ -1133,9 +1158,15 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -> X:
         `solve_nonlinear()`, `jit_compile_linear()`.
 
     Args:
-        f: Linear function with single `Tensor` or `TensorLike` positional argument and return value.
+        f: Linear function with `Tensor` or `TensorLike` first parameter and return value.
+            `f` can have additional arguments.
         y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
+        f_args: Additional `Tensor` or `TensorLike` arguments to be passed to `f`.
+            `f` need not be linear in these arguments.
+            Use this instead of lambda function since a lambda will not be recognized as calling a jit-compiled function.
+        f_kwargs: Additional keyword arguments to be passed to `f`.
+            These arguments can be of any type.
 
     Returns:
         x: solution of the linear system of equations `f(x) = y` as `Tensor` or `TensorLike`.
@@ -1153,10 +1184,10 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -> X:
         f = jit_compile_linear(f) if backend.supports(Backend.sparse_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_tensor):
-        matrix = f.sparse_coordinate_matrix(solve.x0)
+        matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
-        return _function_solve(y, solve, f=f, backend=backend)  # custom_gradient
+        return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {}, f=f, backend=backend)  # custom_gradient
 
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
@@ -1229,8 +1260,8 @@ def _matrix_solve_forward(y, solve: Solve, matrix: FixedShiftSparseTensor,
 _matrix_solve = attach_gradient_solve(_matrix_solve_forward)
 
 
-def _function_solve_forward(y, solve: Solve,
-                            f: Callable = None, backend: Backend = None, is_backprop=False):  # kwargs
+def _function_solve_forward(y, solve: Solve, f_args: tuple,
+                            f_kwargs: dict = None, f: Callable = None, backend: Backend = None, is_backprop=False):  # kwargs
     y_nest, (y_tensor,) = disassemble_tree(y)
     x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
@@ -1240,7 +1271,7 @@ def _function_solve_forward(y, solve: Solve,
         if batch_index is not None and batch.volume > 1:
             raise NotImplementedError()  # TODO expand batch dimensions, return result[batch]
         x = assemble_tree(x0_nest, [reshaped_tensor(native_x, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])])
-        y = f(x)
+        y = f(x, *f_args, **f_kwargs)
         _, (y_tensor,) = disassemble_tree(y)
         y_native = reshaped_native(y_tensor, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
         return y_native

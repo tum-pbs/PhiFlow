@@ -112,19 +112,12 @@ class Tensor:
         return self.shape.rank
 
     @property
-    def _is_special(self) -> bool:
+    def _is_tracer(self) -> bool:
         """
-        Special tensors store additional internal information.
-        They should not be converted to native() in intermediate operations.
-        
-        Tracking tensors are special tensors.
+        Tracers store additional internal information.
+        They should not be converted to `native()` in intermediate operations.
         
         TensorStack prevents performing the actual stack operation if one of its component tensors is special.
-
-        Args:
-
-        Returns:
-
         """
         raise NotImplementedError()
 
@@ -717,7 +710,7 @@ class NativeTensor(Tensor):
         return NativeTensor(native, new_shape)
 
     @property
-    def _is_special(self) -> bool:
+    def _is_tracer(self) -> bool:
         return False
 
     def _getitem(self, selection: dict):
@@ -810,15 +803,17 @@ class CollapsedTensor(Tensor):  # package-private
 
     def _cache(self):
         if self._cached is None:
-            if self._inner._is_special:
+            if self._inner._is_tracer:
                 return None
-            from ._ops import all_available
-            native = self._inner.native(order=self.shape.names)
-            multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape.dimensions]
-            backend = choose_backend(native)
-            tiled = backend.tile(native, multiples)
-            self._cached = NativeTensor(tiled, self.shape)
-            self._inner = None
+            if self.shape.is_uniform:
+                native = self._inner.native(order=self.shape.names)
+                multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape.dimensions]
+                backend = choose_backend(native)
+                tiled = backend.tile(native, multiples)
+                self._cached = NativeTensor(tiled, self.shape)
+                self._inner = None
+            else:
+                raise NotImplementedError()
         return self._cached
 
     @property
@@ -874,11 +869,11 @@ class CollapsedTensor(Tensor):  # package-private
             return result
 
     @property
-    def _is_special(self) -> bool:
+    def _is_tracer(self) -> bool:
         if self.is_cached:
-            return self._cached._is_special
+            return self._cached._is_tracer
         else:
-            return self._inner._is_special
+            return self._inner._is_tracer
 
     def _getitem(self, selection: dict):
         if self.is_cached:
@@ -983,12 +978,12 @@ class TensorStack(Tensor):
         self._cached = None
 
     @property
-    def _is_special(self) -> bool:
-        return any([t._is_special for t in self.tensors])
+    def _is_tracer(self) -> bool:
+        return any([t._is_tracer for t in self.tensors])
 
     @property
     def requires_broadcast(self):
-        return self._varying_shapes or not self._shape.well_defined or self._is_special
+        return self._varying_shapes or not self._shape.well_defined or self._is_tracer
 
     def _cache(self):
         if self._cached is None:
@@ -1139,7 +1134,7 @@ class TensorStack(Tensor):
         red_inners = [t._tensor_reduce(inner_axes, native_function, collapsed_function, unaffected_function) for t in self.tensors]
         # --- outer reduce ---
         if self.stack_dim.name in dims:
-            if any([t._is_special for t in red_inners]):
+            if any([t._is_tracer for t in red_inners]):
                 return sum(red_inners[1:], red_inners[0])  # TODO this may not always be the sum
             else:
                 inner_order = red_inners[0].shape.names
