@@ -301,9 +301,11 @@ class TFBackend(Backend):
             return np.shape(tensor)
 
     def batched_gather_nd(self, values, indices):
-        if self.staticshape(values)[0] == 1 and self.staticshape(indices)[0] != 1:
+        if self.staticshape(values)[0] == 1 and self.staticshape(indices)[0] > 1:
             result = tf.gather_nd(values[0, ...], indices, batch_dims=0)
             return result
+        if self.staticshape(values)[0] > 1 and self.staticshape(indices)[0] == 1:
+            indices = tf.tile(indices, [self.staticshape(values)[0]] + [1] * (values.ndim - 1))
         return tf.gather_nd(values, indices, batch_dims=1)
 
     def unstack(self, tensor, axis=0, keepdims=False):

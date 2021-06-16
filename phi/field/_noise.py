@@ -14,7 +14,7 @@ class Noise(Field):
     Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
     """
 
-    def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **channel_dims):
+    def __init__(self, *shape: math.Shape, scale=10, smoothness=1.0, **channel_dims):
         """
         Args:
           shape: Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.
@@ -24,7 +24,7 @@ class Noise(Field):
         """
         self.scale = scale
         self.smoothness = smoothness
-        self._shape = shape & channel(**channel_dims)
+        self._shape = math.concat_shapes(*shape, channel(**channel_dims))
 
     @property
     def shape(self):
@@ -57,7 +57,7 @@ class Noise(Field):
 
     def __getitem__(self, item: dict):
         new_shape = self.shape.after_gather(item)
-        return Noise(new_shape, self.scale, self.smoothness)
+        return Noise(new_shape, scale=self.scale, smoothness=self.smoothness)
 
     def __repr__(self):
-        return "%s, scale=%f, smoothness=%f" % (self._shape, self.scale, self.smoothness)
+        return f"{self._shape}, scale={self.scale}, smoothness={self.smoothness}"
