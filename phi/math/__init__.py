@@ -17,7 +17,7 @@ from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, collection, merge_shapes
+from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, collection, merge_shapes, concat_shapes
 from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike
 from .extrapolation import Extrapolation
 from ._ops import (

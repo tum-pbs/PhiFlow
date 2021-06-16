@@ -1020,6 +1020,9 @@ def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, 
 
     The shorthand `shape1 & shape2` merges shapes with `check_exact=[spatial]`.
 
+    See Also:
+        `concat_shapes()`.
+
     Args:
         *shapes: `Shape` objects to combine.
         check_exact: Sequence of type filters, such as `channel`, `batch`, `spatial` or `collection`.
@@ -1032,6 +1035,8 @@ def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, 
     Returns:
         Merged `Shape`
     """
+    if not shapes:
+        return EMPTY_SHAPE
     merged = []
     for dim_type in order:
         check_type_exact = dim_type in check_exact
@@ -1062,6 +1067,25 @@ def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, 
         return result
     except DuplicateDimension as err:
         raise IncompatibleShapes(f"Cannot merge shapes {list(shapes)} because dimension '{err.dimension}' exists with different types. Types are {[s.types for s in shapes]}")
+
+
+def concat_shapes(*shapes: Shape):
+    """
+    Creates a `Shape` listing the dimensions of all `shapes` in the given order.
+
+    See Also:
+        `merge_shapes()`.
+
+    Args:
+        *shapes: Shapes to concatenate. No two shapes must contain a dimension with the same name.
+
+    Returns:
+        Combined `Shape`.
+    """
+    sizes = sum([s.sizes for s in shapes], ())
+    names = sum([s.names for s in shapes], ())
+    types = sum([s.types for s in shapes], ())
+    return Shape(sizes, names, types)
 
 
 def shape_stack(stack_dim: Shape, *shapes: Shape):
