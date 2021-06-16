@@ -21,10 +21,10 @@ class TestDiffusion(TestCase):
         diffuse.fourier(grid, 1, 1)
         grid = StaggeredGrid(Noise(batch=2, vector=2), extrapolation.ZERO, x=4, y=3)
         diffuse.explicit(grid, 1, 1, substeps=10)
-        diffuse.implicit(grid, 1, 1, order=2)
+        # diffuse.implicit(grid, 1, 1, order=2)  # not yet supported
         grid = StaggeredGrid(Noise(batch=2, vector=2), extrapolation.BOUNDARY, x=4, y=3)
         diffuse.explicit(grid, 1, 1, substeps=10)
-        diffuse.implicit(grid, 1, 1, order=2)
+        # diffuse.implicit(grid, 1, 1, order=2)  # not yet supported
 
     def test_constant_diffusion(self):
         grid = CenteredGrid(1, extrapolation.PERIODIC, x=4, y=3)

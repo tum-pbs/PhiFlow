@@ -179,25 +179,25 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         first_path = next(iter(math.flatten(scene.paths)))
         names = [_str(n) for n in os.listdir(first_path)]
         names = [n[4:-4] for n in names if n.endswith('.txt') and n.startswith('log_')]
-        names = math.wrap(names, 'names')
+        names = math.wrap(names, batch('names'))
         additional_reduce = ['names']
     elif isinstance(names, str):
         names = math.wrap(names)
     elif isinstance(names, (tuple, list)):
-        names = math.wrap(names, 'names')
+        names = math.wrap(names, batch('names'))
     else:
         assert isinstance(names, math.Tensor), f"Invalid argument 'names': {type(names)}"
     if not isinstance(colors, math.Tensor):
         colors = math.wrap(colors)
 
     shape = (scene.shape & names.shape)
-    batch = shape.without(reduce).without(additional_reduce)
+    batches = shape.without(reduce).without(additional_reduce)
 
     cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-    fig, axes = plt.subplots(batch.only(down).volume, batch.without(down).volume, figsize=size)
+    fig, axes = plt.subplots(batches.only(down).volume, batches.without(down).volume, figsize=size)
     axes = axes if isinstance(axes, numpy.ndarray) else [axes]
 
-    for b, axis in zip(batch.meshgrid(), axes):
+    for b, axis in zip(batches.meshgrid(), axes):
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0

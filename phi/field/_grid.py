@@ -54,8 +54,20 @@ class Grid(SampledField):
     def __eq__(self, other):
         if not type(self) == type(other):
             return False
-        assert self._values is None, "Can only compare grids in key mode."
-        return self._bounds == other._bounds and self._resolution == other._resolution and self._extrapolation == other._extrapolation
+        if not (self._bounds == other._bounds and self._resolution == other._resolution and self._extrapolation == other._extrapolation):
+            return False
+        if self.values is None:
+            return other.values is None
+        if other.values is None:
+            return False
+        if not math.all_available(self.values) or not math.all_available(other.values):  # tracers involved
+            if math.all_available(self.values) != math.all_available(other.values):
+                return False
+            else:  # both tracers
+                return self.values.shape == other.values.shape
+                raise NotImplementedError()
+                return math.identical(self.values, other.values)
+        return bool((self.values == other.values).all)
 
     def __getitem__(self, item: dict) -> 'Grid':
         raise NotImplementedError(self)
@@ -245,7 +257,7 @@ class StaggeredGrid(Grid):
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
                 * `phi.math.Tensor` with staggered shape: uses tensor values as grid values.
                   Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
-                  Use `phi.math.channel_stack()` to manually create this non-uniform tensor.
+                  Use `phi.math.stack()` to manually create this non-uniform tensor.
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.

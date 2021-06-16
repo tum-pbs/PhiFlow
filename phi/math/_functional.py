@@ -1187,6 +1187,9 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or
         matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
+        _, arg_tensors = disassemble_tree(f_args)
+        for t in y_tensors + x0_tensors + arg_tensors:
+            t._expand()
         return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {}, f=f, backend=backend)  # custom_gradient
 
 

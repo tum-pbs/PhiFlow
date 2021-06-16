@@ -11,14 +11,8 @@ from phi.physics import fluid
 
 BACKENDS = phi.detect_backends()
 
-# import tensorflow as tf
-# if tf.config.list_physical_devices('GPU'):
-#     tf.config.experimental.set_memory_growth(tf.config.list_physical_devices('GPU')[0], True)  # prevent Blas GEMM launch failed
-
 
 class FluidTest(TestCase):
-
-    # Backend-independent abstract tests
 
     def _test_make_incompressible(self, grid_type: type, extrapolation: math.Extrapolation, **batch_dims):
         result = None
@@ -34,8 +28,6 @@ class FluidTest(TestCase):
                     result = velocity
                 else:
                     field.assert_close(result, abs_tolerance=1e-5, msg=f"Simulation with {backend} does not match {BACKENDS[:i]}")
-
-    # Backend-specific testing
 
     def test_make_incompressible_centered(self):
         self._test_make_incompressible(CenteredGrid, math.extrapolation.ZERO)

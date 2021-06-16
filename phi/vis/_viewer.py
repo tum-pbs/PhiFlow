@@ -10,7 +10,7 @@ from ._user_namespace import UserNamespace
 from ._vis_base import VisModel, Control, Action
 from .. import field
 from ..field import Scene, SampledField
-from ..math import Shape
+from ..math import batch
 
 
 def create_viewer(namespace: UserNamespace,
@@ -285,7 +285,7 @@ class Record:
         assert item in self.history, f"No recording available for '{item}'. The following fields were recorded: {self.recorded_fields}"
         snapshots = [v for v in self.history[item] if v is not None]
         if snapshots:
-            return field.batch_stack(*snapshots, dim=self.dim)
+            return field.stack(snapshots, batch(self.dim))
         else:
             return None
 

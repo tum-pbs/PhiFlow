@@ -96,16 +96,16 @@ class TestTensors(TestCase):
         math.assert_close(v * d, d * v, 1)
 
     def test_native_unstack(self):
-        v = math.ones(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2))
+        v = math.ones(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
         vx, vy = v.vector.unstack()
-        self.assertEqual('(batch=10, x=4, y=3)', repr(vx.shape))
+        self.assertEqual((10, 4, 3), vx.shape.sizes)
         self.assertEqual(4, len(v.x.unstack()))
         self.assertEqual(10, len(v.batch.unstack()))
 
     def test_native_slice(self):
-        v = math.ones(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2))
-        self.assertEqual('(batch=10, x=4, y=3)', repr(v.vector[0].shape))
-        self.assertEqual('(batch=10, y=2, vector=2)', repr(v.y[0:2].x[0].shape))
+        v = math.ones(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
+        self.assertEqual((10, 4, 3), v.vector[0].shape.sizes)
+        self.assertEqual((10, 2, 2), v.y[0:2].x[0].shape.sizes)
 
     def test_stacked_shapes(self):
         t0 = math.ones(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2))
@@ -142,9 +142,9 @@ class TestTensors(TestCase):
     def test_collapsed(self):
         scalar = math.zeros(spatial(x=4, y=3))
         math.assert_close(scalar, 0)
-        self.assertEqual('(x=4, y=3)', repr(scalar.shape))
-        self.assertEqual('(x=4)', repr(scalar.y[0].shape))
-        self.assertEqual('()', repr(scalar.y[0].x[0].shape))
+        self.assertEqual((4, 3), scalar.shape.sizes)
+        self.assertEqual(4, scalar.y[0].shape.size)
+        self.assertEqual(0, scalar.y[0].x[0].shape.rank)
         self.assertEqual(3, len(scalar.y.unstack()))
 
     def test_collapsed_op2(self):
@@ -162,10 +162,10 @@ class TestTensors(TestCase):
     def test_semi_collapsed(self):
         scalar = math.ones(spatial(x=4, y=3))
         scalar = CollapsedTensor(scalar, scalar.shape.expand(batch(batch=10)))
-        self.assertEqual('(batch=10, x=4, y=3)', repr(scalar.shape))
+        self.assertEqual((10, 4, 3), scalar.shape.sizes)
         self.assertEqual(4, len(scalar.x.unstack()))
         self.assertEqual(10, len(scalar.batch.unstack()))
-        self.assertEqual('()', repr(scalar.y[0].batch[0].x[0].shape))
+        self.assertEqual(0, scalar.y[0].batch[0].x[0].shape.rank)
 
     def test_zeros_nonuniform(self):
         nonuniform = shape_stack(batch('stack'), batch(time=1) & spatial(x=3, y=3), spatial(x=3, y=4), channel())
