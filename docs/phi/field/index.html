@@ -904,7 +904,10 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Linear function with <code>Tensor</code> positional arguments and return value(s).</dd>
+<dd>Function that is linear in its positional arguments.
+All positional arguments must be of type <code>Tensor</code> and <code>f</code> must return a <code>Tensor</code>.
+<code>f</code> may be conditioned on keyword arguments.
+However, passing different values for these will cause <code>f</code> to be re-traced unless the conditioning arguments are also being traced.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code>LinearFunction</code> with similar signature and return values as <code>f</code>.</p></div>
@@ -912,7 +915,7 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:
+<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
     For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
@@ -929,7 +932,10 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
         `jit_compile()`
 
     Args:
-        f: Linear function with `Tensor` positional arguments and return value(s).
+        f: Function that is linear in its positional arguments.
+            All positional arguments must be of type `Tensor` and `f` must return a `Tensor`.
+            `f` may be conditioned on keyword arguments.
+            However, passing different values for these will cause `f` to be re-traced unless the conditioning arguments are also being traced.
 
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
@@ -1470,7 +1476,7 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 </details>
 </dd>
 <dt id="phi.field.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>grid: phi.field._grid.CenteredGrid, offsets: tuple, stack_dim: phi.math._shape.Shape = (shift=None))</span>
+<span>def <span class="ident">shift</span></span>(<span>grid: phi.field._grid.CenteredGrid, offsets: tuple, stack_dim: phi.math._shape.Shape = (shiftᵛ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Wraps :func:<code>math.shift</code> for CenteredGrid.</p>
@@ -1531,12 +1537,12 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 </details>
 </dd>
 <dt id="phi.field.solve_linear"><code class="name flex">
-<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable[[~X], ~Y], y: ~Y, solve: phi.math._functional.Solve[~X, ~Y]) ‑> ~X</span>
+<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable[[~X], ~Y], y: ~Y, solve: phi.math._functional.Solve[~X, ~Y], f_args: tuple = (), f_kwargs: dict = None) ‑> ~X</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solves the system of linear equations <em>f(x) = y</em> and returns <em>x</em>.
 For maximum performance, compile <code>f</code> using <code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear()</a></code> beforehand.
-This will use a matrix representation of <code>f</code> to solve the linear system.</p>
+Then, an optimized representation of <code>f</code> (such as a sparse matrix) will be used to solve the linear system.</p>
 <p>To obtain additional information about the performed solve, use a <code>SolveTape</code>.</p>
 <p>The gradient of this operation will perform another linear solve with the parameters specified by <code>Solve.gradient_solve</code>.</p>
 <p>See Also:
@@ -1544,11 +1550,19 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Linear function with single <code>Tensor</code> or <code>TensorLike</code> positional argument and return value.</dd>
+<dd>Linear function with <code>Tensor</code> or <code>TensorLike</code> first parameter and return value.
+<code>f</code> can have additional arguments.</dd>
 <dt><strong><code>y</code></strong></dt>
 <dd>Desired output of <code>f(x)</code> as <code>Tensor</code> or <code>TensorLike</code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd><code>Solve</code> object specifying optimization method, parameters and initial guess for <code>x</code>.</dd>
+<dt><strong><code>f_args</code></strong></dt>
+<dd>Additional <code>Tensor</code> or <code>TensorLike</code> arguments to be passed to <code>f</code>.
+<code>f</code> need not be linear in these arguments.
+Use this instead of lambda function since a lambda will not be recognized as calling a jit-compiled function.</dd>
+<dt><strong><code>f_kwargs</code></strong></dt>
+<dd>Additional keyword arguments to be passed to <code>f</code>.
+These arguments can be of any type.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1566,11 +1580,11 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -&gt; X:
+<pre><code class="python">def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or list = (), f_kwargs: dict = None) -&gt; X:
     &#34;&#34;&#34;
     Solves the system of linear equations *f(x) = y* and returns *x*.
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
-    This will use a matrix representation of `f` to solve the linear system.
+    Then, an optimized representation of `f` (such as a sparse matrix) will be used to solve the linear system.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 
@@ -1580,9 +1594,15 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
         `solve_nonlinear()`, `jit_compile_linear()`.
 
     Args:
-        f: Linear function with single `Tensor` or `TensorLike` positional argument and return value.
+        f: Linear function with `Tensor` or `TensorLike` first parameter and return value.
+            `f` can have additional arguments.
         y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
+        f_args: Additional `Tensor` or `TensorLike` arguments to be passed to `f`.
+            `f` need not be linear in these arguments.
+            Use this instead of lambda function since a lambda will not be recognized as calling a jit-compiled function.
+        f_kwargs: Additional keyword arguments to be passed to `f`.
+            These arguments can be of any type.
 
     Returns:
         x: solution of the linear system of equations `f(x) = y` as `Tensor` or `TensorLike`.
@@ -1600,10 +1620,10 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
         f = jit_compile_linear(f) if backend.supports(Backend.sparse_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_tensor):
-        matrix = f.sparse_coordinate_matrix(solve.x0)
+        matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
-        return _function_solve(y, solve, f=f, backend=backend)  # custom_gradient</code></pre>
+        return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {}, f=f, backend=backend)  # custom_gradient</code></pre>
 </details>
 </dd>
 <dt id="phi.field.solve_nonlinear"><code class="name flex">
@@ -1681,7 +1701,7 @@ The output of <code>f</code> must match <code>y</code>.</dd>
 </details>
 </dd>
 <dt id="phi.field.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, type: type = phi.field._grid.CenteredGrid, stack_dim: phi.math._shape.Shape = (vector=None))</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, type: type = phi.field._grid.CenteredGrid, stack_dim: phi.math._shape.Shape = (vectorᵛ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finite difference spatial_gradient.</p>
@@ -1844,8 +1864,10 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     if type == StaggeredGrid:
         for dim in field.shape.spatial.names:
             lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
-            all_lower.append(math.pad(field.values, {dim: (1, 0)}, field.extrapolation) if lo_valid else field.values[{dim: slice(0, -1)}])
-            all_upper.append(math.pad(field.values, {dim: (0, 1)}, field.extrapolation) if up_valid else field.values[{dim: slice(1, None)}])
+            width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
+            width_upper = {dim: (int(lo_valid) - 1, int(lo_valid and up_valid))}
+            all_lower.append(math.pad(field.values, width_lower, field.extrapolation))
+            all_upper.append(math.pad(field.values, width_upper, field.extrapolation))
         all_upper = math.stack(all_upper, channel(&#39;vector&#39;))
         all_lower = math.stack(all_lower, channel(&#39;vector&#39;))
         values = face_function(all_lower, all_upper)
@@ -2899,8 +2921,20 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
     def __eq__(self, other):
         if not type(self) == type(other):
             return False
-        assert self._values is None, &#34;Can only compare grids in key mode.&#34;
-        return self._bounds == other._bounds and self._resolution == other._resolution and self._extrapolation == other._extrapolation
+        if not (self._bounds == other._bounds and self._resolution == other._resolution and self._extrapolation == other._extrapolation):
+            return False
+        if self.values is None:
+            return other.values is None
+        if other.values is None:
+            return False
+        if not math.all_available(self.values) or not math.all_available(other.values):  # tracers involved
+            if math.all_available(self.values) != math.all_available(other.values):
+                return False
+            else:  # both tracers
+                return self.values.shape == other.values.shape
+                raise NotImplementedError()
+                return math.identical(self.values, other.values)
+        return bool((self.values == other.values).all)
 
     def __getitem__(self, item: dict) -&gt; &#39;Grid&#39;:
         raise NotImplementedError(self)
@@ -4306,7 +4340,7 @@ def list(parent_directory: str,
 </details>
 </dd>
 <dt id="phi.field.Scene.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>*scenes: <a title="phi.field.Scene" href="#phi.field.Scene">Scene</a>, dim: phi.math._shape.Shape = (batch=None)) ‑> phi.field._scene.Scene</span>
+<span>def <span class="ident">stack</span></span>(<span>*scenes: <a title="phi.field.Scene" href="#phi.field.Scene">Scene</a>, dim: phi.math._shape.Shape = (batchᵇ=None)) ‑> phi.field._scene.Scene</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4874,7 +4908,7 @@ Has to be one of the following:</p>
 <li><code>tuple</code> or <code>list</code>: interprets the sequence as vector, used for all sample points</li>
 <li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> with staggered shape: uses tensor values as grid values.
 Must contain a <code>vector</code> dimension with each slice consisting of one more element along the dimension they describe.
-Use <code>phi.math.channel_stack()</code> to manually create this non-uniform tensor.</li>
+Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">stack()</a></code> to manually create this non-uniform tensor.</li>
 <li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.</li>
 </ul>
 </dd>
@@ -4924,7 +4958,7 @@ Use <code>phi.math.channel_stack()</code> to manually create this non-uniform te
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
                 * `phi.math.Tensor` with staggered shape: uses tensor values as grid values.
                   Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
-                  Use `phi.math.channel_stack()` to manually create this non-uniform tensor.
+                  Use `phi.math.stack()` to manually create this non-uniform tensor.
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.

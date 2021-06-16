@@ -322,17 +322,13 @@ def laplace(x: Tensor,
     If a vector field is passed, the laplace is computed component-wise.
 
     Args:
-      x: n-dimensional field of shape (batch, spacial dimensions..., components)
-      dx: scalar or 1d tensor
-      padding: extrapolation
-      dims: The second derivative along these dimensions is summed over
-      x: Tensor: 
-      dx: Tensor or float:  (Default value = 1)
-      padding: Extrapolation:  (Default value = extrapolation.BOUNDARY)
-      dims: tuple or None:  (Default value = None)
+        x: n-dimensional field of shape (batch, spacial dimensions..., components)
+        dx: scalar or 1d tensor
+        padding: extrapolation
+        dims: The second derivative along these dimensions is summed over
 
     Returns:
-      tensor of same shape
+        `phi.math.Tensor` of same shape as `x`
 
     """
     if not isinstance(dx, (int, float)):

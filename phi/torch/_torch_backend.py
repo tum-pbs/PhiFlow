@@ -607,7 +607,7 @@ class TorchBackend(Backend):
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg(lin, y, x0, rtol, atol, max_iter)
-        return SolveResult(f"Φ-Flow CG (TorchScript)", x, residual, iterations, function_evaluations, converged, diverged, "")
+        return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if callable(lin) or trj:
@@ -617,7 +617,7 @@ class TorchBackend(Backend):
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
-        return SolveResult(f"Φ-Flow CG (TorchScript)", x, residual, iterations, function_evaluations, converged, diverged, "")
+        return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)

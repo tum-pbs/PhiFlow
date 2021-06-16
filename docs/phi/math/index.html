@@ -53,7 +53,7 @@ from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, collection, merge_shapes
+from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, collection, merge_shapes, concat_shapes
 from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike
 from .extrapolation import Extrapolation
 from ._ops import (
@@ -926,6 +926,43 @@ The shapes of all values must be equal, except for the size of the concat dimens
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.concat_shapes"><code class="name flex">
+<span>def <span class="ident">concat_shapes</span></span>(<span>*shapes: phi.math._shape.Shape)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> listing the dimensions of all <code>shapes</code> in the given order.</p>
+<p>See Also:
+<code><a title="phi.math.merge_shapes" href="#phi.math.merge_shapes">merge_shapes()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*shapes</code></strong></dt>
+<dd>Shapes to concatenate. No two shapes must contain a dimension with the same name.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Combined <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def concat_shapes(*shapes: Shape):
+    &#34;&#34;&#34;
+    Creates a `Shape` listing the dimensions of all `shapes` in the given order.
+
+    See Also:
+        `merge_shapes()`.
+
+    Args:
+        *shapes: Shapes to concatenate. No two shapes must contain a dimension with the same name.
+
+    Returns:
+        Combined `Shape`.
+    &#34;&#34;&#34;
+    sizes = sum([s.sizes for s in shapes], ())
+    names = sum([s.names for s in shapes], ())
+    types = sum([s.types for s in shapes], ())
+    return Shape(sizes, names, types)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.convert"><code class="name flex">
 <span>def <span class="ident">convert</span></span>(<span>x, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
 </code></dt>
@@ -1052,7 +1089,7 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
     Returns:
         Copy of `value`.
     &#34;&#34;&#34;
-    if value._is_special:
+    if value._is_tracer:
         warnings.warn(&#34;Tracing tensors cannot be copied.&#34;)
         return value
     return value._op1(lambda native: choose_backend(native).copy(native))</code></pre>
@@ -1574,7 +1611,7 @@ These are the frequencies corresponding to the components of the result of <code
 </details>
 </dd>
 <dt id="phi.math.flatten"><code class="name flex">
-<span>def <span class="ident">flatten</span></span>(<span>value: phi.math._tensors.Tensor, flat_dim: phi.math._shape.Shape = (flat=None))</span>
+<span>def <span class="ident">flatten</span></span>(<span>value: phi.math._tensors.Tensor, flat_dim: phi.math._shape.Shape = (flatᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2100,7 +2137,10 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Linear function with <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> positional arguments and return value(s).</dd>
+<dd>Function that is linear in its positional arguments.
+All positional arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> and <code>f</code> must return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.
+<code>f</code> may be conditioned on keyword arguments.
+However, passing different values for these will cause <code>f</code> to be re-traced unless the conditioning arguments are also being traced.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code> with similar signature and return values as <code>f</code>.</p></div>
@@ -2108,7 +2148,7 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:
+<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
     For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
@@ -2125,7 +2165,10 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
         `jit_compile()`
 
     Args:
-        f: Linear function with `Tensor` positional arguments and return value(s).
+        f: Function that is linear in its positional arguments.
+            All positional arguments must be of type `Tensor` and `f` must return a `Tensor`.
+            `f` may be conditioned on keyword arguments.
+            However, passing different values for these will cause `f` to be re-traced unless the conditioning arguments are also being traced.
 
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
@@ -2300,20 +2343,9 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <dd>extrapolation</dd>
 <dt><strong><code>dims</code></strong></dt>
 <dd>The second derivative along these dimensions is summed over</dd>
-<dt><strong><code>x</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>dx</code></strong></dt>
-<dd>Tensor or float:
-(Default value = 1)</dd>
-<dt><strong><code>padding</code></strong></dt>
-<dd>Extrapolation:
-(Default value = extrapolation.BOUNDARY)</dd>
-<dt><strong><code>dims</code></strong></dt>
-<dd>tuple or None:
-(Default value = None)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>tensor of same shape</p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of same shape as <code>x</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2327,17 +2359,13 @@ If a vector field is passed, the laplace is computed component-wise.</p>
     If a vector field is passed, the laplace is computed component-wise.
 
     Args:
-      x: n-dimensional field of shape (batch, spacial dimensions..., components)
-      dx: scalar or 1d tensor
-      padding: extrapolation
-      dims: The second derivative along these dimensions is summed over
-      x: Tensor: 
-      dx: Tensor or float:  (Default value = 1)
-      padding: Extrapolation:  (Default value = extrapolation.BOUNDARY)
-      dims: tuple or None:  (Default value = None)
+        x: n-dimensional field of shape (batch, spacial dimensions..., components)
+        dx: scalar or 1d tensor
+        padding: extrapolation
+        dims: The second derivative along these dimensions is summed over
 
     Returns:
-      tensor of same shape
+        `phi.math.Tensor` of same shape as `x`
 
     &#34;&#34;&#34;
     if not isinstance(dx, (int, float)):
@@ -2351,7 +2379,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.linspace"><code class="name flex">
-<span>def <span class="ident">linspace</span></span>(<span>start, stop, number: int, dim: phi.math._shape.Shape = (linspace=None))</span>
+<span>def <span class="ident">linspace</span></span>(<span>start, stop, number: int, dim: phi.math._shape.Shape = (linspaceᵛ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2496,6 +2524,8 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <div class="desc"><p>Combines <code>shapes</code> into a single <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, grouping dimensions by type.
 If dimensions with equal names are present in multiple shapes, their types and sizes must match.</p>
 <p>The shorthand <code>shape1 &amp; shape2</code> merges shapes with <code>check_exact=[spatial]</code>.</p>
+<p>See Also:
+<code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>*shapes</code></strong></dt>
@@ -2522,6 +2552,9 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
 
     The shorthand `shape1 &amp; shape2` merges shapes with `check_exact=[spatial]`.
 
+    See Also:
+        `concat_shapes()`.
+
     Args:
         *shapes: `Shape` objects to combine.
         check_exact: Sequence of type filters, such as `channel`, `batch`, `spatial` or `collection`.
@@ -2534,6 +2567,8 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
     Returns:
         Merged `Shape`
     &#34;&#34;&#34;
+    if not shapes:
+        return EMPTY_SHAPE
     merged = []
     for dim_type in order:
         check_type_exact = dim_type in check_exact
@@ -2567,7 +2602,7 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
 </details>
 </dd>
 <dt id="phi.math.meshgrid"><code class="name flex">
-<span>def <span class="ident">meshgrid</span></span>(<span>dim_type=&lt;function spatial&gt;, stack_dim=(vector=None), **dimensions: int) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">meshgrid</span></span>(<span>dim_type=&lt;function spatial&gt;, stack_dim=(vectorᵛ=None), **dimensions: int) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate a mesh-grid <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> from keyword dimensions.</p>
@@ -2898,7 +2933,7 @@ see <code><a title="phi.math.backend.Backend.prefers_channels_last" href="backen
 </details>
 </dd>
 <dt id="phi.math.nonzero"><code class="name flex">
-<span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim: phi.math._shape.Shape = (nonzero=None), index_dim: phi.math._shape.Shape = (vector=None))</span>
+<span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim: phi.math._shape.Shape = (nonzeroᶜ=None), index_dim: phi.math._shape.Shape = (vectorᵛ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get spatial indices of non-zero / True values.</p>
@@ -3053,7 +3088,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 </details>
 </dd>
 <dt id="phi.math.ones"><code class="name flex">
-<span>def <span class="ident">ones</span></span>(<span>shape=(), dtype=None)</span>
+<span>def <span class="ident">ones</span></span>(<span>*shape: phi.math._shape.Shape, dtype: phi.math.backend._dtype.DType = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Define a tensor with specified shape with value 1 / True everywhere.</p>
@@ -3071,7 +3106,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ones(shape=EMPTY_SHAPE, dtype=None):
+<pre><code class="python">def ones(*shape: Shape, dtype: DType = None):
     &#34;&#34;&#34;
     Define a tensor with specified shape with value 1 / True everywhere.
     
@@ -3105,48 +3140,45 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <span>def <span class="ident">pad</span></span>(<span>value: phi.math._tensors.Tensor, widths: dict, mode: e_.Extrapolation) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Pads a tensor along the specified dimensions, determining the added values using the given extrapolation_.</p>
-<p>This is equivalent to calling <code>mode.pad(value, widths)</code>.</p>
+<div class="desc"><p>Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
+Unlike <code><a title="phi.math.Extrapolation.pad" href="#phi.math.Extrapolation.pad">Extrapolation.pad()</a></code>, this function can handle negative widths which slice off outer values.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd>tensor to be padded</dd>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to be padded</dd>
 <dt><strong><code>widths</code></strong></dt>
-<dd>name: str -&gt; (lower: int, upper: int)</dd>
+<dd><code>dict</code> mapping dimension name (<code>str</code>) to <code>(lower, upper)</code>
+where <code>lower</code> and <code>upper</code> are <code>int</code> that can be positive (pad), negative (slice) or zero (pass).</dd>
 <dt><strong><code>mode</code></strong></dt>
-<dd>Extrapolation object</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>widths</code></strong></dt>
-<dd>dict: </dd>
-<dt><strong><code>mode</code></strong></dt>
-<dd>'extrapolation_.Extrapolation': </dd>
+<dd><code><a title="phi.math.Extrapolation" href="#phi.math.Extrapolation">Extrapolation</a></code> used to determine values added from positive <code>widths</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>padded Tensor</p></div>
+<p>Padded <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def pad(value: Tensor, widths: dict, mode: &#39;e_.Extrapolation&#39;) -&gt; Tensor:
     &#34;&#34;&#34;
-    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation_.
-    
-    This is equivalent to calling `mode.pad(value, widths)`.
+    Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
+    Unlike `Extrapolation.pad()`, this function can handle negative widths which slice off outer values.
 
     Args:
-      value: tensor to be padded
-      widths: name: str -&gt; (lower: int, upper: int)
-      mode: Extrapolation object
-      value: Tensor: 
-      widths: dict: 
-      mode: &#39;extrapolation_.Extrapolation&#39;: 
+        value: `Tensor` to be padded
+        widths: `dict` mapping dimension name (`str`) to `(lower, upper)`
+            where `lower` and `upper` are `int` that can be positive (pad), negative (slice) or zero (pass).
+        mode: `Extrapolation` used to determine values added from positive `widths`.
 
     Returns:
-      padded Tensor
-
+        Padded `Tensor`
     &#34;&#34;&#34;
-    return mode.pad(value, widths)</code></pre>
+    has_negative_widths = any(w[0] &lt; 0 or w[1] &lt; 0 for w in widths.values())
+    slices = None
+    if has_negative_widths:
+        slices = {dim: slice(max(0, -w[0]), min(0, w[1]) or None) for dim, w in widths.items()}
+        widths = {dim: (max(0, w[0]), max(0, w[1])) for dim, w in widths.items()}
+    result = mode.pad(value, widths)
+    return result[slices] if has_negative_widths else result</code></pre>
 </details>
 </dd>
 <dt id="phi.math.precision"><code class="name flex">
@@ -3322,7 +3354,7 @@ math.functional_gradient(f)(math.ones(x=6))
 </details>
 </dd>
 <dt id="phi.math.random_normal"><code class="name flex">
-<span>def <span class="ident">random_normal</span></span>(<span>shape=(), dtype: phi.math.backend._dtype.DType = None)</span>
+<span>def <span class="ident">random_normal</span></span>(<span>*shape: phi.math._shape.Shape, dtype: phi.math.backend._dtype.DType = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with the specified shape, filled with random values distributed according to a normal / Gaussian distribution.</p>
@@ -3346,7 +3378,7 @@ math.functional_gradient(f)(math.ones(x=6))
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def random_normal(shape=EMPTY_SHAPE, dtype: DType=None):
+<pre><code class="python">def random_normal(*shape: Shape, dtype: DType = None):
     &#34;&#34;&#34;
     Creates a `Tensor` with the specified shape, filled with random values distributed according to a normal / Gaussian distribution.
 
@@ -3374,7 +3406,7 @@ math.functional_gradient(f)(math.ones(x=6))
 </details>
 </dd>
 <dt id="phi.math.random_uniform"><code class="name flex">
-<span>def <span class="ident">random_uniform</span></span>(<span>shape=(), dtype=None)</span>
+<span>def <span class="ident">random_uniform</span></span>(<span>*shape: phi.math._shape.Shape, dtype: phi.math.backend._dtype.DType = None)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3382,7 +3414,7 @@ math.functional_gradient(f)(math.ones(x=6))
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def random_uniform(shape=EMPTY_SHAPE, dtype=None):
+<pre><code class="python">def random_uniform(*shape: Shape, dtype: DType = None):
 
     def uniform_random_uniform(shape, dtype):
         native = choose_backend(*shape.sizes, prefer_default=True).random_uniform(shape.sizes)
@@ -3891,7 +3923,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: tuple = None, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: phi.math._shape.Shape = (shift=None)) ‑> list</span>
+<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: tuple = None, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: phi.math._shape.Shape = (shiftᵛ=None)) ‑> list</span>
 </code></dt>
 <dd>
 <div class="desc"><p>shift Tensor by a fixed offset and abiding by extrapolation</p>
@@ -3984,12 +4016,12 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.solve_linear"><code class="name flex">
-<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable[[~X], ~Y], y: ~Y, solve: phi.math._functional.Solve[~X, ~Y]) ‑> ~X</span>
+<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable[[~X], ~Y], y: ~Y, solve: phi.math._functional.Solve[~X, ~Y], f_args: tuple = (), f_kwargs: dict = None) ‑> ~X</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solves the system of linear equations <em>f(x) = y</em> and returns <em>x</em>.
 For maximum performance, compile <code>f</code> using <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code> beforehand.
-This will use a matrix representation of <code>f</code> to solve the linear system.</p>
+Then, an optimized representation of <code>f</code> (such as a sparse matrix) will be used to solve the linear system.</p>
 <p>To obtain additional information about the performed solve, use a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code>.</p>
 <p>The gradient of this operation will perform another linear solve with the parameters specified by <code><a title="phi.math.Solve.gradient_solve" href="#phi.math.Solve.gradient_solve">Solve.gradient_solve</a></code>.</p>
 <p>See Also:
@@ -3997,11 +4029,19 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Linear function with single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> positional argument and return value.</dd>
+<dd>Linear function with <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> first parameter and return value.
+<code>f</code> can have additional arguments.</dd>
 <dt><strong><code>y</code></strong></dt>
 <dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object specifying optimization method, parameters and initial guess for <code>x</code>.</dd>
+<dt><strong><code>f_args</code></strong></dt>
+<dd>Additional <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> arguments to be passed to <code>f</code>.
+<code>f</code> need not be linear in these arguments.
+Use this instead of lambda function since a lambda will not be recognized as calling a jit-compiled function.</dd>
+<dt><strong><code>f_kwargs</code></strong></dt>
+<dd>Additional keyword arguments to be passed to <code>f</code>.
+These arguments can be of any type.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -4019,11 +4059,11 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y]) -&gt; X:
+<pre><code class="python">def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or list = (), f_kwargs: dict = None) -&gt; X:
     &#34;&#34;&#34;
     Solves the system of linear equations *f(x) = y* and returns *x*.
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
-    This will use a matrix representation of `f` to solve the linear system.
+    Then, an optimized representation of `f` (such as a sparse matrix) will be used to solve the linear system.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 
@@ -4033,9 +4073,15 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
         `solve_nonlinear()`, `jit_compile_linear()`.
 
     Args:
-        f: Linear function with single `Tensor` or `TensorLike` positional argument and return value.
+        f: Linear function with `Tensor` or `TensorLike` first parameter and return value.
+            `f` can have additional arguments.
         y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
+        f_args: Additional `Tensor` or `TensorLike` arguments to be passed to `f`.
+            `f` need not be linear in these arguments.
+            Use this instead of lambda function since a lambda will not be recognized as calling a jit-compiled function.
+        f_kwargs: Additional keyword arguments to be passed to `f`.
+            These arguments can be of any type.
 
     Returns:
         x: solution of the linear system of equations `f(x) = y` as `Tensor` or `TensorLike`.
@@ -4053,10 +4099,10 @@ This will use a matrix representation of <code>f</code> to solve the linear syst
         f = jit_compile_linear(f) if backend.supports(Backend.sparse_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_tensor):
-        matrix = f.sparse_coordinate_matrix(solve.x0)
+        matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
-        return _function_solve(y, solve, f=f, backend=backend)  # custom_gradient</code></pre>
+        return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {}, f=f, backend=backend)  # custom_gradient</code></pre>
 </details>
 </dd>
 <dt id="phi.math.solve_nonlinear"><code class="name flex">
@@ -4221,7 +4267,7 @@ Undefined sizes are automatically filled in when wrapping an existing tensor usi
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: phi.math._shape.Shape = (gradient=None))</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: phi.math._shape.Shape = (gradientᵛ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -5018,7 +5064,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </details>
 </dd>
 <dt id="phi.math.zeros"><code class="name flex">
-<span>def <span class="ident">zeros</span></span>(<span>shape=(), dtype=None)</span>
+<span>def <span class="ident">zeros</span></span>(<span>*shape: phi.math._shape.Shape, dtype: phi.math.backend._dtype.DType = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Define a tensor with specified shape with value 0 / False everywhere.</p>
@@ -5036,7 +5082,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def zeros(shape=EMPTY_SHAPE, dtype=None):
+<pre><code class="python">def zeros(*shape: Shape, dtype: DType = None):
     &#34;&#34;&#34;
     Define a tensor with specified shape with value 0 / False everywhere.
     
@@ -5347,6 +5393,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
 
         &#34;&#34;&#34;
         for dim in widths:
+            assert (w &gt; 0 for w in widths[dim]), &#34;Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead.&#34;
             values = []
             if widths[dim][False] &gt; 0:
                 values.append(self.pad_values(value, widths[dim][False], dim, False))
@@ -5480,6 +5527,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 
     &#34;&#34;&#34;
     for dim in widths:
+        assert (w &gt; 0 for w in widths[dim]), &#34;Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead.&#34;
         values = []
         if widths[dim][False] &gt; 0:
             values.append(self.pad_values(value, widths[dim][False], dim, False))
@@ -5659,13 +5707,15 @@ This is the default implementation.</p>
         self.nl_jit = JitFunction(f)  # for backends that do not support sparse matrices
 
     def _trace(self, in_key: SignatureKey) -&gt; &#39;ShiftLinTracer&#39;:
-        assert len(in_key.shapes) == 1, &#34;Linear functions only support one argument.&#34;
+        assert in_key.shapes[0].is_uniform, f&#34;math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}&#34;
         with in_key.backend:
             x = math.ones(in_key.shapes[0])
             tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape)
         f_input = assemble_tree(in_key.nest, [tracer])
         assert isinstance(f_input, tuple)
-        result = self.f(*f_input)
+        condition_args = [in_key.kwargs[f&#39;_condition_arg[{i}]&#39;] for i in range(in_key.kwargs[&#39;n_condition_args&#39;])]
+        kwargs = {k: v for k, v in in_key.kwargs.items() if not (k.startswith(&#39;_condition_arg[&#39;) or k == &#39;n_condition_args&#39;)}
+        result = self.f(*f_input, *condition_args, **kwargs)
         _, result_tensors = disassemble_tree(result)
         assert len(result_tensors) == 1, f&#34;Linear function must return a single Tensor or tensor-like but got {result}&#34;
         result_tensor = result_tensors[0]
@@ -5673,12 +5723,14 @@ This is the default implementation.</p>
         return result_tensor
 
     def _get_or_trace(self, key: SignatureKey):
-        if key in self.tracers:
+        if not key.tracing and key in self.tracers:
             return self.tracers[key]
         else:
             tracer = self._trace(key)
             if not key.tracing:
                 self.tracers[key] = tracer
+                if len(self.tracers) &gt;= 4:
+                    warnings.warn(f&#34;The compiled linear function &#39;{self.f.__name__}&#39; was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().&#34;)
             return tracer
 
     def __call__(self, *args: X, **kwargs) -&gt; Y:
@@ -5696,8 +5748,11 @@ This is the default implementation.</p>
         tracer = self._get_or_trace(key)
         return tracer.apply(tensors[0])
 
-    def sparse_coordinate_matrix(self, *args, **kwargs):
-        key, _ = key_from_args(*args, cache=False, **kwargs)
+    def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+        kwargs[&#39;n_condition_args&#39;] = len(condition_args)
+        for i, c_arg in enumerate(condition_args):
+            kwargs[f&#39;_condition_arg[{i}]&#39;] = c_arg
+        key, _ = key_from_args(x, cache=False, **kwargs)
         assert key.backend.supports(Backend.sparse_tensor)
         return self._get_or_trace(key).get_sparse_coordinate_matrix()
 
@@ -5719,7 +5774,7 @@ This is the default implementation.</p>
 <h3>Methods</h3>
 <dl>
 <dt id="phi.math.LinearFunction.sparse_coordinate_matrix"><code class="name flex">
-<span>def <span class="ident">sparse_coordinate_matrix</span></span>(<span>self, *args, **kwargs)</span>
+<span>def <span class="ident">sparse_coordinate_matrix</span></span>(<span>self, x, *condition_args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -5727,8 +5782,11 @@ This is the default implementation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sparse_coordinate_matrix(self, *args, **kwargs):
-    key, _ = key_from_args(*args, cache=False, **kwargs)
+<pre><code class="python">def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+    kwargs[&#39;n_condition_args&#39;] = len(condition_args)
+    for i, c_arg in enumerate(condition_args):
+        kwargs[f&#39;_condition_arg[{i}]&#39;] = c_arg
+    key, _ = key_from_args(x, cache=False, **kwargs)
     assert key.backend.supports(Backend.sparse_tensor)
     return self._get_or_trace(key).get_sparse_coordinate_matrix()</code></pre>
 </details>
@@ -6133,7 +6191,8 @@ All arguments must have same length.</p>
         return tuple(mask)
 
     def __repr__(self):
-        strings = [f&#34;{name}={size}&#34; for size, name, _ in self.dimensions]
+        TYPE_ABBR = {SPATIAL_DIM: &#34;ˢ&#34;, CHANNEL_DIM: &#34;ᵛ&#34;, COLLECTION_DIM: &#34;ᶜ&#34;, BATCH_DIM: &#34;ᵇ&#34;}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
+        strings = [f&#34;{name}{TYPE_ABBR.get(dim_type, &#39;&#39;)}={size}&#34; for size, name, dim_type in self.dimensions]
         return &#39;(&#39; + &#39;, &#39;.join(strings) + &#39;)&#39;
 
     def __eq__(self, other):
@@ -8361,19 +8420,12 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self.shape.rank
 
     @property
-    def _is_special(self) -&gt; bool:
+    def _is_tracer(self) -&gt; bool:
         &#34;&#34;&#34;
-        Special tensors store additional internal information.
-        They should not be converted to native() in intermediate operations.
-        
-        Tracking tensors are special tensors.
+        Tracers store additional internal information.
+        They should not be converted to `native()` in intermediate operations.
         
         TensorStack prevents performing the actual stack operation if one of its component tensors is special.
-
-        Args:
-
-        Returns:
-
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -9782,6 +9834,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.closest_grid_values" href="#phi.math.closest_grid_values">closest_grid_values</a></code></li>
 <li><code><a title="phi.math.collection" href="#phi.math.collection">collection</a></code></li>
 <li><code><a title="phi.math.concat" href="#phi.math.concat">concat</a></code></li>
+<li><code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes</a></code></li>
 <li><code><a title="phi.math.convert" href="#phi.math.convert">convert</a></code></li>
 <li><code><a title="phi.math.convolve" href="#phi.math.convolve">convolve</a></code></li>
 <li><code><a title="phi.math.copy" href="#phi.math.copy">copy</a></code></li>

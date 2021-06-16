@@ -14,6 +14,6 @@ DOMAIN = Domain(x=128, y=128, boundaries=CLOSED, bounds=Box[0:100, 0:100])
 velocity = DOMAIN.staggered_grid(Noise(vector=2))
 pressure = DOMAIN.scalar_grid(0)
 
-with backend.profile(save=f'navier_stokes_{math.backend.default_backend()}.json'):
+with backend.profile(save=f'navier_stokes_{backend.default_backend()}.json'):
     velocity = advect.semi_lagrangian(velocity, velocity, dt=1)
     # velocity, pressure = fluid.make_incompressible(velocity, DOMAIN, pressure_guess=pressure)

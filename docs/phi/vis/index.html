@@ -301,25 +301,25 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
         first_path = next(iter(math.flatten(scene.paths)))
         names = [_str(n) for n in os.listdir(first_path)]
         names = [n[4:-4] for n in names if n.endswith(&#39;.txt&#39;) and n.startswith(&#39;log_&#39;)]
-        names = math.wrap(names, &#39;names&#39;)
+        names = math.wrap(names, batch(&#39;names&#39;))
         additional_reduce = [&#39;names&#39;]
     elif isinstance(names, str):
         names = math.wrap(names)
     elif isinstance(names, (tuple, list)):
-        names = math.wrap(names, &#39;names&#39;)
+        names = math.wrap(names, batch(&#39;names&#39;))
     else:
         assert isinstance(names, math.Tensor), f&#34;Invalid argument &#39;names&#39;: {type(names)}&#34;
     if not isinstance(colors, math.Tensor):
         colors = math.wrap(colors)
 
     shape = (scene.shape &amp; names.shape)
-    batch = shape.without(reduce).without(additional_reduce)
+    batches = shape.without(reduce).without(additional_reduce)
 
     cycle = list(plt.rcParams[&#39;axes.prop_cycle&#39;].by_key()[&#39;color&#39;])
-    fig, axes = plt.subplots(batch.only(down).volume, batch.without(down).volume, figsize=size)
+    fig, axes = plt.subplots(batches.only(down).volume, batches.without(down).volume, figsize=size)
     axes = axes if isinstance(axes, numpy.ndarray) else [axes]
 
-    for b, axis in zip(batch.meshgrid(), axes):
+    for b, axis in zip(batches.meshgrid(), axes):
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0

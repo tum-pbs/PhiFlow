@@ -501,7 +501,7 @@ def profile_function(fun: Callable,
         retime: If true, calls `fun` another time without tracing the calls and updates the profile.
             This gives a much better indication of the true timing.
             See `Profile.retime()`.
-        warmup: Number of times to call ´fun` before profiling it.
+        warmup: Number of times to call `fun` before profiling it.
         call_count: How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if `call_count > 1`.
 
     Returns:

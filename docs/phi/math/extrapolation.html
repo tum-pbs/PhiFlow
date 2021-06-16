@@ -85,6 +85,7 @@ class Extrapolation:
 
         &#34;&#34;&#34;
         for dim in widths:
+            assert (w &gt; 0 for w in widths[dim]), &#34;Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead.&#34;
             values = []
             if widths[dim][False] &gt; 0:
                 values.append(self.pad_values(value, widths[dim][False], dim, False))
@@ -1291,6 +1292,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
 
         &#34;&#34;&#34;
         for dim in widths:
+            assert (w &gt; 0 for w in widths[dim]), &#34;Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead.&#34;
             values = []
             if widths[dim][False] &gt; 0:
                 values.append(self.pad_values(value, widths[dim][False], dim, False))
@@ -1424,6 +1426,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 
     &#34;&#34;&#34;
     for dim in widths:
+        assert (w &gt; 0 for w in widths[dim]), &#34;Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead.&#34;
         values = []
         if widths[dim][False] &gt; 0:
             values.append(self.pad_values(value, widths[dim][False], dim, False))

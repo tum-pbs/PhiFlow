@@ -29,12 +29,12 @@ In addition to the dimension sizes, the shape also stores the dimension names wh
 
 There are four types of dimensions
 
-| Dimension type |              Naming rules |                                                    Description | Example               |
-|----------------|--------------------------:|---------------------------------------------------------------:|-----------------------|
-| Spatial        |             Single letter |                   Spans a grid with equidistant sample points. | `x`, `y`, `z`         |
-| Channel        | `vector` or ends with `_` |    Set of properties sampled at per sample point per instance. | `vector`, `color_`    |
-| Collection     |     Plural, ends with `s` | Collection of (interacting) objects belonging to one instance. | `points`, `particles` |
-| Batch          |         None of the above |                               Lists non-interacting instances. | `batch`, `sequence`, `time`       |
+| Dimension type                                 |                                                    Description | Examples              |
+|------------------------------------------------|---------------------------------------------------------------:|-----------------------|
+| [`spatial`](phi/math/#phi.math.spatial)        |                   Spans a grid with equidistant sample points. | `x`, `y`, `z`         |
+| [`channel`](phi/math/#phi.math.channel)        |    Set of properties sampled at per sample point per instance. | `vector`, `color`     |
+| [`collection`](phi/math/#phi.math.collection)  | Collection of (interacting) objects belonging to one instance. | `points`, `particles` |
+| [`batch`](phi/math/#phi.math.batch)            |                               Lists non-interacting instances. | `batch`, `frames`     |
 
 The default dimension order is `(batch, collection, channel, spatial)`.
 When a dimension is not present on a tensor, values are assumed to be constant along that dimension.

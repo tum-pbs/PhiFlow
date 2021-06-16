@@ -367,7 +367,7 @@ Use <code>warmup&gt;0</code> to ensure that internal caching does not interfere 
 This gives a much better indication of the true timing.
 See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Profile.retime">Profile.retime()</a></code>.</dd>
 <dt><strong><code>warmup</code></strong></dt>
-<dd>Number of times to call ´fun` before profiling it.</dd>
+<dd>Number of times to call <code>fun</code> before profiling it.</dd>
 <dt><strong><code>call_count</code></strong></dt>
 <dd>How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if <code>call_count &gt; 1</code>.</dd>
 </dl>
@@ -400,7 +400,7 @@ See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Pro
         retime: If true, calls `fun` another time without tracing the calls and updates the profile.
             This gives a much better indication of the true timing.
             See `Profile.retime()`.
-        warmup: Number of times to call ´fun` before profiling it.
+        warmup: Number of times to call `fun` before profiling it.
         call_count: How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if `call_count &gt; 1`.
 
     Returns:
