@@ -830,9 +830,9 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         if not isinstance(other, Solve):
             return False
         if self.method != other.method \
-                or self.absolute_tolerance != other.absolute_tolerance \
-                or self.relative_tolerance != other.relative_tolerance \
-                or self.max_iterations != other.max_iterations \
+                or (self.absolute_tolerance != other.absolute_tolerance).any \
+                or (self.relative_tolerance != other.relative_tolerance).any \
+                or (self.max_iterations != other.max_iterations).any \
                 or self.suppress != other.suppress:
             return False
         return self.x0 == other.x0
