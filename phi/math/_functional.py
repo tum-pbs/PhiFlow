@@ -450,6 +450,10 @@ class CustomGradientFunction:
     def __repr__(self):
         return f"custom_gradient(forward={self.f.__name__}, backward={self.gradient.__name__}, id={id(self)})"
 
+    @property
+    def __name__(self):
+        return f"custom_grad({self.f.__name__})"
+
     @staticmethod
     def incomplete_tree_to_natives(incomplete, nest, complete_shapes: List[Shape]) -> list:
         """ None in nest means there is a tensor. """
