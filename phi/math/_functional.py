@@ -105,10 +105,10 @@ class JitFunction:
         self.grad_jit = GradientFunction(f.f, f.wrt, f.get_output, jit=True) if isinstance(f, GradientFunction) else None
 
     def _jit_compile(self, in_key: SignatureKey):
-        logging.debug(f"jit: {self.f.__name__} called with new key. shapes={[s.volume for s in in_key.shapes]}, kwargs={list(in_key.kwargs)}.")
+        logging.debug(f"Φ-jit: {self.f.__name__} called with new key. shapes={[s.volume for s in in_key.shapes]}, kwargs={list(in_key.kwargs)}.")
 
         def jit_f_native(*natives, **kwargs):
-            logging.debug(f"jit: Tracing {self.f.__name__}")
+            logging.debug(f"Φ-jit: Tracing '{self.f.__name__}'")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.nest, in_tensors)
@@ -118,7 +118,7 @@ class JitFunction:
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(jit_f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
-        jit_f_native.__name__ = f"trace({self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)})"
+        jit_f_native.__name__ = f"native({self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)})"
         return in_key.backend.jit_compile(jit_f_native)
 
     def __call__(self, *args, **kwargs):
@@ -215,7 +215,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             if not key.tracing:
                 self.tracers[key] = tracer
                 if len(self.tracers) >= 4:
-                    warnings.warn(f"The compiled linear function '{self.f.__name__}' was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().")
+                    warnings.warn(f"Φ-lin: The compiled linear function '{self.f.__name__}' was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().")
             return tracer
 
     def __call__(self, *args: X, **kwargs) -> Y:
@@ -227,7 +227,11 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         backend = math.choose_backend_t(*tensors)
         if not backend.supports(Backend.sparse_tensor):
             # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
-            return self.nl_jit(*args, **kwargs)
+            if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
+                logging.debug(f"Φ-lin: Running '{self.f.__name__}' as-is with {backend} because it is being traced.")
+                return self.f(*args, **kwargs)
+            else:
+                return self.nl_jit(*args, **kwargs)
         x, *condition_args = args
         key = self._condition_key(x, condition_args, kwargs)
         tracer = self._get_or_trace(key)
@@ -299,7 +303,7 @@ class GradientFunction:
 
     def _trace_grad(self, in_key: SignatureKey, wrt_natives):
         def f_native(*natives, **kwargs):
-            logging.debug(f"Tracing gradient of {self.f.__name__}")
+            logging.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.nest, in_tensors)
@@ -1281,15 +1285,17 @@ def _function_solve_forward(y, solve: Solve, f_args: tuple,
     y_nest, (y_tensor,) = disassemble_tree(y)
     x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
-    batch = (y_tensor.shape & x0_tensor.shape).batch
+    batches = (y_tensor.shape & x0_tensor.shape).batch
 
     def native_lin_f(native_x, batch_index=None):
-        if batch_index is not None and batch.volume > 1:
-            raise NotImplementedError()  # TODO expand batch dimensions, return result[batch]
-        x = assemble_tree(x0_nest, [reshaped_tensor(native_x, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])])
+        if batch_index is not None and batches.volume > 1:
+            native_x = backend.tile(backend.expand_dims(native_x), [batches.volume, 1])
+        x = assemble_tree(x0_nest, [reshaped_tensor(native_x, [batches, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])])
         y = f(x, *f_args, **f_kwargs)
         _, (y_tensor,) = disassemble_tree(y)
-        y_native = reshaped_native(y_tensor, [batch, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
+        y_native = reshaped_native(y_tensor, [batches, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
+        if batch_index is not None:
+            y_native = y_native[batch_index]
         return y_native
 
     result = _linear_solve_forward(y, solve, native_lin_f, active_dims=active_dims, backend=backend, is_backprop=is_backprop)

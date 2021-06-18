@@ -3,6 +3,7 @@ import warnings
 from functools import wraps, partial
 from typing import List, Callable
 
+import logging
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -140,8 +141,13 @@ class JaxBackend(Backend):
     real = staticmethod(jnp.real)
 
     def jit_compile(self, f: Callable) -> Callable:
+        def run_jit_f(*args):
+            logging.debug(f"JaxBackend: running jit-compiled '{f.__name__}' with shapes {[arg.shape for arg in args]} and dtypes {[arg.dtype.name for arg in args]}")
+            return self.as_registered.call(jit_f, *args, name=f"run jit-compiled '{f.__name__}'")
+
+        run_jit_f.__name__ = f"Jax-Jit({f.__name__})"
         jit_f = jax.jit(f)
-        return lambda *args: self.as_registered.call(jit_f, *args, name=f"run jit-compiled '{f.__name__}'")
+        return run_jit_f
 
     def block_until_ready(self, values):
         if isinstance(values, DeviceArray):
