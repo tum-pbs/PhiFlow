@@ -272,8 +272,8 @@ class TFBackend(Backend):
         convf = {3: partial(tf.nn.conv1d, stride=1),
                  4: partial(tf.nn.conv2d, strides=[1, 1, 1, 1]),
                  5: partial(tf.nn.conv3d, strides=[1, 1, 1, 1, 1])}[len(value.shape)]
-        value = tf.transpose(value, [0, *range(2, value.ndim), 1])  # could use data_format='NC...' but it's supported neither on CPU and for int tensors
-        kernel = tf.transpose(kernel, [0, *range(3, kernel.ndim), 2, 1])
+        value = tf.transpose(value, [0, *range(2, self.ndims(value)), 1])  # could use data_format='NC...' but it's supported neither on CPU and for int tensors
+        kernel = tf.transpose(kernel, [0, *range(3, self.ndims(kernel)), 2, 1])
         if kernel.shape[0] == 1:
             result = convf(value, kernel[0, ...], padding='VALID')
         else:
@@ -281,7 +281,7 @@ class TFBackend(Backend):
             for b in range(kernel.shape[0]):
                 result.append(convf(value[b:b+1, ...], kernel[b], padding='VALID'))
             result = tf.concat(result, 0)
-        result = tf.transpose(result, [0, result.ndim - 1, *range(1, result.ndim - 1)])
+        result = tf.transpose(result, [0, self.ndims(result) - 1, *range(1, self.ndims(result) - 1)])
         return result
 
     def expand_dims(self, a, axis=0, number=1):
@@ -301,11 +301,12 @@ class TFBackend(Backend):
             return np.shape(tensor)
 
     def batched_gather_nd(self, values, indices):
-        if self.staticshape(values)[0] == 1 and self.staticshape(indices)[0] > 1:
+        values_shape = self.staticshape(values)
+        if values_shape[0] == 1 and self.staticshape(indices)[0] > 1:
             result = tf.gather_nd(values[0, ...], indices, batch_dims=0)
             return result
-        if self.staticshape(values)[0] > 1 and self.staticshape(indices)[0] == 1:
-            indices = tf.tile(indices, [self.staticshape(values)[0]] + [1] * (values.ndim - 1))
+        if values_shape[0] > 1 and self.staticshape(indices)[0] == 1:
+            indices = tf.tile(indices, [values_shape[0]] + [1] * (len(values_shape) - 1))
         return tf.gather_nd(values, indices, batch_dims=1)
 
     def unstack(self, tensor, axis=0, keepdims=False):
@@ -435,7 +436,7 @@ class TFBackend(Backend):
                     tape.watch(arg)
                 output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            # if loss.ndim > 0:
+            # if self.ndims(loss) > 0:
             #     loss = tf.reduce_sum(loss)  # this is not needed and will cause gradients to be None
             grads = list(self.as_registered.call(tape.gradient, loss, wrt_args, name=f"Backpropagation"))
             assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."

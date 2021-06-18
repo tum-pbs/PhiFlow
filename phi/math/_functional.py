@@ -171,7 +171,7 @@ def jit_compile(f: Callable) -> Callable:
 
     Args:
         f: Function to be traced.
-            All arguments must be of type `Tensor` returning a single `Tensor` or a `tuple` or `list` of tensors.
+            All positional arguments must be of type `Tensor` or `TensorLike` returning a single `Tensor` or `TensorLike`.
 
     Returns:
         Function with similar signature and return values as `f`.
