@@ -284,9 +284,9 @@ class StaggeredGrid(Grid):
                 assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
                 assert 'staggered_direction' in values.shape
                 if 'vector' in values.shape:
-                    values = math.stack([values.vector_[i].vector[i] for i in range(resolution.rank)], channel('vector'))
+                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel('vector'))
                 else:
-                    values = values.vector_.as_channel('vector')
+                    values = values.staggered_direction.as_channel('vector')
             else:
                 values = expand_staggered(math.tensor(values), resolution, extrapolation)
         if values.dtype.kind not in (float, complex):
