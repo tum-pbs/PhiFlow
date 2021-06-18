@@ -40,7 +40,7 @@ Older versions are available through the [release history](https://github.com/tu
 
 Installation with pip on Python 3.6 or newer:
 ``` bash
-$ pip install phiflow
+$ pip install phiflow==2.0.0rc2 dash plotly imageio
 ```
 Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
 See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html) on how to compile the custom CUDA operators and verify your installation.

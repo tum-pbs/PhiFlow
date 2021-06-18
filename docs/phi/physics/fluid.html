@@ -61,9 +61,9 @@ def make_incompressible(velocity: Grid,
     input_velocity = velocity
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
     active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=extrapolation.NONE)
-    accessible = active.with_(extrapolation=accessible_extrapolation)
+    accessible = active.with_extrapolation(accessible_extrapolation)
     hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
-    velocity = apply_boundary_conditions(velocity, obstacles)  # .with_(extrapolation=v_bc_div)
+    velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity) * active
     if input_velocity.extrapolation in (math.extrapolation.ZERO, math.extrapolation.PERIODIC):
         div = _balance_divergence(div, active)
@@ -246,9 +246,9 @@ Cells outside far away will be unaffected.</p>
     input_velocity = velocity
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
     active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=extrapolation.NONE)
-    accessible = active.with_(extrapolation=accessible_extrapolation)
+    accessible = active.with_extrapolation(accessible_extrapolation)
     hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
-    velocity = apply_boundary_conditions(velocity, obstacles)  # .with_(extrapolation=v_bc_div)
+    velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity) * active
     if input_velocity.extrapolation in (math.extrapolation.ZERO, math.extrapolation.PERIODIC):
         div = _balance_divergence(div, active)

@@ -119,7 +119,7 @@ def fourier(field: GridType,
     diffuse_kernel = math.exp(fft_laplace * amount)
     result_k = math.fft(field.values) * diffuse_kernel
     result_values = math.real(math.ifft(result_k))
-    return field.with_(values=result_values)</code></pre>
+    return field.with_values(result_values)</code></pre>
 </details>
 </section>
 <section>
@@ -230,7 +230,7 @@ Otherwise, finite differencing is used to approximate the</p>
     diffuse_kernel = math.exp(fft_laplace * amount)
     result_k = math.fft(field.values) * diffuse_kernel
     result_values = math.real(math.ifft(result_k))
-    return field.with_(values=result_values)</code></pre>
+    return field.with_values(result_values)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.diffuse.implicit"><code class="name flex">

@@ -2738,7 +2738,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the optimization failed prematurely.
     &#34;&#34;&#34;
-    assert solve.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
+    assert (solve.relative_tolerance == 0).all, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
@@ -4090,8 +4090,8 @@ These arguments can be of any type.</dd>
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the solve failed prematurely.
     &#34;&#34;&#34;
-    y_nest, y_tensors = disassemble_tree(y)
-    x0_nest, x0_tensors = disassemble_tree(solve.x0)
+    y_tree, y_tensors = disassemble_tree(y)
+    x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert len(x0_tensors) == len(y_tensors) == 1, &#34;Only single-tensor linear solves are currently supported&#34;
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
@@ -4102,6 +4102,13 @@ These arguments can be of any type.</dd>
         matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
+        # arg_tree, arg_tensors = disassemble_tree(f_args)
+        # arg_tensors = cached(arg_tensors)
+        # f_args = assemble_tree(arg_tree, arg_tensors)
+        f_args = cached(f_args)
+        # x0_tensors = cached(x0_tensors)
+        # solve = copy_with(solve, x0=assemble_tree(x0_tree, x0_tensors))
+        solve = cached(solve)
         return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {}, f=f, backend=backend)  # custom_gradient</code></pre>
 </details>
 </dd>
@@ -5743,18 +5750,23 @@ This is the default implementation.</p>
         if not backend.supports(Backend.sparse_tensor):
             # warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;)
             return self.nl_jit(*args, **kwargs)
-        natives, shapes = disassemble_tensors(tensors)
-        key = SignatureKey(None, nest, shapes, kwargs, backend, not all_available(*tensors))
+        x, *condition_args = args
+        key = self._condition_key(x, condition_args, kwargs)
         tracer = self._get_or_trace(key)
         return tracer.apply(tensors[0])
 
     def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+        key = self._condition_key(x, condition_args, kwargs)
+        tracer = self._get_or_trace(key)
+        return tracer.get_sparse_coordinate_matrix()
+
+    def _condition_key(self, x, condition_args, kwargs):
         kwargs[&#39;n_condition_args&#39;] = len(condition_args)
         for i, c_arg in enumerate(condition_args):
             kwargs[f&#39;_condition_arg[{i}]&#39;] = c_arg
         key, _ = key_from_args(x, cache=False, **kwargs)
         assert key.backend.supports(Backend.sparse_tensor)
-        return self._get_or_trace(key).get_sparse_coordinate_matrix()
+        return key
 
     def stencil_inspector(self, *args, **kwargs):
         key, _ = key_from_args(*args, cache=True, **kwargs)
@@ -5783,12 +5795,9 @@ This is the default implementation.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
-    kwargs[&#39;n_condition_args&#39;] = len(condition_args)
-    for i, c_arg in enumerate(condition_args):
-        kwargs[f&#39;_condition_arg[{i}]&#39;] = c_arg
-    key, _ = key_from_args(x, cache=False, **kwargs)
-    assert key.backend.supports(Backend.sparse_tensor)
-    return self._get_or_trace(key).get_sparse_coordinate_matrix()</code></pre>
+    key = self._condition_key(x, condition_args, kwargs)
+    tracer = self._get_or_trace(key)
+    return tracer.get_sparse_coordinate_matrix()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.LinearFunction.stencil_inspector"><code class="name flex">
@@ -7982,9 +7991,9 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         if not isinstance(other, Solve):
             return False
         if self.method != other.method \
-                or self.absolute_tolerance != other.absolute_tolerance \
-                or self.relative_tolerance != other.relative_tolerance \
-                or self.max_iterations != other.max_iterations \
+                or (self.absolute_tolerance != other.absolute_tolerance).any \
+                or (self.relative_tolerance != other.relative_tolerance).any \
+                or (self.max_iterations != other.max_iterations).any \
                 or self.suppress != other.suppress:
             return False
         return self.x0 == other.x0
@@ -8783,6 +8792,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def _expand(self):
         &#34;&#34;&#34; Expands all compressed tensors to their defined size as if they were being used in `Tensor.native()`. &#34;&#34;&#34;
+        warnings.warn(&#34;Tensor._expand() is deprecated, use cached(Tensor) instead.&#34;, DeprecationWarning)
         raise NotImplementedError(self.__class__)
 
     def _tensor_reduce(self,

@@ -197,7 +197,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
             padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation))
         return StaggeredGrid(math.stack(padded, channel(&#39;vector&#39;)), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
     elif isinstance(grid, CenteredGrid):
-        return pad(grid, 1).with_(extrapolation=math.extrapolation.NONE)
+        return pad(grid, 1).with_extrapolation(math.extrapolation.NONE)
     else:
         raise ValueError(f&#34;Not a valid grid: {grid}&#34;)</code></pre>
 </details>
@@ -312,12 +312,12 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
         raise NotImplementedError(&#34;Concatenating extrapolations not supported&#34;)
     if isinstance(fields[0], Grid):
         values = math.concat([f.values for f in fields], dim)
-        return fields[0].with_(values=values)
+        return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
         colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
-        return fields[0].with_(elements=elements, values=values, color=colors)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
     raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
 </dd>
@@ -556,7 +556,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
     assert isinstance(valid, type(grid)), &#39;Type of valid Grid must match type of grid.&#39;
     if isinstance(grid, CenteredGrid):
         new_values, new_valid = extrapolate_valid_values(grid.values, valid.values, distance_cells)
-        return grid.with_(values=new_values), valid.with_(values=new_valid)
+        return grid.with_values(new_values), valid.with_values(new_valid)
     elif isinstance(grid, StaggeredGrid):
         new_values = []
         new_valid = []
@@ -564,7 +564,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
             new_tensor, new_mask = extrapolate_valid(cgrid, valid=cvalid, distance_cells=distance_cells)
             new_values.append(new_tensor.values)
             new_valid.append(new_mask.values)
-        return grid.with_(values=math.stack(new_values, channel(&#39;vector&#39;))), valid.with_(values=math.stack(new_valid, channel(&#39;vector&#39;)))
+        return grid.with_values(math.stack(new_values, channel(&#39;vector&#39;))), valid.with_values(math.stack(new_valid, channel(&#39;vector&#39;)))
     else:
         raise NotImplementedError()</code></pre>
 </details>
@@ -593,12 +593,13 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </summary>
 <pre><code class="python">def fourier_laplace(grid: GridType, times=1) -&gt; GridType:
     &#34;&#34;&#34; See `phi.math.fourier_laplace()` &#34;&#34;&#34;
-    extrapolation = grid.extrapolation.spatial_gradient().spatial_gradient()
-    return grid.with_(values=math.fourier_laplace(grid.values, dx=grid.dx, times=times), extrapolation=extrapolation)</code></pre>
+    assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
+    values = math.fourier_laplace(grid.values, dx=grid.dx, times=times)
+    return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.fourier_poisson"><code class="name flex">
-<span>def <span class="ident">fourier_poisson</span></span>(<span>grid: ~GridType, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, times=1) ‑> ~GridType</span>
+<span>def <span class="ident">fourier_poisson</span></span>(<span>grid: ~GridType, times=1) ‑> ~GridType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See <code><a title="phi.math.fourier_poisson" href="../math/index.html#phi.math.fourier_poisson">fourier_poisson()</a></code></p></div>
@@ -606,9 +607,11 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def fourier_poisson(grid: GridType, extrapolation: math.Extrapolation = None, times=1) -&gt; GridType:
+<pre><code class="python">def fourier_poisson(grid: GridType, times=1) -&gt; GridType:
     &#34;&#34;&#34; See `phi.math.fourier_poisson()` &#34;&#34;&#34;
-    return grid.with_(values=math.fourier_poisson(grid.values, dx=grid.dx, times=times), extrapolation=extrapolation)</code></pre>
+    assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
+    values = math.fourier_poisson(grid.values, dx=grid.dx, times=times)
+    return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.frequency_loss"><code class="name flex">
@@ -1133,7 +1136,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the optimization failed prematurely.
     &#34;&#34;&#34;
-    assert solve.relative_tolerance == 0, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
+    assert (solve.relative_tolerance == 0).all, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
@@ -1234,7 +1237,7 @@ The function output must have the same dimension layout as the inputs and the ba
     result = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
-            return i.with_(values=result, extrapolation=extrapolation)
+            return i.with_values(values=result).with_extrapolation(extrapolation)
     return result</code></pre>
 </details>
 </dd>
@@ -1249,7 +1252,7 @@ The function output must have the same dimension layout as the inputs and the ba
 </summary>
 <pre><code class="python">def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
     data = math.normalize_to(field.values, norm.values, epsilon)
-    return field.with_(values=data)</code></pre>
+    return field.with_values(data)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.pad"><code class="name flex">
@@ -1363,10 +1366,11 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.reduce_sample"><code class="name flex">
-<span>def <span class="ident">reduce_sample</span></span>(<span>field: phi.field._field.Field, geometry: phi.geom._geom.Geometry) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">reduce_sample</span></span>(<span>field: phi.field._field.Field, geometry: phi.geom._geom.Geometry, dim=(vectorᵛ=None)) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Similar to <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, but matches an optional <code>vector_</code> dimension of <code>geometry</code> with the <code>vector</code> dimension of this field.</p>
+<div class="desc"><p>Similar to <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, but matches channel dimensions of <code>geometry</code> with channel dimensions of this field.
+Currently, <code>geometry</code> may have at most one channel dimension.</p>
 <p>See Also:
 <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
 <h2 id="args">Args</h2>
@@ -1375,6 +1379,8 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <dd>Source <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> to sample.</dd>
 <dt><strong><code>geometry</code></strong></dt>
 <dd>Single or batched <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code>.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Dimension of result, resulting from reduction of channel dimensions.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Sampled values as a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
@@ -1382,9 +1388,10 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def reduce_sample(field: Field, geometry: Geometry) -&gt; math.Tensor:
+<pre><code class="python">def reduce_sample(field: Field, geometry: Geometry, dim=channel(&#39;vector&#39;)) -&gt; math.Tensor:
     &#34;&#34;&#34;
-    Similar to `sample()`, but matches an optional `vector_` dimension of `geometry` with the `vector` dimension of this field.
+    Similar to `sample()`, but matches channel dimensions of `geometry` with channel dimensions of this field.
+    Currently, `geometry` may have at most one channel dimension.
 
     See Also:
         `sample()`, `Field.at()`.
@@ -1392,18 +1399,22 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
     Args:
         field: Source `Field` to sample.
         geometry: Single or batched `phi.geom.Geometry`.
+        dim: Dimension of result, resulting from reduction of channel dimensions.
 
     Returns:
         Sampled values as a `phi.math.Tensor`
     &#34;&#34;&#34;
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry):
         return field.values
-    assert &#39;vector&#39; not in geometry.shape
-    if &#39;vector_&#39; in geometry.shape:
-        components = unstack(field, &#39;vector&#39;) if &#39;vector&#39; in field.shape else (field,) * geometry.shape.get_size(&#39;vector_&#39;)
-        sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(&#39;vector_&#39;))]
-        return math.stack(sampled, channel(&#39;vector&#39;))
-    else:
+    if geometry.shape.channel:  # Reduce this dimension
+        assert geometry.shape.channel.rank == 1, &#34;Only single-dimension reduction supported.&#34;
+        if field.shape.channel:
+            components = unstack(field, field.shape.channel.name)
+            sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
+        else:
+            sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
+        return math.stack(sampled, dim)
+    else:  # Nothing to reduce
         return field._sample(geometry)</code></pre>
 </details>
 </dd>
@@ -1465,12 +1476,11 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
         Sampled values as a `phi.math.Tensor`
     &#34;&#34;&#34;
     assert all(dim not in field.shape for dim in geometry.shape.channel)
-    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and &#39;vector_&#39; not in geometry.shape:
+    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geometry.shape.channel:
         return field.values
-    assert &#39;vector&#39; not in geometry.shape
-    if &#39;vector_&#39; in geometry.shape:
-        sampled = [field._sample(p) for p in geometry.unstack(&#39;vector_&#39;)]
-        return math.stack(sampled, channel(&#39;vector_&#39;))
+    if geometry.shape.channel:
+        sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
+        return math.stack(sampled, geometry.shape.channel)
     else:
         return field._sample(geometry)</code></pre>
 </details>
@@ -1611,8 +1621,8 @@ These arguments can be of any type.</dd>
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the solve failed prematurely.
     &#34;&#34;&#34;
-    y_nest, y_tensors = disassemble_tree(y)
-    x0_nest, x0_tensors = disassemble_tree(solve.x0)
+    y_tree, y_tensors = disassemble_tree(y)
+    x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert len(x0_tensors) == len(y_tensors) == 1, &#34;Only single-tensor linear solves are currently supported&#34;
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
@@ -1623,6 +1633,13 @@ These arguments can be of any type.</dd>
         matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
+        # arg_tree, arg_tensors = disassemble_tree(f_args)
+        # arg_tensors = cached(arg_tensors)
+        # f_args = assemble_tree(arg_tree, arg_tensors)
+        f_args = cached(f_args)
+        # x0_tensors = cached(x0_tensors)
+        # solve = copy_with(solve, x0=assemble_tree(x0_tree, x0_tensors))
+        solve = cached(solve)
         return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {}, f=f, backend=backend)  # custom_gradient</code></pre>
 </details>
 </dd>
@@ -1789,12 +1806,12 @@ The <code>field</code> must not have a dimension of the same name.</dd>
         raise NotImplementedError(&#34;Concatenating extrapolations not supported&#34;)
     if isinstance(fields[0], Grid):
         values = math.stack([f.values for f in fields], dim)
-        return fields[0].with_(values=values)
+        return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
         elements = geom.stack(*[f.elements for f in fields], dim=dim)
         values = math.stack([f.values for f in fields], dim=dim)
         colors = math.stack([f.color for f in fields], dim=dim)
-        return fields[0].with_(elements=elements, values=values, color=colors)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
     raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
 </dd>
@@ -2090,7 +2107,7 @@ The new values are determined via linear interpolation.</p>
     &#34;&#34;&#34; See `phi.math.vec_abs()` &#34;&#34;&#34;
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
-    return field.with_(values=math.vec_abs(field.values))</code></pre>
+    return field.with_values(math.vec_abs(field.values))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.vec_squared"><code class="name flex">
@@ -2106,7 +2123,7 @@ The new values are determined via linear interpolation.</p>
     &#34;&#34;&#34; See `phi.math.vec_squared()` &#34;&#34;&#34;
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
-    return field.with_(values=math.vec_squared(field.values))</code></pre>
+    return field.with_values(math.vec_squared(field.values))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.where"><code class="name flex">
@@ -2134,7 +2151,7 @@ The new values are determined via linear interpolation.</p>
         raise NotImplementedError(&#39;At least one argument must be a SampledField&#39;)
     values = mask.values * field_true.values + (1 - mask.values) * field_false.values
     # values = math.where(mask.values, field_true.values, field_false.values)
-    return field_true.with_(values=values)</code></pre>
+    return field_true.with_values(values)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.write"><code class="name flex">
@@ -2390,17 +2407,6 @@ Has to be one of the following:</p>
         assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
         Grid.__init__(self, elements, values, extrapolation, values.shape.spatial, bounds)
 
-    def with_(self,
-              elements: Geometry or None = None,
-              values: Tensor = None,
-              extrapolation: math.Extrapolation = None,
-              **other_attributes) -&gt; &#39;CenteredGrid&#39;:
-        assert elements is None
-        assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
-        values = values if values is not None else self.values
-        extrapolation = extrapolation if extrapolation is not None else self._extrapolation
-        return CenteredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
-
     def __getitem__(self, item: dict):
         values = self._values[{dim: slice(sel, sel + 1) if isinstance(sel, int) and dim in self.shape.spatial else sel for dim, sel in item.items()}]
         extrapolation = self._extrapolation[item]
@@ -2479,27 +2485,6 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
     assert &#39;vector&#39; not in points.shape
     local_points = self.box.global_to_local(points.center) * self.resolution - 0.5
     return math.closest_grid_values(self.values, local_points, self.extrapolation)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.CenteredGrid.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> phi.field._grid.CenteredGrid</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def with_(self,
-          elements: Geometry or None = None,
-          values: Tensor = None,
-          extrapolation: math.Extrapolation = None,
-          **other_attributes) -&gt; &#39;CenteredGrid&#39;:
-    assert elements is None
-    assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
-    values = values if values is not None else self.values
-    extrapolation = extrapolation if extrapolation is not None else self._extrapolation
-    return CenteredGrid(values, extrapolation=extrapolation, bounds=self.bounds)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2674,7 +2659,7 @@ def shape(self) -&gt; Shape:
             Copy of other with values and extrapolation from this Field.
         &#34;&#34;&#34;
         if isinstance(self, SampledField):
-            return self.with_(extrapolation=other.extrapolation).at(other)
+            return self.with_extrapolation(other.extrapolation).at(other)
         else:
             return self.at(other)
 
@@ -2909,8 +2894,14 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
     def _sample(self, geometry: Geometry) -&gt; math.Tensor:
         raise NotImplementedError(self)
 
-    def with_(self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None, **other_attributes) -&gt; &#39;Grid&#39;:
-        raise NotImplementedError(self)
+    def with_values(self, values):
+        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        return type(self)(self.values, extrapolation=extrapolation, bounds=self.bounds)
+
+    def with_bounds(self, bounds: Box):
+        return type(self)(self.values, extrapolation=self.extrapolation, bounds=bounds)
 
     def __value_attrs__(self):
         return &#39;_values&#39;, &#39;_extrapolation&#39;
@@ -2932,8 +2923,6 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
                 return False
             else:  # both tracers
                 return self.values.shape == other.values.shape
-                raise NotImplementedError()
-                return math.identical(self.values, other.values)
         return bool((self.values == other.values).all)
 
     def __getitem__(self, item: dict) -&gt; &#39;Grid&#39;:
@@ -3084,17 +3073,43 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.field.Grid.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> phi.field._grid.Grid</span>
+<dt id="phi.field.Grid.with_bounds"><code class="name flex">
+<span>def <span class="ident">with_bounds</span></span>(<span>self, bounds: phi.geom._box.Box)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_(self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None, **other_attributes) -&gt; &#39;Grid&#39;:
-    raise NotImplementedError(self)</code></pre>
+<pre><code class="python">def with_bounds(self, bounds: Box):
+    return type(self)(self.values, extrapolation=self.extrapolation, bounds=bounds)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Grid.with_extrapolation"><code class="name flex">
+<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_extrapolation(self, extrapolation: math.Extrapolation):
+    return type(self)(self.values, extrapolation=extrapolation, bounds=self.bounds)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Grid.with_values"><code class="name flex">
+<span>def <span class="ident">with_values</span></span>(<span>self, values)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_values(self, values):
+    return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3161,7 +3176,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.Noise"><code class="flex name class">
 <span>class <span class="ident">Noise</span></span>
-<span>(</span><span>shape=(), scale=10, smoothness=1.0, **channel_dims)</span>
+<span>(</span><span>*shape: phi.math._shape.Shape, scale=10, smoothness=1.0, **channel_dims)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generates random noise fluctuations which can be configured in physical size and smoothness.
@@ -3190,7 +3205,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
     Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
     &#34;&#34;&#34;
 
-    def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **channel_dims):
+    def __init__(self, *shape: math.Shape, scale=10, smoothness=1.0, **channel_dims):
         &#34;&#34;&#34;
         Args:
           shape: Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.
@@ -3200,7 +3215,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
         &#34;&#34;&#34;
         self.scale = scale
         self.smoothness = smoothness
-        self._shape = shape &amp; channel(**channel_dims)
+        self._shape = math.concat_shapes(*shape, channel(**channel_dims))
 
     @property
     def shape(self):
@@ -3233,10 +3248,10 @@ Each time values are sampled from a Noise field, a new noise field is generated.
 
     def __getitem__(self, item: dict):
         new_shape = self.shape.after_gather(item)
-        return Noise(new_shape, self.scale, self.smoothness)
+        return Noise(new_shape, scale=self.scale, smoothness=self.smoothness)
 
     def __repr__(self):
-        return &#34;%s, scale=%f, smoothness=%f&#34; % (self._shape, self.scale, self.smoothness)</code></pre>
+        return f&#34;{self._shape}, scale={self.scale}, smoothness={self.smoothness}&#34;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3358,7 +3373,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
           color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         &#34;&#34;&#34;
-        SampledField.__init__(self, elements, values, extrapolation)
+        SampledField.__init__(self, elements, math.wrap(values), extrapolation)
         self._add_overlapping = add_overlapping
         assert bounds is None or isinstance(bounds, Box), &#39;Invalid bounds.&#39;
         self._bounds = bounds
@@ -3376,21 +3391,20 @@ When sampling this field on a grid, scatter functions may be used.</p>
         extrapolation = self._extrapolation[item]
         return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, color)
 
-    def with_(self,
-              elements: Geometry or None = None,
-              values: Tensor = None,
-              extrapolation: math.Extrapolation = None,
-              add_overlapping: bool or None = None,
-              bounds: Box = None,
-              color: str or Tensor or tuple or list or None = None,
-              **other_attributes) -&gt; &#39;PointCloud&#39;:
-        assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
-        return PointCloud(elements if elements is not None else self.elements,
-                          values if values is not None else self.values,
-                          extrapolation if extrapolation is not None else self.extrapolation,
-                          add_overlapping if add_overlapping is not None else self._add_overlapping,
-                          bounds if bounds is not None else self._bounds,
-                          color if color is not None else self._color)
+    def with_elements(self, elements: Geometry):
+        return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_values(self, values):
+        return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_color(self, color: str or Tensor or tuple or list):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=color)
+
+    def with_bounds(self, bounds: Box):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=bounds, color=self._color)
 
     def __value_attrs__(self):
         return &#39;_values&#39;, &#39;_extrapolation&#39;
@@ -3498,30 +3512,69 @@ def shape(self):
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.field.PointCloud.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, add_overlapping: bool = None, bounds: phi.geom._box.Box = None, color: str = None, **other_attributes) ‑> phi.field._point_cloud.PointCloud</span>
+<dt id="phi.field.PointCloud.with_bounds"><code class="name flex">
+<span>def <span class="ident">with_bounds</span></span>(<span>self, bounds: phi.geom._box.Box)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_(self,
-          elements: Geometry or None = None,
-          values: Tensor = None,
-          extrapolation: math.Extrapolation = None,
-          add_overlapping: bool or None = None,
-          bounds: Box = None,
-          color: str or Tensor or tuple or list or None = None,
-          **other_attributes) -&gt; &#39;PointCloud&#39;:
-    assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
-    return PointCloud(elements if elements is not None else self.elements,
-                      values if values is not None else self.values,
-                      extrapolation if extrapolation is not None else self.extrapolation,
-                      add_overlapping if add_overlapping is not None else self._add_overlapping,
-                      bounds if bounds is not None else self._bounds,
-                      color if color is not None else self._color)</code></pre>
+<pre><code class="python">def with_bounds(self, bounds: Box):
+    return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=bounds, color=self._color)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.PointCloud.with_color"><code class="name flex">
+<span>def <span class="ident">with_color</span></span>(<span>self, color: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_color(self, color: str or Tensor or tuple or list):
+    return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=color)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.PointCloud.with_elements"><code class="name flex">
+<span>def <span class="ident">with_elements</span></span>(<span>self, elements: phi.geom._geom.Geometry)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_elements(self, elements: Geometry):
+    return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.PointCloud.with_extrapolation"><code class="name flex">
+<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_extrapolation(self, extrapolation: math.Extrapolation):
+    return PointCloud(elements=self.elements, values=self.values, extrapolation=extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.PointCloud.with_values"><code class="name flex">
+<span>def <span class="ident">with_values</span></span>(<span>self, values)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_values(self, values):
+    return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3550,7 +3603,7 @@ def shape(self):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     &#34;&#34;&#34;
 
-    def __init__(self, elements: Geometry, values: Tensor or float or int, extrapolation: math.Extrapolation):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: math.Extrapolation):
         &#34;&#34;&#34;
         Args:
           elements: Geometry object specifying the sample points and sizes
@@ -3559,16 +3612,17 @@ def shape(self):
         &#34;&#34;&#34;
         assert isinstance(extrapolation, Extrapolation), f&#34;Not a valid extrapolation: {extrapolation}&#34;
         assert isinstance(elements, Geometry), elements
+        assert isinstance(values, Tensor), f&#34;Values must be a Tensor but got {values}.&#34;
         self._elements = elements
-        self._values = math.wrap(values)
+        self._values = values
         self._extrapolation = extrapolation
 
-    def with_(self,
-              elements: Geometry or None = None,
-              values: Tensor = None,
-              extrapolation: math.Extrapolation = None,
-              **other_attributes) -&gt; &#39;SampledFieldType&#39;:
-        &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
+    def with_values(self, values):
+        &#34;&#34;&#34; Returns a copy of this field with `values` replaced. &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        &#34;&#34;&#34; Returns a copy of this field with `values` replaced. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     @property
@@ -3659,18 +3713,18 @@ def shape(self):
         &#34;&#34;&#34;
         values = operator(self.values)
         extrapolation_ = operator(self._extrapolation)
-        return self.with_(values=values, extrapolation=extrapolation_)
+        return self.with_values(values).with_extrapolation(extrapolation_)
 
     def _op2(self, other, operator) -&gt; &#39;SampledField&#39;:
         if isinstance(other, Field):
             other_values = reduce_sample(other, self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
-            return self.with_(values=values, extrapolation=extrapolation_)
+            return self.with_values(values).with_extrapolation(extrapolation_)
         else:
             other = math.tensor(other)
             values = operator(self._values, other)
-            return self.with_(values=values)</code></pre>
+            return self.with_values(values)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3774,21 +3828,31 @@ def values(self) -&gt; Tensor:
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.field.SampledField.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.Tensor = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> ~SampledFieldType</span>
+<dt id="phi.field.SampledField.with_extrapolation"><code class="name flex">
+<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
+<div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_(self,
-          elements: Geometry or None = None,
-          values: Tensor = None,
-          extrapolation: math.Extrapolation = None,
-          **other_attributes) -&gt; &#39;SampledFieldType&#39;:
-    &#34;&#34;&#34; Creates a copy of this field with one or more properties changed. `None` keeps the current value. &#34;&#34;&#34;
+<pre><code class="python">def with_extrapolation(self, extrapolation: math.Extrapolation):
+    &#34;&#34;&#34; Returns a copy of this field with `values` replaced. &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.SampledField.with_values"><code class="name flex">
+<span>def <span class="ident">with_values</span></span>(<span>self, values)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_values(self, values):
+    &#34;&#34;&#34; Returns a copy of this field with `values` replaced. &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -4990,7 +5054,7 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
             elif callable(values):
                 values = values(elements.center)
                 assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
-                assert &#39;vector_&#39; in values.shape
+                assert &#39;staggered_direction&#39; in values.shape
                 if &#39;vector&#39; in values.shape:
                     values = math.stack([values.vector_[i].vector[i] for i in range(resolution.rank)], channel(&#39;vector&#39;))
                 else:
@@ -5002,16 +5066,6 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
         assert resolution.spatial_rank == bounds.spatial_rank, f&#34;Resolution {resolution} does not match bounds {bounds}&#34;
         Grid.__init__(self, elements, values, extrapolation, resolution, bounds)
 
-    def with_(self,
-              elements: Geometry or None = None,
-              values: TensorStack = None,
-              extrapolation: math.Extrapolation = None,
-              **other_attributes) -&gt; &#39;StaggeredGrid&#39;:
-        assert elements is None
-        assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
-        values = values if values is not None else self.values
-        return StaggeredGrid(values, bounds=self.bounds, extrapolation=extrapolation if extrapolation is not None else self._extrapolation)
-
     @property
     def cells(self):
         return GridCell(self.resolution, self.bounds)
@@ -5022,8 +5076,8 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
 
     def closest_values(self, points: Geometry):
         assert &#39;vector&#39; not in points.shape
-        if &#39;vector_&#39; in points.shape:
-            points = points.unstack(&#39;vector_&#39;)
+        if &#39;staggered_direction&#39; in points.shape:
+            points = points.unstack(&#39;staggered_direction&#39;)
             channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
         else:
             channels = [component.closest_values(points) for component in self.vector.unstack()]
@@ -5055,7 +5109,15 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
                 assert isinstance(item[&#39;vector&#39;], slice) and not item[&#39;vector&#39;].start and not item[&#39;vector&#39;].stop
         return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
-    def staggered_tensor(self):
+    def staggered_tensor(self) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Stacks all component grids into a single uniform `phi.math.Tensor`.
+        The individual components are padded to a common (larger) shape before being stacked.
+        The shape of the returned tensor is exactly one cell larger than the grid `resolution` in every spatial dimension.
+
+        Returns:
+            Uniform `phi.math.Tensor`.
+        &#34;&#34;&#34;
         padded = []
         for dim, component in zip(self.resolution.names, math.unstack(self.values, &#39;vector&#39;)):
             widths = {d: (0, 1) for d in self.resolution.names}
@@ -5070,7 +5132,7 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
         if isinstance(other, StaggeredGrid) and self.bounds == other.bounds and self.shape.spatial == other.shape.spatial:
             values = operator(self._values, other.values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
-            return self.with_(values=values, extrapolation=extrapolation_)
+            return StaggeredGrid(values=values, extrapolation=extrapolation_, bounds=self.bounds)
         else:
             return SampledField._op2(self, other, operator)</code></pre>
 </details>
@@ -5133,8 +5195,8 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 </summary>
 <pre><code class="python">def closest_values(self, points: Geometry):
     assert &#39;vector&#39; not in points.shape
-    if &#39;vector_&#39; in points.shape:
-        points = points.unstack(&#39;vector_&#39;)
+    if &#39;staggered_direction&#39; in points.shape:
+        points = points.unstack(&#39;staggered_direction&#39;)
         channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
     else:
         channels = [component.closest_values(points) for component in self.vector.unstack()]
@@ -5142,15 +5204,27 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.staggered_tensor"><code class="name flex">
-<span>def <span class="ident">staggered_tensor</span></span>(<span>self)</span>
+<span>def <span class="ident">staggered_tensor</span></span>(<span>self) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Stacks all component grids into a single uniform <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+The individual components are padded to a common (larger) shape before being stacked.
+The shape of the returned tensor is exactly one cell larger than the grid <code>resolution</code> in every spatial dimension.</p>
+<h2 id="returns">Returns</h2>
+<p>Uniform <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def staggered_tensor(self):
+<pre><code class="python">def staggered_tensor(self) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Stacks all component grids into a single uniform `phi.math.Tensor`.
+    The individual components are padded to a common (larger) shape before being stacked.
+    The shape of the returned tensor is exactly one cell larger than the grid `resolution` in every spatial dimension.
+
+    Returns:
+        Uniform `phi.math.Tensor`.
+    &#34;&#34;&#34;
     padded = []
     for dim, component in zip(self.resolution.names, math.unstack(self.values, &#39;vector&#39;)):
         widths = {d: (0, 1) for d in self.resolution.names}
@@ -5160,26 +5234,6 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
     result = math.stack(padded, channel(&#39;vector&#39;))
     assert result.shape.is_uniform
     return result</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StaggeredGrid.with_"><code class="name flex">
-<span>def <span class="ident">with_</span></span>(<span>self, elements: phi.geom._geom.Geometry = None, values: phi.math._tensors.TensorStack = None, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, **other_attributes) ‑> phi.field._grid.StaggeredGrid</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates a copy of this field with one or more properties changed. <code>None</code> keeps the current value.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def with_(self,
-          elements: Geometry or None = None,
-          values: TensorStack = None,
-          extrapolation: math.Extrapolation = None,
-          **other_attributes) -&gt; &#39;StaggeredGrid&#39;:
-    assert elements is None
-    assert not other_attributes, f&#34;Invalid attributes for type {type(self)}: {other_attributes}&#34;
-    values = values if values is not None else self.values
-    return StaggeredGrid(values, bounds=self.bounds, extrapolation=extrapolation if extrapolation is not None else self._extrapolation)</code></pre>
 </details>
 </dd>
 </dl>
@@ -5270,7 +5324,6 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <h4><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code></h4>
 <ul class="">
 <li><code><a title="phi.field.CenteredGrid.closest_values" href="#phi.field.CenteredGrid.closest_values">closest_values</a></code></li>
-<li><code><a title="phi.field.CenteredGrid.with_" href="#phi.field.CenteredGrid.with_">with_</a></code></li>
 </ul>
 </li>
 <li>
@@ -5298,7 +5351,9 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.Grid.dx" href="#phi.field.Grid.dx">dx</a></code></li>
 <li><code><a title="phi.field.Grid.resolution" href="#phi.field.Grid.resolution">resolution</a></code></li>
 <li><code><a title="phi.field.Grid.shape" href="#phi.field.Grid.shape">shape</a></code></li>
-<li><code><a title="phi.field.Grid.with_" href="#phi.field.Grid.with_">with_</a></code></li>
+<li><code><a title="phi.field.Grid.with_bounds" href="#phi.field.Grid.with_bounds">with_bounds</a></code></li>
+<li><code><a title="phi.field.Grid.with_extrapolation" href="#phi.field.Grid.with_extrapolation">with_extrapolation</a></code></li>
+<li><code><a title="phi.field.Grid.with_values" href="#phi.field.Grid.with_values">with_values</a></code></li>
 </ul>
 </li>
 <li>
@@ -5316,11 +5371,15 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 </li>
 <li>
 <h4><code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="phi.field.PointCloud.bounds" href="#phi.field.PointCloud.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.PointCloud.color" href="#phi.field.PointCloud.color">color</a></code></li>
 <li><code><a title="phi.field.PointCloud.shape" href="#phi.field.PointCloud.shape">shape</a></code></li>
-<li><code><a title="phi.field.PointCloud.with_" href="#phi.field.PointCloud.with_">with_</a></code></li>
+<li><code><a title="phi.field.PointCloud.with_bounds" href="#phi.field.PointCloud.with_bounds">with_bounds</a></code></li>
+<li><code><a title="phi.field.PointCloud.with_color" href="#phi.field.PointCloud.with_color">with_color</a></code></li>
+<li><code><a title="phi.field.PointCloud.with_elements" href="#phi.field.PointCloud.with_elements">with_elements</a></code></li>
+<li><code><a title="phi.field.PointCloud.with_extrapolation" href="#phi.field.PointCloud.with_extrapolation">with_extrapolation</a></code></li>
+<li><code><a title="phi.field.PointCloud.with_values" href="#phi.field.PointCloud.with_values">with_values</a></code></li>
 </ul>
 </li>
 <li>
@@ -5332,7 +5391,8 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.SampledField.points" href="#phi.field.SampledField.points">points</a></code></li>
 <li><code><a title="phi.field.SampledField.shape" href="#phi.field.SampledField.shape">shape</a></code></li>
 <li><code><a title="phi.field.SampledField.values" href="#phi.field.SampledField.values">values</a></code></li>
-<li><code><a title="phi.field.SampledField.with_" href="#phi.field.SampledField.with_">with_</a></code></li>
+<li><code><a title="phi.field.SampledField.with_extrapolation" href="#phi.field.SampledField.with_extrapolation">with_extrapolation</a></code></li>
+<li><code><a title="phi.field.SampledField.with_values" href="#phi.field.SampledField.with_values">with_values</a></code></li>
 </ul>
 </li>
 <li>
@@ -5379,7 +5439,6 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <li><code><a title="phi.field.StaggeredGrid.cells" href="#phi.field.StaggeredGrid.cells">cells</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.closest_values" href="#phi.field.StaggeredGrid.closest_values">closest_values</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.staggered_tensor" href="#phi.field.StaggeredGrid.staggered_tensor">staggered_tensor</a></code></li>
-<li><code><a title="phi.field.StaggeredGrid.with_" href="#phi.field.StaggeredGrid.with_">with_</a></code></li>
 </ul>
 </li>
 </ul>

@@ -19,7 +19,7 @@ We recommend CUDA 11.0 with cuDNN 8.
 
 The following command installs the latest stable version of Φ<sub>Flow</sub> with GUI support using pip.
 ```bash
-$ pip install phiflow dash plotly imageio
+$ pip install phiflow==2.0.0rc2 dash plotly imageio
 ```
 To install the latest developer version of Φ<sub>Flow</sub>, run
 ```bash
