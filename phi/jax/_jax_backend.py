@@ -398,7 +398,7 @@ class JaxBackend(Backend):
         return from_numpy_dtype(array.dtype)
 
     def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        if method == 'auto':
+        if method == 'auto' and not trj and not self.is_available(y):
             return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
         else:
             return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)

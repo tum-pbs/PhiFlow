@@ -1052,7 +1052,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the optimization failed prematurely.
     """
-    assert solve.relative_tolerance == 0, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
+    assert (solve.relative_tolerance == 0).all, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
