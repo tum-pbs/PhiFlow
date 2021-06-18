@@ -289,7 +289,7 @@ class StaggeredGrid(Grid):
             elif callable(values):
                 values = values(elements.center)
                 assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
-                assert 'vector_' in values.shape
+                assert 'staggered_direction' in values.shape
                 if 'vector' in values.shape:
                     values = math.stack([values.vector_[i].vector[i] for i in range(resolution.rank)], channel('vector'))
                 else:
@@ -321,8 +321,8 @@ class StaggeredGrid(Grid):
 
     def closest_values(self, points: Geometry):
         assert 'vector' not in points.shape
-        if 'vector_' in points.shape:
-            points = points.unstack('vector_')
+        if 'staggered_direction' in points.shape:
+            points = points.unstack('staggered_direction')
             channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
         else:
             channels = [component.closest_values(points) for component in self.vector.unstack()]
@@ -398,7 +398,7 @@ def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extra
     for dim in resolution.names:
         lower, upper = extrapolation.valid_outer_faces(dim)
         grids.append(cells.stagger(dim, lower, upper))
-    return GeometryStack(grids, channel('vector_'))
+    return GeometryStack(grids, channel('staggered_direction'))
 
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extrapolation):

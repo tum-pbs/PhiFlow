@@ -289,19 +289,19 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
         Sampled values as a `phi.math.Tensor`
     """
     assert all(dim not in field.shape for dim in geometry.shape.channel)
-    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and 'vector_' not in geometry.shape:
+    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geometry.shape.channel:
         return field.values
-    assert 'vector' not in geometry.shape
-    if 'vector_' in geometry.shape:
-        sampled = [field._sample(p) for p in geometry.unstack('vector_')]
-        return math.stack(sampled, channel('vector_'))
+    if geometry.shape.channel:
+        sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
+        return math.stack(sampled, geometry.shape.channel)
     else:
         return field._sample(geometry)
 
 
 def reduce_sample(field: Field, geometry: Geometry) -> math.Tensor:
     """
-    Similar to `sample()`, but matches an optional `vector_` dimension of `geometry` with the `vector` dimension of this field.
+    Similar to `sample()`, but matches channel dimensions of `geometry` with the `vector` dimension of this field.
+    Currently, `geometry` may have at most one channel dimension.
 
     See Also:
         `sample()`, `Field.at()`.
@@ -315,12 +315,17 @@ def reduce_sample(field: Field, geometry: Geometry) -> math.Tensor:
     """
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry):
         return field.values
-    assert 'vector' not in geometry.shape
-    if 'vector_' in geometry.shape:
-        components = unstack(field, 'vector') if 'vector' in field.shape else (field,) * geometry.shape.get_size('vector_')
-        sampled = [c._sample(p) for c, p in zip(components, geometry.unstack('vector_'))]
-        return math.stack(sampled, channel('vector'))
-    else:
+    if geometry.shape.channel:  # Reduce this dimension
+        assert geometry.shape.channel.rank == 1, "Only single-dimension reduction supported."
+        if field.shape.channel:
+            components = unstack(field, field.shape.channel.name)
+            sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
+            new_dim = field.shape.channel
+        else:
+            sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
+            new_dim = geometry.shape.channel
+        return math.stack(sampled, new_dim)
+    else:  # Nothing to reduce
         return field._sample(geometry)
 
 
