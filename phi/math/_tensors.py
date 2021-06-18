@@ -475,6 +475,7 @@ class Tensor:
 
     def _expand(self):
         """ Expands all compressed tensors to their defined size as if they were being used in `Tensor.native()`. """
+        warnings.warn("Tensor._expand() is deprecated, use cached(Tensor) instead.", DeprecationWarning)
         raise NotImplementedError(self.__class__)
 
     def _tensor_reduce(self,
@@ -935,7 +936,8 @@ class CollapsedTensor(Tensor):  # package-private
     def _expand(self):
         self._cache()
         from phi.math import all_available
-        assert all_available(self._cached), "Cannot cache a Tensor while it is being traced."
+        if not all_available(self._cached):
+            raise AssertionError("Cannot cache a Tensor while it is being traced.")
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
@@ -1379,6 +1381,8 @@ def _assemble_pop(natives: list, shape: Shape):
 class _TensorLikeType(type):
 
     def __instancecheck__(self, instance):
+        if isinstance(instance, Tensor):
+            return True
         if instance is None or instance == MISSING_TENSOR or isinstance(instance, Tensor):
             return True
         elif isinstance(instance, (tuple, list)):
@@ -1557,3 +1561,38 @@ def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
         return copy_with(obj, **values)
     else:
         raise ValueError(f"Value must be Tensor or tensor-like but got {type(obj)}")
+
+
+def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
+    assert isinstance(t, (Tensor, TensorLike)), f"All arguments must be Tensors but got {type(t)}"
+    if isinstance(t, NativeTensor):
+        return t
+    elif isinstance(t, CollapsedTensor):
+        if t.is_cached:
+            return t._cached
+        if t._inner._is_tracer:
+            return t
+        if t.shape.is_uniform:
+            native = t._inner.native(order=t.shape.names)
+            multiples = [1 if name in t._inner.shape else size for size, name, _ in t.shape.dimensions]
+            backend = choose_backend(native)
+            tiled = backend.tile(native, multiples)
+            return NativeTensor(tiled, t.shape)
+        else:
+            raise NotImplementedError()
+    elif isinstance(t, TensorStack):
+        if t._cached is not None:
+            return t._cached
+        inners = cached(t.tensors)
+        if t.requires_broadcast:
+            return TensorStack(inners, t.stack_dim)
+        else:
+            natives = [t.native(order=t.shape.names) for t in inners]
+            native = choose_backend(*natives).concat(natives, axis=t.shape.index(t.stack_dim.name))
+            return NativeTensor(native, t.shape)
+    elif isinstance(t, TensorLike):
+        tree, tensors = disassemble_tree(t)
+        tensors_ = [cached(t_) for t_ in tensors]
+        return assemble_tree(tree, tensors_)
+    else:
+        raise AssertionError(f"Cannot cache {type(t)} {t}")

@@ -354,7 +354,15 @@ class StaggeredGrid(Grid):
                 assert isinstance(item['vector'], slice) and not item['vector'].start and not item['vector'].stop
         return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
-    def staggered_tensor(self):
+    def staggered_tensor(self) -> Tensor:
+        """
+        Stacks all component grids into a single uniform `phi.math.Tensor`.
+        The individual components are padded to a common (larger) shape before being stacked.
+        The shape of the returned tensor is exactly one cell larger than the grid `resolution` in every spatial dimension.
+
+        Returns:
+            Uniform `phi.math.Tensor`.
+        """
         padded = []
         for dim, component in zip(self.resolution.names, math.unstack(self.values, 'vector')):
             widths = {d: (0, 1) for d in self.resolution.names}

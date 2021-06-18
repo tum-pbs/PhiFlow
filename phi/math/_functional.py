@@ -13,7 +13,7 @@ from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, vector_add, merge_shapes, spatial, collection, \
     batch
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, \
-    disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap
+    disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap, cached
 from .backend import choose_backend, Backend, get_current_profile, get_precision
 from .backend._backend import SolveResult
 
@@ -228,18 +228,23 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         if not backend.supports(Backend.sparse_tensor):
             # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
             return self.nl_jit(*args, **kwargs)
-        natives, shapes = disassemble_tensors(tensors)
-        key = SignatureKey(None, nest, shapes, kwargs, backend, not all_available(*tensors))
+        x, *condition_args = args
+        key = self._condition_key(x, condition_args, kwargs)
         tracer = self._get_or_trace(key)
         return tracer.apply(tensors[0])
 
     def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+        key = self._condition_key(x, condition_args, kwargs)
+        tracer = self._get_or_trace(key)
+        return tracer.get_sparse_coordinate_matrix()
+
+    def _condition_key(self, x, condition_args, kwargs):
         kwargs['n_condition_args'] = len(condition_args)
         for i, c_arg in enumerate(condition_args):
             kwargs[f'_condition_arg[{i}]'] = c_arg
         key, _ = key_from_args(x, cache=False, **kwargs)
         assert key.backend.supports(Backend.sparse_tensor)
-        return self._get_or_trace(key).get_sparse_coordinate_matrix()
+        return key
 
     def stencil_inspector(self, *args, **kwargs):
         key, _ = key_from_args(*args, cache=True, **kwargs)
@@ -449,6 +454,10 @@ class CustomGradientFunction:
 
     def __repr__(self):
         return f"custom_gradient(forward={self.f.__name__}, backward={self.gradient.__name__}, id={id(self)})"
+
+    @property
+    def __name__(self):
+        return f"custom_grad({self.f.__name__})"
 
     @staticmethod
     def incomplete_tree_to_natives(incomplete, nest, complete_shapes: List[Shape]) -> list:
@@ -826,9 +835,9 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         if not isinstance(other, Solve):
             return False
         if self.method != other.method \
-                or self.absolute_tolerance != other.absolute_tolerance \
-                or self.relative_tolerance != other.relative_tolerance \
-                or self.max_iterations != other.max_iterations \
+                or (self.absolute_tolerance != other.absolute_tolerance).any \
+                or (self.relative_tolerance != other.relative_tolerance).any \
+                or (self.max_iterations != other.max_iterations).any \
                 or self.suppress != other.suppress:
             return False
         return self.x0 == other.x0
@@ -1043,7 +1052,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the optimization failed prematurely.
     """
-    assert solve.relative_tolerance == 0, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
+    assert (solve.relative_tolerance == 0).all, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
@@ -1175,8 +1184,8 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the solve failed prematurely.
     """
-    y_nest, y_tensors = disassemble_tree(y)
-    x0_nest, x0_tensors = disassemble_tree(solve.x0)
+    y_tree, y_tensors = disassemble_tree(y)
+    x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert len(x0_tensors) == len(y_tensors) == 1, "Only single-tensor linear solves are currently supported"
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
@@ -1187,9 +1196,13 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or
         matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
-        _, arg_tensors = disassemble_tree(f_args)
-        for t in y_tensors + x0_tensors + arg_tensors:
-            t._expand()
+        # arg_tree, arg_tensors = disassemble_tree(f_args)
+        # arg_tensors = cached(arg_tensors)
+        # f_args = assemble_tree(arg_tree, arg_tensors)
+        f_args = cached(f_args)
+        # x0_tensors = cached(x0_tensors)
+        # solve = copy_with(solve, x0=assemble_tree(x0_tree, x0_tensors))
+        solve = cached(solve)
         return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {}, f=f, backend=backend)  # custom_gradient
 
 
