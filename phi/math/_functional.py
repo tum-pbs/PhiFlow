@@ -1294,7 +1294,7 @@ def _function_solve_forward(y, solve: Solve, f_args: tuple,
         y = f(x, *f_args, **f_kwargs)
         _, (y_tensor,) = disassemble_tree(y)
         y_native = reshaped_native(y_tensor, [batches, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
-        if batch_index is not None:
+        if batch_index is not None and batches.volume > 1:
             y_native = y_native[batch_index]
         return y_native
 
