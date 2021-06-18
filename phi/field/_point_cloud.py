@@ -56,21 +56,20 @@ class PointCloud(SampledField):
         extrapolation = self._extrapolation[item]
         return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, color)
 
-    def with_(self,
-              elements: Geometry or None = None,
-              values: Tensor = None,
-              extrapolation: math.Extrapolation = None,
-              add_overlapping: bool or None = None,
-              bounds: Box = None,
-              color: str or Tensor or tuple or list or None = None,
-              **other_attributes) -> 'PointCloud':
-        assert not other_attributes, f"Invalid attributes for type {type(self)}: {other_attributes}"
-        return PointCloud(elements if elements is not None else self.elements,
-                          values if values is not None else self.values,
-                          extrapolation if extrapolation is not None else self.extrapolation,
-                          add_overlapping if add_overlapping is not None else self._add_overlapping,
-                          bounds if bounds is not None else self._bounds,
-                          color if color is not None else self._color)
+    def with_elements(self, elements: Geometry):
+        return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_values(self, values):
+        return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_color(self, color: str or Tensor or tuple or list):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=color)
+
+    def with_bounds(self, bounds: Box):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=bounds, color=self._color)
 
     def __value_attrs__(self):
         return '_values', '_extrapolation'

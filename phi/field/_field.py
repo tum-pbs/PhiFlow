@@ -75,7 +75,7 @@ class Field:
             Copy of other with values and extrapolation from this Field.
         """
         if isinstance(self, SampledField):
-            return self.with_(extrapolation=other.extrapolation).at(other)
+            return self.with_extrapolation(other.extrapolation).at(other)
         else:
             return self.at(other)
 
@@ -127,7 +127,7 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor or float or int, extrapolation: math.Extrapolation):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: math.Extrapolation):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
@@ -136,16 +136,17 @@ class SampledField(Field):
         """
         assert isinstance(extrapolation, Extrapolation), f"Not a valid extrapolation: {extrapolation}"
         assert isinstance(elements, Geometry), elements
+        assert isinstance(values, Tensor), f"Values must be a Tensor but got {values}."
         self._elements = elements
-        self._values = math.wrap(values)
+        self._values = values
         self._extrapolation = extrapolation
 
-    def with_(self,
-              elements: Geometry or None = None,
-              values: Tensor = None,
-              extrapolation: math.Extrapolation = None,
-              **other_attributes) -> 'SampledFieldType':
-        """ Creates a copy of this field with one or more properties changed. `None` keeps the current value. """
+    def with_values(self, values):
+        """ Returns a copy of this field with `values` replaced. """
+        raise NotImplementedError(self)
+
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        """ Returns a copy of this field with `values` replaced. """
         raise NotImplementedError(self)
 
     @property
@@ -236,18 +237,18 @@ class SampledField(Field):
         """
         values = operator(self.values)
         extrapolation_ = operator(self._extrapolation)
-        return self.with_(values=values, extrapolation=extrapolation_)
+        return self.with_values(values).with_extrapolation(extrapolation_)
 
     def _op2(self, other, operator) -> 'SampledField':
         if isinstance(other, Field):
             other_values = reduce_sample(other, self._elements)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
-            return self.with_(values=values, extrapolation=extrapolation_)
+            return self.with_values(values).with_extrapolation(extrapolation_)
         else:
             other = math.tensor(other)
             values = operator(self._values, other)
-            return self.with_(values=values)
+            return self.with_values(values)
 
 
 def unstack(field: Field, dim: str) -> tuple:
@@ -298,9 +299,9 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
         return field._sample(geometry)
 
 
-def reduce_sample(field: Field, geometry: Geometry) -> math.Tensor:
+def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> math.Tensor:
     """
-    Similar to `sample()`, but matches channel dimensions of `geometry` with the `vector` dimension of this field.
+    Similar to `sample()`, but matches channel dimensions of `geometry` with channel dimensions of this field.
     Currently, `geometry` may have at most one channel dimension.
 
     See Also:
@@ -309,6 +310,7 @@ def reduce_sample(field: Field, geometry: Geometry) -> math.Tensor:
     Args:
         field: Source `Field` to sample.
         geometry: Single or batched `phi.geom.Geometry`.
+        dim: Dimension of result, resulting from reduction of channel dimensions.
 
     Returns:
         Sampled values as a `phi.math.Tensor`
@@ -320,11 +322,9 @@ def reduce_sample(field: Field, geometry: Geometry) -> math.Tensor:
         if field.shape.channel:
             components = unstack(field, field.shape.channel.name)
             sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
-            new_dim = field.shape.channel
         else:
             sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
-            new_dim = geometry.shape.channel
-        return math.stack(sampled, new_dim)
+        return math.stack(sampled, dim)
     else:  # Nothing to reduce
         return field._sample(geometry)
 

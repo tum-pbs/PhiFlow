@@ -31,7 +31,7 @@ def make_incompressible(velocity: StaggeredGrid,
       divergence: divergence field of input velocity, `CenteredGrid`
       occupation_mask: StaggeredGrid
     """
-    points = particles.with_(values=math.tensor(1., convert=True))
+    points = particles.with_values(math.tensor(1., convert=True))
     occupied_centered = points >> domain.scalar_grid()
     occupied_staggered = points >> domain.staggered_grid()
 
@@ -62,7 +62,7 @@ def make_incompressible(velocity: StaggeredGrid,
         return dp * occupied_centered.values,
 
     add_mask_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
-    pressure = pressure.with_(values=add_mask_in_gradient(pressure.values))
+    pressure = pressure.with_values(add_mask_in_gradient(pressure.values))
 
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
     return velocity_field - gradp, pressure, occupied_staggered
@@ -104,7 +104,7 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud,
         v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
         v_change = (v_change_field >> previous_particle_velocity).values
         velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
-    return previous_particle_velocity.with_(values=velocities)
+    return previous_particle_velocity.with_values(velocities)
 
 
 def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: list, offset: float = 0.5) -> PointCloud:
@@ -127,4 +127,4 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
             obj = obj.geometry
         new_positions = obj.push(new_positions, shift_amount=offset)
     new_positions = (~domain.bounds).push(new_positions, shift_amount=offset)
-    return particles.with_(elements=Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))
+    return particles.with_elements(Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))

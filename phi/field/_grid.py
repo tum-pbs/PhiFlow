@@ -42,8 +42,14 @@ class Grid(SampledField):
     def _sample(self, geometry: Geometry) -> math.Tensor:
         raise NotImplementedError(self)
 
-    def with_(self, elements: Geometry or None = None, values: Tensor = None, extrapolation: math.Extrapolation = None, **other_attributes) -> 'Grid':
-        raise NotImplementedError(self)
+    def with_values(self, values):
+        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        return type(self)(self.values, extrapolation=extrapolation, bounds=self.bounds)
+
+    def with_bounds(self, bounds: Box):
+        return type(self)(self.values, extrapolation=self.extrapolation, bounds=bounds)
 
     def __value_attrs__(self):
         return '_values', '_extrapolation'
@@ -65,8 +71,6 @@ class Grid(SampledField):
                 return False
             else:  # both tracers
                 return self.values.shape == other.values.shape
-                raise NotImplementedError()
-                return math.identical(self.values, other.values)
         return bool((self.values == other.values).all)
 
     def __getitem__(self, item: dict) -> 'Grid':
@@ -166,17 +170,6 @@ class CenteredGrid(Grid):
             values = math.to_float(values)
         assert resolution.spatial_rank == bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
         Grid.__init__(self, elements, values, extrapolation, values.shape.spatial, bounds)
-
-    def with_(self,
-              elements: Geometry or None = None,
-              values: Tensor = None,
-              extrapolation: math.Extrapolation = None,
-              **other_attributes) -> 'CenteredGrid':
-        assert elements is None
-        assert not other_attributes, f"Invalid attributes for type {type(self)}: {other_attributes}"
-        values = values if values is not None else self.values
-        extrapolation = extrapolation if extrapolation is not None else self._extrapolation
-        return CenteredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
 
     def __getitem__(self, item: dict):
         values = self._values[{dim: slice(sel, sel + 1) if isinstance(sel, int) and dim in self.shape.spatial else sel for dim, sel in item.items()}]
@@ -301,16 +294,6 @@ class StaggeredGrid(Grid):
         assert resolution.spatial_rank == bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
         Grid.__init__(self, elements, values, extrapolation, resolution, bounds)
 
-    def with_(self,
-              elements: Geometry or None = None,
-              values: TensorStack = None,
-              extrapolation: math.Extrapolation = None,
-              **other_attributes) -> 'StaggeredGrid':
-        assert elements is None
-        assert not other_attributes, f"Invalid attributes for type {type(self)}: {other_attributes}"
-        values = values if values is not None else self.values
-        return StaggeredGrid(values, bounds=self.bounds, extrapolation=extrapolation if extrapolation is not None else self._extrapolation)
-
     @property
     def cells(self):
         return GridCell(self.resolution, self.bounds)
@@ -377,7 +360,7 @@ class StaggeredGrid(Grid):
         if isinstance(other, StaggeredGrid) and self.bounds == other.bounds and self.shape.spatial == other.shape.spatial:
             values = operator(self._values, other.values)
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
-            return self.with_(values=values, extrapolation=extrapolation_)
+            return StaggeredGrid(values=values, extrapolation=extrapolation_, bounds=self.bounds)
         else:
             return SampledField._op2(self, other, operator)
 

@@ -131,7 +131,7 @@ class TestFieldMath(TestCase):
             self.assertEqual(converted.values.default_backend, backend)
 
     def test_convert_point_cloud(self):
-        points = Domain(x=4, y=3).points(math.random_uniform(collection(points=4) & channel(vector=2))).with_(values=math.random_normal(collection(points=4) & channel(vector=2)))
+        points = Domain(x=4, y=3).points(math.random_uniform(collection(points=4) & channel(vector=2))).with_values(math.random_normal(collection(points=4) & channel(vector=2)))
         for backend in BACKENDS:
             converted = field.convert(points, backend)
             self.assertEqual(converted.values.default_backend, backend)

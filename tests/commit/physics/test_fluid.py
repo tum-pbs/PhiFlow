@@ -51,7 +51,7 @@ class FluidTest(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.record_gradients):
                 with backend:
-                    velocity = param = velocity0.with_(values=math.tensor(velocity0.values))
+                    velocity = param = velocity0.with_values(math.tensor(velocity0.values))
                     with math.record_gradients(param.values):
                         velocity, _ = fluid.make_incompressible(velocity)
                         loss = field.l2_loss(velocity)

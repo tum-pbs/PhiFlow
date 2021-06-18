@@ -90,4 +90,4 @@ def fourier(field: GridType,
     diffuse_kernel = math.exp(fft_laplace * amount)
     result_k = math.fft(field.values) * diffuse_kernel
     result_values = math.real(math.ifft(result_k))
-    return field.with_(values=result_values)
+    return field.with_values(result_values)

@@ -58,7 +58,7 @@ class TestDiffusion(TestCase):
         DIFFUSIVITY = 0.5
         grid = CenteredGrid((1,) * 100 + (0,) * 100, extrapolation.PERIODIC, x=200)
         for extrap in (extrapolation.ZERO, extrapolation.BOUNDARY, extrapolation.PERIODIC):
-            grid = grid.with_(extrapolation=extrap)
+            grid = grid.with_extrapolation(extrap)
             implicit = diffuse.implicit(grid, DIFFUSIVITY, 1, order=10)
             back_implicit = diffuse.implicit(implicit, DIFFUSIVITY, -1, order=10)
             field.assert_close(grid, back_implicit, rel_tolerance=0, abs_tolerance=0.1)

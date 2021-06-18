@@ -78,7 +78,7 @@ def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
         Advected point cloud
     """
     new_elements = integrator(field.elements, velocity, dt)
-    return field.with_(elements=new_elements)
+    return field.with_elements(new_elements)
 
 
 def semi_lagrangian(field: GridType,
@@ -104,7 +104,7 @@ def semi_lagrangian(field: GridType,
     """
     lookup = integrator(field.elements, velocity, -dt)
     interpolated = reduce_sample(field, lookup)
-    return field.with_(values=interpolated)
+    return field.with_values(interpolated)
 
 
 def mac_cormack(field: GridType,
@@ -133,9 +133,9 @@ def mac_cormack(field: GridType,
     points_bwd = integrator(field.elements, velocity, -dt, v0=v0)
     points_fwd = integrator(field.elements, velocity, dt, v0=v0)
     # Semi-Lagrangian advection
-    field_semi_la = field.with_(values=reduce_sample(field, points_bwd))
+    field_semi_la = field.with_values(reduce_sample(field, points_bwd))
     # Inverse semi-Lagrangian advection
-    field_inv_semi_la = field.with_(values=reduce_sample(field_semi_la, points_fwd))
+    field_inv_semi_la = field.with_values(reduce_sample(field_semi_la, points_fwd))
     # correction
     new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
     # Address overshoots
@@ -143,7 +143,7 @@ def mac_cormack(field: GridType,
     lower_limit = math.min(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     upper_limit = math.max(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     values_clamped = math.clip(new_field.values, lower_limit, upper_limit)
-    return new_field.with_(values=values_clamped)
+    return new_field.with_values(values_clamped)
 
 
 def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: Field = None, occupied: Field = None):
@@ -201,4 +201,4 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
     # --- Combine points with RK4 scheme ---
     vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
     new_points = points.shifted(dt * vel)
-    return cloud.with_(elements=new_points)
+    return cloud.with_elements(new_points)

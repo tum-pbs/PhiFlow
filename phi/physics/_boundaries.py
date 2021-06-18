@@ -216,7 +216,7 @@ class Domain:
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
         result = type(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)
         if result.shape.channel_rank == 0:
-            result = result.with_(values=math.expand(result.values, channel(vector=self.rank)))
+            result = result.with_values(math.expand(result.values, channel(vector=self.rank)))
         else:
             assert result.shape.get_size('vector') == self.rank
         return result

@@ -34,7 +34,7 @@ def bake_extrapolation(grid: GridType) -> GridType:
             padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation))
         return StaggeredGrid(math.stack(padded, channel('vector')), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
     elif isinstance(grid, CenteredGrid):
-        return pad(grid, 1).with_(extrapolation=math.extrapolation.NONE)
+        return pad(grid, 1).with_extrapolation(math.extrapolation.NONE)
     else:
         raise ValueError(f"Not a valid grid: {grid}")
 
@@ -190,13 +190,16 @@ def curl(field: Grid, type: type = CenteredGrid):
 
 def fourier_laplace(grid: GridType, times=1) -> GridType:
     """ See `phi.math.fourier_laplace()` """
-    extrapolation = grid.extrapolation.spatial_gradient().spatial_gradient()
-    return grid.with_(values=math.fourier_laplace(grid.values, dx=grid.dx, times=times), extrapolation=extrapolation)
+    assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
+    values = math.fourier_laplace(grid.values, dx=grid.dx, times=times)
+    return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
 
 
-def fourier_poisson(grid: GridType, extrapolation: math.Extrapolation = None, times=1) -> GridType:
+def fourier_poisson(grid: GridType, times=1) -> GridType:
     """ See `phi.math.fourier_poisson()` """
-    return grid.with_(values=math.fourier_poisson(grid.values, dx=grid.dx, times=times), extrapolation=extrapolation)
+    assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
+    values = math.fourier_poisson(grid.values, dx=grid.dx, times=times)
+    return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
 
 
 def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> SampledField or math.Tensor:
@@ -216,7 +219,7 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
     result = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
-            return i.with_(values=result, extrapolation=extrapolation)
+            return i.with_values(values=result).with_extrapolation(extrapolation)
     return result
 
 
@@ -242,7 +245,7 @@ def mean(field: SampledField) -> math.Tensor:
 
 def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
     data = math.normalize_to(field.values, norm.values, epsilon)
-    return field.with_(values=data)
+    return field.with_values(data)
 
 
 def center_of_mass(density: SampledField):
@@ -345,12 +348,12 @@ def concat(fields: List[SampledFieldType], dim: Shape) -> SampledFieldType:
         raise NotImplementedError("Concatenating extrapolations not supported")
     if isinstance(fields[0], Grid):
         values = math.concat([f.values for f in fields], dim)
-        return fields[0].with_(values=values)
+        return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
         colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
-        return fields[0].with_(elements=elements, values=values, color=colors)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
     raise NotImplementedError(type(fields[0]))
 
 
@@ -361,12 +364,12 @@ def stack(fields, dim: Shape):
         raise NotImplementedError("Concatenating extrapolations not supported")
     if isinstance(fields[0], Grid):
         values = math.stack([f.values for f in fields], dim)
-        return fields[0].with_(values=values)
+        return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
         elements = geom.stack(*[f.elements for f in fields], dim=dim)
         values = math.stack([f.values for f in fields], dim=dim)
         colors = math.stack([f.color for f in fields], dim=dim)
-        return fields[0].with_(elements=elements, values=values, color=colors)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
     raise NotImplementedError(type(fields[0]))
 
 
@@ -397,21 +400,21 @@ def where(mask: Field or Geometry, field_true: Field, field_false: Field):
         raise NotImplementedError('At least one argument must be a SampledField')
     values = mask.values * field_true.values + (1 - mask.values) * field_false.values
     # values = math.where(mask.values, field_true.values, field_false.values)
-    return field_true.with_(values=values)
+    return field_true.with_values(values)
 
 
 def vec_abs(field: SampledField):
     """ See `phi.math.vec_abs()` """
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
-    return field.with_(values=math.vec_abs(field.values))
+    return field.with_values(math.vec_abs(field.values))
 
 
 def vec_squared(field: SampledField):
     """ See `phi.math.vec_squared()` """
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
-    return field.with_(values=math.vec_squared(field.values))
+    return field.with_values(math.vec_squared(field.values))
 
 
 def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tuple:
@@ -431,7 +434,7 @@ def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tupl
     assert isinstance(valid, type(grid)), 'Type of valid Grid must match type of grid.'
     if isinstance(grid, CenteredGrid):
         new_values, new_valid = extrapolate_valid_values(grid.values, valid.values, distance_cells)
-        return grid.with_(values=new_values), valid.with_(values=new_valid)
+        return grid.with_values(new_values), valid.with_values(new_valid)
     elif isinstance(grid, StaggeredGrid):
         new_values = []
         new_valid = []
@@ -439,7 +442,7 @@ def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tupl
             new_tensor, new_mask = extrapolate_valid(cgrid, valid=cvalid, distance_cells=distance_cells)
             new_values.append(new_tensor.values)
             new_valid.append(new_mask.values)
-        return grid.with_(values=math.stack(new_values, channel('vector'))), valid.with_(values=math.stack(new_valid, channel('vector')))
+        return grid.with_values(math.stack(new_values, channel('vector'))), valid.with_values(math.stack(new_valid, channel('vector')))
     else:
         raise NotImplementedError()
 
@@ -453,7 +456,7 @@ def discretize(grid: Grid, filled_fraction=0.25):
     filled = np.zeros_like(data)
     np.put_along_axis(filled, filled_idx, 1, axis=-1)
     filled_t = math.reshaped_tensor(filled, [grid.shape.non_spatial, grid.shape.spatial])
-    return grid.with_(values=filled_t)
+    return grid.with_values(filled_t)
 
 
 def integrate(field: Field, region: Geometry) -> math.Tensor:
