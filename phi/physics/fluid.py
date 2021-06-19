@@ -1,90 +1,119 @@
 """
 Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
 """
+from typing import Tuple
 
 from phi import math, field
-from phi.field import GeometryMask, AngularVelocity, Grid, divergence, CenteredGrid, spatial_gradient, where, HardGeometryMask
+from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
 from phi.geom import union
-from ._boundaries import Domain
+from ..math import extrapolation
+from ..math._tensors import copy_with
+from ..math.extrapolation import combine_sides
 
 
 def make_incompressible(velocity: Grid,
-                        domain: Domain,
                         obstacles: tuple or list = (),
-                        solve_params: math.LinearSolve = math.LinearSolve(None, 1e-3),
-                        pressure_guess: CenteredGrid = None):
+                        solve=math.Solve('auto', 1e-5, 0, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[Grid, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     Args:
-      velocity: Vector field sampled on a grid
-      domain: Used to specify boundary conditions
-      obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
-      pressure_guess: Initial guess for the pressure solve
-      solve_params: Parameters for the pressure solve
+        velocity: Vector field sampled on a grid
+        obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
+        solve: Parameters for the pressure solve as.
 
     Returns:
-      velocity: divergence-free velocity of type `type(velocity)`
-      pressure: solved pressure field, `CenteredGrid`
-      iterations: Number of iterations required to solve for the pressure
-      divergence: divergence field of input velocity, `CenteredGrid`
-
+        velocity: divergence-free velocity of type `type(velocity)`
+        pressure: solved pressure field, `CenteredGrid`
     """
+    assert isinstance(obstacles, (tuple, list)), f"obstacles must be a tuple or list but got {type(obstacles)}"
     input_velocity = velocity
-    active = domain.grid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), extrapolation=domain.boundaries['active_extrapolation'])
-    accessible = domain.grid(active, extrapolation=domain.boundaries['accessible_extrapolation'])
-    hard_bcs = field.stagger(accessible, math.minimum, domain.boundaries['accessible_extrapolation'], type=type(velocity))
-    velocity = layer_obstacle_velocities(velocity * hard_bcs, obstacles).with_(extrapolation=domain.boundaries['near_vector_extrapolation'])
-    div = divergence(velocity)
-    if domain.boundaries['near_vector_extrapolation'] == math.extrapolation.BOUNDARY:
-        div -= field.mean(div)
+    accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
+    active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=extrapolation.NONE)
+    accessible = active.with_extrapolation(accessible_extrapolation)
+    hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
+    velocity = apply_boundary_conditions(velocity, obstacles)
+    div = divergence(velocity) * active
+    if input_velocity.extrapolation in (math.extrapolation.ZERO, math.extrapolation.PERIODIC):
+        div = _balance_divergence(div, active)
+    if solve.x0 is None:
+        pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
+        solve = copy_with(solve, x0=CenteredGrid(0, resolution=div.resolution, bounds=div.bounds, extrapolation=pressure_extrapolation))
 
-    # Solve pressure
+    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
 
-    def laplace(p):
-        grad = spatial_gradient(p, type(velocity))
-        grad *= hard_bcs
-        grad = grad.with_(extrapolation=domain.boundaries['near_vector_extrapolation'])
-        div = divergence(grad)
-        lap = where(active, div, p)
-        return lap
+    # if input_velocity.extrapolation in (math.extrapolation.ZERO, math.extrapolation.PERIODIC):
+    #     def pressure_backward(_p, _p_, dp: CenteredGrid):
+    #         # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
+    #         active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=dp.resolution, bounds=dp.bounds, extrapolation=extrapolation.NONE)
+    #         return _balance_divergence(dp, active),
+    #     pressure = math.custom_gradient(lambda p: p, pressure_backward)(pressure)
 
-    pressure_guess = pressure_guess if pressure_guess is not None else domain.scalar_grid(0)
-    converged, pressure, iterations = field.solve(laplace, y=div, x0=pressure_guess, solve_params=solve_params, constants=[active, hard_bcs])
-    if math.all_available(converged) and not math.all(converged):
-        raise AssertionError(f"pressure solve did not converge after {iterations} iterations\nResult: {pressure.values}")
-    # Subtract grad pressure
-    gradp = field.spatial_gradient(pressure, type=type(velocity)) * hard_bcs
-    velocity = (velocity - gradp).with_(extrapolation=input_velocity.extrapolation)
-    return velocity, pressure, iterations, div
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
+    velocity = velocity - grad_pressure
+    return velocity, pressure
 
 
-def layer_obstacle_velocities(velocity: Grid, obstacles: tuple or list):
+@math.jit_compile_linear
+def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid):
+    grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
+    grad *= hard_bcs
+    div = divergence(grad)
+    lap = where(active, div, pressure)
+    return lap
+
+
+def _balance_divergence(div, active):
+    return div - active * (field.mean(div) / field.mean(active))
+
+
+def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
     """
-    Enforces obstacle boundary conditions on a velocity grid.
+    Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
-    Cells outside will be unaffected.
+    Cells outside far away will be unaffected.
 
     Args:
-      velocity: centered or staggered velocity grid
-      obstacles: sequence of Obstacles
-      velocity: Grid: 
-      obstacles: tuple or list: 
+      velocity: Velocity `Grid`.
+      obstacles: Obstacles as `tuple` or `list`
 
     Returns:
-      velocity of same type as `velocity`
-
+        Velocity of same type as `velocity`
     """
+    # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
-        if not obstacle.is_stationary:
-            obs_mask = GeometryMask(obstacle.geometry)
-            obs_mask = obs_mask.at(velocity)
-            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None).at(velocity)
-            obs_vel = angular_velocity + obstacle.velocity
-            velocity = (1 - obs_mask) * velocity + obs_mask * obs_vel
+        obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) >> velocity
+        if obstacle.is_stationary:
+            velocity = (1 - obs_mask) * velocity
+        else:
+            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) >> velocity
+            velocity = (1 - obs_mask) * velocity + obs_mask * (angular_velocity + obstacle.velocity)
     return velocity
 
 
+def _pressure_extrapolation(vext: math.Extrapolation):
+    if vext == extrapolation.PERIODIC:
+        return extrapolation.PERIODIC
+    elif vext == extrapolation.BOUNDARY:
+        return extrapolation.ZERO
+    elif isinstance(vext, extrapolation.ConstantExtrapolation):
+        return extrapolation.BOUNDARY
+    elif isinstance(vext, extrapolation._MixedExtrapolation):
+        return combine_sides(**{dim: (_pressure_extrapolation(lo), _pressure_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+    else:
+        raise ValueError(f"Unsupported extrapolation: {type(vext)}")
 
+
+def _accessible_extrapolation(vext: math.Extrapolation):
+    if vext == extrapolation.PERIODIC:
+        return extrapolation.PERIODIC
+    elif vext == extrapolation.BOUNDARY:
+        return extrapolation.ONE
+    elif isinstance(vext, extrapolation.ConstantExtrapolation):
+        return extrapolation.ZERO
+    elif isinstance(vext, extrapolation._MixedExtrapolation):
+        return combine_sides(**{dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+    else:
+        raise ValueError(f"Unsupported extrapolation: {type(vext)}")

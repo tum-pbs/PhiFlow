@@ -2,7 +2,7 @@ import warnings
 from numbers import Number
 
 from phi import math
-from phi.math import GLOBAL_AXIS_ORDER, Tensor
+from phi.math import GLOBAL_AXIS_ORDER, Tensor, channel
 from ._geom import Geometry
 from ._sphere import Sphere
 
@@ -10,8 +10,7 @@ from ._sphere import Sphere
 class RotatedGeometry(Geometry):
 
     def __init__(self, geometry: Geometry, angle: float or math.Tensor):
-        if isinstance(geometry, RotatedGeometry):
-            warnings.warn('Using RotatedGeometry of RotatedGeometry. Consider simplifying your setup.')
+        assert not isinstance(geometry, RotatedGeometry)
         self._geometry = geometry
         self._angle = math.wrap(angle)
 
@@ -31,6 +30,10 @@ class RotatedGeometry(Geometry):
     def center(self):
         return self.geometry.center
 
+    @property
+    def volume(self) -> Tensor:
+        return self._geometry.volume
+
     def _rotate(self, location):
         sin = math.sin(self.angle)
         cos = math.cos(self.angle)
@@ -39,22 +42,14 @@ class RotatedGeometry(Geometry):
             x, y = y, x
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
-        return math.channel_stack([rot_y, rot_x], 'vector')
+        return math.stack([rot_y, rot_x], channel('vector'))
 
     def global_to_child(self, location):
-        """
-        Inverse transform
-
-        Args:
-          location: 
-
-        Returns:
-
-        """
+        """ Inverse transform. """
         delta = location - self.center
-        if location.shape.vector == 2:
+        if location.shape.get_size('vector') == 2:
             rotated = self._rotate(delta)
-        elif location.shape.vector == 3:
+        elif location.shape.get_size('vector') == 3:
             raise NotImplementedError('not yet implemented')  # ToDo apply angle
         else:
             raise NotImplementedError('Rotation only supported in 2D and 3D')
@@ -91,9 +86,7 @@ class RotatedGeometry(Geometry):
 
 
 def rotate(geometry: Geometry, angle: Number or Tensor) -> Geometry:
-    """
-    package-internal rotation function. Users should use Geometry.rotated() instead.
-    """
+    """ Package-internal rotation function. Users should use Geometry.rotated() instead. """
     assert isinstance(geometry, Geometry)
     if isinstance(geometry, RotatedGeometry):
         total_rotation = geometry.angle + angle  # ToDo concatenate rotations

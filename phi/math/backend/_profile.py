@@ -381,7 +381,7 @@ def _format_values(values: dict, backend):
             dtype = backend.dtype(value)
             try:
                 shape = (int(dim) if dim is not None else '?' for dim in shape)
-            except:
+            except Exception:
                 pass
             return f"{tuple(shape)}, {dtype}"
         except BaseException:
@@ -409,6 +409,7 @@ class ProfilingBackend:
         self.dtype = backend.dtype
         self.expand_dims = backend.expand_dims
         self.reshape = backend.reshape
+        self.supports = backend.supports
         # TODO strided slice does not go through backend atm
         # profiling methods
         for item_name in dir(backend):
@@ -424,8 +425,28 @@ class ProfilingBackend:
                     return call_fun
                 setattr(self, item_name, context())
 
+    def call(self, f: Callable, *args, name=None):
+        start = perf_counter()
+        result = f(*args)
+        self._backend.block_until_ready(result)
+        stop = perf_counter()
+        self._profile._add_call(BackendCall(start, stop, self, name), args, {}, result)
+        return result
+
     def __repr__(self):
         return f"profile[{self._backend}]"
+
+    def __enter__(self):
+        _DEFAULT.append(self)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _DEFAULT.pop(-1)
+
+    def __eq__(self, other):
+        return other is self or other is self._backend
+
+    def __hash__(self):
+        return hash(self._backend)
 
 
 _PROFILE = []
@@ -480,7 +501,7 @@ def profile_function(fun: Callable,
         retime: If true, calls `fun` another time without tracing the calls and updates the profile.
             This gives a much better indication of the true timing.
             See `Profile.retime()`.
-        warmup: Number of times to call ´fun` before profiling it.
+        warmup: Number of times to call `fun` before profiling it.
         call_count: How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if `call_count > 1`.
 
     Returns:

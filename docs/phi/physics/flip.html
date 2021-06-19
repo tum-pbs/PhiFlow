@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.9.2" />
 <title>phi.physics.flip API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Functions for running fluid implicit particle (FLIP) and particle-in-cell (PIC) simulations." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,43 +22,46 @@
 <h1 class="title">Module <code>phi.physics.flip</code></h1>
 </header>
 <section id="section-intro">
+<p>Functions for running fluid implicit particle (FLIP) and particle-in-cell (PIC) simulations.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from phi import math, field
-from typing import Tuple, List
-from phi.physics import Domain, Obstacle
-from phi.field import StaggeredGrid, CenteredGrid, PointCloud, HardGeometryMask, Grid, extrapolate_valid
-from phi.geom import union, Sphere, Geometry
+<pre><code class="python">&#34;&#34;&#34;
+Functions for running fluid implicit particle (FLIP) and particle-in-cell (PIC) simulations.
+&#34;&#34;&#34;
+from phi import math, field
+
+from phi.math._tensors import copy_with
+from ._boundaries import Domain, Obstacle
+from phi.field import StaggeredGrid, PointCloud, Grid, extrapolate_valid
+from phi.geom import union, Sphere
 
 
 def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
+                        particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        particles: PointCloud or None = None,
-                        solve_params: math.LinearSolve = math.LinearSolve(),
-                        pressure_guess: CenteredGrid = None) -&gt; Tuple[StaggeredGrid, CenteredGrid, math.Tensor, CenteredGrid, StaggeredGrid]:
+                        solve=math.Solve(&#39;CG&#39;, 1e-5, 0)):
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
 
     Args:
         velocity: Current velocity field as StaggeredGrid
+        domain: Domain object
+        particles: `PointCloud` holding the current positions of the particles
         obstacles: Sequence of `phi.physics.Obstacle` objects or binary StaggeredGrid marking through-flow cell faces
-        particles (Optional if occupation masks are provided): Pointcloud holding the current positions of the particles
-        domain (Optional if occupation masks are provided): Domain object
-        pressure_guess (Optional): Initial pressure guess as CenteredGrid
-        solve_params: Parameters for the pressure solve
+        solve: Parameters for the pressure solve_linear
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
-      iterations: Number of iterations required to solve for the pressure
+      iterations: Number of iterations required to solve_linear for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
       occupation_mask: StaggeredGrid
     &#34;&#34;&#34;
-    points = particles.with_(values=math.wrap(1))
-    occupied_centered = points &gt;&gt; domain.grid()
+    points = particles.with_values(math.tensor(1., convert=True))
+    occupied_centered = points &gt;&gt; domain.scalar_grid()
     occupied_staggered = points &gt;&gt; domain.staggered_grid()
 
     if isinstance(obstacles, StaggeredGrid):
@@ -67,50 +70,70 @@ def make_incompressible(velocity: StaggeredGrid,
         accessible = domain.accessible_mask(union(*[obstacle.geometry for obstacle in obstacles]), type=StaggeredGrid)
 
     # --- Extrapolation is needed to exclude border divergence from the `occupied_centered` mask and thus
-    # from the pressure solve. If particles are randomly distributed, the `occupied_centered` mask
+    # from the pressure solve_linear. If particles are randomly distributed, the `occupied_centered` mask
     # could sometimes include the divergence at the borders (due to single particles right at the edge
-    # which temporarily deform the `occupied_centered` mask when moving into a new cell) which would then
+    # which temporarily deform the `occupied_centered` mask when moving into a new cell). This would then
     # get compensated by the pressure. This is unwanted for falling liquids and therefore prevented by this
     # extrapolation. ---
     velocity_field, _ = extrapolate_valid(velocity * occupied_staggered, occupied_staggered, 1)
     velocity_field *= accessible  # Enforces boundary conditions after extrapolation
-    div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve
+    div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve_linear
 
+    @field.jit_compile_linear
     def matrix_eq(p):
         return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
-    converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.grid(), solve_params=solve_params)
+    if solve.x0 is None:
+        solve = copy_with(solve, x0=domain.scalar_grid())
+    pressure = field.solve_linear(matrix_eq, div, solve)
+
+    def pressure_backward(_p, _p_, dp):
+        return dp * occupied_centered.values,
+
+    add_mask_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
+    pressure = pressure.with_values(add_mask_in_gradient(pressure.values))
+
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
-    return velocity_field - gradp, pressure, iterations, div, occupied_staggered
+    return velocity_field - gradp, pressure, occupied_staggered
 
 
-def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,
-                              previous_velocity_grid: Grid = None) -&gt; PointCloud:
+def map_velocity_to_particles(previous_particle_velocity: PointCloud,
+                              velocity_grid: Grid,
+                              occupation_mask: Grid,
+                              previous_velocity_grid: Grid = None,
+                              viscosity: float = 0.) -&gt; PointCloud:
     &#34;&#34;&#34;
-    Maps result of velocity projection on grid back to particles. Provides option to choose between FLIP (particle velocities are
-    updated by the change between projected and initial grid velocities) and PIC (particle velocities are replaced by the the 
-    projected velocities) method depending on the value of the `initial_v_field`.
+    Maps result of velocity projection on grid back to particles.
+    Provides option to choose between FLIP (particle velocities are updated by the change between projected and initial grid velocities)
+    and PIC (particle velocities are replaced by the the projected velocities)
+    method depending on the value of the `initial_v_field`.
     
     Args:
         previous_particle_velocity: PointCloud with particle positions as elements and their corresponding velocities as values
         velocity_grid: Divergence-free velocity grid
         occupation_mask: Binary Grid (same type as `velocity_grid`) indicating which cells hold particles
-        previous_velocity_grid: Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise
+        previous_velocity_grid: Velocity field before projection and force update
+        viscosity: If previous_velocity_grid is None, the particle-in-cell method (PIC) is applied.
+            Otherwise this is the ratio between FLIP and PIC (0. for pure FLIP)
 
     Returns:
         PointCloud with particle positions as elements and updated particle velocities as values.
     &#34;&#34;&#34;
-    if previous_velocity_grid is not None:
+    viscosity = min(max(0., viscosity), 1.)
+    if previous_velocity_grid is None:
+        viscosity = 1.
+    velocities = math.zeros_like(previous_particle_velocity.values)
+    if viscosity &gt; 0.:
+        # --- PIC ---
+        velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
+        velocities += viscosity * (velocity_grid &gt;&gt; previous_particle_velocity).values
+    if viscosity &lt; 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
-        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask, 1)
-        v_change = v_change_field.sample_at(previous_particle_velocity.elements.center)
-        return previous_particle_velocity.with_(values=previous_particle_velocity.values + v_change)
-    else:
-        # --- PIC ---
-        v_div_free_field, _ = extrapolate_valid(velocity_grid, occupation_mask, 1)
-        v_values = v_div_free_field.sample_at(previous_particle_velocity.elements.center)
-        return previous_particle_velocity.with_(values=v_values)
+        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
+        v_change = (v_change_field &gt;&gt; previous_particle_velocity).values
+        velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
+    return previous_particle_velocity.with_values(velocities)
 
 
 def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: list, offset: float = 0.5) -&gt; PointCloud:
@@ -133,7 +156,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
             obj = obj.geometry
         new_positions = obj.push(new_positions, shift_amount=offset)
     new_positions = (~domain.bounds).push(new_positions, shift_amount=offset)
-    return particles.with_(elements=Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))</code></pre>
+    return particles.with_elements(Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))</code></pre>
 </details>
 </section>
 <section>
@@ -144,7 +167,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.flip.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.StaggeredGrid, domain: phi.physics._boundaries.Domain, obstacles: tuple = (), particles: phi.field._point_cloud.PointCloud = None, solve_params: phi.math.backend._optim.LinearSolve = &lt;phi.math.backend._optim.LinearSolve object&gt;, pressure_guess: phi.field._grid.CenteredGrid = None) ‑> Tuple[phi.field._grid.StaggeredGrid, phi.field._grid.CenteredGrid, phi.math._tensors.Tensor, phi.field._grid.CenteredGrid, phi.field._grid.StaggeredGrid]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.StaggeredGrid, domain: phi.physics._boundaries.Domain, particles: phi.field._point_cloud.PointCloud, obstacles: tuple = (), solve=CG with tolerance 1e-05 (rel), 0 (abs), max_iterations=1000)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -152,16 +175,14 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 <dl>
 <dt><strong><code>velocity</code></strong></dt>
 <dd>Current velocity field as StaggeredGrid</dd>
-<dt><strong><code>obstacles</code></strong></dt>
-<dd>Sequence of <code><a title="phi.physics.Obstacle" href="index.html#phi.physics.Obstacle">Obstacle</a></code> objects or binary StaggeredGrid marking through-flow cell faces</dd>
-<dt><strong><code>particles</code></strong> :&ensp;<code>Optional if occupation masks are provided</code></dt>
-<dd>Pointcloud holding the current positions of the particles</dd>
-<dt><strong><code>domain</code></strong> :&ensp;<code>Optional if occupation masks are provided</code></dt>
+<dt><strong><code>domain</code></strong></dt>
 <dd>Domain object</dd>
-<dt><strong><code>pressure_guess</code></strong> :&ensp;<code>Optional</code></dt>
-<dd>Initial pressure guess as CenteredGrid</dd>
-<dt><strong><code>solve_params</code></strong></dt>
-<dd>Parameters for the pressure solve</dd>
+<dt><strong><code>particles</code></strong></dt>
+<dd><code>PointCloud</code> holding the current positions of the particles</dd>
+<dt><strong><code>obstacles</code></strong></dt>
+<dd>Sequence of <code>phi.physics.Obstacle</code> objects or binary StaggeredGrid marking through-flow cell faces</dd>
+<dt><strong><code>solve</code></strong></dt>
+<dd>Parameters for the pressure solve_linear</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -170,7 +191,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 <dt><code>pressure</code></dt>
 <dd>solved pressure field, <code>CenteredGrid</code></dd>
 <dt><code>iterations</code></dt>
-<dd>Number of iterations required to solve for the pressure</dd>
+<dd>Number of iterations required to solve_linear for the pressure</dd>
 <dt><code>divergence</code></dt>
 <dd>divergence field of input velocity, <code>CenteredGrid</code></dd>
 <dt><code>occupation_mask</code></dt>
@@ -182,30 +203,28 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 </summary>
 <pre><code class="python">def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
+                        particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        particles: PointCloud or None = None,
-                        solve_params: math.LinearSolve = math.LinearSolve(),
-                        pressure_guess: CenteredGrid = None) -&gt; Tuple[StaggeredGrid, CenteredGrid, math.Tensor, CenteredGrid, StaggeredGrid]:
+                        solve=math.Solve(&#39;CG&#39;, 1e-5, 0)):
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
 
     Args:
         velocity: Current velocity field as StaggeredGrid
+        domain: Domain object
+        particles: `PointCloud` holding the current positions of the particles
         obstacles: Sequence of `phi.physics.Obstacle` objects or binary StaggeredGrid marking through-flow cell faces
-        particles (Optional if occupation masks are provided): Pointcloud holding the current positions of the particles
-        domain (Optional if occupation masks are provided): Domain object
-        pressure_guess (Optional): Initial pressure guess as CenteredGrid
-        solve_params: Parameters for the pressure solve
+        solve: Parameters for the pressure solve_linear
 
     Returns:
       velocity: divergence-free velocity of type `type(velocity)`
       pressure: solved pressure field, `CenteredGrid`
-      iterations: Number of iterations required to solve for the pressure
+      iterations: Number of iterations required to solve_linear for the pressure
       divergence: divergence field of input velocity, `CenteredGrid`
       occupation_mask: StaggeredGrid
     &#34;&#34;&#34;
-    points = particles.with_(values=math.wrap(1))
-    occupied_centered = points &gt;&gt; domain.grid()
+    points = particles.with_values(math.tensor(1., convert=True))
+    occupied_centered = points &gt;&gt; domain.scalar_grid()
     occupied_staggered = points &gt;&gt; domain.staggered_grid()
 
     if isinstance(obstacles, StaggeredGrid):
@@ -214,30 +233,41 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
         accessible = domain.accessible_mask(union(*[obstacle.geometry for obstacle in obstacles]), type=StaggeredGrid)
 
     # --- Extrapolation is needed to exclude border divergence from the `occupied_centered` mask and thus
-    # from the pressure solve. If particles are randomly distributed, the `occupied_centered` mask
+    # from the pressure solve_linear. If particles are randomly distributed, the `occupied_centered` mask
     # could sometimes include the divergence at the borders (due to single particles right at the edge
-    # which temporarily deform the `occupied_centered` mask when moving into a new cell) which would then
+    # which temporarily deform the `occupied_centered` mask when moving into a new cell). This would then
     # get compensated by the pressure. This is unwanted for falling liquids and therefore prevented by this
     # extrapolation. ---
     velocity_field, _ = extrapolate_valid(velocity * occupied_staggered, occupied_staggered, 1)
     velocity_field *= accessible  # Enforces boundary conditions after extrapolation
-    div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve
+    div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve_linear
 
+    @field.jit_compile_linear
     def matrix_eq(p):
         return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
 
-    converged, pressure, iterations = field.solve(matrix_eq, div, pressure_guess or domain.grid(), solve_params=solve_params)
+    if solve.x0 is None:
+        solve = copy_with(solve, x0=domain.scalar_grid())
+    pressure = field.solve_linear(matrix_eq, div, solve)
+
+    def pressure_backward(_p, _p_, dp):
+        return dp * occupied_centered.values,
+
+    add_mask_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
+    pressure = pressure.with_values(add_mask_in_gradient(pressure.values))
+
     gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
-    return velocity_field - gradp, pressure, iterations, div, occupied_staggered</code></pre>
+    return velocity_field - gradp, pressure, occupied_staggered</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.flip.map_velocity_to_particles"><code class="name flex">
-<span>def <span class="ident">map_velocity_to_particles</span></span>(<span>previous_particle_velocity: phi.field._point_cloud.PointCloud, velocity_grid: phi.field._grid.Grid, occupation_mask: phi.field._grid.Grid, previous_velocity_grid: phi.field._grid.Grid = None) ‑> phi.field._point_cloud.PointCloud</span>
+<span>def <span class="ident">map_velocity_to_particles</span></span>(<span>previous_particle_velocity: phi.field._point_cloud.PointCloud, velocity_grid: phi.field._grid.Grid, occupation_mask: phi.field._grid.Grid, previous_velocity_grid: phi.field._grid.Grid = None, viscosity: float = 0.0) ‑> phi.field._point_cloud.PointCloud</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Maps result of velocity projection on grid back to particles. Provides option to choose between FLIP (particle velocities are
-updated by the change between projected and initial grid velocities) and PIC (particle velocities are replaced by the the
-projected velocities) method depending on the value of the <code>initial_v_field</code>.</p>
+<div class="desc"><p>Maps result of velocity projection on grid back to particles.
+Provides option to choose between FLIP (particle velocities are updated by the change between projected and initial grid velocities)
+and PIC (particle velocities are replaced by the the projected velocities)
+method depending on the value of the <code>initial_v_field</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>previous_particle_velocity</code></strong></dt>
@@ -247,7 +277,10 @@ projected velocities) method depending on the value of the <code>initial_v_field
 <dt><strong><code>occupation_mask</code></strong></dt>
 <dd>Binary Grid (same type as <code>velocity_grid</code>) indicating which cells hold particles</dd>
 <dt><strong><code>previous_velocity_grid</code></strong></dt>
-<dd>Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise</dd>
+<dd>Velocity field before projection and force update</dd>
+<dt><strong><code>viscosity</code></strong></dt>
+<dd>If previous_velocity_grid is None, the particle-in-cell method (PIC) is applied.
+Otherwise this is the ratio between FLIP and PIC (0. for pure FLIP)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>PointCloud with particle positions as elements and updated particle velocities as values.</p></div>
@@ -255,33 +288,43 @@ projected velocities) method depending on the value of the <code>initial_v_field
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def map_velocity_to_particles(previous_particle_velocity: PointCloud, velocity_grid: Grid, occupation_mask: Grid,
-                              previous_velocity_grid: Grid = None) -&gt; PointCloud:
+<pre><code class="python">def map_velocity_to_particles(previous_particle_velocity: PointCloud,
+                              velocity_grid: Grid,
+                              occupation_mask: Grid,
+                              previous_velocity_grid: Grid = None,
+                              viscosity: float = 0.) -&gt; PointCloud:
     &#34;&#34;&#34;
-    Maps result of velocity projection on grid back to particles. Provides option to choose between FLIP (particle velocities are
-    updated by the change between projected and initial grid velocities) and PIC (particle velocities are replaced by the the 
-    projected velocities) method depending on the value of the `initial_v_field`.
+    Maps result of velocity projection on grid back to particles.
+    Provides option to choose between FLIP (particle velocities are updated by the change between projected and initial grid velocities)
+    and PIC (particle velocities are replaced by the the projected velocities)
+    method depending on the value of the `initial_v_field`.
     
     Args:
         previous_particle_velocity: PointCloud with particle positions as elements and their corresponding velocities as values
         velocity_grid: Divergence-free velocity grid
         occupation_mask: Binary Grid (same type as `velocity_grid`) indicating which cells hold particles
-        previous_velocity_grid: Velocity field before projection and force update. If None, the PIC method gets applied, FLIP otherwise
+        previous_velocity_grid: Velocity field before projection and force update
+        viscosity: If previous_velocity_grid is None, the particle-in-cell method (PIC) is applied.
+            Otherwise this is the ratio between FLIP and PIC (0. for pure FLIP)
 
     Returns:
         PointCloud with particle positions as elements and updated particle velocities as values.
     &#34;&#34;&#34;
-    if previous_velocity_grid is not None:
+    viscosity = min(max(0., viscosity), 1.)
+    if previous_velocity_grid is None:
+        viscosity = 1.
+    velocities = math.zeros_like(previous_particle_velocity.values)
+    if viscosity &gt; 0.:
+        # --- PIC ---
+        velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
+        velocities += viscosity * (velocity_grid &gt;&gt; previous_particle_velocity).values
+    if viscosity &lt; 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
-        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask, 1)
-        v_change = v_change_field.sample_at(previous_particle_velocity.elements.center)
-        return previous_particle_velocity.with_(values=previous_particle_velocity.values + v_change)
-    else:
-        # --- PIC ---
-        v_div_free_field, _ = extrapolate_valid(velocity_grid, occupation_mask, 1)
-        v_values = v_div_free_field.sample_at(previous_particle_velocity.elements.center)
-        return previous_particle_velocity.with_(values=v_values)</code></pre>
+        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
+        v_change = (v_change_field &gt;&gt; previous_particle_velocity).values
+        velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
+    return previous_particle_velocity.with_values(velocities)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.flip.respect_boundaries"><code class="name flex">
@@ -327,7 +370,7 @@ obstacles or back into the domain.</p>
             obj = obj.geometry
         new_positions = obj.push(new_positions, shift_amount=offset)
     new_positions = (~domain.bounds).push(new_positions, shift_amount=offset)
-    return particles.with_(elements=Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))</code></pre>
+    return particles.with_elements(Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))</code></pre>
 </details>
 </dd>
 </dl>

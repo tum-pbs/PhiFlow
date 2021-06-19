@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import wrap, extrapolation, Tensor, PI, tensor
+from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial
 
 import numpy as np
 import os
@@ -10,44 +10,36 @@ import os
 REF_DATA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'reference_data')
 
 
-def get_2d_sine(grid_size, L):
-    indices = np.array(np.meshgrid(*list(map(range, grid_size))))
-    phys_coord = indices.T * L / (grid_size[0])  # between [0, L)
-    x, y = phys_coord.T
-    d = np.sin(2 * np.pi * x + 1) * np.sin(2 * np.pi * y + 1)
-    return d
-
-
 class TestMathNDNumpy(TestCase):
 
     def test_gradient_scalar(self):
-        ones = tensor(np.ones([2, 4, 3]), 'batch,x,y')
+        ones = tensor(np.ones([2, 4, 3]), batch('batch'), spatial('x,y'))
         cases = dict(difference=('central', 'forward', 'backward'),
-                     padding=(None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
+                     padding=(extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
-            scalar_grad = math.gradient(ones, dx=0.1, **case_dict)
+            scalar_grad = math.spatial_gradient(ones, dx=0.1, **case_dict)
             math.assert_close(scalar_grad, 0)
-            self.assertEqual(scalar_grad.shape.names, ('batch', 'x', 'y', 'spatial_gradient'))
+            self.assertEqual(scalar_grad.shape.names, ('batch', 'x', 'y', 'gradient'))
             ref_shape = (2, 4, 3, 2) if case_dict['padding'] is not None else ((2, 2, 1, 2) if case_dict['difference'] == 'central' else (2, 3, 2, 2))
             self.assertEqual(scalar_grad.shape.sizes, ref_shape)
 
     def test_gradient_vector(self):
         meshgrid = math.meshgrid(x=4, y=3)
         cases = dict(difference=('central', 'forward', 'backward'),
-                     padding=(None, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
+                     padding=(extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
                      dx=(0.1, 1),
                      dims=(None, ('x', 'y'), ))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
-            grad = math.gradient(meshgrid, **case_dict)
+            grad = math.spatial_gradient(meshgrid, **case_dict)
             inner = grad.x[1:-1].y[1:-1]
-            math.assert_close(inner.spatial_gradient[0].vector[1], 0)
-            math.assert_close(inner.spatial_gradient[1].vector[0], 0)
-            math.assert_close(inner.spatial_gradient[0].vector[0], 1 / case_dict['dx'])
-            math.assert_close(inner.spatial_gradient[1].vector[1], 1 / case_dict['dx'])
-            self.assertEqual(grad.shape.vector, 2)
-            self.assertEqual(grad.shape.spatial_gradient, 2)
+            math.assert_close(inner.gradient[0].vector[1], 0)
+            math.assert_close(inner.gradient[1].vector[0], 0)
+            math.assert_close(inner.gradient[0].vector[0], 1 / case_dict['dx'])
+            math.assert_close(inner.gradient[1].vector[1], 1 / case_dict['dx'])
+            self.assertEqual(grad.shape.get_size('vector'), 2)
+            self.assertEqual(grad.shape.get_size('gradient'), 2)
             ref_shape = (4, 3) if case_dict['padding'] is not None else ((2, 1) if case_dict['difference'] == 'central' else (3, 2))
-            self.assertEqual((grad.shape.x, grad.shape.y), ref_shape)
+            self.assertEqual((grad.shape.get_size('x'), grad.shape.get_size('y')), ref_shape)
 
     def test_vector_laplace(self):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1))
@@ -64,8 +56,8 @@ class TestMathNDNumpy(TestCase):
         half_size = math.downsample2x(meshgrid, extrapolation.BOUNDARY)
         math.print(meshgrid, 'Full size')
         math.print(half_size, 'Half size')
-        math.assert_close(half_size.vector[0], wrap([[0.5, 2.5], [0.5, 2.5]], names='y,x'))
-        math.assert_close(half_size.vector[1], wrap([[-0.5, -0.5], [-2, -2]], names='y,x'))
+        math.assert_close(half_size.vector[0], wrap([[0.5, 2.5], [0.5, 2.5]], spatial('y,x')))
+        math.assert_close(half_size.vector[1], wrap([[-0.5, -0.5], [-2, -2]], spatial('y,x')))
 
     def test_upsample2x(self):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1, -2))
@@ -76,27 +68,128 @@ class TestMathNDNumpy(TestCase):
         math.print(same_size, 'Same size')
         math.assert_close(meshgrid.x[1:-1].y[1:-1], same_size.x[1:-1].y[1:-1])
 
-    def test_extrapolate_valid(self):
+    def test_extrapolate_valid_3x3_sanity(self):
+        values = tensor([[0, 0, 0],
+                         [0, 1, 0],
+                         [0, 0, 0]], spatial('x, y'))
+        valid = values
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
+        expected_values = math.ones(spatial(x=3, y=3))
+        expected_valid = extrapolated_values
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
+
+    def test_extrapolate_valid_3x3(self):
         valid = tensor([[0, 0, 0],
-                      [0, 1, 1],
-                      [1, 0, 0]], 'x, y')
-
-        values = tensor([[1, 0, 0],
-                       [0, 4, 0],
-                       [2, 0, 0]], 'x, y')
-
+                        [0, 0, 1],
+                        [1, 0, 0]], spatial('x, y'))
+        values = tensor([[1, 0, 2],
+                         [0, 0, 4],
+                         [2, 0, 0]], spatial('x, y'))
         expected_valid = tensor([[0, 1, 1],
-                               [1, 1, 1],
-                               [1, 1, 1]], 'x, y')
+                                 [1, 1, 1],
+                                 [1, 1, 1]], spatial('x, y'))
+        expected_values = tensor([[1, 4, 4],
+                                  [2, 3, 4],
+                                  [2, 3, 4]], spatial('x, y'))
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
 
-        expected_values = tensor([[1, 4, 0],
-                                [3, 4, 0],
-                                [2, 3, 0]], 'x, y')
+    def test_extrapolate_valid_4x4(self):
+        valid = tensor([[0, 0, 0, 0],
+                        [0, 0, 1, 0],
+                        [1, 0, 0, 0],
+                        [0, 0, 0, 0]], spatial('x, y'))
+        values = tensor([[1, 0, 0, 0],
+                         [0, 0, 4, 0],
+                         [2, 0, 0, 0],
+                         [0, 0, 0, 1]], spatial('x, y'))
+        expected_valid = tensor([[1, 1, 1, 1],
+                                 [1, 1, 1, 1],
+                                 [1, 1, 1, 1],
+                                 [1, 1, 1, 1]], spatial('x, y'))
+        expected_values = tensor([[3, 4, 4, 4],
+                                  [2, 3, 4, 4],
+                                  [2, 3, 4, 4],
+                                  [2, 2, 3.25, 4]], spatial('x, y'))
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
 
-        new_values, new_valid = math.extrapolate_valid_values(values, valid, 1)
-        self.assertTrue(new_values == expected_values)
-        self.assertTrue(new_valid == expected_valid)
+    def test_extrapolate_valid_3D_3x3x3_1(self):
+        valid = tensor([[[0, 0, 0],
+                         [0, 0, 0],
+                         [0, 0, 0]],
+                        [[0, 0, 1],
+                         [0, 0, 0],
+                         [1, 0, 0]],
+                        [[0, 0, 0],
+                         [0, 0, 0],
+                         [0, 0, 0]]], spatial('x, y, z'))
+        values = tensor([[[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]],
+                         [[1, 0, 4],
+                          [0, 0, 0],
+                          [2, 0, 0]],
+                         [[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]]], spatial('x, y, z'))
+        expected_valid = tensor([[[0, 1, 1],
+                                  [1, 1, 1],
+                                  [1, 1, 0]],
+                                 [[0, 1, 1],
+                                  [1, 1, 1],
+                                  [1, 1, 0]],
+                                 [[0, 1, 1],
+                                  [1, 1, 1],
+                                  [1, 1, 0]]], spatial('x, y, z'))
+        expected_values = tensor([[[0, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 0]],
+                                  [[1, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 0]],
+                                  [[0, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 0]]], spatial('x, y, z'))
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 1)
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
 
+    def test_extrapolate_valid_3D_3x3x3_2(self):
+        valid = tensor([[[0, 0, 0],
+                         [0, 0, 0],
+                         [0, 0, 0]],
+                        [[0, 0, 1],
+                         [0, 0, 0],
+                         [1, 0, 0]],
+                        [[0, 0, 0],
+                         [0, 0, 0],
+                         [0, 0, 0]]], spatial('x, y, z'))
+        values = tensor([[[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]],
+                         [[1, 0, 4],
+                          [0, 0, 0],
+                          [2, 0, 0]],
+                         [[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0]]], spatial('x, y, z'))
+        expected_valid = math.ones(spatial(x=3, y=3, z=3))
+        expected_values = tensor([[[3, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 3]],
+                                  [[3, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 3]],
+                                  [[3, 4, 4],
+                                   [2, 3, 4],
+                                   [2, 2, 3]]], spatial('x, y, z'))
+        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
+        assert extrapolated_values == expected_values
+        assert extrapolated_valid == expected_valid
 
     # Fourier Laplace
 
@@ -112,20 +205,20 @@ class TestMathNDNumpy(TestCase):
             sine_field = math.prod(math.sin(2 * PI * params['L'] * vec / params['size'] + 1), 'vector')
             sin_lap_ref = - 2 * (2 * PI * params['L'] / params['size']) ** 2 * sine_field  # leading 2 from from x-y cross terms
             sin_lap = math.fourier_laplace(sine_field, 1)
-            try:
-                math.assert_close(sin_lap, sin_lap_ref, rel_tolerance=0, abs_tolerance=1e-5)
-            except BaseException as e:
-                abs_error = math.abs(sin_lap - sin_lap_ref)
-                max_abs_error = math.max(abs_error)
-                max_rel_error = math.max(math.abs(abs_error / sin_lap_ref))
-                variation_str = "\n".join(
-                    [
-                        f"max_absolute_error: {max_abs_error}",
-                        f"max_relative_error: {max_rel_error}",
-                    ]
-                )
-                print(f"{variation_str}\n{params}")
-                raise AssertionError(e, f"{variation_str}\n{params}")
+            # try:
+            math.assert_close(sin_lap, sin_lap_ref, rel_tolerance=0, abs_tolerance=1e-5)
+            # except BaseException as e:  # Enable the try/catch to get more info about the deviation
+            #     abs_error = math.abs(sin_lap - sin_lap_ref)
+            #     max_abs_error = math.max(abs_error)
+            #     max_rel_error = math.max(math.abs(abs_error / sin_lap_ref))
+            #     variation_str = "\n".join(
+            #         [
+            #             f"max_absolute_error: {max_abs_error}",
+            #             f"max_relative_error: {max_rel_error}",
+            #         ]
+            #     )
+            #     print(f"{variation_str}\n{params}")
+            #     raise AssertionError(e, f"{variation_str}\n{params}")
 
 
     # Arakawa
@@ -178,19 +271,19 @@ class TestMathNDNumpy(TestCase):
                 dx = params['dx']
                 padding = extrapolation.PERIODIC
                 ref = self.arakawa_reference_implementation(np.pad(d1.copy(), 1, mode='wrap'), np.pad(d2.copy(), 1, mode='wrap'), dx)[1:-1, 1:-1]
-                d1_tensor = field.CenteredGrid(values=math.tensor(d1, names=['x', 'y']), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
-                d2_tensor = field.CenteredGrid(values=math.tensor(d2, names=['x', 'y']), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
+                d1_tensor = field.CenteredGrid(values=math.tensor(d1, spatial('x,y')), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
+                d2_tensor = field.CenteredGrid(values=math.tensor(d2, spatial('x,y')), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
                 val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor.values, d2_tensor.values, dx)
-                try:
-                    math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)
-                except BaseException as e:
-                    abs_error = math.abs(val - ref)
-                    max_abs_error = math.max(abs_error)
-                    max_rel_error = math.max(math.abs(abs_error / ref))
-                    variation_str = "\n".join([
-                        f"max_absolute_error: {max_abs_error}",
-                        f"max_relative_error: {max_rel_error}",
-                    ])
-                    print(ref)
-                    print(val)
-                    raise AssertionError(e, params, variation_str)
+                # try:
+                math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)
+                # except BaseException as e:  # Enable the try/catch to get more info about the deviation
+                #     abs_error = math.abs(control - ref)
+                #     max_abs_error = math.max(abs_error)
+                #     max_rel_error = math.max(math.abs(abs_error / ref))
+                #     variation_str = "\n".join([
+                #         f"max_absolute_error: {max_abs_error}",
+                #         f"max_relative_error: {max_rel_error}",
+                #     ])
+                #     print(ref)
+                #     print(control)
+                #     raise AssertionError(e, params, variation_str)

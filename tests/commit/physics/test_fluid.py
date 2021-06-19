@@ -1,102 +1,62 @@
 from unittest import TestCase
 
+import phi
 from phi import math, field
 from phi.geom import Box, Sphere
 from phi.field import StaggeredGrid, CenteredGrid, divergence, Noise
-from phi.physics import Domain, CLOSED, fluid, OPEN
-from phi.tf import TF_BACKEND
-from phi.torch import TORCH_BACKEND
+from phi.math import batch
+from phi.math.backend import Backend
+from phi.physics import fluid
 
-import tensorflow as tf
-if tf.config.list_physical_devices('GPU'):
-    tf.config.experimental.set_memory_growth(tf.config.list_physical_devices('GPU')[0], True)  # prevent Blas GEMM launch failed
+
+BACKENDS = phi.detect_backends()
 
 
 class FluidTest(TestCase):
 
-    # Backend-independent abstract tests
+    def _test_make_incompressible(self, grid_type: type, extrapolation: math.Extrapolation, **batch_dims):
+        result = None
+        for i, backend in enumerate(BACKENDS):
+            with backend:
+                smoke = CenteredGrid(Sphere(center=(math.random_uniform(batch(**batch_dims)) * 100, 10), radius=5), extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
+                velocity = grid_type(0, extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
+                for _ in range(2):
+                    velocity += smoke * (0, 0.1) >> velocity
+                    velocity, _ = fluid.make_incompressible(velocity)
+                math.assert_close(divergence(velocity).values, 0, abs_tolerance=2e-5)
+                if result is None:
+                    result = velocity
+                else:
+                    field.assert_close(result, abs_tolerance=1e-5, msg=f"Simulation with {backend} does not match {BACKENDS[:i]}")
 
-    def _test_make_incompressible(self, grid_type):
-        DOMAIN = Domain(x=16, y=16, boundaries=CLOSED, bounds=Box[0:100, 0:100])
-        smoke = DOMAIN.scalar_grid(Sphere(center=(50, 10), radius=5))
-        velocity = DOMAIN.vector_grid(0, grid_type)
-        for _ in range(2):
-            velocity += smoke * (0, 0.1) >> velocity
-            velocity, pressure, _, _ = fluid.make_incompressible(velocity, DOMAIN)
-        math.assert_close(divergence(velocity).values, 0, abs_tolerance=2e-5)
-        return velocity.values
+    def test_make_incompressible_centered(self):
+        self._test_make_incompressible(CenteredGrid, math.extrapolation.ZERO)
+        self._test_make_incompressible(CenteredGrid, math.extrapolation.BOUNDARY, batch3=3, batch2=2)
 
-    def _test_make_incompressible_batched(self, grid_type):
-        DOMAIN = Domain(x=16, y=16, boundaries=CLOSED, bounds=Box[0:100, 0:100])
-        smoke = DOMAIN.scalar_grid(Sphere(center=(math.random_uniform(batch=2) * 100, 10), radius=5))
-        velocity = DOMAIN.vector_grid(0, grid_type)
-        for _ in range(2):
-            velocity += smoke * (0, 0.1) >> velocity
-            velocity, pressure, _, _ = fluid.make_incompressible(velocity, DOMAIN)
-        math.assert_close(divergence(velocity).values, 0, abs_tolerance=2e-5)
-        return velocity.values
+    def test_make_incompressible_staggered_closed(self):
+        self._test_make_incompressible(StaggeredGrid, math.extrapolation.ZERO)
+        self._test_make_incompressible(StaggeredGrid, math.extrapolation.ZERO, batch3=3, batch2=2)
 
-    # Backend-specific testing
+    def test_make_incompressible_staggered_open(self):
+        self._test_make_incompressible(StaggeredGrid, math.extrapolation.BOUNDARY)
+        self._test_make_incompressible(StaggeredGrid, math.extrapolation.BOUNDARY, batch3=3, batch2=2)
 
-    def test_make_incompressible_staggered_scipy(self):
-        with math.NUMPY_BACKEND:
-            self._test_make_incompressible(StaggeredGrid)
-            self._test_make_incompressible_batched(StaggeredGrid)
-
-    def test_make_incompressible_centered_scipy(self):
-        with math.NUMPY_BACKEND:
-            self._test_make_incompressible(CenteredGrid)
-            self._test_make_incompressible_batched(CenteredGrid)
-
-    def test_make_incompressible_staggered_tensorflow(self):
-        with TF_BACKEND:
-            self._test_make_incompressible(StaggeredGrid)
-            self._test_make_incompressible_batched(StaggeredGrid)
-
-    def test_make_incompressible_centered_tensorflow(self):
-        with TF_BACKEND:
-            self._test_make_incompressible(CenteredGrid)
-            self._test_make_incompressible_batched(CenteredGrid)
-
-    def test_make_incompressible_staggered_pytorch(self):
-        with TORCH_BACKEND:
-            self._test_make_incompressible(StaggeredGrid)
-            self._test_make_incompressible_batched(StaggeredGrid)
-
-    def test_make_incompressible_centered_pytorch(self):
-        with TORCH_BACKEND:
-            self._test_make_incompressible(CenteredGrid)
-            self._test_make_incompressible_batched(CenteredGrid)
-
-    def test_make_incompressible_np_equal_tf(self):
-        with math.NUMPY_BACKEND:
-            v_np = self._test_make_incompressible(StaggeredGrid)
-        with TF_BACKEND:
-            v_tf = self._test_make_incompressible(StaggeredGrid)
-        math.assert_close(v_np, v_tf, abs_tolerance=1e-5)
-
-    def test_make_incompressible_np_equal_torch(self):
-        import sys
-        print(sys.getrecursionlimit())
-        with math.NUMPY_BACKEND:
-            v_np = self._test_make_incompressible(StaggeredGrid)
-        with TORCH_BACKEND:
-            v_to = self._test_make_incompressible(StaggeredGrid)
-        math.assert_close(v_np, v_to, abs_tolerance=1e-5)
+    def test_make_incompressible_staggered_periodic(self):
+        self._test_make_incompressible(StaggeredGrid, math.extrapolation.PERIODIC)
+        self._test_make_incompressible(StaggeredGrid, math.extrapolation.PERIODIC, batch3=3, batch2=2)
 
     def test_make_incompressible_gradients_equal_tf_torch(self):
-        DOMAIN = Domain(x=16, y=16, boundaries=OPEN, bounds=Box[0:100, 0:100])  # TODO CLOSED solve fails because div is not subtracted from dx
-        velocity0 = DOMAIN.staggered_grid(Noise(vector=2))
+        velocity0 = StaggeredGrid(Noise(), math.extrapolation.ZERO, x=16, y=16, bounds=Box[0:100, 0:100])
         grads = []
-        for backend in [TF_BACKEND, TORCH_BACKEND]:
-            with backend:
-                velocity = param = velocity0.with_(values=math.tensor(velocity0.values))
-                with math.record_gradients(param.values):
-                    solve = math.LinearSolve()
-                    velocity, _, _, _ = fluid.make_incompressible(velocity, DOMAIN, solve_params=solve)
-                    loss = field.l2_loss(velocity)
-                    assert math.isfinite(loss)
-                    grad = math.gradients(loss, param.values)
-                    assert math.all(math.isfinite(grad))
-                    grads.append(grad)
+        for backend in BACKENDS:
+            if backend.supports(Backend.record_gradients):
+                with backend:
+                    velocity = param = velocity0.with_values(math.tensor(velocity0.values))
+                    with math.record_gradients(param.values):
+                        velocity, _ = fluid.make_incompressible(velocity)
+                        loss = field.l2_loss(velocity)
+                        assert math.isfinite(loss).all
+                        grad = math.gradients(loss, param.values)
+                        assert math.isfinite(grad).all
+                        grads.append(grad)
         math.assert_close(*grads, abs_tolerance=1e-5)

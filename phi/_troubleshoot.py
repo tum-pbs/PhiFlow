@@ -1,3 +1,6 @@
+from contextlib import contextmanager
+
+from phi.math import batch, spatial
 
 
 def assert_minimal_config():  # raises AssertionError
@@ -14,8 +17,8 @@ def assert_minimal_config():  # raises AssertionError
         raise AssertionError("phiflow is unable to run because SciPy is not installed.")
     from phi import flow
     from phi import math
-    with math.NUMPY_BACKEND:
-        a = math.ones(batch=8, x=64)
+    with math.NUMPY:
+        a = math.ones(batch(batch=8) & spatial(x=64))
         math.assert_close(a + a, 2)
 
 
@@ -41,13 +44,13 @@ def troubleshoot_tensorflow():
     except BaseException as err:
         return f"Installed but not available due to internal error: {err}"
     try:
-        gpu_count = len(tf.TF_BACKEND.list_devices('GPU'))
+        gpu_count = len(tf.TENSORFLOW.list_devices('GPU'))
     except BaseException as err:
         return f"Installed but device initialization failed with error: {err}"
-    with tf.TF_BACKEND:
+    with tf.TENSORFLOW:
         try:
-            math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
-            # TODO cuDNN math.conv(math.ones(batch=8, x=64), math.ones(x=4))
+            math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
+            # TODO cuDNN math.convolve(math.ones(batch=8, x=64), math.ones(x=4))
         except BaseException as err:
             return f"Installed but tests failed with error: {err}"
     if gpu_count == 0:
@@ -76,12 +79,12 @@ def troubleshoot_torch():
     except BaseException as err:
         return f"Installed but not available due to internal error: {err}"
     try:
-        gpu_count = len(torch.TORCH_BACKEND.list_devices('GPU'))
+        gpu_count = len(torch.TORCH.list_devices('GPU'))
     except BaseException as err:
         return f"Installed but device initialization failed with error: {err}"
-    with torch.TORCH_BACKEND:
+    with torch.TORCH:
         try:
-            math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
+            math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
         except BaseException as err:
             return f"Installed but tests failed with error: {err}"
     return f"Installed, {gpu_count} GPUs available."
@@ -99,12 +102,12 @@ def troubleshoot_jax():
     except BaseException as err:
         return f"Installed but not available due to internal error: {err}"
     try:
-        gpu_count = len(jax.JAX_BACKEND.list_devices('GPU'))
+        gpu_count = len(jax.JAX.list_devices('GPU'))
     except BaseException as err:
         return f"Installed but device initialization failed with error: {err}"
-    with jax.JAX_BACKEND:
+    with jax.JAX:
         try:
-            math.assert_close(math.ones(batch=8, x=64) + math.ones(batch=8, x=64), 2)
+            math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
         except BaseException as err:
             return f"Installed but tests failed with error: {err}"
     return f"Installed, {gpu_count} GPUs available."
@@ -122,7 +125,7 @@ def troubleshoot_dash():
     try:
         import imageio
     except ImportError:
-        return "ImageIO not installed"
+        return "ImageIO not installed, 3D view might not work."
     try:
         import matplotlib
     except ImportError:
@@ -133,3 +136,61 @@ def troubleshoot_dash():
         return f"Runtime error: {e}"
     return 'OK'
 
+
+@contextmanager
+def plot_solves():
+    """
+    While `plot_solves()` is active, certain performance optimizations and algorithm implementations may be disabled.
+    """
+    from . import math
+    import pylab
+    cycle = pylab.rcParams['axes.prop_cycle'].by_key()['color']
+    with math.SolveTape(record_trajectories=True) as solves:
+        try:
+            yield solves
+        finally:
+            for i, result in enumerate(solves):
+                assert isinstance(result, math.SolveInfo)
+                from phi.math._tensors import disassemble_tree
+                _, (residual,) = disassemble_tree(result.residual)
+                residual_mean = math.mean(math.abs(residual), residual.shape.without('trajectory'))
+                residual_max = math.max(math.abs(residual), residual.shape.without('trajectory'))
+                pylab.plot(residual_mean.numpy(), label=f"{i}: {result.method}", color=cycle[i % len(cycle)])
+                pylab.plot(residual_max.numpy(), alpha=0.2, color=cycle[i % len(cycle)])
+                print(f"Solve {i}: {result.method} ({1000 * result.solve_time:.1f} ms)\n"
+                      f"\t{result.solve}\n"
+                      f"\t{result.msg}\n"
+                      f"\tConverged: {result.converged}\n"
+                      f"\tDiverged: {result.diverged}\n"
+                      f"\tIterations: {result.iterations}\n"
+                      f"\tFunction evaulations: {result.function_evaluations.trajectory[-1]}")
+            pylab.yscale('log')
+            pylab.ylabel("Mean / Max Residual")
+            pylab.xlabel("Iteration")
+            pylab.title(f"Solve Convergence")
+            pylab.legend(loc='upper right')
+            pylab.savefig(f"pressure-solvers-FP32.png")
+            pylab.show()
+
+
+def count_tensors_in_memory(min_print_size: int = None):
+    import sys
+    import gc
+    from .math import Tensor
+
+    gc.collect()
+    total = 0
+    bytes = 0
+    for obj in gc.get_objects():
+        try:
+            if isinstance(obj, Tensor):
+                total += 1
+                size = obj.shape.volume * obj.dtype.itemsize
+                bytes += size
+                if isinstance(min_print_size, int) and size >= min_print_size:
+                    print(f"Tensor '{obj}' ({sys.getrefcount(obj)} references)")
+                    # referrers = gc.get_referrers(obj)
+                    # print([type(r) for r in referrers])
+        except Exception:
+            pass
+    print(f"There are {total} Φ-Tensors with a total size of {bytes / 1024 / 1024:.1f} MB")

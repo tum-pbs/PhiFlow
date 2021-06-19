@@ -30,32 +30,30 @@
 <pre><code class="python">&#34;&#34;&#34;
 Low-level library wrappers for delegating vector operations.
 &#34;&#34;&#34;
-
-from ._dtype import DType, from_numpy_dtype, to_numpy_dtype
 from ._backend import (
     Backend, choose_backend, NoBackendFound,
     ComputeDevice,
-    default_backend, set_global_default_backend, BACKENDS, _DEFAULT,
+    default_backend, set_global_default_backend, BACKENDS, context_backend, _DEFAULT,
     get_precision, precision, set_global_precision,
+    convert,
 )
-from ._numpy_backend import NUMPY_BACKEND
-from ._optim import Solve, LinearSolve
+from ._numpy_backend import NumPyBackend as _NumPyBackend
 from ._profile import Profile, get_current_profile, profile, profile_function
 
 
-BACKENDS.append(NUMPY_BACKEND)
-_DEFAULT.append(NUMPY_BACKEND)
-
-BACKENDS = BACKENDS  # to show up in pdoc
-&#34;&#34;&#34; Global list of all registered backends. Register a `Backend` by adding it to the list. &#34;&#34;&#34;
-
-SCIPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
-&#34;&#34;&#34; Alias for `NUMPY_BACKEND` &#34;&#34;&#34;
-NUMPY_BACKEND = NUMPY_BACKEND  # to show up in pdoc
+NUMPY = _NumPyBackend()
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
+BACKENDS.append(NUMPY)
+_DEFAULT.append(NUMPY)
 
 
-__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
+__all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
+
+__pdoc__ = {
+    &#39;ComputeDevice.__init__&#39;: False,
+    &#39;NoBackendFound.__init__&#39;: False,
+    &#39;Profile.__init__&#39;: False,
+}</code></pre>
 </details>
 </section>
 <section>
@@ -63,17 +61,9 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <section>
 <h2 class="section-title" id="header-variables">Global variables</h2>
 <dl>
-<dt id="phi.math.backend.BACKENDS"><code class="name">var <span class="ident">BACKENDS</span></code></dt>
-<dd>
-<div class="desc"><p>Global list of all registered backends. Register a <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> by adding it to the list.</p></div>
-</dd>
-<dt id="phi.math.backend.NUMPY_BACKEND"><code class="name">var <span class="ident">NUMPY_BACKEND</span></code></dt>
+<dt id="phi.math.backend.NUMPY"><code class="name">var <span class="ident">NUMPY</span></code></dt>
 <dd>
 <div class="desc"><p>Default backend for NumPy arrays and SciPy objects.</p></div>
-</dd>
-<dt id="phi.math.backend.SCIPY_BACKEND"><code class="name">var <span class="ident">SCIPY_BACKEND</span></code></dt>
-<dd>
-<div class="desc"><p>Alias for <code><a title="phi.math.backend.NUMPY_BACKEND" href="#phi.math.backend.NUMPY_BACKEND">NUMPY_BACKEND</a></code></p></div>
 </dd>
 </dl>
 </section>
@@ -81,7 +71,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.math.backend.choose_backend"><code class="name flex">
-<span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False, raise_error=True) ‑> phi.math.backend._backend.Backend</span>
+<span>def <span class="ident">choose_backend</span></span>(<span>*values, prefer_default=False) ‑> phi.math.backend._backend.Backend</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Selects a suitable backend to handle the given values.</p>
@@ -101,7 +91,7 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def choose_backend(*values, prefer_default=False, raise_error=True) -&gt; Backend:
+<pre><code class="python">def choose_backend(*values, prefer_default=False) -&gt; Backend:
     &#34;&#34;&#34;
     Selects a suitable backend to handle the given values.
 
@@ -122,16 +112,86 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
     # --- Filter out non-applicable ---
     backends = [backend for backend in BACKENDS if _is_applicable(backend, values)]
     if len(backends) == 0:
-        if raise_error:
-            raise NoBackendFound(f&#34;No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}&#34;)
-        else:
-            return None
+        raise NoBackendFound(f&#34;No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}&#34;)
     # --- Native tensors? ---
     for backend in backends:
         if _is_specific(backend, values):
             return backend
+    return backends[0]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.context_backend"><code class="name flex">
+<span>def <span class="ident">context_backend</span></span>(<span>) ‑> phi.math.backend._backend.Backend</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the backend set by the inner-most surrounding <code>with backend:</code> block.
+If called outside a backend context, returns <code>None</code>.</p>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> or <code>None</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def context_backend() -&gt; Backend or None:
+    &#34;&#34;&#34;
+    Returns the backend set by the inner-most surrounding `with backend:` block.
+    If called outside a backend context, returns `None`.
+
+    Returns:
+        `Backend` or `None`
+    &#34;&#34;&#34;
+    return _DEFAULT[-1] if len(_DEFAULT) &gt; 1 else None</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.convert"><code class="name flex">
+<span>def <span class="ident">convert</span></span>(<span>tensor, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert a Tensor to the native format of <code>backend</code>.
+If the target backend can operate natively on <code>tensor</code>, returns <code>tensor</code>.</p>
+<p>If both backends support <em>DLPack</em> and <code>use_dlpack=True</code>, uses zero-copy conversion using the DLPack library.
+Else, intermediately converts <code>tensor</code> to a NumPy array.</p>
+<p><em>Warning</em>: This operation breaks the automatic differentiation chain.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>Native tensor belonging to any registered backend.</dd>
+<dt><strong><code>backend</code></strong></dt>
+<dd>Target backend. If <code>None</code>, uses the current default backend, see <code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend()</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor belonging to <code>backend</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def convert(tensor, backend: Backend = None, use_dlpack=True):
+    &#34;&#34;&#34;
+    Convert a Tensor to the native format of `backend`.
+    If the target backend can operate natively on `tensor`, returns `tensor`.
+
+    If both backends support *DLPack* and `use_dlpack=True`, uses zero-copy conversion using the DLPack library.
+    Else, intermediately converts `tensor` to a NumPy array.
+
+    *Warning*: This operation breaks the automatic differentiation chain.
+
+    Args:
+        tensor: Native tensor belonging to any registered backend.
+        backend: Target backend. If `None`, uses the current default backend, see `default_backend()`.
+
+    Returns:
+        Tensor belonging to `backend`.
+    &#34;&#34;&#34;
+    backend = backend or default_backend()
+    current_backend = choose_backend(tensor, prefer_default=False)
+    if backend.is_tensor(tensor, True) or backend is current_backend:
+        return tensor
+    if use_dlpack and current_backend.supports(Backend.to_dlpack) and backend.supports(Backend.from_dlpack):
+        capsule = current_backend.to_dlpack(tensor)
+        return backend.from_dlpack(capsule)
     else:
-        return backends[0]</code></pre>
+        nparray = current_backend.numpy(tensor)
+        return backend.as_tensor(nparray)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.default_backend"><code class="name flex">
@@ -156,27 +216,6 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
         current default `Backend`
     &#34;&#34;&#34;
     return _DEFAULT[-1]</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.from_numpy_dtype"><code class="name flex">
-<span>def <span class="ident">from_numpy_dtype</span></span>(<span>np_dtype) ‑> phi.math.backend._dtype.DType</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def from_numpy_dtype(np_dtype) -&gt; DType:
-    if np_dtype in _FROM_NUMPY:
-        return _FROM_NUMPY[np_dtype]
-    else:
-        for base_np_dtype, dtype in _FROM_NUMPY.items():
-            if np_dtype == base_np_dtype:
-                return dtype
-        if np_dtype.char == &#39;U&#39;:
-            return DType(str, 8 * np_dtype.itemsize)
-        raise ValueError(np_dtype)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.get_current_profile"><code class="name flex">
@@ -328,7 +367,7 @@ Use <code>warmup&gt;0</code> to ensure that internal caching does not interfere 
 This gives a much better indication of the true timing.
 See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Profile.retime">Profile.retime()</a></code>.</dd>
 <dt><strong><code>warmup</code></strong></dt>
-<dd>Number of times to call ´fun` before profiling it.</dd>
+<dd>Number of times to call <code>fun</code> before profiling it.</dd>
 <dt><strong><code>call_count</code></strong></dt>
 <dd>How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if <code>call_count &gt; 1</code>.</dd>
 </dl>
@@ -361,7 +400,7 @@ See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Pro
         retime: If true, calls `fun` another time without tracing the calls and updates the profile.
             This gives a much better indication of the true timing.
             See `Profile.retime()`.
-        warmup: Number of times to call ´fun` before profiling it.
+        warmup: Number of times to call `fun` before profiling it.
         call_count: How often to call the function (excluding retime and warmup). The times will be averaged over multiple runs if `call_count &gt; 1`.
 
     Returns:
@@ -446,23 +485,6 @@ The output of math operations has the same precision as its inputs.</p>
     _PRECISION[0] = floating_point_bits</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.to_numpy_dtype"><code class="name flex">
-<span>def <span class="ident">to_numpy_dtype</span></span>(<span>dtype: phi.math.backend._dtype.DType)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def to_numpy_dtype(dtype: DType):
-    if dtype in _TO_NUMPY:
-        return _TO_NUMPY[dtype]
-    if dtype.kind == str:
-        bytes_per_char = np.dtype(&#39;&lt;U1&#39;).itemsize
-        return np.dtype(f&#39;&lt;U{dtype.itemsize // bytes_per_char}&#39;)</code></pre>
-</details>
-</dd>
 </dl>
 </section>
 <section>
@@ -475,7 +497,7 @@ The output of math operations has the same precision as its inputs.</p>
 <dd>
 <div class="desc"><p>Backends delegate low-level operations to a compute library or emulate them.</p>
 <p>The methods of <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> form a comprehensive list of available operations.</p>
-<p>To support a compute library, subclass <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> and register it by adding it to <code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code>.</p>
+<p>To support a compute library, subclass <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code> and register it by adding it to <code>BACKENDS</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>name</code></strong></dt>
@@ -537,6 +559,9 @@ The output of math operations has the same precision as its inputs.</p>
         impl_fun = getattr(self.__class__, feature)
         return impl_fun is not backend_fun
 
+    def prefers_channels_last(self) -&gt; bool:
+        raise NotImplementedError()
+
     @property
     def precision(self) -&gt; int:
         &#34;&#34;&#34; Short for math.backend.get_precision() &#34;&#34;&#34;
@@ -545,6 +570,14 @@ The output of math operations has the same precision as its inputs.</p>
     @property
     def float_type(self) -&gt; DType:
         return DType(float, self.precision)
+
+    @property
+    def as_registered(self) -&gt; &#39;Backend&#39;:
+        from phi.math.backend import BACKENDS
+        for backend in BACKENDS:
+            if self.name in backend.name:
+                return backend
+        raise RuntimeError(f&#34;Backend &#39;{self}&#39; is not visible.&#34;)
 
     @property
     def complex_type(self) -&gt; DType:
@@ -582,11 +615,18 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         Fetches information about all available compute devices this backend can use.
 
+        Implementations:
+
+        * NumPy: [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count)
+        * PyTorch: [`torch.cuda.get_device_properties`](https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties)
+        * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
+        * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
+
         Args:
-            device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;`. See `ComputeDevice.device_type`.
+            device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;` or `&#39;CPU&#39;`. See `ComputeDevice.device_type`.
 
         Returns:
-            Tuple of all currently available devices.
+            `list` of all currently available devices.
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -599,6 +639,9 @@ The output of math operations has the same precision as its inputs.</p>
             assert len(devices) &gt;= 1, f&#34;{self.name}: Cannot select &#39;{device} because no device of this type is available.&#34;
             device = devices[0]
         self._default_device = device
+
+    def seed(self, seed: int):
+        raise NotImplementedError()
 
     def is_tensor(self, x, only_native=False):
         &#34;&#34;&#34;
@@ -625,7 +668,7 @@ The output of math operations has the same precision as its inputs.</p>
 
         Args:
           x: tensor-like, e.g. list, tuple, Python number, tensor
-          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as-is. This can help prevent type clashes like int32 vs int64. (Default value = True)
 
         Returns:
           tensor representation of `x`
@@ -666,11 +709,14 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def copy(self, tensor, only_mutable=False):
+    def to_dlpack(self, tensor):
         raise NotImplementedError()
 
-    def jit_compile(self, f: Callable) -&gt; Callable:
-        return NotImplemented
+    def from_dlpack(self, capsule):
+        raise NotImplementedError()
+
+    def copy(self, tensor, only_mutable=False):
+        raise NotImplementedError()
 
     def call(self, f: Callable, *args, name=None):
         &#34;&#34;&#34;
@@ -683,18 +729,30 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         return f(*args)
 
+    def block_until_ready(self, values):
+        pass
+
+    def jit_compile(self, f: Callable) -&gt; Callable:
+        return NotImplemented
+
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
+
     def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
         &#34;&#34;&#34;
-        Creates a function based on `f` that uses a custom spatial_gradient for backprop.
+        Creates a function based on `f` that uses a custom gradient for backprop.
 
         Args:
-            f: Forward function. All arguments must be
-            gradient: Function for backprop. Will be called as `spatial_gradient(*d_out)` to compute the spatial_gradient of `f`.
+            f: Forward function.
+            gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
 
         Returns:
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
         &#34;&#34;&#34;
         return NotImplemented
+
+    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError()
 
     def transpose(self, tensor, axes):
         raise NotImplementedError()
@@ -763,21 +821,18 @@ The output of math operations has the same precision as its inputs.</p>
 
     def nonzero(self, values):
         &#34;&#34;&#34;
-        
-
         Args:
-          values: 
+            values: Tensor with only spatial dimensions
 
         Returns:
-          
-
+            non-zero multi-indices as tensor of shape (nnz, vector)
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def range(self, start, limit=None, delta=1, dtype: DType = None):
+    def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         raise NotImplementedError(self)
 
     def zeros(self, shape, dtype: DType = None):
@@ -798,7 +853,8 @@ The output of math operations has the same precision as its inputs.</p>
     def linspace(self, start, stop, number):
         raise NotImplementedError(self)
 
-    def dot(self, a, b, axes):
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        &#34;&#34;&#34; Multiply-sum-reduce a_axes of a with b_axes of b. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def matmul(self, A, b):
@@ -807,8 +863,22 @@ The output of math operations has the same precision as its inputs.</p>
     def einsum(self, equation, *tensors):
         raise NotImplementedError(self)
 
-    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-                   swap_memory=False, name=None, maximum_iterations=None):
+    def while_loop(self, loop: Callable, values: tuple):
+        &#34;&#34;&#34;
+        ```python
+        while any(values[0]):
+            values = loop(*values)
+        return values
+        ```
+
+        This operation does not support backpropagation.
+
+        Args:
+            loop: Loop function, must return a `tuple` with entries equal to `values` in shape and data type.
+            values: Initial values of loop variables.
+        Returns:
+            Loop variables upon loop completion.
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def abs(self, x):
@@ -847,7 +917,20 @@ The output of math operations has the same precision as its inputs.</p>
     def exp(self, x):
         raise NotImplementedError(self)
 
-    def conv(self, tensor, kernel, padding=&#39;same&#39;):
+    def conv(self, value, kernel, zero_padding=True):
+        &#34;&#34;&#34;
+        Convolve value with kernel.
+        Depending on the tensor rank, the convolution is either 1D (rank=3), 2D (rank=4) or 3D (rank=5).
+        Higher dimensions may not be supported.
+
+        Args:
+            value: tensor of shape (batch_size, in_channel, spatial...)
+            kernel: tensor of shape (batch_size or 1, out_channel, in_channel, spatial...)
+            zero_padding: If True, pads the edges of `value` with zeros so that the result has the same shape as `value`.
+
+        Returns:
+            Convolution result as tensor of shape (batch_size, out_channel, spatial...)
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def expand_dims(self, a, axis=0, number=1):
@@ -881,14 +964,14 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         return self.cast(x, self.float_type)
 
-    def to_int(self, x, int64=False):
-        return self.cast(x, DType(int, 64 if int64 else 32))
+    def to_int32(self, x):
+        return self.cast(x, DType(int, 32))
+
+    def to_int64(self, x):
+        return self.cast(x, DType(int, 64))
 
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
-
-    def gather(self, values, indices):
-        raise NotImplementedError(self)
 
     def batched_gather_nd(self, values, indices):
         &#34;&#34;&#34;
@@ -910,26 +993,30 @@ The output of math operations has the same precision as its inputs.</p>
     def std(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def boolean_mask(self, x, mask):
+    def boolean_mask(self, x, mask, axis=0):
+        &#34;&#34;&#34;
+        Args:
+            x: tensor with any number of dimensions
+            mask: 1D mask tensor
+            axis: Axis index &gt;= 0
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def isfinite(self, x):
         raise NotImplementedError(self)
 
-    def scatter(self, indices, values, shape, duplicates_handling=&#39;undefined&#39;, outside_handling=&#39;undefined&#39;):
+    def scatter(self, base_grid, indices, values, mode: str):
         &#34;&#34;&#34;
-        This method expects the first dimension of indices and values to be the batch dimension.
-        The batch dimension need not be specified in the indices array.
+        Depending on `mode`, performs scatter_update or scatter_add.
 
         Args:
-          indices: n-dimensional indices corresponding to values
-          values: values to scatter at indices
-          shape: spatial shape of the result tensor, 1D int array
-          duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
-          outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;undefined&#39;)
+            base_grid: Tensor into which scatter values are inserted at indices. Tensor of shape (batch_size, spatial..., channels)
+            indices: Tensor of shape (batch_size or 1, update_count, index_vector)
+            values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
+            mode: One of (&#39;update&#39;, &#39;add&#39;)
 
         Returns:
-
+            Copy of base_grid with values at `indices` updated by `values`.
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -963,16 +1050,29 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def imag(self, complex):
+    def imag(self, x):
         raise NotImplementedError(self)
 
-    def real(self, complex):
+    def real(self, x):
         raise NotImplementedError(self)
 
     def sin(self, x):
         raise NotImplementedError(self)
 
     def cos(self, x):
+        raise NotImplementedError(self)
+
+    def tan(self, x):
+        raise NotImplementedError(self)
+
+    def log(self, x):
+        &#34;&#34;&#34; Natural logarithm &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def log2(self, x):
+        raise NotImplementedError(self)
+
+    def log10(self, x):
         raise NotImplementedError(self)
 
     def dtype(self, array) -&gt; DType:
@@ -995,7 +1095,7 @@ The output of math operations has the same precision as its inputs.</p>
 
     def sparse_tensor(self, indices, values, shape):
         &#34;&#34;&#34;
-        Optional features. If overridden,
+        Optional features.
 
         Args:
           indices: tuple/list matching the dimensions (pair for matrix)
@@ -1007,46 +1107,255 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def coordinates(self, tensor, unstack_coordinates=False):
+    def coordinates(self, tensor):
         &#34;&#34;&#34;
         Returns the coordinates and values of a tensor.
-        
-        The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
-        In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
 
         Args:
-          tensor: dense or sparse tensor
-          unstack_coordinates:  (Default value = False)
+            tensor: Sparse tensor
 
         Returns:
-          indices (tensor or tuple), values
+            coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
+            indices: Tensor holding the corresponding values
 
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def minimize(self, function, x0, solve_params: Solve):
-        raise NotImplementedError(self)
+    def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
+        from scipy.optimize import OptimizeResult, minimize
+        from threading import Thread
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
+        assert self.supports(Backend.functional_gradient)
+        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
+        batch_size = self.staticshape(x0)[0]
+        fg = self.functional_gradient(f, [0], get_output=True)
+        method_description = f&#34;SciPy {method} with {self.name}&#34;
+
+        iterations = [0] * batch_size
+        function_evaluations = [0] * batch_size
+        xs = [None] * batch_size
+        final_losses = [None] * batch_size
+        converged = [False] * batch_size
+        diverged = [False] * batch_size
+        messages = [&#34;&#34;] * batch_size
+
+        f_inputs = [None] * batch_size
+        f_b_losses = None
+        f_b_losses_np = None
+        f_grad_np = None
+        f_input_available = Barrier(batch_size + 1)
+        f_output_available = Barrier(batch_size + 1)
+        finished = [False] * batch_size
+        all_finished = False
+        trajectories = [[] for _ in range(batch_size)] if trj else None
+        threads = []
+
+        for b in range(batch_size):
+
+            def b_thread(b=b):
+                recent_b_losses = []
+
+                def b_fun(x: numpy.ndarray):
+                    function_evaluations[b] += 1
+                    f_inputs[b] = self.as_tensor(x, convert_external=True)
+                    f_input_available.wait()
+                    f_output_available.wait()
+                    recent_b_losses.append(f_b_losses[b])
+                    if final_losses[b] is None:  # first evaluation
+                        final_losses[b] = f_b_losses[b]
+                        if trajectories is not None:
+                            trajectories[b].append(SolveResult(method_description, x0[b], f_b_losses[b], 0, 1, False, False, &#34;&#34;))
+                    return f_b_losses_np[b], f_grad_np[b]
+
+                def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
+                    iterations[b] += 1
+                    loss = min(recent_b_losses)
+                    recent_b_losses.clear()
+                    final_losses[b] = loss
+                    if trajectories is not None:
+                        trajectories[b].append(SolveResult(method_description, x, loss, iterations[b], function_evaluations[b], False, False, &#34;&#34;))
+
+                res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={&#39;maxiter&#39;: max_iter[b]}, callback=callback)
+                assert isinstance(res, OptimizeResult)
+                # res.nit, res.nfev
+                xs[b] = res.x
+                converged[b] = res.success
+                diverged[b] = res.status not in (0, 1)  # 0=success
+                messages[b] = res.message
+                finished[b] = True
+                while not all_finished:
+                    f_input_available.wait()
+                    f_output_available.wait()
+
+            b_thread = Thread(target=b_thread)
+            threads.append(b_thread)
+            b_thread.start()
+
+        while True:
+            f_input_available.wait()
+            if all(finished):
+                all_finished = True
+                f_output_available.wait()
+                break
+            _, f_b_losses, f_grad = fg(self.stack(f_inputs))
+            f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
+            f_grad_np = self.numpy(f_grad).astype(numpy.float64)
+            f_output_available.wait()
+
+        for b_thread in threads:
+            b_thread.join()  # make sure threads exit correctly
+
+        if trj:
+            max_trajectory_length = max([len(t) for t in trajectories])
+            last_points = [SolveResult(method_description, xs[b], final_losses[b], iterations[b], function_evaluations[b], converged[b], diverged[b], &#34;&#34;) for b in range(batch_size)]
+            trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
+            trajectory = []
+            for states in zip(*trajectories):
+                x = self.stack([self.to_float(state.x) for state in states])
+                residual = self.stack([state.residual for state in states])
+                iterations = [state.iterations for state in states]
+                function_evaluations = [state.function_evaluations for state in states]
+                converged = [state.converged for state in states]
+                diverged = [state.diverged for state in states]
+                trajectory.append(SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages))
+            return trajectory
+        else:
+            x = self.stack(xs)
+            residual = self.stack(final_losses)
+            return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
+
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
         &#34;&#34;&#34;
-        Solve the system of linear equations
-          A * x = y
+        Solve the system of linear equations A · x = y.
+        This method need not provide a gradient for the operation.
 
         Args:
-          A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
-          y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
-          x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-          solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-          callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
+            method: Which algorithm to use. One of `(&#39;auto&#39;, &#39;CG&#39;, &#39;CG-adaptive&#39;)`.
+            lin: Linear operation. One of
+                * sparse/dense matrix valid for all instances
+                * tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
+                * linear function A(x), must be called on all instances in parallel
+            y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+            x0: Initial guess of size (batch, parameters)
+            rtol: Relative tolerance of size (batch,)
+            atol: Absolute tolerance of size (batch,)
+            max_iter: Maximum number of iterations of size (batch,)
+            trj: Whether to record and return the optimization trajectory as a `List[SolveResult]`.
 
         Returns:
-            x: the solution as a tensor
-
+            result: `SolveResult` or `List[SolveResult]`, depending on `trj`.
         &#34;&#34;&#34;
-        raise NotImplementedError(self)
+        if method == &#39;auto&#39;:
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+        elif method == &#39;CG&#39;:
+            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
+        elif method == &#39;CG-adaptive&#39;:
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+        else:
+            raise NotImplementedError(f&#34;Method &#39;{method}&#39; not supported for linear solve.&#34;)
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
-        raise NotImplementedError(self)
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+        &#34;&#34;&#34; Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+        # Based on &#34;An Introduction to the Conjugate Gradient Method Without the Agonizing Pain&#34; by Jonathan Richard Shewchuk
+        # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
+        method = f&#34;Φ-Flow CG ({self.name})&#34;
+        y = self.to_float(y)
+        x0 = self.copy(self.to_float(x0), only_mutable=True)
+        batch_size = self.staticshape(y)[0]
+        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - self.linear(lin, x)
+        it_counter = 0
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
+        diverged = self.any(~self.isfinite(x), axis=(1,))
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
+        finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+        while ~self.all(finished):
+            it_counter += 1; iterations += not_finished_1
+            dy = self.linear(lin, dx); function_evaluations += not_finished_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(residual_squared, dx_dy)
+            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+            x += step_size * dx
+            if it_counter % 50 == 0:
+                residual = y - self.linear(lin, x); function_evaluations += 1
+            else:
+                residual = residual - step_size * dy  # in-place subtraction affects convergence
+            residual_squared_old = residual_squared
+            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+            dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
+            diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
+            converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
+            finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+        return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+
+    def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+        &#34;&#34;&#34; Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+        # Based on the variant described in &#34;Methods of Conjugate Gradients for Solving Linear Systems&#34; by Magnus R. Hestenes and Eduard Stiefel
+        # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+        method = f&#34;Φ-Flow CG-adaptive ({self.name})&#34;
+        y = self.to_float(y)
+        x0 = self.copy(self.to_float(x0), only_mutable=True)
+        batch_size = self.staticshape(y)[0]
+        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - self.linear(lin, x)
+        dy = self.linear(lin, dx)
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
+        diverged = self.any(~self.isfinite(x), axis=(1,))
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
+        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+
+        def loop(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
+            continue_1 = self.to_int32(continue_)
+            it_counter += 1
+            iterations += continue_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+            step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
+            x += step_size * dx
+            # if it_counter % 50 == 0:  # Not traceable since Python bool
+            #     residual = y - self.linear(lin, x); function_evaluations += 1
+            # else:
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
+            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+            dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+            dy = self.linear(lin, dx); function_evaluations += continue_1
+            diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
+            converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
+            continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+            return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
+
+        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged =\
+            self.while_loop(loop, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
+        return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+
+    def linear(self, lin, vector):
+        if callable(lin):
+            return lin(vector)
+        elif isinstance(lin, (tuple, list)):
+            for lin_i in lin:
+                lin_shape = self.staticshape(lin_i)
+                assert len(lin_shape) == 2
+            return self.stack([self.matmul(m, v) for m, v in zip(lin, self.unstack(vector))])
+        else:
+            lin_shape = self.staticshape(lin)
+            assert len(lin_shape) == 2, f&#34;A must be a matrix but got shape {lin_shape}&#34;
+            return self.matmul(lin, vector)
 
     def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
         raise NotImplementedError(self)
@@ -1062,10 +1371,13 @@ The output of math operations has the same precision as its inputs.</p>
         Interpolates a regular grid at the specified coordinates.
 
         Args:
-          grid: Tensor
-          spatial_dims: Dimension indices that correspond to coordinate vectors
-          coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
-          extrapolation: Values to use for coordinates outside the grid. One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
+            grid: Tensor
+            spatial_dims: Dimension indices that correspond to coordinate vectors
+            coordinates: Tensor of floating grid indices.
+                The last dimension must match `spatial_dims`.
+                The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+            extrapolation: Values to use for coordinates outside the grid.
+                One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
 
         Returns:
             sampled values with linear interpolation
@@ -1086,7 +1398,7 @@ The output of math operations has the same precision as its inputs.</p>
             batches = [batches]
         return tensor[batches, ...]
 
-    def unstack(self, tensor, axis=0, keepdims=False):
+    def unstack(self, tensor, axis=0, keepdims=False) -&gt; tuple:
         if axis &lt; 0:
             axis += len(tensor.shape)
         if axis &gt;= len(tensor.shape) or axis &lt; 0:
@@ -1137,7 +1449,23 @@ The output of math operations has the same precision as its inputs.</p>
 
     def mod(self, dividend, divisor):
         dividend, divisor = self.auto_cast(dividend, divisor)
-        return dividend % divisor</code></pre>
+        return dividend % divisor
+
+    def and_(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a &amp; b
+
+    def or_(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a | b
+
+    def xor(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a ^ b
+
+    def floordiv(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a // b</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1147,6 +1475,22 @@ The output of math operations has the same precision as its inputs.</p>
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.math.backend.Backend.as_registered"><code class="name">var <span class="ident">as_registered</span> : phi.math.backend._backend.Backend</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def as_registered(self) -&gt; &#39;Backend&#39;:
+    from phi.math.backend import BACKENDS
+    for backend in BACKENDS:
+        if self.name in backend.name:
+            return backend
+    raise RuntimeError(f&#34;Backend &#39;{self}&#39; is not visible.&#34;)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.complex_type"><code class="name">var <span class="ident">complex_type</span> : phi.math.backend._dtype.DType</code></dt>
 <dd>
 <div class="desc"></div>
@@ -1239,6 +1583,20 @@ def precision(self) -&gt; int:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.and_"><code class="name flex">
+<span>def <span class="ident">and_</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def and_(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a &amp; b</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.any"><code class="name flex">
 <span>def <span class="ident">any</span></span>(<span>self, boolean_tensor, axis=None, keepdims=False)</span>
 </code></dt>
@@ -1265,7 +1623,7 @@ If x is a Python number (numbers.Number instance), <code>convert_numbers</code> 
 <dt><strong><code>x</code></strong></dt>
 <dd>tensor-like, e.g. list, tuple, Python number, tensor</dd>
 <dt><strong><code>convert_external</code></strong></dt>
-<dd>if False and <code>x</code> is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)</dd>
+<dd>if False and <code>x</code> is a Python number that is understood by this backend, this method returns the number as-is. This can help prevent type clashes like int32 vs int64. (Default value = True)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>tensor representation of <code>x</code></p></div>
@@ -1283,7 +1641,7 @@ If x is a Python number (numbers.Number instance), <code>convert_numbers</code> 
 
     Args:
       x: tensor-like, e.g. list, tuple, Python number, tensor
-      convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+      convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as-is. This can help prevent type clashes like int32 vs int64. (Default value = True)
 
     Returns:
       tensor representation of `x`
@@ -1379,8 +1737,8 @@ The first dimension of <code>values</code> and <code>indices</code> is the batch
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.boolean_mask"><code class="name flex">
-<span>def <span class="ident">boolean_mask</span></span>(<span>self, x, mask)</span>
+<dt id="phi.math.backend.Backend.block_until_ready"><code class="name flex">
+<span>def <span class="ident">block_until_ready</span></span>(<span>self, values)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1388,7 +1746,34 @@ The first dimension of <code>values</code> and <code>indices</code> is the batch
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def boolean_mask(self, x, mask):
+<pre><code class="python">def block_until_ready(self, values):
+    pass</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.boolean_mask"><code class="name flex">
+<span>def <span class="ident">boolean_mask</span></span>(<span>self, x, mask, axis=0)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>tensor with any number of dimensions</dd>
+<dt><strong><code>mask</code></strong></dt>
+<dd>1D mask tensor</dd>
+<dt><strong><code>axis</code></strong></dt>
+<dd>Axis index &gt;= 0</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def boolean_mask(self, x, mask, axis=0):
+    &#34;&#34;&#34;
+    Args:
+        x: tensor with any number of dimensions
+        mask: 1D mask tensor
+        axis: Axis index &gt;= 0
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -1482,98 +1867,185 @@ This method may be used to register internal calls with the profiler.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient"><code class="name flex">
-<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, A, y, x0, solve_params=&lt;phi.math.backend._optim.LinearSolve object&gt;, callback=None)</span>
+<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, lin, y, x0, rtol, atol, max_iter, trj: bool) ‑> phi.math.backend._backend.SolveResult</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Solve the system of linear equations
-A * x = y</p>
+<div class="desc"><p>Standard conjugate gradient algorithm. Signature matches to <code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">Backend.linear_solve()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+    &#34;&#34;&#34; Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+    # Based on &#34;An Introduction to the Conjugate Gradient Method Without the Agonizing Pain&#34; by Jonathan Richard Shewchuk
+    # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
+    method = f&#34;Φ-Flow CG ({self.name})&#34;
+    y = self.to_float(y)
+    x0 = self.copy(self.to_float(x0), only_mutable=True)
+    batch_size = self.staticshape(y)[0]
+    tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+    x = x0
+    dx = residual = y - self.linear(lin, x)
+    it_counter = 0
+    iterations = self.zeros([batch_size], DType(int, 32))
+    function_evaluations = self.ones([batch_size], DType(int, 32))
+    residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
+    diverged = self.any(~self.isfinite(x), axis=(1,))
+    converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
+    finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+    while ~self.all(finished):
+        it_counter += 1; iterations += not_finished_1
+        dy = self.linear(lin, dx); function_evaluations += not_finished_1
+        dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+        step_size = self.divide_no_nan(residual_squared, dx_dy)
+        step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+        x += step_size * dx
+        if it_counter % 50 == 0:
+            residual = y - self.linear(lin, x); function_evaluations += 1
+        else:
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
+        residual_squared_old = residual_squared
+        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+        dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
+        diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        if trajectory is not None:
+            trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+            x = self.copy(x)
+            iterations = self.copy(iterations)
+        finished = converged | diverged | (iterations &gt;= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.conjugate_gradient_adaptive"><code class="name flex">
+<span>def <span class="ident">conjugate_gradient_adaptive</span></span>(<span>self, lin, y, x0, rtol, atol, max_iter, trj: bool) ‑> phi.math.backend._backend.SolveResult</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Conjugate gradient algorithm with adaptive step size. Signature matches to <code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">Backend.linear_solve()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+    &#34;&#34;&#34; Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+    # Based on the variant described in &#34;Methods of Conjugate Gradients for Solving Linear Systems&#34; by Magnus R. Hestenes and Eduard Stiefel
+    # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+    method = f&#34;Φ-Flow CG-adaptive ({self.name})&#34;
+    y = self.to_float(y)
+    x0 = self.copy(self.to_float(x0), only_mutable=True)
+    batch_size = self.staticshape(y)[0]
+    tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+    x = x0
+    dx = residual = y - self.linear(lin, x)
+    dy = self.linear(lin, dx)
+    iterations = self.zeros([batch_size], DType(int, 32))
+    function_evaluations = self.ones([batch_size], DType(int, 32))
+    residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
+    diverged = self.any(~self.isfinite(x), axis=(1,))
+    converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
+    continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+
+    def loop(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
+        continue_1 = self.to_int32(continue_)
+        it_counter += 1
+        iterations += continue_1
+        dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+        step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+        step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
+        x += step_size * dx
+        # if it_counter % 50 == 0:  # Not traceable since Python bool
+        #     residual = y - self.linear(lin, x); function_evaluations += 1
+        # else:
+        residual = residual - step_size * dy  # in-place subtraction affects convergence
+        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+        dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+        dy = self.linear(lin, dx); function_evaluations += continue_1
+        diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
+        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
+        if trajectory is not None:
+            trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
+            x = self.copy(x)
+            iterations = self.copy(iterations)
+        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+        return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
+
+    _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged =\
+        self.while_loop(loop, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
+    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.conv"><code class="name flex">
+<span>def <span class="ident">conv</span></span>(<span>self, value, kernel, zero_padding=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convolve value with kernel.
+Depending on the tensor rank, the convolution is either 1D (rank=3), 2D (rank=4) or 3D (rank=5).
+Higher dimensions may not be supported.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>A</code></strong></dt>
-<dd>batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.</dd>
-<dt><strong><code>y</code></strong></dt>
-<dd>target result of A * x. 2nd order tensor (batch, vector) or list of vectors.</dd>
-<dt><strong><code>x0</code></strong></dt>
-<dd>initial guess for x. 2nd order tensor (batch, vector) or list of vectors.</dd>
-<dt><strong><code>solve_params</code></strong></dt>
-<dd>Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.</dd>
-<dt><strong><code>callback</code></strong></dt>
-<dd>Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>tensor of shape (batch_size, in_channel, spatial&hellip;)</dd>
+<dt><strong><code>kernel</code></strong></dt>
+<dd>tensor of shape (batch_size or 1, out_channel, in_channel, spatial&hellip;)</dd>
+<dt><strong><code>zero_padding</code></strong></dt>
+<dd>If True, pads the edges of <code>value</code> with zeros so that the result has the same shape as <code>value</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Convolution result as tensor of shape (batch_size, out_channel, spatial&hellip;)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def conv(self, value, kernel, zero_padding=True):
+    &#34;&#34;&#34;
+    Convolve value with kernel.
+    Depending on the tensor rank, the convolution is either 1D (rank=3), 2D (rank=4) or 3D (rank=5).
+    Higher dimensions may not be supported.
+
+    Args:
+        value: tensor of shape (batch_size, in_channel, spatial...)
+        kernel: tensor of shape (batch_size or 1, out_channel, in_channel, spatial...)
+        zero_padding: If True, pads the edges of `value` with zeros so that the result has the same shape as `value`.
+
+    Returns:
+        Convolution result as tensor of shape (batch_size, out_channel, spatial...)
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.coordinates"><code class="name flex">
+<span>def <span class="ident">coordinates</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the coordinates and values of a tensor.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>Sparse tensor</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><code>x</code></dt>
-<dd>the solution as a tensor</dd>
+<dt><code>coordinates</code></dt>
+<dd><code>tuple</code> of tensor holding the coordinate vectors, i.e. (row, col) for matrices.</dd>
+<dt><code>indices</code></dt>
+<dd>Tensor holding the corresponding values</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
-    &#34;&#34;&#34;
-    Solve the system of linear equations
-      A * x = y
-
-    Args:
-      A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
-      y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
-      x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-      solve_params: Determines stop criteria. Stops when norm(residual) &lt;= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-      callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
-
-    Returns:
-        x: the solution as a tensor
-
-    &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.conv"><code class="name flex">
-<span>def <span class="ident">conv</span></span>(<span>self, tensor, kernel, padding='same')</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def conv(self, tensor, kernel, padding=&#39;same&#39;):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.coordinates"><code class="name flex">
-<span>def <span class="ident">coordinates</span></span>(<span>self, tensor, unstack_coordinates=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the coordinates and values of a tensor.</p>
-<p>The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
-In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>tensor</code></strong></dt>
-<dd>dense or sparse tensor</dd>
-<dt><strong><code>unstack_coordinates</code></strong></dt>
-<dd>(Default value = False)</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>indices (tensor or tuple), values</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def coordinates(self, tensor, unstack_coordinates=False):
+<pre><code class="python">def coordinates(self, tensor):
     &#34;&#34;&#34;
     Returns the coordinates and values of a tensor.
-    
-    The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
-    In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
 
     Args:
-      tensor: dense or sparse tensor
-      unstack_coordinates:  (Default value = False)
+        tensor: Sparse tensor
 
     Returns:
-      indices (tensor or tuple), values
+        coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
+        indices: Tensor holding the corresponding values
 
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
@@ -1609,13 +2081,13 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <span>def <span class="ident">custom_gradient</span></span>(<span>self, f: Callable, gradient: Callable) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function based on <code>f</code> that uses a custom spatial_gradient for backprop.</p>
+<div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for backprop.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
-<dd>Forward function. All arguments must be</dd>
+<dd>Forward function.</dd>
 <dt><strong><code>gradient</code></strong></dt>
-<dd>Function for backprop. Will be called as <code>spatial_gradient(*d_out)</code> to compute the spatial_gradient of <code>f</code>.</dd>
+<dd>Function for backprop. Will be called as <code>gradient(*d_out)</code> to compute the gradient of <code>f</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
@@ -1625,11 +2097,11 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 </summary>
 <pre><code class="python">def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
     &#34;&#34;&#34;
-    Creates a function based on `f` that uses a custom spatial_gradient for backprop.
+    Creates a function based on `f` that uses a custom gradient for backprop.
 
     Args:
-        f: Forward function. All arguments must be
-        gradient: Function for backprop. Will be called as `spatial_gradient(*d_out)` to compute the spatial_gradient of `f`.
+        f: Forward function.
+        gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
 
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
@@ -1679,19 +2151,6 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     Returns:
 
     &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.dot"><code class="name flex">
-<span>def <span class="ident">dot</span></span>(<span>self, a, b, axes)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def dot(self, a, b, axes):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -1829,6 +2288,33 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.floordiv"><code class="name flex">
+<span>def <span class="ident">floordiv</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def floordiv(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a // b</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.from_dlpack"><code class="name flex">
+<span>def <span class="ident">from_dlpack</span></span>(<span>self, capsule)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def from_dlpack(self, capsule):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.functional_gradient"><code class="name flex">
 <span>def <span class="ident">functional_gradient</span></span>(<span>self, f, wrt: tuple, get_output: bool)</span>
 </code></dt>
@@ -1839,19 +2325,6 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.gather"><code class="name flex">
-<span>def <span class="ident">gather</span></span>(<span>self, values, indices)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gather(self, values, indices):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -1921,9 +2394,12 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <dt><strong><code>spatial_dims</code></strong></dt>
 <dd>Dimension indices that correspond to coordinate vectors</dd>
 <dt><strong><code>coordinates</code></strong></dt>
-<dd>Tensor of floating grid indices. The last dimension must match <code>spaital_dims</code>. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
+<dd>Tensor of floating grid indices.
+The last dimension must match <code>spatial_dims</code>.
+The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
-<dd>Values to use for coordinates outside the grid. One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')</code>.</dd>
+<dd>Values to use for coordinates outside the grid.
+One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>sampled values with linear interpolation</p></div>
@@ -1936,10 +2412,13 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
     Interpolates a regular grid at the specified coordinates.
 
     Args:
-      grid: Tensor
-      spatial_dims: Dimension indices that correspond to coordinate vectors
-      coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
-      extrapolation: Values to use for coordinates outside the grid. One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
+        grid: Tensor
+        spatial_dims: Dimension indices that correspond to coordinate vectors
+        coordinates: Tensor of floating grid indices.
+            The last dimension must match `spatial_dims`.
+            The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+        extrapolation: Values to use for coordinates outside the grid.
+            One of `(&#39;undefined&#39;, &#39;zeros&#39;, &#39;boundary&#39;, &#39;periodic&#39;, &#39;symmetric&#39;, &#39;reflect&#39;)`.
 
     Returns:
         sampled values with linear interpolation
@@ -1976,7 +2455,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>self, complex)</span>
+<span>def <span class="ident">imag</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1984,7 +2463,7 @@ In case unstack_coordinates=True, the coordiantes are returned as a tuple of ten
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(self, complex):
+<pre><code class="python">def imag(self, x):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2087,6 +2566,110 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
     return NotImplemented</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.jit_compile_grad"><code class="name flex">
+<span>def <span class="ident">jit_compile_grad</span></span>(<span>self, f, wrt: tuple, get_output: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.linear"><code class="name flex">
+<span>def <span class="ident">linear</span></span>(<span>self, lin, vector)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def linear(self, lin, vector):
+    if callable(lin):
+        return lin(vector)
+    elif isinstance(lin, (tuple, list)):
+        for lin_i in lin:
+            lin_shape = self.staticshape(lin_i)
+            assert len(lin_shape) == 2
+        return self.stack([self.matmul(m, v) for m, v in zip(lin, self.unstack(vector))])
+    else:
+        lin_shape = self.staticshape(lin)
+        assert len(lin_shape) == 2, f&#34;A must be a matrix but got shape {lin_shape}&#34;
+        return self.matmul(lin, vector)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.linear_solve"><code class="name flex">
+<span>def <span class="ident">linear_solve</span></span>(<span>self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) ‑> phi.math.backend._backend.SolveResult</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Solve the system of linear equations A · x = y.
+This method need not provide a gradient for the operation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>method</code></strong></dt>
+<dd>Which algorithm to use. One of <code>('auto', 'CG', 'CG-adaptive')</code>.</dd>
+<dt><strong><code>lin</code></strong></dt>
+<dd>Linear operation. One of
+* sparse/dense matrix valid for all instances
+* tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
+* linear function A(x), must be called on all instances in parallel</dd>
+<dt><strong><code>y</code></strong></dt>
+<dd>target result of A * x. 2nd order tensor (batch, vector) or list of vectors.</dd>
+<dt><strong><code>x0</code></strong></dt>
+<dd>Initial guess of size (batch, parameters)</dd>
+<dt><strong><code>rtol</code></strong></dt>
+<dd>Relative tolerance of size (batch,)</dd>
+<dt><strong><code>atol</code></strong></dt>
+<dd>Absolute tolerance of size (batch,)</dd>
+<dt><strong><code>max_iter</code></strong></dt>
+<dd>Maximum number of iterations of size (batch,)</dd>
+<dt><strong><code>trj</code></strong></dt>
+<dd>Whether to record and return the optimization trajectory as a <code>List[SolveResult]</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>result</code></dt>
+<dd><code>SolveResult</code> or <code>List[SolveResult]</code>, depending on <code>trj</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+    &#34;&#34;&#34;
+    Solve the system of linear equations A · x = y.
+    This method need not provide a gradient for the operation.
+
+    Args:
+        method: Which algorithm to use. One of `(&#39;auto&#39;, &#39;CG&#39;, &#39;CG-adaptive&#39;)`.
+        lin: Linear operation. One of
+            * sparse/dense matrix valid for all instances
+            * tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
+            * linear function A(x), must be called on all instances in parallel
+        y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+        x0: Initial guess of size (batch, parameters)
+        rtol: Relative tolerance of size (batch,)
+        atol: Absolute tolerance of size (batch,)
+        max_iter: Maximum number of iterations of size (batch,)
+        trj: Whether to record and return the optimization trajectory as a `List[SolveResult]`.
+
+    Returns:
+        result: `SolveResult` or `List[SolveResult]`, depending on `trj`.
+    &#34;&#34;&#34;
+    if method == &#39;auto&#39;:
+        return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+    elif method == &#39;CG&#39;:
+        return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
+    elif method == &#39;CG-adaptive&#39;:
+        return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+    else:
+        raise NotImplementedError(f&#34;Method &#39;{method}&#39; not supported for linear solve.&#34;)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.linspace"><code class="name flex">
 <span>def <span class="ident">linspace</span></span>(<span>self, start, stop, number)</span>
 </code></dt>
@@ -2105,13 +2688,20 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 </code></dt>
 <dd>
 <div class="desc"><p>Fetches information about all available compute devices this backend can use.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://docs.python.org/3/library/os.html#os.cpu_count"><code>os.cpu_count</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties"><code>torch.cuda.get_device_properties</code></a></li>
+<li>TensorFlow: <code>tensorflow.python.client.device_lib.list_local_devices</code></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/jax.html#jax.devices"><code>jax.devices</code></a></li>
+</ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>device_type</code></strong></dt>
-<dd>(optional) Return only devices of this type, e.g. <code>'GPU'</code>. See <code><a title="phi.math.backend.ComputeDevice.device_type" href="#phi.math.backend.ComputeDevice.device_type">ComputeDevice.device_type</a></code>.</dd>
+<dd>(optional) Return only devices of this type, e.g. <code>'GPU'</code> or <code>'CPU'</code>. See <code><a title="phi.math.backend.ComputeDevice.device_type" href="#phi.math.backend.ComputeDevice.device_type">ComputeDevice.device_type</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Tuple of all currently available devices.</p></div>
+<p><code>list</code> of all currently available devices.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2120,13 +2710,60 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
     &#34;&#34;&#34;
     Fetches information about all available compute devices this backend can use.
 
+    Implementations:
+
+    * NumPy: [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count)
+    * PyTorch: [`torch.cuda.get_device_properties`](https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties)
+    * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
+    * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
+
     Args:
-        device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;`. See `ComputeDevice.device_type`.
+        device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;` or `&#39;CPU&#39;`. See `ComputeDevice.device_type`.
 
     Returns:
-        Tuple of all currently available devices.
+        `list` of all currently available devices.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.log"><code class="name flex">
+<span>def <span class="ident">log</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Natural logarithm</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log(self, x):
+    &#34;&#34;&#34; Natural logarithm &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.log10"><code class="name flex">
+<span>def <span class="ident">log10</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log10(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.log2"><code class="name flex">
+<span>def <span class="ident">log2</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log2(self, x):
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.matmul"><code class="name flex">
@@ -2208,7 +2845,7 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>self, function, x0, solve_params: phi.math.backend._optim.Solve)</span>
+<span>def <span class="ident">minimize</span></span>(<span>self, method: str, f, x0, atol, max_iter, trj: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2216,8 +2853,108 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimize(self, function, x0, solve_params: Solve):
-    raise NotImplementedError(self)</code></pre>
+<pre><code class="python">def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
+    from scipy.optimize import OptimizeResult, minimize
+    from threading import Thread
+
+    assert self.supports(Backend.functional_gradient)
+    assert len(self.staticshape(x0)) == 2  # (batch, parameters)
+    batch_size = self.staticshape(x0)[0]
+    fg = self.functional_gradient(f, [0], get_output=True)
+    method_description = f&#34;SciPy {method} with {self.name}&#34;
+
+    iterations = [0] * batch_size
+    function_evaluations = [0] * batch_size
+    xs = [None] * batch_size
+    final_losses = [None] * batch_size
+    converged = [False] * batch_size
+    diverged = [False] * batch_size
+    messages = [&#34;&#34;] * batch_size
+
+    f_inputs = [None] * batch_size
+    f_b_losses = None
+    f_b_losses_np = None
+    f_grad_np = None
+    f_input_available = Barrier(batch_size + 1)
+    f_output_available = Barrier(batch_size + 1)
+    finished = [False] * batch_size
+    all_finished = False
+    trajectories = [[] for _ in range(batch_size)] if trj else None
+    threads = []
+
+    for b in range(batch_size):
+
+        def b_thread(b=b):
+            recent_b_losses = []
+
+            def b_fun(x: numpy.ndarray):
+                function_evaluations[b] += 1
+                f_inputs[b] = self.as_tensor(x, convert_external=True)
+                f_input_available.wait()
+                f_output_available.wait()
+                recent_b_losses.append(f_b_losses[b])
+                if final_losses[b] is None:  # first evaluation
+                    final_losses[b] = f_b_losses[b]
+                    if trajectories is not None:
+                        trajectories[b].append(SolveResult(method_description, x0[b], f_b_losses[b], 0, 1, False, False, &#34;&#34;))
+                return f_b_losses_np[b], f_grad_np[b]
+
+            def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
+                iterations[b] += 1
+                loss = min(recent_b_losses)
+                recent_b_losses.clear()
+                final_losses[b] = loss
+                if trajectories is not None:
+                    trajectories[b].append(SolveResult(method_description, x, loss, iterations[b], function_evaluations[b], False, False, &#34;&#34;))
+
+            res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={&#39;maxiter&#39;: max_iter[b]}, callback=callback)
+            assert isinstance(res, OptimizeResult)
+            # res.nit, res.nfev
+            xs[b] = res.x
+            converged[b] = res.success
+            diverged[b] = res.status not in (0, 1)  # 0=success
+            messages[b] = res.message
+            finished[b] = True
+            while not all_finished:
+                f_input_available.wait()
+                f_output_available.wait()
+
+        b_thread = Thread(target=b_thread)
+        threads.append(b_thread)
+        b_thread.start()
+
+    while True:
+        f_input_available.wait()
+        if all(finished):
+            all_finished = True
+            f_output_available.wait()
+            break
+        _, f_b_losses, f_grad = fg(self.stack(f_inputs))
+        f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
+        f_grad_np = self.numpy(f_grad).astype(numpy.float64)
+        f_output_available.wait()
+
+    for b_thread in threads:
+        b_thread.join()  # make sure threads exit correctly
+
+    if trj:
+        max_trajectory_length = max([len(t) for t in trajectories])
+        last_points = [SolveResult(method_description, xs[b], final_losses[b], iterations[b], function_evaluations[b], converged[b], diverged[b], &#34;&#34;) for b in range(batch_size)]
+        trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
+        trajectory = []
+        for states in zip(*trajectories):
+            x = self.stack([self.to_float(state.x) for state in states])
+            residual = self.stack([state.residual for state in states])
+            iterations = [state.iterations for state in states]
+            function_evaluations = [state.function_evaluations for state in states]
+            converged = [state.converged for state in states]
+            diverged = [state.diverged for state in states]
+            trajectory.append(SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages))
+        return trajectory
+    else:
+        x = self.stack(xs)
+        residual = self.stack(final_losses)
+        return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.minimum"><code class="name flex">
@@ -2281,23 +3018,21 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 <div class="desc"><h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd>&nbsp;</dd>
+<dd>Tensor with only spatial dimensions</dd>
 </dl>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p>non-zero multi-indices as tensor of shape (nnz, vector)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def nonzero(self, values):
     &#34;&#34;&#34;
-    
-
     Args:
-      values: 
+        values: Tensor with only spatial dimensions
 
     Returns:
-      
-
+        non-zero multi-indices as tensor of shape (nnz, vector)
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -2378,6 +3113,20 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.or_"><code class="name flex">
+<span>def <span class="ident">or_</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def or_(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a | b</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.pad"><code class="name flex">
 <span>def <span class="ident">pad</span></span>(<span>self, value, pad_width, mode: str = 'constant', constant_values=0)</span>
 </code></dt>
@@ -2438,6 +3187,19 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     return base ** exp</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.prefers_channels_last"><code class="name flex">
+<span>def <span class="ident">prefers_channels_last</span></span>(<span>self) ‑> bool</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def prefers_channels_last(self) -&gt; bool:
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.prod"><code class="name flex">
 <span>def <span class="ident">prod</span></span>(<span>self, value, axis=None)</span>
 </code></dt>
@@ -2480,7 +3242,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.range"><code class="name flex">
-<span>def <span class="ident">range</span></span>(<span>self, start, limit=None, delta=1, dtype: phi.math.backend._dtype.DType = None)</span>
+<span>def <span class="ident">range</span></span>(<span>self, start, limit=None, delta=1, dtype: phi.math.backend._dtype.DType = int32)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2488,12 +3250,12 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def range(self, start, limit=None, delta=1, dtype: DType = None):
+<pre><code class="python">def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>self, complex)</span>
+<span>def <span class="ident">real</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2501,7 +3263,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(self, complex):
+<pre><code class="python">def real(self, x):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2545,45 +3307,54 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.scatter"><code class="name flex">
-<span>def <span class="ident">scatter</span></span>(<span>self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined')</span>
+<span>def <span class="ident">scatter</span></span>(<span>self, base_grid, indices, values, mode: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>This method expects the first dimension of indices and values to be the batch dimension.
-The batch dimension need not be specified in the indices array.</p>
+<div class="desc"><p>Depending on <code>mode</code>, performs scatter_update or scatter_add.</p>
 <h2 id="args">Args</h2>
 <dl>
+<dt><strong><code>base_grid</code></strong></dt>
+<dd>Tensor into which scatter values are inserted at indices. Tensor of shape (batch_size, spatial&hellip;, channels)</dd>
 <dt><strong><code>indices</code></strong></dt>
-<dd>n-dimensional indices corresponding to values</dd>
+<dd>Tensor of shape (batch_size or 1, update_count, index_vector)</dd>
 <dt><strong><code>values</code></strong></dt>
-<dd>values to scatter at indices</dd>
-<dt><strong><code>shape</code></strong></dt>
-<dd>spatial shape of the result tensor, 1D int array</dd>
-<dt><strong><code>duplicates_handling</code></strong></dt>
-<dd>one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')</dd>
-<dt><strong><code>outside_handling</code></strong></dt>
-<dd>one of ('discard', 'clamp', 'undefined') (Default value = 'undefined')</dd>
+<dd>Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)</dd>
+<dt><strong><code>mode</code></strong></dt>
+<dd>One of ('update', 'add')</dd>
 </dl>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p>Copy of base_grid with values at <code>indices</code> updated by <code>values</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scatter(self, indices, values, shape, duplicates_handling=&#39;undefined&#39;, outside_handling=&#39;undefined&#39;):
+<pre><code class="python">def scatter(self, base_grid, indices, values, mode: str):
     &#34;&#34;&#34;
-    This method expects the first dimension of indices and values to be the batch dimension.
-    The batch dimension need not be specified in the indices array.
+    Depending on `mode`, performs scatter_update or scatter_add.
 
     Args:
-      indices: n-dimensional indices corresponding to values
-      values: values to scatter at indices
-      shape: spatial shape of the result tensor, 1D int array
-      duplicates_handling: one of (&#39;undefined&#39;, &#39;add&#39;, &#39;mean&#39;, &#39;any&#39;) (Default value = &#39;undefined&#39;)
-      outside_handling: one of (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;) (Default value = &#39;undefined&#39;)
+        base_grid: Tensor into which scatter values are inserted at indices. Tensor of shape (batch_size, spatial..., channels)
+        indices: Tensor of shape (batch_size or 1, update_count, index_vector)
+        values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
+        mode: One of (&#39;update&#39;, &#39;add&#39;)
 
     Returns:
-
+        Copy of base_grid with values at `indices` updated by `values`.
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.seed"><code class="name flex">
+<span>def <span class="ident">seed</span></span>(<span>self, seed: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def seed(self, seed: int):
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.set_default_device"><code class="name flex">
@@ -2659,7 +3430,7 @@ The batch dimension need not be specified in the indices array.</p>
 <span>def <span class="ident">sparse_tensor</span></span>(<span>self, indices, values, shape)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Optional features. If overridden,</p>
+<div class="desc"><p>Optional features.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>indices</code></strong></dt>
@@ -2676,7 +3447,7 @@ The batch dimension need not be specified in the indices array.</p>
 </summary>
 <pre><code class="python">def sparse_tensor(self, indices, values, shape):
     &#34;&#34;&#34;
-    Optional features. If overridden,
+    Optional features.
 
     Args:
       indices: tuple/list matching the dimensions (pair for matrix)
@@ -2827,6 +3598,33 @@ Features correspond to a method of this backend that must be implemented if the 
     return impl_fun is not backend_fun</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.tan"><code class="name flex">
+<span>def <span class="ident">tan</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tan(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.tensordot"><code class="name flex">
+<span>def <span class="ident">tensordot</span></span>(<span>self, a, a_axes: tuple, b, b_axes: tuple)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Multiply-sum-reduce a_axes of a with b_axes of b.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+    &#34;&#34;&#34; Multiply-sum-reduce a_axes of a with b_axes of b. &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.tile"><code class="name flex">
 <span>def <span class="ident">tile</span></span>(<span>self, value, multiples)</span>
 </code></dt>
@@ -2875,6 +3673,19 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
     return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.to_dlpack"><code class="name flex">
+<span>def <span class="ident">to_dlpack</span></span>(<span>self, tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_dlpack(self, tensor):
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.to_float"><code class="name flex">
 <span>def <span class="ident">to_float</span></span>(<span>self, x)</span>
 </code></dt>
@@ -2915,8 +3726,8 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
     return self.cast(x, self.float_type)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.to_int"><code class="name flex">
-<span>def <span class="ident">to_int</span></span>(<span>self, x, int64=False)</span>
+<dt id="phi.math.backend.Backend.to_int32"><code class="name flex">
+<span>def <span class="ident">to_int32</span></span>(<span>self, x)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2924,8 +3735,21 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int(self, x, int64=False):
-    return self.cast(x, DType(int, 64 if int64 else 32))</code></pre>
+<pre><code class="python">def to_int32(self, x):
+    return self.cast(x, DType(int, 32))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.to_int64"><code class="name flex">
+<span>def <span class="ident">to_int64</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_int64(self, x):
+    return self.cast(x, DType(int, 64))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.transpose"><code class="name flex">
@@ -2942,7 +3766,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, tensor, axis=0, keepdims=False)</span>
+<span>def <span class="ident">unstack</span></span>(<span>self, tensor, axis=0, keepdims=False) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2950,7 +3774,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(self, tensor, axis=0, keepdims=False):
+<pre><code class="python">def unstack(self, tensor, axis=0, keepdims=False) -&gt; tuple:
     if axis &lt; 0:
         axis += len(tensor.shape)
     if axis &gt;= len(tensor.shape) or axis &lt; 0:
@@ -2992,7 +3816,48 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.while_loop"><code class="name flex">
-<span>def <span class="ident">while_loop</span></span>(<span>self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True, swap_memory=False, name=None, maximum_iterations=None)</span>
+<span>def <span class="ident">while_loop</span></span>(<span>self, loop: Callable, values: tuple)</span>
+</code></dt>
+<dd>
+<div class="desc"><pre><code class="language-python">while any(values[0]):
+    values = loop(*values)
+return values
+</code></pre>
+<p>This operation does not support backpropagation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>loop</code></strong></dt>
+<dd>Loop function, must return a <code>tuple</code> with entries equal to <code>values</code> in shape and data type.</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Initial values of loop variables.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Loop variables upon loop completion.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def while_loop(self, loop: Callable, values: tuple):
+    &#34;&#34;&#34;
+    ```python
+    while any(values[0]):
+        values = loop(*values)
+    return values
+    ```
+
+    This operation does not support backpropagation.
+
+    Args:
+        loop: Loop function, must return a `tuple` with entries equal to `values` in shape and data type.
+        values: Initial values of loop variables.
+    Returns:
+        Loop variables upon loop completion.
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.xor"><code class="name flex">
+<span>def <span class="ident">xor</span></span>(<span>self, a, b)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3000,9 +3865,9 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-               swap_memory=False, name=None, maximum_iterations=None):
-    raise NotImplementedError(self)</code></pre>
+<pre><code class="python">def xor(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a ^ b</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.zeros"><code class="name flex">
@@ -3035,7 +3900,6 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </dd>
 <dt id="phi.math.backend.ComputeDevice"><code class="flex name class">
 <span>class <span class="ident">ComputeDevice</span></span>
-<span>(</span><span>backend: <a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a>, name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A physical device that can be selected to perform backend computations.</p></div>
@@ -3104,160 +3968,8 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </dd>
 </dl>
 </dd>
-<dt id="phi.math.backend.DType"><code class="flex name class">
-<span>class <span class="ident">DType</span></span>
-<span>(</span><span>kind: type, bits: int = 8)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Data type for tensors.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>kind</code></strong></dt>
-<dd>Python type, one of <code>(bool, int, float, complex, str)</code></dd>
-<dt><strong><code>bits</code></strong></dt>
-<dd>number of bits, typically a multiple of 8.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class DType:
-
-    def __init__(self, kind: type, bits: int = 8):
-        &#34;&#34;&#34;
-        Data type for tensors.
-
-        Args:
-          kind: Python type, one of `(bool, int, float, complex, str)`
-          bits: number of bits, typically a multiple of 8.
-        &#34;&#34;&#34;
-        assert kind in (bool, int, float, complex, str)
-        if kind is bool:
-            assert bits == 8
-        else:
-            assert isinstance(bits, int)
-        self.kind = kind
-        &#34;&#34;&#34; Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex) &#34;&#34;&#34;
-        self.bits = bits
-        &#34;&#34;&#34; Number of bits used to store a single value of this type. See `DType.itemsize`. &#34;&#34;&#34;
-
-    @property
-    def precision(self):
-        &#34;&#34;&#34; Floating point precision. Only defined if `kind in (float, complex)`. For complex values, returns half of `DType.bits`. &#34;&#34;&#34;
-        if self.kind == float:
-            return self.bits
-        if self.kind == complex:
-            return self.bits // 2
-        else:
-            return None
-
-    @property
-    def itemsize(self):
-        &#34;&#34;&#34; Number of bytes used to storea single value of this type. See `DType.bits`. &#34;&#34;&#34;
-        assert self.bits % 8 == 0
-        return self.bits // 8
-
-    def __eq__(self, other):
-        return isinstance(other, DType) and self.kind == other.kind and self.bits == other.bits
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __hash__(self):
-        return hash(self.kind) + hash(self.bits)
-
-    def __repr__(self):
-        return f&#34;{self.kind.__name__}{self.bits}&#34;</code></pre>
-</details>
-<h3>Instance variables</h3>
-<dl>
-<dt id="phi.math.backend.DType.bits"><code class="name">var <span class="ident">bits</span></code></dt>
-<dd>
-<div class="desc"><p>Number of bits used to store a single value of this type. See <code><a title="phi.math.backend.DType.itemsize" href="#phi.math.backend.DType.itemsize">DType.itemsize</a></code>.</p></div>
-</dd>
-<dt id="phi.math.backend.DType.itemsize"><code class="name">var <span class="ident">itemsize</span></code></dt>
-<dd>
-<div class="desc"><p>Number of bytes used to storea single value of this type. See <code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">DType.bits</a></code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def itemsize(self):
-    &#34;&#34;&#34; Number of bytes used to storea single value of this type. See `DType.bits`. &#34;&#34;&#34;
-    assert self.bits % 8 == 0
-    return self.bits // 8</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.DType.kind"><code class="name">var <span class="ident">kind</span></code></dt>
-<dd>
-<div class="desc"><p>Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex)</p></div>
-</dd>
-<dt id="phi.math.backend.DType.precision"><code class="name">var <span class="ident">precision</span></code></dt>
-<dd>
-<div class="desc"><p>Floating point precision. Only defined if <code>kind in (float, complex)</code>. For complex values, returns half of <code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">DType.bits</a></code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def precision(self):
-    &#34;&#34;&#34; Floating point precision. Only defined if `kind in (float, complex)`. For complex values, returns half of `DType.bits`. &#34;&#34;&#34;
-    if self.kind == float:
-        return self.bits
-    if self.kind == complex:
-        return self.bits // 2
-    else:
-        return None</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="phi.math.backend.LinearSolve"><code class="flex name class">
-<span>class <span class="ident">LinearSolve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance=1e-05, absolute_tolerance=0, max_iterations=1000, bake='sparse', gradient_solve: <a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a> = None, **solver_arguments)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of linear equations.</p>
-<p>Extends <code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code> by the property <code>bake</code> which determines whether and how the equations are stored.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class LinearSolve(Solve):
-    &#34;&#34;&#34;
-    Specifies parameters and stopping criteria for solving a system of linear equations.
-
-    Extends `Solve` by the property `bake` which determines whether and how the equations are stored.
-    &#34;&#34;&#34;
-
-    def __init__(self,
-                 solver: str = None,
-                 relative_tolerance=1e-5,
-                 absolute_tolerance=0,
-                 max_iterations=1000,
-                 bake=&#39;sparse&#39;,
-                 gradient_solve: &#39;Solve&#39; or None = None,
-                 **solver_arguments):
-        Solve.__init__(self, solver, relative_tolerance, absolute_tolerance, max_iterations, gradient_solve, **solver_arguments)
-        self.bake = bake
-        &#34;&#34;&#34; Baking method: None to use original function, `&#39;sparse&#39;` to create a sparse matrix. &#34;&#34;&#34;</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>phi.math.backend._optim.Solve</li>
-</ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="phi.math.backend.LinearSolve.bake"><code class="name">var <span class="ident">bake</span></code></dt>
-<dd>
-<div class="desc"><p>Baking method: None to use original function, <code>'sparse'</code> to create a sparse matrix.</p></div>
-</dd>
-</dl>
-</dd>
 <dt id="phi.math.backend.NoBackendFound"><code class="flex name class">
 <span>class <span class="ident">NoBackendFound</span></span>
-<span>(</span><span>msg)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Thrown by <code><a title="phi.math.backend.choose_backend" href="#phi.math.backend.choose_backend">choose_backend()</a></code> if no backend can handle the given values.</p></div>
@@ -3281,7 +3993,6 @@ def precision(self):
 </dd>
 <dt id="phi.math.backend.Profile"><code class="flex name class">
 <span>class <span class="ident">Profile</span></span>
-<span>(</span><span>trace: bool, backends: tuple, subtract_trace_time: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stores information about calls to backends and their timing.</p>
@@ -3638,110 +4349,6 @@ def retime(self):
 </dd>
 </dl>
 </dd>
-<dt id="phi.math.backend.Solve"><code class="flex name class">
-<span>class <span class="ident">Solve</span></span>
-<span>(</span><span>solver: str = None, relative_tolerance: float = 1e-05, absolute_tolerance: float = 0, max_iterations: int = 1000, gradient_solve: <a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a> = None, **solver_arguments)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Specifies parameters and stopping criteria for solving a system of equations or minimization problem.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class Solve:
-    &#34;&#34;&#34;
-    Specifies parameters and stopping criteria for solving a system of equations or minimization problem.
-    &#34;&#34;&#34;
-
-    def __init__(self,
-                 solver: str = None,
-                 relative_tolerance: float = 1e-5,
-                 absolute_tolerance: float = 0,
-                 max_iterations: int = 1000,
-                 gradient_solve: &#39;Solve&#39; or None = None,
-                 **solver_arguments):
-        self.solver = solver
-        &#34;&#34;&#34; (Optional) Name of method to use. &#34;&#34;&#34;
-        self.relative_tolerance: float = relative_tolerance
-        &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
-        self.absolute_tolerance: float = absolute_tolerance
-        &#34;&#34;&#34; The final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. &#34;&#34;&#34;
-        self.max_iterations: int = max_iterations
-        &#34;&#34;&#34; Maximum number of iterations to perform before terminating with `converged=False`. &#34;&#34;&#34;
-        self._gradient_solve = gradient_solve
-        if gradient_solve is not None:
-            assert gradient_solve.solver == solver
-        self.solver_arguments: dict = solver_arguments
-        &#34;&#34;&#34; Additional solver-dependent arguments. &#34;&#34;&#34;
-        self.result: SolveResult = None
-        &#34;&#34;&#34; `SolveResult` storing information about the found solution and the performed solving process. This variable is assigned during the solve. &#34;&#34;&#34;
-
-    @property
-    def gradient_solve(self) -&gt; &#39;Solve&#39;:
-        &#34;&#34;&#34;
-        Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
-
-        If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
-        Gradient solve information will be stored in `gradient_solve.result`.
-        &#34;&#34;&#34;
-        if self._gradient_solve is None:
-            self._gradient_solve = copy(self)
-        return self._gradient_solve</code></pre>
-</details>
-<h3>Subclasses</h3>
-<ul class="hlist">
-<li>phi.math.backend._optim.LinearSolve</li>
-</ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="phi.math.backend.Solve.absolute_tolerance"><code class="name">var <span class="ident">absolute_tolerance</span></code></dt>
-<dd>
-<div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
-</dd>
-<dt id="phi.math.backend.Solve.gradient_solve"><code class="name">var <span class="ident">gradient_solve</span> : phi.math.backend._optim.Solve</code></dt>
-<dd>
-<div class="desc"><p>Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.</p>
-<p>If this property is initialized with <code>None</code>, its first evaluation will create a duplicate <code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code> object for the spatial_gradient solve.
-Gradient solve information will be stored in <code>gradient_solve.result</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def gradient_solve(self) -&gt; &#39;Solve&#39;:
-    &#34;&#34;&#34;
-    Parameters to use for the spatial_gradient pass when an implicit spatial_gradient is computed. The implicit spatial_gradient must use the same solver.
-
-    If this property is initialized with `None`, its first evaluation will create a duplicate `Solve` object for the spatial_gradient solve.
-    Gradient solve information will be stored in `gradient_solve.result`.
-    &#34;&#34;&#34;
-    if self._gradient_solve is None:
-        self._gradient_solve = copy(self)
-    return self._gradient_solve</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Solve.max_iterations"><code class="name">var <span class="ident">max_iterations</span></code></dt>
-<dd>
-<div class="desc"><p>Maximum number of iterations to perform before terminating with <code>converged=False</code>.</p></div>
-</dd>
-<dt id="phi.math.backend.Solve.relative_tolerance"><code class="name">var <span class="ident">relative_tolerance</span></code></dt>
-<dd>
-<div class="desc"><p>The final tolerance is <code>max(relative_tolerance * norm(y), absolute_tolerance)</code>.</p></div>
-</dd>
-<dt id="phi.math.backend.Solve.result"><code class="name">var <span class="ident">result</span></code></dt>
-<dd>
-<div class="desc"><p><code>SolveResult</code> storing information about the found solution and the performed solving process. This variable is assigned during the solve.</p></div>
-</dd>
-<dt id="phi.math.backend.Solve.solver"><code class="name">var <span class="ident">solver</span></code></dt>
-<dd>
-<div class="desc"><p>(Optional) Name of method to use.</p></div>
-</dd>
-<dt id="phi.math.backend.Solve.solver_arguments"><code class="name">var <span class="ident">solver_arguments</span></code></dt>
-<dd>
-<div class="desc"><p>Additional solver-dependent arguments.</p></div>
-</dd>
-</dl>
-</dd>
 </dl>
 </section>
 </article>
@@ -3758,16 +4365,15 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="">
-<li><code><a title="phi.math.backend.BACKENDS" href="#phi.math.backend.BACKENDS">BACKENDS</a></code></li>
-<li><code><a title="phi.math.backend.NUMPY_BACKEND" href="#phi.math.backend.NUMPY_BACKEND">NUMPY_BACKEND</a></code></li>
-<li><code><a title="phi.math.backend.SCIPY_BACKEND" href="#phi.math.backend.SCIPY_BACKEND">SCIPY_BACKEND</a></code></li>
+<li><code><a title="phi.math.backend.NUMPY" href="#phi.math.backend.NUMPY">NUMPY</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.math.backend.choose_backend" href="#phi.math.backend.choose_backend">choose_backend</a></code></li>
+<li><code><a title="phi.math.backend.context_backend" href="#phi.math.backend.context_backend">context_backend</a></code></li>
+<li><code><a title="phi.math.backend.convert" href="#phi.math.backend.convert">convert</a></code></li>
 <li><code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend</a></code></li>
-<li><code><a title="phi.math.backend.from_numpy_dtype" href="#phi.math.backend.from_numpy_dtype">from_numpy_dtype</a></code></li>
 <li><code><a title="phi.math.backend.get_current_profile" href="#phi.math.backend.get_current_profile">get_current_profile</a></code></li>
 <li><code><a title="phi.math.backend.get_precision" href="#phi.math.backend.get_precision">get_precision</a></code></li>
 <li><code><a title="phi.math.backend.precision" href="#phi.math.backend.precision">precision</a></code></li>
@@ -3775,22 +4381,24 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.profile_function" href="#phi.math.backend.profile_function">profile_function</a></code></li>
 <li><code><a title="phi.math.backend.set_global_default_backend" href="#phi.math.backend.set_global_default_backend">set_global_default_backend</a></code></li>
 <li><code><a title="phi.math.backend.set_global_precision" href="#phi.math.backend.set_global_precision">set_global_precision</a></code></li>
-<li><code><a title="phi.math.backend.to_numpy_dtype" href="#phi.math.backend.to_numpy_dtype">to_numpy_dtype</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
 <h4><code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="phi.math.backend.Backend.abs" href="#phi.math.backend.Backend.abs">abs</a></code></li>
 <li><code><a title="phi.math.backend.Backend.add" href="#phi.math.backend.Backend.add">add</a></code></li>
 <li><code><a title="phi.math.backend.Backend.all" href="#phi.math.backend.Backend.all">all</a></code></li>
+<li><code><a title="phi.math.backend.Backend.and_" href="#phi.math.backend.Backend.and_">and_</a></code></li>
 <li><code><a title="phi.math.backend.Backend.any" href="#phi.math.backend.Backend.any">any</a></code></li>
+<li><code><a title="phi.math.backend.Backend.as_registered" href="#phi.math.backend.Backend.as_registered">as_registered</a></code></li>
 <li><code><a title="phi.math.backend.Backend.as_tensor" href="#phi.math.backend.Backend.as_tensor">as_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.auto_cast" href="#phi.math.backend.Backend.auto_cast">auto_cast</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batch_gather" href="#phi.math.backend.Backend.batch_gather">batch_gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batched_gather_nd" href="#phi.math.backend.Backend.batched_gather_nd">batched_gather_nd</a></code></li>
+<li><code><a title="phi.math.backend.Backend.block_until_ready" href="#phi.math.backend.Backend.block_until_ready">block_until_ready</a></code></li>
 <li><code><a title="phi.math.backend.Backend.boolean_mask" href="#phi.math.backend.Backend.boolean_mask">boolean_mask</a></code></li>
 <li><code><a title="phi.math.backend.Backend.call" href="#phi.math.backend.Backend.call">call</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cast" href="#phi.math.backend.Backend.cast">cast</a></code></li>
@@ -3800,6 +4408,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.complex_type" href="#phi.math.backend.Backend.complex_type">complex_type</a></code></li>
 <li><code><a title="phi.math.backend.Backend.concat" href="#phi.math.backend.Backend.concat">concat</a></code></li>
 <li><code><a title="phi.math.backend.Backend.conjugate_gradient" href="#phi.math.backend.Backend.conjugate_gradient">conjugate_gradient</a></code></li>
+<li><code><a title="phi.math.backend.Backend.conjugate_gradient_adaptive" href="#phi.math.backend.Backend.conjugate_gradient_adaptive">conjugate_gradient_adaptive</a></code></li>
 <li><code><a title="phi.math.backend.Backend.conv" href="#phi.math.backend.Backend.conv">conv</a></code></li>
 <li><code><a title="phi.math.backend.Backend.coordinates" href="#phi.math.backend.Backend.coordinates">coordinates</a></code></li>
 <li><code><a title="phi.math.backend.Backend.copy" href="#phi.math.backend.Backend.copy">copy</a></code></li>
@@ -3807,7 +4416,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.custom_gradient" href="#phi.math.backend.Backend.custom_gradient">custom_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.div" href="#phi.math.backend.Backend.div">div</a></code></li>
 <li><code><a title="phi.math.backend.Backend.divide_no_nan" href="#phi.math.backend.Backend.divide_no_nan">divide_no_nan</a></code></li>
-<li><code><a title="phi.math.backend.Backend.dot" href="#phi.math.backend.Backend.dot">dot</a></code></li>
 <li><code><a title="phi.math.backend.Backend.dtype" href="#phi.math.backend.Backend.dtype">dtype</a></code></li>
 <li><code><a title="phi.math.backend.Backend.einsum" href="#phi.math.backend.Backend.einsum">einsum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.equal" href="#phi.math.backend.Backend.equal">equal</a></code></li>
@@ -3818,8 +4426,9 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.flip" href="#phi.math.backend.Backend.flip">flip</a></code></li>
 <li><code><a title="phi.math.backend.Backend.float_type" href="#phi.math.backend.Backend.float_type">float_type</a></code></li>
 <li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.floordiv" href="#phi.math.backend.Backend.floordiv">floordiv</a></code></li>
+<li><code><a title="phi.math.backend.Backend.from_dlpack" href="#phi.math.backend.Backend.from_dlpack">from_dlpack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.functional_gradient" href="#phi.math.backend.Backend.functional_gradient">functional_gradient</a></code></li>
-<li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_or_equal" href="#phi.math.backend.Backend.greater_or_equal">greater_or_equal</a></code></li>
@@ -3831,8 +4440,14 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.isfinite" href="#phi.math.backend.Backend.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.math.backend.Backend.jit_compile" href="#phi.math.backend.Backend.jit_compile">jit_compile</a></code></li>
+<li><code><a title="phi.math.backend.Backend.jit_compile_grad" href="#phi.math.backend.Backend.jit_compile_grad">jit_compile_grad</a></code></li>
+<li><code><a title="phi.math.backend.Backend.linear" href="#phi.math.backend.Backend.linear">linear</a></code></li>
+<li><code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">linear_solve</a></code></li>
 <li><code><a title="phi.math.backend.Backend.linspace" href="#phi.math.backend.Backend.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.backend.Backend.list_devices" href="#phi.math.backend.Backend.list_devices">list_devices</a></code></li>
+<li><code><a title="phi.math.backend.Backend.log" href="#phi.math.backend.Backend.log">log</a></code></li>
+<li><code><a title="phi.math.backend.Backend.log10" href="#phi.math.backend.Backend.log10">log10</a></code></li>
+<li><code><a title="phi.math.backend.Backend.log2" href="#phi.math.backend.Backend.log2">log2</a></code></li>
 <li><code><a title="phi.math.backend.Backend.matmul" href="#phi.math.backend.Backend.matmul">matmul</a></code></li>
 <li><code><a title="phi.math.backend.Backend.max" href="#phi.math.backend.Backend.max">max</a></code></li>
 <li><code><a title="phi.math.backend.Backend.maximum" href="#phi.math.backend.Backend.maximum">maximum</a></code></li>
@@ -3850,9 +4465,11 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.numpy" href="#phi.math.backend.Backend.numpy">numpy</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ones" href="#phi.math.backend.Backend.ones">ones</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ones_like" href="#phi.math.backend.Backend.ones_like">ones_like</a></code></li>
+<li><code><a title="phi.math.backend.Backend.or_" href="#phi.math.backend.Backend.or_">or_</a></code></li>
 <li><code><a title="phi.math.backend.Backend.pad" href="#phi.math.backend.Backend.pad">pad</a></code></li>
 <li><code><a title="phi.math.backend.Backend.pow" href="#phi.math.backend.Backend.pow">pow</a></code></li>
 <li><code><a title="phi.math.backend.Backend.precision" href="#phi.math.backend.Backend.precision">precision</a></code></li>
+<li><code><a title="phi.math.backend.Backend.prefers_channels_last" href="#phi.math.backend.Backend.prefers_channels_last">prefers_channels_last</a></code></li>
 <li><code><a title="phi.math.backend.Backend.prod" href="#phi.math.backend.Backend.prod">prod</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_normal" href="#phi.math.backend.Backend.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
@@ -3862,6 +4479,7 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.reshape" href="#phi.math.backend.Backend.reshape">reshape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.round" href="#phi.math.backend.Backend.round">round</a></code></li>
 <li><code><a title="phi.math.backend.Backend.scatter" href="#phi.math.backend.Backend.scatter">scatter</a></code></li>
+<li><code><a title="phi.math.backend.Backend.seed" href="#phi.math.backend.Backend.seed">seed</a></code></li>
 <li><code><a title="phi.math.backend.Backend.set_default_device" href="#phi.math.backend.Backend.set_default_device">set_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.shape" href="#phi.math.backend.Backend.shape">shape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sign" href="#phi.math.backend.Backend.sign">sign</a></code></li>
@@ -3876,15 +4494,20 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Backend.sub" href="#phi.math.backend.Backend.sub">sub</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sum" href="#phi.math.backend.Backend.sum">sum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.supports" href="#phi.math.backend.Backend.supports">supports</a></code></li>
+<li><code><a title="phi.math.backend.Backend.tan" href="#phi.math.backend.Backend.tan">tan</a></code></li>
+<li><code><a title="phi.math.backend.Backend.tensordot" href="#phi.math.backend.Backend.tensordot">tensordot</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tile" href="#phi.math.backend.Backend.tile">tile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_complex" href="#phi.math.backend.Backend.to_complex">to_complex</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_dlpack" href="#phi.math.backend.Backend.to_dlpack">to_dlpack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_float" href="#phi.math.backend.Backend.to_float">to_float</a></code></li>
-<li><code><a title="phi.math.backend.Backend.to_int" href="#phi.math.backend.Backend.to_int">to_int</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_int32" href="#phi.math.backend.Backend.to_int32">to_int32</a></code></li>
+<li><code><a title="phi.math.backend.Backend.to_int64" href="#phi.math.backend.Backend.to_int64">to_int64</a></code></li>
 <li><code><a title="phi.math.backend.Backend.transpose" href="#phi.math.backend.Backend.transpose">transpose</a></code></li>
 <li><code><a title="phi.math.backend.Backend.unstack" href="#phi.math.backend.Backend.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.variable" href="#phi.math.backend.Backend.variable">variable</a></code></li>
 <li><code><a title="phi.math.backend.Backend.where" href="#phi.math.backend.Backend.where">where</a></code></li>
 <li><code><a title="phi.math.backend.Backend.while_loop" href="#phi.math.backend.Backend.while_loop">while_loop</a></code></li>
+<li><code><a title="phi.math.backend.Backend.xor" href="#phi.math.backend.Backend.xor">xor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.zeros" href="#phi.math.backend.Backend.zeros">zeros</a></code></li>
 <li><code><a title="phi.math.backend.Backend.zeros_like" href="#phi.math.backend.Backend.zeros_like">zeros_like</a></code></li>
 </ul>
@@ -3902,21 +4525,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 </ul>
 </li>
 <li>
-<h4><code><a title="phi.math.backend.DType" href="#phi.math.backend.DType">DType</a></code></h4>
-<ul class="">
-<li><code><a title="phi.math.backend.DType.bits" href="#phi.math.backend.DType.bits">bits</a></code></li>
-<li><code><a title="phi.math.backend.DType.itemsize" href="#phi.math.backend.DType.itemsize">itemsize</a></code></li>
-<li><code><a title="phi.math.backend.DType.kind" href="#phi.math.backend.DType.kind">kind</a></code></li>
-<li><code><a title="phi.math.backend.DType.precision" href="#phi.math.backend.DType.precision">precision</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="phi.math.backend.LinearSolve" href="#phi.math.backend.LinearSolve">LinearSolve</a></code></h4>
-<ul class="">
-<li><code><a title="phi.math.backend.LinearSolve.bake" href="#phi.math.backend.LinearSolve.bake">bake</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="phi.math.backend.NoBackendFound" href="#phi.math.backend.NoBackendFound">NoBackendFound</a></code></h4>
 </li>
 <li>
@@ -3928,18 +4536,6 @@ def gradient_solve(self) -&gt; &#39;Solve&#39;:
 <li><code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Profile.retime">retime</a></code></li>
 <li><code><a title="phi.math.backend.Profile.save" href="#phi.math.backend.Profile.save">save</a></code></li>
 <li><code><a title="phi.math.backend.Profile.save_trace" href="#phi.math.backend.Profile.save_trace">save_trace</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="phi.math.backend.Solve" href="#phi.math.backend.Solve">Solve</a></code></h4>
-<ul class="two-column">
-<li><code><a title="phi.math.backend.Solve.absolute_tolerance" href="#phi.math.backend.Solve.absolute_tolerance">absolute_tolerance</a></code></li>
-<li><code><a title="phi.math.backend.Solve.gradient_solve" href="#phi.math.backend.Solve.gradient_solve">gradient_solve</a></code></li>
-<li><code><a title="phi.math.backend.Solve.max_iterations" href="#phi.math.backend.Solve.max_iterations">max_iterations</a></code></li>
-<li><code><a title="phi.math.backend.Solve.relative_tolerance" href="#phi.math.backend.Solve.relative_tolerance">relative_tolerance</a></code></li>
-<li><code><a title="phi.math.backend.Solve.result" href="#phi.math.backend.Solve.result">result</a></code></li>
-<li><code><a title="phi.math.backend.Solve.solver" href="#phi.math.backend.Solve.solver">solver</a></code></li>
-<li><code><a title="phi.math.backend.Solve.solver_arguments" href="#phi.math.backend.Solve.solver_arguments">solver_arguments</a></code></li>
 </ul>
 </li>
 </ul>

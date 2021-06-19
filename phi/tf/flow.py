@@ -9,11 +9,11 @@ The following TensorFlow modules are included: `tensorflow` / `tf`, `keras`, `la
 Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
 New tensors created via `phi.math` functions will be backed by TensorFlow tensors.
 
-See `phi.flow`, `phi.torch.flow`.
+See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 """
 
 from phi.flow import *
-from ._tf_backend import TF_BACKEND
+from . import TENSORFLOW
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -21,7 +21,7 @@ from tensorflow.keras import layers
 tf = tensorflow
 
 if not backend.context_backend():
-    backend.set_global_default_backend(TF_BACKEND)
+    backend.set_global_default_backend(TENSORFLOW)
 else:
     import warnings
     warnings.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")

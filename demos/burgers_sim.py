@@ -4,9 +4,8 @@ Simple advection-diffusion equation.
 from phi.flow import *
 
 
-DOMAIN = Domain(x=64, y=64, boundaries=PERIODIC, bounds=Box[0:100, 0:100])
-velocity = DOMAIN.vector_grid(Noise(vector=2)) * 2
+velocity = CenteredGrid(Noise(vector=2), extrapolation.PERIODIC, x=64, y=64, bounds=Box[0:200, 0:100]) * 2
 
-for _ in ModuleViewer(framerate=10).range():
+for _ in view(play=False, framerate=10).range():
     velocity = diffuse.explicit(velocity, 0.1, dt=1)
     velocity = advect.semi_lagrangian(velocity, velocity, dt=1)

@@ -4,11 +4,12 @@ import numpy
 
 import phi
 from phi import math
-from phi.field import StaggeredGrid, CenteredGrid
+from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask
 from phi.geom import Box
 from phi import field
+from phi.math import Solve, extrapolation, collection, channel, spatial
 from phi.math.backend import Backend
-from phi.physics import Domain
+from phi.physics._boundaries import Domain
 
 
 BACKENDS = phi.detect_backends()
@@ -19,11 +20,11 @@ class TestFieldMath(TestCase):
     def test_gradient(self):
         domain = Domain(x=4, y=3)
         phi = domain.grid() * (1, 2)
-        grad = field.spatial_gradient(phi, stack_dim='spatial_gradient')
+        grad = field.spatial_gradient(phi, stack_dim=channel('spatial_gradient'))
         self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
 
     def test_divergence_centered(self):
-        v = field.CenteredGrid(math.ones(x=3, y=3), Box[0:1, 0:1], math.extrapolation.ZERO) * (1, 0)  # flow to the right
+        v = CenteredGrid(1, extrapolation.ZERO, bounds=Box[0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
         div = field.divergence(v).values
         math.assert_close(div.y[0], (1.5, 0, -1.5))
 
@@ -47,6 +48,9 @@ class TestFieldMath(TestCase):
             loss = field.l2_loss(pred)
             return loss
 
+        grad = field.functional_gradient(f, get_output=False)
+        fgrad = field.functional_gradient(f, (0, 1), get_output=True)
+
         domain = Domain(x=4, y=3)
         x = domain.staggered_grid(1)
         y = domain.vector_grid(1)
@@ -54,9 +58,9 @@ class TestFieldMath(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.gradients):
                 with backend:
-                    dx, = field.functional_gradient(f)(x, y)
+                    dx, = grad(x, y)
                     self.assertIsInstance(dx, StaggeredGrid)
-                    loss, dx, dy = field.functional_gradient(f, (0, 1), get_output=True)(x, y)
+                    loss, (dx, dy) = fgrad(x, y)
                     self.assertIsInstance(loss, math.Tensor)
                     self.assertIsInstance(dx, StaggeredGrid)
                     self.assertIsInstance(dy, CenteredGrid)
@@ -70,7 +74,7 @@ class TestFieldMath(TestCase):
     def test_downsample_staggered_2d(self):
         grid = Domain(x=32, y=40).staggered_grid(1)
         downsampled = field.downsample2x(grid)
-        self.assertEqual(math.shape(x=16, y=20, vector=2).alphabetically(), downsampled.shape.alphabetically())
+        self.assertEqual((spatial(x=16, y=20) & channel(vector=2)).alphabetically(), downsampled.shape.alphabetically())
 
     def test_abs(self):
         grid = Domain(x=4, y=3).staggered_grid(-1)
@@ -119,3 +123,36 @@ class TestFieldMath(TestCase):
     def test_cos(self):
         grid = Domain(x=4, y=3).staggered_grid(0)
         field.assert_close(field.cos(grid), 1)
+
+    def test_convert_grid(self):
+        grid = Domain(x=4, y=3).scalar_grid(0)
+        for backend in BACKENDS:
+            converted = field.convert(grid, backend)
+            self.assertEqual(converted.values.default_backend, backend)
+
+    def test_convert_point_cloud(self):
+        points = Domain(x=4, y=3).points(math.random_uniform(collection(points=4) & channel(vector=2))).with_values(math.random_normal(collection(points=4) & channel(vector=2)))
+        for backend in BACKENDS:
+            converted = field.convert(points, backend)
+            self.assertEqual(converted.values.default_backend, backend)
+            self.assertEqual(converted.elements.center.default_backend, backend)
+            self.assertEqual(converted.elements.radius.default_backend, backend)
+
+    def test_center_of_mass(self):
+        density = Domain(x=4, y=3).scalar_grid(HardGeometryMask(Box[0:1, 1:2]))
+        math.assert_close(field.center_of_mass(density), (0.5, 1.5))
+        density = Domain(x=4, y=3).scalar_grid(HardGeometryMask(Box[:, 2:3]))
+        math.assert_close(field.center_of_mass(density), (2, 2.5))
+
+    def test_staggered_curl_2d(self):
+        pot = Domain(x=4, y=3).scalar_grid(HardGeometryMask(Box[1:2, 1:2]))
+        curl = field.curl(pot, type=StaggeredGrid)
+        math.assert_close(field.mean(curl), 0)
+        math.assert_close(curl.values.vector[0].x[1], (1, -1))
+        math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))
+
+    def test_integrate_all(self):
+        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:10, 0:10])
+        math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y'))
+        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:1, 0:1])
+        math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y') / 100)

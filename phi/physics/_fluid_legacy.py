@@ -2,10 +2,12 @@ import warnings
 
 from phi import math, struct, field
 from phi.field import CenteredGrid, StaggeredGrid
-from . import advect, Obstacle
+from . import advect
+from ._boundaries import Obstacle
 from ._effect import Gravity, effect_applied, gravity_tensor, FieldEffect
 from ._physics import Physics, StateDependency, State
 from .fluid import make_incompressible
+from ..math import SolveInfo
 
 
 @struct.definition()
@@ -102,13 +104,14 @@ class IncompressibleFlow(Physics):
         gravity = gravity_tensor(gravity, fluid.rank)
         velocity = fluid.velocity
         density = fluid.density
-        pressure, iterations, div = None, None, None
+        result: SolveInfo = None
+        div = field.divergence(velocity)
         if self.make_input_divfree:
-            velocity, pressure, iterations, div = make_incompressible(velocity, fluid.domain, obstacles)
+            velocity, result = make_incompressible(velocity, obstacles)
         # --- Advection ---
         density = advect.semi_lagrangian(density, velocity, dt=dt)
         velocity = advected_velocity = advect.semi_lagrangian(velocity, velocity, dt=dt)
-        if self.conserve_density and fluid.domain.boundaries['accessible_extrapolation'] == math.extrapolation.ZERO:  # solid boundary
+        if self.conserve_density and fluid.domain.boundaries['accessible'] == math.extrapolation.ZERO:  # solid boundary
             density = field.normalize(density, fluid.density)
         # --- Effects ---
         for effect in density_effects:
@@ -117,12 +120,12 @@ class IncompressibleFlow(Physics):
             velocity = effect_applied(effect, velocity, dt)
         velocity += (density * -gravity * fluid.buoyancy_factor * dt).at(velocity)
         divergent_velocity = velocity
-        # --- Pressure solve ---
+        # --- Pressure solve_linear ---
         if self.make_output_divfree:
-            velocity, pressure, iterations, div = make_incompressible(velocity, fluid.domain, obstacles)
+            velocity, result = make_incompressible(velocity, obstacles)
         solve_info = {
-            'pressure': pressure,
-            'iterations': iterations,
+            'pressure': result.x,
+            'iterations': result.iterations,
             'divergence': div,
             'advected_velocity': advected_velocity,
             'divergent_velocity': divergent_velocity,

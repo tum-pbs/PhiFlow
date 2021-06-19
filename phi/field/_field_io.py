@@ -3,7 +3,7 @@ import numpy as np
 from phi import math, geom
 from ._field import SampledField
 from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor
-from ._field_math import batch_stack
+from ._field_math import stack
 from ..math._tensors import NativeTensor
 
 
@@ -26,7 +26,7 @@ def write(field: SampledField, file: str or math.Tensor):
     """
     if isinstance(file, str):
         write_single_field(field, file)
-    if isinstance(file, math.Tensor):
+    elif isinstance(file, math.Tensor):
         if file.rank == 0:
             write_single_field(field, file.native())
         else:
@@ -41,9 +41,9 @@ def write(field: SampledField, file: str or math.Tensor):
 
 def write_single_field(field: SampledField, file: str):
     if isinstance(field, StaggeredGrid):
-        data = field.staggered_tensor().numpy()
+        data = field.staggered_tensor().numpy(field.values.shape.names)
     else:
-        data = field.values.numpy()
+        data = field.values.numpy(field.values.shape.names)
     dim_names = field.values.shape.names
     if isinstance(field, Grid):
         lower = field.box.lower.numpy()
@@ -75,10 +75,10 @@ def read(file: str or math.Tensor, convert_to_backend=True) -> SampledField:
         if file.rank == 0:
             return read_single_field(file.native(), convert_to_backend=convert_to_backend)
         else:
-            dim = file.shape.names[0]
-            files = file.unstack(dim)
+            dim = file.shape[0]
+            files = file.unstack(dim.name)
             fields = [read(file_, convert_to_backend=convert_to_backend) for file_ in files]
-            return batch_stack(*fields, dim=dim)
+            return stack(fields, dim)
     else:
         raise ValueError(file)
 
@@ -96,8 +96,8 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
         upper = math.wrap(stored['upper'])
         extrapolation = math.extrapolation.from_dict(stored['extrapolation'][()])
         if ftype == 'CenteredGrid':
-            return CenteredGrid(data, geom.Box(lower, upper), extrapolation)
+            return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extrapolation)
         elif ftype == 'StaggeredGrid':
-            data_ = unstack_staggered_tensor(data)
-            return StaggeredGrid(data_, geom.Box(lower, upper), extrapolation)
+            data_ = unstack_staggered_tensor(data, extrapolation)
+            return StaggeredGrid(data_, bounds=geom.Box(lower, upper), extrapolation=extrapolation)
     raise NotImplementedError(f"{ftype} not implemented ({implemented_types})")

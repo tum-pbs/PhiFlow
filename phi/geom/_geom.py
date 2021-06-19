@@ -1,21 +1,22 @@
-import copy
+from numbers import Number
 from typing import Dict
 
 import numpy as np
 
 from phi import math
-from phi.math import Tensor, Shape, spatial_shape, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
+from phi.math import Tensor, Shape, spatial, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
+from phi.math._tensors import variable_attributes, copy_with
 
 
 class Geometry:
     """
     Abstract base class for N-dimensional shapes.
-    
+
     Main implementing classes:
-    
+
     * Sphere
-    * box family: box (generator), Box, Cuboid, AbstractBox
-    
+    * box family: box (generator), Box, Cuboid, BaseBox
+
     All geometry objects support batching.
     Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
     All batch dimensions are listed in Geometry.shape.
@@ -26,12 +27,20 @@ class Geometry:
         """
         Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self)
 
     @property
     def shape(self) -> Shape:
         """
         Specifies the number of copies of the geometry as batch and spatial dimensions.
+        """
+        raise NotImplementedError()
+
+    @property
+    def volume(self) -> Tensor:
+        """
+        Volume of the geometry as `phi.math.Tensor`.
+        The result retains all batch dimensions while collection dimensions are summed over.
         """
         raise NotImplementedError()
 
@@ -60,7 +69,7 @@ class Geometry:
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor: 
+          location: Tensor:
 
         Returns:
           bool tensor of shape (*location.shape[:-1], 1).
@@ -72,14 +81,14 @@ class Geometry:
         """
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
-        
+
         The exact distance metric used depends on the geometry.
         The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
         The distance metric is differentiable and its gradients are bounded at every point in space.
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor: 
+          location: Tensor:
 
         Returns:
           float tensor of shape (*location.shape[:-1], 1).
@@ -87,23 +96,25 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_fraction_inside(self, other_geometry: 'Geometry') -> Tensor:
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
         """
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
         Close to the surface of this geometry, the fraction filled is differentiable w.r.t. the location and size of `other_geometry`.
-        
+
         To call this method on batches of geometries of same shape, pass a batched Geometry instance.
         The result tensor will match the batch shape of `other_geometry`.
-        
+
         The result may only be accurate in special cases.
         The given geometries may be approximated as spheres or boxes using `bounding_radius()` and `bounding_half_extent()`.
-        
+
         The default implementation of this method approximates other_geometry as a Sphere and computes the fraction using `approximate_signed_distance()`.
 
         Args:
-          other_geometry: batched) Geometry instance
-          other_geometry: Geometry: 
+            other_geometry: `Geometry` or geometry batch for which to compute the overlap with `self`.
+            balance: Mid-level between 0 and 1, default 0.5.
+                This value is returned when exactly half of `other_geometry` lies inside `self`.
+                `0.5 < balance <= 1` makes `self` seem larger while `0 <= balance < 0.5`makes `self` seem smaller.
 
         Returns:
           fraction of cell volume lying inside the geometry. float tensor of shape (other_geometry.batch_shape, 1).
@@ -113,7 +124,7 @@ class Geometry:
         radius = other_geometry.bounding_radius()
         location = other_geometry.center
         distance = self.approximate_signed_distance(location)
-        inside_fraction = 0.5 - distance / radius
+        inside_fraction = balance - distance / radius
         inside_fraction = math.clip(inside_fraction, 0, 1)
         return inside_fraction
 
@@ -135,7 +146,7 @@ class Geometry:
         """
         Returns the radius of a Sphere object that fully encloses this geometry.
         The sphere is centered at the center of this geometry.
-        
+
         :return: radius of type float
 
         Args:
@@ -149,10 +160,10 @@ class Geometry:
         """
         The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
         Each component is non-negative.
-        
+
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
-        
+
         :return: float vector
 
         Args:
@@ -168,7 +179,7 @@ class Geometry:
 
         Args:
           delta: direction vector
-          delta: Tensor: 
+          delta: Tensor:
 
         Returns:
           Geometry: shifted geometry
@@ -194,7 +205,47 @@ class Geometry:
         return _InvertedGeometry(self)
 
     def __eq__(self, other):
-        raise NotImplementedError(self.__class__)
+        """
+        Slow equality check.
+        Unlike `==`, this method compares all tensor elements to check whether they are equal.
+        Use `==` for a faster check which only checks whether the referenced tensors are the same.
+
+        See Also:
+            `shallow_equals()`
+        """
+        if self is other:
+            return True
+        if not isinstance(other, type(self)):
+            return False
+        if self.shape != other.shape:
+            return False
+        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
+        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
+        for c in c1.keys():
+            if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
+                return False
+        return True
+
+    def shallow_equals(self, other):
+        """
+        Quick equality check.
+        May return `False` even if `other == self`.
+        However, if `True` is returned, the geometries are guaranteed to be equal.
+
+        The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
+        """
+        if self is other:
+            return True
+        if not isinstance(other, type(self)):
+            return False
+        if self.shape != other.shape:
+            return False
+        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
+        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
+        for c in c1.keys():
+            if c1[c] is not c2[c]:
+                return False
+        return True
 
     def __ne__(self, other):
         return not self == other
@@ -202,14 +253,14 @@ class Geometry:
     def __hash__(self):
         raise NotImplementedError(self.__class__)
 
-    def __characteristics__(self) -> Dict[str, math.Tensor]:
-        raise NotImplementedError(self.__class__)
+    def __repr__(self):
+        return f"{self.__class__.__name__}{self.shape}"
 
-    def __with__(self, **attributes):
-        copied = copy.copy(self)
-        for name, val in attributes.items():
-            setattr(copied, name, val)
-        return copied
+    def __getitem__(self, item: dict):
+        assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
+        item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
+        attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
+        return copy_with(self, **attrs)
 
 
 class _InvertedGeometry(Geometry):
@@ -303,6 +354,50 @@ class _NoGeometry(Geometry):
 NO_GEOMETRY = _NoGeometry()
 
 
+class Point(Geometry):
+
+    def __init__(self, location: math.Tensor):
+        self._location = location
+
+    @property
+    def center(self) -> Tensor:
+        return self._location
+
+    @property
+    def shape(self) -> Shape:
+        return self._location.shape.without('vector')
+
+    def unstack(self, dimension: str) -> tuple:
+        return tuple(Point(loc) for loc in self._location.unstack(dimension))
+
+    def lies_inside(self, location: Tensor) -> Tensor:
+        return math.wrap(False)
+
+    def approximate_signed_distance(self, location: Tensor) -> Tensor:
+        return math.vec_abs(location - self._location)
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+        return positions
+
+    def bounding_radius(self) -> Tensor:
+        return math.zeros()
+
+    def bounding_half_extent(self) -> Tensor:
+        return math.zeros()
+
+    def shifted(self, delta: Tensor) -> 'Geometry':
+        return Point(self._location + delta)
+
+    def rotated(self, angle) -> 'Geometry':
+        return self
+
+    def __hash__(self):
+        return hash(self._location)
+
+    def _characteristics_(self) -> Dict[str, math.Tensor]:
+        return {'location': self._location}
+
+
 def assert_same_rank(rank1, rank2, error_message):
     rank1_, rank2_ = _rank(rank1), _rank(rank2)
     if rank1_ is not None and rank2_ is not None:
@@ -325,11 +420,10 @@ def _rank(rank):
     return None if rank == 0 else rank
 
 
-def _fill_spatial_with_singleton(shape):
-    if shape.spatial.rank == shape.vector:
+def _fill_spatial_with_singleton(shape: Shape):
+    if shape.spatial.rank == shape.get_size('vector'):
         return shape
     else:
         assert shape.spatial.rank == 0, shape
-        names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.vector) for i in range(shape.vector)]
-        return shape.combined(spatial_shape([1] * shape.vector, names=names))
-
+        names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.get_size('vector')) for i in range(shape.get_size('vector'))]
+        return shape & spatial(**{n: 1 for n in names})

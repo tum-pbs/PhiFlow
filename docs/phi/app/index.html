@@ -35,8 +35,9 @@ See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_In
 &#34;&#34;&#34;
 from ._value import EditableValue, EditableFloat, EditableInt, EditableBool, EditableString
 from ._app import App
-from ._module_app import ModuleViewer
-from ._display import show
+from ._viewer import Viewer
+from ._display import show, view
+from ._matplotlib import plot, animate, plot_scalars
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
 </details>
@@ -48,8 +49,179 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="phi.app.animate"><code class="name flex">
+<span>def <span class="ident">animate</span></span>(<span>fields: phi.field._field.SampledField, colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) ‑> matplotlib.animation.Animation</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a Matplotlib animation from <code>fields</code>.
+<code>fields</code> may be a sequence of frames or a single <code>SampledField</code> instances with a <code>frames</code> dimension.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>fields</code></strong></dt>
+<dd><code>SampledField</code> with <code>frames</code> dimension or <code>tuple</code> or <code>list</code> of <code>SampledField</code>.</dd>
+<dt><strong><code>colorbar</code></strong></dt>
+<dd>Whether to show a color bar</dd>
+<dt><strong><code>figsize</code></strong></dt>
+<dd>Figure size</dd>
+<dt><strong><code>same_scale</code></strong></dt>
+<dd>Whether to use the same scale, both temporally and for all sub-figures.</dd>
+<dt><strong><code>repeat</code></strong></dt>
+<dd>Whether the video should loop.</dd>
+<dt><strong><code>interval</code></strong></dt>
+<dd>Frame time in milliseconds.</dd>
+<dt><strong><code>**plt_args</code></strong></dt>
+<dd>Further plotting arguments, see <code><a title="phi.app.plot" href="#phi.app.plot">plot()</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Matplotlib <code>Animation</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def animate(fields: SampledField or tuple or list,
+            colorbar=False, figsize=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -&gt; animation.Animation:
+    &#34;&#34;&#34;
+    Creates a Matplotlib animation from `fields`.
+    `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
+
+    Args:
+        fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
+        colorbar: Whether to show a color bar
+        figsize: Figure size
+        same_scale: Whether to use the same scale, both temporally and for all sub-figures.
+        repeat: Whether the video should loop.
+        interval: Frame time in milliseconds.
+        **plt_args: Further plotting arguments, see `plot()`.
+
+    Returns:
+        Matplotlib `Animation`
+    &#34;&#34;&#34;
+    if isinstance(fields, SampledField):
+        assert &#39;frames&#39; in fields.shape, &#34;When passing a single Field, it must have a dimension with name &#39;frames&#39;.&#34;
+        fields = fields.unstack(&#39;frames&#39;)
+    fields = list(fields)
+    field = fields[0]
+    batch_size, b_values = _batch(field)
+    fig, axes = plt.subplots(1, batch_size, figsize=figsize)
+    axes = axes if isinstance(axes, np.ndarray) else [axes]
+
+    def func(frame: int):
+        field = fields[frame]
+        batch_size, b_values = _batch(field)
+        for axis in axes:
+            axis.clear()
+        _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
+
+    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields), interval=interval)
+    plt.close(fig)
+    return ani</code></pre>
+</details>
+</dd>
+<dt id="phi.app.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>field: phi.field._field.SampledField, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(field: SampledField or tuple or list, title=False, colorbar=False, figsize=(12, 5), same_scale=True, **plt_args):
+    if isinstance(field, (tuple, list)):
+        field = batch_stack(*field, dim=&#39;fields&#39;)
+    batch_size, b_values = _batch(field)
+    fig, axes = plt.subplots(1, batch_size, figsize=figsize)
+    axes = axes if isinstance(axes, np.ndarray) else [axes]
+    if title:
+        for b in range(batch_size):
+            if isinstance(title, str):
+                sub_title = title
+            elif title is True:
+                sub_title = f&#34;{b} of {field.shape.batch}&#34;
+            elif isinstance(title, (tuple, list)):
+                sub_title = title[b]
+            else:
+                sub_title = None
+            if sub_title is not None:
+                axes[b].set_title(sub_title)
+    _plot(field, b_values, axes, batch_size, colorbar, same_scale, **plt_args)
+    plt.tight_layout()
+    return fig, axes</code></pre>
+</details>
+</dd>
+<dt id="phi.app.plot_scalars"><code class="name flex">
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', smooth=1, smooth_alpha=0.4, figsize=(8, 6), transform: Callable = None, tight_layout=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
+                 names: str or tuple or list or math.Tensor = None,
+                 reduce: str or tuple or list or math.Shape = &#39;names&#39;,
+                 smooth=1,
+                 smooth_alpha=0.4,
+                 figsize=(8, 6),
+                 transform: Callable = None,
+                 tight_layout=True):
+    scene = Scene.at(scene)
+    additional_reduce = ()
+    if names is None:
+        first_path = next(iter(math.flatten(scene.paths)))
+        names = [_str(n) for n in os.listdir(first_path)]
+        names = [n[4:-4] for n in names if n.endswith(&#39;.txt&#39;) and n.startswith(&#39;log_&#39;)]
+        names = math.wrap(names, &#39;names&#39;)
+        additional_reduce = [&#39;names&#39;]
+    elif isinstance(names, str):
+        names = math.wrap(names)
+    elif isinstance(names, (tuple, list)):
+        names = math.wrap(names, &#39;names&#39;)
+    else:
+        assert isinstance(names, math.Tensor), f&#34;Invalid argument &#39;names&#39;: {type(names)}&#34;
+
+    shape = (scene.shape &amp; names.shape)
+    batch = shape.without(reduce).without(additional_reduce)
+
+    cycle = list(plt.rcParams[&#39;axes.prop_cycle&#39;].by_key()[&#39;color&#39;])
+    fig, axes = plt.subplots(1, batch.volume, figsize=figsize)
+    axes = axes if isinstance(axes, numpy.ndarray) else [axes]
+
+    for b, axis in zip(batch.meshgrid(), axes):
+        assert isinstance(axis, plt.Axes)
+        names_equal = names[b].rank == 0
+        paths_equal = scene.paths[b].rank == 0
+        if names_equal:
+            axis.set_title(display_name(str(names[b])))
+        elif paths_equal:
+            axis.set_title(os.path.basename(str(scene.paths[b])))
+
+        def single_plot(name, path, i):
+            curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
+            name = display_name(name)
+            if transform:
+                curve = transform(curve)
+            if names_equal:
+                label = os.path.basename(path)
+            elif paths_equal:
+                label = name
+            else:
+                label = f&#34;{os.path.basename(path)} - {name}&#34;
+            axis.plot(curve, color=cycle[i], alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(curve, n=smooth), color=cycle[i], linewidth=2, label=label)
+            return name
+
+        math.map(single_plot, names[b], scene.paths[b], math.range_tensor(shape.after_gather(b)))
+        axis.legend()
+    # Final touches
+    if tight_layout:
+        plt.tight_layout()
+    return fig</code></pre>
+</details>
+</dd>
 <dt id="phi.app.show"><code class="name flex">
-<span>def <span class="ident">show</span></span>(<span>app: phi.app._app.App = None, autorun=False, gui: phi.app._display.AppDisplay = None, **config)</span>
+<span>def <span class="ident">show</span></span>(<span>app: phi.app._app.App = None, play=True, gui: phi.app._display.Gui = None, keep_alive=True, **config)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Launch the registered user interface (web interface by default).</p>
@@ -58,26 +230,26 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>autorun</code></strong></dt>
-<dd>If true, invokes <code><a title="phi.app.App.play" href="#phi.app.App.play">App.play()</a></code>. The default value is False unless "autorun" is passed as a command line argument.</dd>
+<dt><strong><code>app</code></strong></dt>
+<dd>App or None:
+(Default value = None)</dd>
+<dt><strong><code>play</code></strong></dt>
+<dd>If true, invokes <code>App.play()</code>. The default value is False unless "autorun" is passed as a command line argument.</dd>
 <dt><strong><code>app</code></strong></dt>
 <dd>optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.</dd>
 <dt><strong><code>gui</code></strong></dt>
 <dd>(optional) class of GUI to use</dd>
 <dt><strong><code>config</code></strong></dt>
-<dd>additional GUI configuration parameters.</dd>
-</dl>
-<p>For a full list of parameters, see <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a>
-app: App or None:
-(Default value = None)
-**config: </p>
-<h2 id="returns">Returns</h2>
-<p>reference to the GUI, depending on the implementation. For the web interface this may be the web server instance.</p></div>
+<dd>additional GUI configuration parameters.
+For a full list of parameters, see <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></dd>
+<dt><strong><code>keep_alive</code></strong></dt>
+<dd>Whether the GUI keeps the app alive. If <code>False</code>, the program will exit when the main script is finished.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show(app: App or None = None, autorun=AUTORUN, gui: AppDisplay = None, **config):
+<pre><code class="python">def show(app: App or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
     &#34;&#34;&#34;
     Launch the registered user interface (web interface by default).
     
@@ -88,53 +260,100 @@ app: App or None:
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
 
     Args:
-      autorun: If true, invokes `App.play()`. The default value is False unless &#34;autorun&#34; is passed as a command line argument.
+      app: App or None:  (Default value = None)
+      play: If true, invokes `App.play()`. The default value is False unless &#34;autorun&#34; is passed as a command line argument.
       app: optional) the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
       gui: (optional) class of GUI to use
       config: additional GUI configuration parameters.
-    For a full list of parameters, see https://tum-pbs.github.io/PhiFlow/Web_Interface.html
-      app: App or None:  (Default value = None)
-      **config: 
+        For a full list of parameters, see https://tum-pbs.github.io/PhiFlow/Web_Interface.html
+      keep_alive: Whether the GUI keeps the app alive. If `False`, the program will exit when the main script is finished.
+    &#34;&#34;&#34;
+    assert isinstance(app, App), f&#34;show() first argument must be an App instance but got {app}&#34;
+    app.prepare()
+    # --- Setup Gui ---
+    gui = default_gui() if gui is None else get_gui(gui)
+    gui.configure(config)
+    gui.setup(app)
+    if play:
+        gui.auto_play()
+    if gui.asynchronous:
+        display_thread = Thread(target=lambda: gui.show(True), name=&#34;ModuleViewer_show&#34;, daemon=not keep_alive)
+        display_thread.start()
+    else:
+        gui.show(True)  # may be blocking call</code></pre>
+</details>
+</dd>
+<dt id="phi.app.view"><code class="name flex">
+<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = None, controls=None, keep_alive=True, **config) ‑> phi.app._viewer.Viewer</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Show <code>fields</code> in a graphical user interface.</p>
+<p><code>fields</code> may contain instances of <code>Field</code> or variable names of top-level variables (main module or Jupyter notebook).
+During loops, e.g. <code><a title="phi.app.view" href="#phi.app.view">view()</a>.range()</code>, the variable status is tracked and the GUI is updated.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*fields</code></strong></dt>
+<dd>(Optional) Contents to be displayed. Either variable names or values.
+For field instances, all variables referencing the value will be shown.
+If not provided, the user namespace is searched for Field variables.</dd>
+<dt><strong><code>play</code></strong></dt>
+<dd>Whether to immediately start executing loops.</dd>
+<dt><strong><code>gui</code></strong></dt>
+<dd>(Optional) Name of GUI as <code>str</code> or GUI class.</dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>Name to display in GUI and use for the output directory if <code>scene=True</code></dd>
+<dt><strong><code>framerate</code></strong></dt>
+<dd>Target frame rate in Hz. Play will not step faster than the framerate. <code>None</code> for unlimited frame rate.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.app.Viewer" href="#phi.app.Viewer">Viewer</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def view(*fields: str or SampledField,
+         play: bool = True,
+         gui=None,
+         name: str = None,
+         description: str = None,
+         scene: bool or Scene = None,
+         controls=None,
+         keep_alive=True,
+         **config) -&gt; Viewer:
+    &#34;&#34;&#34;
+    Show `fields` in a graphical user interface.
+
+    `fields` may contain instances of `Field` or variable names of top-level variables (main module or Jupyter notebook).
+    During loops, e.g. `view().range()`, the variable status is tracked and the GUI is updated.
+
+    Args:
+        *fields: (Optional) Contents to be displayed. Either variable names or values.
+            For field instances, all variables referencing the value will be shown.
+            If not provided, the user namespace is searched for Field variables.
+        play: Whether to immediately start executing loops.
+        gui: (Optional) Name of GUI as `str` or GUI class.
+        name: Name to display in GUI and use for the output directory if `scene=True`
+        framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
 
     Returns:
-      reference to the GUI, depending on the implementation. For the web interface this may be the web server instance.
-
+        `Viewer`
     &#34;&#34;&#34;
-    frame_records = inspect.stack()[1]
-    calling_module = inspect.getmodulename(frame_records[1])
-    python_file = os.path.basename(sys.argv[0])[:-3]
-
-    if app is None:
-        fitting_models = _find_subclasses_in_module(App, calling_module, [])
-        assert len(fitting_models) == 1, &#39;show() called without model but detected %d possible classes: %s&#39; % (len(fitting_models), fitting_models)
-        app = fitting_models[0]
-
-    if inspect.isclass(app) and issubclass(app, App):
-        app = app()
-
-    called_from_main = inspect.getmodule(app.__class__).__name__ == &#39;__main__&#39; or calling_module == python_file
-
-    app.prepare()
-
-    display = None
-    gui = gui or DEFAULT_DISPLAY_CLASS
-    if gui is not None:
-        display = gui(app)
-        display.configure(config)
-        display.setup()
-    # --- Autorun ---
-    if autorun:
-        if display is None:
-            app.info(&#39;Starting execution because autorun is enabled.&#39;)
-            app.play()  # asynchronous call
-        else:
-            display.play()
-    # --- Show ---
-    if display is None:
-        warnings.warn(&#39;show() has no effect because no display is available. To use the web interface, run $ pip install phiflow&#39;)
-        return app
+    user_namespace = default_user_namespace()
+    variables = _default_field_variables(user_namespace, fields)
+    if scene is None:
+        scene = not (&#39;google.colab&#39; in sys.modules or &#39;ipykernel&#39; in sys.modules)
+    if scene is False:
+        scene = None
+    elif scene is True:
+        scene = Scene.create(os.path.join(&#34;~&#34;, &#34;phi&#34;, _slugify_filename(name or user_namespace.get_reference())))
     else:
-        return display.show(called_from_main)  # blocking call</code></pre>
+        assert isinstance(scene, Scene)
+    name = name or user_namespace.get_title()
+    description = description or user_namespace.get_description()
+    gui = default_gui() if gui is None else get_gui(gui)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls)
+    show(viewer, play=play, gui=gui, keep_alive=keep_alive, **config)
+    return viewer</code></pre>
 </details>
 </dd>
 </dl>
@@ -144,54 +363,65 @@ app: App or None:
 <dl>
 <dt id="phi.app.App"><code class="flex name class">
 <span>class <span class="ident">App</span></span>
-<span>(</span><span>name=None, subtitle='', fields=None, stride=None, base_dir='~/phi/data/', summary=None, custom_properties=None, target_scene=None, objects_to_save=None, framerate=None, dt=1.0)</span>
+<span>(</span><span>name: str = None, subtitle: str = '', scene: phi.field._scene.Scene = None, log_performance=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Main class for defining an application that can be displayed in the user interface.</p>
 <p>To display data, call App.add_field().
 All fields need to be registered before the app is prepared or shown.</p>
 <p>To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.</p>
-<p>See the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></p></div>
+<p>See the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong></dt>
+<dd>Display name of the app.</dd>
+<dt><strong><code>subtitle</code></strong></dt>
+<dd>Description.</dd>
+<dt><strong><code>scene</code></strong></dt>
+<dd>(Optional) Directory to which data is stored.</dd>
+<dt><strong><code>log_performance</code></strong></dt>
+<dd>Whether to log the time elapsed during each step as a scalar value.
+The values will be written to the app's directory and shown in the user interface.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class App(object):
-    &#34;&#34;&#34;
-    Main class for defining an application that can be displayed in the user interface.
-    
-    To display data, call App.add_field().
-    All fields need to be registered before the app is prepared or shown.
-    
-    To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
-    
-    See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
-    &#34;&#34;&#34;
 
     def __init__(self,
-                 name=None,
-                 subtitle=&#39;&#39;,
-                 fields=None,
-                 stride=None,
-                 base_dir=&#39;~/phi/data/&#39;,
-                 summary=None,
-                 custom_properties=None,
-                 target_scene=None,
-                 objects_to_save=None,
-                 framerate=None,
-                 dt=1.0):
+                 name: str = None,
+                 subtitle: str = &#34;&#34;,
+                 scene: Scene = None,
+                 log_performance=True):
+        &#34;&#34;&#34;
+        Main class for defining an application that can be displayed in the user interface.
+
+        To display data, call App.add_field().
+        All fields need to be registered before the app is prepared or shown.
+
+        To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.
+
+        See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
+
+        Args:
+            name: Display name of the app.
+            subtitle: Description.
+            scene: (Optional) Directory to which data is stored.
+            log_performance: Whether to log the time elapsed during each step as a scalar value.
+                The values will be written to the app&#39;s directory and shown in the user interface.
+        &#34;&#34;&#34;
         self.start_time = time.time()
         &#34;&#34;&#34; Time of creation (`App` constructor invocation) &#34;&#34;&#34;
         self.name = name if name is not None else self.__class__.__name__
         &#34;&#34;&#34; Human-readable name. &#34;&#34;&#34;
         self.subtitle = subtitle
         &#34;&#34;&#34; Description to be displayed. &#34;&#34;&#34;
-        self.summary = summary if summary else name
-        &#34;&#34;&#34; The scene directory is derived from the summary. Defaults to `name`. &#34;&#34;&#34;
-        if fields:
-            self.fields = {name: TimeDependentField(name, generator) for (name, generator) in fields.items()}
-        else:
-            self.fields = {}
+        self.scene = scene
+        &#34;&#34;&#34; Directory to which data and logging information should be written as `Scene` instance. &#34;&#34;&#34;
+        self.uses_existing_scene = scene.exist_properties() if scene is not None else False
+        self._field_names = []
+        self._fields = {}
         self.message = None
         self.steps = 0
         &#34;&#34;&#34; Counts the number of times `step()` has been called. May be set by the user. &#34;&#34;&#34;
@@ -200,113 +430,49 @@ All fields need to be registered before the app is prepared or shown.</p>
         self._invalidation_counter = 0
         self._controls = []
         self._actions = []
-        self._traits = []
         self.prepared = False
         &#34;&#34;&#34; Wheter `prepare()` has been called. &#34;&#34;&#34;
         self.current_action = None
         self._pause = False
-        self.detect_fields = &#39;default&#39;  # False, True, &#39;default&#39;
+        self.pre_step = []  # callback(app)
+        self.post_step = []  # callback(app)
         self.world = world
-        self._dt = dt.initial_value if isinstance(dt, EditableValue) else dt
-        if isinstance(dt, EditableValue):
-            self._controls.append(Control(self, &#34;dt&#34;, dt))
-        self.min_dt = self._dt
-        self.dt_history = {}  # sparse representation of time when new timestep was set (for the next step)
-        # Setup directory &amp; Logging
-        self.objects_to_save = [self.__class__] if objects_to_save is None else list(objects_to_save)
-        self.base_dir = os.path.expanduser(base_dir)
-        if not target_scene:
-            self.new_scene()
-            self.uses_existing_scene = False
-        else:
-            self.scene = target_scene
-            self.uses_existing_scene = True
-        if not isfile(self.scene.subpath(&#39;info.log&#39;)):
-            log_file = self.log_file = self.scene.subpath(&#39;info.log&#39;)
-        else:
-            index = 2
-            while True:
-                log_file = self.scene.subpath(&#39;info_%d.log&#39; % index)
-                if not isfile(log_file):
-                    break
-                else:
-                    index += 1
-        # Setup logging
-        logFormatter = logging.Formatter(&#39;%(message)s (%(levelname)s), %(asctime)sn\n&#39;)
-        rootLogger = logging.getLogger()
-        rootLogger.setLevel(logging.WARNING)
-        customLogger = logging.Logger(&#39;app&#39;, logging.DEBUG)
-        fileHandler = logging.FileHandler(log_file)
-        fileHandler.setFormatter(logFormatter)
-        customLogger.addHandler(fileHandler)
-        consoleHandler = logging.StreamHandler(sys.stdout)
-        consoleHandler.setFormatter(logFormatter)
-        consoleHandler.setLevel(logging.INFO)
-        customLogger.addHandler(consoleHandler)
-        self.logger = customLogger
-        # Framerate
-        self.sequence_stride = stride if stride is not None else 1
-        self.framerate = framerate if framerate is not None else stride
-        &#34;&#34;&#34; Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate. &#34;&#34;&#34;
-        self._custom_properties = custom_properties if custom_properties else {}
-        # State
-        self.state = None
-        self.step_function = None
+        self.log_performance = log_performance
+        self._elapsed = None
+        # Message logging
+        log_formatter = logging.Formatter(&#34;%(message)s (%(levelname)s), %(asctime)sn\n&#34;)
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.WARNING)
+        self.logger = logging.Logger(&#34;app&#34;, logging.DEBUG)
+        console_handler = self.console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(log_formatter)
+        console_handler.setLevel(logging.INFO)
+        self.logger.addHandler(console_handler)
+        if self.scene is not None:
+            if not isfile(self.scene.subpath(&#34;info.log&#34;)):
+                log_file = self.log_file = self.scene.subpath(&#34;info.log&#34;)
+            else:
+                index = 2
+                while True:
+                    log_file = self.scene.subpath(&#34;info_%d.log&#34; % index)
+                    if not isfile(log_file):
+                        break
+                    else:
+                        index += 1
+            file_handler = self.file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(log_formatter)
+            self.logger.addHandler(file_handler)
+        # Data logging
+        self._scalars = {}  # name -&gt; (frame, value)
+        self._scalar_streams = {}
         # Initial log message
-        self.info(&#39;App created. Scene directory is %s&#39; % self.scene.path)
-
-    @property
-    def dt(self):
-        &#34;&#34;&#34;
-        Current time increment per step.
-        Used for `step_function` set by `set_state()` or for `world.step()` in legacy-style simulations. &#34;&#34;&#34;
-        return self._dt
-
-    @dt.setter
-    def dt(self, value):
-        self._dt = value
-        self.min_dt = min(self.min_dt, self.dt)
-        self.dt_history[self.time] = self.dt
-
-    def set_state(self, initial_state, step_function=None, show=(), dt=None):
-        &#34;&#34;&#34;
-        Specifies the current physics state of the app and optionally the solver step function.
-        The current physics state of the app is stored in `app.state`.
-        
-        This method replaces `world.add()` calls from Φ-Flow 1.
-
-        Args:
-          initial_state: dict mapping names (str) to Fields or Tensors
-          step_function: function to progress the state. Called as step_function(dt=dt, **current_state) (Default value = None)
-          show: list of names to expose to the user interface (Default value = ())
-          dt: optional) value of dt to be passed to step_function (Default value = None)
-
-        Returns:
-
-        &#34;&#34;&#34;
-        self.state = initial_state
-        self.step_function = step_function
-        if dt is not None:
-            self.dt = dt
-        if show:
-            if not self.prepared:
-                for field_name in show:
-                    self.add_field(field_name, lambda n=field_name: self.state[n])
-                else:
-                    warnings.warn(&#39;Ignoring show argument because App is already prepared.&#39;)
+        if self.scene is not None:
+            self.info(&#34;App created. Scene directory is %s&#34; % self.scene.path)
 
     @property
     def frame(self):
         &#34;&#34;&#34; Alias for `steps`. &#34;&#34;&#34;
         return self.steps
-
-    def new_scene(self, count=None):
-        if count is None:
-            count = 1 if self.world.batch_size is None else self.world.batch_size
-        if count &gt; 1:
-            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()), batch=count)
-        else:
-            self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))
 
     @property
     def directory(self):
@@ -314,10 +480,23 @@ All fields need to be registered before the app is prepared or shown.</p>
         return self.scene.path
 
     def _progress(self):
-        # actual method called to step.
+        self._pre_step()
         self.step()
+        self._post_step()
+
+    def _pre_step(self):
+        for obs in self.pre_step:
+            obs(self)
+        self._step_start_time = time.perf_counter()
+
+    def _post_step(self):
+        self._elapsed = time.perf_counter() - self._step_start_time
+        if self.log_performance:
+            self.log_scalar(&#39;step_time&#39;, self._elapsed)
         self.steps += 1
         self.invalidate()
+        for obs in self.post_step:
+            obs(self)
 
     def invalidate(self):
         &#34;&#34;&#34; Causes the user interface to update. &#34;&#34;&#34;
@@ -334,37 +513,24 @@ All fields need to be registered before the app is prepared or shown.</p>
         
         App.steps automatically counts how many steps have been completed.
         If this method is not overridden, `App.time` is additionally increased by `App.dt`.
-
-        Args:
-
-        Returns:
-
         &#34;&#34;&#34;
-        dt = self.dt  # prevent race conditions
-        if self.step_function is None:
-            world.step(dt=dt)
-        else:
-            new_state = self.step_function(dt=dt, **self.state)
-            assert isinstance(self.state, dict), &#39;step_function must return a dict&#39;
-            assert new_state.keys() == self.state.keys(), &#39;step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s&#39; % (self.state.keys(), new_state.keys())
-            self.state = new_state
-        self.time += dt
+        raise NotImplementedError(&#34;step() must be overridden.&#34;)
 
     @property
     def fieldnames(self):
         &#34;&#34;&#34; Alphabetical list of field names. See `get_field()`. &#34;&#34;&#34;
-        return sorted(self.fields.keys())
+        return self._field_names
 
-    def get_field(self, fieldname):
+    def get_field(self, name):
         &#34;&#34;&#34;
         Reads the current value of a field.
         Fields can be added using `add_field()`.
 
         If a generator function was registered as the field data, this method may invoke the function which may take some time to complete.
         &#34;&#34;&#34;
-        if fieldname not in self.fields:
-            raise KeyError(&#39;Field %s not declared. Available fields are %s&#39; % (fieldname, self.fields.keys()))
-        return self.fields[fieldname].get(self._invalidation_counter)
+        if name not in self._fields:
+            raise KeyError(f&#34;Field {name} not declared. Available fields are {self._fields.keys()}&#34;)
+        return self._fields[name].get(self._invalidation_counter)
 
     def add_field(self, name: str, value):
         &#34;&#34;&#34;
@@ -380,25 +546,63 @@ All fields need to be registered before the app is prepared or shown.</p>
         Args:
           name: unique human-readable name
           value: data to display
-          name: str: 
-
-        Returns:
-
         &#34;&#34;&#34;
-        assert not self.prepared, &#39;Cannot add fields to a prepared model&#39;
+        assert not self.prepared, &#34;Cannot add fields to a prepared model&#34;
         if isinstance(value, StateProxy):
+
             def current_state():
                 return value.state
+
             generator = current_state
         elif callable(value):
             generator = value
         else:
-            assert isinstance(value, (np.ndarray, Field, float, int, math.Tensor)), &#39;Unsupported type for field &#34;%s&#34;: %s&#39; % (name, type(value))
+            assert isinstance(
+                value, (np.ndarray, Field, float, int, math.Tensor)
+            ), &#39;Unsupported type for field &#34;%s&#34;: %s&#39; % (name, type(value))
 
             def get_constant():
                 return value
+
             generator = get_constant
-        self.fields[name] = TimeDependentField(name, generator)
+        self._field_names.append(name)
+        self._fields[name] = TimeDependentField(name, generator)
+
+    def log_scalar(self, name: str, value: float or math.Tensor):
+        &#34;&#34;&#34;
+        Adds `value` to the curve `name` at the current step.
+        This can be used to log the evolution of scalar quantities or summaries.
+
+        The values are stored in a text file within the scene directory.
+        The curves may also be directly viewed in the user interface.
+
+        Args:
+            name: Name of the curve. If no such curve exists, a new one is created.
+            value: Value to append to the curve, must be a number or `phi.math.Tensor`.
+        &#34;&#34;&#34;
+        assert isinstance(name, str)
+        value = float(math.mean(value))
+        if name not in self._scalars:
+            self._scalars[name] = []
+            if self.scene is not None:
+                path = self.scene.subpath(f&#34;log_{name}.txt&#34;)
+                self._scalar_streams[name] = open(path, &#34;w&#34;)
+        self._scalars[name].append((self.frame, value))
+        if self.scene is not None:
+            self._scalar_streams[name].write(f&#34;{value}\n&#34;)
+            self._scalar_streams[name].flush()
+
+    def log_scalars(self, **values: float or math.Tensor):
+        for name, value in values.items():
+            self.log_scalar(name, value)
+
+    def get_scalar_curve(self, name) -&gt; tuple:
+        frames = np.array([item[0] for item in self._scalars[name]])
+        values = np.array([item[1] for item in self._scalars[name]])
+        return frames, values
+
+    def get_logged_scalars(self):
+        return self._scalars.keys()
 
     @property
     def actions(self):
@@ -417,18 +621,10 @@ All fields need to be registered before the app is prepared or shown.</p>
         self.invalidate()
         message_after = self.message
         if message_before == message_after:
-            if self.message is None or self.message == &#39;&#39;:
+            if self.message is None or self.message == &#34;&#34;:
                 self.message = display_name(action.name)
             else:
-                self.message += &#39; | &#39; + display_name(action.name)
-
-    @property
-    def traits(self):
-        return self._traits
-
-    def add_trait(self, trait):
-        assert not self.prepared, &#39;Cannot add traits to a prepared model&#39;
-        self._traits.append(trait)
+                self.message += &#34; | &#34; + display_name(action.name)
 
     @property
     def controls(self):
@@ -446,25 +642,23 @@ All fields need to be registered before the app is prepared or shown.</p>
         * Detecting editable values from member variables that start with &#39;value_&#39;
         * Detecting actions from member functions that start with &#39;action_&#39;
         * Initializing the scene directory with a JSON file and copying related Python source files
-        
-        :return: self
-
-        Args:
 
         Returns:
-
+            `app`
         &#34;&#34;&#34;
         if self.prepared:
             return
-        logging.info(&#39;Gathering model data...&#39;)
+        logging.info(&#34;Gathering model data...&#34;)
         # Controls
         for name in self.__dict__:
             val = getattr(self, name)
             editable_value = None
             if isinstance(val, EditableValue):
                 editable_value = val
-                setattr(self, name, val.initial_value)  # Replace EditableValue with initial value
-            elif name.startswith(&#39;value_&#39;):
+                setattr(
+                    self, name, val.initial_value
+                )  # Replace EditableValue with initial value
+            elif name.startswith(&#34;value_&#34;):
                 value_name = display_name(name[6:])
                 dtype = type(val)
                 if dtype == bool:
@@ -479,79 +673,56 @@ All fields need to be registered before the app is prepared or shown.</p>
                 self._controls.append(Control(self, name, editable_value))
         # Actions
         for method_name in dir(self):
-            if method_name.startswith(&#39;action_&#39;) and callable(getattr(self, method_name)):
-                self._actions.append(Action(display_name(method_name[7:]), getattr(self, method_name), method_name))
-        # Default fields
-        if len(self.fields) == 0:
-            self._add_default_fields()
+            if method_name.startswith(&#34;action_&#34;) and callable(
+                getattr(self, method_name)
+            ):
+                self._actions.append(
+                    Action(
+                        display_name(method_name[7:]),
+                        getattr(self, method_name),
+                        method_name,
+                    )
+                )
         # Scene
-        self._update_scene_properties()
-        source_files_to_save = set()
-        for object in self.objects_to_save:
-            try:
-                source_files_to_save.add(inspect.getabsfile(object))
-            except TypeError:
-                pass
-        for source_file in source_files_to_save:
-            self.scene.copy_src(source_file)
+        if self.scene is not None:
+            self._update_scene_properties()
+            source_files_to_save = set()
+            for object in [self.__class__]:
+                try:
+                    source_files_to_save.add(inspect.getabsfile(object))
+                except TypeError:
+                    pass
+            for source_file in source_files_to_save:
+                self.scene.copy_src(source_file)
         # End
         self.prepared = True
         return self
 
-    def _add_default_fields(self):
-        def add_default_field(trace):
-            field = trace.value
-            if isinstance(field, (CenteredGrid, StaggeredGrid)):
-                def field_generator():
-                    world_state = self.world.state
-                    return trace.find_in(world_state)
-                self.add_field(field.name[0].upper() + field.name[1:], field_generator)
-            return None
-        struct.map(add_default_field, self.world.state, leaf_condition=lambda x: isinstance(x, (CenteredGrid, StaggeredGrid)), trace=True, content_type=struct.INVALID)
-
-    def add_custom_property(self, key, value):
-        self._custom_properties[key] = value
-        if self.prepared:
-            self._update_scene_properties()
-
-    def add_custom_properties(self, dictionary):
-        self._custom_properties.update(dictionary)
-        if self.prepared:
-            self._update_scene_properties()
-
     def _update_scene_properties(self):
-        if self.uses_existing_scene:
+        if self.uses_existing_scene or self.scene is None:
             return
         try:
             app_name = os.path.basename(inspect.getfile(self.__class__))
             app_path = inspect.getabsfile(self.__class__)
         except TypeError:
-            app_name = app_path = &#39;&#39;
+            app_name = app_path = &#34;&#34;
         properties = {
-            &#39;instigator&#39;: &#39;App&#39;,
-            &#39;traits&#39;: self.traits,
-            &#39;app&#39;: str(app_name),
-            &#39;app_path&#39;: str(app_path),
-            &#39;name&#39;: self.name,
-            &#39;description&#39;: self.subtitle,
-            &#39;all_fields&#39;: self.fieldnames,
-            &#39;actions&#39;: [action.name for action in self.actions],
-            &#39;controls&#39;: [{control.name: control.value} for control in self.controls],
-            &#39;summary&#39;: self.scene_summary(),
-            &#39;steps&#39;: self.steps,
-            &#39;time&#39;: self.time,
-            &#39;world&#39;: struct.properties_dict(self.world.state)
+            &#34;instigator&#34;: &#34;App&#34;,
+            &#34;app&#34;: str(app_name),
+            &#34;app_path&#34;: str(app_path),
+            &#34;name&#34;: self.name,
+            &#34;description&#34;: self.subtitle,
+            &#34;all_fields&#34;: self.fieldnames,
+            &#34;actions&#34;: [action.name for action in self.actions],
+            &#34;controls&#34;: [{control.name: control.value} for control in self.controls],
+            &#34;steps&#34;: self.steps,
+            &#34;time&#34;: self.time,
+            &#34;world&#34;: struct.properties_dict(self.world.state),
         }
-        properties.update(self.custom_properties())
         self.scene.properties = properties
 
     def settings_str(self):
-        return &#39;&#39;.join([
-            &#39; &#39; + str(control) for control in self.controls
-        ])
-
-    def custom_properties(self):
-        return self._custom_properties
+        return &#34;&#34;.join([&#34; &#34; + str(control) for control in self.controls])
 
     def info(self, message: str):
         &#34;&#34;&#34;
@@ -579,27 +750,21 @@ All fields need to be registered before the app is prepared or shown.</p>
         &#34;&#34;&#34;
         logging.info(message)
 
-    def scene_summary(self):
-        return self.summary
-
     def show(self, **config):
         warnings.warn(&#34;Use show(model) instead.&#34;, DeprecationWarning, stacklevel=2)
         from ._display import show
+
         show(self, **config)
 
     @property
     def status(self):
-        pausing = &#39;/Pausing&#39; if (self._pause and self.current_action) else &#39;&#39;
-        action = self.current_action if self.current_action else &#39;Idle&#39;
-        message = f&#39; - {self.message}&#39; if self.message else &#39;&#39;
-        return f&#39;{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}&#39;
-
-    def format_time(self, time):
-        commas = int(np.ceil(np.abs(np.log10(self.min_dt))))
-        return (&#34;{time:,&#34; + f&#34;.{commas}f&#34; + &#34;}&#34;).format(time=time)
+        pausing = &#34;/Pausing&#34; if (self._pause and self.current_action) else &#34;&#34;
+        action = self.current_action if self.current_action else &#34;Idle&#34;
+        message = f&#34; - {self.message}&#34; if self.message else &#34;&#34;
+        return f&#34;{action}{pausing} ({self.steps} steps){message}&#34;
 
     def run_step(self, framerate=None):
-        self.current_action = &#39;Running&#39;
+        self.current_action = &#34;Running&#34;
         starttime = time.time()
         try:
             self._progress()
@@ -607,49 +772,23 @@ All fields need to be registered before the app is prepared or shown.</p>
                 duration = time.time() - starttime
                 rest = 1.0 / framerate - duration
                 if rest &gt; 0:
-                    self.current_action = &#39;Waiting&#39;
+                    self.current_action = &#34;Waiting&#34;
                     time.sleep(rest)
         except Exception as e:
-            self.info(&#39;Error during %s.step() \n %s: %s&#39; % (type(self).__name__, type(e).__name__, e))
+            self.info(
+                &#34;Error during %s.step() \n %s: %s&#34;
+                % (type(self).__name__, type(e).__name__, e)
+            )
             self.logger.exception(e)
         finally:
             self.current_action = None
 
-    def play(self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False):
-        &#34;&#34;&#34;
-        Run a number of steps.
-
-        Args:
-            max_steps: (optional) stop when this many steps have been completed (independent of the `steps` variable) or `pause()` is called.
-            callback: Function to be run after all steps have been completed.
-            framerate: Target frame rate in Hz.
-            callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
-
-        Returns:
-            self
-        &#34;&#34;&#34;
-        if framerate is None:
-            framerate = self.framerate
-
-        def target():
-            self._pause = False
-            step_count = 0
-            while not self._pause:
-                self.run_step(framerate=framerate)
-                step_count += 1
-                if max_steps and step_count &gt;= max_steps:
-                    break
-            if callback is not None:
-                if not self._pause or callback_if_aborted:
-                    callback()
-
-        thread = threading.Thread(target=target)
-        thread.start()
-        return self
-
     def pause(self):
         &#34;&#34;&#34; Causes the `play()` method to stop after finishing the current step. &#34;&#34;&#34;
         self._pause = True
+
+    def is_paused(self):
+        return self._pause
 
     @property
     def running(self):
@@ -670,7 +809,7 @@ All fields need to be registered before the app is prepared or shown.</p>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li>phi.app._module_app.ModuleViewer</li>
+<li>phi.app._viewer.Viewer</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -716,22 +855,6 @@ def directory(self):
     return self.scene.path</code></pre>
 </details>
 </dd>
-<dt id="phi.app.App.dt"><code class="name">var <span class="ident">dt</span></code></dt>
-<dd>
-<div class="desc"><p>Current time increment per step.
-Used for <code>step_function</code> set by <code>set_state()</code> or for <code>world.step()</code> in legacy-style simulations.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def dt(self):
-    &#34;&#34;&#34;
-    Current time increment per step.
-    Used for `step_function` set by `set_state()` or for `world.step()` in legacy-style simulations. &#34;&#34;&#34;
-    return self._dt</code></pre>
-</details>
-</dd>
 <dt id="phi.app.App.fieldnames"><code class="name">var <span class="ident">fieldnames</span></code></dt>
 <dd>
 <div class="desc"><p>Alphabetical list of field names. See <code>get_field()</code>.</p></div>
@@ -742,7 +865,7 @@ def dt(self):
 <pre><code class="python">@property
 def fieldnames(self):
     &#34;&#34;&#34; Alphabetical list of field names. See `get_field()`. &#34;&#34;&#34;
-    return sorted(self.fields.keys())</code></pre>
+    return self._field_names</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.frame"><code class="name">var <span class="ident">frame</span></code></dt>
@@ -757,10 +880,6 @@ def frame(self):
     &#34;&#34;&#34; Alias for `steps`. &#34;&#34;&#34;
     return self.steps</code></pre>
 </details>
-</dd>
-<dt id="phi.app.App.framerate"><code class="name">var <span class="ident">framerate</span></code></dt>
-<dd>
-<div class="desc"><p>Target frame rate in Hz. Play will not step faster than the framerate. <code>None</code> for unlimited frame rate.</p></div>
 </dd>
 <dt id="phi.app.App.name"><code class="name">var <span class="ident">name</span></code></dt>
 <dd>
@@ -783,6 +902,10 @@ def running(self):
     return self.current_action is not None</code></pre>
 </details>
 </dd>
+<dt id="phi.app.App.scene"><code class="name">var <span class="ident">scene</span></code></dt>
+<dd>
+<div class="desc"><p>Directory to which data and logging information should be written as <code>Scene</code> instance.</p></div>
+</dd>
 <dt id="phi.app.App.start_time"><code class="name">var <span class="ident">start_time</span></code></dt>
 <dd>
 <div class="desc"><p>Time of creation (<code><a title="phi.app.App" href="#phi.app.App">App</a></code> constructor invocation)</p></div>
@@ -796,10 +919,10 @@ def running(self):
 </summary>
 <pre><code class="python">@property
 def status(self):
-    pausing = &#39;/Pausing&#39; if (self._pause and self.current_action) else &#39;&#39;
-    action = self.current_action if self.current_action else &#39;Idle&#39;
-    message = f&#39; - {self.message}&#39; if self.message else &#39;&#39;
-    return f&#39;{action}{pausing} (t={self.format_time(self.time)} in {self.steps} steps){message}&#39;</code></pre>
+    pausing = &#34;/Pausing&#34; if (self._pause and self.current_action) else &#34;&#34;
+    action = self.current_action if self.current_action else &#34;Idle&#34;
+    message = f&#34; - {self.message}&#34; if self.message else &#34;&#34;
+    return f&#34;{action}{pausing} ({self.steps} steps){message}&#34;</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.steps"><code class="name">var <span class="ident">steps</span></code></dt>
@@ -810,25 +933,9 @@ def status(self):
 <dd>
 <div class="desc"><p>Description to be displayed.</p></div>
 </dd>
-<dt id="phi.app.App.summary"><code class="name">var <span class="ident">summary</span></code></dt>
-<dd>
-<div class="desc"><p>The scene directory is derived from the summary. Defaults to <code>name</code>.</p></div>
-</dd>
 <dt id="phi.app.App.time"><code class="name">var <span class="ident">time</span></code></dt>
 <dd>
 <div class="desc"><p>Time variable for simulations. Can be set by the user.</p></div>
-</dd>
-<dt id="phi.app.App.traits"><code class="name">var <span class="ident">traits</span></code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def traits(self):
-    return self._traits</code></pre>
-</details>
 </dd>
 </dl>
 <h3>Methods</h3>
@@ -844,36 +951,6 @@ def traits(self):
 </summary>
 <pre><code class="python">def add_action(self, name, methodcall):
     self._actions.append(Action(name, methodcall, name))</code></pre>
-</details>
-</dd>
-<dt id="phi.app.App.add_custom_properties"><code class="name flex">
-<span>def <span class="ident">add_custom_properties</span></span>(<span>self, dictionary)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def add_custom_properties(self, dictionary):
-    self._custom_properties.update(dictionary)
-    if self.prepared:
-        self._update_scene_properties()</code></pre>
-</details>
-</dd>
-<dt id="phi.app.App.add_custom_property"><code class="name flex">
-<span>def <span class="ident">add_custom_property</span></span>(<span>self, key, value)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def add_custom_property(self, key, value):
-    self._custom_properties[key] = value
-    if self.prepared:
-        self._update_scene_properties()</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.add_field"><code class="name flex">
@@ -894,10 +971,7 @@ This method must be called before the user interface is launched, i.e. before <c
 <dd>unique human-readable name</dd>
 <dt><strong><code>value</code></strong></dt>
 <dd>data to display</dd>
-<dt><strong><code>name</code></strong></dt>
-<dd>str: </dd>
-</dl>
-<p>Returns:</p></div>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -916,39 +990,27 @@ This method must be called before the user interface is launched, i.e. before <c
     Args:
       name: unique human-readable name
       value: data to display
-      name: str: 
-
-    Returns:
-
     &#34;&#34;&#34;
-    assert not self.prepared, &#39;Cannot add fields to a prepared model&#39;
+    assert not self.prepared, &#34;Cannot add fields to a prepared model&#34;
     if isinstance(value, StateProxy):
+
         def current_state():
             return value.state
+
         generator = current_state
     elif callable(value):
         generator = value
     else:
-        assert isinstance(value, (np.ndarray, Field, float, int, math.Tensor)), &#39;Unsupported type for field &#34;%s&#34;: %s&#39; % (name, type(value))
+        assert isinstance(
+            value, (np.ndarray, Field, float, int, math.Tensor)
+        ), &#39;Unsupported type for field &#34;%s&#34;: %s&#39; % (name, type(value))
 
         def get_constant():
             return value
+
         generator = get_constant
-    self.fields[name] = TimeDependentField(name, generator)</code></pre>
-</details>
-</dd>
-<dt id="phi.app.App.add_trait"><code class="name flex">
-<span>def <span class="ident">add_trait</span></span>(<span>self, trait)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def add_trait(self, trait):
-    assert not self.prepared, &#39;Cannot add traits to a prepared model&#39;
-    self._traits.append(trait)</code></pre>
+    self._field_names.append(name)
+    self._fields[name] = TimeDependentField(name, generator)</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.benchmark"><code class="name flex">
@@ -971,19 +1033,6 @@ This method must be called before the user interface is launched, i.e. before <c
             break
     time_elapsed = time.time() - starttime
     return step_count, time_elapsed</code></pre>
-</details>
-</dd>
-<dt id="phi.app.App.custom_properties"><code class="name flex">
-<span>def <span class="ident">custom_properties</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def custom_properties(self):
-    return self._custom_properties</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.debug"><code class="name flex">
@@ -1013,22 +1062,8 @@ This method must be called before the user interface is launched, i.e. before <c
     logging.info(message)</code></pre>
 </details>
 </dd>
-<dt id="phi.app.App.format_time"><code class="name flex">
-<span>def <span class="ident">format_time</span></span>(<span>self, time)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def format_time(self, time):
-    commas = int(np.ceil(np.abs(np.log10(self.min_dt))))
-    return (&#34;{time:,&#34; + f&#34;.{commas}f&#34; + &#34;}&#34;).format(time=time)</code></pre>
-</details>
-</dd>
 <dt id="phi.app.App.get_field"><code class="name flex">
-<span>def <span class="ident">get_field</span></span>(<span>self, fieldname)</span>
+<span>def <span class="ident">get_field</span></span>(<span>self, name)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Reads the current value of a field.
@@ -1038,16 +1073,44 @@ Fields can be added using <code>add_field()</code>.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_field(self, fieldname):
+<pre><code class="python">def get_field(self, name):
     &#34;&#34;&#34;
     Reads the current value of a field.
     Fields can be added using `add_field()`.
 
     If a generator function was registered as the field data, this method may invoke the function which may take some time to complete.
     &#34;&#34;&#34;
-    if fieldname not in self.fields:
-        raise KeyError(&#39;Field %s not declared. Available fields are %s&#39; % (fieldname, self.fields.keys()))
-    return self.fields[fieldname].get(self._invalidation_counter)</code></pre>
+    if name not in self._fields:
+        raise KeyError(f&#34;Field {name} not declared. Available fields are {self._fields.keys()}&#34;)
+    return self._fields[name].get(self._invalidation_counter)</code></pre>
+</details>
+</dd>
+<dt id="phi.app.App.get_logged_scalars"><code class="name flex">
+<span>def <span class="ident">get_logged_scalars</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_logged_scalars(self):
+    return self._scalars.keys()</code></pre>
+</details>
+</dd>
+<dt id="phi.app.App.get_scalar_curve"><code class="name flex">
+<span>def <span class="ident">get_scalar_curve</span></span>(<span>self, name) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_scalar_curve(self, name) -&gt; tuple:
+    frames = np.array([item[0] for item in self._scalars[name]])
+    values = np.array([item[1] for item in self._scalars[name]])
+    return frames, values</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.info"><code class="name flex">
@@ -1097,8 +1160,8 @@ Additionally, it may be displayed by the user interface.</p>
     self._invalidation_counter += 1</code></pre>
 </details>
 </dd>
-<dt id="phi.app.App.new_scene"><code class="name flex">
-<span>def <span class="ident">new_scene</span></span>(<span>self, count=None)</span>
+<dt id="phi.app.App.is_paused"><code class="name flex">
+<span>def <span class="ident">is_paused</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1106,13 +1169,66 @@ Additionally, it may be displayed by the user interface.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def new_scene(self, count=None):
-    if count is None:
-        count = 1 if self.world.batch_size is None else self.world.batch_size
-    if count &gt; 1:
-        self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()), batch=count)
-    else:
-        self.scene = Scene.create(os.path.join(self.base_dir, self.scene_summary()))</code></pre>
+<pre><code class="python">def is_paused(self):
+    return self._pause</code></pre>
+</details>
+</dd>
+<dt id="phi.app.App.log_scalar"><code class="name flex">
+<span>def <span class="ident">log_scalar</span></span>(<span>self, name: str, value: float)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Adds <code>value</code> to the curve <code>name</code> at the current step.
+This can be used to log the evolution of scalar quantities or summaries.</p>
+<p>The values are stored in a text file within the scene directory.
+The curves may also be directly viewed in the user interface.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>name</code></strong></dt>
+<dd>Name of the curve. If no such curve exists, a new one is created.</dd>
+<dt><strong><code>value</code></strong></dt>
+<dd>Value to append to the curve, must be a number or <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log_scalar(self, name: str, value: float or math.Tensor):
+    &#34;&#34;&#34;
+    Adds `value` to the curve `name` at the current step.
+    This can be used to log the evolution of scalar quantities or summaries.
+
+    The values are stored in a text file within the scene directory.
+    The curves may also be directly viewed in the user interface.
+
+    Args:
+        name: Name of the curve. If no such curve exists, a new one is created.
+        value: Value to append to the curve, must be a number or `phi.math.Tensor`.
+    &#34;&#34;&#34;
+    assert isinstance(name, str)
+    value = float(math.mean(value))
+    if name not in self._scalars:
+        self._scalars[name] = []
+        if self.scene is not None:
+            path = self.scene.subpath(f&#34;log_{name}.txt&#34;)
+            self._scalar_streams[name] = open(path, &#34;w&#34;)
+    self._scalars[name].append((self.frame, value))
+    if self.scene is not None:
+        self._scalar_streams[name].write(f&#34;{value}\n&#34;)
+        self._scalar_streams[name].flush()</code></pre>
+</details>
+</dd>
+<dt id="phi.app.App.log_scalars"><code class="name flex">
+<span>def <span class="ident">log_scalars</span></span>(<span>self, **values: float)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def log_scalars(self, **values: float or math.Tensor):
+    for name, value in values.items():
+        self.log_scalar(name, value)</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.pause"><code class="name flex">
@@ -1129,61 +1245,6 @@ Additionally, it may be displayed by the user interface.</p>
     self._pause = True</code></pre>
 </details>
 </dd>
-<dt id="phi.app.App.play"><code class="name flex">
-<span>def <span class="ident">play</span></span>(<span>self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Run a number of steps.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>max_steps</code></strong></dt>
-<dd>(optional) stop when this many steps have been completed (independent of the <code>steps</code> variable) or <code>pause()</code> is called.</dd>
-<dt><strong><code>callback</code></strong></dt>
-<dd>Function to be run after all steps have been completed.</dd>
-<dt><strong><code>framerate</code></strong></dt>
-<dd>Target frame rate in Hz.</dd>
-<dt><strong><code>callback_if_aborted</code></strong></dt>
-<dd>Whether to invoke <code>callback</code> if <code>pause()</code> causes this method to abort prematurely.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>self</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def play(self, max_steps=None, callback=None, framerate=None, callback_if_aborted=False):
-    &#34;&#34;&#34;
-    Run a number of steps.
-
-    Args:
-        max_steps: (optional) stop when this many steps have been completed (independent of the `steps` variable) or `pause()` is called.
-        callback: Function to be run after all steps have been completed.
-        framerate: Target frame rate in Hz.
-        callback_if_aborted: Whether to invoke `callback` if `pause()` causes this method to abort prematurely.
-
-    Returns:
-        self
-    &#34;&#34;&#34;
-    if framerate is None:
-        framerate = self.framerate
-
-    def target():
-        self._pause = False
-        step_count = 0
-        while not self._pause:
-            self.run_step(framerate=framerate)
-            step_count += 1
-            if max_steps and step_count &gt;= max_steps:
-                break
-        if callback is not None:
-            if not self._pause or callback_if_aborted:
-                callback()
-
-    thread = threading.Thread(target=target)
-    thread.start()
-    return self</code></pre>
-</details>
-</dd>
 <dt id="phi.app.App.prepare"><code class="name flex">
 <span>def <span class="ident">prepare</span></span>(<span>self)</span>
 </code></dt>
@@ -1197,9 +1258,8 @@ If not invoked manually, it is automatically called before the user interface is
 <li>Detecting actions from member functions that start with 'action_'</li>
 <li>Initializing the scene directory with a JSON file and copying related Python source files</li>
 </ul>
-<p>:return: self</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p><code>app</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1216,25 +1276,23 @@ If not invoked manually, it is automatically called before the user interface is
     * Detecting editable values from member variables that start with &#39;value_&#39;
     * Detecting actions from member functions that start with &#39;action_&#39;
     * Initializing the scene directory with a JSON file and copying related Python source files
-    
-    :return: self
-
-    Args:
 
     Returns:
-
+        `app`
     &#34;&#34;&#34;
     if self.prepared:
         return
-    logging.info(&#39;Gathering model data...&#39;)
+    logging.info(&#34;Gathering model data...&#34;)
     # Controls
     for name in self.__dict__:
         val = getattr(self, name)
         editable_value = None
         if isinstance(val, EditableValue):
             editable_value = val
-            setattr(self, name, val.initial_value)  # Replace EditableValue with initial value
-        elif name.startswith(&#39;value_&#39;):
+            setattr(
+                self, name, val.initial_value
+            )  # Replace EditableValue with initial value
+        elif name.startswith(&#34;value_&#34;):
             value_name = display_name(name[6:])
             dtype = type(val)
             if dtype == bool:
@@ -1249,21 +1307,27 @@ If not invoked manually, it is automatically called before the user interface is
             self._controls.append(Control(self, name, editable_value))
     # Actions
     for method_name in dir(self):
-        if method_name.startswith(&#39;action_&#39;) and callable(getattr(self, method_name)):
-            self._actions.append(Action(display_name(method_name[7:]), getattr(self, method_name), method_name))
-    # Default fields
-    if len(self.fields) == 0:
-        self._add_default_fields()
+        if method_name.startswith(&#34;action_&#34;) and callable(
+            getattr(self, method_name)
+        ):
+            self._actions.append(
+                Action(
+                    display_name(method_name[7:]),
+                    getattr(self, method_name),
+                    method_name,
+                )
+            )
     # Scene
-    self._update_scene_properties()
-    source_files_to_save = set()
-    for object in self.objects_to_save:
-        try:
-            source_files_to_save.add(inspect.getabsfile(object))
-        except TypeError:
-            pass
-    for source_file in source_files_to_save:
-        self.scene.copy_src(source_file)
+    if self.scene is not None:
+        self._update_scene_properties()
+        source_files_to_save = set()
+        for object in [self.__class__]:
+            try:
+                source_files_to_save.add(inspect.getabsfile(object))
+            except TypeError:
+                pass
+        for source_file in source_files_to_save:
+            self.scene.copy_src(source_file)
     # End
     self.prepared = True
     return self</code></pre>
@@ -1284,10 +1348,10 @@ If not invoked manually, it is automatically called before the user interface is
     self.invalidate()
     message_after = self.message
     if message_before == message_after:
-        if self.message is None or self.message == &#39;&#39;:
+        if self.message is None or self.message == &#34;&#34;:
             self.message = display_name(action.name)
         else:
-            self.message += &#39; | &#39; + display_name(action.name)</code></pre>
+            self.message += &#34; | &#34; + display_name(action.name)</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.run_step"><code class="name flex">
@@ -1300,7 +1364,7 @@ If not invoked manually, it is automatically called before the user interface is
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def run_step(self, framerate=None):
-    self.current_action = &#39;Running&#39;
+    self.current_action = &#34;Running&#34;
     starttime = time.time()
     try:
         self._progress()
@@ -1308,77 +1372,16 @@ If not invoked manually, it is automatically called before the user interface is
             duration = time.time() - starttime
             rest = 1.0 / framerate - duration
             if rest &gt; 0:
-                self.current_action = &#39;Waiting&#39;
+                self.current_action = &#34;Waiting&#34;
                 time.sleep(rest)
     except Exception as e:
-        self.info(&#39;Error during %s.step() \n %s: %s&#39; % (type(self).__name__, type(e).__name__, e))
+        self.info(
+            &#34;Error during %s.step() \n %s: %s&#34;
+            % (type(self).__name__, type(e).__name__, e)
+        )
         self.logger.exception(e)
     finally:
         self.current_action = None</code></pre>
-</details>
-</dd>
-<dt id="phi.app.App.scene_summary"><code class="name flex">
-<span>def <span class="ident">scene_summary</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def scene_summary(self):
-    return self.summary</code></pre>
-</details>
-</dd>
-<dt id="phi.app.App.set_state"><code class="name flex">
-<span>def <span class="ident">set_state</span></span>(<span>self, initial_state, step_function=None, show=(), dt=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Specifies the current physics state of the app and optionally the solver step function.
-The current physics state of the app is stored in <code>app.state</code>.</p>
-<p>This method replaces <code>world.add()</code> calls from Φ-Flow 1.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>initial_state</code></strong></dt>
-<dd>dict mapping names (str) to Fields or Tensors</dd>
-<dt><strong><code>step_function</code></strong></dt>
-<dd>function to progress the state. Called as step_function(dt=dt, **current_state) (Default value = None)</dd>
-<dt><strong><code>show</code></strong></dt>
-<dd>list of names to expose to the user interface (Default value = ())</dd>
-<dt><strong><code>dt</code></strong></dt>
-<dd>optional) value of dt to be passed to step_function (Default value = None)</dd>
-</dl>
-<p>Returns:</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def set_state(self, initial_state, step_function=None, show=(), dt=None):
-    &#34;&#34;&#34;
-    Specifies the current physics state of the app and optionally the solver step function.
-    The current physics state of the app is stored in `app.state`.
-    
-    This method replaces `world.add()` calls from Φ-Flow 1.
-
-    Args:
-      initial_state: dict mapping names (str) to Fields or Tensors
-      step_function: function to progress the state. Called as step_function(dt=dt, **current_state) (Default value = None)
-      show: list of names to expose to the user interface (Default value = ())
-      dt: optional) value of dt to be passed to step_function (Default value = None)
-
-    Returns:
-
-    &#34;&#34;&#34;
-    self.state = initial_state
-    self.step_function = step_function
-    if dt is not None:
-        self.dt = dt
-    if show:
-        if not self.prepared:
-            for field_name in show:
-                self.add_field(field_name, lambda n=field_name: self.state[n])
-            else:
-                warnings.warn(&#39;Ignoring show argument because App is already prepared.&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.settings_str"><code class="name flex">
@@ -1391,9 +1394,7 @@ The current physics state of the app is stored in <code>app.state</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def settings_str(self):
-    return &#39;&#39;.join([
-        &#39; &#39; + str(control) for control in self.controls
-    ])</code></pre>
+    return &#34;&#34;.join([&#34; &#34; + str(control) for control in self.controls])</code></pre>
 </details>
 </dd>
 <dt id="phi.app.App.show"><code class="name flex">
@@ -1408,6 +1409,7 @@ The current physics state of the app is stored in <code>app.state</code>.</p>
 <pre><code class="python">def show(self, **config):
     warnings.warn(&#34;Use show(model) instead.&#34;, DeprecationWarning, stacklevel=2)
     from ._display import show
+
     show(self, **config)</code></pre>
 </details>
 </dd>
@@ -1417,12 +1419,10 @@ The current physics state of the app is stored in <code>app.state</code>.</p>
 <dd>
 <div class="desc"><p>Performs a single step.
 You may override this method to specify what happens when the user presses the buttons <code>Step</code> or <code>Play</code>.</p>
-<p>If a step function has been passed to <code><a title="phi.app.App.set_state" href="#phi.app.App.set_state">App.set_state()</a></code>, the state is progressed using that function.</p>
+<p>If a step function has been passed to <code>App.set_state()</code>, the state is progressed using that function.</p>
 <p>Otherwise, <code>world.step()</code> is executed (for phiflow 1 style simulations).</p>
 <p>App.steps automatically counts how many steps have been completed.
-If this method is not overridden, <code><a title="phi.app.App.time" href="#phi.app.App.time">App.time</a></code> is additionally increased by <code><a title="phi.app.App.dt" href="#phi.app.App.dt">App.dt</a></code>.</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+If this method is not overridden, <code><a title="phi.app.App.time" href="#phi.app.App.time">App.time</a></code> is additionally increased by <code>App.dt</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1438,21 +1438,8 @@ If this method is not overridden, <code><a title="phi.app.App.time" href="#phi.a
     
     App.steps automatically counts how many steps have been completed.
     If this method is not overridden, `App.time` is additionally increased by `App.dt`.
-
-    Args:
-
-    Returns:
-
     &#34;&#34;&#34;
-    dt = self.dt  # prevent race conditions
-    if self.step_function is None:
-        world.step(dt=dt)
-    else:
-        new_state = self.step_function(dt=dt, **self.state)
-        assert isinstance(self.state, dict), &#39;step_function must return a dict&#39;
-        assert new_state.keys() == self.state.keys(), &#39;step_function must return a state with the same names as the input state.\nInput: %s\nOutput: %s&#39; % (self.state.keys(), new_state.keys())
-        self.state = new_state
-    self.time += dt</code></pre>
+    raise NotImplementedError(&#34;step() must be overridden.&#34;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1833,32 +1820,41 @@ def min_value(self):
 </dd>
 </dl>
 </dd>
-<dt id="phi.app.ModuleViewer"><code class="flex name class">
-<span>class <span class="ident">ModuleViewer</span></span>
-<span>(</span><span>fields=None, stride=None, base_dir='~/phi/data/', summary=None, custom_properties=None, target_scene=None, objects_to_save=None, framerate=None, dt=1.0, **show_config)</span>
+<dt id="phi.app.Viewer"><code class="flex name class">
+<span>class <span class="ident">Viewer</span></span>
+<span>(</span><span>namespace: phi.app._user_namespace.UserNamespace, fields: dict, name: str, subtitle: str, scene: phi.field._scene.Scene, log_performance: bool)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>ModuleViewer launches the user interface to display the contents of the calling Python script.</p>
+<div class="desc"><p>Launches the user interface to display the contents of the calling Python script or notebook.</p>
 <p>Name and subtitle of the App may be specified in the module docstring (string before imports).
 The first line is interpreted as the name, the rest as the subtitle.
 If not specified, a generic name and description is chosen.</p>
 <p>Use ModuleViewer.range() as a for-loop iteratable to control the loop execution from within the GUI.</p>
 <p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></p>
-<p>Creates the ModuleViewer <code><a title="phi.app.App" href="#phi.app.App">App</a></code> and <code><a title="phi.app.show" href="#phi.app.show">show()</a></code>s it.</p>
+<p>Main class for defining an application that can be displayed in the user interface.</p>
+<p>To display data, call App.add_field().
+All fields need to be registered before the app is prepared or shown.</p>
+<p>To launch the GUI, call show(app). This calls App.prepare() if the app was not prepared.</p>
+<p>See the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Web_Interface.html">https://tum-pbs.github.io/PhiFlow/Web_Interface.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>fields</code></strong></dt>
-<dd>(Optional) names of global variables to be displayed.
-If not provided, searches all global variables for Field or Tensor values.
-All fields must exist as global variables before the ModuleViewer is instantiated.</dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>Display name of the app.</dd>
+<dt><strong><code>subtitle</code></strong></dt>
+<dd>Description.</dd>
+<dt><strong><code>scene</code></strong></dt>
+<dd>(Optional) Directory to which data is stored.</dd>
+<dt><strong><code>log_performance</code></strong></dt>
+<dd>Whether to log the time elapsed during each step as a scalar value.
+The values will be written to the app's directory and shown in the user interface.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class ModuleViewer(App):
+<pre><code class="python">class Viewer(App):
     &#34;&#34;&#34;
-    ModuleViewer launches the user interface to display the contents of the calling Python script.
+    Launches the user interface to display the contents of the calling Python script or notebook.
 
     Name and subtitle of the App may be specified in the module docstring (string before imports).
     The first line is interpreted as the name, the rest as the subtitle.
@@ -1868,62 +1864,35 @@ All fields must exist as global variables before the ModuleViewer is instantiate
 
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Web_Interface.html
     &#34;&#34;&#34;
+
     def __init__(self,
-                 fields=None,
-                 stride=None,
-                 base_dir=&#39;~/phi/data/&#39;,
-                 summary=None,
-                 custom_properties=None,
-                 target_scene=None,
-                 objects_to_save=None,
-                 framerate=None,
-                 dt=1.0,
-                 **show_config):
+                 namespace: UserNamespace,
+                 fields: dict,
+                 name: str,
+                 subtitle: str,
+                 scene: Scene,
+                 log_performance: bool,
+                 ):
+        App.__init__(self, name, subtitle, scene=scene, log_performance=log_performance)
+        self.initial_field_values = fields
+        self.namespace = namespace
+        self.on_loop_start = []
+        self.on_loop_exit = []
+        for name in fields.keys():
+            self.add_field(name, lambda n=name: self.namespace.get_variable(n))
+        self.add_action(&#34;Reset&#34;, lambda: self.reset())
+        self.rec = None
+
+    def range(self, *args, warmup=0, **rec_dim):
         &#34;&#34;&#34;
-        Creates the ModuleViewer `App` and `show()`s it.
+        Similarly to `range()`, returns a generator that can be used in a `for` loop.
 
-        Args:
-            fields: (Optional) names of global variables to be displayed.
-                If not provided, searches all global variables for Field or Tensor values.
-                All fields must exist as global variables before the ModuleViewer is instantiated.
-        &#34;&#34;&#34;
-        module = inspect.getmodule(inspect.stack()[1].frame)
-        doc = module.__doc__
-        if doc is None:
-            name = os.path.basename(module.__file__)[:-3]
-            subtitle = module.__doc__ or module.__file__
-        else:
-            end_of_line = doc.index(&#39;\n&#39;)
-            name = doc[:end_of_line].strip()
-            subtitle = doc[end_of_line:].strip() or None
-        App.__init__(self, name, subtitle, fields=None, stride=stride, base_dir=base_dir, summary=summary, custom_properties=custom_properties, target_scene=target_scene, objects_to_save=objects_to_save, framerate=framerate, dt=dt)
-        if fields is None:
-            for name in dir(module):
-                if not name.startswith(&#39;_&#39;):
-                    val = getattr(module, name)
-                    if isinstance(val, Field) or (isinstance(val, Tensor) and val.shape.spatial_rank &gt; 0):
-                        self.add_field(name, lambda name=name: getattr(module, name))
-        else:
-            for name in fields:
-                self.add_field(name, lambda name=name: getattr(module, name))
-        self.step_exec_event = Event()
-        self.step_finished_event = Event()
-        self._interrupt = False
+        ```python
+        for step in ModuleViewer().range(100):
+            print(f&#39;Running step {step}&#39;)
+        ```
 
-        def async_show():
-            show(self, **show_config)
-
-        self._display_thread = Thread(target=async_show, name=&#34;ModuleViewer_show&#34;, daemon=not _display.KEEP_ALIVE)
-        self._display_thread.start()
-
-    def range(self, *args, warmup=0):
-        &#34;&#34;&#34;
-        Similar to `range()`, returns a generator that can be used in a `for` loop.
-
-            for step in ModuleViewer().range(100):
-                print(f&#39;Running step {step}&#39;)
-
-        However, `ModuleViewer.range()` controlling the flow via the user interface.
+        However, `Viewer.range()` enables controlling the flow via the user interface.
         Each element returned by the generator waits for `ModuleViewer.step()` to be invoked once.
 
         Note that `step` is always equal to `ModuleViewer.step`.
@@ -1932,113 +1901,115 @@ All fields must exist as global variables before the ModuleViewer is instantiate
         However, do not call this method while one `range` is still active.
 
         Args:
-            *args:
-                No arguments for infinite loop.
-                `(stop: int)` to set number of iterations.
+            *args: No arguments for infinite loop,
+                `(stop: int)` to set number of iterations,
                 `(start: int, stop: int)` to additionally set initial value of `step`.
+            warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
+            **rec_dim: Can be used instead of `*args` to record values along this batch dimension.
+                The recorded values can be accessed as `Viewer.rec.&lt;name&gt;` or `Viewer.rec[&#39;&lt;name&gt;&#39;]`.
 
         Returns:
             generator yielding `ModuleViewer.step`
         &#34;&#34;&#34;
         for _ in range(warmup):
             yield self.steps
+            self.invalidate()
+
+        for obs in self.on_loop_start:
+            obs(self)
+
+        if rec_dim:
+            assert len(rec_dim) == 1, f&#34;Only one rec_dim allowed but got {rec_dim}&#34;
+            assert not args, f&#34;No positional arguments are allowed when a rec_dim is specified. {rec_dim}&#34;
+            rec_dim_name = next(iter(rec_dim.keys()))
+            size = rec_dim[rec_dim_name]
+            assert isinstance(size, int)
+            self.rec = Record(rec_dim_name)
+            self.rec.append(self.initial_field_values, warn_missing=False)
+            args = [size]
 
         if len(args) == 0:
-            while True:
-                with self._perform_step_context():
-                    yield self.steps
+            step_source = itertools.count(start=1)
         elif len(args) == 1:
-            for _ in range(args[0]):
-                self.step_exec_event.wait()
-                yield self.steps
-                self.step_exec_event.clear()
-                self.step_finished_event.set()
+            step_source = range(args[0])
         elif len(args) == 2:
-            for i in range(args[0], args[1]):
-                self.step_exec_event.wait()
-                self.steps = i
-                yield self.steps
-                self.step_exec_event.clear()
-                self.step_finished_event.set()
+            step_source = range(args[0], args[1])
         else:
             raise ValueError(args)
 
-    @contextmanager
-    def _perform_step_context(self):
-        self.step_exec_event.wait()
-        if self._interrupt:
-            raise InterruptedError()
         try:
-            yield None
+            for step in step_source:
+                self.steps = step
+                self._pre_step()
+                yield step
+                self._post_step()
+                if rec_dim:
+                    self.rec.append({name: self.get_field(name) for name in self.fieldnames})
         finally:
-            if self._interrupt:
-                raise InterruptedError()
-            self.step_exec_event.clear()
-            self.step_finished_event.set()
+            for obs in self.on_loop_exit:
+                obs(self)
 
     def step(self):
-        &#34;&#34;&#34;
-        Allows the generator returned by `ModuleViewer.range()` to advance one element.
-        In typical scenarios, this will run one loop iteration in the top-level script.
-        &#34;&#34;&#34;
-        self.step_finished_event.clear()
-        self.step_exec_event.set()
-        self.step_finished_event.wait()
+        &#34;&#34;&#34; Has no effect. The real step is a loop iteration. See `Viewer.range()`. &#34;&#34;&#34;
+        pass
 
-    def interrupt(self):
-        self._interrupt = True</code></pre>
+    def reset(self, reset_steps=True):
+        for name, value in self.initial_field_values.items():
+            self.namespace.set_variable(name, value)
+        if reset_steps:
+            self.steps = 0</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.app._app.App</li>
 </ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li>phi.app._viewer.AsyncViewer</li>
+</ul>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.app.ModuleViewer.interrupt"><code class="name flex">
-<span>def <span class="ident">interrupt</span></span>(<span>self)</span>
+<dt id="phi.app.Viewer.range"><code class="name flex">
+<span>def <span class="ident">range</span></span>(<span>self, *args, warmup=0, **rec_dim)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def interrupt(self):
-    self._interrupt = True</code></pre>
-</details>
-</dd>
-<dt id="phi.app.ModuleViewer.range"><code class="name flex">
-<span>def <span class="ident">range</span></span>(<span>self, *args, warmup=0)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Similar to <code>range()</code>, returns a generator that can be used in a <code>for</code> loop.</p>
-<pre><code>for step in ModuleViewer().range(100):
+<div class="desc"><p>Similarly to <code>range()</code>, returns a generator that can be used in a <code>for</code> loop.</p>
+<pre><code class="language-python">for step in ModuleViewer().range(100):
     print(f'Running step {step}')
 </code></pre>
-<p>However, <code><a title="phi.app.ModuleViewer.range" href="#phi.app.ModuleViewer.range">ModuleViewer.range()</a></code> controlling the flow via the user interface.
-Each element returned by the generator waits for <code><a title="phi.app.ModuleViewer.step" href="#phi.app.ModuleViewer.step">ModuleViewer.step()</a></code> to be invoked once.</p>
-<p>Note that <code>step</code> is always equal to <code><a title="phi.app.ModuleViewer.step" href="#phi.app.ModuleViewer.step">ModuleViewer.step()</a></code>.</p>
+<p>However, <code><a title="phi.app.Viewer.range" href="#phi.app.Viewer.range">Viewer.range()</a></code> enables controlling the flow via the user interface.
+Each element returned by the generator waits for <code>ModuleViewer.step()</code> to be invoked once.</p>
+<p>Note that <code>step</code> is always equal to <code>ModuleViewer.step</code>.</p>
 <p>This method can be invoked multiple times.
 However, do not call this method while one <code>range</code> is still active.</p>
 <h2 id="args">Args</h2>
-<p>*args:
-No arguments for infinite loop.
-<code>(stop: int)</code> to set number of iterations.
-<code>(start: int, stop: int)</code> to additionally set initial value of <code>step</code>.</p>
+<dl>
+<dt><strong><code>*args</code></strong></dt>
+<dd>No arguments for infinite loop,
+<code>(stop: int)</code> to set number of iterations,
+<code>(start: int, stop: int)</code> to additionally set initial value of <code>step</code>.</dd>
+<dt><strong><code>warmup</code></strong></dt>
+<dd>Number of uncounted loop iterations to perform before <code>step()</code> is invoked for the first time.</dd>
+<dt><strong><code>**rec_dim</code></strong></dt>
+<dd>Can be used instead of <code>*args</code> to record values along this batch dimension.
+The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <code>Viewer.rec['&lt;name&gt;']</code>.</dd>
+</dl>
 <h2 id="returns">Returns</h2>
-<p>generator yielding <code><a title="phi.app.ModuleViewer.step" href="#phi.app.ModuleViewer.step">ModuleViewer.step()</a></code></p></div>
+<p>generator yielding <code>ModuleViewer.step</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def range(self, *args, warmup=0):
+<pre><code class="python">def range(self, *args, warmup=0, **rec_dim):
     &#34;&#34;&#34;
-    Similar to `range()`, returns a generator that can be used in a `for` loop.
+    Similarly to `range()`, returns a generator that can be used in a `for` loop.
 
-        for step in ModuleViewer().range(100):
-            print(f&#39;Running step {step}&#39;)
+    ```python
+    for step in ModuleViewer().range(100):
+        print(f&#39;Running step {step}&#39;)
+    ```
 
-    However, `ModuleViewer.range()` controlling the flow via the user interface.
+    However, `Viewer.range()` enables controlling the flow via the user interface.
     Each element returned by the generator waits for `ModuleViewer.step()` to be invoked once.
 
     Note that `step` is always equal to `ModuleViewer.step`.
@@ -2047,56 +2018,83 @@ No arguments for infinite loop.
     However, do not call this method while one `range` is still active.
 
     Args:
-        *args:
-            No arguments for infinite loop.
-            `(stop: int)` to set number of iterations.
+        *args: No arguments for infinite loop,
+            `(stop: int)` to set number of iterations,
             `(start: int, stop: int)` to additionally set initial value of `step`.
+        warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
+        **rec_dim: Can be used instead of `*args` to record values along this batch dimension.
+            The recorded values can be accessed as `Viewer.rec.&lt;name&gt;` or `Viewer.rec[&#39;&lt;name&gt;&#39;]`.
 
     Returns:
         generator yielding `ModuleViewer.step`
     &#34;&#34;&#34;
     for _ in range(warmup):
         yield self.steps
+        self.invalidate()
+
+    for obs in self.on_loop_start:
+        obs(self)
+
+    if rec_dim:
+        assert len(rec_dim) == 1, f&#34;Only one rec_dim allowed but got {rec_dim}&#34;
+        assert not args, f&#34;No positional arguments are allowed when a rec_dim is specified. {rec_dim}&#34;
+        rec_dim_name = next(iter(rec_dim.keys()))
+        size = rec_dim[rec_dim_name]
+        assert isinstance(size, int)
+        self.rec = Record(rec_dim_name)
+        self.rec.append(self.initial_field_values, warn_missing=False)
+        args = [size]
 
     if len(args) == 0:
-        while True:
-            with self._perform_step_context():
-                yield self.steps
+        step_source = itertools.count(start=1)
     elif len(args) == 1:
-        for _ in range(args[0]):
-            self.step_exec_event.wait()
-            yield self.steps
-            self.step_exec_event.clear()
-            self.step_finished_event.set()
+        step_source = range(args[0])
     elif len(args) == 2:
-        for i in range(args[0], args[1]):
-            self.step_exec_event.wait()
-            self.steps = i
-            yield self.steps
-            self.step_exec_event.clear()
-            self.step_finished_event.set()
+        step_source = range(args[0], args[1])
     else:
-        raise ValueError(args)</code></pre>
+        raise ValueError(args)
+
+    try:
+        for step in step_source:
+            self.steps = step
+            self._pre_step()
+            yield step
+            self._post_step()
+            if rec_dim:
+                self.rec.append({name: self.get_field(name) for name in self.fieldnames})
+    finally:
+        for obs in self.on_loop_exit:
+            obs(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.app.ModuleViewer.step"><code class="name flex">
+<dt id="phi.app.Viewer.restore_initial_field_values"><code class="name flex">
+<span>def <span class="ident">reset</span></span>(<span>self, reset_steps=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reset(self, reset_steps=True):
+    for name, value in self.initial_field_values.items():
+        self.namespace.set_variable(name, value)
+    if reset_steps:
+        self.steps = 0</code></pre>
+</details>
+</dd>
+<dt id="phi.app.Viewer.step"><code class="name flex">
 <span>def <span class="ident">step</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Allows the generator returned by <code><a title="phi.app.ModuleViewer.range" href="#phi.app.ModuleViewer.range">ModuleViewer.range()</a></code> to advance one element.
-In typical scenarios, this will run one loop iteration in the top-level script.</p></div>
+<div class="desc"><p>Has no effect. The real step is a loop iteration. See <code><a title="phi.app.Viewer.range" href="#phi.app.Viewer.range">Viewer.range()</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def step(self):
-    &#34;&#34;&#34;
-    Allows the generator returned by `ModuleViewer.range()` to advance one element.
-    In typical scenarios, this will run one loop iteration in the top-level script.
-    &#34;&#34;&#34;
-    self.step_finished_event.clear()
-    self.step_exec_event.set()
-    self.step_finished_event.wait()</code></pre>
+    &#34;&#34;&#34; Has no effect. The real step is a loop iteration. See `Viewer.range()`. &#34;&#34;&#34;
+    pass</code></pre>
 </details>
 </dd>
 </dl>
@@ -2117,44 +2115,43 @@ In typical scenarios, this will run one loop iteration in the top-level script.<
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="phi.app.animate" href="#phi.app.animate">animate</a></code></li>
+<li><code><a title="phi.app.plot" href="#phi.app.plot">plot</a></code></li>
+<li><code><a title="phi.app.plot_scalars" href="#phi.app.plot_scalars">plot_scalars</a></code></li>
 <li><code><a title="phi.app.show" href="#phi.app.show">show</a></code></li>
+<li><code><a title="phi.app.view" href="#phi.app.view">view</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
 <h4><code><a title="phi.app.App" href="#phi.app.App">App</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="phi.app.App.actions" href="#phi.app.App.actions">actions</a></code></li>
 <li><code><a title="phi.app.App.add_action" href="#phi.app.App.add_action">add_action</a></code></li>
-<li><code><a title="phi.app.App.add_custom_properties" href="#phi.app.App.add_custom_properties">add_custom_properties</a></code></li>
-<li><code><a title="phi.app.App.add_custom_property" href="#phi.app.App.add_custom_property">add_custom_property</a></code></li>
 <li><code><a title="phi.app.App.add_field" href="#phi.app.App.add_field">add_field</a></code></li>
-<li><code><a title="phi.app.App.add_trait" href="#phi.app.App.add_trait">add_trait</a></code></li>
 <li><code><a title="phi.app.App.benchmark" href="#phi.app.App.benchmark">benchmark</a></code></li>
 <li><code><a title="phi.app.App.controls" href="#phi.app.App.controls">controls</a></code></li>
-<li><code><a title="phi.app.App.custom_properties" href="#phi.app.App.custom_properties">custom_properties</a></code></li>
 <li><code><a title="phi.app.App.debug" href="#phi.app.App.debug">debug</a></code></li>
 <li><code><a title="phi.app.App.directory" href="#phi.app.App.directory">directory</a></code></li>
-<li><code><a title="phi.app.App.dt" href="#phi.app.App.dt">dt</a></code></li>
 <li><code><a title="phi.app.App.fieldnames" href="#phi.app.App.fieldnames">fieldnames</a></code></li>
-<li><code><a title="phi.app.App.format_time" href="#phi.app.App.format_time">format_time</a></code></li>
 <li><code><a title="phi.app.App.frame" href="#phi.app.App.frame">frame</a></code></li>
-<li><code><a title="phi.app.App.framerate" href="#phi.app.App.framerate">framerate</a></code></li>
 <li><code><a title="phi.app.App.get_field" href="#phi.app.App.get_field">get_field</a></code></li>
+<li><code><a title="phi.app.App.get_logged_scalars" href="#phi.app.App.get_logged_scalars">get_logged_scalars</a></code></li>
+<li><code><a title="phi.app.App.get_scalar_curve" href="#phi.app.App.get_scalar_curve">get_scalar_curve</a></code></li>
 <li><code><a title="phi.app.App.info" href="#phi.app.App.info">info</a></code></li>
 <li><code><a title="phi.app.App.invalidate" href="#phi.app.App.invalidate">invalidate</a></code></li>
+<li><code><a title="phi.app.App.is_paused" href="#phi.app.App.is_paused">is_paused</a></code></li>
+<li><code><a title="phi.app.App.log_scalar" href="#phi.app.App.log_scalar">log_scalar</a></code></li>
+<li><code><a title="phi.app.App.log_scalars" href="#phi.app.App.log_scalars">log_scalars</a></code></li>
 <li><code><a title="phi.app.App.name" href="#phi.app.App.name">name</a></code></li>
-<li><code><a title="phi.app.App.new_scene" href="#phi.app.App.new_scene">new_scene</a></code></li>
 <li><code><a title="phi.app.App.pause" href="#phi.app.App.pause">pause</a></code></li>
-<li><code><a title="phi.app.App.play" href="#phi.app.App.play">play</a></code></li>
 <li><code><a title="phi.app.App.prepare" href="#phi.app.App.prepare">prepare</a></code></li>
 <li><code><a title="phi.app.App.prepared" href="#phi.app.App.prepared">prepared</a></code></li>
 <li><code><a title="phi.app.App.run_action" href="#phi.app.App.run_action">run_action</a></code></li>
 <li><code><a title="phi.app.App.run_step" href="#phi.app.App.run_step">run_step</a></code></li>
 <li><code><a title="phi.app.App.running" href="#phi.app.App.running">running</a></code></li>
-<li><code><a title="phi.app.App.scene_summary" href="#phi.app.App.scene_summary">scene_summary</a></code></li>
-<li><code><a title="phi.app.App.set_state" href="#phi.app.App.set_state">set_state</a></code></li>
+<li><code><a title="phi.app.App.scene" href="#phi.app.App.scene">scene</a></code></li>
 <li><code><a title="phi.app.App.settings_str" href="#phi.app.App.settings_str">settings_str</a></code></li>
 <li><code><a title="phi.app.App.show" href="#phi.app.App.show">show</a></code></li>
 <li><code><a title="phi.app.App.start_time" href="#phi.app.App.start_time">start_time</a></code></li>
@@ -2162,9 +2159,7 @@ In typical scenarios, this will run one loop iteration in the top-level script.<
 <li><code><a title="phi.app.App.step" href="#phi.app.App.step">step</a></code></li>
 <li><code><a title="phi.app.App.steps" href="#phi.app.App.steps">steps</a></code></li>
 <li><code><a title="phi.app.App.subtitle" href="#phi.app.App.subtitle">subtitle</a></code></li>
-<li><code><a title="phi.app.App.summary" href="#phi.app.App.summary">summary</a></code></li>
 <li><code><a title="phi.app.App.time" href="#phi.app.App.time">time</a></code></li>
-<li><code><a title="phi.app.App.traits" href="#phi.app.App.traits">traits</a></code></li>
 </ul>
 </li>
 <li>
@@ -2199,11 +2194,11 @@ In typical scenarios, this will run one loop iteration in the top-level script.<
 </ul>
 </li>
 <li>
-<h4><code><a title="phi.app.ModuleViewer" href="#phi.app.ModuleViewer">ModuleViewer</a></code></h4>
+<h4><code><a title="phi.app.Viewer" href="#phi.app.Viewer">Viewer</a></code></h4>
 <ul class="">
-<li><code><a title="phi.app.ModuleViewer.interrupt" href="#phi.app.ModuleViewer.interrupt">interrupt</a></code></li>
-<li><code><a title="phi.app.ModuleViewer.range" href="#phi.app.ModuleViewer.range">range</a></code></li>
-<li><code><a title="phi.app.ModuleViewer.step" href="#phi.app.ModuleViewer.step">step</a></code></li>
+<li><code><a title="phi.app.Viewer.range" href="#phi.app.Viewer.range">range</a></code></li>
+<li><code><a title="phi.app.Viewer.reset" href="#phi.app.Viewer.restore_initial_field_values">reset</a></code></li>
+<li><code><a title="phi.app.Viewer.step" href="#phi.app.Viewer.step">step</a></code></li>
 </ul>
 </li>
 </ul>

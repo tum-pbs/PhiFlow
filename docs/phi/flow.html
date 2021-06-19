@@ -24,9 +24,9 @@
 <section id="section-intro">
 <p><em>Main PhiFlow import:</em> <code>from phi.flow import *</code></p>
 <p>Imports important functions and classes from
-<code>math</code>, <code>geom</code>, <code>field</code>, <code>physics</code> and <code>app</code> (including sub-modules)
+<code>math</code>, <code>geom</code>, <code>field</code>, <code>physics</code> and <code>vis</code> (including sub-modules)
 as well as the modules and sub-modules themselves.</p>
-<p>See <code><a title="phi.tf.flow" href="tf/flow.html">phi.tf.flow</a></code>, <code><a title="phi.torch.flow" href="torch/flow.html">phi.torch.flow</a></code>.</p>
+<p>See <code><a title="phi.tf.flow" href="tf/flow.html">phi.tf.flow</a></code>, <code><a title="phi.torch.flow" href="torch/flow.html">phi.torch.flow</a></code>, <code><a title="phi.jax.flow" href="jax/flow.html">phi.jax.flow</a></code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -36,31 +36,37 @@ as well as the modules and sub-modules themselves.</p>
 *Main PhiFlow import:* `from phi.flow import *`
 
 Imports important functions and classes from
-`math`, `geom`, `field`, `physics` and `app` (including sub-modules)
+`math`, `geom`, `field`, `physics` and `vis` (including sub-modules)
 as well as the modules and sub-modules themselves.
 
-See `phi.tf.flow`, `phi.torch.flow`.
+See `phi.tf.flow`, `phi.torch.flow`, `phi.jax.flow`.
 &#34;&#34;&#34;
 
+# Modules
 import numpy
 import numpy as np
-
 import phi
+from . import math, geom, field, physics, vis
+from .math import extrapolation, backend
+from .physics import fluid, flip, advect, diffuse
 
-from . import math
-from .math import extrapolation, PI, DType, wrap, shape, backend, tensor
-
-from . import geom
-from .geom import Geometry, Sphere, Box, union
-
-from . import field
+# Classes
+from .math import DType, Solve
+from .geom import Geometry, Sphere, Box
 from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
+from .vis import view, Viewer, control
+from .physics._boundaries import Obstacle
 
-from . import physics
-from .physics import fluid, flip, advect, diffuse, Domain, OPEN, CLOSED, PERIODIC, Obstacle
+# Constants
+from .math import PI
 
-from . import app
-from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show</code></pre>
+# Functions
+from .math import wrap, tensor, spatial, channel, batch, collection
+from .geom import union
+from .vis import show
+
+# Exceptions
+from .math import ConvergenceException, NotConverged, Diverged</code></pre>
 </details>
 </section>
 <section>

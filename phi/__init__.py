@@ -6,7 +6,7 @@ Use one of the following imports:
 * `from phi.flow import *`  for NumPy mode
 * `from phi.tf.flow import *`  for TensorFlow mode
 * `from phi.torch.flow import *` for PyTorch mode
-* `from phi.jax.flow import *` for *experimental* Jax mode
+* `from phi.jax.flow import *` for Jax mode
 
 Project homepage: https://github.com/tum-pbs/PhiFlow
 
@@ -47,15 +47,15 @@ def detect_backends() -> tuple:
         `tuple` of `phi.math.backend.Backend`
     """
     try:
-        from .tf import TF_BACKEND
+        from .torch import TORCH
     except ImportError:
         pass
     try:
-        from .torch import TORCH_BACKEND
+        from .tf import TENSORFLOW
     except ImportError:
         pass
     try:
-        from .jax import JAX_BACKEND
+        from .jax import JAX
     except ImportError:
         pass
     from .math.backend import BACKENDS

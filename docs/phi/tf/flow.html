@@ -25,9 +25,9 @@
 <p>Standard import for TensorFlow mode.</p>
 <p>Extends the import <code>from phi.flow import *</code> by TensorFlow-related functions and modules.</p>
 <p>The following TensorFlow modules are included: <code>tensorflow</code> / <code>tf</code>, <code>keras</code>, <code>layers</code>.</p>
-<p>Importing this module registers the TensorFlow backend as the default backend.
+<p>Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
 New tensors created via <code><a title="phi.math" href="../math/index.html">phi.math</a></code> functions will be backed by TensorFlow tensors.</p>
-<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.torch.flow" href="../torch/flow.html">phi.torch.flow</a></code>.</p>
+<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.torch.flow" href="../torch/flow.html">phi.torch.flow</a></code>, <code><a title="phi.jax.flow" href="../jax/flow.html">phi.jax.flow</a></code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -40,20 +40,25 @@ Extends the import `from phi.flow import *` by TensorFlow-related functions and 
 
 The following TensorFlow modules are included: `tensorflow` / `tf`, `keras`, `layers`.
 
-Importing this module registers the TensorFlow backend as the default backend.
+Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
 New tensors created via `phi.math` functions will be backed by TensorFlow tensors.
 
-See `phi.flow`, `phi.torch.flow`.
+See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 &#34;&#34;&#34;
 
 from phi.flow import *
-from ._tf_backend import TF_BACKEND
+from . import TENSORFLOW
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers
 
 tf = tensorflow
-backend.set_global_default_backend(TF_BACKEND)</code></pre>
+
+if not backend.context_backend():
+    backend.set_global_default_backend(TENSORFLOW)
+else:
+    import warnings
+    warnings.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>
 </details>
 </section>
 <section>

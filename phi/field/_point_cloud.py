@@ -4,30 +4,32 @@ from phi import math
 from phi.geom import Geometry, GridCell, Box
 from ._field import SampledField
 from ..geom._stack import GeometryStack
-from ..math import Tensor
+from ..math import Tensor, collection
 
 
 class PointCloud(SampledField):
+    """
+    A point cloud consists of elements at arbitrary locations.
+    A value or vector is associated with each element.
 
-    def __init__(self, elements: Geometry,
+    Outside of elements, the value of the field is determined by the extrapolation.
+
+    All points belonging to one example must be listed in the 'points' dimension.
+
+    Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
+    When sampling this field on a grid, scatter functions may be used.
+
+    See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
+    """
+
+    def __init__(self,
+                 elements: Geometry,
                  values: Any = 1,
                  extrapolation=math.extrapolation.ZERO,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
         """
-        A point cloud consists of elements at arbitrary locations.
-        A value or vector is associated with each element.
-
-        Outside of elements, the value of the field is determined by the extrapolation.
-
-        All points belonging to one example must be listed in the 'points' dimension.
-
-        Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-        When sampling this field on a grid, scatter functions may be used.
-
-        See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
-
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
@@ -36,14 +38,44 @@ class PointCloud(SampledField):
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
           color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         """
-        SampledField.__init__(self, elements, values, extrapolation)
+        SampledField.__init__(self, elements, math.wrap(values), extrapolation)
         self._add_overlapping = add_overlapping
         assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
         self._bounds = bounds
-        assert 'points' in self.shape, "Cannot create PointCloud without 'points' dimension. Add it either to elements or to values as batch dimension."
-        if color is None:
-            color = '#0060ff'
-        self._color = math.wrap(color, names='points') if isinstance(color, (tuple, list)) else math.wrap(color)
+        color = '#0060ff' if color is None else color
+        self._color = math.wrap(color, collection('points')) if isinstance(color, (tuple, list)) else math.wrap(color)
+
+    @property
+    def shape(self):
+        return self._elements.shape & self._values.shape.non_spatial
+
+    def __getitem__(self, item: dict):
+        elements = self.elements[item]
+        values = self._values[item]
+        color = self._color[item]
+        extrapolation = self._extrapolation[item]
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, color)
+
+    def with_elements(self, elements: Geometry):
+        return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_values(self, values):
+        return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+
+    def with_color(self, color: str or Tensor or tuple or list):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=color)
+
+    def with_bounds(self, bounds: Box):
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=bounds, color=self._color)
+
+    def __value_attrs__(self):
+        return '_values', '_extrapolation'
+
+    def __variable_attrs__(self):
+        return '_values', '_elements'
 
     @property
     def bounds(self) -> Box:
@@ -53,25 +85,16 @@ class PointCloud(SampledField):
     def color(self) -> Tensor:
         return self._color
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
-        if not reduce_channels:
-            if geometry == self.elements:
-                return self.values
-            elif isinstance(geometry, GridCell):
-                return self._grid_scatter(geometry.bounds, geometry.resolution)
-            elif isinstance(geometry, GeometryStack):
-                sampled = [self.sample_at(g) for g in geometry.geometries]
-                return math.batch_stack(sampled, geometry.stack_dim_name)
-            else:
-                raise NotImplementedError()
+    def _sample(self, geometry: Geometry) -> Tensor:
+        if geometry == self.elements:
+            return self.values
+        elif isinstance(geometry, GridCell):
+            return self._grid_scatter(geometry.bounds, geometry.resolution)
+        elif isinstance(geometry, GeometryStack):
+            sampled = [self._sample(g) for g in geometry.geometries]
+            return math.stack(sampled, geometry.stack_dim)
         else:
-            assert len(reduce_channels) == 1
-            components = self.unstack('vector') if 'vector' in self.shape else (self,) * geometry.shape.get_size(reduce_channels[0])
-            sampled = [c.sample_in(p) for c, p in zip(components, geometry.unstack(reduce_channels[0]))]
-            return math.channel_stack(sampled, 'vector')
-
-    def sample_at(self, points, reduce_channels=()) -> Tensor:
-        raise NotImplementedError()
+            raise NotImplementedError()
 
     def _grid_scatter(self, box: Box, resolution: math.Shape):
         """
@@ -87,12 +110,12 @@ class PointCloud(SampledField):
           CenteredGrid
 
         """
-        closest_index = math.to_int(math.round(box.global_to_local(self.points) * resolution - 0.5))
-        if self._add_overlapping:
-            duplicates_handling = 'add'
-        else:
-            duplicates_handling = 'mean'
-        scattered = math.scatter(closest_index, self.values, resolution, duplicates_handling=duplicates_handling, outside_handling='discard', scatter_dims=('points',))
+        closest_index = box.global_to_local(self.points) * resolution - 0.5
+        mode = 'add' if self._add_overlapping else 'mean'
+        base = math.zeros(resolution)
+        if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
+            base += self.extrapolation.value
+        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling='discard')
         return scattered
 
     def __repr__(self):
@@ -101,4 +124,10 @@ class PointCloud(SampledField):
     def __and__(self, other):
         assert isinstance(other, PointCloud)
         from ._field_math import concat
-        return concat(self, other, dim='points')
+        return concat([self, other], collection('points'))
+
+
+def nonzero(field: SampledField):
+    indices = math.nonzero(field.values, list_dim=collection('points'))
+    elements = field.elements[indices]
+    return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds, color=None)

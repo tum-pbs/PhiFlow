@@ -38,17 +38,27 @@ Without this, TensorFlow tensors cannot be handled by `phi.math` functions.
 
 To make TensorFlow the default backend, import `phi.tf.flow`.
 &#34;&#34;&#34;
+import platform as _platform
+import warnings as _warnings
+
 from phi import math as _math
 import os
+import tensorflow as _tf
 
 os.environ[&#39;TF_CPP_MIN_LOG_LEVEL&#39;] = &#39;2&#39;  # only errors
+if _platform.system().lower() == &#39;windows&#39;:  # prevent Blas GEMM launch failed on Windows
+    for i, device in enumerate(_tf.config.list_physical_devices(&#39;GPU&#39;)):
+        _tf.config.experimental.set_memory_growth(device, True)
+        _warnings.warn(f&#34;phi.tf: Setting memory_growth on GPU {i} to True to prevent Blas errors&#34;)
 
-from ._tf_backend import TF_BACKEND
+from ._compile_cuda import compile_cuda_ops
 
-TF_BACKEND = TF_BACKEND  # to show up in pdoc
+from ._tf_backend import TFBackend as _TFBackend
+
+TENSORFLOW = _TFBackend()
 &#34;&#34;&#34;Backend for TensorFlow operations.&#34;&#34;&#34;
 
-_math.backend.BACKENDS.append(TF_BACKEND)
+_math.backend.BACKENDS.append(TENSORFLOW)
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
 </details>
@@ -65,13 +75,69 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <section>
 <h2 class="section-title" id="header-variables">Global variables</h2>
 <dl>
-<dt id="phi.tf.TF_BACKEND"><code class="name">var <span class="ident">TF_BACKEND</span></code></dt>
+<dt id="phi.tf.TENSORFLOW"><code class="name">var <span class="ident">TENSORFLOW</span></code></dt>
 <dd>
 <div class="desc"><p>Backend for TensorFlow operations.</p></div>
 </dd>
 </dl>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="phi.tf.compile_cuda_ops"><code class="name flex">
+<span>def <span class="ident">compile_cuda_ops</span></span>(<span>gcc: str = None, nvcc: str = None, cuda_lib: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def compile_cuda_ops(gcc: str = None,
+                     nvcc: str = None,
+                     cuda_lib: str = None):
+    tf_gcc = check_tf_cuda_compatibility()
+    if gcc is None:
+        gcc = tf_gcc if isfile(tf_gcc) else &#39;gcc&#39;
+    if nvcc is None:
+        nvcc = &#39;/usr/local/cuda/bin/nvcc&#39; if isfile(&#39;/usr/local/cuda/bin/nvcc&#39;) else &#39;nvcc&#39;
+    if cuda_lib is None:
+        cuda_lib = &#39;/usr/local/cuda/lib64/&#39;
+
+    phi_tf_path = abspath(dirname(__file__))
+    src_path = join(phi_tf_path, &#39;cuda&#39;, &#39;src&#39;)
+    build_path = join(phi_tf_path, &#39;cuda&#39;, &#39;build&#39;)
+    logfile_path = join(phi_tf_path, &#39;cuda&#39;, &#39;log.txt&#39;)
+    print(&#34;Source Path:\t&#34; + src_path)
+    print(&#34;Build Path:\t&#34; + build_path)
+    print(&#34;GCC:\t\t&#34; + gcc)
+    print(&#34;NVCC:\t\t&#34; + nvcc)
+    print(&#34;CUDA lib:\t&#34; + cuda_lib)
+    print(&#34;----------------------------&#34;)
+    # Remove old build files
+    if isdir(build_path):
+        print(&#39;Removing old build files from %s&#39; % build_path)
+        for file in os.listdir(build_path):
+            os.remove(join(build_path, file))
+    else:
+        print(&#39;Creating build directory at %s&#39; % build_path)
+        os.mkdir(build_path)
+    print(&#39;Compiling CUDA code...&#39;)
+    with open(logfile_path, &#34;w&#34;) as logfile:
+        try:
+            compile_cuda(&#39;resample&#39;, nvcc, src_path, build_path, logfile=logfile)
+            compile_gcc(&#39;resample&#39;, gcc, src_path, build_path, cuda_lib, logfile=logfile)
+            compile_cuda(&#39;resample_gradient&#39;, nvcc, src_path, build_path, logfile=logfile)
+            compile_gcc(&#39;resample_gradient&#39;, gcc, src_path, build_path, cuda_lib, logfile=logfile)
+            # compile_cuda(&#39;bicgstab_ilu_linear_solve_op&#39;, self.nvcc, src_path, build_path, logfile=logfile)
+            # compile_gcc(&#39;bicgstab_ilu_linear_solve_op&#39;, self.gcc, src_path, build_path, self.cuda_lib, logfile=logfile)
+        except BaseException as err:
+            print(f&#34;Compilation failed. See {logfile_path} for details.&#34;)
+            raise err
+    print(f&#34;Compilation complete. See {logfile_path} for details.&#34;)</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 <section>
 </section>
@@ -94,7 +160,12 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="">
-<li><code><a title="phi.tf.TF_BACKEND" href="#phi.tf.TF_BACKEND">TF_BACKEND</a></code></li>
+<li><code><a title="phi.tf.TENSORFLOW" href="#phi.tf.TENSORFLOW">TENSORFLOW</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="phi.tf.compile_cuda_ops" href="#phi.tf.compile_cuda_ops">compile_cuda_ops</a></code></li>
 </ul>
 </li>
 </ul>

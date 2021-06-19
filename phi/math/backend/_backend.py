@@ -1,10 +1,16 @@
+from collections import namedtuple
 from contextlib import contextmanager
-from typing import Tuple, List, Any, Callable
+from threading import Barrier
+from typing import List, Callable
 
 import numpy
 
 from ._dtype import DType, combine_types
-from ._optim import Solve, LinearSolve
+
+
+SolveResult = namedtuple('SolveResult', [
+    'method', 'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
+])
 
 
 class ComputeDevice:
@@ -87,6 +93,9 @@ class Backend:
         impl_fun = getattr(self.__class__, feature)
         return impl_fun is not backend_fun
 
+    def prefers_channels_last(self) -> bool:
+        raise NotImplementedError()
+
     @property
     def precision(self) -> int:
         """ Short for math.backend.get_precision() """
@@ -95,6 +104,14 @@ class Backend:
     @property
     def float_type(self) -> DType:
         return DType(float, self.precision)
+
+    @property
+    def as_registered(self) -> 'Backend':
+        from phi.math.backend import BACKENDS
+        for backend in BACKENDS:
+            if self.name in backend.name:
+                return backend
+        raise RuntimeError(f"Backend '{self}' is not visible.")
 
     @property
     def complex_type(self) -> DType:
@@ -132,11 +149,18 @@ class Backend:
         """
         Fetches information about all available compute devices this backend can use.
 
+        Implementations:
+
+        * NumPy: [`os.cpu_count`](https://docs.python.org/3/library/os.html#os.cpu_count)
+        * PyTorch: [`torch.cuda.get_device_properties`](https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties)
+        * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
+        * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
+
         Args:
-            device_type: (optional) Return only devices of this type, e.g. `'GPU'`. See `ComputeDevice.device_type`.
+            device_type: (optional) Return only devices of this type, e.g. `'GPU'` or `'CPU'`. See `ComputeDevice.device_type`.
 
         Returns:
-            Tuple of all currently available devices.
+            `list` of all currently available devices.
         """
         raise NotImplementedError()
 
@@ -149,6 +173,9 @@ class Backend:
             assert len(devices) >= 1, f"{self.name}: Cannot select '{device} because no device of this type is available."
             device = devices[0]
         self._default_device = device
+
+    def seed(self, seed: int):
+        raise NotImplementedError()
 
     def is_tensor(self, x, only_native=False):
         """
@@ -175,7 +202,7 @@ class Backend:
 
         Args:
           x: tensor-like, e.g. list, tuple, Python number, tensor
-          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as is. This can help prevent type clashes like int32 vs int64. (Default value = True)
+          convert_external: if False and `x` is a Python number that is understood by this backend, this method returns the number as-is. This can help prevent type clashes like int32 vs int64. (Default value = True)
 
         Returns:
           tensor representation of `x`
@@ -216,11 +243,14 @@ class Backend:
         """
         raise NotImplementedError()
 
-    def copy(self, tensor, only_mutable=False):
+    def to_dlpack(self, tensor):
         raise NotImplementedError()
 
-    def jit_compile(self, f: Callable) -> Callable:
-        return NotImplemented
+    def from_dlpack(self, capsule):
+        raise NotImplementedError()
+
+    def copy(self, tensor, only_mutable=False):
+        raise NotImplementedError()
 
     def call(self, f: Callable, *args, name=None):
         """
@@ -233,18 +263,30 @@ class Backend:
         """
         return f(*args)
 
+    def block_until_ready(self, values):
+        pass
+
+    def jit_compile(self, f: Callable) -> Callable:
+        return NotImplemented
+
+    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
+
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
         """
-        Creates a function based on `f` that uses a custom spatial_gradient for backprop.
+        Creates a function based on `f` that uses a custom gradient for backprop.
 
         Args:
-            f: Forward function. All arguments must be
-            gradient: Function for backprop. Will be called as `spatial_gradient(*d_out)` to compute the spatial_gradient of `f`.
+            f: Forward function.
+            gradient: Function for backprop. Will be called as `gradient(*d_out)` to compute the gradient of `f`.
 
         Returns:
             Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
         """
         return NotImplemented
+
+    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError()
 
     def transpose(self, tensor, axes):
         raise NotImplementedError()
@@ -313,21 +355,18 @@ class Backend:
 
     def nonzero(self, values):
         """
-        
-
         Args:
-          values: 
+            values: Tensor with only spatial dimensions
 
         Returns:
-          
-
+            non-zero multi-indices as tensor of shape (nnz, vector)
         """
         raise NotImplementedError(self)
 
     def mean(self, value, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def range(self, start, limit=None, delta=1, dtype: DType = None):
+    def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         raise NotImplementedError(self)
 
     def zeros(self, shape, dtype: DType = None):
@@ -348,7 +387,8 @@ class Backend:
     def linspace(self, start, stop, number):
         raise NotImplementedError(self)
 
-    def dot(self, a, b, axes):
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        """ Multiply-sum-reduce a_axes of a with b_axes of b. """
         raise NotImplementedError(self)
 
     def matmul(self, A, b):
@@ -357,8 +397,22 @@ class Backend:
     def einsum(self, equation, *tensors):
         raise NotImplementedError(self)
 
-    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-                   swap_memory=False, name=None, maximum_iterations=None):
+    def while_loop(self, loop: Callable, values: tuple):
+        """
+        ```python
+        while any(values[0]):
+            values = loop(*values)
+        return values
+        ```
+
+        This operation does not support backpropagation.
+
+        Args:
+            loop: Loop function, must return a `tuple` with entries equal to `values` in shape and data type.
+            values: Initial values of loop variables.
+        Returns:
+            Loop variables upon loop completion.
+        """
         raise NotImplementedError(self)
 
     def abs(self, x):
@@ -397,7 +451,20 @@ class Backend:
     def exp(self, x):
         raise NotImplementedError(self)
 
-    def conv(self, tensor, kernel, padding='same'):
+    def conv(self, value, kernel, zero_padding=True):
+        """
+        Convolve value with kernel.
+        Depending on the tensor rank, the convolution is either 1D (rank=3), 2D (rank=4) or 3D (rank=5).
+        Higher dimensions may not be supported.
+
+        Args:
+            value: tensor of shape (batch_size, in_channel, spatial...)
+            kernel: tensor of shape (batch_size or 1, out_channel, in_channel, spatial...)
+            zero_padding: If True, pads the edges of `value` with zeros so that the result has the same shape as `value`.
+
+        Returns:
+            Convolution result as tensor of shape (batch_size, out_channel, spatial...)
+        """
         raise NotImplementedError(self)
 
     def expand_dims(self, a, axis=0, number=1):
@@ -431,14 +498,14 @@ class Backend:
         """
         return self.cast(x, self.float_type)
 
-    def to_int(self, x, int64=False):
-        return self.cast(x, DType(int, 64 if int64 else 32))
+    def to_int32(self, x):
+        return self.cast(x, DType(int, 32))
+
+    def to_int64(self, x):
+        return self.cast(x, DType(int, 64))
 
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
-
-    def gather(self, values, indices):
-        raise NotImplementedError(self)
 
     def batched_gather_nd(self, values, indices):
         """
@@ -460,26 +527,30 @@ class Backend:
     def std(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def boolean_mask(self, x, mask):
+    def boolean_mask(self, x, mask, axis=0):
+        """
+        Args:
+            x: tensor with any number of dimensions
+            mask: 1D mask tensor
+            axis: Axis index >= 0
+        """
         raise NotImplementedError(self)
 
     def isfinite(self, x):
         raise NotImplementedError(self)
 
-    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
+    def scatter(self, base_grid, indices, values, mode: str):
         """
-        This method expects the first dimension of indices and values to be the batch dimension.
-        The batch dimension need not be specified in the indices array.
+        Depending on `mode`, performs scatter_update or scatter_add.
 
         Args:
-          indices: n-dimensional indices corresponding to values
-          values: values to scatter at indices
-          shape: spatial shape of the result tensor, 1D int array
-          duplicates_handling: one of ('undefined', 'add', 'mean', 'any') (Default value = 'undefined')
-          outside_handling: one of ('discard', 'clamp', 'undefined') (Default value = 'undefined')
+            base_grid: Tensor into which scatter values are inserted at indices. Tensor of shape (batch_size, spatial..., channels)
+            indices: Tensor of shape (batch_size or 1, update_count, index_vector)
+            values: Values to scatter at indices. Tensor of shape (batch_size or 1, update_count or 1, channels or 1)
+            mode: One of ('update', 'add')
 
         Returns:
-
+            Copy of base_grid with values at `indices` updated by `values`.
         """
         raise NotImplementedError(self)
 
@@ -513,16 +584,29 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def imag(self, complex):
+    def imag(self, x):
         raise NotImplementedError(self)
 
-    def real(self, complex):
+    def real(self, x):
         raise NotImplementedError(self)
 
     def sin(self, x):
         raise NotImplementedError(self)
 
     def cos(self, x):
+        raise NotImplementedError(self)
+
+    def tan(self, x):
+        raise NotImplementedError(self)
+
+    def log(self, x):
+        """ Natural logarithm """
+        raise NotImplementedError(self)
+
+    def log2(self, x):
+        raise NotImplementedError(self)
+
+    def log10(self, x):
         raise NotImplementedError(self)
 
     def dtype(self, array) -> DType:
@@ -545,7 +629,7 @@ class Backend:
 
     def sparse_tensor(self, indices, values, shape):
         """
-        Optional features. If overridden,
+        Optional features.
 
         Args:
           indices: tuple/list matching the dimensions (pair for matrix)
@@ -557,46 +641,255 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def coordinates(self, tensor, unstack_coordinates=False):
+    def coordinates(self, tensor):
         """
         Returns the coordinates and values of a tensor.
-        
-        The first returned value is a tensor holding the coordinate vectors in the last dimension if unstack_coordinates=False.
-        In case unstack_coordinates=True, the coordiantes are returned as a tuple of tensors, i.e. (row, col) for matrices
 
         Args:
-          tensor: dense or sparse tensor
-          unstack_coordinates:  (Default value = False)
+            tensor: Sparse tensor
 
         Returns:
-          indices (tensor or tuple), values
+            coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
+            indices: Tensor holding the corresponding values
 
         """
         raise NotImplementedError(self)
 
-    def minimize(self, function, x0, solve_params: Solve):
-        raise NotImplementedError(self)
+    def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
+        from scipy.optimize import OptimizeResult, minimize
+        from threading import Thread
 
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
+        assert self.supports(Backend.functional_gradient)
+        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
+        batch_size = self.staticshape(x0)[0]
+        fg = self.functional_gradient(f, [0], get_output=True)
+        method_description = f"SciPy {method} with {self.name}"
+
+        iterations = [0] * batch_size
+        function_evaluations = [0] * batch_size
+        xs = [None] * batch_size
+        final_losses = [None] * batch_size
+        converged = [False] * batch_size
+        diverged = [False] * batch_size
+        messages = [""] * batch_size
+
+        f_inputs = [None] * batch_size
+        f_b_losses = None
+        f_b_losses_np = None
+        f_grad_np = None
+        f_input_available = Barrier(batch_size + 1)
+        f_output_available = Barrier(batch_size + 1)
+        finished = [False] * batch_size
+        all_finished = False
+        trajectories = [[] for _ in range(batch_size)] if trj else None
+        threads = []
+
+        for b in range(batch_size):
+
+            def b_thread(b=b):
+                recent_b_losses = []
+
+                def b_fun(x: numpy.ndarray):
+                    function_evaluations[b] += 1
+                    f_inputs[b] = self.as_tensor(x, convert_external=True)
+                    f_input_available.wait()
+                    f_output_available.wait()
+                    recent_b_losses.append(f_b_losses[b])
+                    if final_losses[b] is None:  # first evaluation
+                        final_losses[b] = f_b_losses[b]
+                        if trajectories is not None:
+                            trajectories[b].append(SolveResult(method_description, x0[b], f_b_losses[b], 0, 1, False, False, ""))
+                    return f_b_losses_np[b], f_grad_np[b]
+
+                def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
+                    iterations[b] += 1
+                    loss = min(recent_b_losses)
+                    recent_b_losses.clear()
+                    final_losses[b] = loss
+                    if trajectories is not None:
+                        trajectories[b].append(SolveResult(method_description, x, loss, iterations[b], function_evaluations[b], False, False, ""))
+
+                res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={'maxiter': max_iter[b]}, callback=callback)
+                assert isinstance(res, OptimizeResult)
+                # res.nit, res.nfev
+                xs[b] = res.x
+                converged[b] = res.success
+                diverged[b] = res.status not in (0, 1)  # 0=success
+                messages[b] = res.message
+                finished[b] = True
+                while not all_finished:
+                    f_input_available.wait()
+                    f_output_available.wait()
+
+            b_thread = Thread(target=b_thread)
+            threads.append(b_thread)
+            b_thread.start()
+
+        while True:
+            f_input_available.wait()
+            if all(finished):
+                all_finished = True
+                f_output_available.wait()
+                break
+            _, f_b_losses, f_grad = fg(self.stack(f_inputs))
+            f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
+            f_grad_np = self.numpy(f_grad).astype(numpy.float64)
+            f_output_available.wait()
+
+        for b_thread in threads:
+            b_thread.join()  # make sure threads exit correctly
+
+        if trj:
+            max_trajectory_length = max([len(t) for t in trajectories])
+            last_points = [SolveResult(method_description, xs[b], final_losses[b], iterations[b], function_evaluations[b], converged[b], diverged[b], "") for b in range(batch_size)]
+            trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
+            trajectory = []
+            for states in zip(*trajectories):
+                x = self.stack([self.to_float(state.x) for state in states])
+                residual = self.stack([state.residual for state in states])
+                iterations = [state.iterations for state in states]
+                function_evaluations = [state.function_evaluations for state in states]
+                converged = [state.converged for state in states]
+                diverged = [state.diverged for state in states]
+                trajectory.append(SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages))
+            return trajectory
+        else:
+            x = self.stack(xs)
+            residual = self.stack(final_losses)
+            return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
+
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         """
-        Solve the system of linear equations
-          A * x = y
+        Solve the system of linear equations A · x = y.
+        This method need not provide a gradient for the operation.
 
         Args:
-          A: batch of sparse / dense matrices or or linear function A(x). 3rd order tensor or list of matrices.
-          y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
-          x0: initial guess for x. 2nd order tensor (batch, vector) or list of vectors.
-          solve_params: Determines stop criteria. Stops when norm(residual) <= max(relative_tolerance * norm(y), absolute_tolerance) or maximum number of iterations reached.
-          callback: Function to call after each iteration. It is called with the current solution as callback(x). (Default value = None)
+            method: Which algorithm to use. One of `('auto', 'CG', 'CG-adaptive')`.
+            lin: Linear operation. One of
+                * sparse/dense matrix valid for all instances
+                * tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
+                * linear function A(x), must be called on all instances in parallel
+            y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
+            x0: Initial guess of size (batch, parameters)
+            rtol: Relative tolerance of size (batch,)
+            atol: Absolute tolerance of size (batch,)
+            max_iter: Maximum number of iterations of size (batch,)
+            trj: Whether to record and return the optimization trajectory as a `List[SolveResult]`.
 
         Returns:
-            x: the solution as a tensor
-
+            result: `SolveResult` or `List[SolveResult]`, depending on `trj`.
         """
-        raise NotImplementedError(self)
+        if method == 'auto':
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+        elif method == 'CG':
+            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
+        elif method == 'CG-adaptive':
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+        else:
+            raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
-        raise NotImplementedError(self)
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
+        """ Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. """
+        # Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
+        # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
+        method = f"Φ-Flow CG ({self.name})"
+        y = self.to_float(y)
+        x0 = self.copy(self.to_float(x0), only_mutable=True)
+        batch_size = self.staticshape(y)[0]
+        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - self.linear(lin, x)
+        it_counter = 0
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
+        diverged = self.any(~self.isfinite(x), axis=(1,))
+        converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
+        trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
+        finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+        while ~self.all(finished):
+            it_counter += 1; iterations += not_finished_1
+            dy = self.linear(lin, dx); function_evaluations += not_finished_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(residual_squared, dx_dy)
+            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+            x += step_size * dx
+            if it_counter % 50 == 0:
+                residual = y - self.linear(lin, x); function_evaluations += 1
+            else:
+                residual = residual - step_size * dy  # in-place subtraction affects convergence
+            residual_squared_old = residual_squared
+            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+            dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
+            diverged = self.any(residual_squared / rsq0 > 100, axis=(1,)) & (iterations >= 8)
+            converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
+            finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+        return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
+
+    def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
+        """ Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. """
+        # Based on the variant described in "Methods of Conjugate Gradients for Solving Linear Systems" by Magnus R. Hestenes and Eduard Stiefel
+        # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
+        method = f"Φ-Flow CG-adaptive ({self.name})"
+        y = self.to_float(y)
+        x0 = self.copy(self.to_float(x0), only_mutable=True)
+        batch_size = self.staticshape(y)[0]
+        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - self.linear(lin, x)
+        dy = self.linear(lin, dx)
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
+        diverged = self.any(~self.isfinite(x), axis=(1,))
+        converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
+        trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
+        continue_ = ~converged & ~diverged & (iterations < max_iter)
+
+        def loop(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
+            continue_1 = self.to_int32(continue_)
+            it_counter += 1
+            iterations += continue_1
+            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
+            step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
+            step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
+            x += step_size * dx
+            # if it_counter % 50 == 0:  # Not traceable since Python bool
+            #     residual = y - self.linear(lin, x); function_evaluations += 1
+            # else:
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
+            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
+            dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
+            dy = self.linear(lin, dx); function_evaluations += continue_1
+            diverged = self.any(residual_squared / rsq0 > 100, axis=(1,)) & (iterations >= 8)
+            converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
+            if trajectory is not None:
+                trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
+                x = self.copy(x)
+                iterations = self.copy(iterations)
+            continue_ = ~converged & ~diverged & (iterations < max_iter)
+            return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
+
+        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged =\
+            self.while_loop(loop, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
+        return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
+
+    def linear(self, lin, vector):
+        if callable(lin):
+            return lin(vector)
+        elif isinstance(lin, (tuple, list)):
+            for lin_i in lin:
+                lin_shape = self.staticshape(lin_i)
+                assert len(lin_shape) == 2
+            return self.stack([self.matmul(m, v) for m, v in zip(lin, self.unstack(vector))])
+        else:
+            lin_shape = self.staticshape(lin)
+            assert len(lin_shape) == 2, f"A must be a matrix but got shape {lin_shape}"
+            return self.matmul(lin, vector)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         raise NotImplementedError(self)
@@ -612,10 +905,13 @@ class Backend:
         Interpolates a regular grid at the specified coordinates.
 
         Args:
-          grid: Tensor
-          spatial_dims: Dimension indices that correspond to coordinate vectors
-          coordinates: Tensor of floating grid indices. The last dimension must match `spaital_dims`. The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
-          extrapolation: Values to use for coordinates outside the grid. One of `('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')`.
+            grid: Tensor
+            spatial_dims: Dimension indices that correspond to coordinate vectors
+            coordinates: Tensor of floating grid indices.
+                The last dimension must match `spatial_dims`.
+                The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
+            extrapolation: Values to use for coordinates outside the grid.
+                One of `('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect')`.
 
         Returns:
             sampled values with linear interpolation
@@ -636,7 +932,7 @@ class Backend:
             batches = [batches]
         return tensor[batches, ...]
 
-    def unstack(self, tensor, axis=0, keepdims=False):
+    def unstack(self, tensor, axis=0, keepdims=False) -> tuple:
         if axis < 0:
             axis += len(tensor.shape)
         if axis >= len(tensor.shape) or axis < 0:
@@ -689,13 +985,30 @@ class Backend:
         dividend, divisor = self.auto_cast(dividend, divisor)
         return dividend % divisor
 
+    def and_(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a & b
 
-BACKENDS = []  # documented in __init__.py
+    def or_(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a | b
+
+    def xor(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a ^ b
+
+    def floordiv(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a // b
+
+
+BACKENDS = []
+""" Global list of all registered backends. Register a `Backend` by adding it to the list. """
 _DEFAULT = []  # [0] = global default, [1:] from 'with' blocks
 _PRECISION = [32]  # [0] = global precision in bits, [1:] from 'with' blocks
 
 
-def choose_backend(*values, prefer_default=False, raise_error=True) -> Backend:
+def choose_backend(*values, prefer_default=False) -> Backend:
     """
     Selects a suitable backend to handle the given values.
 
@@ -716,16 +1029,12 @@ def choose_backend(*values, prefer_default=False, raise_error=True) -> Backend:
     # --- Filter out non-applicable ---
     backends = [backend for backend in BACKENDS if _is_applicable(backend, values)]
     if len(backends) == 0:
-        if raise_error:
-            raise NoBackendFound(f"No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}")
-        else:
-            return None
+        raise NoBackendFound(f"No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}")
     # --- Native tensors? ---
     for backend in backends:
         if _is_specific(backend, values):
             return backend
-    else:
-        return backends[0]
+    return backends[0]
 
 
 class NoBackendFound(Exception):
@@ -822,6 +1131,35 @@ def precision(floating_point_bits: int):
         _PRECISION.pop(-1)
 
 
+def convert(tensor, backend: Backend = None, use_dlpack=True):
+    """
+    Convert a Tensor to the native format of `backend`.
+    If the target backend can operate natively on `tensor`, returns `tensor`.
+
+    If both backends support *DLPack* and `use_dlpack=True`, uses zero-copy conversion using the DLPack library.
+    Else, intermediately converts `tensor` to a NumPy array.
+
+    *Warning*: This operation breaks the automatic differentiation chain.
+
+    Args:
+        tensor: Native tensor belonging to any registered backend.
+        backend: Target backend. If `None`, uses the current default backend, see `default_backend()`.
+
+    Returns:
+        Tensor belonging to `backend`.
+    """
+    backend = backend or default_backend()
+    current_backend = choose_backend(tensor, prefer_default=False)
+    if backend.is_tensor(tensor, True) or backend is current_backend:
+        return tensor
+    if use_dlpack and current_backend.supports(Backend.to_dlpack) and backend.supports(Backend.from_dlpack):
+        capsule = current_backend.to_dlpack(tensor)
+        return backend.from_dlpack(capsule)
+    else:
+        nparray = current_backend.numpy(tensor)
+        return backend.as_tensor(nparray)
+
+
 # Backend choice utility functions
 
 def _is_applicable(backend, values):
@@ -836,3 +1174,16 @@ def _is_specific(backend, values):
         if backend.is_tensor(value, only_native=True):
             return True
     return False
+
+
+# Other low-level helper functions
+
+def combined_dim(dim1, dim2, type_str: str = 'batch'):
+    if dim1 is None and dim2 is None:
+        return None
+    if dim1 is None or dim1 == 1:
+        return dim2
+    if dim2 is None or dim2 == 1:
+        return dim1
+    assert dim1 == dim2, f"Incompatible {type_str} dimensions: x0 {dim1}, y {dim2}"
+    return dim1

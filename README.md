@@ -9,8 +9,12 @@
 ![Gui](https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png)
 
 Φ<sub>Flow</sub> is an open-source simulation toolkit built for optimization and machine learning applications.
-It is written mostly in Python and can be used with NumPy, TensorFlow or PyTorch.
-The close integration with machine learning frameworks allows it to leverage their automatic differentiation functionality,
+It is written mostly in Python and can be used with
+[NumPy](https://numpy.org/),
+[PyTorch](https://pytorch.org/),
+[Jax](https://github.com/google/jax)
+or [TensorFlow](https://www.tensorflow.org/).
+The close integration with these machine learning frameworks allows it to leverage their automatic differentiation functionality,
 making it easy to build end-to-end differentiable functions involving both learning models and physics simulations.
 
 This is major version 2 of Φ<sub>Flow</sub>.
@@ -20,7 +24,7 @@ Older versions are available through the [release history](https://github.com/tu
 ## Features
 
 * Variety of built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
-* Tight integration with [TensorFlow](https://www.tensorflow.org/), [PyTorch](https://pytorch.org/) and [Jax](https://github.com/google/jax) (*experimental*) for straightforward neural network training with fully differentiable simulations that [run on the GPU](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html#enabling-gpu-execution).
+* Tight integration with PyTorch, Jax and TensorFlow for straightforward neural network training with fully differentiable simulations that can [run on the GPU](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html#enabling-gpu-execution).
 * Flexible, easy-to-use [web interface](https://tum-pbs.github.io/PhiFlow/Web_Interface.html) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 * Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
 * Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
@@ -36,7 +40,7 @@ Older versions are available through the [release history](https://github.com/tu
 
 Installation with pip on Python 3.6 or newer:
 ``` bash
-$ pip install phiflow
+$ pip install phiflow==2.0.0rc2 dash plotly imageio
 ```
 Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
 See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html) on how to compile the custom CUDA operators and verify your installation.

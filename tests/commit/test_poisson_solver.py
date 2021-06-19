@@ -1,6 +1,7 @@
 # Testing Poisson Solvers
 from unittest import TestCase
 import numpy as np
+from phi.physics._boundaries import Domain, PERIODIC
 from phi.flow import *
 import matplotlib.pyplot as plt
 from functools import partial
@@ -67,18 +68,15 @@ def FFT_solve(*args, **kwargs):
 
 def CG_solve(grid, guess, dx, padding, **kwargs):
     # guess = guess if guess is not None else domain.grid(0)
-    laplace = partial(math.laplace, dx=dx)
-    converged, result, iterations = math.solve(
-        laplace, grid, guess, math.LinearSolve("CG", **kwargs), callback=None
-    )
-    print(converged, iterations)
+    laplace = math.jit_compile_linear(partial(math.laplace, dx=dx))
+    result = math.solve_linear(laplace, grid, math.Solve("CG", x0=guess, **kwargs))
     return result
 
 
 def CG2_solve(div, guess, **kwargs):
     print(type(div))
     print(type(guess))
-    converged, result, iterations = field.solve(
+    converged, result, iterations = field.solve_linear(
         math.laplace, div, guess, math.LinearSolve(None, **kwargs)
     )
     return result
@@ -121,7 +119,7 @@ def compare(reference, dics, plot=True, fnc_list=[np.min, np.mean, np.max]):
 def attempt(fnc):
     try:
         return fnc()
-    except:
+    except Exception:
         return ""
 
 
@@ -164,8 +162,8 @@ class TestPoissonSolvers(TestCase):
             # Define
             init_values = sine  # rnd_noise
             domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
-            sine_grid = domain.grid(math.tensor(init_values, names=["x", "y"]))
-            reference = FFT_solve_numpy(sine_grid.values.numpy(order="z,y,x")[0], dx)
+            sine_grid = domain.grid(math.tensor(init_values, spatial('x, y')))
+            reference = FFT_solve_numpy(sine_grid.values.numpy(order='z,y,x')[0], dx)
             solver_dict = {
                 "FFT_solve": lambda x: domain.grid(FFT_solve(x.values, dx)).values.numpy(
                     order="z,y,x"

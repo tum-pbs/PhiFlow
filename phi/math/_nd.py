@@ -1,17 +1,18 @@
 # Because division is different in Python 2 and 3
 from __future__ import division
 
-import numpy as np
 from typing import Tuple
-from phi import struct
+
+import numpy as np
+
+from . import _ops as math
 from . import extrapolation as extrapolation
-from . import _functions as math
 from ._config import GLOBAL_AXIS_ORDER
-from .extrapolation import Extrapolation
-from ._functions import channel_stack
-from ._shape import Shape
-from ._tensors import Tensor
+from ._ops import stack
+from ._shape import Shape, channel, batch, spatial
+from ._tensors import Tensor, TensorLike, variable_values
 from ._tensors import wrap
+from .extrapolation import Extrapolation
 
 
 def spatial_sum(value: Tensor):
@@ -23,19 +24,28 @@ def vec_abs(vec: Tensor):
 
 
 def vec_squared(vec: Tensor):
-    return math.sum_(vec ** 2, dim=vec.shape.channel.names)
+    return math.sum_(vec ** 2, dim=channel('vector'))
 
 
 def cross_product(vec1: Tensor, vec2: Tensor):
-    vec1, vec2 = math.tensors(vec1, vec2)
+    vec1 = math.tensor(vec1)
+    vec2 = math.tensor(vec2)
     spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
     if spatial_rank == 2:  # Curl in 2D
-        dist_0, dist_1 = vec2.vector.unstack()
-        if GLOBAL_AXIS_ORDER.is_x_first:
-            velocity = vec1 * math.channel_stack([-dist_1, dist_0], 'vector')
+        assert vec2.vector.exists
+        if vec1.vector.exists:
+            v1_x, v1_y = vec1.vector.unstack()
+            v2_x, v2_y = vec2.vector.unstack()
+            if GLOBAL_AXIS_ORDER.is_x_first:
+                return v1_x * v2_y - v1_y * v2_x
+            else:
+                return - v1_x * v2_y + v1_y * v2_x
         else:
-            velocity = vec1 * math.channel_stack([dist_1, -dist_0], 'vector')
-        return velocity
+            v2_x, v2_y = vec2.vector.unstack()
+            if GLOBAL_AXIS_ORDER.is_x_first:
+                return vec1 * math.stack([-v2_y, v2_x], channel('vector'))
+            else:
+                return vec1 * math.stack([v2_y, -v2_x], channel('vector'))
     elif spatial_rank == 3:  # Curl in 3D
         raise NotImplementedError(f'spatial_rank={spatial_rank} not yet implemented')
     else:
@@ -63,69 +73,91 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(tensor: Tensor, batch_norm=True) -> Tensor:
-    """ Computes L1 loss. See `l_n_loss()` """
-    return l_n_loss(tensor, 1, batch_norm=batch_norm)
-
-
-def l2_loss(tensor: Tensor, batch_norm=True) -> Tensor:
-    """ Computes L2 loss. See `l_n_loss()` """
-    return l_n_loss(tensor, 2, batch_norm=batch_norm)
-
-
-def l_n_loss(tensor: Tensor, n: int, batch_norm=True) -> Tensor:
+def l1_loss(x) -> Tensor:
     """
-    Computes the vector norm of a tensor.
-    This is defined as *sum x**n / n*.
+    Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
-      tensor: Loss values.
-      n: norm order, 1 for L1 loss, 2 for L2 loss.
-      batch_norm:  Whether to divide by the batch size.
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
 
     Returns:
-        Scalar float `Tensor`
+        loss: `Tensor`
     """
-    assert isinstance(tensor, Tensor), f"Must be a Tensor but got {type(tensor).__name__}"
-    total_loss = math.sum_(tensor ** n) / n
-    if batch_norm:
-        batch_size = tensor.shape.batch.volume
-        return math.divide_no_nan(total_loss, batch_size)
+    if isinstance(x, Tensor):
+        return math.sum_(abs(x), x.shape.non_batch)
+    elif isinstance(x, TensorLike):
+        return sum([l1_loss(getattr(x, a)) for a in variable_values(x)])
     else:
-        return total_loss
+        raise ValueError(x)
 
 
-def frequency_loss(tensor, frequency_falloff=100, batch_norm=True):
+def l2_loss(x) -> Tensor:
     """
-    Instead of minimizing each entry of the tensor, minimize the frequencies of the tensor, emphasizing lower frequencies over higher ones.
+    Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
-      batch_norm: Whether to divide by the batch size.
-      tensor: typically actual - target
-      frequency_falloff: large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally. (Default value = 100)
+        x: `Tensor` or `TensorLike`.
+            For `TensorLike` objects, only value the sum over all value attributes is computed.
 
     Returns:
-      scalar loss value
-
+        loss: `Tensor`
     """
-    diff_fft = abs_square(math.fft(tensor))
-    k_squared = math.sum_(math.fftfreq(tensor.shape[1:-1]) ** 2, 'vector')
-    weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
-    return l1_loss(diff_fft * weights, batch_norm=batch_norm)
+    if isinstance(x, Tensor):
+        if x.dtype.kind == complex:
+            x = abs(x)
+        return math.sum_(x ** 2, x.shape.non_batch) * 0.5
+    elif isinstance(x, TensorLike):
+        return sum([l2_loss(getattr(x, a)) for a in variable_values(x)])
+    else:
+        raise ValueError(x)
 
 
-def abs_square(complex):
+def frequency_loss(x,
+                   frequency_falloff: float = 100,
+                   threshold=1e-5,
+                   ignore_mean=False) -> Tensor:
     """
-    get the square magnitude
+    Penalizes the squared `values` in frequency (Fourier) space.
+    Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-      complex(Tensor): complex input data
+        x: `Tensor` or `TensorLike` Values to penalize, typically `actual - target`.
+        frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
+            *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
+        threshold: Frequency amplitudes below this value are ignored.
+            Setting this to zero may cause infinities or NaN values during backpropagation.
+        ignore_mean: If `True`, does not penalize the mean value (frequency=0 component).
 
     Returns:
-      Tensor: real valued magnitude squared
+      Scalar loss value
+    """
+    if isinstance(x, Tensor):
+        if ignore_mean:
+            x -= math.mean(x, x.shape.non_batch)
+        k_squared = vec_squared(math.fftfreq(x.shape.spatial))
+        weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
+        diff_fft = abs_square(math.fft(x) * weights)
+        diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
+        return l2_loss(diff_fft)
+    elif isinstance(x, TensorLike):
+        return sum([frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean) for a in variable_values(x)])
+    else:
+        raise ValueError(x)
+
+
+def abs_square(complex_values: Tensor) -> Tensor:
+    """
+    Squared magnitude of complex values.
+
+    Args:
+      complex_values: complex `Tensor`
+
+    Returns:
+        Tensor: real valued magnitude squared
 
     """
-    return math.imag(complex) ** 2 + math.real(complex) ** 2
+    return math.imag(complex_values) ** 2 + math.real(complex_values) ** 2
 
 
 # Divergence
@@ -166,24 +198,19 @@ def shift(x: Tensor,
           offsets: tuple,
           dims: tuple or None = None,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
-          stack_dim: str or None = 'shift') -> list:
+          stack_dim: Shape or None = channel('shift')) -> list:
     """
     shift Tensor by a fixed offset and abiding by extrapolation
 
     Args:
-      x: Input data
-      offsets: Shift size
-      dims: Dimensions along which to shift, defaults to None
-      padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
-      stack_dim: dimensions to be stacked, defaults to 'shift'
-      x: Tensor: 
-      offsets: tuple: 
-      dims: tuple or None:  (Default value = None)
-      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
-      stack_dim: str or None:  (Default value = 'shift')
+        x: Input data
+        offsets: Shift size
+        dims: Dimensions along which to shift, defaults to None
+        padding: padding to be performed at the boundary, defaults to extrapolation.BOUNDARY
+        stack_dim: dimensions to be stacked, defaults to 'shift'
 
     Returns:
-      list: offset_tensor
+        list: offset_tensor
 
     """
     if stack_dim is None:
@@ -192,28 +219,30 @@ def shift(x: Tensor,
     dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
-    if padding is not None:
+    if padding:
         x = math.pad(x, {axis: (pad_lower, pad_upper) for axis in dims}, mode=padding)
     offset_tensors = []
     for offset in offsets:
         components = []
         for dimension in dims:
-            slices = {dim: slice(pad_lower + offset, -pad_upper + offset) if dim == dimension else slice(pad_lower, -pad_upper) for dim in dims}
-            slices = {dim: slice(sl.start, sl.stop if sl.stop < 0 else None) for dim, sl in slices.items()}  # replace stop=0 by stop=None
+            if padding:
+                slices = {dim: slice(pad_lower + offset, (-pad_upper + offset) or None) if dim == dimension else slice(pad_lower, -pad_upper or None) for dim in dims}
+            else:
+                slices = {dim: slice(pad_lower + offset, (-pad_upper + offset) or None) if dim == dimension else slice(None, None) for dim in dims}
             components.append(x[slices])
-        offset_tensors.append(channel_stack(components, stack_dim) if stack_dim is not None else components[0])
+        offset_tensors.append(stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors
 
 
 def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int = 1) -> Tuple[Tensor, Tensor]:
     """
     Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all spatial directions.
-    Overlapping extrapolated values get averaged.
+    Overlapping extrapolated values get averaged. Extrapolation also includes diagonals.
 
     Examples (1-step extrapolation), x marks the values for extrapolation:
-        200   000    210        004   00x    044        100   000    100
-        010 + 0x0 => 111        000 + 000 => 204        000 + 000 => 204
-        040   000    010        200   x00    220        204   x0x    234
+        200   000    111        004   00x    044        102   000    144
+        010 + 0x0 => 111        000 + 000 => 234        004 + 00x => 234
+        040   000    111        200   x00    220        200   x00    234
 
     Args:
         values: Tensor which holds the values for extrapolation
@@ -224,27 +253,34 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
         values: Extrapolation result
         valid: mask marking all valid values after extrapolation
     """
-    distance_cells = min(distance_cells, max(values.shape))
+
+    def binarize(x):
+        return math.divide_no_nan(x, x)
+
+    distance_cells = min(distance_cells, max(values.shape.sizes))
     for _ in range(distance_cells):
-        valid = math.divide_no_nan(valid, valid)  # ensure binary mask
-        values_l, values_r = shift(values * valid, (-1, 1))
-        mask_l, mask_r = shift(valid, (-1, 1))
-        overlap = math.sum_(mask_l + mask_r, dim='shift')
-        extp = math.divide_no_nan(math.sum_(values_l + values_r, dim='shift'), overlap)  # take mean where extrapolated values overlap
-        new_valid = valid + overlap
-        values = math.where(valid, values, math.where(new_valid, extp, values))  # don't overwrite initial values within the mask / keep values not affected by extrapolation
-        valid = new_valid
-    return values, math.divide_no_nan(valid, valid)
+        valid = binarize(valid)
+        valid_values = valid * values
+        overlap = valid
+        for dim in values.shape.spatial.names:
+            values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+            valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
+            mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+            overlap = math.sum_(mask_l + mask_r + overlap, dim='shift')
+        extp = math.divide_no_nan(valid_values, overlap)  # take mean where extrapolated values overlap
+        values = math.where(valid, values, math.where(binarize(overlap), extp, values))
+        valid = overlap
+    return values, binarize(valid)
 
 
 # Gradient
 
-def gradient(grid: Tensor,
-             dx: float or int = 1,
-             difference: str = 'central',
-             padding: Extrapolation or None = extrapolation.BOUNDARY,
-             dims: tuple or None = None,
-             stack_dim: str = 'spatial_gradient'):
+def spatial_gradient(grid: Tensor,
+                     dx: float or int = 1,
+                     difference: str = 'central',
+                     padding: Extrapolation or None = extrapolation.BOUNDARY,
+                     dims: tuple or None = None,
+                     stack_dim: Shape = channel('gradient')):
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
@@ -256,12 +292,6 @@ def gradient(grid: Tensor,
       difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
       padding: tensor padding mode
       stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
-      grid: Tensor: 
-      dx: float or int:  (Default value = 1)
-      difference: str:  (Default value = 'central')
-      padding: Extrapolation or None:  (Default value = extrapolation.BOUNDARY)
-      dims: tuple or None:  (Default value = None)
-      stack_dim: str:  (Default value = 'spatial_gradient')
 
     Returns:
       tensor of shape (batch_size, spatial_dimensions..., spatial rank)
@@ -292,24 +322,20 @@ def laplace(x: Tensor,
     If a vector field is passed, the laplace is computed component-wise.
 
     Args:
-      x: n-dimensional field of shape (batch, spacial dimensions..., components)
-      dx: scalar or 1d tensor
-      padding: extrapolation
-      dims: The second derivative along these dimensions is summed over
-      x: Tensor: 
-      dx: Tensor or float:  (Default value = 1)
-      padding: Extrapolation:  (Default value = extrapolation.BOUNDARY)
-      dims: tuple or None:  (Default value = None)
+        x: n-dimensional field of shape (batch, spacial dimensions..., components)
+        dx: scalar or 1d tensor
+        padding: extrapolation
+        dims: The second derivative along these dimensions is summed over
 
     Returns:
-      tensor of same shape
+        `phi.math.Tensor` of same shape as `x`
 
     """
     if not isinstance(dx, (int, float)):
-        dx = wrap(dx, names='_laplace')
+        dx = wrap(dx, batch('_laplace'))
     if isinstance(x, Extrapolation):
         return x.spatial_gradient()
-    left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim='_laplace')
+    left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch('_laplace'))
     result = (left + right - 2 * center) / dx
     result = math.sum_(result, '_laplace')
     return result
@@ -340,7 +366,7 @@ def fourier_laplace(grid: Tensor,
     """
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
-    fft_laplace = -(2 * np.pi)**2 * k_squared
+    fft_laplace = -(2 * np.pi) ** 2 * k_squared
     result = math.real(math.ifft(frequencies * fft_laplace ** times))
     return math.cast(result / wrap(dx) ** 2, grid.dtype)
 
@@ -361,7 +387,7 @@ def fourier_poisson(grid: Tensor,
     """
     frequencies = math.fft(math.to_complex(grid))
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
-    fft_laplace = -(2 * np.pi)**2 * k_squared
+    fft_laplace = -(2 * np.pi) ** 2 * k_squared
     # fft_laplace.tensor[(0,) * math.ndims(k_squared)] = math.inf  # assume NumPy array to edit
     result = math.real(math.ifft(math.divide_no_nan(frequencies, math.to_complex(fft_laplace ** times))))
     return math.cast(result * wrap(dx) ** 2, grid.dtype)
@@ -374,7 +400,7 @@ def downsample2x(grid: Tensor,
                  dims: tuple or None = None) -> Tensor:
     """
     Resamples a regular grid to half the number of spatial sample points per dimension.
-    The grid values at the new points are determined via linear interpolation.
+    The grid values at the new points are determined via mean (linear interpolation).
 
     Args:
       grid: full size grid
@@ -415,12 +441,12 @@ def upsample2x(grid: Tensor,
       double-size grid
 
     """
-    for i, dim in enumerate(grid.shape.spatial.only(dims).names):
-        left, center, right = shift(grid, (-1, 0, 1), (dim,), padding, None)
+    for i, dim in enumerate(grid.shape.spatial.only(dims)):
+        left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
-        stacked = math.spatial_stack([interp_left, interp_right], '_interleave')
-        grid = math.join_dimensions(stacked, (dim, '_interleave'), dim)
+        stacked = math.stack([interp_left, interp_right], spatial('_interleave'))
+        grid = math.join_dimensions(stacked, (dim.name, '_interleave'), dim)
     return grid
 
 
@@ -430,31 +456,28 @@ def sample_subgrid(grid: Tensor, start: Tensor, size: Shape) -> Tensor:
     The values at the new sample points are determined via linear interpolation.
 
     Args:
-      grid: full size grid to be resampled
-      start: origin point of sub-grid within `grid`, measured in number of cells.
-    Must have a single dimension called `vector`.
-    Example: `start=(1, 0.5)` would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
-    The order of dims must be equal to `size` and `grid.shape.spatial`.
-      size: resolution of the sub-grid. Must not be larger than the resolution of `grid`.
-    The order of dims must be equal to `start` and `grid.shape.spatial`.
-      grid: Tensor: 
-      start: Tensor: 
-      size: Shape: 
+        grid: `Tensor` to be resampled. Values are assumed to be sampled at cell centers.
+        start: Origin point of sub-grid within `grid`, measured in number of cells.
+            Must have a single dimension called `vector`.
+            Example: `start=(1, 0.5)` would slice off the first grid point in dim 1 and take the mean of neighbouring points in dim 2.
+            The order of dims must be equal to `size` and `grid.shape.spatial`.
+        size: Resolution of the sub-grid. Must not be larger than the resolution of `grid`.
+            The order of dims must be equal to `start` and `grid.shape.spatial`.
 
     Returns:
-      sampled sub-grid
-
+      Sub-grid as `Tensor`
     """
     assert start.shape.names == ('vector',)
     assert grid.shape.spatial.names == size.names
+    assert math.all_available(start), "Cannot perform sample_subgrid() during tracing, 'start' must be known."
     discard = {}
-    for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size):
+    for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size.sizes):
         discard[dim] = slice(int(d_start), int(d_start) + d_size + (1 if d_start != 0 else 0))
     grid = grid[discard]
     upper_weight = start % 1
     lower_weight = 1 - upper_weight
     for i, dim in enumerate(grid.shape.spatial.names):
-        if upper_weight[i] not in (0, 1):
+        if upper_weight[i].native() not in (0, 1):
             lower, upper = shift(grid, (0, 1), [dim], padding=None, stack_dim=None)
             grid = upper * upper_weight[i] + lower * lower_weight[i]
     return grid
@@ -469,12 +492,12 @@ def poisson_bracket(grid1, grid2):
             len(set(list(grid1.dx) + list(grid2.dx))) == 1]):
         return _periodic_2d_arakawa_poisson_bracket(grid1.values, grid2.values, grid1.dx)
     else:
-        raise NotImplementedError("\n".join[
-            "Not implemented for:"
-            f"ranks ({grid1.rank}, {grid2.rank}) != 2",
-            f"boundary ({grid1.boundary}, {grid2.boundary}) != {extrapolation.PERIODIC}",
-            f"dx uniform ({grid1.dx}, {grid2.dx})"
-        ])
+        raise NotImplementedError("\n".join([
+                                      "Not implemented for:"
+                                      f"ranks ({grid1.rank}, {grid2.rank}) != 2",
+                                      f"boundary ({grid1.boundary}, {grid2.boundary}) != {extrapolation.PERIODIC}",
+                                      f"dx uniform ({grid1.dx}, {grid2.dx})"
+                                  ]))
 
 
 def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: float):
@@ -503,4 +526,4 @@ def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: f
             + zeta.x[2:].y[0:-2] * (psi.x[2:].y[1:-1] - psi.x[1:-1].y[0:-2])
             + zeta.x[2:].y[2:] * (psi.x[1:-1].y[2:] - psi.x[2:].y[1:-1])
             - zeta.x[0:-2].y[2:] * (psi.x[1:-1].y[2:] - psi.x[0:-2].y[1:-1])
-            - zeta.x[0:-2].y[0:-2] * (psi.x[0:-2].y[1:-1] - psi.x[1:-1].y[0:-2])) / (12 * dx**2)
+            - zeta.x[0:-2].y[0:-2] * (psi.x[0:-2].y[1:-1] - psi.x[1:-1].y[0:-2])) / (12 * dx ** 2)

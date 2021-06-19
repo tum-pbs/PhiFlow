@@ -18,33 +18,23 @@ class HardGeometryMask(Field):
     def shape(self):
         return self.geometry.shape.non_channel
 
-    def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
-        inside = math.to_float(self.geometry.lies_inside(points))
-        if reduce_channels:
-            assert len(reduce_channels) == 1
-            inside = inside.dimension(reduce_channels[0]).as_channel('vector')
-        return inside
+    def _sample(self, geometry: Geometry) -> Tensor:
+        return math.to_float(self.geometry.lies_inside(geometry.center))
 
-    def unstack(self, dimension: str) -> tuple:
-        geometries = self.geometry.unstack(dimension)
-        return tuple(HardGeometryMask(g) for g in geometries)
+    def __getitem__(self, item: dict):
+        return HardGeometryMask(self.geometry[item])
 
 
 class SoftGeometryMask(HardGeometryMask):
     """
     When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.
     """
+    def __init__(self, geometry: Geometry, balance: Tensor or float = 0.5):
+        super().__init__(geometry)
+        self.balance = balance
 
-    def sample_at(self, points: Tensor, reduce_channels=()) -> Tensor:
-        raise NotImplementedError("Use HardGeometryMask to sample at points")
+    def _sample(self, geometry: Geometry) -> Tensor:
+        return self.geometry.approximate_fraction_inside(geometry, self.balance)
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
-        inside = self.geometry.approximate_fraction_inside(geometry)
-        if reduce_channels:
-            assert len(reduce_channels) == 1
-            inside = inside.dimension(reduce_channels[0]).as_channel('vector')
-        return inside
-
-    def unstack(self, dimension: str) -> tuple:
-        geometries = self.geometry.unstack(dimension)
-        return tuple(SoftGeometryMask(g) for g in geometries)
+    def __getitem__(self, item: dict):
+        return SoftGeometryMask(self.geometry[item], self.balance)

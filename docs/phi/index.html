@@ -30,7 +30,7 @@ for NumPy mode</li>
 <li><code>from phi.tf.flow import *</code>
 for TensorFlow mode</li>
 <li><code>from phi.torch.flow import *</code> for PyTorch mode</li>
-<li><code>from phi.jax.flow import *</code> for <em>experimental</em> Jax mode</li>
+<li><code>from phi.jax.flow import *</code> for Jax mode</li>
 </ul>
 <p>Project homepage: <a href="https://github.com/tum-pbs/PhiFlow">https://github.com/tum-pbs/PhiFlow</a></p>
 <p>Documentation overview: <a href="https://tum-pbs.github.io/PhiFlow">https://tum-pbs.github.io/PhiFlow</a></p>
@@ -47,7 +47,7 @@ Use one of the following imports:
 * `from phi.flow import *`  for NumPy mode
 * `from phi.tf.flow import *`  for TensorFlow mode
 * `from phi.torch.flow import *` for PyTorch mode
-* `from phi.jax.flow import *` for *experimental* Jax mode
+* `from phi.jax.flow import *` for Jax mode
 
 Project homepage: https://github.com/tum-pbs/PhiFlow
 
@@ -88,15 +88,15 @@ def detect_backends() -&gt; tuple:
         `tuple` of `phi.math.backend.Backend`
     &#34;&#34;&#34;
     try:
-        from .tf import TF_BACKEND
+        from .torch import TORCH
     except ImportError:
         pass
     try:
-        from .torch import TORCH_BACKEND
+        from .tf import TENSORFLOW
     except ImportError:
         pass
     try:
-        from .jax import JAX_BACKEND
+        from .jax import JAX
     except ImportError:
         pass
     from .math.backend import BACKENDS
@@ -106,10 +106,6 @@ def detect_backends() -&gt; tuple:
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
-<dt><code class="name"><a title="phi.app" href="app/index.html">phi.app</a></code></dt>
-<dd>
-<div class="desc"><p>Interactive application development and web interface …</p></div>
-</dd>
 <dt><code class="name"><a title="phi.field" href="field/index.html">phi.field</a></code></dt>
 <dd>
 <div class="desc"><p>The fields module provides a number of data structures and functions to represent continuous, spatially varying data …</p></div>
@@ -124,11 +120,11 @@ def detect_backends() -&gt; tuple:
 </dd>
 <dt><code class="name"><a title="phi.geom" href="geom/index.html">phi.geom</a></code></dt>
 <dd>
-<div class="desc"><p>Differentiable geometry …</p></div>
+<div class="desc"><p>Differentiable geometry package …</p></div>
 </dd>
 <dt><code class="name"><a title="phi.jax" href="jax/index.html">phi.jax</a></code></dt>
 <dd>
-<div class="desc"><p><em>Experimental</em> Jax integration …</p></div>
+<div class="desc"><p>Jax integration …</p></div>
 </dd>
 <dt><code class="name"><a title="phi.math" href="math/index.html">phi.math</a></code></dt>
 <dd>
@@ -151,6 +147,10 @@ A common trait of …</p></div>
 <dt><code class="name"><a title="phi.torch" href="torch/index.html">phi.torch</a></code></dt>
 <dd>
 <div class="desc"><p>PyTorch integration …</p></div>
+</dd>
+<dt><code class="name"><a title="phi.vis" href="vis/index.html">phi.vis</a></code></dt>
+<dd>
+<div class="desc"><p>Visualization: plotting, interactive user interfaces …</p></div>
 </dd>
 </dl>
 </section>
@@ -180,15 +180,15 @@ This includes only backends for which the minimal requirements are fulfilled.</p
         `tuple` of `phi.math.backend.Backend`
     &#34;&#34;&#34;
     try:
-        from .tf import TF_BACKEND
+        from .torch import TORCH
     except ImportError:
         pass
     try:
-        from .torch import TORCH_BACKEND
+        from .tf import TENSORFLOW
     except ImportError:
         pass
     try:
-        from .jax import JAX_BACKEND
+        from .jax import JAX
     except ImportError:
         pass
     from .math.backend import BACKENDS
@@ -234,7 +234,6 @@ This includes only backends for which the minimal requirements are fulfilled.</p
 <ul id="index">
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
-<li><code><a title="phi.app" href="app/index.html">phi.app</a></code></li>
 <li><code><a title="phi.field" href="field/index.html">phi.field</a></code></li>
 <li><code><a title="phi.flow" href="flow.html">phi.flow</a></code></li>
 <li><code><a title="phi.flow_1" href="flow_1.html">phi.flow_1</a></code></li>
@@ -245,6 +244,7 @@ This includes only backends for which the minimal requirements are fulfilled.</p
 <li><code><a title="phi.struct" href="struct/index.html">phi.struct</a></code></li>
 <li><code><a title="phi.tf" href="tf/index.html">phi.tf</a></code></li>
 <li><code><a title="phi.torch" href="torch/index.html">phi.torch</a></code></li>
+<li><code><a title="phi.vis" href="vis/index.html">phi.vis</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>

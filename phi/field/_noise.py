@@ -2,59 +2,51 @@ import numpy as np
 
 from phi import math
 from phi.geom import GridCell, Geometry
-from phi.math import random_normal, Tensor
+from phi.math import random_normal, Tensor, channel
 from ._field import Field
 
 
 class Noise(Field):
+    """
+    Generates random noise fluctuations which can be configured in physical size and smoothness.
+    Each time values are sampled from a Noise field, a new noise field is generated.
 
-    def __init__(self, shape=math.EMPTY_SHAPE, scale=10, smoothness=1.0, **dims):
+    Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
+    """
+
+    def __init__(self, *shape: math.Shape, scale=10, smoothness=1.0, **channel_dims):
         """
-        Generates random noise fluctuations which can be configured in physical size and smoothness.
-            Each time values are sampled from a Noise field, a new noise field is generated.
-
-            Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
-
         Args:
-          channels: Number of independent random scalar fields this Field consists of
-          scale: Size of noise fluctuations in physical units
-          smoothness: Determines how quickly high frequencies die out
+          shape: Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.
+          scale: Size of noise fluctuations in physical units.
+          smoothness: Determines how quickly high frequencies die out.
+          **dims: Additional dimensions, added to `shape`.
         """
         self.scale = scale
         self.smoothness = smoothness
-        self._shape = shape & math.shape(**dims)
+        self._shape = math.concat_shapes(*shape, channel(**channel_dims))
 
     @property
     def shape(self):
         return self._shape
 
-    def sample_in(self, geometry: Geometry, reduce_channels=()) -> Tensor:
-        if reduce_channels:
-            shape = self._shape.non_channel.without(reduce_channels)
-            assert len(reduce_channels) == 1
-            geoms = geometry.unstack(reduce_channels[0])
-            assert all(isinstance(g, GridCell) for g in geoms)
-            components = [self.grid_sample(g.resolution, g.grid_size, shape) for g in geoms]
-            return math.channel_stack(components, 'vector')
+    def _sample(self, geometry: Geometry) -> Tensor:
         if isinstance(geometry, GridCell):
             return self.grid_sample(geometry.resolution, geometry.grid_size)
         raise NotImplementedError(f"{type(geometry)} not supported. Only GridCell allowed.")
 
-    def sample_at(self, points, reduce_channels=()) -> math.Tensor:
-        raise NotImplementedError()
-
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
-        shape = (self._shape if shape is None else shape).combined(resolution)
+        shape = (self._shape if shape is None else shape) & resolution
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
-        with math.NUMPY_BACKEND:
+        with math.NUMPY:
             k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
             k = math.vec_squared(k)
         lowest_frequency = 0.1
-        weight_mask = 1 / (1 + math.exp((lowest_frequency - k) * 1e3))  # High pass filter
+        weight_mask = math.to_float(k > lowest_frequency)
         # --- Compute 1/k ---
-        k.native()[(0,) * len(k.shape)] = np.inf
+        k._native[(0,) * len(k.shape)] = np.inf
         inv_k = 1 / k
-        inv_k.native()[(0,) * len(k.shape)] = 0
+        inv_k._native[(0,) * len(k.shape)] = 0
         # --- Compute result ---
         fft = rndj * inv_k ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))
@@ -63,10 +55,9 @@ class Noise(Field):
         array = math.to_float(array)
         return array
 
-    def unstack(self, dimension: str) -> tuple:
-        count = self.shape.get_size(dimension)
-        reduced_shape = self.shape.without(dimension)
-        return (Noise(reduced_shape, self.scale, self.smoothness),) * count
+    def __getitem__(self, item: dict):
+        new_shape = self.shape.after_gather(item)
+        return Noise(new_shape, scale=self.scale, smoothness=self.smoothness)
 
     def __repr__(self):
-        return "%s, scale=%f, smoothness=%f" % (self._shape, self.scale, self.smoothness)
+        return f"{self._shape}, scale={self.scale}, smoothness={self.smoothness}"

@@ -2,7 +2,8 @@ from unittest import TestCase
 
 from phi import struct, math
 from phi.geom import Sphere, Box
-from phi.physics import Domain, CLOSED, OPEN, Obstacle
+from phi.math import batch, channel
+from phi.physics._boundaries import Domain, Obstacle
 from phi.physics._effect import Fan, Inflow
 from phi.physics._fluid_legacy import Fluid, IncompressibleFlow
 from phi.physics._world import World
@@ -27,9 +28,9 @@ class TestLegacyPhysics(TestCase):
         self.assertAlmostEqual(fluid.age, 2.0)
         self.assertAlmostEqual(inflow.age, 1.0)
 
-    def test_varying_boundaries(self):
-        fluid = Fluid(Domain(x=16, y=16, boundaries=[(CLOSED, OPEN), CLOSED]))
-        IncompressibleFlow().step(fluid)
+    # def test_varying_boundaries(self):
+    #     fluid = Fluid(Domain(x=16, y=16, boundaries=[(CLOSED, OPEN), CLOSED]))
+    #     IncompressibleFlow().step(fluid)
 
     def test_effects(self):
         world = World()
@@ -50,7 +51,7 @@ class TestLegacyPhysics(TestCase):
     def test_batch_independence(self):
         def simulate(centers):
             world = World()
-            fluid = world.add(Fluid(Domain(x=5, y=4, boundaries=CLOSED, bounds=Box(0, [40, 32])),
+            fluid = world.add(Fluid(Domain(x=5, y=4, bounds=Box(0, [40, 32])),
                                     buoyancy_factor=0.1,
                                     batch_size=centers.shape[0]),
                               physics=IncompressibleFlow())
@@ -63,8 +64,8 @@ class TestLegacyPhysics(TestCase):
             print()
             return fluid.density.values.batch[0], fluid.velocity.values.batch[0]
 
-        d1, v1 = simulate(math.tensor([[5, 16], [5, 4]], names='batch,vector'))
-        d2, v2 = simulate(math.tensor([[5, 16], [5, 16]], names='batch,vector'))
+        d1, v1 = simulate(math.tensor([[5, 16], [5, 4]], batch('batch'), channel('vector')))
+        d2, v2 = simulate(math.tensor([[5, 16], [5, 16]], batch('batch'), channel('vector')))
 
         math.assert_close(d1, d2)
         math.assert_close(v1, v2)

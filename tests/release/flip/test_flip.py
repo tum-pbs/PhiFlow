@@ -6,14 +6,14 @@ from phi.flow import *
 def step(particles, domain, dt, accessible):
     velocity = particles >> domain.staggered_grid()
     div_free_velocity, pressure, _, _, occupied = \
-        flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, accessible, particles)
+        flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, particles, accessible)
     particles = flip.map_velocity_to_particles(particles, div_free_velocity, occupied, previous_velocity_grid=velocity)
     particles = advect.runge_kutta_4(particles, div_free_velocity, dt, accessible=accessible, occupied=occupied)
     particles = flip.respect_boundaries(particles, domain, [])
     return dict(particles=particles, domain=domain, dt=dt, accessible=accessible)
 
 
-class FluidTest(TestCase):
+class FlipTest(TestCase):
 
     def test_single_particles(self):
         """ Tests if single particles at the boundaries and within the domain really fall down. """
@@ -42,17 +42,17 @@ class FluidTest(TestCase):
         for i in range(100):
             state = step(**state)
 
-        occupied_start = PARTICLES.with_(values=1) >> DOMAIN.grid()
-        occupied_end = state['particles'].with_(values=1) >> DOMAIN.grid()
+        occupied_start = PARTICLES.with_(values=1) >> DOMAIN.scalar_grid()
+        occupied_end = state['particles'].with_(values=1) >> DOMAIN.scalar_grid()
         math.assert_close(occupied_start.values, occupied_end.values)
-        math.assert_close(PARTICLES.points, state['particles'].points, abs_tolerance=1e-5)
+        math.assert_close(PARTICLES.points, state['particles'].points, abs_tolerance=1e-3)
 
-    def test_falling_block(self):
+    def test_falling_block_long(self):
         """ Tests if a block of liquid has a constant shape during free fall. """
         DOMAIN = Domain(x=32, y=128, boundaries=CLOSED, bounds=Box[0:32, 0:128])
         DT = 0.05
         ACCESSIBLE = DOMAIN.accessible_mask([], type=StaggeredGrid)
-        PARTICLES = DOMAIN.distribute_points(union(Box[12:20, 110:120]), center=True) * (0, 0)
+        PARTICLES = DOMAIN.distribute_points(union(Box[12:20, 110:120])) * (0, 0)
         extent = math.max(PARTICLES.points, dim='points') - math.min(PARTICLES.points, dim='points')
         state = dict(particles=PARTICLES, domain=DOMAIN, dt=DT, accessible=ACCESSIBLE)
         for i in range(90):
@@ -77,19 +77,6 @@ class FluidTest(TestCase):
             state = step(**state)
 
         assert math.all(state['particles'].points.native()[:, 1] < 15)
-
-    def test_respect_boundaries(self):
-        """ Tests if particles really get puhsed outside of obstacles and domain boundaries. """
-        SIZE = 64
-        DOMAIN = Domain(x=SIZE, y=SIZE, boundaries=CLOSED, bounds=Box[0:SIZE, 0:SIZE])
-        OBSTACLE = Box[20:40, 10:30]
-        PARTICLES = DOMAIN.distribute_points(union(Box[20:38, 20:50], Box[50:60, 10:50]), center=True) * (10, 0)
-        PARTICLES = advect.points(PARTICLES, PARTICLES, 1)
-        assert math.any(OBSTACLE.lies_inside(PARTICLES.points))
-        assert math.any((~DOMAIN.bounds).lies_inside(PARTICLES.points))
-        PARTICLES = flip.respect_boundaries(PARTICLES, DOMAIN, [OBSTACLE], offset=0.1)
-        assert math.all(~OBSTACLE.lies_inside(PARTICLES.points))
-        assert math.all(~(~DOMAIN.bounds).lies_inside(PARTICLES.points))
 
     def test_symmetry(self):
         """ Tests the symmetry of a setup where a liquid block collides with 2 rotated obstacles. """
@@ -120,8 +107,8 @@ class FluidTest(TestCase):
             mirrored = right.copy()
             mirrored[:, 0] = 2 * MID - right[:, 0]
             smirrored = np.zeros_like(mirrored)
-            # --- particle order of mirrored version differs from original one and
-            # must be fixed for MSE ---
+            # --- particle order of mirrored version differs from original one and must be fixed for MSE
+            # (caused by ordering in phi.physics._boundaries _distribute_points) ---
             for p in range(particles_per_cell):
                 for b in range(x_num):
                     smirrored[p * total + b * y_num:p * total + (b + 1) * y_num] = \
@@ -129,8 +116,6 @@ class FluidTest(TestCase):
             mse = np.square(smirrored - left).mean()
             if i < 45:
                 assert mse == 0  # block was falling until this step, hits obstacles at step 46
-            elif i < 80:
-                assert mse <= 1e-7  # error increases gradually after block and obstacles collide
             else:
-                assert mse <= 1e-3
+                assert mse <= 1e-3  # error increases gradually after block and obstacles collide
 

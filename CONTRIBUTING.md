@@ -24,23 +24,28 @@ Make sure that your contribution passes all tests.
 
 For commits, we use the following tags in the header:
 
-* `[doc]` for documentation updates
-* `[fix]` for bugfix commits
+* `[docs]` for documentation updates
 * `[ci]` for CI configuration changes
+* `[build]` for changes to the installation
 * `[tests]` for adding or changing unit tests
 * `[demos]` for adding or changing demo scripts
-* `[app]` for general changes in `phi.app`
-* `[dash]` for changes to the Dash GUI
+  
+If the commit modifies the main codebase (`phi/`), use one of the following tags:
+
+* `[vis]` for general changes in `phi.vis` as well as changes to any GUI, e.g. dash, widgets, console.
 * `[math]` for changes to `phi.math`
 * `[backend]` for changes specific to `phi.math.backend` which leave the `phi.math` API untouched.
 * `[geom]` for changes to `phi.geom`
 * `[field]` for changes to `phi.field` except Scene
 * `[io]` for changes to Scenes, data layout
 * `[physics]` for changes to `phi.physics`
+* `[learning]` for non-backend changes to `phi.tf`, `phi.torch`
 
 Example commit header: `[doc] Improve markdown layout`
 
-Commits that affect multiple modules, e.g. large-scale refactoring, are not tagged.
+Commits may be tagged with multiple tags, but this should be used sparingly.
+
+Bugfix commits are tagged with the module to which the fixes are applied.
 
 
 ## Style Guide

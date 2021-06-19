@@ -1,25 +1,25 @@
 import numbers
-import uuid
 from contextlib import contextmanager
-from functools import wraps
-from typing import List, Tuple, Any, Callable
+from functools import wraps, partial
+from typing import List, Callable
 
 import numpy as np
-import scipy.optimize as sopt
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from phi.math.backend import Backend, DType, to_numpy_dtype, from_numpy_dtype, ComputeDevice, NUMPY_BACKEND
+from ..math.backend._backend import combined_dim
+from ..math.backend._dtype import DType, to_numpy_dtype, from_numpy_dtype
+from phi.math.backend import Backend, ComputeDevice, NUMPY
 from ._tf_cuda_resample import resample_cuda, use_cuda
-from ..math import LinearSolve
-from ..math.backend._backend_helper import combined_dim
-from ..math.backend._optim import SolveResult, Solve
 
 
 class TFBackend(Backend):
 
     def __init__(self):
         Backend.__init__(self, "TensorFlow", default_device=None)
+
+    def prefers_channels_last(self) -> bool:
+        return True
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
         tf_devices = device_lib.list_local_devices()
@@ -32,23 +32,24 @@ class TFBackend(Backend):
                                              ref=device))
         return devices
 
+    def seed(self, seed: int):
+        tf.random.set_seed(seed)
+
     def is_tensor(self, x, only_native=False):
+        is_tf_tensor = tf.is_tensor(x) is True  # tf.is_tensor() can return non-bool values which indicates not a Tensor
         if only_native:
-            return tf.is_tensor(x)
+            return is_tf_tensor
         else:
-            return tf.is_tensor(x) or NUMPY_BACKEND.is_tensor(x, only_native=False)
+            return is_tf_tensor or NUMPY.is_tensor(x, only_native=False)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
-            tensor = x
-        elif isinstance(x, np.ndarray):
-            tensor = tf.convert_to_tensor(NUMPY_BACKEND.as_tensor(x))
-        else:
-            tensor = tf.convert_to_tensor(x)
+            return x
+        tensor = tf.convert_to_tensor(x)
         # --- Enforce Precision ---
         if not isinstance(tensor, numbers.Number):
             if isinstance(tensor, np.ndarray):
-                tensor = NUMPY_BACKEND.as_tensor(tensor)
+                tensor = NUMPY.as_tensor(tensor)
             elif tensor.dtype.is_floating:
                 tensor = self.to_float(tensor)
         return tensor
@@ -62,7 +63,15 @@ class TFBackend(Backend):
     def numpy(self, tensor):
         if tf.is_tensor(tensor):
             return tensor.numpy()
-        return NUMPY_BACKEND.numpy(tensor)
+        return NUMPY.numpy(tensor)
+
+    def to_dlpack(self, tensor):
+        from tensorflow import experimental
+        return experimental.dlpack.to_dlpack(tensor)
+
+    def from_dlpack(self, capsule):
+        from tensorflow import experimental
+        return experimental.dlpack.from_dlpack(capsule)
 
     def copy(self, tensor, only_mutable=False):
         if not only_mutable or tf.executing_eagerly():
@@ -71,14 +80,16 @@ class TFBackend(Backend):
             return tensor
 
     def jit_compile(self, f: Callable) -> Callable:
-        return tf.function(f)
+        compiled = tf.function(f)
+        return lambda *args: self.as_registered.call(compiled, *args, name=f"run jit-compiled '{f.__name__}'")
 
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         @tf.custom_gradient
         def tf_function(*args, **kwargs):
             def grad(*grad_args):
-                return gradient(*grad_args)
-            return f(*args, **kwargs), grad
+                return gradient(args, y, grad_args)
+            y = f(*args, **kwargs)
+            return y, grad
         return tf_function
 
     def transpose(self, tensor, axes):
@@ -100,8 +111,8 @@ class TFBackend(Backend):
     def rank(self, value):
         return len(value.shape)
 
-    def range(self, start, limit=None, delta=1, dtype=None):
-        return tf.range(start, limit, delta, dtype)
+    def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
+        return tf.range(start, limit, delta, to_numpy_dtype(dtype))
 
     def tile(self, value, multiples):
         if isinstance(multiples, (tuple, list)) and self.ndims(value) < len(multiples):
@@ -151,6 +162,9 @@ class TFBackend(Backend):
         return c * x + (1 - c) * y
         # return tf.where(condition, x, y)  # TF1 has an inconsistent broadcasting rule for where
 
+    def nonzero(self, values):
+        return tf.where(tf.not_equal(values, 0))
+
     def mean(self, value, axis=None, keepdims=False):
         if axis is not None:
             if not isinstance(axis, int):
@@ -183,14 +197,14 @@ class TFBackend(Backend):
     def linspace(self, start, stop, number):
         return self.to_float(tf.linspace(start, stop, number))
 
-    def dot(self, a, b, axes):
-        return tf.tensordot(a, b, axes)
+    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        return tf.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
         if isinstance(A, tf.SparseTensor):
-            result = tf.sparse.sparse_dense_matmul(A, tf.transpose(b))
-            result = tf.transpose(result)
-            # result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
+            result_T = tf.sparse.sparse_dense_matmul(A, tf.transpose(b))  # result shape contains unknown size
+            result = tf.transpose(result_T)
+            result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
             return result
         else:
             return tf.matmul(A, b)
@@ -198,15 +212,9 @@ class TFBackend(Backend):
     def einsum(self, equation, *tensors):
         return tf.einsum(equation, *tensors)
 
-    def while_loop(self, cond, body, loop_vars, shape_invariants=None, parallel_iterations=10, back_prop=True,
-                   swap_memory=False, name=None, maximum_iterations=None):
-        return tf.while_loop(cond, body, loop_vars,
-                             shape_invariants=shape_invariants,
-                             parallel_iterations=parallel_iterations,
-                             back_prop=back_prop,
-                             swap_memory=swap_memory,
-                             name=name,
-                             maximum_iterations=maximum_iterations)
+    def while_loop(self, loop: Callable, values: tuple):
+        cond = lambda c, *vals: tf.reduce_any(c)
+        return tf.nest.map_structure(tf.stop_gradient, tf.while_loop(cond, loop, values))
 
     def abs(self, x):
         return tf.abs(x)
@@ -224,9 +232,17 @@ class TFBackend(Backend):
         return tf.floor(x)
 
     def max(self, x, axis=None, keepdims=False):
+        if isinstance(x, (tuple, list)):
+            x = tf.stack(x)
+        if x.dtype == tf.bool:
+            return tf.cast(tf.reduce_max(tf.cast(x, tf.uint8), axis=axis, keepdims=keepdims), tf.bool)  # reduce_max allows no bool
         return tf.reduce_max(x, axis=axis, keepdims=keepdims)
 
     def min(self, x, axis=None, keepdims=False):
+        if isinstance(x, (tuple, list)):
+            x = tf.stack(x)
+        if x.dtype == tf.bool:
+            return tf.cast(tf.reduce_min(tf.cast(x, tf.uint8), axis=axis, keepdims=keepdims), tf.bool)  # reduce_min allows no bool
         return tf.reduce_min(x, axis=axis, keepdims=keepdims)
 
     def maximum(self, a, b):
@@ -247,17 +263,25 @@ class TFBackend(Backend):
     def exp(self, x):
         return tf.exp(x)
 
-    def conv(self, tensor, kernel, padding="SAME"):
-        rank = len(tensor.shape) - 2
-        padding = padding.upper()
-        if rank == 1:
-            result = tf.nn.conv1d(tensor, kernel, 1, padding)
-        elif rank == 2:
-            result = tf.nn.conv2d(tensor, kernel, [1, 1, 1, 1], padding)
-        elif rank == 3:
-            result = tf.nn.conv3d(tensor, kernel, [1, 1, 1, 1, 1], padding)
+    def conv(self, value, kernel, zero_padding=True):
+        value = self.to_float(value)
+        kernel = self.to_float(kernel)  # should use auto_cast but TensorFlow only supports DT_HALF, DT_BFLOAT16, DT_FLOAT, DT_DOUBLE, DT_INT32
+        if zero_padding:
+            value_padding = [[0, 0]] * 2 + [[s // 2, (s - 1) // 2] for s in kernel.shape[3:]]
+            value = tf.pad(value, value_padding)
+        convf = {3: partial(tf.nn.conv1d, stride=1),
+                 4: partial(tf.nn.conv2d, strides=[1, 1, 1, 1]),
+                 5: partial(tf.nn.conv3d, strides=[1, 1, 1, 1, 1])}[len(value.shape)]
+        value = tf.transpose(value, [0, *range(2, self.ndims(value)), 1])  # could use data_format='NC...' but it's supported neither on CPU and for int tensors
+        kernel = tf.transpose(kernel, [0, *range(3, self.ndims(kernel)), 2, 1])
+        if kernel.shape[0] == 1:
+            result = convf(value, kernel[0, ...], padding='VALID')
         else:
-            raise ValueError("Tensor must be of rank 1, 2 or 3 but is %d" % rank)
+            result = []
+            for b in range(kernel.shape[0]):
+                result.append(convf(value[b:b+1, ...], kernel[b], padding='VALID'))
+            result = tf.concat(result, 0)
+        result = tf.transpose(result, [0, self.ndims(result) - 1, *range(1, self.ndims(result) - 1)])
         return result
 
     def expand_dims(self, a, axis=0, number=1):
@@ -276,19 +300,13 @@ class TFBackend(Backend):
         else:
             return np.shape(tensor)
 
-    def gather(self, values, indices):
-        if isinstance(values, tf.SparseTensor):
-            if isinstance(indices, (tuple, list)) and indices[1] == slice(None):
-                result = sparse_select_indices(values, indices[0], axis=0, are_indices_sorted=True, are_indices_uniqua=True)
-                return result
-        if isinstance(indices, slice):
-            return values[indices]
-        return tf.gather(values, indices)
-
     def batched_gather_nd(self, values, indices):
-        if self.staticshape(values)[0] == 1 and self.staticshape(indices)[0] != 1:
+        values_shape = self.staticshape(values)
+        if values_shape[0] == 1 and self.staticshape(indices)[0] > 1:
             result = tf.gather_nd(values[0, ...], indices, batch_dims=0)
             return result
+        if values_shape[0] > 1 and self.staticshape(indices)[0] == 1:
+            indices = tf.tile(indices, [values_shape[0]] + [1] * (len(values_shape) - 1))
         return tf.gather_nd(values, indices, batch_dims=1)
 
     def unstack(self, tensor, axis=0, keepdims=False):
@@ -301,8 +319,8 @@ class TFBackend(Backend):
         _mean, var = tf.nn.moments(x, axis, keepdims=keepdims)
         return tf.sqrt(var)
 
-    def boolean_mask(self, x, mask):
-        return tf.boolean_mask(x, mask)
+    def boolean_mask(self, x, mask, axis=0):
+        return tf.boolean_mask(x, mask, axis=axis)
 
     def isfinite(self, x):
         return tf.math.is_finite(x)
@@ -313,50 +331,18 @@ class TFBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return tf.reduce_all(boolean_tensor, axis=axis, keepdims=keepdims)
 
-    def scatter(self, indices, values, shape, duplicates_handling='undefined', outside_handling='undefined'):
-        assert duplicates_handling in ('undefined', 'add', 'mean', 'any')
-        assert outside_handling in ('discard', 'clamp', 'undefined')
-        if duplicates_handling == 'undefined':
-            pass
-
-        # Change indexing so batch number is included as first element of the index, for example: [0,31,24] indexes the first batch (batch 0) and 2D coordinates (31,24).
-        buffer = tf.zeros(shape, dtype=values.dtype)
-
-        repetitions = []
-        for dim in range(len(indices.shape) - 1):
-            if values.shape[dim] == 1:
-                repetitions.append(indices.shape[dim])
-            else:
-                assert indices.shape[dim] == values.shape[dim]
-                repetitions.append(1)
-        repetitions.append(1)
-        values = self.tile(values, repetitions)
-
-        if duplicates_handling == 'add':
-            # Only for Tensorflow with custom spatial_gradient
-            @tf.custom_gradient
-            def scatter_density(points, indices, values):
-                result = tf.tensor_scatter_add(buffer, indices, values)
-
-                def grad(dr):
-                    return self.resample(gradient(dr, difference='central'), points), None, None
-
-                return result, grad
-
-            return scatter_density(points, indices, values)
-        elif duplicates_handling == 'mean':
-            # Won't entirely work with out of bounds particles (still counted in mean)
-            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
-            total = tf.tensor_scatter_add(buffer, indices, values)
-            return total / tf.maximum(1.0, count)
-        else:  # last, any, undefined
-            # indices = self.to_int(indices, int64=True)
-            # st = tf.SparseTensor(indices, values, shape)  # ToDo this only supports 2D shapes
-            # st = tf.sparse.reorder(st)   # only needed if not ordered
-            # return tf.sparse.to_dense(st)
-            count = tf.tensor_scatter_add(buffer, indices, tf.ones_like(values))
-            total = tf.tensor_scatter_add(buffer, indices, values)
-            return total / tf.maximum(1.0, count)
+    def scatter(self, base_grid, indices, values, mode: str):
+        base_grid, values = self.auto_cast(base_grid, values)
+        indices = self.as_tensor(indices)
+        batch_size = combined_dim(combined_dim(indices.shape[0], values.shape[0]), base_grid.shape[0])
+        scatter = tf.tensor_scatter_nd_add if mode == 'add' else tf.tensor_scatter_nd_update
+        result = []
+        for b in range(batch_size):
+            b_grid = base_grid[b, ...]
+            b_indices = indices[min(b, indices.shape[0] - 1), ...]
+            b_values = values[min(b, values.shape[0] - 1), ...]
+            result.append(scatter(b_grid, b_indices, b_values))
+        return self.stack(result, axis=0)
 
     def fft(self, x):
         rank = len(x.shape) - 2
@@ -369,7 +355,7 @@ class TFBackend(Backend):
         elif rank == 3:
             return tf.stack([tf.signal.fft3d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
         else:
-            raise NotImplementedError('n-dimensional FFT not implemented.')
+            raise NotImplementedError('n-dimensional FFT not implemented.')  # TODO perform multiple lower-dimensional FFTs
 
     def ifft(self, k):
         rank = len(k.shape) - 2
@@ -403,96 +389,35 @@ class TFBackend(Backend):
     def cos(self, x):
         return tf.math.cos(x)
 
+    def tan(self, x):
+        return tf.math.tan(x)
+
+    def log(self, x):
+        return tf.math.log(x)
+
+    def log2(self, x):
+        return tf.math.log(x) / 0.6931471805599453094  # log(x) / log(2)
+
+    def log10(self, x):
+        return tf.math.log(x) / 2.3025850929940456840  # log(x) / log(10)
+
     def dtype(self, array) -> DType:
         if tf.is_tensor(array):
             dt = array.dtype.as_numpy_dtype
             return from_numpy_dtype(dt)
         else:
-            return NUMPY_BACKEND.dtype(array)
+            return NUMPY.dtype(array)
 
     def sparse_tensor(self, indices, values, shape):
         indices = [tf.convert_to_tensor(i, tf.int64) for i in indices]
         indices = tf.cast(tf.stack(indices, axis=-1), tf.int64)
         return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
 
-    def coordinates(self, tensor, unstack_coordinates=False):
-        if isinstance(tensor, tf.SparseTensor):
-            idx = tensor.indices
-            if unstack_coordinates:
-                idx = tf.unstack(idx, axis=-1)
-            return idx, tensor.values
-        else:
-            raise NotImplementedError()
-
-    def conjugate_gradient(self, A, y, x0, solve_params=LinearSolve(), callback=None):
-        if callable(A):
-            function = A
-        else:
-            A = self.as_tensor(A)
-            A_shape = self.staticshape(A)
-            assert len(A_shape) == 2, f"A must be a square matrix but got shape {A_shape}"
-            assert A_shape[0] == A_shape[1], f"A must be a square matrix but got shape {A_shape}"
-
-            def function(vec):
-                return self.matmul(A, vec)
-
-        batch_size = combined_dim(x0.shape[0], y.shape[0])
-        if x0.shape[0] < batch_size:
-            x0 = tf.tile(x0, [batch_size, 1])
-
-        def cg_forward(y, x0, params: LinearSolve):
-            tolerance_sq = self.maximum(params.relative_tolerance ** 2 * tf.reduce_sum(y ** 2, -1), params.absolute_tolerance ** 2)
-            x = x0
-            dx = residual = y - function(x)
-            dy = function(dx)
-            iterations = 0
-            converged = True
-            while self.all(self.sum(residual ** 2, -1) > tolerance_sq):
-                if iterations == params.max_iterations:
-                    converged = False
-                    break
-                iterations += 1
-                dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
-                step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
-                x += step_size * dx
-                residual -= step_size * dy
-                dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-                dy = function(dx)
-            params.result = SolveResult(converged, iterations)
-            return x
-
-        @tf.custom_gradient
-        def cg_with_grad(y):
-            def grad(dx):
-                return cg_forward(dx, tf.zeros_like(x0), solve_params.gradient_solve)
-            return cg_forward(y, x0, solve_params), grad
-
-        result = cg_with_grad(y)
-        return result
-
-    def minimize(self, function, x0, solve_params: Solve):
-        x0 = self.numpy(x0)
-
-        # @tf.function
-        def val_and_grad(x):
-            with tf.GradientTape() as tape:
-                tape.watch(x)
-                loss = function(x)
-            grad = tape.gradient(loss, x)
-            return loss, grad
-
-        def min_target(x):
-            x = self.as_tensor(x, convert_external=True)
-            val, grad = val_and_grad(x)
-            return val.numpy().astype(np.float64), grad.numpy().astype(np.float64)
-
-        assert solve_params.relative_tolerance is None
-        res = sopt.minimize(fun=min_target, x0=x0, jac=True,
-                            method=solve_params.solver or 'L-BFGS-B',
-                            tol=solve_params.absolute_tolerance,
-                            options={'maxiter': solve_params.max_iterations})
-        solve_params.result = SolveResult(res.success, res.nit)
-        return res.x
+    def coordinates(self, tensor):
+        assert isinstance(tensor, tf.SparseTensor)
+        idx = tensor.indices
+        idx = tuple(tf.unstack(idx, axis=-1))
+        return idx, tensor.values
 
     def add(self, a, b):
         if isinstance(a, tf.SparseTensor) or isinstance(b, tf.SparseTensor):
@@ -507,12 +432,19 @@ class TFBackend(Backend):
             wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
             with tf.GradientTape(watch_accessed_variables=False) as tape:
                 for arg in wrt_args:
+                    assert arg.dtype in (tf.float16, tf.float32, tf.float64, tf.complex64, tf.complex128), f"Gradients can only be computed for float or complex tensors but got {arg.dtype} for argument with shape {arg.shape}"
                     tape.watch(arg)
                 output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            grads = tape.gradient(loss, wrt_args)
+            # if self.ndims(loss) > 0:
+            #     loss = tf.reduce_sum(loss)  # this is not needed and will cause gradients to be None
+            grads = list(self.as_registered.call(tape.gradient, loss, wrt_args, name=f"Backpropagation"))
+            assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."
             if get_output:
-                return (loss, *aux, *grads)
+                if aux is not None:
+                    return (loss, *aux, *grads)
+                else:
+                    return (loss, *grads)
             else:
                 return grads
         return eval_grad
@@ -544,33 +476,4 @@ class TFBackend(Backend):
         return tf.stop_gradient(value)
 
 
-TF_BACKEND = TFBackend()
 _TAPES = []
-
-
-def sparse_select_indices(sp_input, indices, axis=0, are_indices_uniqua=False, are_indices_sorted=False):
-    if not are_indices_uniqua:
-        indices, _ = tf.unique(indices)
-    n_indices = tf.size(indices)
-    # Only necessary if indices may not be sorted
-    if not are_indices_sorted:
-        indices, _ = tf.math.top_k(indices, n_indices)
-        indices = tf.reverse(indices, [0])
-    # Get indices for the axis
-    idx = sp_input.indices[:, axis]
-    # Find where indices match the selection
-    eq = tf.equal(tf.expand_dims(idx, 1), tf.cast(indices, tf.int64))
-    # Mask for selected values
-    sel = tf.reduce_any(eq, axis=1)
-    # Selected values
-    values_new = tf.boolean_mask(sp_input.values, sel, axis=0)
-    # New index value for selected elements
-    n_indices = tf.cast(n_indices, tf.int64)
-    idx_new = tf.reduce_sum(tf.cast(eq, tf.int64) * tf.range(n_indices), axis=1)
-    idx_new = tf.boolean_mask(idx_new, sel, axis=0)
-    # New full indices tensor
-    indices_new = tf.boolean_mask(sp_input.indices, sel, axis=0)
-    indices_new = tf.concat([indices_new[:, :axis], tf.expand_dims(idx_new, 1), indices_new[:, axis + 1:]], axis=1)
-    # New shape
-    shape_new = tf.concat([sp_input.dense_shape[:axis], [n_indices], sp_input.dense_shape[axis + 1:]], axis=0)
-    return tf.SparseTensor(indices_new, values_new, shape_new)

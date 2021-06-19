@@ -1,8 +1,10 @@
+import warnings
+
 from phi import math
 from ._geom import Geometry, NO_GEOMETRY
 from ._transform import rotate
 from ._box import bounding_box, Box
-from ..math._shape import combine_safe
+from ..math._shape import merge_shapes
 
 
 class Union(Geometry):
@@ -12,7 +14,7 @@ class Union(Geometry):
         assert len(self._geometries) > 0
         for g in self._geometries[1:]:
             assert g.spatial_rank == self._geometries[0].spatial_rank
-        self._shape = combine_safe(*[g.shape for g in geometries])
+        self._shape = merge_shapes(*[g.shape for g in geometries])
 
     @property
     def shape(self):
@@ -35,6 +37,11 @@ class Union(Geometry):
     @property
     def center(self):
         return self._bounding_box().center
+
+    @property
+    def volume(self) -> math.Tensor:
+        warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.")
+        return math.sum([g.volume for g in self.geometries], dim=0)
 
     def bounding_radius(self):
         return self._bounding_box().bounding_radius()

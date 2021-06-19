@@ -5,20 +5,23 @@
 * [Python](https://www.python.org/downloads/) 3.6 or newer (e.g. [Anaconda](https://www.anaconda.com/products/individual))
 * [pip](https://pip.pypa.io/en/stable/) (included in many Python distributions)
 
-For GPU acceleration, deep learning and optimization,
-[TensorFlow 2.x](https://www.tensorflow.org/install/) or [PyTorch](https://pytorch.org/)
+For GPU acceleration, deep learning and optimization, either
+[PyTorch](https://pytorch.org/),
+[TensorFlow 2.x](https://www.tensorflow.org/install/) or 
+[Jax](https://github.com/google/jax)
 must be registered with your Python installation.
 Note that these also require a CUDA installation with *cuDNN* libraries for GPU execution.
+We recommend CUDA 11.0 with cuDNN 8.
 
 ## Installing Φ<sub>Flow</sub> using pip
 
 *Note*: If you want to use the Φ<sub>Flow</sub> CUDA operations with TensorFlow, you have to build Φ<sub>Flow</sub> from source instead (see below).
 
-The following command installs the latest stable version of Φ<sub>Flow</sub> using pip.
+The following command installs the latest stable version of Φ<sub>Flow</sub> with GUI support using pip.
 ```bash
-$ pip install phiflow
+$ pip install phiflow==2.0.0rc2 dash plotly imageio
 ```
-To install the latest developer version, run
+To install the latest developer version of Φ<sub>Flow</sub>, run
 ```bash
 $ pip install --upgrade git+https://github.com/tum-pbs/PhiFlow@develop
 ```

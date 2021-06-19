@@ -4,7 +4,8 @@ import numpy
 
 from phi import math
 from phi.field import Noise
-from phi.physics import Domain
+from phi.math import spatial, channel
+from phi.physics._boundaries import Domain
 
 
 class TestFieldMath(TestCase):
@@ -36,7 +37,7 @@ class TestFieldMath(TestCase):
         grid = Domain(x=4, y=3).scalar_grid(lambda x: math.sum(x ** 2, 'vector'))
         math.assert_close(grid.values.x[0].y[0], 0.5)
         self.assertEqual(grid.shape.volume, 12)
-        grid = Domain(x=4, y=3).scalar_grid(lambda x: 1)
+        grid = Domain(x=4, y=3).scalar_grid(lambda x: math.ones(x.shape.spatial))
         math.assert_close(grid.values, 1)
 
     def test_domain_grid_memory_allocation(self):
@@ -49,6 +50,6 @@ class TestFieldMath(TestCase):
     def test_custom_spatial_dims(self):
         domain = Domain(a=4, b=3)
         grid = domain.scalar_grid(1)
-        self.assertEqual(math.shape(a=4, b=3), grid.shape)
+        self.assertEqual(spatial(a=4, b=3), grid.shape)
         grid = domain.staggered_grid(1)
-        self.assertEqual(math.shape(a=4, b=3, vector=2), grid.shape)
+        self.assertEqual(spatial(a=4, b=3) & channel(vector=2), grid.shape)

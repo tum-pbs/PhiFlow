@@ -1,11 +1,11 @@
 """
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 """
-import warnings
-
 from phi import math
-from phi.field import ConstantField, Grid, Field, laplace, solve
-from phi.field._field_math import FieldType, GridType
+from phi.field import ConstantField, Grid, Field, laplace, solve_linear, jit_compile_linear
+from phi.field._field import FieldType
+from phi.field._grid import GridType
+from phi.math._tensors import copy_with
 
 
 def explicit(field: FieldType,
@@ -40,27 +40,27 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve_params: math.Solve = math.LinearSolve(bake='sparse')) -> FieldType:
+             solve=math.Solve('CG', 1e-5, 0)) -> FieldType:
     """
     Diffusion by solving a linear system of equations.
 
     Args:
         order: Order of method, 1=first order. This translates to `substeps` for the explicit sharpening.
-        field:
+        field: `phi.field.Field` to diffuse.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
-        solve_params:
+        solve:
 
     Returns:
         Diffused field of same type as `field`.
     """
+    @jit_compile_linear
     def sharpen(x):
         return explicit(x, diffusivity, -dt, substeps=order)
 
-    converged, diffused, iterations = solve(sharpen, field, field, solve_params=solve_params)
-    if math.all_available(converged):
-        assert converged, f"Implicit diffusion solve did not converge after {iterations} iterations. Last estimate: {diffused.values}"
-    return diffused
+    if not solve.x0:
+        solve = copy_with(solve, x0=field)
+    return solve_linear(sharpen, y=field, solve=solve)
 
 
 def fourier(field: GridType,
@@ -90,4 +90,4 @@ def fourier(field: GridType,
     diffuse_kernel = math.exp(fft_laplace * amount)
     result_k = math.fft(field.values) * diffuse_kernel
     result_values = math.real(math.ifft(result_k))
-    return field.with_(values=result_values)
+    return field.with_values(result_values)

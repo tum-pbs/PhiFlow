@@ -3,28 +3,34 @@
 *Main PhiFlow import:* `from phi.flow import *`
 
 Imports important functions and classes from
-`math`, `geom`, `field`, `physics` and `app` (including sub-modules)
+`math`, `geom`, `field`, `physics` and `vis` (including sub-modules)
 as well as the modules and sub-modules themselves.
 
-See `phi.tf.flow`, `phi.torch.flow`.
+See `phi.tf.flow`, `phi.torch.flow`, `phi.jax.flow`.
 """
 
+# Modules
 import numpy
 import numpy as np
-
 import phi
+from . import math, geom, field, physics, vis
+from .math import extrapolation, backend
+from .physics import fluid, flip, advect, diffuse
 
-from . import math
-from .math import extrapolation, PI, DType, wrap, shape, backend, tensor
-
-from . import geom
-from .geom import Geometry, Sphere, Box, union
-
-from . import field
+# Classes
+from .math import DType, Solve
+from .geom import Geometry, Sphere, Box
 from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
+from .vis import view, Viewer, control
+from .physics._boundaries import Obstacle
 
-from . import physics
-from .physics import fluid, flip, advect, diffuse, Domain, OPEN, CLOSED, PERIODIC, Obstacle
+# Constants
+from .math import PI
 
-from . import app
-from .app import App, EditableInt, EditableBool, EditableFloat, EditableString, ModuleViewer, show
+# Functions
+from .math import wrap, tensor, spatial, channel, batch, collection
+from .geom import union
+from .vis import show
+
+# Exceptions
+from .math import ConvergenceException, NotConverged, Diverged
