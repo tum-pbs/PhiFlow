@@ -189,7 +189,7 @@ class Box(BaseBox, metaclass=BoxType):
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
-               and self.shape.alphabetically() == other.shape.alphabetically()\
+               and set(self.shape) == set(other.shape)\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
 
@@ -244,7 +244,7 @@ class Cuboid(BaseBox):
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
-               and self.shape.alphabetically() == other.shape.alphabetically()\
+               and set(self.shape) == set(other.shape)\
                and math.close(self._center, other.center)\
                and math.close(self._half_size, other.half_size)
 
@@ -306,19 +306,7 @@ class GridCell(BaseBox):
 
     @property
     def center(self):
-        """
-        Center point of the box or batch of boxes.
-        
-        The shape of the location extends the shape of the Box instance by a `vector` dimension.
-        
-        :return: Tensor describing the center location(s)
-
-        Args:
-
-        Returns:
-
-        """
-        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
+        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
         points = self.bounds.local_to_global(local_coords)
         return points
 

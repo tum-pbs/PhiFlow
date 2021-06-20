@@ -8,7 +8,7 @@ import numpy as np
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
-                     parse_dim_order, shape_stack, merge_shapes, channel)
+                     parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend
 from .backend._dtype import DType
@@ -687,9 +687,9 @@ class NativeTensor(Tensor):
         for name in order:
             if name not in self.shape:
                 native = backend.expand_dims(native, axis=-1)
-                shape = shape.expand(channel(**{name: 1}), pos=-1)
+                shape = concat_shapes(shape, channel(**{name: 1}))
         # --- Transpose ---
-        perm = shape.perm(order)
+        perm = shape._perm(order)
         native = backend.transpose(native, perm)
         return native
 
@@ -788,7 +788,7 @@ class CollapsedTensor(Tensor):  # package-private
     def __init__(self, tensor: Tensor, shape: Shape):
         for name in tensor.shape.names:
             assert name in shape
-        for size, name, dim_type in tensor.shape.dimensions:
+        for size, name, dim_type in tensor.shape._dimensions:
             assert shape.get_size(name) == size, f"Shape mismatch while trying to set {name}={shape.get_size(name)} but has size {size}"
             assert shape.get_type(name) == dim_type, f"Dimension type mismatch for dimension '{name}': {shape.get_type(name)}, {dim_type}"
         if isinstance(tensor, CollapsedTensor):
@@ -808,7 +808,7 @@ class CollapsedTensor(Tensor):  # package-private
                 return None
             if self.shape.is_uniform:
                 native = self._inner.native(order=self.shape.names)
-                multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape.dimensions]
+                multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape._dimensions]
                 backend = choose_backend(native)
                 tiled = backend.tile(native, multiples)
                 self._cached = NativeTensor(tiled, self.shape)
@@ -865,7 +865,7 @@ class CollapsedTensor(Tensor):  # package-private
             return self._cached._with_shape_replaced(new_shape)
         else:
             replacement = {old: new for old, new in zip(self._shape.names, new_shape.names)}
-            inner_shape = self._inner.shape.with_names([replacement[old] for old in self._inner.shape.names])
+            inner_shape = self._inner.shape._with_names([replacement[old] for old in self._inner.shape.names])
             result = CollapsedTensor(self._inner._with_shape_replaced(inner_shape), new_shape)
             return result
 
@@ -915,7 +915,7 @@ class CollapsedTensor(Tensor):  # package-private
             self_inner = self._cached if self.is_cached else self._inner
             inner = operator(self_inner, other_inner)
             if all(dim in inner.shape for dim in self.shape.names + other_t.shape.names):  # shape already complete
-                result = inner._with_shape_replaced(inner.shape.with_types(self._shape & other_t._shape))
+                result = inner._with_shape_replaced(inner.shape._with_types(self._shape & other_t._shape))
                 return result
             else:
                 combined_shape = (self._shape & other_t._shape).with_sizes(inner.shape)
@@ -1192,15 +1192,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
       Tensor containing same values as data
     """
     assert all(isinstance(s, Shape) for s in shape), f"Cannot create tensor because shape needs to be one or multiple Shape instances but got {shape}"
-    if len(shape) > 1:
-        shape_ = shape[0]
-        for s in shape[1:]:
-            shape_ = shape_.extend(s)
-        shape = shape_
-    elif len(shape) == 1:
-        shape = shape[0]
-    elif len(shape) == 0:
-        shape = None
+    shape = None if len(shape) == 0 else concat_shapes(*shape)
     if isinstance(data, Tensor):
         if convert:
             backend = data.default_backend
@@ -1574,7 +1566,7 @@ def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
             return t
         if t.shape.is_uniform:
             native = t._inner.native(order=t.shape.names)
-            multiples = [1 if name in t._inner.shape else size for size, name, _ in t.shape.dimensions]
+            multiples = [1 if name in t._inner.shape else size for size, name, _ in t.shape._dimensions]
             backend = choose_backend(native)
             tiled = backend.tile(native, multiples)
             return NativeTensor(tiled, t.shape)

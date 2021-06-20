@@ -11,7 +11,7 @@ from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, \
     sum_, to_float
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, vector_add, merge_shapes, spatial, collection, \
-    batch
+    batch, concat_shapes
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, \
     disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap, cached
 from .backend import choose_backend, Backend, get_current_profile, get_precision
@@ -62,7 +62,7 @@ class SignatureKey:
     @staticmethod
     def _extrapolate_shape(shape_: Shape, rec_in: 'SignatureKey', new_in: 'SignatureKey') -> Shape:
         sizes = []
-        for dim, size in shape_.named_sizes:
+        for dim, size in shape_._named_sizes:
             for p_in, n_in in zip(rec_in.shapes, new_in.shapes):
                 if dim in p_in and size == p_in.get_size(dim):
                     sizes.append(n_in.get_size(dim))
@@ -576,8 +576,8 @@ class ShiftLinTracer(Tensor):
         mat = self.get_sparse_coordinate_matrix().native()
         independent_dims = self.independent_dims
         # TODO slice for missing dimensions
-        order_src = value.shape.only(independent_dims).extend(value.shape.without(independent_dims))
-        order_out = self._shape.only(independent_dims).extend(self._shape.without(independent_dims))
+        order_src = concat_shapes(value.shape.only(independent_dims), value.shape.without(independent_dims))
+        order_out = concat_shapes(self._shape.only(independent_dims), self._shape.without(independent_dims))
         native_src = value.native(order=order_src.names)
         backend = choose_backend(native_src)
         native_src = backend.reshape(native_src, (order_src.only(independent_dims).volume, order_src.without(independent_dims).volume))
@@ -674,7 +674,7 @@ class ShiftLinTracer(Tensor):
                 if dim not in values.shape:
                     values = math.expand(values, self._shape.only(dim))  # dim order may be scrambled
                 if delta:
-                    shift = shift.with_size(dim, shift.get_size(dim) + delta) if dim in shift else shift.expand(spatial(**{dim: delta}))
+                    shift = shift._replace_single_size(dim, shift.get_size(dim) + delta) if dim in shift else shift._expand(spatial(**{dim: delta}))
             val[shift] = val_fun(values)
         return ShiftLinTracer(self.source, val, new_shape)
 
@@ -713,7 +713,7 @@ class ShiftLinTracer(Tensor):
         """
         if isinstance(other, ShiftLinTracer):
             assert self.source is other.source, "Multiple linear tracers are not yet supported."
-            assert self._shape.alphabetically() == other._shape.alphabetically(), f"Tracers have different shapes: {self._shape} and {other._shape}"
+            assert set(self._shape) == set(other._shape), f"Tracers have different shapes: {self._shape} and {other._shape}"
             values = {}
             for dim_shift in self.val.keys():
                 if dim_shift in other.val:

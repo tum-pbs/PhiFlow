@@ -221,7 +221,7 @@ class TestMathFunctions(TestCase):
                 a = math.ones(spatial(x=2, a=4) & batch(batch=10))
                 b = math.ones(spatial(y=3, b=4))
                 dot = math.dot(a, 'a', b, 'b')
-                self.assertEqual((spatial(x=2, y=3) & batch(batch=10)).alphabetically(), dot.shape.alphabetically(), msg=backend.name)
+                self.assertEqual(set(spatial(x=2, y=3) & batch(batch=10)), set(dot.shape), msg=backend.name)
                 math.assert_close(dot, 4, msg=backend.name)
 
     def test_dot_batched_vector(self):
@@ -239,7 +239,7 @@ class TestMathFunctions(TestCase):
                 a = math.ones(batch(batch=10) & spatial(a=4, x=2))
                 b = math.ones(batch(batch=10) & spatial(y=3, b=4))
                 dot = math.dot(a, 'a', b, 'b')
-                self.assertEqual((spatial(x=2, y=3) & batch(batch=10)).alphabetically(), dot.shape.alphabetically(), msg=backend.name)
+                self.assertEqual(set(spatial(x=2, y=3) & batch(batch=10)), set(dot.shape), msg=backend.name)
                 math.assert_close(dot, 4, msg=backend.name)
 
     def test_range(self):
@@ -282,7 +282,7 @@ class TestMathFunctions(TestCase):
                 x = math.random_uniform(spatial(x=2))
                 mask = math.tensor([True, False, True, True], batch('selection'))
                 selected = math.boolean_mask(x, 'selection', mask)
-                self.assertEqual((spatial(x=2) & batch(selection=3)).alphabetically(), selected.shape.alphabetically(), msg=backend.name)
+                self.assertEqual(set(spatial(x=2) & batch(selection=3)), set(selected.shape), msg=backend.name)
 
     def test_scatter_1d(self):
         for backend in BACKENDS:

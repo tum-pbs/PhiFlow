@@ -9,7 +9,7 @@ class GeometryStack(Geometry):
 
     def __init__(self, geometries: tuple or list, stack_dim: Shape):
         self.geometries = tuple(geometries)
-        self.stack_dim = stack_dim.with_sizes([len(geometries)])
+        self.stack_dim = stack_dim.with_size(len(geometries))
         self._shape = shape_stack(self.stack_dim, *[g.shape for g in geometries])
 
     def unstack(self, dimension):

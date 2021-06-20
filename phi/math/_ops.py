@@ -485,7 +485,7 @@ def fftfreq(resolution: Shape, dx: Tensor or float = 1, dtype: DType = None):
     Returns:
         `Tensor` holding the frequencies of the corresponding values computed by math.fft
     """
-    k = meshgrid(**{dim: np.fft.fftfreq(int(n)) for dim, n in resolution.spatial.named_sizes})
+    k = meshgrid(**{dim: np.fft.fftfreq(int(n)) for dim, n in resolution.spatial._named_sizes})
     k /= dx
     return to_float(k) if dtype is None else cast(k, dtype)
 
@@ -780,14 +780,14 @@ def split_dimension(value: Tensor, dim: str, split_dims: Shape):
     if split_dims.rank == 0:
         return value.dimension(dim)[0]  # remove dim
     if split_dims.rank == 1:
-        new_shape = value.shape.without(dim).expand(split_dims, pos=value.shape.index(dim))
+        new_shape = value.shape.without(dim)._expand(split_dims, pos=value.shape.index(dim))
         return value._with_shape_replaced(new_shape)
     else:
         native = value.native(value.shape.names)
         new_shape = value.shape.without(dim)
         i = value.shape.index(dim)
         for d in split_dims:
-            new_shape = new_shape.expand(d, pos=i)
+            new_shape = new_shape._expand(d, pos=i)
             i += 1
         native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
         return NativeTensor(native_reshaped, new_shape)
@@ -820,15 +820,15 @@ def join_dimensions(value: Tensor,
     """
     dims = dims.names if isinstance(dims, Shape) else dims
     if len(dims) == 0 or all(dim not in value.shape for dim in dims):
-        return CollapsedTensor(value, value.shape.expand(joined.with_sizes([1]), pos))
+        return CollapsedTensor(value, value.shape._expand(joined.with_sizes([1]), pos))
     if len(dims) == 1:
-        new_shape = value.shape.with_names([joined.name if name == dims[0] else name for name in value.shape.names])
+        new_shape = value.shape._with_names([joined.name if name == dims[0] else name for name in value.shape.names])
         return value._with_shape_replaced(new_shape)
-    order = value.shape.order_group(dims)
+    order = value.shape._order_group(dims)
     native = value.native(order)
     if pos is None:
         pos = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims).expand(joined.with_sizes([value.shape.only(dims).volume]), pos)
+    new_shape = value.shape.without(dims)._expand(joined.with_sizes([value.shape.only(dims).volume]), pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
 
@@ -1482,9 +1482,10 @@ def fft(x: Tensor) -> Tensor:
         *Ƒ(x)* as complex `Tensor`
 
     """
-    native, assemble = _invertible_standard_form(x)
-    result = choose_backend(native).fft(native)
-    return assemble(result)
+    batches = x.shape.non_channel.non_spatial
+    x_native = reshaped_native(x, [batches, *x.shape.spatial, x.shape.channel])
+    fft_native = choose_backend(x_native).fft(x_native)
+    return reshaped_tensor(fft_native, [batches, *x.shape.spatial, x.shape.channel])
 
 
 def ifft(k: Tensor):
@@ -1497,9 +1498,10 @@ def ifft(k: Tensor):
     Returns:
         *Ƒ<sup>-1</sup>(k)* as complex `Tensor`
     """
-    native, assemble = _invertible_standard_form(k)
-    result = choose_backend(native).ifft(native)
-    return assemble(result)
+    batches = k.shape.non_channel.non_spatial
+    k_native = reshaped_native(k, [batches, *k.shape.spatial, k.shape.channel])
+    fft_native = choose_backend(k_native).ifft(k_native)
+    return reshaped_tensor(fft_native, [batches, *k.shape.spatial, k.shape.channel])
 
 
 def dtype(x):
@@ -1531,43 +1533,18 @@ def expand(value: Tensor, dims: Shape):
     """
     value = wrap(value)
     shape = value.shape
-    for dim in dims.reversed:
+    for dim in reversed(dims):
         if dim in value.shape:
             assert dim.size is None or shape.get_size(dim.name) == dim.size, f"Cannot expand tensor with shape {shape} by dimension {dim}"
-            assert shape.get_type(dim.name) == dim.type, f"Cannot expand tensor with shape {shape} by dimension {dim} of type '{dim.type}' because the dimension types do not match. Original type of '{dim.name}' was {shape.get_type(dim.name)}."
+            assert shape.get_type(dim) == dim.type, f"Cannot expand tensor with shape {shape} by dimension {dim} of type '{dim.type}' because the dimension types do not match. Original type of '{dim.name}' was {shape.get_type(dim.name)}."
         else:
             if dim.size is None:
                 dim = dim.with_sizes([1])
-            shape = shape.expand(dim)
+            shape = concat_shapes(dim, shape)
     return CollapsedTensor(value, shape)
 
 
-def _invertible_standard_form(value: Tensor):
-    """
-    Reshapes the tensor into the shape (batch, spatial..., channel) with a single batch and channel dimension.
-
-    Args:
-      value: tensor to reshape
-      value: Tensor: 
-
-    Returns:
-      reshaped native tensor, inverse function
-
-    """
-    normal_order = value.shape.normal_order()
-    native = value.native(normal_order.names)
-    backend = choose_backend(native)
-    standard_form = (value.shape.batch.volume,) + value.shape.spatial.sizes + (value.shape.channel.volume,)
-    reshaped = backend.reshape(native, standard_form)
-
-    def assemble(reshaped):
-        un_reshaped = backend.reshape(reshaped, backend.shape(native))
-        return NativeTensor(un_reshaped, normal_order)
-
-    return reshaped, assemble
-
-
-def close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
+def close(*tensors, rel_tolerance=1e-5, abs_tolerance=0) -> bool:
     """
     Checks whether all tensors have equal values within the specified tolerance.
     
@@ -1575,13 +1552,12 @@ def close(*tensors, rel_tolerance=1e-5, abs_tolerance=0):
     Tensors with different shapes are reshaped before comparing.
 
     Args:
-      tensors: tensor or tensor-like (constant) each
-      rel_tolerance: relative tolerance (Default value = 1e-5)
-      abs_tolerance: absolute tolerance (Default value = 0)
-      *tensors: 
+        *tensors: `Tensor` or tensor-like (constant) each
+        rel_tolerance: relative tolerance (Default value = 1e-5)
+        abs_tolerance: absolute tolerance (Default value = 0)
 
     Returns:
-
+        Whether all given tensors are equal to the first tensor within the specified tolerance.
     """
     tensors = [wrap(t) for t in tensors]
     for other in tensors[1:]:

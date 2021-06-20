@@ -266,7 +266,7 @@ class StaggeredGrid(Grid):
             x = values.vector[any_dim]
             ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
             delta = int(ext_lower) + int(ext_upper) - 1
-            resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - delta)
+            resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:

@@ -160,7 +160,7 @@ class Scene(object):
         Returns:
             Single `Scene` object representing the new scene(s).
         """
-        shape = (shape & math.batch(**dimensions)).to_batch()
+        shape = shape & math.batch(**dimensions)
         parent_directory = expanduser(parent_directory)
         abs_dir = abspath(parent_directory)
         if not isdir(abs_dir):

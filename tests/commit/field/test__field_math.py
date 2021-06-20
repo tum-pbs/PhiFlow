@@ -74,7 +74,7 @@ class TestFieldMath(TestCase):
     def test_downsample_staggered_2d(self):
         grid = Domain(x=32, y=40).staggered_grid(1)
         downsampled = field.downsample2x(grid)
-        self.assertEqual((spatial(x=16, y=20) & channel(vector=2)).alphabetically(), downsampled.shape.alphabetically())
+        self.assertEqual(set(spatial(x=16, y=20) & channel(vector=2)), set(downsampled.shape))
 
     def test_abs(self):
         grid = Domain(x=4, y=3).staggered_grid(-1)
