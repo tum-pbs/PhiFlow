@@ -85,7 +85,6 @@ Important `Shape` properties (see the [API documentation](phi/math/#phi.math.Sha
 * `.sizes: tuple` enumerates the sizes as ints or None, similar to NumPy's shapes
 * `.names: tuple` enumerates the dimension names
 * `.rank: int = len(shape)` number of dimensions
-* `.named_sizes` to iterate over `name, size` of each dimension
 * `.batch: Shape` / `.spatial: Shape` / `.channel: Shape` contains only batch / spatial / channel dimensions
 * `.non_batch: Shape` / `.non_spatial: Shape` / `.non_channel: Shape` contains only the other two types of dimensions
 * `.batch_rank: Shape` / `.spatial_rank: Shape` / `.channel_rank: Shape` alias for `.batch.rank`

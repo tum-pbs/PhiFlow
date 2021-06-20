@@ -190,7 +190,7 @@ class ConstantExtrapolation(Extrapolation):
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value._native
-            ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+            ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             backend = choose_backend(native)
             result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, self.value.native())
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
@@ -200,7 +200,7 @@ class ConstantExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
-                for size, dim, dim_type in value.shape.dimensions:
+                for size, dim, dim_type in value.shape._dimensions:
                     if dim not in widths:
                         new_sizes.append(size)
                     else:
@@ -330,7 +330,7 @@ class _CopyExtrapolation(Extrapolation):
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value._native
-            ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+            ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             result_tensor = choose_backend(native).pad(native, ordered_pad_widths, repr(self))
             if result_tensor is NotImplemented:
                 return Extrapolation.pad(self, value, widths)
@@ -342,7 +342,7 @@ class _CopyExtrapolation(Extrapolation):
             if len(inner_widths) &gt; 0:
                 inner = self.pad(inner, widths)
             new_sizes = []
-            for size, dim, dim_type in value.shape.dimensions:
+            for size, dim, dim_type in value.shape._dimensions:
                 if dim not in widths:
                     new_sizes.append(size)
                 else:
@@ -790,7 +790,30 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
     elif etype == &#39;reflect&#39;:
         return REFLECT
     else:
-        raise ValueError(dictionary)</code></pre>
+        raise ValueError(dictionary)
+
+
+def order_by_shape(shape: Shape, sequence, default=None) -&gt; tuple or list:
+    &#34;&#34;&#34;
+    If sequence is a dict with dimension names as keys, orders its values according to this shape.
+
+    Otherwise, the sequence is returned unchanged.
+
+    Args:
+      sequence: Sequence or dict to be ordered
+      default: default value used for dimensions not contained in sequence
+
+    Returns:
+      ordered sequence of values
+    &#34;&#34;&#34;
+    if isinstance(sequence, dict):
+        result = [sequence.get(name, default) for name in shape.names]
+        return result
+    elif isinstance(sequence, (tuple, list)):
+        assert len(sequence) == shape.rank
+        return sequence
+    else:  # just a constant
+        return sequence</code></pre>
 </details>
 </section>
 <section>
@@ -911,6 +934,48 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
         raise ValueError(dictionary)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.extrapolation.order_by_shape"><code class="name flex">
+<span>def <span class="ident">order_by_shape</span></span>(<span>shape: phi.math._shape.Shape, sequence, default=None) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>If sequence is a dict with dimension names as keys, orders its values according to this shape.</p>
+<p>Otherwise, the sequence is returned unchanged.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>sequence</code></strong></dt>
+<dd>Sequence or dict to be ordered</dd>
+<dt><strong><code>default</code></strong></dt>
+<dd>default value used for dimensions not contained in sequence</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>ordered sequence of values</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def order_by_shape(shape: Shape, sequence, default=None) -&gt; tuple or list:
+    &#34;&#34;&#34;
+    If sequence is a dict with dimension names as keys, orders its values according to this shape.
+
+    Otherwise, the sequence is returned unchanged.
+
+    Args:
+      sequence: Sequence or dict to be ordered
+      default: default value used for dimensions not contained in sequence
+
+    Returns:
+      ordered sequence of values
+    &#34;&#34;&#34;
+    if isinstance(sequence, dict):
+        result = [sequence.get(name, default) for name in shape.names]
+        return result
+    elif isinstance(sequence, (tuple, list)):
+        assert len(sequence) == shape.rank
+        return sequence
+    else:  # just a constant
+        return sequence</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -974,7 +1039,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value._native
-            ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+            ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             backend = choose_backend(native)
             result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, self.value.native())
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
@@ -984,7 +1049,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
-                for size, dim, dim_type in value.shape.dimensions:
+                for size, dim, dim_type in value.shape._dimensions:
                     if dim not in widths:
                         new_sizes.append(size)
                     else:
@@ -1182,7 +1247,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
     from phi.math._functional import is_tracer
     if isinstance(value, NativeTensor):
         native = value._native
-        ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+        ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
         backend = choose_backend(native)
         result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, self.value.native())
         new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
@@ -1192,7 +1257,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
             return self.pad(value._cache(), widths)
         else:  # Stays constant value, only extend shape
             new_sizes = []
-            for size, dim, dim_type in value.shape.dimensions:
+            for size, dim, dim_type in value.shape._dimensions:
                 if dim not in widths:
                     new_sizes.append(size)
                 else:
@@ -1612,6 +1677,7 @@ This is the default implementation.</p>
 <ul class="">
 <li><code><a title="phi.math.extrapolation.combine_sides" href="#phi.math.extrapolation.combine_sides">combine_sides</a></code></li>
 <li><code><a title="phi.math.extrapolation.from_dict" href="#phi.math.extrapolation.from_dict">from_dict</a></code></li>
+<li><code><a title="phi.math.extrapolation.order_by_shape" href="#phi.math.extrapolation.order_by_shape">order_by_shape</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

@@ -622,10 +622,38 @@ class Shape:
         return False
 
     def with_size(self, size: int):
+        """
+        Only for single-dimension shapes.
+        Returns a `Shape` representing this dimension but with a different size.
+
+        See Also:
+            `Shape.with_sizes()`.
+
+        Args:
+            size: Replacement size for this dimension.
+
+        Returns:
+            `Shape`
+        """
         assert self.rank == 1, "Shape.with_size() is only defined for shapes of rank 1."
         return self.with_sizes([size])
 
     def with_sizes(self, sizes: tuple or list or 'Shape'):
+        """
+        Returns a new `Shape` matching the dimension names and types of `self` but with different sizes.
+
+        See Also:
+            `Shape.with_size()`.
+
+        Args:
+            sizes: One of
+
+                * `tuple` / `list` of same length as `self` containing replacement sizes.
+                * `Shape` of any rank. Replaces sizes for dimensions shared by `sizes` and `self`.
+
+        Returns:
+            `Shape` with same names and types as `self`.
+        """
         if isinstance(sizes, Shape):
             sizes = [sizes.get_size(dim) if dim in sizes else self.sizes[i] for i, dim in enumerate(self.names)]
             return Shape(sizes, self.names, self.types)

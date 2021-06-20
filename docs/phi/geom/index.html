@@ -787,7 +787,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
-               and self.shape.alphabetically() == other.shape.alphabetically()\
+               and set(self.shape) == set(other.shape)\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
 
@@ -1720,19 +1720,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 
     @property
     def center(self):
-        &#34;&#34;&#34;
-        Center point of the box or batch of boxes.
-        
-        The shape of the location extends the shape of the Box instance by a `vector` dimension.
-        
-        :return: Tensor describing the center location(s)
-
-        Args:
-
-        Returns:
-
-        &#34;&#34;&#34;
-        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
+        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
         points = self.bounds.local_to_global(local_coords)
         return points
 
@@ -1844,30 +1832,14 @@ def bounds(self):
 </dd>
 <dt id="phi.geom.GridCell.center"><code class="name">var <span class="ident">center</span></code></dt>
 <dd>
-<div class="desc"><p>Center point of the box or batch of boxes.</p>
-<p>The shape of the location extends the shape of the Box instance by a <code>vector</code> dimension.</p>
-<p>:return: Tensor describing the center location(s)</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def center(self):
-    &#34;&#34;&#34;
-    Center point of the box or batch of boxes.
-    
-    The shape of the location extends the shape of the Box instance by a `vector` dimension.
-    
-    :return: Tensor describing the center location(s)
-
-    Args:
-
-    Returns:
-
-    &#34;&#34;&#34;
-    local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
+    local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
     points = self.bounds.local_to_global(local_coords)
     return points</code></pre>
 </details>

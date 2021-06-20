@@ -847,7 +847,7 @@ An exception to this is <code><a title="phi.field.jit_compile_linear" href="#phi
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to be traced.
-All arguments must be of type <code>Tensor</code> returning a single <code>Tensor</code> or a <code>tuple</code> or <code>list</code> of tensors.</dd>
+All positional arguments must be of type <code>Tensor</code> or <code>TensorLike</code> returning a single <code>Tensor</code> or <code>TensorLike</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with similar signature and return values as <code>f</code>.</p></div>
@@ -883,7 +883,7 @@ All arguments must be of type <code>Tensor</code> returning a single <code>Tenso
 
     Args:
         f: Function to be traced.
-            All arguments must be of type `Tensor` returning a single `Tensor` or a `tuple` or `list` of tensors.
+            All positional arguments must be of type `Tensor` or `TensorLike` returning a single `Tensor` or `TensorLike`.
 
     Returns:
         Function with similar signature and return values as `f`.
@@ -3937,7 +3937,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         Returns:
             Single `Scene` object representing the new scene(s).
         &#34;&#34;&#34;
-        shape = (shape &amp; math.batch(**dimensions)).to_batch()
+        shape = shape &amp; math.batch(**dimensions)
         parent_directory = expanduser(parent_directory)
         abs_dir = abspath(parent_directory)
         if not isdir(abs_dir):
@@ -4330,7 +4330,7 @@ def create(parent_directory: str,
     Returns:
         Single `Scene` object representing the new scene(s).
     &#34;&#34;&#34;
-    shape = (shape &amp; math.batch(**dimensions)).to_batch()
+    shape = shape &amp; math.batch(**dimensions)
     parent_directory = expanduser(parent_directory)
     abs_dir = abspath(parent_directory)
     if not isdir(abs_dir):
@@ -5038,7 +5038,7 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
             x = values.vector[any_dim]
             ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
             delta = int(ext_lower) + int(ext_upper) - 1
-            resolution = x.shape.spatial.with_size(any_dim, x.shape.get_size(any_dim) - delta)
+            resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
             bounds = bounds or Box(0, math.wrap(resolution, channel(&#39;vector&#39;)))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
@@ -5056,9 +5056,9 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
                 assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
                 assert &#39;staggered_direction&#39; in values.shape
                 if &#39;vector&#39; in values.shape:
-                    values = math.stack([values.vector_[i].vector[i] for i in range(resolution.rank)], channel(&#39;vector&#39;))
+                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(&#39;vector&#39;))
                 else:
-                    values = values.vector_.as_channel(&#39;vector&#39;)
+                    values = values.staggered_direction.as_channel(&#39;vector&#39;)
             else:
                 values = expand_staggered(math.tensor(values), resolution, extrapolation)
         if values.dtype.kind not in (float, complex):
