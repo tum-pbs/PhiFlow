@@ -599,6 +599,16 @@ class TorchBackend(Backend):
         idx = self.unstack(idx, axis=0)
         return idx, tensor._values()
 
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
+        if method == 'auto':
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+        elif method == 'CG':
+            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
+        elif method == 'CG-adaptive':
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+        else:
+            raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
+
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
