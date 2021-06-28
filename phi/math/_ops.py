@@ -780,8 +780,7 @@ def split_dimension(value: Tensor, dim: str, split_dims: Shape):
     if split_dims.rank == 0:
         return value.dimension(dim)[0]  # remove dim
     if split_dims.rank == 1:
-        new_shape = value.shape.without(dim)._expand(split_dims, pos=value.shape.index(dim))
-        return value._with_shape_replaced(new_shape)
+        return rename_dims(value, dim, split_dims)
     else:
         native = value.native(value.shape.names)
         new_shape = value.shape.without(dim)
@@ -822,8 +821,7 @@ def join_dimensions(value: Tensor,
     if len(dims) == 0 or all(dim not in value.shape for dim in dims):
         return CollapsedTensor(value, value.shape._expand(joined.with_sizes([1]), pos))
     if len(dims) == 1:
-        new_shape = value.shape._with_names([joined.name if name == dims[0] else name for name in value.shape.names])
-        return value._with_shape_replaced(new_shape)
+        return rename_dims(value, dims, joined)
     order = value.shape._order_group(dims)
     native = value.native(order)
     if pos is None:
@@ -831,6 +829,28 @@ def join_dimensions(value: Tensor,
     new_shape = value.shape.without(dims)._expand(joined.with_sizes([value.shape.only(dims).volume]), pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
+
+
+def rename_dims(value: Tensor or Shape, dims: str or tuple or list or Shape, names: str or tuple or list or Shape):
+    """
+    Change the name and optionally the type of some dimensions of `value`.
+
+    Args:
+        value: `Shape` or `Tensor`.
+        dims: Existing dimensions of `value`.
+        names: Either
+
+            * Sequence of names matching `dims` as `tuple`, `list` or `str`. This replaces only the dimension names but leaves the types untouched.
+            * `Shape` matching `dims` to replace names and types.
+
+    Returns:
+        Same type as `value`.
+    """
+    if isinstance(value, Shape):
+        return value._replace_names_and_types(dims, names)
+    else:
+        assert isinstance(value, Tensor), "value must be a Shape or Tensor."
+        return value._with_shape_replaced(value.shape._replace_names_and_types(dims, names))
 
 
 def flatten(value: Tensor, flat_dim: Shape = collection('flat')):

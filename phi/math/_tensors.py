@@ -93,7 +93,7 @@ class Tensor:
         from ._ops import choose_backend_t
         return choose_backend_t(self)
 
-    def _with_shape_replaced(self, new_shape):
+    def _with_shape_replaced(self, new_shape: Shape):
         raise NotImplementedError()
 
     def _with_natives_replaced(self, natives: list):
@@ -860,13 +860,13 @@ class CollapsedTensor(Tensor):  # package-private
         else:
             return (CollapsedTensor(self._inner, unstacked_shape),) * self.shape.get_size(dimension)
 
-    def _with_shape_replaced(self, new_shape):
+    def _with_shape_replaced(self, new_shape: Shape):
         if self.is_cached:
             return self._cached._with_shape_replaced(new_shape)
         else:
-            replacement = {old: new for old, new in zip(self._shape.names, new_shape.names)}
-            inner_shape = self._inner.shape._with_names([replacement[old] for old in self._inner.shape.names])
-            result = CollapsedTensor(self._inner._with_shape_replaced(inner_shape), new_shape)
+            inner_indices = [self.shape.index(d) for d in self._inner.shape.names]
+            new_inner_shape = new_shape[inner_indices]
+            result = CollapsedTensor(self._inner._with_shape_replaced(new_inner_shape), new_shape)
             return result
 
     @property

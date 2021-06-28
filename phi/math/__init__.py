@@ -29,7 +29,7 @@ from ._ops import (
     zeros_like, ones_like,
     stack, unstack, concat,
     pad,
-    join_dimensions, split_dimension, flatten, expand, transpose,  # reshape operations
+    join_dimensions, join_dimensions as join_dims, split_dimension, split_dimension as split_dim, rename_dims, flatten, expand, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce

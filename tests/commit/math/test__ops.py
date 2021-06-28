@@ -508,3 +508,9 @@ class TestMathFunctions(TestCase):
                     self.assertIsInstance(i_, tuple, msg=backend.name)
                     assert len(i_) == 2
                     assert len(v) == 3
+
+    def test_rename_dims(self):
+        t = math.zeros(spatial(x=5, y=4))
+        self.assertEqual(math.rename_dims(t, 'x', 'z').shape.get_type('z'), 'spatial')
+        self.assertEqual(math.rename_dims(t, ['x'], ['z']).shape.get_type('z'), 'spatial')
+        self.assertEqual(math.rename_dims(t, ['x'], channel('z')).shape.get_type('z'), 'channel')

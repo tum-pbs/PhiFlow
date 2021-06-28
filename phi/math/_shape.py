@@ -672,6 +672,22 @@ class Shape:
             names = [n if n is not None else o for n, o in zip(names, self.names)]
         return Shape(self.sizes, names, self.types)
 
+    def _replace_names_and_types(self, dims: 'Shape' or str or tuple or list, new: 'Shape' or str or tuple or list) -> 'Shape':
+        dims = parse_dim_order(dims)
+        if isinstance(new, Shape):
+            names = list(self.names)
+            types = list(self.types)
+            for old_name, new_dim in zip(dims, new):
+                names[self.index(old_name)] = new_dim.name
+                types[self.index(old_name)] = new_dim.type
+            return Shape(self.sizes, names, types)
+        else:
+            new = parse_dim_order(new)
+            names = list(self.names)
+            for old_name, new_name in zip(dims, new):
+                names[self.index(old_name)] = new_name
+            return Shape(self.sizes, names, self.types)
+
     def _with_types(self, types: 'Shape'):
         return Shape(self.sizes, self.names, [types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)])
 
