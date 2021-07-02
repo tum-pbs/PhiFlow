@@ -520,27 +520,17 @@ class TorchBackend(Backend):
         result = scatter(base_grid_flat, dim=1, index=indices, src=values)
         return torch.reshape(result, base_grid.shape)
 
-    def fft(self, x):
+    def fft(self, x, axes: tuple or list):
         if not x.is_complex():
             x = self.to_complex(x)
-        for i in range(1, len(x.shape) - 1):
+        for i in axes:
             x = torch.fft.fft(x, dim=i)
         return x
-        # Using old torch.Tensor.fft
-        # rank = len(x.shape) - 2
-        # x = channels_first(x)
-        # x = torch.view_as_real(x)
-        # k = torch.Tensor.fft(x, rank)
-        # if k.is_complex():
-        #     k = self.real(k).contiguous()
-        # k = torch.view_as_complex(k)
-        # k = channels_last(k)
-        # return k
 
-    def ifft(self, k):
+    def ifft(self, k, axes: tuple or list):
         if not k.is_complex():
             k = self.to_complex(k)
-        for i in range(1, len(k.shape) - 1):
+        for i in axes:
             k = torch.fft.ifft(k, dim=i)
         return k
 

@@ -205,6 +205,16 @@ class TestMathFunctions(TestCase):
                     x_ = math.ifft(k)
                     math.assert_close(x, x_, abs_tolerance=1e-5, msg=backend.name)
 
+    def test_fft_dims(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.random_normal(batch(x=8, y=6, z=4))
+                k3 = math.fft(x, 'x,y,z')
+                k = x
+                for dim in 'xyz':
+                    k = math.fft(k, dim)
+                math.assert_close(k, k3, abs_tolerance=1e-5, msg=backend.name)
+
     def test_dot_vector(self):
         for backend in BACKENDS:
             with backend:

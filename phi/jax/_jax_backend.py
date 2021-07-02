@@ -371,26 +371,26 @@ class JaxBackend(Backend):
             result.append(scatter(b_grid, b_indices, b_values, dnums))
         return jnp.stack(result)
 
-    def fft(self, x):
-        rank = len(x.shape) - 2
-        assert rank >= 1
-        if rank == 1:
-            return jnp.fft.fft(x, axis=1)
-        elif rank == 2:
-            return jnp.fft.fft2(x, axes=[1, 2])
+    def fft(self, x, axes: tuple or list):
+        x = self.to_complex(x)
+        if not axes:
+            return x
+        if len(axes) == 1:
+            return np.fft.fft(x, axis=axes[0]).astype(x.dtype)
+        elif len(axes) == 2:
+            return np.fft.fft2(x, axes=axes).astype(x.dtype)
         else:
-            return jnp.fft.fftn(x, axes=list(range(1, rank + 1)))
+            return np.fft.fftn(x, axes=axes).astype(x.dtype)
 
-    def ifft(self, k):
-        assert self.dtype(k).kind == complex
-        rank = len(k.shape) - 2
-        assert rank >= 1
-        if rank == 1:
-            return jnp.fft.ifft(k, axis=1).astype(k.dtype)
-        elif rank == 2:
-            return jnp.fft.ifft2(k, axes=[1, 2]).astype(k.dtype)
+    def ifft(self, k, axes: tuple or list):
+        if not axes:
+            return k
+        if len(axes) == 1:
+            return np.fft.ifft(k, axis=axes[0]).astype(k.dtype)
+        elif len(axes) == 2:
+            return np.fft.ifft2(k, axes=axes).astype(k.dtype)
         else:
-            return jnp.fft.ifftn(k, axes=list(range(1, rank + 1))).astype(k.dtype)
+            return np.fft.ifftn(k, axes=axes).astype(k.dtype)
 
     def dtype(self, array) -> DType:
         if isinstance(array, int):

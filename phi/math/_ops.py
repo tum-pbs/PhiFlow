@@ -1476,7 +1476,7 @@ def scatter(base_grid: Tensor or Shape,
     return result
 
 
-def fft(x: Tensor) -> Tensor:
+def fft(x: Tensor, dims: str or tuple or list or Shape = None) -> Tensor:
     """
     Performs a fast Fourier transform (FFT) on all spatial dimensions of x.
     
@@ -1496,32 +1496,35 @@ def fft(x: Tensor) -> Tensor:
       [`jax.numpy.fft.fft`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.fft.fftn.html)
 
     Args:
-        x: Complex or float `Tensor` with at least one spatial dimension.
+        x: Uniform complex or float `Tensor` with at least one spatial dimension.
+        dims: Dimensions along which to perform the FFT.
+            If `None`, performs the FFT along all spatial dimensions of `x`.
 
     Returns:
         *Ƒ(x)* as complex `Tensor`
-
     """
-    batches = x.shape.non_channel.non_spatial
-    x_native = reshaped_native(x, [batches, *x.shape.spatial, x.shape.channel])
-    fft_native = choose_backend(x_native).fft(x_native)
-    return reshaped_tensor(fft_native, [batches, *x.shape.spatial, x.shape.channel])
+    dims = parse_dim_order(dims) if dims is not None else x.shape.spatial.names
+    x_native = x.native(x.shape)
+    result_native = choose_backend(x_native).fft(x_native, x.shape.indices(dims))
+    return NativeTensor(result_native, x.shape)
 
 
-def ifft(k: Tensor):
+def ifft(k: Tensor, dims: str or tuple or list or Shape = None):
     """
     Inverse of `fft()`.
 
     Args:
         k: Complex or float `Tensor` with at least one spatial dimension.
+        dims: Dimensions along which to perform the inverse FFT.
+            If `None`, performs the inverse FFT along all spatial dimensions of `k`.
 
     Returns:
         *Ƒ<sup>-1</sup>(k)* as complex `Tensor`
     """
-    batches = k.shape.non_channel.non_spatial
-    k_native = reshaped_native(k, [batches, *k.shape.spatial, k.shape.channel])
-    fft_native = choose_backend(k_native).ifft(k_native)
-    return reshaped_tensor(fft_native, [batches, *k.shape.spatial, k.shape.channel])
+    dims = parse_dim_order(dims) if dims is not None else k.shape.spatial.names
+    k_native = k.native(k.shape)
+    result_native = choose_backend(k_native).ifft(k_native, k.shape.indices(dims))
+    return NativeTensor(result_native, k.shape)
 
 
 def dtype(x):

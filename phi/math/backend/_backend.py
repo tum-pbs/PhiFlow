@@ -560,27 +560,29 @@ class Backend:
     def all(self, boolean_tensor, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def fft(self, x):
+    def fft(self, x, axes: tuple or list):
         """
         Computes the n-dimensional FFT along all but the first and last dimensions.
 
         Args:
           x: tensor of dimension 3 or higher
+          axes: Along which axes to perform the FFT
 
         Returns:
-
+            Complex tensor `k`
         """
         raise NotImplementedError(self)
 
-    def ifft(self, k):
+    def ifft(self, k, axes: tuple or list):
         """
         Computes the n-dimensional inverse FFT along all but the first and last dimensions.
 
         Args:
           k: tensor of dimension 3 or higher
+          axes: Along which axes to perform the inverse FFT
 
         Returns:
-
+            Complex tensor `x`
         """
         raise NotImplementedError(self)
 
