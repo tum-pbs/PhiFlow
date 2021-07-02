@@ -354,7 +354,7 @@ class GridCell(BaseBox):
         return GridCell(resolution, bounds)
 
     def list_cells(self, dim_name):
-        center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
+        center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
 
     def stagger(self, dim: str, lower: bool, upper: bool):

@@ -110,13 +110,13 @@ def _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_a
             field = field.at_centers()
         for b in range(batch_size):
             x, y = [d.numpy('x,y') for d in field.points.vector.unstack_spatial('x,y')]
-            data = math.join_dimensions(field.values, field.shape.batch, batch('batch')).batch[b]
+            data = math.pack_dims(field.values, field.shape.batch, batch('batch')).batch[b]
             u, v = [d.numpy('x,y') for d in data.vector.unstack_spatial('x,y')]
             color = axes[b].xaxis.label.get_color()
             axes[b].quiver(x-u/2, y-v/2, u, v, color=color)
     elif isinstance(field, PointCloud):
         for b in range(batch_size):
-            points = math.join_dimensions(field.points, field.points.shape.batch, batch('batch')).batch[b]
+            points = math.pack_dims(field.points, field.points.shape.batch, batch('batch')).batch[b]
             x, y = [d.numpy() for d in points.vector.unstack_spatial('x,y')]
             color = [str(d) for d in field.color.points.unstack(len(x))]
             if field.bounds:
@@ -148,8 +148,8 @@ def _batch(field: SampledField):
         batch_size = field.shape.batch.volume
     else:
         batch_size = field.shape.batch.volume
-    values = math.join_dimensions(field.values, field.shape.channel, channel('channel')).channel[0]
-    b_values = math.join_dimensions(values, field.shape.batch, batch('batch'))
+    values = math.pack_dims(field.values, field.shape.channel, channel('channel')).channel[0]
+    b_values = math.pack_dims(values, field.shape.batch, batch('batch'))
     return batch_size, b_values
 
 

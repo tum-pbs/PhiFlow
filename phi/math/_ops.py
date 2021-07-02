@@ -152,11 +152,11 @@ def reshaped_native(value: Tensor,
     Returns a native representation of `value` where dimensions are laid out according to `groups`.
 
     See Also:
-        `native()`, `join_dimensions()`, `reshaped_tensor()`.
+        `native()`, `pack_dims()`, `reshaped_tensor()`.
 
     Args:
         value: `Tensor`
-        groups: Sequence of dimension names as `str` or groups of dimensions to be joined as `Shape`.
+        groups: Sequence of dimension names as `str` or groups of dimensions to be packed_dim as `Shape`.
         force_expand: `bool` or sequence of dimensions.
             If `True`, repeats the tensor along missing dimensions.
             If `False`, puts singleton dimensions where possible.
@@ -173,7 +173,7 @@ def reshaped_native(value: Tensor,
             present = value.shape.only(group)
             if force_expand is True or present.volume > 1 or (force_expand is not False and group.only(force_expand).volume > 1):
                 value = expand(value, group)
-            value = join_dimensions(value, group, batch(f"group{i}"))
+            value = pack_dims(value, group, batch(f"group{i}"))
             order.append(f"group{i}")
         else:
             assert isinstance(group, str), f"Groups must be either str or Shape but got {group}"
@@ -189,11 +189,11 @@ def reshaped_tensor(value: Any,
     Creates a `Tensor` from a native tensor or tensor-like whereby the dimensions of `value` are split according to `groups`.
 
     See Also:
-        `phi.math.tensor()`, `reshaped_native()`, `split_dimension()`.
+        `phi.math.tensor()`, `reshaped_native()`, `unpack_dims()`.
 
     Args:
         value: Native tensor or tensor-like.
-        groups: Sequence of dimension groups to be joined as `tuple[Shape]` or `list[Shape]`.
+        groups: Sequence of dimension groups to be packed_dim as `tuple[Shape]` or `list[Shape]`.
         check_sizes: If True, group sizes must match the sizes of `value` exactly. Otherwise, allows singleton dimensions.
         convert: If True, converts the data to the native format of the current default backend.
             If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
@@ -206,11 +206,11 @@ def reshaped_tensor(value: Any,
     value = tensor(value, *dims, convert=convert)
     for i, group in enumerate(groups):
         if value.shape.get_size(f'group{i}') == group.volume:
-            value = split_dimension(value, f'group{i}', group)
+            value = unpack_dims(value, f'group{i}', group)
         elif check_sizes:
             raise AssertionError(f"Group {group} does not match dimension {i} of value {value.shape}")
         else:
-            value = split_dimension(value, f'group{i}', group)
+            value = unpack_dims(value, f'group{i}', group)
     return value
 
 
@@ -544,7 +544,7 @@ def arange(dim: Shape, start_or_stop: int, stop: int or None = None, step=1):
 
 def range_tensor(shape: Shape):
     data = arange(spatial('range'), 0, shape.volume)
-    result = split_dimension(data, 'range', shape)
+    result = unpack_dims(data, 'range', shape)
     return result
 
 
@@ -556,6 +556,7 @@ def stack(values: tuple or list, dim: Shape):
     Args:
         values: Sequence of `Tensor` objects to be stacked.
         dim: Single-dimension `Shape`. This dimension must not be present with any of the `values`.
+            The size along `dim` is determined from `len(values)` and can be set to undefined (`None`).
 
     Returns:
         `Tensor` containing `values` stacked along `dim`.
@@ -575,14 +576,12 @@ def concat(values: tuple or list, dim: Shape) -> Tensor:
     The shapes of all values must be equal, except for the size of the concat dimension.
 
     Args:
-      values: Tensors to concatenate
-      dim: concat dimension, must be present in all values
-      values: tuple or list: 
-      dim: str: 
+        values: Tensors to concatenate
+        dim: Concatenation dimension, must be present in all `values`.
+            The size along `dim` is determined from `values` and can be set to undefined (`None`).
 
     Returns:
-      concatenated tensor
-
+        Concatenated `Tensor`
     """
     assert len(values) > 0, "concat() got empty sequence"
     assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got '{dim}' of type {type(dim)}"
@@ -760,42 +759,42 @@ def broadcast_op(operation: Callable,
             return TensorStack(result_unstacked, Shape([None], [dim], [dim_type]))
 
 
-def split_dimension(value: Tensor, dim: str, split_dims: Shape):
+def unpack_dims(value: Tensor, dim: str, unpacked_dims: Shape):
     """
     Decompresses a tensor dimension by unstacking the elements along it.
     This function replaces the traditional `reshape` for these cases.
-    The compressed dimension `dim` is assumed to contain elements laid out according to the order or `split_dims`.
+    The compressed dimension `dim` is assumed to contain elements laid out according to the order of `split_dims`.
 
     See Also:
-        `join_dimensions()`
+        `pack_dims()`
 
     Args:
         value: `Tensor` for which one dimension should be split.
         dim: Compressed dimension to be decompressed.
-        split_dims: Ordered new dimensions to replace `dim` as `Shape`.
+        unpacked_dims: Ordered new dimensions to replace `dim` as `Shape`.
 
     Returns:
         `Tensor` with decompressed shape
     """
-    if split_dims.rank == 0:
+    if unpacked_dims.rank == 0:
         return value.dimension(dim)[0]  # remove dim
-    if split_dims.rank == 1:
-        return rename_dims(value, dim, split_dims)
+    if unpacked_dims.rank == 1:
+        return rename_dims(value, dim, unpacked_dims)
     else:
         native = value.native(value.shape.names)
         new_shape = value.shape.without(dim)
         i = value.shape.index(dim)
-        for d in split_dims:
+        for d in unpacked_dims:
             new_shape = new_shape._expand(d, pos=i)
             i += 1
         native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
         return NativeTensor(native_reshaped, new_shape)
 
 
-def join_dimensions(value: Tensor,
-                    dims: Shape or tuple or list,
-                    joined: Shape,
-                    pos: int or None = None):
+def pack_dims(value: Tensor,
+              dims: Shape or tuple or list,
+              packed_dim: Shape,
+              pos: int or None = None):
     """
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
@@ -806,12 +805,12 @@ def join_dimensions(value: Tensor,
     If `dims` have varying types, the new dimension will be a batch dimension.
 
     See Also:
-        `split_dimension()`
+        `unpack_dims()`
 
     Args:
         value: Tensor containing the dimensions `dims`.
         dims: Dimensions to be compressed in the specified order.
-        joined: Name and type of the new dimension.
+        packed_dim: Name and type of the new dimension.
         pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
 
     Returns:
@@ -819,14 +818,14 @@ def join_dimensions(value: Tensor,
     """
     dims = dims.names if isinstance(dims, Shape) else dims
     if len(dims) == 0 or all(dim not in value.shape for dim in dims):
-        return CollapsedTensor(value, value.shape._expand(joined.with_sizes([1]), pos))
+        return CollapsedTensor(value, value.shape._expand(packed_dim.with_sizes([1]), pos))
     if len(dims) == 1:
-        return rename_dims(value, dims, joined)
+        return rename_dims(value, dims, packed_dim)
     order = value.shape._order_group(dims)
     native = value.native(order)
     if pos is None:
         pos = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims)._expand(joined.with_sizes([value.shape.only(dims).volume]), pos)
+    new_shape = value.shape.without(dims)._expand(packed_dim.with_sizes([value.shape.only(dims).volume]), pos)
     native = choose_backend(native).reshape(native, new_shape.sizes)
     return NativeTensor(native, new_shape)
 
@@ -855,7 +854,7 @@ def rename_dims(value: Tensor or Shape, dims: str or tuple or list or Shape, nam
 
 def flatten(value: Tensor, flat_dim: Shape = collection('flat')):
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
-    return join_dimensions(value, value.shape, flat_dim)
+    return pack_dims(value, value.shape, flat_dim)
 
 
 def where(condition: Tensor or float or int, value_true: Tensor or float or int, value_false: Tensor or float or int):

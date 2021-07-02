@@ -446,7 +446,7 @@ def upsample2x(grid: Tensor,
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
         stacked = math.stack([interp_left, interp_right], spatial('_interleave'))
-        grid = math.join_dimensions(stacked, (dim.name, '_interleave'), dim)
+        grid = math.pack_dims(stacked, (dim.name, '_interleave'), dim)
     return grid
 
 

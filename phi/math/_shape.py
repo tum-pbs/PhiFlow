@@ -11,22 +11,18 @@ COLLECTION_DIM = 'collection'
 
 
 class Shape:
-    """Shapes enumerate dimensions, each consisting of a name, size and type."""
+    """
+    Shapes enumerate dimensions, each consisting of a name, size and type.
+
+    There are four types of dimensions: `batch`, `spatial`, `channel`, and `collection`.
+    """
 
     def __init__(self, sizes: tuple or list, names: tuple or list, types: tuple or list):
         """
-        To construct a Shape manually, use `shape()` instead.
-        This constructor is meant for internal use only.
+        To construct a `Shape`, use `batch`, `spatial`, `channel` or `collection`, depending on the desired dimension type.
+        To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
-        Construct a Shape from sizes, names and types sequences.
-        All arguments must have same length.
-
-        To create a Shape with inferred dimension types, use :func:`shape(**dims)` instead.
-
-        Args:
-            sizes: Ordered dimension sizes
-            names: Ordered dimension names, either strings (spatial, batch) or integers (channel)
-            types: Ordered types, all values should be one of (CHANNEL_DIM, SPATIAL_DIM, BATCH_DIM)
+        The `__init__` constructor is for internal use only.
         """
         assert len(sizes) == len(names) == len(types), f"sizes={sizes} ({len(sizes)}), names={names} ({len(names)}), types={types} ({len(types)})"
         if len(sizes) > 0:
@@ -693,8 +689,8 @@ class Shape:
 
     def _perm(self, names: Tuple[str]):
         assert len(set(names)) == len(names), f"No duplicates allowed but got {names}"
-        assert len(names) >= len(self.names), f"Cannot find permutation for {self} because names {set(self.names) - set(names)} are missing"
-        assert len(names) <= len(self.names), f"Cannot find permutation for {self} because too many names were passed: {names}"
+        assert len(names) >= len(self.names), f"Cannot find permutation for {self} given {names} because names {set(self.names) - set(names)} are missing"
+        assert len(names) <= len(self.names), f"Cannot find permutation for {self} given {names} because too many names were passed: {names}"
         perm = [self.names.index(name) for name in names]
         return perm
 
@@ -867,9 +863,9 @@ def spatial(*args, **dims: int):
     # Out: (x=2, y=3, undef=None)
     ```
     Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in when wrapping an existing tensor using `tensor` or `wrap`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
-    To create a shape with multiple types, use `merge_shapes()` or the syntax `shape1 & shape2`.
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
     See Also:
         `channel`, `batch`, `collection`
@@ -917,9 +913,9 @@ def channel(*args, **dims: int):
     # Out: (vector=2, undef=None)
     ```
     Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in when wrapping an existing tensor using `tensor` or `wrap`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
-    To create a shape with multiple types, use `merge_shapes()` or the syntax `shape1 & shape2`.
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
     See Also:
         `spatial`, `batch`, `collection`
@@ -967,9 +963,9 @@ def batch(*args, **dims: int):
     # Out: (batch=2, undef=None)
     ```
     Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in when wrapping an existing tensor using `tensor` or `wrap`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
-    To create a shape with multiple types, use `merge_shapes()` or the syntax `shape1 & shape2`.
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
     See Also:
         `channel`, `spatial`, `collection`
@@ -1017,9 +1013,9 @@ def collection(*args, **dims: int):
     # Out: (points=2, undef=None)
     ```
     Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in when wrapping an existing tensor using `tensor` or `wrap`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
-    To create a shape with multiple types, use `merge_shapes()` or the syntax `shape1 & shape2`.
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
     See Also:
         `channel`, `batch`, `spatial`

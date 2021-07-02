@@ -164,14 +164,14 @@ class TestMathFunctions(TestCase):
 
     def test_join_dimensions(self):
         grid = math.random_normal(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2))
-        points = math.join_dimensions(grid, grid.shape.spatial, collection('points'))
+        points = math.pack_dims(grid, grid.shape.spatial, collection('points'))
         self.assertEqual(('batch', 'points', 'vector'), points.shape.names)
         self.assertEqual(grid.shape.volume, points.shape.volume)
         self.assertEqual(grid.shape.non_spatial, points.shape.non_collection)
 
     def test_split_dimension(self):
         grid = math.random_normal(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2))
-        points = math.join_dimensions(grid, grid.shape.spatial, collection('points'))
+        points = math.pack_dims(grid, grid.shape.spatial, collection('points'))
         split = points.points.split(grid.shape.spatial)
         self.assertEqual(grid.shape, split.shape)
         math.assert_close(grid, split)

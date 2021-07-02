@@ -651,9 +651,9 @@ class TensorDim:
         return self.tensor.flip(self.name)
 
     def split(self, split_dimensions: Shape):
-        """ See `phi.math.split_dimension()` """
-        from ._ops import split_dimension
-        return split_dimension(self.tensor, self.name, split_dimensions)
+        """ See `phi.math.unpack_dims()` """
+        from ._ops import unpack_dims
+        return unpack_dims(self.tensor, self.name, split_dimensions)
 
     def __mul__(self, other):
         if isinstance(other, TensorDim):
