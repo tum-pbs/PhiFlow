@@ -801,25 +801,26 @@ class Backend:
         tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
         x = x0
         dx = residual = y - self.linear(lin, x)
-        it_counter = 0
         iterations = self.zeros([batch_size], DType(int, 32))
         function_evaluations = self.ones([batch_size], DType(int, 32))
         residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
         diverged = self.any(~self.isfinite(x), axis=(1,))
         converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
         trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
-        finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
-        while ~self.all(finished):
-            it_counter += 1; iterations += not_finished_1
-            dy = self.linear(lin, dx); function_evaluations += not_finished_1
+        continue_ = ~converged & ~diverged & (iterations < max_iter)
+
+        def cg_loop_body(continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
+            continue_1 = self.to_int32(continue_)
+            it_counter += 1; iterations += continue_1
+            dy = self.linear(lin, dx); function_evaluations += continue_1
             dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
             step_size = self.divide_no_nan(residual_squared, dx_dy)
-            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+            step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
             x += step_size * dx
-            if it_counter % 50 == 0:
-                residual = y - self.linear(lin, x); function_evaluations += 1
-            else:
-                residual = residual - step_size * dy  # in-place subtraction affects convergence
+            # if it_counter % 50 == 0:
+            #     residual = y - self.linear(lin, x); function_evaluations += 1
+            # else:
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
@@ -829,7 +830,10 @@ class Backend:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
                 x = self.copy(x)
                 iterations = self.copy(iterations)
-            finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+            continue_ = ~converged & ~diverged & (iterations < max_iter)
+            return continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged
+
+        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = self.while_loop(cg_loop_body, (continue_, 0, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged))
         return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
@@ -852,7 +856,7 @@ class Backend:
         trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
         continue_ = ~converged & ~diverged & (iterations < max_iter)
 
-        def loop(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
+        def acg_loop_body(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
             continue_1 = self.to_int32(continue_)
             it_counter += 1
             iterations += continue_1
@@ -876,8 +880,7 @@ class Backend:
             continue_ = ~converged & ~diverged & (iterations < max_iter)
             return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
 
-        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged =\
-            self.while_loop(loop, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
+        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = self.while_loop(acg_loop_body, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
         return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def linear(self, lin, vector):

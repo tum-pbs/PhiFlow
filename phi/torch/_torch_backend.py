@@ -596,6 +596,9 @@ class TorchBackend(Backend):
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
+        rtol = self.as_tensor(rtol)
+        atol = self.as_tensor(atol)
+        max_iter = self.as_tensor(max_iter)
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg(lin, y, x0, rtol, atol, max_iter)
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 
@@ -606,6 +609,9 @@ class TorchBackend(Backend):
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
+        rtol = self.as_tensor(rtol)
+        atol = self.as_tensor(atol)
+        max_iter = self.as_tensor(max_iter)
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 

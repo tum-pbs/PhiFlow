@@ -803,13 +803,13 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         assert isinstance(method, str)
         self.method: str = method
         """ Optimization method to use. Available solvers depend on the solve function that is used to perform the solve. """
-        self.relative_tolerance: Tensor = wrap(relative_tolerance)
+        self.relative_tolerance: Tensor = math.to_float(wrap(relative_tolerance))
         """ Relative tolerance for linear solves only. This must be `0` for minimization problems.
         For systems of equations *f(x)=y*, the final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. """
-        self.absolute_tolerance: Tensor = wrap(absolute_tolerance)
+        self.absolute_tolerance: Tensor = math.to_float(wrap(absolute_tolerance))
         """ Absolut tolerance for optimization problems and linear solves.
         For systems of equations *f(x)=y*, the final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. """
-        self.max_iterations: Tensor = wrap(max_iterations)
+        self.max_iterations: Tensor = math.to_int32(wrap(max_iterations))
         """ Maximum number of iterations to perform before raising a `NotConverged` error is raised. """
         self.x0 = x0
         """ Initial guess for the method, of same type and dimensionality as the solve result.
@@ -1217,9 +1217,9 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
     batch_dims = (y_tensor.shape & x0_tensor.shape).without(active_dims)
     x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch_dims, active_dims], force_expand=True))
     y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, active_dims], force_expand=True))
-    rtol = backend.to_float(reshaped_native(solve.relative_tolerance, [batch_dims], force_expand=True))
-    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
-    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
+    rtol = reshaped_native(math.to_float(solve.relative_tolerance), [batch_dims], force_expand=True)
+    atol = reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True)
+    maxi = reshaped_native(solve.max_iterations, [batch_dims], force_expand=True)
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     if trj:
         assert all_available(y_tensor, x0_tensor), "Cannot record linear solve in jit mode"
