@@ -211,3 +211,12 @@ class TestTensors(TestCase):
             math.cos(t)
         except AssertionError:
             pass
+
+    def test_Dict(self):
+        d1 = math.Dict(a=1, b=math.ones(), c=math.ones(spatial(x=3)))
+        math.assert_close(d1 * 2, d1 + d1, 2 * d1, 2 / d1)
+        math.assert_close(0 + d1, d1, d1 - 0, abs(d1), round(d1))
+        math.assert_close(-d1, 0 - d1)
+        math.assert_close(d1 // 2, d1 * 0, d1 % 1)
+        math.assert_close(d1 / 2, d1 * 0.5, 0.5 * d1)
+        math.assert_close(math.sin(d1 * 0), d1 * 0)

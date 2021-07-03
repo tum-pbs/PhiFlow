@@ -1615,11 +1615,20 @@ def assert_close(*values,
       msg: Optional error message.
       verbose: Whether to print conflicting values.
     """
+    if not values:
+        return
     phi_tensors = [t for t in values if isinstance(t, Tensor)]
     if phi_tensors:
         values = [compatible_tensor(t, phi_tensors[0].shape)._simplify() for t in values]  # use Tensor to infer dimensions
         for other in values[1:]:
             _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)
+    elif all(isinstance(v, TensorLike) for v in values):
+        tree0, tensors0 = disassemble_tree(values[0])
+        for value in values[1:]:
+            tree, tensors_ = disassemble_tree(value)
+            assert tree0 == tree, f"Tree structures do not match: {tree0} and {tree}"
+            for t0, t in zip(tensors0, tensors_):
+                _assert_close(t0, t, rel_tolerance, abs_tolerance, msg, verbose)
     else:
         np_values = [choose_backend(t).numpy(t) for t in values]
         for other in np_values[1:]:

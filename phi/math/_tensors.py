@@ -1375,10 +1375,14 @@ class _TensorLikeType(type):
     def __instancecheck__(self, instance):
         if isinstance(instance, Tensor):
             return True
-        if instance is None or instance == MISSING_TENSOR or isinstance(instance, Tensor):
+        if isinstance(instance, type(MISSING_TENSOR)) and instance == MISSING_TENSOR:
+            return True
+        if instance is None or isinstance(instance, Tensor):
             return True
         elif isinstance(instance, (tuple, list)):
             return all(isinstance(item, TensorLike) for item in instance)
+        elif isinstance(instance, Dict):
+            return True
         elif isinstance(instance, dict):
             return all(isinstance(name, str) for name in instance.keys()) and all(isinstance(val, TensorLike) for val in instance.values())
         else:
@@ -1588,3 +1592,171 @@ def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
         return assemble_tree(tree, tensors_)
     else:
         raise AssertionError(f"Cannot cache {type(t)} {t}")
+
+
+class Dict(dict):
+    """
+    Dictionary of `Tensor` or `TensorLike` values.
+    In addition to dictionary functions, supports mathematical operators with other `Dict`s and lookup via `.key` syntax.
+    `Dict` implements `TensorLike` so instances can be passed to math operations like `sin`.
+    """
+
+    def __value_attrs__(self):
+        return tuple(self.keys())
+    
+    # --- Dict[key] ---
+
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError as k:
+            raise AttributeError(k)
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __delattr__(self, key):
+        try:
+            del self[key]
+        except KeyError as k:
+            raise AttributeError(k)
+        
+    # --- operators ---
+    
+    def __neg__(self):
+        return Dict({k: -v for k, v in self.items()})
+    
+    def __invert__(self):
+        return Dict({k: ~v for k, v in self.items()})
+    
+    def __abs__(self):
+        return Dict({k: abs(v) for k, v in self.items()})
+    
+    def __round__(self, n=None):
+        return Dict({k: round(v) for k, v in self.items()})
+
+    def __add__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val + other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val + other for key, val in self.items()})
+
+    def __radd__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: other[key] + val for key, val in self.items()})
+        else:
+            return Dict({key: other + val for key, val in self.items()})
+
+    def __sub__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val - other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val - other for key, val in self.items()})
+
+    def __rsub__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: other[key] - val for key, val in self.items()})
+        else:
+            return Dict({key: other - val for key, val in self.items()})
+
+    def __mul__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val * other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val * other for key, val in self.items()})
+
+    def __rmul__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: other[key] * val for key, val in self.items()})
+        else:
+            return Dict({key: other * val for key, val in self.items()})
+
+    def __truediv__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val / other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val / other for key, val in self.items()})
+
+    def __rtruediv__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: other[key] / val for key, val in self.items()})
+        else:
+            return Dict({key: other / val for key, val in self.items()})
+
+    def __floordiv__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val // other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val // other for key, val in self.items()})
+
+    def __rfloordiv__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: other[key] // val for key, val in self.items()})
+        else:
+            return Dict({key: other // val for key, val in self.items()})
+
+    def __pow__(self, power, modulo=None):
+        assert modulo is None
+        if isinstance(power, Dict):
+            return Dict({key: val ** power[key] for key, val in self.items()})
+        else:
+            return Dict({key: val ** power for key, val in self.items()})
+
+    def __rpow__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: other[key] ** val for key, val in self.items()})
+        else:
+            return Dict({key: other ** val for key, val in self.items()})
+
+    def __mod__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val % other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val % other for key, val in self.items()})
+
+    def __rmod__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: other[key] % val for key, val in self.items()})
+        else:
+            return Dict({key: other % val for key, val in self.items()})
+
+    def __eq__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val == other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val == other for key, val in self.items()})
+
+    def __ne__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val != other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val != other for key, val in self.items()})
+
+    def __lt__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val < other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val < other for key, val in self.items()})
+
+    def __le__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val <= other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val <= other for key, val in self.items()})
+
+    def __gt__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val > other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val > other for key, val in self.items()})
+
+    def __ge__(self, other):
+        if isinstance(other, Dict):
+            return Dict({key: val >= other[key] for key, val in self.items()})
+        else:
+            return Dict({key: val >= other for key, val in self.items()})
+
+    # --- overridden methods ---
+
+    def copy(self):
+        return Dict(self)
