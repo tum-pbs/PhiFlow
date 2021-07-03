@@ -411,6 +411,12 @@ class TestMathFunctions(TestCase):
                 math.assert_close(math.real(math.ones(spatial(x=4))), 1, msg=backend.name)
                 math.assert_close(math.real(math.ones(spatial(x=4)) * 1j), 0, msg=backend.name)
 
+    def test_conjugate(self):
+        for backend in BACKENDS:
+            with backend:
+                math.assert_close(math.conjugate(1 + 1j), 1 - 1j, msg=backend.name)
+                math.assert_close(math.conjugate(1j * math.ones()), -1j, msg=backend.name)
+
     def test_convolution_1d_scalar(self):
         for backend in BACKENDS:
             with backend:

@@ -38,7 +38,7 @@ from ._ops import (
     round_ as round, ceil, floor,
     maximum, minimum, clip,
     sqrt, exp, sin, cos, tan, log, log2, log10,
-    to_float, to_int32, to_int64, to_complex, imag, real,
+    to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,

@@ -592,6 +592,9 @@ class Backend:
     def real(self, x):
         raise NotImplementedError(self)
 
+    def conj(self, x):
+        raise NotImplementedError(self)
+
     def sin(self, x):
         raise NotImplementedError(self)
 

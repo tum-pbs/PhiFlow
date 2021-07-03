@@ -139,6 +139,7 @@ class JaxBackend(Backend):
     staticshape = staticmethod(jnp.shape)
     imag = staticmethod(jnp.imag)
     real = staticmethod(jnp.real)
+    conj = staticmethod(np.conjugate)
 
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):

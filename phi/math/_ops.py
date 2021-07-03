@@ -1191,12 +1191,46 @@ def isfinite(x) -> Tensor:
     return _backend_op1(x, Backend.isfinite)
 
 
-def imag(complex) -> Tensor:
-    return _backend_op1(complex, Backend.imag)
+def real(x) -> Tensor:
+    """
+    See Also:
+        `imag()`, `conjugate()`.
+
+    Args:
+        x: `Tensor` or `TensorLike` or native tensor.
+
+    Returns:
+        Real component of `x`.
+    """
+    return _backend_op1(x, Backend.real)
 
 
-def real(complex) -> Tensor:
-    return _backend_op1(complex, Backend.real)
+def imag(x) -> Tensor:
+    """
+    See Also:
+        `real()`, `conjugate()`.
+
+    Args:
+        x: `Tensor` or `TensorLike` or native tensor.
+
+    Returns:
+        Imaginary component of `x` if `x` is complex, zeros otherwise.
+    """
+    return _backend_op1(x, Backend.imag)
+
+
+def conjugate(x) -> Tensor:
+    """
+    See Also:
+        `imag()`, `real()`.
+
+    Args:
+        x: Real or complex `Tensor` or `TensorLike` or native tensor.
+
+    Returns:
+        Complex conjugate of `x` if `x` is complex, else `x`.
+    """
+    return _backend_op1(x, Backend.conj)
 
 
 def sin(x) -> Tensor:

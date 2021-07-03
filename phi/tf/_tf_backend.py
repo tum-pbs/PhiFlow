@@ -375,11 +375,14 @@ class TFBackend(Backend):
                 k = self.ifft(k, [axis])
             return k
 
-    def imag(self, complex):
-        return tf.math.imag(complex)
+    def imag(self, x):
+        return tf.math.imag(x)
 
-    def real(self, complex):
-        return tf.math.real(complex)
+    def real(self, x):
+        return tf.math.real(x)
+
+    def conj(self, x):
+        return tf.math.conj(x)
 
     def cast(self, x, dtype: DType):
         if not self.is_tensor(x, only_native=True):

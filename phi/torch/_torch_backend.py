@@ -542,9 +542,14 @@ class TorchBackend(Backend):
             return self.zeros(x.shape, DType(float, dtype.precision))
 
     def real(self, x):
-        dtype = self.dtype(x)
-        if dtype.kind == complex:
+        if self.dtype(x).kind == complex:
             return torch.real(x)
+        else:
+            return x
+
+    def conj(self, x):
+        if self.dtype(x).kind == complex:
+            return torch.conj(x)
         else:
             return x
 

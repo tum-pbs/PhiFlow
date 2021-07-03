@@ -62,6 +62,7 @@ class NumPyBackend(Backend):
     staticshape = staticmethod(np.shape)
     imag = staticmethod(np.imag)
     real = staticmethod(np.real)
+    conj = staticmethod(np.conjugate)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
