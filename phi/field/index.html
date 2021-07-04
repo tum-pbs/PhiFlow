@@ -2699,6 +2699,12 @@ def shape(self) -&gt; Shape:
         else:
             return self.at(other)
 
+    def __rrshift__(self, other):
+        assert isinstance(self, SampledField), f&#34;SampledField required for second argument of resampling &#39;&gt;&gt;&#39; but got {type(self)}&#34;
+        if isinstance(other, Geometry):
+            return self.with_values(other)
+        return NotImplemented
+
     def __getitem__(self, item: dict) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
         Access a slice of the Field.
@@ -2931,7 +2937,10 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
         raise NotImplementedError(self)
 
     def with_values(self, values):
-        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+        if isinstance(values, math.Tensor):
+            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+        else:
+            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
     def with_extrapolation(self, extrapolation: math.Extrapolation):
         return type(self)(self.values, extrapolation=extrapolation, bounds=self.bounds)
@@ -3145,7 +3154,10 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def with_values(self, values):
-    return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)</code></pre>
+    if isinstance(values, math.Tensor):
+        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+    else:
+        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)</code></pre>
 </details>
 </dd>
 </dl>
