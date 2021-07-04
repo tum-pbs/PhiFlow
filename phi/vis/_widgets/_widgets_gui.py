@@ -108,7 +108,10 @@ class WidgetsGui(Gui):
             elif control.control_type == bool:
                 control_component = widgets.Checkbox(control.initial, description=display_name(control.name))
             elif control.control_type == str:
-                control_component = widgets.Text(value=control.initial, placeholder=control.initial, description=display_name(control.name))
+                if not val_max:
+                    control_component = widgets.Text(value=control.initial, placeholder=control.initial, description=display_name(control.name))
+                else:
+                    control_component = widgets.Dropdown(options=control.value_range, value=control.initial, description=display_name(control.name))
             else:
                 raise ValueError(f'Illegal control type: {control.control_type}')
             control_component.observe(lambda e, c=control: None if IGNORE_EVENTS else self.app.set_control_value(c.name, e['new']), 'value')
