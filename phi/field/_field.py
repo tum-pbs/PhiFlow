@@ -79,6 +79,12 @@ class Field:
         else:
             return self.at(other)
 
+    def __rrshift__(self, other):
+        assert isinstance(self, SampledField), f"SampledField required for second argument of resampling '>>' but got {type(self)}"
+        if isinstance(other, Geometry):
+            return self.with_values(other)
+        return NotImplemented
+
     def __getitem__(self, item: dict) -> 'Field':
         """
         Access a slice of the Field.

@@ -43,7 +43,10 @@ class Grid(SampledField):
         raise NotImplementedError(self)
 
     def with_values(self, values):
-        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+        if isinstance(values, math.Tensor):
+            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+        else:
+            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
     def with_extrapolation(self, extrapolation: math.Extrapolation):
         return type(self)(self.values, extrapolation=extrapolation, bounds=self.bounds)
