@@ -42,7 +42,7 @@ def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
                         particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        solve=math.Solve(&#39;CG&#39;, 1e-5, 0)):
+                        solve=math.Solve(&#39;auto&#39;, 1e-5, 0, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))):
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
 
@@ -167,7 +167,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.flip.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.StaggeredGrid, domain: phi.physics._boundaries.Domain, particles: phi.field._point_cloud.PointCloud, obstacles: tuple = (), solve=CG with tolerance 9.999999747378752e-06 (rel), 0.0 (abs), max_iterations=1000)</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.StaggeredGrid, domain: phi.physics._boundaries.Domain, particles: phi.field._point_cloud.PointCloud, obstacles: tuple = (), solve=auto with tolerance 9.999999747378752e-06 (rel), 0.0 (abs), max_iterations=1000)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -205,7 +205,7 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
                         domain: Domain,
                         particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        solve=math.Solve(&#39;CG&#39;, 1e-5, 0)):
+                        solve=math.Solve(&#39;auto&#39;, 1e-5, 0, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))):
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
 
