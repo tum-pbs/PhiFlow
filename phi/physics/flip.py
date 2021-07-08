@@ -13,7 +13,7 @@ def make_incompressible(velocity: StaggeredGrid,
                         domain: Domain,
                         particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
-                        solve=math.Solve('CG', 1e-5, 0)):
+                        solve=math.Solve('auto', 1e-5, 0, gradient_solve=math.Solve('auto', 1e-5, 1e-5))):
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
 

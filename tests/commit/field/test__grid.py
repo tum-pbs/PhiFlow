@@ -40,7 +40,7 @@ class GridTest(TestCase):
         field.assert_close(b1, b2, b3)
 
     def test_slice_staggered_grid_along_spatial(self):
-        v = Domain(x=10, y=20).staggered_grid(Noise(batch=10))
+        v = Domain(x=10, y=20).staggered_grid(Noise(batch(batch=10)))
         x1 = v[{'x': 1}]
         x2 = v.x[1]
         x3 = field.unstack(v, 'x')[1]
