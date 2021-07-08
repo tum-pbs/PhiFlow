@@ -6623,6 +6623,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         warnings.warn(&#34;Shape.expand() is deprecated. Use merge_shapes() or concat_shapes() instead.&#34;, DeprecationWarning)
         if not dim:
             return self
+        assert dim.name not in self, f&#34;Cannot expand shape {self} by {dim} because dimension already exists.&#34;
         assert isinstance(dim, Shape) and dim.rank == 1, f&#34;Shape.expand() requires a single dimension as a Shape but got {dim}&#34;
         if pos is None:
             same_type_dims = self[[i for i, t in enumerate(self.types) if t == dim.type]]
@@ -8248,7 +8249,7 @@ This property must be set to a value compatible with the solution <code>x</code>
             if self.diverged.any:
                 msg = f&#34;Solve diverged within {iterations if iterations is not None else &#39;?&#39;} iterations using {method}.&#34;
             elif not self.converged.trajectory[-1].all:
-                msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}.&#34;
+                msg = f&#34;Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}. Max residual: {[math.max_(t.trajectory[-1]) for t in disassemble_tree(self.residual)[1]]}&#34;
             else:
                 msg = f&#34;Converged within {iterations if iterations is not None else &#39;?&#39;} iterations.&#34;
         self.msg = msg
@@ -9417,16 +9418,14 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         return self.index
 
     def __len__(self):
-        assert self.name in self.tensor.shape, f&#34;Dimension {self.name} does not exist for tensor {self.tensor.shape}&#34;
-        return self.tensor.shape.get_size(self.name)
+        warnings.warn(&#34;Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.&#34;)
+        return self.size
 
     @property
     def size(self):
         &#34;&#34;&#34; Length of this tensor dimension as listed in the `Shape`, otherwise `1`. &#34;&#34;&#34;
-        if self.exists:
-            return self.tensor.shape.get_size(self.name)
-        else:
-            return 1
+        assert self.exists, f&#34;Dimension {self.name} does not exist for tensor {self.tensor.shape}&#34;
+        return self.tensor.shape.get_size(self.name)
 
     def as_batch(self, name: str or None = None):
         &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
@@ -9574,10 +9573,8 @@ def is_spatial(self):
 <pre><code class="python">@property
 def size(self):
     &#34;&#34;&#34; Length of this tensor dimension as listed in the `Shape`, otherwise `1`. &#34;&#34;&#34;
-    if self.exists:
-        return self.tensor.shape.get_size(self.name)
-    else:
-        return 1</code></pre>
+    assert self.exists, f&#34;Dimension {self.name} does not exist for tensor {self.tensor.shape}&#34;
+    return self.tensor.shape.get_size(self.name)</code></pre>
 </details>
 </dd>
 </dl>

@@ -1445,6 +1445,7 @@ Currently, <code>geometry</code> may have at most one channel dimension.</p>
     if geometry.shape.channel:  # Reduce this dimension
         assert geometry.shape.channel.rank == 1, &#34;Only single-dimension reduction supported.&#34;
         if field.shape.channel:
+            assert field.shape.channel.volume == geometry.shape.channel.volume, f&#34;Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}.&#34;
             components = unstack(field, field.shape.channel.name)
             sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
         else:
