@@ -585,16 +585,14 @@ class TensorDim:
         return self.index
 
     def __len__(self):
-        assert self.name in self.tensor.shape, f"Dimension {self.name} does not exist for tensor {self.tensor.shape}"
-        return self.tensor.shape.get_size(self.name)
+        warnings.warn("Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.")
+        return self.size
 
     @property
     def size(self):
         """ Length of this tensor dimension as listed in the `Shape`, otherwise `1`. """
-        if self.exists:
-            return self.tensor.shape.get_size(self.name)
-        else:
-            return 1
+        assert self.exists, f"Dimension {self.name} does not exist for tensor {self.tensor.shape}"
+        return self.tensor.shape.get_size(self.name)
 
     def as_batch(self, name: str or None = None):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. """
