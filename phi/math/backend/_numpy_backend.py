@@ -373,7 +373,8 @@ class NumPyBackend(Backend):
         elif method == 'GCrotMK':
             return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.gcrotmk)
         elif method == 'auto':
-            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+            # return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
         else:
             return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
 
@@ -399,10 +400,10 @@ class NumPyBackend(Backend):
         return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, "")
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> Any:
-        if trj or callable(lin) or self.staticshape(y)[1] >= 60*60:  # scipy CG is less stable than PhiFlow's CG, only use it for small matrices
+        if trj or callable(lin):
             return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)  # generic implementation
         else:
-            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter)
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.bicg)  # more stable than cg
 
     def scipy_iterative_sparse_solve(self, lin, y, x0, rtol, atol, max_iter, scipy_function=cg) -> Any:
         bs_y = self.staticshape(y)[0]

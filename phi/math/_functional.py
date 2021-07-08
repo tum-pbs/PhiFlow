@@ -889,7 +889,7 @@ class SolveInfo(Generic[X, Y]):
             if self.diverged.any:
                 msg = f"Solve diverged within {iterations if iterations is not None else '?'} iterations using {method}."
             elif not self.converged.trajectory[-1].all:
-                msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}."
+                msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}. Max residual: {[math.max_(t.trajectory[-1]) for t in disassemble_tree(self.residual)[1]]}"
             else:
                 msg = f"Converged within {iterations if iterations is not None else '?'} iterations."
         self.msg = msg
