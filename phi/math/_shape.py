@@ -445,6 +445,7 @@ class Shape:
         warnings.warn("Shape.expand() is deprecated. Use merge_shapes() or concat_shapes() instead.", DeprecationWarning)
         if not dim:
             return self
+        assert dim.name not in self, f"Cannot expand shape {self} by {dim} because dimension already exists."
         assert isinstance(dim, Shape) and dim.rank == 1, f"Shape.expand() requires a single dimension as a Shape but got {dim}"
         if pos is None:
             same_type_dims = self[[i for i, t in enumerate(self.types) if t == dim.type]]
