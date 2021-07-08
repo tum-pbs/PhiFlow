@@ -8,7 +8,7 @@ The actual resolution values are the squares of the slider values.
 Performance curves are available in Φ-Board.
 """
 
-from phi.torch.flow import *
+from phi.flow import *
 
 smoke_res = vis.control(8, (3, 20))
 v_res = vis.control(8, (3, 20))

@@ -95,3 +95,6 @@ class TestDemos(TestCase):
 
     def test_smoke_plume_advanced(self):
         demo_run('smoke_plume_advanced')
+
+    def test_moving_obstacle(self):
+        demo_run('moving_obstacle')
