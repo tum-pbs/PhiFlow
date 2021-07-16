@@ -259,7 +259,7 @@ class TorchBackend(Backend):
         result = undo_transform(result)
         return result
 
-    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
+    def grid_sample(self, grid, coordinates, extrapolation='constant'):
         assert extrapolation in ('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect'), extrapolation
         extrapolation = {'undefined': 'zeros', 'zeros': 'zeros', 'boundary': 'border', 'reflect': 'reflection'}.get(extrapolation, None)
         if extrapolation is None:

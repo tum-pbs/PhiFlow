@@ -680,12 +680,10 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
         result = NotImplemented
         if extrap is None:
             result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial, grid.shape.channel]),
-                                         grid.shape.indices(grid.shape.spatial),
                                          reshaped_native(coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
                                          'undefined')
         elif extrap.native_grid_sample_mode:
             result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial, grid.shape.channel]),
-                                         grid.shape.indices(grid.shape.spatial),
                                          reshaped_native(coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
                                          extrap.native_grid_sample_mode)
         if result is NotImplemented:
@@ -700,7 +698,6 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
             else:
                 inner_coordinates = coordinates + 1
             result = backend.grid_sample(reshaped_native(grid_padded, [batch, *grid_padded.shape.spatial.names, grid.shape.channel]),
-                                         grid.shape.indices(grid.shape.spatial),
                                          reshaped_native(inner_coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
                                          'boundary')
         if result is not NotImplemented:
