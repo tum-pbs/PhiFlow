@@ -21,5 +21,5 @@ pressure = None
 for _ in view(velocity, obstacle_mask, play=True).range():
     obstacle = move_obstacle(obstacle)
     velocity = advect.mac_cormack(velocity, velocity, DT)
-    velocity, pressure = fluid.make_incompressible(velocity, (obstacle,), Solve('auto', 1e-5, 1e-5, x0=pressure))
+    velocity, pressure = fluid.make_incompressible(velocity, (obstacle,))
     obstacle_mask = HardGeometryMask(obstacle.geometry) >> pressure
