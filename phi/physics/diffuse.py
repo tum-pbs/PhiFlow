@@ -32,7 +32,7 @@ def explicit(field: FieldType,
     if isinstance(amount, Field):
         amount = amount.at(field)
     for i in range(substeps):
-        field += amount / substeps * laplace(field)
+        field += amount / substeps * laplace(field).with_extrapolation(field.extrapolation)
     return field
 
 
