@@ -1374,14 +1374,13 @@ The output of math operations has the same precision as its inputs.</p>
     def stop_gradient(self, value):
         raise NotImplementedError(self)
 
-    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation=&#39;constant&#39;):
+    def grid_sample(self, grid, coordinates, extrapolation=&#39;constant&#39;):
         &#34;&#34;&#34;
         Interpolates a regular grid at the specified coordinates.
 
         Args:
-            grid: Tensor
-            spatial_dims: Dimension indices that correspond to coordinate vectors
-            coordinates: Tensor of floating grid indices.
+            grid: Tensor of shape (batch, spatial..., channel)
+            coordinates: Tensor of floating grid indices of shape (batch, collection..., vector).
                 The last dimension must match `spatial_dims`.
                 The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
             extrapolation: Values to use for coordinates outside the grid.
@@ -2412,18 +2411,16 @@ Higher dimensions may not be supported.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.grid_sample"><code class="name flex">
-<span>def <span class="ident">grid_sample</span></span>(<span>self, grid, spatial_dims: tuple, coordinates, extrapolation='constant')</span>
+<span>def <span class="ident">grid_sample</span></span>(<span>self, grid, coordinates, extrapolation='constant')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Interpolates a regular grid at the specified coordinates.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>grid</code></strong></dt>
-<dd>Tensor</dd>
-<dt><strong><code>spatial_dims</code></strong></dt>
-<dd>Dimension indices that correspond to coordinate vectors</dd>
+<dd>Tensor of shape (batch, spatial&hellip;, channel)</dd>
 <dt><strong><code>coordinates</code></strong></dt>
-<dd>Tensor of floating grid indices.
+<dd>Tensor of floating grid indices of shape (batch, collection&hellip;, vector).
 The last dimension must match <code>spatial_dims</code>.
 The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
@@ -2436,14 +2433,13 @@ One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflec
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation=&#39;constant&#39;):
+<pre><code class="python">def grid_sample(self, grid, coordinates, extrapolation=&#39;constant&#39;):
     &#34;&#34;&#34;
     Interpolates a regular grid at the specified coordinates.
 
     Args:
-        grid: Tensor
-        spatial_dims: Dimension indices that correspond to coordinate vectors
-        coordinates: Tensor of floating grid indices.
+        grid: Tensor of shape (batch, spatial..., channel)
+        coordinates: Tensor of floating grid indices of shape (batch, collection..., vector).
             The last dimension must match `spatial_dims`.
             The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
         extrapolation: Values to use for coordinates outside the grid.
