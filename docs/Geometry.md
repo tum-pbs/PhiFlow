@@ -1,10 +1,11 @@
 # Differentiable Geometry
 
-The module `phi.geom` \[[source](../phi/geom)\] integrates geometric shapes and supports differentiable volumes.
+The module [phi.geom](phi/geom) integrates geometric shapes and supports differentiable volumes.
 
-The base class, `Geometry`, describes the interface that all geometry objects implement.
+The class [`Geometry`](phi/geom/#phi.geom.Geometry) serves as a base for all geometry objects, such as boxes or spheres.
 
-Most properties of `Geometry` object support the use of batch and spatial dimensions like [tensors](./Math.md).
+All properties of `Geometry` support the use of batch, collection and spatial dimensions.
+The corresponding values take the type of [Φ-tensors](./Math.md).
 This allows a single `Geometry` object to describe a collection of shapes with varying properties.
 
 Important properties:
@@ -25,32 +26,22 @@ They should generally be treated as immutable.
 
 ## Basic shapes
 
-Currently, there are two types shapes: boxes and spheres.
-Both types can be used in any number of dimensions.
+All built-in basic geometry types support n-dimensional spaces.
 
-A `Sphere` has two properties:
+[`Spheres`](phi/geom/#phi.geom.Sphere) has two defining properties:
 
 * `.center: Tensor` has a single channel dimension called 'vector'.
 * `.radius: Tensor` has no channel dimension
 
-Both tensors can have any number of batch dimensions.
-
-```
-geom.Sphere([0, 0], radius=1)
-```
 
 Boxes come in multiple variants:
 
-* `Box` stores the lower and upper corner of the box.
+* [`Box`](phi/geom/#phi.geom.Box) stores the lower and upper corner of the box.
 * `Cuboid` stores the center position and half-size.
-* `GridCell` is similar to `Cuboid` but its spatial dimensions are guaranteed to span a regular grid
+* [`GridCell`](phi/geom/#phi.geom.GridCell) is similar to `Cuboid` but its spatial dimensions are guaranteed to span a regular grid
 
-`Box` provides an alternative constructor using Python's indexing syntax.
-The slices specify the start and end point of the box where missing values are interpreted as infinity.
-```
->>> Box[0:1, :0.5]
-Box[1.0xinf at 0.0,-inf]
-```
+[`Points`](phi/geom/#phi.geom.Point) have zero volume and are only characterized by their location.
+
 
 ## Transformations and Operations
 

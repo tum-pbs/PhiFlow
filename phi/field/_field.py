@@ -50,7 +50,10 @@ class Field:
         
         Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-        Equal to `self >> representation`.
+        Similar to `self >> representation`, but `at()` keeps the extrapolation of `self`.
+
+        See Also:
+            `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
         Args:
           representation: Field object defining the sample points. The values of `representation` are ignored.
@@ -286,7 +289,7 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
     Spatial dimensions of `geometry` can be used to sample a grid of geometries.
 
     See Also:
-        `reduce_sample()`, `Field.at()`.
+        `reduce_sample()`, `Field.at()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
         field: Source `Field` to sample.
@@ -311,7 +314,7 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
     Currently, `geometry` may have at most one channel dimension.
 
     See Also:
-        `sample()`, `Field.at()`.
+        `sample()`, `Field.at()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
         field: Source `Field` to sample.
