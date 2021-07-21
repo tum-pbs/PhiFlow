@@ -76,12 +76,15 @@ This is useful for sampling the velocity of rotating objects.
 Given `val: Field` and `representation: SampledField` with different values structures or different sampling points, 
 they can be made compatible using [`at()`](phi/field/#phi.field.Field.at) or `>>`.
 ```python
-val.at(representation)  # resamples val at the elements of representation, keeps extrapolation from val
-val >> representation  # like above but the result will have the extrapolation from representation
+val.at(representation, keep_extrapolation=False)  # resamples val at the elements of representation
+val >> representation  # same as above
 ```
 These functions return a `Field` of the same type as `representation`.
 If they are already sampled at the same elements, the above operations simply return `val`.
-Also, Φ<sub>Flow</sub> may choose optimized code paths for specific combinations, such as two grids with equal sample point spacing `dx`.
+Φ<sub>Flow</sub> may choose optimized code paths for specific combinations, such as two grids with equal sample point spacing `dx`.
+
+When resampling staggered grids with `keep_extrapolation=True`, the sample points of the resampled field may be different from `representation`.
+This is because the sample points and value tensor shape of staggered grids depends on the extrapolation type.
 
 Additionally, there are two functions for sampling field values at given locations.
 

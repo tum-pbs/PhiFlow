@@ -302,14 +302,17 @@ class StaggeredGrid(Grid):
         return GridCell(self.resolution, self.bounds)
 
     def with_extrapolation(self, extrapolation: math.Extrapolation):
-        values = []
-        for dim, component in zip(self.shape.spatial.names, self.values.unstack('vector')):
-            old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
-            new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
-            widths = (new_lo - old_lo, new_hi - old_hi)
-            values.append(math.pad(component, {dim: widths}, self.extrapolation))
-        values = math.stack(values, channel('vector'))
-        return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
+        if all(extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names):
+            return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
+        else:
+            values = []
+            for dim, component in zip(self.shape.spatial.names, self.values.unstack('vector')):
+                old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
+                new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
+                widths = (new_lo - old_lo, new_hi - old_hi)
+                values.append(math.pad(component, {dim: widths}, self.extrapolation))
+            values = math.stack(values, channel('vector'))
+            return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
 
     def _sample(self, geometry: Geometry) -> Tensor:
         channels = [sample(component, geometry) for component in self.vector.unstack()]

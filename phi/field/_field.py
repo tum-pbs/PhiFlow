@@ -43,28 +43,29 @@ class Field:
         """ For internal use only. Use `sample()` instead. """
         raise NotImplementedError(self)
 
-    def at(self, representation: 'SampledField') -> 'SampledField':
+    def at(self, representation: 'SampledField', keep_extrapolation=False) -> 'SampledField':
         """
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
         
         Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-        Similar to `self >> representation`, but `at()` keeps the extrapolation of `self`.
+        The operator `self >> representation`, calls `at()` with `keep_extrapolation=False`.
 
         See Also:
             `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
         Args:
-          representation: Field object defining the sample points. The values of `representation` are ignored.
-          representation: SampledField: 
+            representation: Field object defining the sample points. The values of `representation` are ignored.
+            keep_extrapolation: Only available if `self` is a `SampledField`.
+                If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
+                This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
 
         Returns:
-          Field object of same type as `representation`
-
+            Field object of same type as `representation`
         """
         resampled = reduce_sample(self, representation.elements)
-        extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
+        extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
     def __rshift__(self, other: 'SampledField'):
@@ -77,10 +78,7 @@ class Field:
         Returns:
             Copy of other with values and extrapolation from this Field.
         """
-        if isinstance(self, SampledField):
-            return self.with_extrapolation(other.extrapolation).at(other)
-        else:
-            return self.at(other)
+        return self.at(other, keep_extrapolation=False)
 
     def __rrshift__(self, other):
         assert isinstance(self, SampledField), f"SampledField required for second argument of resampling '>>' but got {type(self)}"
