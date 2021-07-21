@@ -2664,28 +2664,29 @@ def shape(self) -&gt; Shape:
         &#34;&#34;&#34; For internal use only. Use `sample()` instead. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def at(self, representation: &#39;SampledField&#39;) -&gt; &#39;SampledField&#39;:
+    def at(self, representation: &#39;SampledField&#39;, keep_extrapolation=False) -&gt; &#39;SampledField&#39;:
         &#34;&#34;&#34;
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
         
         Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-        Similar to `self &gt;&gt; representation`, but `at()` keeps the extrapolation of `self`.
+        The operator `self &gt;&gt; representation`, calls `at()` with `keep_extrapolation=False`.
 
         See Also:
             `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
         Args:
-          representation: Field object defining the sample points. The values of `representation` are ignored.
-          representation: SampledField: 
+            representation: Field object defining the sample points. The values of `representation` are ignored.
+            keep_extrapolation: Only available if `self` is a `SampledField`.
+                If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
+                This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
 
         Returns:
-          Field object of same type as `representation`
-
+            Field object of same type as `representation`
         &#34;&#34;&#34;
         resampled = reduce_sample(self, representation.elements)
-        extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
+        extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
     def __rshift__(self, other: &#39;SampledField&#39;):
@@ -2698,10 +2699,7 @@ def shape(self) -&gt; Shape:
         Returns:
             Copy of other with values and extrapolation from this Field.
         &#34;&#34;&#34;
-        if isinstance(self, SampledField):
-            return self.with_extrapolation(other.extrapolation).at(other)
-        else:
-            return self.at(other)
+        return self.at(other, keep_extrapolation=False)
 
     def __rrshift__(self, other):
         assert isinstance(self, SampledField), f&#34;SampledField required for second argument of resampling &#39;&gt;&gt;&#39; but got {type(self)}&#34;
@@ -2806,21 +2804,23 @@ def spatial_rank(self) -&gt; int:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.field.Field.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, representation: <a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a>) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">at</span></span>(<span>self, representation: <a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a>, keep_extrapolation=False) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Samples this field at the sample points of <code>representation</code>.
 The result will approximate the values of this field on the data structure of <code>representation</code>.</p>
 <p>Unlike <code>Field.sample()</code>, this method returns a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> object, not a <code>Tensor</code>.</p>
-<p>Similar to <code>self &gt;&gt; representation</code>, but <code>at()</code> keeps the extrapolation of <code>self</code>.</p>
+<p>The operator <code>self &gt;&gt; representation</code>, calls <code>at()</code> with <code>keep_extrapolation=False</code>.</p>
 <p>See Also:
 <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, <code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>, <a href="https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields">Resampling overview</a>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>representation</code></strong></dt>
 <dd>Field object defining the sample points. The values of <code>representation</code> are ignored.</dd>
-<dt><strong><code>representation</code></strong></dt>
-<dd>SampledField: </dd>
+<dt><strong><code>keep_extrapolation</code></strong></dt>
+<dd>Only available if <code>self</code> is a <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>.
+If True, the resampled field will inherit the extrapolation from <code>self</code> instead of <code>representation</code>.
+This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Field object of same type as <code>representation</code></p></div>
@@ -2828,28 +2828,29 @@ The result will approximate the values of this field on the data structure of <c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def at(self, representation: &#39;SampledField&#39;) -&gt; &#39;SampledField&#39;:
+<pre><code class="python">def at(self, representation: &#39;SampledField&#39;, keep_extrapolation=False) -&gt; &#39;SampledField&#39;:
     &#34;&#34;&#34;
     Samples this field at the sample points of `representation`.
     The result will approximate the values of this field on the data structure of `representation`.
     
     Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-    Similar to `self &gt;&gt; representation`, but `at()` keeps the extrapolation of `self`.
+    The operator `self &gt;&gt; representation`, calls `at()` with `keep_extrapolation=False`.
 
     See Also:
         `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
-      representation: Field object defining the sample points. The values of `representation` are ignored.
-      representation: SampledField: 
+        representation: Field object defining the sample points. The values of `representation` are ignored.
+        keep_extrapolation: Only available if `self` is a `SampledField`.
+            If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
+            This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
 
     Returns:
-      Field object of same type as `representation`
-
+        Field object of same type as `representation`
     &#34;&#34;&#34;
     resampled = reduce_sample(self, representation.elements)
-    extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
+    extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
     return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)</code></pre>
 </details>
 </dd>
@@ -5128,14 +5129,17 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
         return GridCell(self.resolution, self.bounds)
 
     def with_extrapolation(self, extrapolation: math.Extrapolation):
-        values = []
-        for dim, component in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
-            old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
-            new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
-            widths = (new_lo - old_lo, new_hi - old_hi)
-            values.append(math.pad(component, {dim: widths}, self.extrapolation))
-        values = math.stack(values, channel(&#39;vector&#39;))
-        return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
+        if all(extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names):
+            return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
+        else:
+            values = []
+            for dim, component in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
+                old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
+                new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
+                widths = (new_lo - old_lo, new_hi - old_hi)
+                values.append(math.pad(component, {dim: widths}, self.extrapolation))
+            values = math.stack(values, channel(&#39;vector&#39;))
+            return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
 
     def _sample(self, geometry: Geometry) -&gt; Tensor:
         channels = [sample(component, geometry) for component in self.vector.unstack()]
@@ -5313,14 +5317,17 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def with_extrapolation(self, extrapolation: math.Extrapolation):
-    values = []
-    for dim, component in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
-        old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
-        new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
-        widths = (new_lo - old_lo, new_hi - old_hi)
-        values.append(math.pad(component, {dim: widths}, self.extrapolation))
-    values = math.stack(values, channel(&#39;vector&#39;))
-    return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)</code></pre>
+    if all(extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names):
+        return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
+    else:
+        values = []
+        for dim, component in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
+            old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
+            new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
+            widths = (new_lo - old_lo, new_hi - old_hi)
+            values.append(math.pad(component, {dim: widths}, self.extrapolation))
+        values = math.stack(values, channel(&#39;vector&#39;))
+        return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)</code></pre>
 </details>
 </dd>
 </dl>
