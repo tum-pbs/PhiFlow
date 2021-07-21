@@ -1408,7 +1408,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <div class="desc"><p>Similar to <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, but matches channel dimensions of <code>geometry</code> with channel dimensions of this field.
 Currently, <code>geometry</code> may have at most one channel dimension.</p>
 <p>See Also:
-<code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
+<code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>, <a href="https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields">Resampling overview</a>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>field</code></strong></dt>
@@ -1430,7 +1430,7 @@ Currently, <code>geometry</code> may have at most one channel dimension.</p>
     Currently, `geometry` may have at most one channel dimension.
 
     See Also:
-        `sample()`, `Field.at()`.
+        `sample()`, `Field.at()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
         field: Source `Field` to sample.
@@ -1478,7 +1478,7 @@ Currently, <code>geometry</code> may have at most one channel dimension.</p>
 The <code>geometry</code> must not share any channel dimensions with this field.
 Spatial dimensions of <code>geometry</code> can be used to sample a grid of geometries.</p>
 <p>See Also:
-<code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>.</p>
+<code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>, <code><a title="phi.field.Field.at" href="#phi.field.Field.at">Field.at()</a></code>, <a href="https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields">Resampling overview</a>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>field</code></strong></dt>
@@ -1503,7 +1503,7 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
     Spatial dimensions of `geometry` can be used to sample a grid of geometries.
 
     See Also:
-        `reduce_sample()`, `Field.at()`.
+        `reduce_sample()`, `Field.at()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
         field: Source `Field` to sample.
@@ -2671,7 +2671,10 @@ def shape(self) -&gt; Shape:
         
         Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-        Equal to `self &gt;&gt; representation`.
+        Similar to `self &gt;&gt; representation`, but `at()` keeps the extrapolation of `self`.
+
+        See Also:
+            `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
         Args:
           representation: Field object defining the sample points. The values of `representation` are ignored.
@@ -2809,7 +2812,9 @@ def spatial_rank(self) -&gt; int:
 <div class="desc"><p>Samples this field at the sample points of <code>representation</code>.
 The result will approximate the values of this field on the data structure of <code>representation</code>.</p>
 <p>Unlike <code>Field.sample()</code>, this method returns a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> object, not a <code>Tensor</code>.</p>
-<p>Equal to <code>self &gt;&gt; representation</code>.</p>
+<p>Similar to <code>self &gt;&gt; representation</code>, but <code>at()</code> keeps the extrapolation of <code>self</code>.</p>
+<p>See Also:
+<code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, <code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>, <a href="https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields">Resampling overview</a>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>representation</code></strong></dt>
@@ -2830,7 +2835,10 @@ The result will approximate the values of this field on the data structure of <c
     
     Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-    Equal to `self &gt;&gt; representation`.
+    Similar to `self &gt;&gt; representation`, but `at()` keeps the extrapolation of `self`.
+
+    See Also:
+        `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
       representation: Field object defining the sample points. The values of `representation` are ignored.
@@ -5119,6 +5127,16 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
     def cells(self):
         return GridCell(self.resolution, self.bounds)
 
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        values = []
+        for dim, component in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
+            old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
+            new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
+            widths = (new_lo - old_lo, new_hi - old_hi)
+            values.append(math.pad(component, {dim: widths}, self.extrapolation))
+        values = math.stack(values, channel(&#39;vector&#39;))
+        return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
+
     def _sample(self, geometry: Geometry) -&gt; Tensor:
         channels = [sample(component, geometry) for component in self.vector.unstack()]
         return math.stack(channels, channel(&#39;vector&#39;))
@@ -5283,6 +5301,26 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
     result = math.stack(padded, channel(&#39;vector&#39;))
     assert result.shape.is_uniform
     return result</code></pre>
+</details>
+</dd>
+<dt id="phi.field.StaggeredGrid.with_extrapolation"><code class="name flex">
+<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_extrapolation(self, extrapolation: math.Extrapolation):
+    values = []
+    for dim, component in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
+        old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
+        new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
+        widths = (new_lo - old_lo, new_hi - old_hi)
+        values.append(math.pad(component, {dim: widths}, self.extrapolation))
+    values = math.stack(values, channel(&#39;vector&#39;))
+    return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)</code></pre>
 </details>
 </dd>
 </dl>
@@ -5488,6 +5526,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 <li><code><a title="phi.field.StaggeredGrid.cells" href="#phi.field.StaggeredGrid.cells">cells</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.closest_values" href="#phi.field.StaggeredGrid.closest_values">closest_values</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.staggered_tensor" href="#phi.field.StaggeredGrid.staggered_tensor">staggered_tensor</a></code></li>
+<li><code><a title="phi.field.StaggeredGrid.with_extrapolation" href="#phi.field.StaggeredGrid.with_extrapolation">with_extrapolation</a></code></li>
 </ul>
 </li>
 </ul>
