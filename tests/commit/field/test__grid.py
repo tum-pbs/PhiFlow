@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+from phi import math
 from phi import field
 from phi.field import Noise, CenteredGrid, StaggeredGrid
 from phi.geom import Box, Sphere
@@ -55,3 +56,14 @@ class GridTest(TestCase):
         self.assertIsInstance(s1, CenteredGrid)
         self.assertEqual(s1.bounds, Box[1:2, 0:20])
         field.assert_close(s1, s2)
+
+    def test_staggered_grid_with_extrapolation(self):
+        grid = StaggeredGrid(Noise(), extrapolation.BOUNDARY, x=20, y=10)
+        grid_0 = grid.with_extrapolation(extrapolation.ZERO)
+        self.assertEqual(grid.resolution, grid_0.resolution)
+        grid_ = grid_0.with_extrapolation(extrapolation.BOUNDARY)
+        self.assertEqual(grid.resolution, grid_.resolution)
+        math.assert_close(grid_.values.vector['x'].x[0], 0)
+        math.assert_close(grid_.values.vector['x'].x[-1], 0)
+        math.assert_close(grid_.values.vector['y'].y[0], 0)
+        math.assert_close(grid_.values.vector['y'].y[-1], 0)
