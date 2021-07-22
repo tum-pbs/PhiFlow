@@ -92,3 +92,26 @@ Additionally, there are two functions for sampling field values at given locatio
 * [`reduce_sample`](phi/field/#phi.field.reduce_sample) differs from `sample` in that the geometry here describes
   staggered locations at which the individual channel components of the field are stored.
   For centered grids, `sample` and `reduce_sample` are equal.
+
+
+## Extrapolations
+
+Sampled fields, such as [`CenteredGrid`](phi/field/#phi.field.CenteredGrid),
+[`StaggeredGrid`](phi/field/#phi.field.StaggeredGrid)
+[`PointCloud`](phi/field/#phi.field.PointCloud) all have an `extrapolation` member variable of type 
+[`Extrapolation`](phi/math/extrapolation.html#phi.math.extrapolation.Extrapolation).
+The extrapolation determines the values outside the region in which the field is sampled.
+It takes the place of the boundary condition (e.g. Neumann / Dirichlet) which would be used in a mathematical formulation.
+
+While both extrapolation and traditional boundary conditions fill the same role, there are a couple of differences between the two.
+Boundary conditions determine the field values (or a spatial derivative thereof) at the boundary of a volume, i.e. they cover an n-1 dimensional region.
+Extrapolations, on the other hand, cover everything outside the sampled volume, i.e. an n-dimensional region.
+
+Numerical methods working directly with traditional boundary conditions have to treat the boundaries separately (e.g. different stencils).
+With extrapolations, the same computations can typically be achieved by first padding the field and then applying a single operation everywhere.
+This makes execution more efficient, especially on GPUs or TPUs where fewer kernels need to be launched, reducing the overhead.
+Also, user code typically is more concise and expressive with extrapolations.
+
+Standard extrapolation types are listed [here](phi/math/extrapolation.html#header-variables) and custom extrapolations can be implemented by extending the
+[`Extrapolation`](phi/math/extrapolation.html#phi.math.extrapolation.Extrapolation) class.
+Extrapolations also support a limited set of arithmetic operations, e.g. `PERIODIC * ZERO = ZERO`.

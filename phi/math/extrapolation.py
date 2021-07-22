@@ -1,7 +1,9 @@
 """
-Defines standard extrapolations.
-
 Extrapolations are used for padding tensors and sampling coordinates lying outside the tensor bounds.
+Standard extrapolations are listed as global variables in this module.
+
+Extrapolations are an important part of sampled fields such as grids.
+See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
 from typing import Union
 
