@@ -4608,11 +4608,11 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <dd>
 <p>Dimension or dimensions to be reduced. One of</p>
 <ul>
-<li><code>None</code> to reduce all dimensions</li>
+<li><code>None</code> to reduce all non-batch dimensions</li>
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
-<li><code>0</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
+<li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
 </dl>
@@ -4631,11 +4631,11 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
         value: `Tensor` or `list` / `tuple` of Tensors.
         dim: Dimension or dimensions to be reduced. One of
 
-            * `None` to reduce all dimensions
+            * `None` to reduce all non-batch dimensions
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
-            * `0` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+            * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
         `Tensor` without the reduced dimensions.
