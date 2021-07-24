@@ -47,7 +47,7 @@ class TestFunctional(TestCase):
             val = val.x[:-2].y[1:] + val.x[2:].y[:-1]
             val = math.pad(val, {'x': (0, 0), 'y': (0, 1)}, math.extrapolation.ZERO)
             val = math.pad(val, {'x': (2, 2), 'y': (0, 1)}, math.extrapolation.BOUNDARY)
-            return math.sum([val, val], dim=0) - val
+            return math.sum([val, val], dim='0') - val
 
         functions = [
             linear_function,

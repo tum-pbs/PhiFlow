@@ -40,5 +40,5 @@ class TestSpeed(TestCase):
         np1, np2 = rnpv(64), rnpv(256)
         t1 = math.tensor(np1, batch('batch'), spatial('x, y'), channel('vector'))
         t2 = math.tensor(np2, batch('batch'), spatial('x, y'), channel('vector'))
-        _assert_equally_fast(lambda: np.sum(np1), lambda: math.sum(t1), n=10000)
-        _assert_equally_fast(lambda: np.sum(np2), lambda: math.sum(t2), n=10000)
+        _assert_equally_fast(lambda: np.sum(np1), lambda: math.sum(t1, dim=t1.shape), n=10000)
+        _assert_equally_fast(lambda: np.sum(np2), lambda: math.sum(t2, dim=t1.shape), n=10000)

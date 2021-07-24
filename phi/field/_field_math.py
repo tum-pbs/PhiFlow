@@ -165,7 +165,7 @@ def divergence(field: Grid) -> CenteredGrid:
         for i, dim in enumerate(field.shape.spatial.names):
             div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).gradient[0]
             components.append(div_dim)
-        data = math.sum(components, 0)
+        data = math.sum(components, dim='0')
         return CenteredGrid(data, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
     elif isinstance(field, CenteredGrid):
         left, right = shift(field, (-1, 1), stack_dim=batch('div_'))

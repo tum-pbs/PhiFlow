@@ -924,38 +924,30 @@ def _reduce(value: Tensor or list or tuple,
             collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
             unaffected_function: Callable = lambda value: value) -> Tensor:
     """
-
     Args:
         value:
         dim:
         native_function:
         collapsed_function: handles collapsed dimensions, called as `collapsed_function(inner_reduced, collapsed_dims_to_reduce)`
         unaffected_function: returns `unaffected_function(value)` if `len(dims) > 0` but none of them are part of `value`
-
-    Returns:
-
     """
     if dim in ((), [], EMPTY_SHAPE):
         return value
-    if isinstance(value, (tuple, list)):
-        values = [wrap(v) for v in value]
-        value = stack(values, batch('_reduce'))
-        if dim is None:
-            pass  # continue below
-        elif dim == 0:
-            dim = '_reduce'
-        else:
-            raise ValueError('dim must be 0 or None when passing a sequence of tensors')
     else:
-        value = wrap(value)
-    dims = _resolve_dims(dim, value.shape)
-    return value._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
+        if isinstance(value, (tuple, list)):
+            values = [wrap(v) for v in value]
+            value = stack(values, batch('0'))
+            assert dim in ('0', None), "dim must be '0' or None when passing a sequence of tensors"
+        else:
+            value = wrap(value)
+        dims = _resolve_dims(dim, value.shape)
+        return value._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
 
 
 def _resolve_dims(dim: str or tuple or list or Shape or None,
                   t_shape: Shape) -> Tuple[str]:
     if dim is None:
-        return t_shape.names
+        return t_shape.non_batch.names
     return parse_dim_order(dim)
 
 
@@ -968,11 +960,11 @@ def sum_(value: Tensor or list or tuple,
         value: `Tensor` or `list` / `tuple` of Tensors.
         dim: Dimension or dimensions to be reduced. One of
 
-            * `None` to reduce all dimensions
+            * `None` to reduce all non-batch dimensions
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
-            * `0` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
         `Tensor` without the reduced dimensions.

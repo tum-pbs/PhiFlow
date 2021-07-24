@@ -29,10 +29,10 @@ class Union(Geometry):
         return self.geometries[0].spatial_rank
 
     def lies_inside(self, location):
-        return math.any([geometry.lies_inside(location) for geometry in self.geometries], dim=0)
+        return math.any([geometry.lies_inside(location) for geometry in self.geometries], dim='0')
 
     def approximate_signed_distance(self, location):
-        return math.min([geometry.approximate_signed_distance(location) for geometry in self.geometries], dim=0)
+        return math.min([geometry.approximate_signed_distance(location) for geometry in self.geometries], dim='0')
 
     @property
     def center(self):
@@ -41,7 +41,7 @@ class Union(Geometry):
     @property
     def volume(self) -> math.Tensor:
         warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.")
-        return math.sum([g.volume for g in self.geometries], dim=0)
+        return math.sum([g.volume for g in self.geometries], dim='0')
 
     def bounding_radius(self):
         return self._bounding_box().bounding_radius()
@@ -51,8 +51,8 @@ class Union(Geometry):
 
     def _bounding_box(self):
         boxes = [bounding_box(g) for g in self.geometries]
-        lower = math.min([b.lower for b in boxes], dim=0)
-        upper = math.max([b.upper for b in boxes], dim=0)
+        lower = math.min([b.lower for b in boxes], dim='0')
+        upper = math.max([b.upper for b in boxes], dim='0')
         return Box(lower, upper)
 
     def shifted(self, delta):
