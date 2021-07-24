@@ -125,6 +125,7 @@ class Tensor:
         return self.shape.volume if self.rank == 1 else NotImplemented
 
     def __bool__(self):
+        assert self.rank == 0, f"Cannot convert tensor with non-empty shape {self.shape} to bool. Use tensor.any or tensor.all instead."
         from ._ops import all_
         if not self.default_backend.supports(Backend.jit_compile):  # NumPy
             return bool(self.native()) if self.rank == 0 else bool(all_(self).native())

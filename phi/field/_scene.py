@@ -397,7 +397,7 @@ class Scene(object):
         return repr(self.paths)
 
     def __eq__(self, other):
-        return isinstance(other, Scene) and math.all(other._paths == self._paths)
+        return isinstance(other, Scene) and (other._paths == self._paths).all
 
     def copy_calling_script(self, full_trace=False, include_context_information=True):
         """

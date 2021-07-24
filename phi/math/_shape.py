@@ -1141,7 +1141,7 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
     sizes = []
     for name in names:
         dim_sizes = [(shape.get_size(name) if name in shape else 1) for shape in shapes]
-        if min(dim_sizes) == max(dim_sizes):
+        if all([math.close(s, dim_sizes[0]) for s in dim_sizes[1:]]):
             dim_sizes = dim_sizes[0]
         else:
             from ._ops import stack

@@ -1384,7 +1384,7 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
             new_shape = x.shape.with_sizes(backend.staticshape(result_native))
             return NativeTensor(result_native, new_shape)
         else:
-            total = int(sum_(to_int64(mask_1d)))
+            total = int(sum_(to_int64(mask_1d), mask_1d.shape))
             new_shape = mask_1d.shape.with_sizes([total])
             return expand(x, new_shape)
 
