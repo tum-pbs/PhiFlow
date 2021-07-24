@@ -8601,7 +8601,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         if self.rank == 0:
             return cast(self, DType(bool)).native()
         else:
-            return all_(self).native()
+            return all_(self, dim=self.shape).native()
 
     @property
     def any(self):
@@ -8610,31 +8610,31 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         if self.rank == 0:
             return cast(self, DType(bool)).native()
         else:
-            return any_(self).native()
+            return any_(self, dim=self.shape).native()
 
     @property
     def mean(self):
         &#34;&#34;&#34; Mean value of this `Tensor` as a native scalar. &#34;&#34;&#34;
         from ._ops import mean
-        return mean(self).native()
+        return mean(self, dim=self.shape).native()
 
     @property
     def sum(self):
         &#34;&#34;&#34; Sum of all values of this `Tensor` as a native scalar. &#34;&#34;&#34;
         from ._ops import sum_
-        return sum_(self).native()
+        return sum_(self, dim=self.shape).native()
 
     @property
     def min(self):
         &#34;&#34;&#34; Minimum value of this `Tensor` as a native scalar. &#34;&#34;&#34;
         from ._ops import min_
-        return min_(self).native()
+        return min_(self, dim=self.shape).native()
 
     @property
     def max(self):
         &#34;&#34;&#34; Maximum value of this `Tensor` as a native scalar. &#34;&#34;&#34;
         from ._ops import max_
-        return max_(self).native()
+        return max_(self, dim=self.shape).native()
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
@@ -8971,7 +8971,7 @@ def all(self):
     if self.rank == 0:
         return cast(self, DType(bool)).native()
     else:
-        return all_(self).native()</code></pre>
+        return all_(self, dim=self.shape).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.any"><code class="name">var <span class="ident">any</span></code></dt>
@@ -8988,7 +8988,7 @@ def any(self):
     if self.rank == 0:
         return cast(self, DType(bool)).native()
     else:
-        return any_(self).native()</code></pre>
+        return any_(self, dim=self.shape).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.default_backend"><code class="name">var <span class="ident">default_backend</span></code></dt>
@@ -9028,7 +9028,7 @@ def dtype(self) -&gt; DType:
 def max(self):
     &#34;&#34;&#34; Maximum value of this `Tensor` as a native scalar. &#34;&#34;&#34;
     from ._ops import max_
-    return max_(self).native()</code></pre>
+    return max_(self, dim=self.shape).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.mean"><code class="name">var <span class="ident">mean</span></code></dt>
@@ -9042,7 +9042,7 @@ def max(self):
 def mean(self):
     &#34;&#34;&#34; Mean value of this `Tensor` as a native scalar. &#34;&#34;&#34;
     from ._ops import mean
-    return mean(self).native()</code></pre>
+    return mean(self, dim=self.shape).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.min"><code class="name">var <span class="ident">min</span></code></dt>
@@ -9056,7 +9056,7 @@ def mean(self):
 def min(self):
     &#34;&#34;&#34; Minimum value of this `Tensor` as a native scalar. &#34;&#34;&#34;
     from ._ops import min_
-    return min_(self).native()</code></pre>
+    return min_(self, dim=self.shape).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.rank"><code class="name">var <span class="ident">rank</span> : int</code></dt>
@@ -9106,7 +9106,7 @@ def shape(self) -&gt; Shape:
 def sum(self):
     &#34;&#34;&#34; Sum of all values of this `Tensor` as a native scalar. &#34;&#34;&#34;
     from ._ops import sum_
-    return sum_(self).native()</code></pre>
+    return sum_(self, dim=self.shape).native()</code></pre>
 </details>
 </dd>
 </dl>
