@@ -141,7 +141,7 @@ class Tensor:
         if self.rank == 0:
             return cast(self, DType(bool)).native()
         else:
-            return all_(self).native()
+            return all_(self, dim=self.shape).native()
 
     @property
     def any(self):
@@ -150,31 +150,31 @@ class Tensor:
         if self.rank == 0:
             return cast(self, DType(bool)).native()
         else:
-            return any_(self).native()
+            return any_(self, dim=self.shape).native()
 
     @property
     def mean(self):
         """ Mean value of this `Tensor` as a native scalar. """
         from ._ops import mean
-        return mean(self).native()
+        return mean(self, dim=self.shape).native()
 
     @property
     def sum(self):
         """ Sum of all values of this `Tensor` as a native scalar. """
         from ._ops import sum_
-        return sum_(self).native()
+        return sum_(self, dim=self.shape).native()
 
     @property
     def min(self):
         """ Minimum value of this `Tensor` as a native scalar. """
         from ._ops import min_
-        return min_(self).native()
+        return min_(self, dim=self.shape).native()
 
     @property
     def max(self):
         """ Maximum value of this `Tensor` as a native scalar. """
         from ._ops import max_
-        return max_(self).native()
+        return max_(self, dim=self.shape).native()
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
