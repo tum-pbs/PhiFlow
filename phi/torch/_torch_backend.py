@@ -658,6 +658,8 @@ class TorchBackend(Backend):
         return self.functional_gradient(jit, wrt, get_output)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
+        if self.ndims(y) > 0:
+            y = self.sum(y)
         grad = torch.autograd.grad(y, xs, grad_y)
         return grad
 
