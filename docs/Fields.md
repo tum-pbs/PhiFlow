@@ -44,7 +44,7 @@ Non-sampled fields inherit from `AnalyticField`.
 They model `F(x)` as a function instead of from data.
 
 
-## Build-in Fields
+## Built-in Fields
 
 [`CenteredGrid`](phi/field/#phi.field.CenteredGrid) stores values in a regular grid structure.
 The grid values are stored in a `Tensor` whose spatial dimensions match the resolution of the grid.
@@ -55,7 +55,7 @@ The `bounds` property stores the physical size of the grid from which the cell s
 stores vector fields in staggered form.
 The velocity components are not sampled at the cell centers but at the cell faces.
 This results in the `values` having different shapes for the different vector components.
-[More on staggered grids](./Staggered_Grids.md).
+[More on staggered grids](Staggered_Grids.html).
 
 [`PointCloud`](phi/field/#phi.field.PointCloud)
 is a set of points or finite elements, each associated with a value.
@@ -103,15 +103,38 @@ Sampled fields, such as [`CenteredGrid`](phi/field/#phi.field.CenteredGrid),
 The extrapolation determines the values outside the region in which the field is sampled.
 It takes the place of the boundary condition (e.g. Neumann / Dirichlet) which would be used in a mathematical formulation.
 
+### Extrapolations vs Boundary Conditions
+
 While both extrapolation and traditional boundary conditions fill the same role, there are a couple of differences between the two.
 Boundary conditions determine the field values (or a spatial derivative thereof) at the boundary of a volume, i.e. they cover an n-1 dimensional region.
 Extrapolations, on the other hand, cover everything outside the sampled volume, i.e. an n-dimensional region.
 
 Numerical methods working directly with traditional boundary conditions have to treat the boundaries separately (e.g. different stencils).
 With extrapolations, the same computations can typically be achieved by first padding the field and then applying a single operation everywhere.
-This makes execution more efficient, especially on GPUs or TPUs where fewer kernels need to be launched, reducing the overhead.
+This makes low-order methods more efficient, especially on GPUs or TPUs where fewer kernels need to be launched, reducing the overhead.
 Also, user code typically is more concise and expressive with extrapolations.
 
-Standard extrapolation types are listed [here](phi/math/extrapolation.html#header-variables) and custom extrapolations can be implemented by extending the
+### Standard Extrapolations
+
+Standard extrapolation types are listed [here](phi/math/extrapolation.html#header-variables).
+
+* `PERIODIC` copies the values from the opposite side.
+* `BOUNDARY` copies the closest value from the grid. For the boundary condition *∂u/∂x = 0*, this is accurate to second order.
+* `ConstantExtrapolation`, such as `ZERO` or `ONE` fill the outside with a constant value.
+  For a boundary condition *u=c*, the first padded value is exact and values padded further out are accurate to first order.
+
+Custom extrapolations can be implemented by extending the
 [`Extrapolation`](phi/math/extrapolation.html#phi.math.extrapolation.Extrapolation) class.
 Extrapolations also support a limited set of arithmetic operations, e.g. `PERIODIC * ZERO = ZERO`.
+
+### Specifying Extrapolations per Side
+
+Different extrapolation types can be chosen for each side of a domain, e.g. a closed box with an open top.
+This can be achieved using [`combine_sides()`](phi/math/extrapolation.html#phi.math.extrapolation.combine_sides)
+which allows the extrapolations to be specified by dimension.
+
+The following example uses 0 for the upper face along `y` and 1 everywhere else.
+```python
+zero_top = extrapolation.combine_sides(x=extrapolation.ONE, y=(extrapolation.ONE, extrapolation.ZERO))
+```
+For a full example, see the [pipe demo](https://github.com/tum-pbs/PhiFlow/blob/develop/demos/pipe.py).
