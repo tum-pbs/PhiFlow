@@ -5,7 +5,7 @@ Standard extrapolations are listed as global variables in this module.
 Extrapolations are an important part of sampled fields such as grids.
 See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
-from typing import Union
+from typing import Union, Dict
 
 from .backend import choose_backend
 from ._shape import Shape, channel
@@ -761,6 +761,10 @@ def from_dict(dictionary: dict) -> Extrapolation:
         return SYMMETRIC
     elif etype == 'reflect':
         return REFLECT
+    elif etype == 'mixed':
+        dims: Dict[str, tuple] = dictionary['dims']
+        extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
+        return _MixedExtrapolation(extrapolations)
     else:
         raise ValueError(dictionary)
 

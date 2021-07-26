@@ -113,3 +113,9 @@ class TestExtrapolation(TestCase):
         a = math.meshgrid(x=4, y=3)
         p = math.pad(a, {'x': (-1, -1), 'y': (1, -1)}, ZERO)
         math.assert_close(p.y[1:], a.x[1:-1].y[:-1])
+
+    def test_serialize_mixed(self):
+        e = combine_sides(x=PERIODIC, y=(ONE, BOUNDARY))
+        serialized = e.to_dict()
+        e_ = from_dict(serialized)
+        self.assertEqual(e, e_)
