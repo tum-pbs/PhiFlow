@@ -5155,6 +5155,12 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
         return math.stack(channels, channel(&#39;vector&#39;))
 
     def at_centers(self) -&gt; CenteredGrid:
+        &#34;&#34;&#34;
+        Interpolates the staggered values to the cell centers.
+
+        Returns:
+            `CenteredGrid` sampled at cell centers.
+        &#34;&#34;&#34;
         return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
     def __getitem__(self, item: dict):
@@ -5234,12 +5240,20 @@ def cells(self):
 <span>def <span class="ident">at_centers</span></span>(<span>self) ‑> phi.field._grid.CenteredGrid</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Interpolates the staggered values to the cell centers.</p>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> sampled at cell centers.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def at_centers(self) -&gt; CenteredGrid:
+    &#34;&#34;&#34;
+    Interpolates the staggered values to the cell centers.
+
+    Returns:
+        `CenteredGrid` sampled at cell centers.
+    &#34;&#34;&#34;
     return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)</code></pre>
 </details>
 </dd>

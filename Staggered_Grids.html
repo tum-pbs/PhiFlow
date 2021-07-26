@@ -14075,8 +14075,8 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 <p>Staggered grids can also be created from other fields using <code>field.at()</code> or <code>&gt;&gt;</code> by passing an existing <code>StaggeredGrid</code>.</p>
 <p>Some field functions also return <code>StaggeredGrids</code>:</p>
 <ul>
-<li><a href="phi/field/#phi.field.spatial_gradient"><code>spatial_gradient</code></a> with <code>type=StaggeredGrid</code></li>
-<li><a href="phi/field/#phi.field.stagger"><code>stagger</code></a></li>
+<li><a href="phi/field/#phi.field.spatial_gradient"><code>spatial_gradient()</code></a> with <code>type=StaggeredGrid</code></li>
+<li><a href="phi/field/#phi.field.stagger"><code>stagger()</code></a></li>
 </ul>
 
 </div>
@@ -14085,7 +14085,7 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <h2 id="Values-Tensor">Values Tensor<a class="anchor-link" href="#Values-Tensor">&#182;</a></h2><p>For non-periodic staggered grids, the <code>values</code> tensor is <a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">non-uniform</a>
 to reflect the different number of sample points for each component.</p>
-<p>There are functions to get a uniform tensor:</p>
+<p>Functions to get a uniform tensor:</p>
 <ul>
 <li><a href="phi/field/#phi.field.StaggeredGrid.at_centers"><code>at_centers()</code></a> interpolates the staggered values to the cell centers and returns a <code>CenteredGrid</code></li>
 <li><a href="phi/field/#phi.field.StaggeredGrid.staggered_tensor"><code>staggered_tensor()</code></a> pads the internal tensor to an invariant shape with n+1 entries along all dimensions.</li>
@@ -14095,7 +14095,8 @@ to reflect the different number of sample points for each component.</p>
 </div>
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h2 id="Slicing">Slicing<a class="anchor-link" href="#Slicing">&#182;</a></h2><p>Like tensors, grids can be sliced using the standard syntax.</p>
+<h2 id="Slicing">Slicing<a class="anchor-link" href="#Slicing">&#182;</a></h2><p>Like tensors, grids can be sliced using the standard syntax.
+When selecting a vector component, such as <code>x</code> or <code>y</code>, the result is represented as a <code>CenteredGrid</code> with shifted locations.</p>
 
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
@@ -14138,7 +14139,9 @@ to reflect the different number of sample points for each component.</p>
 </div>
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>When selecting a vector component, such as <code>x</code> or <code>y</code>, the result is represented as a <code>CenteredGrid</code> with shifted locations.</p>
+<p>Slicing spatial dimensions on grids is different from slicing the <code>values</code> tensor directly.
+Here, a sub-grid is selected.
+The number of sample points depends on the grid type and extrapolation.</p>
 
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
@@ -14218,9 +14221,7 @@ to reflect the different number of sample points for each component.</p>
 </div>
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Note that slicing spatial dimensions on grids is different from slicing the <code>values</code> tensor directly.
-Here, a sub-grid is selected.
-The number of sample points depends on the grid type and extrapolation.</p>
+<p>Slicing along batch dimensions has no special effect, this just slices the <code>values</code>.</p>
 
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
