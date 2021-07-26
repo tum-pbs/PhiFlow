@@ -3,7 +3,7 @@
 <head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Staggered_Grids</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>Fluids_Tutorial</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 
 
 
@@ -13971,31 +13971,19 @@ a.anchor-link {
 
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h1 id="Staggered-grids">Staggered grids<a class="anchor-link" href="#Staggered-grids">&#182;</a></h1><p><a href="https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Staggered_Grids.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Google Collab Book"></a></p>
-<p>Staggered grids are a key component of the marker-and-cell (MAC) method [Harlow and Welch 1965].
-They sample the velocity components not at the cell centers but in staggered form at the corresponding face centers.
-Their main advantage is that the divergence of a cell can be computed exactly.</p>
-<p>Φ<sub>Flow</sub> only stores valid velocity values in memory.
-This may require non-uniform tensors for the values since the numbers of horizontal and vertical faces are generally not equal.
-Depending on the boundary conditions, the outer-most values may also be redundant and, thus, not stored.</p>
-<p><img src="./figures/Staggered.png" alt="image"></p>
-<p>Φ<sub>Flow</sub> represents staggered grids as instances of <a href="phi/field/#phi.field.StaggeredGrid"><code>StaggeredGrid</code></a>.
-They have the same properties as <code>CenteredGrid</code> but the <code>values</code> field may reference a
-<a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">non-uniform tensor</a>
-to reflect the varying number of x, y and z sample points.</p>
+<h1 id="Differentiable-Fluid-Simulations-with-%CE%A6Flow2">Differentiable Fluid Simulations with &#934;<sub>Flow</sub><sup>2</sup><a class="anchor-link" href="#Differentiable-Fluid-Simulations-with-%CE%A6Flow2">&#182;</a></h1><p><a href="https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Google Collab Book"></a></p>
+<p>This notebook steps you through setting up fluid simulations and using TensorFlow's differentiation to optimize them.</p>
+<p>Execute the cell below to install the <a href="https://github.com/tum-pbs/PhiFlow">Φ<sub>Flow</sub> Python package from GitHub</a>.</p>
 
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-InputArea jp-Cell-inputArea">
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="c1"># !pip install --quiet phiflow==2.0.0rc2</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># !pip install --quiet phiflow==2.0.0rc2</span>
 <span class="kn">from</span> <span class="nn">phi.flow</span> <span class="kn">import</span> <span class="o">*</span>
-
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-<span class="n">grid</span><span class="o">.</span><span class="n">values</span>
 </pre></div>
 
      </div>
@@ -14003,49 +13991,12 @@ to reflect the varying number of x, y and z sample points.</p>
 </div>
 </div>
 
-<div class="jp-Cell-outputWrapper">
-
-
-<div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
-    
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[1]:</div>
-
-
-
-
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>(xˢ=(11, 10), yˢ=(10, 11), vectorᵛ=2) float32  0.0 &lt; ... &lt; 0.0</pre>
-</div>
-
-</div>
-
-</div>
-
-</div>
-
 </div>
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Here, each component of the values tensor has one more sample point in the direction it is facing.
-If the extrapolation was <code>extrapolation.ZERO</code>, it would be one less (see above image).</p>
-
-</div>
-</div>
-<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h2 id="Creating-Staggered-Grids">Creating Staggered Grids<a class="anchor-link" href="#Creating-Staggered-Grids">&#182;</a></h2><p>The <a href="phi/field/#phi.field.StaggeredGrid"><code>StaggeredGrid</code> constructor</a> supports two modes:</p>
-<ul>
-<li><strong>Direct construction</strong> <code>StaggeredGrid(values: Tensor, extrapolation, bounds)</code>.
-All required fields are passed as arguments and stored as-is.
-The <code>values</code> tensor must have the correct shape considering the extrapolation.</li>
-<li><strong>Construction by resampling</strong> <code>StaggeredGrid(values: Any, extrapolation, bounds, resolution, **resolution)</code>.
-When specifying the resolution as a <code>Shape</code> or via keyword arguments, non-Tensor values can be passed for <code>values</code>,
-such as geometries, other fields, constants or functions (see the <a href="phi/field/#phi.field.StaggeredGrid">documentation</a>).</li>
-</ul>
-<p>Examples:</p>
+<h2 id="Setting-up-a-Simulation">Setting up a Simulation<a class="anchor-link" href="#Setting-up-a-Simulation">&#182;</a></h2><p>Φ<sub>Flow</sub> is vectorized but object-oriented, i.e. data are represented by Python objects that internally use tensors.</p>
+<p>First, we create grids for the quantities we want to simulate. For this example, we require a velocity field and a smoke density field.
+We sample the smoke field at the cell centers and the velocity in <a href="https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html">staggered form</a>.</p>
 
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
@@ -14054,14 +14005,8 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[2]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">domain</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">],</span> <span class="n">extrapolation</span><span class="o">=</span><span class="n">extrapolation</span><span class="o">.</span><span class="n">ZERO</span><span class="p">)</span>
-
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># from constant vector</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">Noise</span><span class="p">(),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># sample analytic field</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># resample existing field</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># function value(location)</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">Sphere</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># no anti-aliasing</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">SoftGeometryMask</span><span class="p">(</span><span class="n">Sphere</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># with anti-aliasing</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">smoke</span> <span class="o">=</span> <span class="n">CenteredGrid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">32</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">40</span><span class="p">])</span>  <span class="c1"># sampled at cell centers</span>
+<span class="n">velocity</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">ZERO</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">32</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">40</span><span class="p">])</span>  <span class="c1"># sampled in staggered form at face centers </span>
 </pre></div>
 
      </div>
@@ -14072,39 +14017,22 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 </div>
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Staggered grids can also be created from other fields using <code>field.at()</code> or <code>&gt;&gt;</code> by passing an existing <code>StaggeredGrid</code>.</p>
-<p>Some field functions also return <code>StaggeredGrids</code>:</p>
-<ul>
-<li><a href="phi/field/#phi.field.spatial_gradient"><code>spatial_gradient</code></a> with <code>type=StaggeredGrid</code></li>
-<li><a href="phi/field/#phi.field.stagger"><code>stagger</code></a></li>
-</ul>
+<p>Additionally, we want to add more smoke every time step.
+We create the <code>INFLOW</code> field from a circle (2D <a href="https://tum-pbs.github.io/PhiFlow/phi/geom/index.html#phi.geom.Sphere"><code>Sphere</code></a>) which defines where hot smoke is emitted.
+Furthermore, we are interested in running the simulation for different inflow locations.</p>
+<p>Φ<sub>Flow</sub> supports data-parallell execution via <em>batch dimensions</em>.
+When a quantity has a batch dimension with size <em>n</em>, operations involving that quantity will be performed <em>n</em> times simultaneously and the result will also have that batch dimension. Here we add the batch dimension <code>inflow_loc</code>.</p>
+<p>TODO document dimension types</p>
 
 </div>
-</div>
-<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h2 id="Values-Tensor">Values Tensor<a class="anchor-link" href="#Values-Tensor">&#182;</a></h2><p>For non-periodic staggered grids, the <code>values</code> tensor is <a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">non-uniform</a>
-to reflect the different number of sample points for each component.</p>
-<p>There are functions to get a uniform tensor:</p>
-<ul>
-<li><a href="phi/field/#phi.field.StaggeredGrid.at_centers"><code>at_centers()</code></a> interpolates the staggered values to the cell centers and returns a <code>CenteredGrid</code></li>
-<li><a href="phi/field/#phi.field.StaggeredGrid.staggered_tensor"><code>staggered_tensor()</code></a> pads the internal tensor to an invariant shape with n+1 entries along all dimensions.</li>
-</ul>
-
-</div>
-</div>
-<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h2 id="Slicing">Slicing<a class="anchor-link" href="#Slicing">&#182;</a></h2><p>Like tensors, grids can be sliced using the standard syntax.</p>
-
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-InputArea jp-Cell-inputArea">
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>  <span class="c1"># select component</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">INFLOW_LOCATION</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">([(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span> <span class="n">batch</span><span class="p">(</span><span class="s1">&#39;inflow_loc&#39;</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;vector&#39;</span><span class="p">))</span>
+<span class="n">INFLOW</span> <span class="o">=</span> <span class="mf">0.6</span> <span class="o">*</span> <span class="n">CenteredGrid</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="n">INFLOW_LOCATION</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">32</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">40</span><span class="p">])</span>
 </pre></div>
 
      </div>
@@ -14112,33 +14040,12 @@ to reflect the different number of sample points for each component.</p>
 </div>
 </div>
 
-<div class="jp-Cell-outputWrapper">
-
-
-<div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
-    
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[3]:</div>
-
-
-
-
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>CenteredGrid[(xˢ=9, yˢ=10), size=(0.9, 1.0), extrapolation=0]</pre>
-</div>
-
-</div>
-
-</div>
-
-</div>
-
 </div>
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>When selecting a vector component, such as <code>x</code> or <code>y</code>, the result is represented as a <code>CenteredGrid</code> with shifted locations.</p>
+<p>The created grids are instances of the class <code>Grid</code>.
+Like tensors, grids also have the <code>shape</code> attribute which lists all batch, spatial and channel dimensions.
+<a href="https://tum-pbs.github.io/PhiFlow/Math.html#shapes">Shapes in Φ<sub>Flow</sub></a> store not only the sizes of the dimensions but also their names and types.</p>
 
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
@@ -14147,7 +14054,10 @@ to reflect the different number of sample points for each component.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Smoke: </span><span class="si">{</span><span class="n">smoke</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Velocity: </span><span class="si">{</span><span class="n">velocity</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inflow: </span><span class="si">{</span><span class="n">INFLOW</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inflow, spatial only: </span><span class="si">{</span><span class="n">INFLOW</span><span class="o">.</span><span class="n">shape</span><span class="o">.</span><span class="n">spatial</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -14163,52 +14073,16 @@ to reflect the different number of sample points for each component.</p>
 <div class="jp-OutputArea-child">
 
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
-
-
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>StaggeredGrid[(xˢ=3, yˢ=10, vectorᵛ=2), size=(0.099999964, 1.0), extrapolation=0]</pre>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>Smoke: (xˢ=32, yˢ=40)
+Velocity: (xˢ=32, yˢ=40, vectorᵛ=2)
+Inflow: (inflow_locᵇ=4, xˢ=32, yˢ=40)
+Inflow, spatial only: (xˢ=32, yˢ=40)
+</pre>
 </div>
-
-</div>
-
-</div>
-
-</div>
-
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
-<div class="jp-Cell-inputWrapper">
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[5]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-     <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
-</pre></div>
-
-     </div>
-</div>
-</div>
-</div>
-
-<div class="jp-Cell-outputWrapper">
-
-
-<div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
-    
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[5]:</div>
-
-
-
-
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>StaggeredGrid[(xˢ=3, yˢ=10, vectorᵛ=2), size=(0.099999964, 1.0), extrapolation=0]</pre>
-</div>
-
 </div>
 
 </div>
@@ -14218,9 +14092,63 @@ to reflect the different number of sample points for each component.</p>
 </div>
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Note that slicing spatial dimensions on grids is different from slicing the <code>values</code> tensor directly.
-Here, a sub-grid is selected.
-The number of sample points depends on the grid type and extrapolation.</p>
+<p>The grid values can be accessed using the <code>values</code> property.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[5]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">smoke</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">velocity</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">INFLOW</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>(xˢ=32, yˢ=40) float32  0.0 &lt; ... &lt; 0.0
+(xˢ=(31, 32), yˢ=(40, 39), vectorᵛ=2) float32  0.0 &lt; ... &lt; 0.0
+(inflow_locᵇ=4, xˢ=32, yˢ=40) float32  (0.0, 0.0, 0.0, 0.0) along inflow_loc &lt; ... &lt; (0.6, 0.6, 0.6, 0.6) along inflow_loc
+</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>Grids have many more properties which are documented <a href="https://tum-pbs.github.io/PhiFlow/phi/field/#phi.field.Grid">here</a>.
+Also note that the staggered grid has a <a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">non-uniform shape</a> because the number of faces is not equal to the number of cells.</p>
+
+</div>
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="Running-the-Simulation">Running the Simulation<a class="anchor-link" href="#Running-the-Simulation">&#182;</a></h2><p>Next, let's do some physics!
+Since the initial velocity is zero, we just add the inflow and the corresponding buoyancy force.
+For the buoyancy force we use the factor <code>(0, 0.5)</code> to specify strength and direction.
+Finally, we project the velocity field to make it incompressible.</p>
+<p>Note that the <code>&gt;&gt;</code> operator is a shorthand for resampling a field at different points. Since <code>smoke</code> is sampled at cell centers and <code>velocity</code> at face centers, this conversion is necessary.</p>
 
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
@@ -14229,7 +14157,12 @@ The number of sample points depends on the grid type and extrapolation.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[6]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># batch slice</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">smoke</span> <span class="o">+=</span> <span class="n">INFLOW</span>
+<span class="n">buoyancy_force</span> <span class="o">=</span> <span class="n">smoke</span> <span class="o">*</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">velocity</span>
+<span class="n">velocity</span> <span class="o">+=</span> <span class="n">buoyancy_force</span>
+<span class="n">velocity</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fluid</span><span class="o">.</span><span class="n">make_incompressible</span><span class="p">(</span><span class="n">velocity</span><span class="p">)</span>
+
+<span class="n">view</span><span class="p">(</span><span class="n">smoke</span><span class="p">);</span>
 </pre></div>
 
      </div>
@@ -14245,13 +14178,206 @@ The number of sample points depends on the grid type and extrapolation.</p>
 <div class="jp-OutputArea-child">
 
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[6]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/vis/_vis_base.py:335: UserWarning: widgets user interface is unavailable because of missing dependency: No module named &#39;ipywidgets&#39;.
+  warnings.warn(f&#34;{option} user interface is unavailable because of missing dependency: {import_error}.&#34;)
+</pre>
+</div>
+</div>
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">RuntimeError</span>                              Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_1912/1007892718.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-intense-fg ansi-bold">      4</span> velocity<span class="ansi-blue-fg">,</span> _ <span class="ansi-blue-fg">=</span> fluid<span class="ansi-blue-fg">.</span>make_incompressible<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      5</span> 
+<span class="ansi-green-fg">----&gt; 6</span><span class="ansi-red-fg"> </span>view<span class="ansi-blue-fg">(</span>smoke<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">;</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/vis/_vis.py</span> in <span class="ansi-cyan-fg">view</span><span class="ansi-blue-fg">(play, gui, name, description, scene, keep_alive, select, framerate, *fields, **config)</span>
+<span class="ansi-green-intense-fg ansi-bold">    114</span>     name <span class="ansi-blue-fg">=</span> name <span class="ansi-green-fg">or</span> user_namespace<span class="ansi-blue-fg">.</span>get_title<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    115</span>     description <span class="ansi-blue-fg">=</span> description <span class="ansi-green-fg">or</span> user_namespace<span class="ansi-blue-fg">.</span>get_description<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 116</span><span class="ansi-red-fg">     </span>gui <span class="ansi-blue-fg">=</span> default_gui<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">if</span> gui <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span> <span class="ansi-green-fg">else</span> get_gui<span class="ansi-blue-fg">(</span>gui<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    117</span>     controls <span class="ansi-blue-fg">=</span> tuple<span class="ansi-blue-fg">(</span>c <span class="ansi-green-fg">for</span> c <span class="ansi-green-fg">in</span> sorted<span class="ansi-blue-fg">(</span>CONTROL_VARS<span class="ansi-blue-fg">.</span>values<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> key<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">lambda</span> c<span class="ansi-blue-fg">:</span> c<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">if</span> user_namespace<span class="ansi-blue-fg">.</span>get_variable<span class="ansi-blue-fg">(</span>c<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">not</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    118</span>     CONTROL_VARS<span class="ansi-blue-fg">.</span>clear<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/vis/_vis_base.py</span> in <span class="ansi-cyan-fg">default_gui</span><span class="ansi-blue-fg">()</span>
+<span class="ansi-green-intense-fg ansi-bold">    334</span>         <span class="ansi-green-fg">except</span> ImportError <span class="ansi-green-fg">as</span> import_error<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    335</span>             warnings<span class="ansi-blue-fg">.</span>warn<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">f&#34;{option} user interface is unavailable because of missing dependency: {import_error}.&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 336</span><span class="ansi-red-fg">     </span><span class="ansi-green-fg">raise</span> RuntimeError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;No user interface available.&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    337</span> 
+<span class="ansi-green-intense-fg ansi-bold">    338</span> 
+
+<span class="ansi-red-fg">RuntimeError</span>: No user interface available.</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>Let's run a longer simulation!
+Now we add the transport or <em>advection</em> operations to the simulation.
+Φ<sub>Flow</sub> provides multiple algorithms for advection.
+Here we use semi-Lagrangian advection for the velocity and MacCormack advection for the smoke distribution.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[7]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">view</span><span class="p">(</span><span class="n">smoke</span><span class="p">)</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+  <span class="n">smoke</span> <span class="o">=</span> <span class="n">advect</span><span class="o">.</span><span class="n">mac_cormack</span><span class="p">(</span><span class="n">smoke</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">INFLOW</span>
+  <span class="n">buoyancy_force</span> <span class="o">=</span> <span class="n">smoke</span> <span class="o">*</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">velocity</span>
+  <span class="n">velocity</span> <span class="o">=</span> <span class="n">advect</span><span class="o">.</span><span class="n">semi_lagrangian</span><span class="p">(</span><span class="n">velocity</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">buoyancy_force</span>
+  <span class="n">velocity</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fluid</span><span class="o">.</span><span class="n">make_incompressible</span><span class="p">(</span><span class="n">velocity</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">RuntimeError</span>                              Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_1912/605662558.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-fg">----&gt; 1</span><span class="ansi-red-fg"> </span><span class="ansi-green-fg">for</span> _ <span class="ansi-green-fg">in</span> view<span class="ansi-blue-fg">(</span>smoke<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">.</span>range<span class="ansi-blue-fg">(</span><span class="ansi-cyan-fg">20</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">      2</span>   smoke <span class="ansi-blue-fg">=</span> advect<span class="ansi-blue-fg">.</span>mac_cormack<span class="ansi-blue-fg">(</span>smoke<span class="ansi-blue-fg">,</span> velocity<span class="ansi-blue-fg">,</span> dt<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">+</span> INFLOW
+<span class="ansi-green-intense-fg ansi-bold">      3</span>   buoyancy_force <span class="ansi-blue-fg">=</span> smoke <span class="ansi-blue-fg">*</span> <span class="ansi-blue-fg">(</span><span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">0.5</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">&gt;&gt;</span> velocity
+<span class="ansi-green-intense-fg ansi-bold">      4</span>   velocity <span class="ansi-blue-fg">=</span> advect<span class="ansi-blue-fg">.</span>semi_lagrangian<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">,</span> velocity<span class="ansi-blue-fg">,</span> dt<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">+</span> buoyancy_force
+<span class="ansi-green-intense-fg ansi-bold">      5</span>   velocity<span class="ansi-blue-fg">,</span> _ <span class="ansi-blue-fg">=</span> fluid<span class="ansi-blue-fg">.</span>make_incompressible<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/vis/_vis.py</span> in <span class="ansi-cyan-fg">view</span><span class="ansi-blue-fg">(play, gui, name, description, scene, keep_alive, select, framerate, *fields, **config)</span>
+<span class="ansi-green-intense-fg ansi-bold">    114</span>     name <span class="ansi-blue-fg">=</span> name <span class="ansi-green-fg">or</span> user_namespace<span class="ansi-blue-fg">.</span>get_title<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    115</span>     description <span class="ansi-blue-fg">=</span> description <span class="ansi-green-fg">or</span> user_namespace<span class="ansi-blue-fg">.</span>get_description<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 116</span><span class="ansi-red-fg">     </span>gui <span class="ansi-blue-fg">=</span> default_gui<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">if</span> gui <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span> <span class="ansi-green-fg">else</span> get_gui<span class="ansi-blue-fg">(</span>gui<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    117</span>     controls <span class="ansi-blue-fg">=</span> tuple<span class="ansi-blue-fg">(</span>c <span class="ansi-green-fg">for</span> c <span class="ansi-green-fg">in</span> sorted<span class="ansi-blue-fg">(</span>CONTROL_VARS<span class="ansi-blue-fg">.</span>values<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> key<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">lambda</span> c<span class="ansi-blue-fg">:</span> c<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">if</span> user_namespace<span class="ansi-blue-fg">.</span>get_variable<span class="ansi-blue-fg">(</span>c<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">not</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    118</span>     CONTROL_VARS<span class="ansi-blue-fg">.</span>clear<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/vis/_vis_base.py</span> in <span class="ansi-cyan-fg">default_gui</span><span class="ansi-blue-fg">()</span>
+<span class="ansi-green-intense-fg ansi-bold">    334</span>         <span class="ansi-green-fg">except</span> ImportError <span class="ansi-green-fg">as</span> import_error<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    335</span>             warnings<span class="ansi-blue-fg">.</span>warn<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">f&#34;{option} user interface is unavailable because of missing dependency: {import_error}.&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 336</span><span class="ansi-red-fg">     </span><span class="ansi-green-fg">raise</span> RuntimeError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;No user interface available.&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    337</span> 
+<span class="ansi-green-intense-fg ansi-bold">    338</span> 
+
+<span class="ansi-red-fg">RuntimeError</span>: No user interface available.</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="Obtaining-Gradients">Obtaining Gradients<a class="anchor-link" href="#Obtaining-Gradients">&#182;</a></h2><p>The simulation we just computed was using pure NumPy so all operations were non-differentiable.
+To enable differentiability, we need to use either PyTorch, TensorFlow or Jax.
+This can be achieved by changing the import statement to <a href="https://tum-pbs.github.io/PhiFlow/phi/tf/flow.html"><code>phi.tf.flow</code></a>, <a href="https://tum-pbs.github.io/PhiFlow/phi/torch/flow.html"><code>phi.torch.flow</code></a> or <a href="https://tum-pbs.github.io/PhiFlow/phi/jax/index.html"><code>phi.jax.flow</code></a>, respectively.
+Tensors created after this import will be allocated using PyTorch / TensorFlow / Jax and operations on these will be executed with the corresponding backend.
+These operations can make use of a GPU through CUDA if your configuration supports it.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[8]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># from phi.jax.flow import *</span>
+<span class="kn">from</span> <span class="nn">phi.torch.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="c1"># from phi.tf.flow import *</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>We set up the simulation as before.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[9]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">INFLOW_LOCATION</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">([(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span> <span class="n">batch</span><span class="p">(</span><span class="s1">&#39;inflow_loc&#39;</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;vector&#39;</span><span class="p">))</span>
+<span class="n">INFLOW</span> <span class="o">=</span> <span class="mf">0.6</span> <span class="o">*</span> <span class="n">CenteredGrid</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="n">INFLOW_LOCATION</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">32</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">40</span><span class="p">])</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>We can verify that tensors are now backed by TensorFlow / PyTorch / Jax.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[10]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">type</span><span class="p">(</span><span class="n">INFLOW</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">native</span><span class="p">(</span><span class="n">INFLOW</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[10]:</div>
 
 
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>StaggeredGrid[(xˢ=10, yˢ=10, vectorᵛ=2), size=(1, 1), extrapolation=0]</pre>
+<pre>torch.Tensor</pre>
 </div>
 
 </div>
@@ -14263,8 +14389,462 @@ The number of sample points depends on the grid type and extrapolation.</p>
 </div>
 <div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Fields can also be sliced using <a href="phi/field/#phi.field.unstack"><code>unstack()</code></a>.
-This returns a <code>tuple</code> of all slices along a dimension.</p>
+<p>Note that tensors created with NumPy will keep using NumPy/SciPy operations unless a TensorFlow tensor is also passed to the same operation.</p>
+<p>Let's look at how to get gradients from our simulation.
+Say we want to optimize the initial velocities so that all simulations arrive at a final state that is similar to the right simulation where the inflow is located at <code>(16, 5)</code>.</p>
+<p>To achieve this, we define the loss function as $L = | D(s - s_r) |^2$ where $s$ denotes the smoke density and the function $D$ diffuses the difference to smoothen the gradients.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[11]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">simulate</span><span class="p">(</span><span class="n">smoke</span><span class="p">:</span> <span class="n">CenteredGrid</span><span class="p">,</span> <span class="n">velocity</span><span class="p">:</span> <span class="n">StaggeredGrid</span><span class="p">):</span>
+  <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+    <span class="n">smoke</span> <span class="o">=</span> <span class="n">advect</span><span class="o">.</span><span class="n">mac_cormack</span><span class="p">(</span><span class="n">smoke</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">INFLOW</span>
+    <span class="n">buoyancy_force</span> <span class="o">=</span> <span class="n">smoke</span> <span class="o">*</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="n">velocity</span>
+    <span class="n">velocity</span> <span class="o">=</span> <span class="n">advect</span><span class="o">.</span><span class="n">semi_lagrangian</span><span class="p">(</span><span class="n">velocity</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">buoyancy_force</span>
+    <span class="n">velocity</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fluid</span><span class="o">.</span><span class="n">make_incompressible</span><span class="p">(</span><span class="n">velocity</span><span class="p">)</span>
+  <span class="n">loss</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">field</span><span class="o">.</span><span class="n">l2_loss</span><span class="p">(</span><span class="n">diffuse</span><span class="o">.</span><span class="n">explicit</span><span class="p">(</span><span class="n">smoke</span> <span class="o">-</span> <span class="n">field</span><span class="o">.</span><span class="n">stop_gradient</span><span class="p">(</span><span class="n">smoke</span><span class="o">.</span><span class="n">inflow_loc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)))</span>
+  <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">smoke</span><span class="p">,</span> <span class="n">velocity</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>Now it is important that the initial velocity has the <code>inflow_loc</code> dimension before we record the gradients.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[12]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">initial_smoke</span> <span class="o">=</span> <span class="n">CenteredGrid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">32</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">40</span><span class="p">])</span>
+<span class="n">initial_velocity</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">batch</span><span class="p">(</span><span class="n">inflow_loc</span><span class="o">=</span><span class="mi">4</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">ZERO</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">32</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">40</span><span class="p">])</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>Finally, we use <code>gradient_function()</code> to obtain the gradient with respect to the initial velocity. Since the velocity is the second argument to the <code>simulate()</code> function, we pass <code>wrt=[1]</code>.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[13]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sim_grad</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">functional_gradient</span><span class="p">(</span><span class="n">simulate</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">get_output</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>The argument <code>get_output=False</code> specifies that we are not interested in the actual output of the function. By setting it to <code>True</code>, we would also get the loss value and the final simulation state.</p>
+<p>To evaluate the gradient, we simply call the gradient function with the same arguments as we would call the simulation.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[14]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">velocity_grad</span><span class="p">,</span> <span class="o">=</span> <span class="n">sim_grad</span><span class="p">(</span><span class="n">initial_smoke</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)</span>
+
+<span class="n">view</span><span class="p">(</span><span class="n">velocity_grad</span><span class="p">);</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">NoBackendFound</span>                            Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_1912/1412743688.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-fg">----&gt; 1</span><span class="ansi-red-fg"> </span>velocity_grad<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">=</span> sim_grad<span class="ansi-blue-fg">(</span>initial_smoke<span class="ansi-blue-fg">,</span> initial_velocity<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      2</span> 
+<span class="ansi-green-intense-fg ansi-bold">      3</span> view<span class="ansi-blue-fg">(</span>velocity_grad<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">;</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_functional.py</span> in <span class="ansi-cyan-fg">__call__</span><span class="ansi-blue-fg">(self, *args, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">    329</span>         <span class="ansi-green-fg">if</span> key <span class="ansi-green-fg">not</span> <span class="ansi-green-fg">in</span> self<span class="ansi-blue-fg">.</span>grads<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    330</span>             self<span class="ansi-blue-fg">.</span>grads<span class="ansi-blue-fg">[</span>key<span class="ansi-blue-fg">]</span> <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>_trace_grad<span class="ansi-blue-fg">(</span>key<span class="ansi-blue-fg">,</span> wrt_natives<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 331</span><span class="ansi-red-fg">         </span>native_result <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>grads<span class="ansi-blue-fg">[</span>key<span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>natives<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    332</span>         output_key <span class="ansi-blue-fg">=</span> match_output_signature<span class="ansi-blue-fg">(</span>key<span class="ansi-blue-fg">,</span> self<span class="ansi-blue-fg">.</span>recorded_mappings<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    333</span>         <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>get_output<span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/torch/_torch_backend.py</span> in <span class="ansi-cyan-fg">eval_grad</span><span class="ansi-blue-fg">(*args)</span>
+<span class="ansi-green-intense-fg ansi-bold">    638</span>             <span class="ansi-green-fg">for</span> t <span class="ansi-green-fg">in</span> wrt_args<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    639</span>                 <span class="ansi-green-fg">assert</span> t<span class="ansi-blue-fg">.</span>requires_grad
+<span class="ansi-green-fg">--&gt; 640</span><span class="ansi-red-fg">             </span>output <span class="ansi-blue-fg">=</span> f<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>args<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    641</span>             loss<span class="ansi-blue-fg">,</span> aux <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">(</span>output<span class="ansi-blue-fg">[</span><span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">,</span> output<span class="ansi-blue-fg">[</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">:</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">if</span> isinstance<span class="ansi-blue-fg">(</span>output<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">(</span>tuple<span class="ansi-blue-fg">,</span> list<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">else</span> <span class="ansi-blue-fg">(</span>output<span class="ansi-blue-fg">,</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    642</span>             <span class="ansi-green-fg">if</span> loss<span class="ansi-blue-fg">.</span>ndim <span class="ansi-blue-fg">&gt;</span> <span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_functional.py</span> in <span class="ansi-cyan-fg">f_native</span><span class="ansi-blue-fg">(*natives, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">    309</span>             values <span class="ansi-blue-fg">=</span> assemble_tree<span class="ansi-blue-fg">(</span>in_key<span class="ansi-blue-fg">.</span>nest<span class="ansi-blue-fg">,</span> in_tensors<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    310</span>             <span class="ansi-green-fg">assert</span> isinstance<span class="ansi-blue-fg">(</span>values<span class="ansi-blue-fg">,</span> tuple<span class="ansi-blue-fg">)</span>  <span class="ansi-red-fg"># was disassembled from *args</span>
+<span class="ansi-green-fg">--&gt; 311</span><span class="ansi-red-fg">             </span>result <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>f<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>values<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">**</span>in_key<span class="ansi-blue-fg">.</span>kwargs<span class="ansi-blue-fg">)</span>  <span class="ansi-red-fg"># Tensor or tuple/list of Tensors</span>
+<span class="ansi-green-intense-fg ansi-bold">    312</span>             nest<span class="ansi-blue-fg">,</span> out_tensors <span class="ansi-blue-fg">=</span> disassemble_tree<span class="ansi-blue-fg">(</span>result<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    313</span>             result_natives<span class="ansi-blue-fg">,</span> result_shapes <span class="ansi-blue-fg">=</span> disassemble_tensors<span class="ansi-blue-fg">(</span>out_tensors<span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/tmp/ipykernel_1912/112075186.py</span> in <span class="ansi-cyan-fg">simulate</span><span class="ansi-blue-fg">(smoke, velocity)</span>
+<span class="ansi-green-intense-fg ansi-bold">      3</span>     smoke <span class="ansi-blue-fg">=</span> advect<span class="ansi-blue-fg">.</span>mac_cormack<span class="ansi-blue-fg">(</span>smoke<span class="ansi-blue-fg">,</span> velocity<span class="ansi-blue-fg">,</span> dt<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">+</span> INFLOW
+<span class="ansi-green-intense-fg ansi-bold">      4</span>     buoyancy_force <span class="ansi-blue-fg">=</span> smoke <span class="ansi-blue-fg">*</span> <span class="ansi-blue-fg">(</span><span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">0.5</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">&gt;&gt;</span> velocity
+<span class="ansi-green-fg">----&gt; 5</span><span class="ansi-red-fg">     </span>velocity <span class="ansi-blue-fg">=</span> advect<span class="ansi-blue-fg">.</span>semi_lagrangian<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">,</span> velocity<span class="ansi-blue-fg">,</span> dt<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">+</span> buoyancy_force
+<span class="ansi-green-intense-fg ansi-bold">      6</span>     velocity<span class="ansi-blue-fg">,</span> _ <span class="ansi-blue-fg">=</span> fluid<span class="ansi-blue-fg">.</span>make_incompressible<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      7</span>   loss <span class="ansi-blue-fg">=</span> math<span class="ansi-blue-fg">.</span>sum<span class="ansi-blue-fg">(</span>field<span class="ansi-blue-fg">.</span>l2_loss<span class="ansi-blue-fg">(</span>diffuse<span class="ansi-blue-fg">.</span>explicit<span class="ansi-blue-fg">(</span>smoke <span class="ansi-blue-fg">-</span> field<span class="ansi-blue-fg">.</span>stop_gradient<span class="ansi-blue-fg">(</span>smoke<span class="ansi-blue-fg">.</span>inflow_loc<span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">-</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">10</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/physics/advect.py</span> in <span class="ansi-cyan-fg">semi_lagrangian</span><span class="ansi-blue-fg">(field, velocity, dt, integrator)</span>
+<span class="ansi-green-intense-fg ansi-bold">    103</span> 
+<span class="ansi-green-intense-fg ansi-bold">    104</span>     &#34;&#34;&#34;
+<span class="ansi-green-fg">--&gt; 105</span><span class="ansi-red-fg">     </span>lookup <span class="ansi-blue-fg">=</span> integrator<span class="ansi-blue-fg">(</span>field<span class="ansi-blue-fg">.</span>elements<span class="ansi-blue-fg">,</span> velocity<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">-</span>dt<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    106</span>     interpolated <span class="ansi-blue-fg">=</span> reduce_sample<span class="ansi-blue-fg">(</span>field<span class="ansi-blue-fg">,</span> lookup<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    107</span>     <span class="ansi-green-fg">return</span> field<span class="ansi-blue-fg">.</span>with_values<span class="ansi-blue-fg">(</span>interpolated<span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/physics/advect.py</span> in <span class="ansi-cyan-fg">euler</span><span class="ansi-blue-fg">(elements, velocity, dt, v0)</span>
+<span class="ansi-green-intense-fg ansi-bold">     20</span>     <span class="ansi-green-fg">if</span> v0 <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">     21</span>         v0 <span class="ansi-blue-fg">=</span> sample<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">,</span> elements<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">---&gt; 22</span><span class="ansi-red-fg">     </span><span class="ansi-green-fg">return</span> elements<span class="ansi-blue-fg">.</span>shifted<span class="ansi-blue-fg">(</span>v0 <span class="ansi-blue-fg">*</span> dt<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     23</span> 
+<span class="ansi-green-intense-fg ansi-bold">     24</span> 
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/geom/_stack.py</span> in <span class="ansi-cyan-fg">shifted</span><span class="ansi-blue-fg">(self, delta)</span>
+<span class="ansi-green-intense-fg ansi-bold">     54</span> 
+<span class="ansi-green-intense-fg ansi-bold">     55</span>     <span class="ansi-green-fg">def</span> shifted<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> delta<span class="ansi-blue-fg">:</span> math<span class="ansi-blue-fg">.</span>Tensor<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">---&gt; 56</span><span class="ansi-red-fg">         </span>deltas <span class="ansi-blue-fg">=</span> delta<span class="ansi-blue-fg">.</span>dimension<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>stack_dim<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">.</span>unstack<span class="ansi-blue-fg">(</span>len<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>geometries<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     57</span>         geometries <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span>g<span class="ansi-blue-fg">.</span>shifted<span class="ansi-blue-fg">(</span>d<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">for</span> g<span class="ansi-blue-fg">,</span> d <span class="ansi-green-fg">in</span> zip<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>geometries<span class="ansi-blue-fg">,</span> deltas<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">     58</span>         <span class="ansi-green-fg">return</span> GeometryStack<span class="ansi-blue-fg">(</span>geometries<span class="ansi-blue-fg">,</span> self<span class="ansi-blue-fg">.</span>stack_dim<span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">unstack</span><span class="ansi-blue-fg">(self, size)</span>
+<span class="ansi-green-intense-fg ansi-bold">    534</span>         <span class="ansi-green-fg">else</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    535</span>             <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>exists<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 536</span><span class="ansi-red-fg">                 </span>unstacked <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>tensor<span class="ansi-blue-fg">.</span>unstack<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    537</span>                 <span class="ansi-green-fg">assert</span> len<span class="ansi-blue-fg">(</span>unstacked<span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">==</span> size<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">f&#34;Size of dimension {self.name} does not match {size}.&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    538</span>                 result <span class="ansi-blue-fg">=</span> unstacked
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">unstack</span><span class="ansi-blue-fg">(self, dimension)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1064</span>             <span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>tensors
+<span class="ansi-green-intense-fg ansi-bold">   1065</span>         <span class="ansi-green-fg">else</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">-&gt; 1066</span><span class="ansi-red-fg">             </span><span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>requires_broadcast<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">   1067</span>                 unstacked <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span>t<span class="ansi-blue-fg">.</span>unstack<span class="ansi-blue-fg">(</span>dimension<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">for</span> t <span class="ansi-green-fg">in</span> self<span class="ansi-blue-fg">.</span>tensors<span class="ansi-blue-fg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">   1068</span>                 result <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span>TensorStack<span class="ansi-blue-fg">(</span>items<span class="ansi-blue-fg">,</span> self<span class="ansi-blue-fg">.</span>stack_dim<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">for</span> items <span class="ansi-green-fg">in</span> zip<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>unstacked<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">]</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">requires_broadcast</span><span class="ansi-blue-fg">(self)</span>
+<span class="ansi-green-intense-fg ansi-bold">    985</span>     <span class="ansi-blue-fg">@</span>property
+<span class="ansi-green-intense-fg ansi-bold">    986</span>     <span class="ansi-green-fg">def</span> requires_broadcast<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 987</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>_varying_shapes <span class="ansi-green-fg">or</span> <span class="ansi-green-fg">not</span> self<span class="ansi-blue-fg">.</span>_shape<span class="ansi-blue-fg">.</span>well_defined <span class="ansi-green-fg">or</span> self<span class="ansi-blue-fg">.</span>_is_tracer
+<span class="ansi-green-intense-fg ansi-bold">    988</span> 
+<span class="ansi-green-intense-fg ansi-bold">    989</span>     <span class="ansi-green-fg">def</span> _cache<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_shape.py</span> in <span class="ansi-cyan-fg">well_defined</span><span class="ansi-blue-fg">(self)</span>
+<span class="ansi-green-intense-fg ansi-bold">    571</span>         <span class="ansi-green-fg">with</span> positional<span class="ansi-red-fg"> </span><span class="ansi-red-fg">`</span>str<span class="ansi-red-fg">`</span> arguments<span class="ansi-blue-fg">,</span> e<span class="ansi-blue-fg">.</span>g<span class="ansi-blue-fg">.</span><span class="ansi-red-fg"> </span><span class="ansi-red-fg">`</span>spatial<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#39;x&#39;</span><span class="ansi-blue-fg">)</span><span class="ansi-red-fg">`</span><span class="ansi-blue-fg">.</span>
+<span class="ansi-green-intense-fg ansi-bold">    572</span>         &#34;&#34;&#34;
+<span class="ansi-green-fg">--&gt; 573</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> <span class="ansi-green-fg">None</span> <span class="ansi-green-fg">not</span> <span class="ansi-green-fg">in</span> self<span class="ansi-blue-fg">.</span>sizes
+<span class="ansi-green-intense-fg ansi-bold">    574</span> 
+<span class="ansi-green-intense-fg ansi-bold">    575</span>     <span class="ansi-blue-fg">@</span>property
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">__eq__</span><span class="ansi-blue-fg">(self, other)</span>
+<span class="ansi-green-intense-fg ansi-bold">    397</span> 
+<span class="ansi-green-intense-fg ansi-bold">    398</span>     <span class="ansi-green-fg">def</span> __eq__<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> other<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 399</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>_op2<span class="ansi-blue-fg">(</span>other<span class="ansi-blue-fg">,</span> <span class="ansi-green-fg">lambda</span> x<span class="ansi-blue-fg">,</span> y<span class="ansi-blue-fg">:</span> x <span class="ansi-blue-fg">==</span> y<span class="ansi-blue-fg">,</span> <span class="ansi-green-fg">lambda</span> x<span class="ansi-blue-fg">,</span> y<span class="ansi-blue-fg">:</span> choose_backend<span class="ansi-blue-fg">(</span>x<span class="ansi-blue-fg">,</span> y<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">.</span>equal<span class="ansi-blue-fg">(</span>x<span class="ansi-blue-fg">,</span> y<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    400</span> 
+<span class="ansi-green-intense-fg ansi-bold">    401</span>     <span class="ansi-green-fg">def</span> __ne__<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> other<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">_op2</span><span class="ansi-blue-fg">(self, other, operator, native_function)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1079</span> 
+<span class="ansi-green-intense-fg ansi-bold">   1080</span>     <span class="ansi-green-fg">def</span> _op2<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> other<span class="ansi-blue-fg">,</span> operator<span class="ansi-blue-fg">,</span> native_function<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">-&gt; 1081</span><span class="ansi-red-fg">         </span>other <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>_tensor<span class="ansi-blue-fg">(</span>other<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1082</span>         <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>requires_broadcast<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">   1083</span>             <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>stack_dim<span class="ansi-blue-fg">.</span>name <span class="ansi-green-fg">in</span> other<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">_tensor</span><span class="ansi-blue-fg">(self, other)</span>
+<span class="ansi-green-intense-fg ansi-bold">    441</span> 
+<span class="ansi-green-intense-fg ansi-bold">    442</span>     <span class="ansi-green-fg">def</span> _tensor<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> other<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 443</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> compatible_tensor<span class="ansi-blue-fg">(</span>other<span class="ansi-blue-fg">,</span> compat_shape<span class="ansi-blue-fg">=</span>self<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">,</span> compat_natives<span class="ansi-blue-fg">=</span>self<span class="ansi-blue-fg">.</span>_natives<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> convert<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">False</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    444</span> 
+<span class="ansi-green-intense-fg ansi-bold">    445</span>     <span class="ansi-green-fg">def</span> _op1<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> native_function<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">compatible_tensor</span><span class="ansi-blue-fg">(data, compat_shape, compat_natives, convert)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1260</span>         <span class="ansi-green-fg">return</span> wrap<span class="ansi-blue-fg">(</span>data<span class="ansi-blue-fg">.</span>spatial<span class="ansi-blue-fg">.</span>sizes<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">*</span>compat_shape<span class="ansi-blue-fg">.</span>channel<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1261</span>     <span class="ansi-green-fg">else</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">-&gt; 1262</span><span class="ansi-red-fg">         </span>backend <span class="ansi-blue-fg">=</span> choose_backend<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>compat_natives<span class="ansi-blue-fg">,</span> data<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1263</span>         <span class="ansi-green-fg">try</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">   1264</span>             other_tensor <span class="ansi-blue-fg">=</span> backend<span class="ansi-blue-fg">.</span>as_tensor<span class="ansi-blue-fg">(</span>data<span class="ansi-blue-fg">,</span> convert_external<span class="ansi-blue-fg">=</span>convert<span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/backend/_backend.py</span> in <span class="ansi-cyan-fg">choose_backend</span><span class="ansi-blue-fg">(prefer_default, *values)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1037</span>     backends <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span>backend <span class="ansi-green-fg">for</span> backend <span class="ansi-green-fg">in</span> BACKENDS <span class="ansi-green-fg">if</span> _is_applicable<span class="ansi-blue-fg">(</span>backend<span class="ansi-blue-fg">,</span> values<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">   1038</span>     <span class="ansi-green-fg">if</span> len<span class="ansi-blue-fg">(</span>backends<span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">==</span> <span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">-&gt; 1039</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">raise</span> NoBackendFound<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">f&#34;No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1040</span>     <span class="ansi-red-fg"># --- Native tensors? ---</span>
+<span class="ansi-green-intense-fg ansi-bold">   1041</span>     <span class="ansi-green-fg">for</span> backend <span class="ansi-green-fg">in</span> backends<span class="ansi-blue-fg">:</span>
+
+<span class="ansi-red-fg">NoBackendFound</span>: No backend found for types [&#39;int&#39;, &#39;int&#39;, &#39;NoneType&#39;]; registered backends are [NumPy, PyTorch]</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>With the gradient, we can easily perform basic gradient descent optimization.
+For more advanced optimization techniques and neural network training, see the <a href="https://tum-pbs.github.io/PhiFlow/Optimization.html">optimization documentation</a>.</p>
+
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[15]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initial loss: </span><span class="si">{</span><span class="n">simulate</span><span class="p">(</span><span class="n">initial_smoke</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">initial_velocity</span> <span class="o">-=</span> <span class="mf">0.001</span> <span class="o">*</span> <span class="n">velocity_grad</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Next loss: </span><span class="si">{</span><span class="n">simulate</span><span class="p">(</span><span class="n">initial_smoke</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">NoBackendFound</span>                            Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_1912/3211461280.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-fg">----&gt; 1</span><span class="ansi-red-fg"> </span>print<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">f&#34;Initial loss: {simulate(initial_smoke, initial_velocity)[0]}&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      2</span> initial_velocity <span class="ansi-blue-fg">-=</span> <span class="ansi-cyan-fg">0.001</span> <span class="ansi-blue-fg">*</span> velocity_grad
+<span class="ansi-green-intense-fg ansi-bold">      3</span> print<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">f&#34;Next loss: {simulate(initial_smoke, initial_velocity)[0]}&#34;</span><span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/tmp/ipykernel_1912/112075186.py</span> in <span class="ansi-cyan-fg">simulate</span><span class="ansi-blue-fg">(smoke, velocity)</span>
+<span class="ansi-green-intense-fg ansi-bold">      3</span>     smoke <span class="ansi-blue-fg">=</span> advect<span class="ansi-blue-fg">.</span>mac_cormack<span class="ansi-blue-fg">(</span>smoke<span class="ansi-blue-fg">,</span> velocity<span class="ansi-blue-fg">,</span> dt<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">+</span> INFLOW
+<span class="ansi-green-intense-fg ansi-bold">      4</span>     buoyancy_force <span class="ansi-blue-fg">=</span> smoke <span class="ansi-blue-fg">*</span> <span class="ansi-blue-fg">(</span><span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">0.5</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">&gt;&gt;</span> velocity
+<span class="ansi-green-fg">----&gt; 5</span><span class="ansi-red-fg">     </span>velocity <span class="ansi-blue-fg">=</span> advect<span class="ansi-blue-fg">.</span>semi_lagrangian<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">,</span> velocity<span class="ansi-blue-fg">,</span> dt<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">+</span> buoyancy_force
+<span class="ansi-green-intense-fg ansi-bold">      6</span>     velocity<span class="ansi-blue-fg">,</span> _ <span class="ansi-blue-fg">=</span> fluid<span class="ansi-blue-fg">.</span>make_incompressible<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      7</span>   loss <span class="ansi-blue-fg">=</span> math<span class="ansi-blue-fg">.</span>sum<span class="ansi-blue-fg">(</span>field<span class="ansi-blue-fg">.</span>l2_loss<span class="ansi-blue-fg">(</span>diffuse<span class="ansi-blue-fg">.</span>explicit<span class="ansi-blue-fg">(</span>smoke <span class="ansi-blue-fg">-</span> field<span class="ansi-blue-fg">.</span>stop_gradient<span class="ansi-blue-fg">(</span>smoke<span class="ansi-blue-fg">.</span>inflow_loc<span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">-</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">10</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/physics/advect.py</span> in <span class="ansi-cyan-fg">semi_lagrangian</span><span class="ansi-blue-fg">(field, velocity, dt, integrator)</span>
+<span class="ansi-green-intense-fg ansi-bold">    103</span> 
+<span class="ansi-green-intense-fg ansi-bold">    104</span>     &#34;&#34;&#34;
+<span class="ansi-green-fg">--&gt; 105</span><span class="ansi-red-fg">     </span>lookup <span class="ansi-blue-fg">=</span> integrator<span class="ansi-blue-fg">(</span>field<span class="ansi-blue-fg">.</span>elements<span class="ansi-blue-fg">,</span> velocity<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">-</span>dt<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    106</span>     interpolated <span class="ansi-blue-fg">=</span> reduce_sample<span class="ansi-blue-fg">(</span>field<span class="ansi-blue-fg">,</span> lookup<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    107</span>     <span class="ansi-green-fg">return</span> field<span class="ansi-blue-fg">.</span>with_values<span class="ansi-blue-fg">(</span>interpolated<span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/physics/advect.py</span> in <span class="ansi-cyan-fg">euler</span><span class="ansi-blue-fg">(elements, velocity, dt, v0)</span>
+<span class="ansi-green-intense-fg ansi-bold">     20</span>     <span class="ansi-green-fg">if</span> v0 <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">     21</span>         v0 <span class="ansi-blue-fg">=</span> sample<span class="ansi-blue-fg">(</span>velocity<span class="ansi-blue-fg">,</span> elements<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">---&gt; 22</span><span class="ansi-red-fg">     </span><span class="ansi-green-fg">return</span> elements<span class="ansi-blue-fg">.</span>shifted<span class="ansi-blue-fg">(</span>v0 <span class="ansi-blue-fg">*</span> dt<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     23</span> 
+<span class="ansi-green-intense-fg ansi-bold">     24</span> 
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/geom/_stack.py</span> in <span class="ansi-cyan-fg">shifted</span><span class="ansi-blue-fg">(self, delta)</span>
+<span class="ansi-green-intense-fg ansi-bold">     54</span> 
+<span class="ansi-green-intense-fg ansi-bold">     55</span>     <span class="ansi-green-fg">def</span> shifted<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> delta<span class="ansi-blue-fg">:</span> math<span class="ansi-blue-fg">.</span>Tensor<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">---&gt; 56</span><span class="ansi-red-fg">         </span>deltas <span class="ansi-blue-fg">=</span> delta<span class="ansi-blue-fg">.</span>dimension<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>stack_dim<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">.</span>unstack<span class="ansi-blue-fg">(</span>len<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>geometries<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     57</span>         geometries <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span>g<span class="ansi-blue-fg">.</span>shifted<span class="ansi-blue-fg">(</span>d<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">for</span> g<span class="ansi-blue-fg">,</span> d <span class="ansi-green-fg">in</span> zip<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>geometries<span class="ansi-blue-fg">,</span> deltas<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">     58</span>         <span class="ansi-green-fg">return</span> GeometryStack<span class="ansi-blue-fg">(</span>geometries<span class="ansi-blue-fg">,</span> self<span class="ansi-blue-fg">.</span>stack_dim<span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">unstack</span><span class="ansi-blue-fg">(self, size)</span>
+<span class="ansi-green-intense-fg ansi-bold">    534</span>         <span class="ansi-green-fg">else</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    535</span>             <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>exists<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 536</span><span class="ansi-red-fg">                 </span>unstacked <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>tensor<span class="ansi-blue-fg">.</span>unstack<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    537</span>                 <span class="ansi-green-fg">assert</span> len<span class="ansi-blue-fg">(</span>unstacked<span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">==</span> size<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">f&#34;Size of dimension {self.name} does not match {size}.&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    538</span>                 result <span class="ansi-blue-fg">=</span> unstacked
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">unstack</span><span class="ansi-blue-fg">(self, dimension)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1064</span>             <span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>tensors
+<span class="ansi-green-intense-fg ansi-bold">   1065</span>         <span class="ansi-green-fg">else</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">-&gt; 1066</span><span class="ansi-red-fg">             </span><span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>requires_broadcast<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">   1067</span>                 unstacked <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span>t<span class="ansi-blue-fg">.</span>unstack<span class="ansi-blue-fg">(</span>dimension<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">for</span> t <span class="ansi-green-fg">in</span> self<span class="ansi-blue-fg">.</span>tensors<span class="ansi-blue-fg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">   1068</span>                 result <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span>TensorStack<span class="ansi-blue-fg">(</span>items<span class="ansi-blue-fg">,</span> self<span class="ansi-blue-fg">.</span>stack_dim<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">for</span> items <span class="ansi-green-fg">in</span> zip<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>unstacked<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">]</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">requires_broadcast</span><span class="ansi-blue-fg">(self)</span>
+<span class="ansi-green-intense-fg ansi-bold">    985</span>     <span class="ansi-blue-fg">@</span>property
+<span class="ansi-green-intense-fg ansi-bold">    986</span>     <span class="ansi-green-fg">def</span> requires_broadcast<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 987</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>_varying_shapes <span class="ansi-green-fg">or</span> <span class="ansi-green-fg">not</span> self<span class="ansi-blue-fg">.</span>_shape<span class="ansi-blue-fg">.</span>well_defined <span class="ansi-green-fg">or</span> self<span class="ansi-blue-fg">.</span>_is_tracer
+<span class="ansi-green-intense-fg ansi-bold">    988</span> 
+<span class="ansi-green-intense-fg ansi-bold">    989</span>     <span class="ansi-green-fg">def</span> _cache<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_shape.py</span> in <span class="ansi-cyan-fg">well_defined</span><span class="ansi-blue-fg">(self)</span>
+<span class="ansi-green-intense-fg ansi-bold">    571</span>         <span class="ansi-green-fg">with</span> positional<span class="ansi-red-fg"> </span><span class="ansi-red-fg">`</span>str<span class="ansi-red-fg">`</span> arguments<span class="ansi-blue-fg">,</span> e<span class="ansi-blue-fg">.</span>g<span class="ansi-blue-fg">.</span><span class="ansi-red-fg"> </span><span class="ansi-red-fg">`</span>spatial<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#39;x&#39;</span><span class="ansi-blue-fg">)</span><span class="ansi-red-fg">`</span><span class="ansi-blue-fg">.</span>
+<span class="ansi-green-intense-fg ansi-bold">    572</span>         &#34;&#34;&#34;
+<span class="ansi-green-fg">--&gt; 573</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> <span class="ansi-green-fg">None</span> <span class="ansi-green-fg">not</span> <span class="ansi-green-fg">in</span> self<span class="ansi-blue-fg">.</span>sizes
+<span class="ansi-green-intense-fg ansi-bold">    574</span> 
+<span class="ansi-green-intense-fg ansi-bold">    575</span>     <span class="ansi-blue-fg">@</span>property
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">__eq__</span><span class="ansi-blue-fg">(self, other)</span>
+<span class="ansi-green-intense-fg ansi-bold">    397</span> 
+<span class="ansi-green-intense-fg ansi-bold">    398</span>     <span class="ansi-green-fg">def</span> __eq__<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> other<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 399</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>_op2<span class="ansi-blue-fg">(</span>other<span class="ansi-blue-fg">,</span> <span class="ansi-green-fg">lambda</span> x<span class="ansi-blue-fg">,</span> y<span class="ansi-blue-fg">:</span> x <span class="ansi-blue-fg">==</span> y<span class="ansi-blue-fg">,</span> <span class="ansi-green-fg">lambda</span> x<span class="ansi-blue-fg">,</span> y<span class="ansi-blue-fg">:</span> choose_backend<span class="ansi-blue-fg">(</span>x<span class="ansi-blue-fg">,</span> y<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">.</span>equal<span class="ansi-blue-fg">(</span>x<span class="ansi-blue-fg">,</span> y<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    400</span> 
+<span class="ansi-green-intense-fg ansi-bold">    401</span>     <span class="ansi-green-fg">def</span> __ne__<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> other<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">_op2</span><span class="ansi-blue-fg">(self, other, operator, native_function)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1079</span> 
+<span class="ansi-green-intense-fg ansi-bold">   1080</span>     <span class="ansi-green-fg">def</span> _op2<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> other<span class="ansi-blue-fg">,</span> operator<span class="ansi-blue-fg">,</span> native_function<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">-&gt; 1081</span><span class="ansi-red-fg">         </span>other <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>_tensor<span class="ansi-blue-fg">(</span>other<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1082</span>         <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>requires_broadcast<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">   1083</span>             <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>stack_dim<span class="ansi-blue-fg">.</span>name <span class="ansi-green-fg">in</span> other<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">_tensor</span><span class="ansi-blue-fg">(self, other)</span>
+<span class="ansi-green-intense-fg ansi-bold">    441</span> 
+<span class="ansi-green-intense-fg ansi-bold">    442</span>     <span class="ansi-green-fg">def</span> _tensor<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> other<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 443</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> compatible_tensor<span class="ansi-blue-fg">(</span>other<span class="ansi-blue-fg">,</span> compat_shape<span class="ansi-blue-fg">=</span>self<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">,</span> compat_natives<span class="ansi-blue-fg">=</span>self<span class="ansi-blue-fg">.</span>_natives<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> convert<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">False</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    444</span> 
+<span class="ansi-green-intense-fg ansi-bold">    445</span>     <span class="ansi-green-fg">def</span> _op1<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> native_function<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/_tensors.py</span> in <span class="ansi-cyan-fg">compatible_tensor</span><span class="ansi-blue-fg">(data, compat_shape, compat_natives, convert)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1260</span>         <span class="ansi-green-fg">return</span> wrap<span class="ansi-blue-fg">(</span>data<span class="ansi-blue-fg">.</span>spatial<span class="ansi-blue-fg">.</span>sizes<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">*</span>compat_shape<span class="ansi-blue-fg">.</span>channel<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1261</span>     <span class="ansi-green-fg">else</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">-&gt; 1262</span><span class="ansi-red-fg">         </span>backend <span class="ansi-blue-fg">=</span> choose_backend<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>compat_natives<span class="ansi-blue-fg">,</span> data<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1263</span>         <span class="ansi-green-fg">try</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">   1264</span>             other_tensor <span class="ansi-blue-fg">=</span> backend<span class="ansi-blue-fg">.</span>as_tensor<span class="ansi-blue-fg">(</span>data<span class="ansi-blue-fg">,</span> convert_external<span class="ansi-blue-fg">=</span>convert<span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/math/backend/_backend.py</span> in <span class="ansi-cyan-fg">choose_backend</span><span class="ansi-blue-fg">(prefer_default, *values)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1037</span>     backends <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span>backend <span class="ansi-green-fg">for</span> backend <span class="ansi-green-fg">in</span> BACKENDS <span class="ansi-green-fg">if</span> _is_applicable<span class="ansi-blue-fg">(</span>backend<span class="ansi-blue-fg">,</span> values<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">   1038</span>     <span class="ansi-green-fg">if</span> len<span class="ansi-blue-fg">(</span>backends<span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">==</span> <span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">-&gt; 1039</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">raise</span> NoBackendFound<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">f&#34;No backend found for types {[type(v).__name__ for v in values]}; registered backends are {BACKENDS}&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1040</span>     <span class="ansi-red-fg"># --- Native tensors? ---</span>
+<span class="ansi-green-intense-fg ansi-bold">   1041</span>     <span class="ansi-green-fg">for</span> backend <span class="ansi-green-fg">in</span> backends<span class="ansi-blue-fg">:</span>
+
+<span class="ansi-red-fg">NoBackendFound</span>: No backend found for types [&#39;int&#39;, &#39;int&#39;, &#39;NoneType&#39;]; registered backends are [NumPy, PyTorch]</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[16]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sim_grad</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">functional_gradient</span><span class="p">(</span><span class="n">simulate</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">get_output</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">opt_step</span> <span class="ow">in</span> <span class="n">view</span><span class="p">(</span><span class="s1">&#39;final_smoke&#39;</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">,</span> <span class="n">select</span><span class="o">=</span><span class="s1">&#39;frames&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+  <span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">final_smoke</span><span class="p">,</span> <span class="n">_v</span><span class="p">),</span> <span class="p">(</span><span class="n">velocity_grad</span><span class="p">,)</span> <span class="o">=</span> <span class="n">sim_grad</span><span class="p">(</span><span class="n">initial_smoke</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">opt_step</span><span class="si">}</span><span class="s2">, loss: </span><span class="si">{</span><span class="n">loss</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+  <span class="n">initial_velocity</span> <span class="o">-=</span> <span class="mf">0.001</span> <span class="o">*</span> <span class="n">velocity_grad</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/vis/_vis_base.py:335: UserWarning: widgets user interface is unavailable because of missing dependency: No module named &#39;ipywidgets&#39;.
+  warnings.warn(f&#34;{option} user interface is unavailable because of missing dependency: {import_error}.&#34;)
+</pre>
+</div>
+</div>
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">RuntimeError</span>                              Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_1912/1617038929.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-intense-fg ansi-bold">      1</span> sim_grad <span class="ansi-blue-fg">=</span> field<span class="ansi-blue-fg">.</span>functional_gradient<span class="ansi-blue-fg">(</span>simulate<span class="ansi-blue-fg">,</span> wrt<span class="ansi-blue-fg">=</span><span class="ansi-blue-fg">[</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">,</span> get_output<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">True</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      2</span> 
+<span class="ansi-green-fg">----&gt; 3</span><span class="ansi-red-fg"> </span><span class="ansi-green-fg">for</span> opt_step <span class="ansi-green-fg">in</span> view<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#39;final_smoke&#39;</span><span class="ansi-blue-fg">,</span> initial_velocity<span class="ansi-blue-fg">,</span> select<span class="ansi-blue-fg">=</span><span class="ansi-blue-fg">&#39;frames&#39;</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">.</span>range<span class="ansi-blue-fg">(</span>frames<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">4</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">      4</span>   <span class="ansi-blue-fg">(</span>loss<span class="ansi-blue-fg">,</span> final_smoke<span class="ansi-blue-fg">,</span> _v<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">(</span>velocity_grad<span class="ansi-blue-fg">,</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">=</span> sim_grad<span class="ansi-blue-fg">(</span>initial_smoke<span class="ansi-blue-fg">,</span> initial_velocity<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      5</span>   print<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">f&#34;Step {opt_step}, loss: {loss}&#34;</span><span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/vis/_vis.py</span> in <span class="ansi-cyan-fg">view</span><span class="ansi-blue-fg">(play, gui, name, description, scene, keep_alive, select, framerate, *fields, **config)</span>
+<span class="ansi-green-intense-fg ansi-bold">    114</span>     name <span class="ansi-blue-fg">=</span> name <span class="ansi-green-fg">or</span> user_namespace<span class="ansi-blue-fg">.</span>get_title<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    115</span>     description <span class="ansi-blue-fg">=</span> description <span class="ansi-green-fg">or</span> user_namespace<span class="ansi-blue-fg">.</span>get_description<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 116</span><span class="ansi-red-fg">     </span>gui <span class="ansi-blue-fg">=</span> default_gui<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">if</span> gui <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span> <span class="ansi-green-fg">else</span> get_gui<span class="ansi-blue-fg">(</span>gui<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    117</span>     controls <span class="ansi-blue-fg">=</span> tuple<span class="ansi-blue-fg">(</span>c <span class="ansi-green-fg">for</span> c <span class="ansi-green-fg">in</span> sorted<span class="ansi-blue-fg">(</span>CONTROL_VARS<span class="ansi-blue-fg">.</span>values<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> key<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">lambda</span> c<span class="ansi-blue-fg">:</span> c<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">if</span> user_namespace<span class="ansi-blue-fg">.</span>get_variable<span class="ansi-blue-fg">(</span>c<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">)</span> <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">not</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    118</span>     CONTROL_VARS<span class="ansi-blue-fg">.</span>clear<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.9.6/x64/lib/python3.9/site-packages/phi/vis/_vis_base.py</span> in <span class="ansi-cyan-fg">default_gui</span><span class="ansi-blue-fg">()</span>
+<span class="ansi-green-intense-fg ansi-bold">    334</span>         <span class="ansi-green-fg">except</span> ImportError <span class="ansi-green-fg">as</span> import_error<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    335</span>             warnings<span class="ansi-blue-fg">.</span>warn<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">f&#34;{option} user interface is unavailable because of missing dependency: {import_error}.&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 336</span><span class="ansi-red-fg">     </span><span class="ansi-green-fg">raise</span> RuntimeError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;No user interface available.&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    337</span> 
+<span class="ansi-green-intense-fg ansi-bold">    338</span> 
+
+<span class="ansi-red-fg">RuntimeError</span>: No user interface available.</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell-inputWrapper"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>This notebook provided an introduction to running fluid simulations in NumPy and TensorFlow.
+It demonstrated how to obtain simulation gradients which can be used to optimize physical variables or train neural networks.</p>
+<p>The full Φ<sub>Flow</sub> documentation is available at <a href="https://tum-pbs.github.io/PhiFlow/">https://tum-pbs.github.io/PhiFlow/</a>.</p>
+<p>Visit the <a href="https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&amp;sandboxMode=true">playground</a> to run Φ<sub>Flow</sub> code in an empty notebook.</p>
 
 </div>
 </div>
