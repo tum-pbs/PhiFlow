@@ -328,6 +328,12 @@ class StaggeredGrid(Grid):
         return math.stack(channels, channel('vector'))
 
     def at_centers(self) -> CenteredGrid:
+        """
+        Interpolates the staggered values to the cell centers.
+
+        Returns:
+            `CenteredGrid` sampled at cell centers.
+        """
         return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
     def __getitem__(self, item: dict):
