@@ -8653,7 +8653,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def _summary_str(self) -&gt; str:
         try:
-            from ._ops import all_available, min_, max_, sum_
+            from ._ops import all_available
             if all_available(self):
                 if self.rank == 0:
                     return str(self.numpy())
@@ -8667,13 +8667,13 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                     return f&#34;{self.shape} {self.dtype}  {content}&#34;
                 else:
                     if self.dtype.kind in (float, int):
-                        min_val, max_val = min_(self), max_(self)
+                        min_val, max_val = self.min, self.max
                         return f&#34;{self.shape} {self.dtype}  {min_val} &lt; ... &lt; {max_val}&#34;
                     elif self.dtype.kind == complex:
-                        max_val = max_(abs(self))
+                        max_val = abs(self).max
                         return f&#34;{self.shape} {self.dtype} |...| &lt; {max_val}&#34;
                     elif self.dtype.kind == bool:
-                        return f&#34;{self.shape} {sum_(self)} / {self.shape.volume} True&#34;
+                        return f&#34;{self.shape} {self.sum} / {self.shape.volume} True&#34;
                     else:
                         return f&#34;{self.shape} {self.dtype}&#34;
             else:
