@@ -216,11 +216,15 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
         `SampledField` matching the first `SampledField` in `inputs`.
     """
     input_tensors = [i.values if isinstance(i, SampledField) else math.tensor(i) for i in inputs]
-    result = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
+    values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
-            return i.with_values(values=result).with_extrapolation(extrapolation)
-    return result
+            result = i.with_values(values=values)
+            if extrapolation is not None:
+                result = result.with_extrapolation(extrapolation)
+            return result
+    else:
+        raise AssertionError("At least one input must be a SampledField.")
 
 
 def data_bounds(field: SampledField):
