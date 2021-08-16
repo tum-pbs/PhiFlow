@@ -269,8 +269,11 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
     if isinstance(output, (tuple, list)):
         raise NotImplementedError()
     else:
-        groups = (batch, *spatial.names, channel_dim) if channels_last else (batch, channel_dim, *spatial.names)
-        return reshaped_tensor(output, groups)
+        groups = (batch, *spatial, channel(channel_dim)) if channels_last else (batch, channel(channel_dim), *spatial)
+        result = reshaped_tensor(output, groups)
+        if result.shape.get_size(channel_dim) == 1:
+            result = result.dimension(channel_dim)[0]  # remove vector dim if not required
+        return result
 
 
 def print_(obj: Tensor or TensorLike or Number or tuple or list or None = None, name: str = ""):
