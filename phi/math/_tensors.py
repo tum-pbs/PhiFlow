@@ -991,9 +991,18 @@ class TensorStack(Tensor):
         if self._cached is None:
             if self.requires_broadcast:
                 return None
-            natives = [t.native(order=self._shape.names) for t in self.tensors]
-            native = choose_backend(*natives).concat(natives, axis=self.shape.index(self.stack_dim.name))
-            self._cached = NativeTensor(native, self._shape)
+            elif all([t.shape.is_uniform for t in self.tensors]):
+                natives = [t.native(order=self._shape.names) for t in self.tensors]
+                native = choose_backend(*natives).concat(natives, axis=self.shape.index(self.stack_dim.name))
+                self._cached = NativeTensor(native, self._shape)
+            else:  # cache stack_dim on inner tensors
+                non_uniform_dim = self.tensors[0].shape.shape.without('dims')
+                unstacked = [t.unstack(non_uniform_dim.name) for t in self.tensors]
+                stacked = []
+                for to_stack in zip(*unstacked):
+                    tensor = TensorStack(to_stack, self.stack_dim)._cache()
+                    stacked.append(tensor)
+                self._cached = TensorStack(stacked, non_uniform_dim)
         return self._cached
 
     @property
