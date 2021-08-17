@@ -2121,13 +2121,21 @@ If <code>None</code>, performs the inverse FFT along all spatial dimensions of <
 </code></dt>
 <dd>
 <div class="desc"><p>Compiles a graph based on the function <code>f</code>.
-The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.</p>
+The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.</p>
 <p>The traced function will compute the same result as <code>f</code> but may run much faster.
 Some checks may be disabled in the compiled function.</p>
 <p>Can be used as a decorator:</p>
 <pre><code class="language-python">@math.jit_compile
 def my_function(x: math.Tensor) -&gt; math.Tensor:
 </code></pre>
+<p>Invoking the returned function may invoke re-tracing / re-compiling <code>f</code> after the first call if either</p>
+<ul>
+<li>it is called with a different number of arguments,</li>
+<li>the keyword arguments differ from previous invocations,</li>
+<li>the positional tensor arguments have different dimension names or types (the dimension order also counts),</li>
+<li>any positional <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> arguments require a different backend than previous invocations,</li>
+<li><code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> positional arguments do not match in non-variable properties.</li>
+</ul>
 <p>Compilation is implemented for the following backends:</p>
 <ul>
 <li>PyTorch: <a href="https://pytorch.org/docs/stable/jit.html"><code>torch.jit.trace</code></a></li>
@@ -2153,7 +2161,7 @@ All positional arguments must be of type <code><a title="phi.math.Tensor" href="
 <pre><code class="python">def jit_compile(f: Callable) -&gt; Callable:
     &#34;&#34;&#34;
     Compiles a graph based on the function `f`.
-    The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.
+    The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.
 
     The traced function will compute the same result as `f` but may run much faster.
     Some checks may be disabled in the compiled function.
@@ -2163,6 +2171,14 @@ All positional arguments must be of type <code><a title="phi.math.Tensor" href="
     @math.jit_compile
     def my_function(x: math.Tensor) -&gt; math.Tensor:
     ```
+
+    Invoking the returned function may invoke re-tracing / re-compiling `f` after the first call if either
+
+    * it is called with a different number of arguments,
+    * the keyword arguments differ from previous invocations,
+    * the positional tensor arguments have different dimension names or types (the dimension order also counts),
+    * any positional `Tensor` arguments require a different backend than previous invocations,
+    * `TensorLike` positional arguments do not match in non-variable properties.
 
     Compilation is implemented for the following backends:
 
@@ -6575,7 +6591,6 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         return tuple(mask)
 
     def __repr__(self):
-        TYPE_ABBR = {SPATIAL_DIM: &#34;ˢ&#34;, CHANNEL_DIM: &#34;ᵛ&#34;, COLLECTION_DIM: &#34;ᶜ&#34;, BATCH_DIM: &#34;ᵇ&#34;}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
         strings = [f&#34;{name}{TYPE_ABBR.get(dim_type, &#39;&#39;)}={size}&#34; for size, name, dim_type in self._dimensions]
         return &#39;(&#39; + &#39;, &#39;.join(strings) + &#39;)&#39;
 
@@ -6752,7 +6767,10 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `collection()`)
         with positional `str` arguments, e.g. `spatial(&#39;x&#39;)`.
         &#34;&#34;&#34;
-        return None not in self.sizes
+        for size in self.sizes:
+            if size is None:
+                return False
+        return True
 
     @property
     def shape(self) -&gt; &#39;Shape&#39;:
@@ -7498,7 +7516,10 @@ def well_defined(self):
     To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `collection()`)
     with positional `str` arguments, e.g. `spatial(&#39;x&#39;)`.
     &#34;&#34;&#34;
-    return None not in self.sizes</code></pre>
+    for size in self.sizes:
+        if size is None:
+            return False
+    return True</code></pre>
 </details>
 </dd>
 </dl>
@@ -8664,9 +8685,9 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                     content = list(np.reshape(self.numpy(self.shape.names), [-1]))
                     content = &#39;, &#39;.join([repr(number) for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
-                        if self.shape.name == &#39;vector&#39;:
+                        if self.shape.name == &#39;vector&#39; and self.shape.type == CHANNEL_DIM:
                             return f&#34;({content})&#34;
-                        return f&#34;({content}) along {self.shape.name}&#34;
+                        return f&#34;({content}) along {self.shape.name}{TYPE_ABBR[self.shape.type]}&#34;
                     return f&#34;{self.shape} {self.dtype}  {content}&#34;
                 else:
                     if self.dtype.kind in (float, int):
