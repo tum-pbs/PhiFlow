@@ -5,6 +5,7 @@ from typing import Tuple, Callable, List, TypeVar
 
 import numpy as np
 
+from phi.math._shape import TYPE_ABBR
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
@@ -201,9 +202,9 @@ class Tensor:
                     content = list(np.reshape(self.numpy(self.shape.names), [-1]))
                     content = ', '.join([repr(number) for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
-                        if self.shape.name == 'vector':
+                        if self.shape.name == 'vector' and self.shape.type == CHANNEL_DIM:
                             return f"({content})"
-                        return f"({content}) along {self.shape.name}"
+                        return f"({content}) along {self.shape.name}{TYPE_ABBR[self.shape.type]}"
                     return f"{self.shape} {self.dtype}  {content}"
                 else:
                     if self.dtype.kind in (float, int):

@@ -7,6 +7,7 @@ from phi import math
 from phi.math import channel, batch
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor
+from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
 
@@ -173,6 +174,24 @@ class TestTensors(TestCase):
         self.assertEqual(math.ones(nonuniform).shape, nonuniform)
         self.assertEqual(math.random_normal(nonuniform).shape, nonuniform)
         self.assertEqual(math.random_uniform(nonuniform).shape, nonuniform)
+
+    def test_repr(self):
+        print("--- Eager ---")
+        print(repr(math.zeros(batch(b=10))))
+        print(repr(math.zeros(batch(b=10)) > 0))
+        print(repr(math.ones(channel(vector=3))))
+        print(repr(math.ones(batch(vector=3))))
+
+        def tracable(x):
+            print(x)
+            return x
+
+        print("--- Placeholders ---")
+        for backend in BACKENDS:
+            if backend.supports(Backend.jit_compile):
+                with backend:
+                    math.jit_compile(tracable)(math.ones(channel(vector=3)))
+
 
     def test_tensor_like(self):
 
