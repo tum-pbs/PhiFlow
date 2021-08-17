@@ -570,7 +570,10 @@ class Shape:
         To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `collection()`)
         with positional `str` arguments, e.g. `spatial('x')`.
         """
-        return None not in self.sizes
+        for size in self.sizes:
+            if size is None:
+                return False
+        return True
 
     @property
     def shape(self) -> 'Shape':
