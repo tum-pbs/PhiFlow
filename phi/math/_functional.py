@@ -146,7 +146,7 @@ class JitFunction:
 def jit_compile(f: Callable) -> Callable:
     """
     Compiles a graph based on the function `f`.
-    The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.
+    The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.
 
     The traced function will compute the same result as `f` but may run much faster.
     Some checks may be disabled in the compiled function.
@@ -156,6 +156,14 @@ def jit_compile(f: Callable) -> Callable:
     @math.jit_compile
     def my_function(x: math.Tensor) -> math.Tensor:
     ```
+
+    Invoking the returned function may invoke re-tracing / re-compiling `f` after the first call if either
+
+    * it is called with a different number of arguments,
+    * the keyword arguments differ from previous invocations,
+    * the positional tensor arguments have different dimension names or types (the dimension order also counts),
+    * any positional `Tensor` arguments require a different backend than previous invocations,
+    * `TensorLike` positional arguments do not match in non-variable properties.
 
     Compilation is implemented for the following backends:
 
