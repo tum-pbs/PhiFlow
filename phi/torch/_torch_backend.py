@@ -1,5 +1,6 @@
 import numbers
 import warnings
+from collections import namedtuple
 from contextlib import contextmanager
 from functools import wraps
 from typing import List, Callable
@@ -12,6 +13,10 @@ import torch.nn.functional as torchf
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice
 from phi.math.backend._backend import combined_dim, SolveResult
+
+import pytorch_custom_cuda
+
+SparseCSRMatrix = namedtuple('SparseCSRMatrix', ['values', 'row_pointer', 'col_index']) # Index base 0
 
 
 class TorchBackend(Backend):
@@ -357,6 +362,13 @@ class TorchBackend(Backend):
         return torch.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
+        if isinstance(A, SparseCSRMatrix):
+            A_rows = len(A.row_pointer) - 1
+            B_cols = b.size(1)
+            C = pytorch_custom_cuda.cusparse_matmul(A.row_pointer, A.col_index, A.values, b, A_rows)
+            C = C.reshape(B_cols, A_rows).T
+            return C
+
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
@@ -578,6 +590,31 @@ class TorchBackend(Backend):
         if isinstance(multiples, np.ndarray):
             multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
+
+    def matrix_csr(self, matrix):
+        """
+        Converts a matrix into a CSR sparse matrix representation.
+
+        Args:
+            matrix: 2 dimensional tensor
+        Returns:
+            SparseCSRMatrix
+        """
+
+        original_device = matrix.device
+
+        nnz_indices = torch.nonzero(matrix, as_tuple=True)
+        vals = matrix[nnz_indices]
+
+        c = Counter(nnz_indices[0].tolist())
+        rpoint = torch.zeros(matrix.shape[0] + 1, dtype=torch.int32).to(original_device)
+        curr_count = 0
+        for i in range(matrix.shape[0] + 1):
+            rpoint[i] = curr_count
+            curr_count += c[i]
+        colind = nnz_indices[1].type(torch.int32)
+
+        return SparseCSRMatrix(values=vals, row_pointer=rpoint, col_index=colind)
 
     def sparse_tensor(self, indices, values, shape):
         indices_ = self.to_int64(indices)
