@@ -1500,6 +1500,7 @@ MISSING_TENSOR = 'missing'
 def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]:
     """
     Splits a nested structure of Tensors into the structure without the tensors and an ordered list of tensors.
+    Native tensors will be wrapped in phi.math.Tensors with default dimension names and dimension types `None`.
 
     See Also:
         `assemble_tree()`
@@ -1543,8 +1544,11 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
         return copy_with(obj, **keys), values
     else:
         backend = choose_backend(obj)
-        assert backend.ndims(obj) == 0, f"Only scalar native tensors can only be used in function inputs/outputs but got tensor with shape {backend.shape(obj)}"
-        return None, [NativeTensor(obj, EMPTY_SHAPE)]
+        sizes = backend.staticshape(obj)
+        shape = Shape(sizes, [f"dim{i}" for i in range(len(sizes))], [None] * len(sizes))
+        if backend.ndims(obj) != 0:
+            warnings.warn(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")
+        return None, [NativeTensor(obj, shape)]
 
 
 def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
@@ -1553,7 +1557,11 @@ def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
         return None
     elif obj is None:
         assert isinstance(values[0], Tensor)
-        return values.pop(0)
+        value = values.pop(0)
+        if all([t is None for t in value.shape.types]):
+            return value.native(value.shape)
+        else:
+            return value
     elif isinstance(obj, list):
         return [assemble_tree(item, values) for item in obj]
     elif isinstance(obj, tuple):
