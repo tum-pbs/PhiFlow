@@ -8,7 +8,7 @@ BATCH_DIM = 'batch'
 SPATIAL_DIM = 'spatial'
 CHANNEL_DIM = 'channel'
 COLLECTION_DIM = 'collection'
-TYPE_ABBR = {SPATIAL_DIM: "ˢ", CHANNEL_DIM: "ᵛ", COLLECTION_DIM: "ᶜ", BATCH_DIM: "ᵇ"}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
+TYPE_ABBR = {SPATIAL_DIM: "ˢ", CHANNEL_DIM: "ᶜ", COLLECTION_DIM: "ᶜᵒˡ", BATCH_DIM: "ᵇ", None: "⁻"}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
 
 
 class Shape:
@@ -394,7 +394,7 @@ class Shape:
         return tuple(mask)
 
     def __repr__(self):
-        strings = [f"{name}{TYPE_ABBR.get(dim_type, '')}={size}" for size, name, dim_type in self._dimensions]
+        strings = [f"{name}{TYPE_ABBR.get(dim_type, '?')}={size}" for size, name, dim_type in self._dimensions]
         return '(' + ', '.join(strings) + ')'
 
     def __eq__(self, other):
