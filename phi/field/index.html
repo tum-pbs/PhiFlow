@@ -1422,7 +1422,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.reduce_sample"><code class="name flex">
-<span>def <span class="ident">reduce_sample</span></span>(<span>field: phi.field._field.Field, geometry: phi.geom._geom.Geometry, dim=(vectorᵛ=None)) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">reduce_sample</span></span>(<span>field: phi.field._field.Field, geometry: phi.geom._geom.Geometry, dim=(vectorᶜ=None)) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Similar to <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, but matches channel dimensions of <code>geometry</code> with channel dimensions of this field.
@@ -1543,7 +1543,7 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 </details>
 </dd>
 <dt id="phi.field.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>grid: phi.field._grid.CenteredGrid, offsets: tuple, stack_dim: phi.math._shape.Shape = (shiftᵛ=None))</span>
+<span>def <span class="ident">shift</span></span>(<span>grid: phi.field._grid.CenteredGrid, offsets: tuple, stack_dim: phi.math._shape.Shape = (shiftᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Wraps :func:<code>math.shift</code> for CenteredGrid.</p>
@@ -1775,7 +1775,7 @@ The output of <code>f</code> must match <code>y</code>.</dd>
 </details>
 </dd>
 <dt id="phi.field.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, type: type = phi.field._grid.CenteredGrid, stack_dim: phi.math._shape.Shape = (vectorᵛ=None))</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, type: type = phi.field._grid.CenteredGrid, stack_dim: phi.math._shape.Shape = (vectorᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finite difference spatial_gradient.</p>

@@ -1652,7 +1652,7 @@ These are the frequencies corresponding to the components of the result of <code
 </details>
 </dd>
 <dt id="phi.math.flatten"><code class="name flex">
-<span>def <span class="ident">flatten</span></span>(<span>value: phi.math._tensors.Tensor, flat_dim: phi.math._shape.Shape = (flatᶜ=None))</span>
+<span>def <span class="ident">flatten</span></span>(<span>value: phi.math._tensors.Tensor, flat_dim: phi.math._shape.Shape = (flatᶜᵒˡ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2391,7 +2391,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.linspace"><code class="name flex">
-<span>def <span class="ident">linspace</span></span>(<span>start, stop, number: int, dim: phi.math._shape.Shape = (linspaceᵛ=None))</span>
+<span>def <span class="ident">linspace</span></span>(<span>start, stop, number: int, dim: phi.math._shape.Shape = (linspaceᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2608,7 +2608,7 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
 </details>
 </dd>
 <dt id="phi.math.meshgrid"><code class="name flex">
-<span>def <span class="ident">meshgrid</span></span>(<span>dim_type=&lt;function spatial&gt;, stack_dim=(vectorᵛ=None), **dimensions: int) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">meshgrid</span></span>(<span>dim_type=&lt;function spatial&gt;, stack_dim=(vectorᶜ=None), **dimensions: int) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate a mesh-grid <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> from keyword dimensions.</p>
@@ -2942,7 +2942,7 @@ see <code><a title="phi.math.backend.Backend.prefers_channels_last" href="backen
 </details>
 </dd>
 <dt id="phi.math.nonzero"><code class="name flex">
-<span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim: phi.math._shape.Shape = (nonzeroᶜ=None), index_dim: phi.math._shape.Shape = (vectorᵛ=None))</span>
+<span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim: phi.math._shape.Shape = (nonzeroᶜᵒˡ=None), index_dim: phi.math._shape.Shape = (vectorᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get spatial indices of non-zero / True values.</p>
@@ -4066,7 +4066,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: tuple = None, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: phi.math._shape.Shape = (shiftᵛ=None)) ‑> list</span>
+<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: tuple = None, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: phi.math._shape.Shape = (shiftᶜ=None)) ‑> list</span>
 </code></dt>
 <dd>
 <div class="desc"><p>shift Tensor by a fixed offset and abiding by extrapolation</p>
@@ -4417,7 +4417,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: phi.math._shape.Shape = (gradientᵛ=None))</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: phi.math._shape.Shape = (gradientᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -6591,7 +6591,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         return tuple(mask)
 
     def __repr__(self):
-        strings = [f&#34;{name}{TYPE_ABBR.get(dim_type, &#39;&#39;)}={size}&#34; for size, name, dim_type in self._dimensions]
+        strings = [f&#34;{name}{TYPE_ABBR.get(dim_type, &#39;?&#39;)}={size}&#34; for size, name, dim_type in self._dimensions]
         return &#39;(&#39; + &#39;, &#39;.join(strings) + &#39;)&#39;
 
     def __eq__(self, other):
