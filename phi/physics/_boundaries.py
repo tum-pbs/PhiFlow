@@ -5,7 +5,7 @@ from phi import math, struct, field
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, HardGeometryMask
 from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
 from phi.geom import Geometry
-from phi.math import Tensor, channel, collection
+from phi.math import Tensor, channel, instance
 from phi.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
 from phi.math import spatial
 from ._physics import State
@@ -305,11 +305,11 @@ class Domain:
         # --- Parse points: tuple / list ---
         if isinstance(points, (tuple, list)):
             if len(points) == 0:  # no points
-                points = math.zeros(collection(points=0), channel(vector=1))
+                points = math.zeros(instance(points=0), channel(vector=1))
             elif isinstance(points[0], Number):  # single point
-                points = math.tensor([points], collection('points'), channel('vector'))
+                points = math.tensor([points], instance('points'), channel('vector'))
             else:
-                points = math.tensor(points, collection('points'), channel('vector'))
+                points = math.tensor(points, instance('points'), channel('vector'))
         elements = Sphere(points, radius)
         if values is None:
             values = math.tensor(1.)
@@ -388,11 +388,11 @@ def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool
     Returns:
         A tensor containing the positions of the generated points.
     """
-    indices = math.to_float(math.nonzero(mask, list_dim=collection('points')))
+    indices = math.to_float(math.nonzero(mask, list_dim=instance('points')))
     temp = []
     for _ in range(points_per_cell):
         if center:
             temp.append(indices + 0.5)
         else:
             temp.append(indices + (math.random_uniform(indices.shape)))
-    return math.concat(temp, dim=collection('points'))
+    return math.concat(temp, dim=instance('points'))

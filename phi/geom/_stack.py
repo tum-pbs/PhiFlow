@@ -2,7 +2,7 @@ from typing import List
 
 from phi import math
 from ._geom import Geometry
-from ..math._shape import shape_stack, Shape, COLLECTION_DIM
+from ..math._shape import shape_stack, Shape, INSTANCE_DIM
 
 
 class GeometryStack(Geometry):
@@ -29,8 +29,8 @@ class GeometryStack(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        if self.stack_dim.type == COLLECTION_DIM:
-            raise NotImplementedError("collection dimensions not yet supported")
+        if self.stack_dim.type == INSTANCE_DIM:
+            raise NotImplementedError("instance dimensions not yet supported")
         return math.stack([g.volume for g in self.geometries], self.stack_dim)
 
     def lies_inside(self, location: math.Tensor):

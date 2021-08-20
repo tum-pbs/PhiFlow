@@ -10,7 +10,7 @@ import numpy as np
 from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, \
     sum_, to_float
-from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, vector_add, merge_shapes, spatial, collection, \
+from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, vector_add, merge_shapes, spatial, instance, \
     batch, concat_shapes
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, \
     disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap, cached
@@ -627,7 +627,7 @@ class ShiftLinTracer(Tensor):
         # TODO sort indices?
         self._sparse_coo = FixedShiftSparseTensor((out_shape.volume, src_shape.volume),
                                                   set(self.val.keys()), rows, cols,
-                                                  NativeTensor(vals, collection(nnz=len(vals))),
+                                                  NativeTensor(vals, instance(nnz=len(vals))),
                                                   self.dependent_dims)
         return self._sparse_coo
 

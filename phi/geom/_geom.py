@@ -40,7 +40,7 @@ class Geometry:
     def volume(self) -> Tensor:
         """
         Volume of the geometry as `phi.math.Tensor`.
-        The result retains all batch dimensions while collection dimensions are summed over.
+        The result retains all batch dimensions while instance dimensions are summed over.
         """
         raise NotImplementedError()
 

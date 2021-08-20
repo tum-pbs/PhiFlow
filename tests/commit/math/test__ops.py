@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import extrapolation, spatial, channel, collection, batch
+from phi.math import extrapolation, spatial, channel, instance, batch
 from phi.math.backend import Backend
 
 
@@ -81,7 +81,7 @@ class TestMathFunctions(TestCase):
         for backend in BACKENDS:
             with backend:
                 grid = math.sum(math.meshgrid(x=[1, 2, 3], y=[0, 3]), 'vector')  # 1 2 3 | 4 5 6
-                coords = math.tensor([(0, 0), (0.5, 0), (0, 0.5), (-2, -1)], collection('list'), channel('vector'))
+                coords = math.tensor([(0, 0), (0.5, 0), (0, 0.5), (-2, -1)], instance('list'), channel('vector'))
                 interp = math.grid_sample(grid, coords, extrapolation.ZERO)
                 math.assert_close(interp, [1, 1.5, 2.5, 0], msg=backend.name)
 
@@ -131,13 +131,13 @@ class TestMathFunctions(TestCase):
             if backend.supports(Backend.gradients):
                 with backend:
                     grid = math.tensor([0., 1, 2, 3], spatial('x'))
-                    coords = math.tensor([0.5, 1.5], collection('points'))
+                    coords = math.tensor([0.5, 1.5], instance('points'))
                     with math.record_gradients(grid, coords):
                         sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
                         loss = math.mean(math.l2_loss(sampled)) / 2
                         grad_grid, grad_coords = math.gradients(loss, grid, coords)
                     math.assert_close(grad_grid, math.tensor([0.125, 0.5, 0.375, 0], spatial('x')), msg=backend)
-                    math.assert_close(grad_coords, math.tensor([0.25, 0.75], collection('points')), msg=backend)
+                    math.assert_close(grad_coords, math.tensor([0.25, 0.75], instance('points')), msg=backend)
 
     def test_grid_sample_gradient_2d(self):
         grads_grid = []
@@ -146,7 +146,7 @@ class TestMathFunctions(TestCase):
             if backend.supports(Backend.gradients):
                 with backend:
                     grid = math.tensor([[1., 2, 3], [1, 2, 3]], spatial('x,y'))
-                    coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], collection('points'), channel('vector'))
+                    coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], instance('points'), channel('vector'))
                     with math.record_gradients(grid, coords):
                         sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
                         loss = math.sum(sampled) / 3
@@ -164,14 +164,14 @@ class TestMathFunctions(TestCase):
 
     def test_join_dimensions(self):
         grid = math.random_normal(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2))
-        points = math.pack_dims(grid, grid.shape.spatial, collection('points'))
+        points = math.pack_dims(grid, grid.shape.spatial, instance('points'))
         self.assertEqual(('batch', 'points', 'vector'), points.shape.names)
         self.assertEqual(grid.shape.volume, points.shape.volume)
-        self.assertEqual(grid.shape.non_spatial, points.shape.non_collection)
+        self.assertEqual(grid.shape.non_spatial, points.shape.non_instance)
 
     def test_split_dimension(self):
         grid = math.random_normal(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2))
-        points = math.pack_dims(grid, grid.shape.spatial, collection('points'))
+        points = math.pack_dims(grid, grid.shape.spatial, instance('points'))
         split = points.points.split(grid.shape.spatial)
         self.assertEqual(grid.shape, split.shape)
         math.assert_close(grid, split)
@@ -298,8 +298,8 @@ class TestMathFunctions(TestCase):
         for backend in BACKENDS:
             with backend:
                 base = math.ones(spatial(x=4))
-                indices = math.wrap([1, 2], collection('points'))
-                values = math.wrap([11, 12], collection('points'))
+                indices = math.wrap([1, 2], instance('points'))
+                values = math.wrap([11, 12], instance('points'))
                 updated = math.scatter(base, indices, values, mode='update', outside_handling='undefined')
                 math.assert_close(updated, [1, 11, 12, 1])
                 updated = math.scatter(base, indices, values, mode='add', outside_handling='undefined')
@@ -314,26 +314,26 @@ class TestMathFunctions(TestCase):
             with backend:
                 # Only base batched
                 base = math.zeros(spatial(x=4)) + math.tensor([0, 1])
-                indices = math.wrap([1, 2], collection('points'))
-                values = math.wrap([11, 12], collection('points'))
+                indices = math.wrap([1, 2], instance('points'))
+                values = math.wrap([11, 12], instance('points'))
                 updated = math.scatter(base, indices, values, mode='update', outside_handling='undefined')
                 math.assert_close(updated, math.tensor([(0, 1), (11, 11), (12, 12), (0, 1)], spatial('x'), channel('vector')), msg=backend.name)
                 # Only values batched
                 base = math.ones(spatial(x=4))
-                indices = math.wrap([1, 2], collection('points'))
-                values = math.wrap([[11, 12], [-11, -12]], batch('batch'), collection('points'))
+                indices = math.wrap([1, 2], instance('points'))
+                values = math.wrap([[11, 12], [-11, -12]], batch('batch'), instance('points'))
                 updated = math.scatter(base, indices, values, mode='update', outside_handling='undefined')
                 math.assert_close(updated, math.tensor([[1, 11, 12, 1], [1, -11, -12, 1]], batch('batch'), spatial('x')), msg=backend.name)
                 # Only indices batched
                 base = math.ones(spatial(x=4))
-                indices = math.wrap([[0, 1], [1, 2]], batch('batch'), collection('points'))
-                values = math.wrap([11, 12], collection('points'))
+                indices = math.wrap([[0, 1], [1, 2]], batch('batch'), instance('points'))
+                values = math.wrap([11, 12], instance('points'))
                 updated = math.scatter(base, indices, values, mode='update', outside_handling='undefined')
                 math.assert_close(updated, math.tensor([[11, 12, 1, 1], [1, 11, 12, 1]], batch('batch'), spatial('x')), msg=backend.name)
                 # Everything batched
                 base = math.zeros(spatial(x=4)) + math.tensor([0, 1], batch('batch'))
-                indices = math.wrap([[0, 1], [1, 2]], batch('batch'), collection('points'))
-                values = math.wrap([[11, 12], [-11, -12]], batch('batch'), collection('points'))
+                indices = math.wrap([[0, 1], [1, 2]], batch('batch'), instance('points'))
+                values = math.wrap([[11, 12], [-11, -12]], batch('batch'), instance('points'))
                 updated = math.scatter(base, indices, values, mode='update', outside_handling='undefined')
                 math.assert_close(updated, math.tensor([[11, 12, 0, 0], [1, -11, -12, 1]], batch('batch'), spatial('x')), msg=backend.name)
 
@@ -341,8 +341,8 @@ class TestMathFunctions(TestCase):
         for backend in BACKENDS:
             with backend:
                 base = math.ones(spatial(x=3, y=2))
-                indices = math.wrap([(0, 0), (0, 1), (2, 1)], collection('points'), channel('vector'))
-                values = math.wrap([11, 12, 13], collection('points'))
+                indices = math.wrap([(0, 0), (0, 1), (2, 1)], instance('points'), channel('vector'))
+                values = math.wrap([11, 12, 13], instance('points'))
                 updated = math.scatter(base, indices, values, mode='update', outside_handling='undefined')
                 math.assert_close(updated, math.tensor([[11, 1, 1], [12, 1, 13]], spatial('y,x')))
 
@@ -350,22 +350,22 @@ class TestMathFunctions(TestCase):
         for backend in BACKENDS:
             with backend:
                 base = math.ones(spatial(x=3, y=2))
-                indices = math.wrap([(0, 0), (0, 0), (0, 1), (2, 1)], collection('points'), channel('vector'))
-                values = math.wrap([11, 11, 12, 13], collection('points'))
+                indices = math.wrap([(0, 0), (0, 0), (0, 1), (2, 1)], instance('points'), channel('vector'))
+                values = math.wrap([11, 11, 12, 13], instance('points'))
                 updated = math.scatter(base, indices, values, mode='add', outside_handling='undefined')
                 math.assert_close(updated, math.tensor([[23, 1, 1], [13, 1, 14]], spatial('y,x')))
 
     def test_scatter_2d_clamp(self):
         base = math.ones(spatial(x=3, y=2))
-        indices = math.wrap([(-1, 0), (0, 2), (4, 3)], collection('points'), channel('vector'))
-        values = math.wrap([11, 12, 13], collection('points'))
+        indices = math.wrap([(-1, 0), (0, 2), (4, 3)], instance('points'), channel('vector'))
+        values = math.wrap([11, 12, 13], instance('points'))
         updated = math.scatter(base, indices, values, mode='update', outside_handling='clamp')
         math.assert_close(updated, math.tensor([[11, 1, 1], [12, 1, 13]], spatial('y,x')))
 
     def test_scatter_2d_discard(self):
         base = math.ones(spatial(x=3, y=2))
-        indices = math.wrap([(-1, 0), (0, 1), (3, 1)], collection('points'), channel('vector'))
-        values = math.wrap([11, 12, 13], collection('points'))
+        indices = math.wrap([(-1, 0), (0, 1), (3, 1)], instance('points'), channel('vector'))
+        values = math.wrap([11, 12, 13], instance('points'))
         updated = math.scatter(base, indices, values, mode='update', outside_handling='discard')
         math.assert_close(updated, math.tensor([[1, 1, 1], [12, 1, 1]], spatial('y,x')))
 

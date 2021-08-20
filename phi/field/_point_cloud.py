@@ -4,7 +4,7 @@ from phi import math
 from phi.geom import Geometry, GridCell, Box
 from ._field import SampledField
 from ..geom._stack import GeometryStack
-from ..math import Tensor, collection
+from ..math import Tensor, instance
 
 
 class PointCloud(SampledField):
@@ -43,7 +43,7 @@ class PointCloud(SampledField):
         assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
         self._bounds = bounds
         color = '#0060ff' if color is None else color
-        self._color = math.wrap(color, collection('points')) if isinstance(color, (tuple, list)) else math.wrap(color)
+        self._color = math.wrap(color, instance('points')) if isinstance(color, (tuple, list)) else math.wrap(color)
 
     @property
     def shape(self):
@@ -124,10 +124,10 @@ class PointCloud(SampledField):
     def __and__(self, other):
         assert isinstance(other, PointCloud)
         from ._field_math import concat
-        return concat([self, other], collection('points'))
+        return concat([self, other], instance('points'))
 
 
 def nonzero(field: SampledField):
-    indices = math.nonzero(field.values, list_dim=collection('points'))
+    indices = math.nonzero(field.values, list_dim=instance('points'))
     elements = field.elements[indices]
     return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds, color=None)

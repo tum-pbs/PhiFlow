@@ -92,7 +92,7 @@ def _plot(field: SampledField,
         if radius.rank == 0:
             marker_size = 2 * float(radius)
         else:
-            marker_size = (2 * radius).unstack(radius.shape.collection.name)
+            marker_size = (2 * radius).unstack(radius.shape.instance.name)
         marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter')
         fig.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         fig.update_xaxes(range=[lower_x, upper_x])

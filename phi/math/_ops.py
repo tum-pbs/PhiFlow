@@ -9,8 +9,8 @@ from typing import Tuple, Callable, Any
 import numpy as np
 
 from . import extrapolation as e_
-from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, COLLECTION_DIM, Shape, EMPTY_SHAPE,
-                     spatial, batch, channel, collection, merge_shapes, parse_dim_order, concat_shapes)
+from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, INSTANCE_DIM, Shape, EMPTY_SHAPE,
+                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
     assemble_tensors, disassemble_tree, assemble_tree, value_attributes
@@ -500,7 +500,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), **dimensions: int or
     Args:
         **dimensions: Mesh-grid dimensions, mapping names to values.
             Values may be `int`, 1D `Tensor` or 1D native tensor.
-        dim_type: Dimension type of mesh-grid dimensions, one of `spatial`, `channel`, `batch`, `collection`.
+        dim_type: Dimension type of mesh-grid dimensions, one of `spatial`, `channel`, `batch`, `instance`.
         stack_dim: Vector dimension along which grids are stacked.
 
     Returns:
@@ -683,11 +683,11 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
         result = NotImplemented
         if extrap is None:
             result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial, grid.shape.channel]),
-                                         reshaped_native(coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
+                                         reshaped_native(coordinates, [batch, *coordinates.shape.instance, *coordinates.shape.spatial, 'vector']),
                                          'undefined')
         elif extrap.native_grid_sample_mode:
             result = backend.grid_sample(reshaped_native(grid, [batch, *grid.shape.spatial, grid.shape.channel]),
-                                         reshaped_native(coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
+                                         reshaped_native(coordinates, [batch, *coordinates.shape.instance, *coordinates.shape.spatial, 'vector']),
                                          extrap.native_grid_sample_mode)
         if result is NotImplemented:
             # pad one layer
@@ -701,10 +701,10 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
             else:
                 inner_coordinates = coordinates + 1
             result = backend.grid_sample(reshaped_native(grid_padded, [batch, *grid_padded.shape.spatial.names, grid.shape.channel]),
-                                         reshaped_native(inner_coordinates, [batch, *coordinates.shape.collection, *coordinates.shape.spatial, 'vector']),
+                                         reshaped_native(inner_coordinates, [batch, *coordinates.shape.instance, *coordinates.shape.spatial, 'vector']),
                                          'boundary')
         if result is not NotImplemented:
-            result = reshaped_tensor(result, [grid.shape.batch & coordinates.shape.batch, *coordinates.shape.collection, *coordinates.shape.spatial, grid.shape.channel])
+            result = reshaped_tensor(result, [grid.shape.batch & coordinates.shape.batch, *coordinates.shape.instance, *coordinates.shape.spatial, grid.shape.channel])
             return result
     # fallback to slower grid sampling
     neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, 'closest_')
@@ -852,7 +852,7 @@ def rename_dims(value: Tensor or Shape, dims: str or tuple or list or Shape, nam
         return value._with_shape_replaced(value.shape._replace_names_and_types(dims, names))
 
 
-def flatten(value: Tensor, flat_dim: Shape = collection('flat')):
+def flatten(value: Tensor, flat_dim: Shape = instance('flat')):
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     return pack_dims(value, value.shape, flat_dim)
 
@@ -885,7 +885,7 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
     return NativeTensor(result, shape)
 
 
-def nonzero(value: Tensor, list_dim: Shape = collection('nonzero'), index_dim: Shape = channel('vector')):
+def nonzero(value: Tensor, list_dim: Shape = instance('nonzero'), index_dim: Shape = channel('vector')):
     """
     Get spatial indices of non-zero / True values.
     
@@ -1412,7 +1412,7 @@ def scatter(base_grid: Tensor or Shape,
             indices_gradient=False):
     """
     Scatters `values` into `base_grid` at `indices`.
-    Collection dimensions of `indices` and/or `values` are reduced during scattering.
+    instance dimensions of `indices` and/or `values` are reduced during scattering.
     Depending on `mode`, this method has one of the following effects:
 
     * `mode='update'`: Replaces the values of `base_grid` at `indices` by `values`. The result is undefined if `indices` contains duplicates.
@@ -1449,7 +1449,7 @@ def scatter(base_grid: Tensor or Shape,
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert indices.shape.channel.names == ('vector',) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
-    batches = values.shape.non_channel.non_collection & indices.shape.non_channel.non_collection
+    batches = values.shape.non_channel.non_instance & indices.shape.non_channel.non_instance
     channels = grid_shape.channel & values.shape.channel
     # --- Set up grid ---
     if isinstance(base_grid, Shape):
@@ -1462,12 +1462,12 @@ def scatter(base_grid: Tensor or Shape,
         indices = clip(indices, 0, tensor(grid_shape.spatial, channel('vector')) - 1)
     elif outside_handling == 'discard':
         indices_inside = min_((round_(indices) >= 0) & (round_(indices) < tensor(grid_shape.spatial, channel('vector'))), 'vector')
-        indices = boolean_mask(indices, indices.shape.collection.name, indices_inside)
-        if collection(values).rank > 0:
-            values = boolean_mask(values, values.shape.collection.name, indices_inside)
+        indices = boolean_mask(indices, indices.shape.instance.name, indices_inside)
+        if instance(values).rank > 0:
+            values = boolean_mask(values, values.shape.instance.name, indices_inside)
         if indices.shape.is_non_uniform:
             raise NotImplementedError()
-    lists = indices.shape.collection & values.shape.collection
+    lists = indices.shape.instance & values.shape.instance
 
     def scatter_forward(base_grid, indices, values):
         indices = to_int32(round_(indices))

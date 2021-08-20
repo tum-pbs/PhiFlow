@@ -236,7 +236,7 @@ def data_bounds(field: SampledField):
 
 def mean(field: SampledField) -> math.Tensor:
     """
-    Computes the mean value by reducing all spatial / collection dimensions.
+    Computes the mean value by reducing all spatial / instance dimensions.
 
     Args:
         field: `SampledField`
