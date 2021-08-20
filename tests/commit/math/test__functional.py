@@ -36,6 +36,16 @@ class TestFunctional(TestCase):
                 if backend.supports(Backend.jit_compile):
                     self.assertEqual(len(scalar_mul.traces), trace_count_0 + 3)
 
+    def test_jit_compile_with_native(self):
+        @math.jit_compile
+        def scalar_mul(x, fac=1):
+            return x * fac
+
+        for backend in BACKENDS:
+            with backend:
+                x = backend.ones([3, 2])
+                math.assert_close(scalar_mul(x, fac=1), 1, msg=backend)
+
     def test_jit_compile_linear(self):
         math.GLOBAL_AXIS_ORDER.x_last()
         x = math.random_normal(batch(batch=3) & spatial(x=4, y=3))  # , vector=2
@@ -63,6 +73,8 @@ class TestFunctional(TestCase):
 
     def test_functional_gradient(self):
         def f(x: math.Tensor, y: math.Tensor):
+            assert isinstance(x, math.Tensor)
+            assert isinstance(y, math.Tensor)
             pred = x
             loss = math.l2_loss(pred - y)
             return loss, pred
