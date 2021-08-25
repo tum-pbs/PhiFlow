@@ -1380,7 +1380,7 @@ The output of math operations has the same precision as its inputs.</p>
 
         Args:
             grid: Tensor of shape (batch, spatial..., channel)
-            coordinates: Tensor of floating grid indices of shape (batch, collection..., vector).
+            coordinates: Tensor of floating grid indices of shape (batch, instance..., vector).
                 The last dimension must match `spatial_dims`.
                 The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
             extrapolation: Values to use for coordinates outside the grid.
@@ -2420,7 +2420,7 @@ Higher dimensions may not be supported.</p>
 <dt><strong><code>grid</code></strong></dt>
 <dd>Tensor of shape (batch, spatial&hellip;, channel)</dd>
 <dt><strong><code>coordinates</code></strong></dt>
-<dd>Tensor of floating grid indices of shape (batch, collection&hellip;, vector).
+<dd>Tensor of floating grid indices of shape (batch, instance&hellip;, vector).
 The last dimension must match <code>spatial_dims</code>.
 The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
@@ -2439,7 +2439,7 @@ One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflec
 
     Args:
         grid: Tensor of shape (batch, spatial..., channel)
-        coordinates: Tensor of floating grid indices of shape (batch, collection..., vector).
+        coordinates: Tensor of floating grid indices of shape (batch, instance..., vector).
             The last dimension must match `spatial_dims`.
             The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
         extrapolation: Values to use for coordinates outside the grid.

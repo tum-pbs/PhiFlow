@@ -429,7 +429,7 @@ def upper(self) -&gt; Tensor:
 <dt id="phi.geom.BaseBox.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
-The result retains all batch dimensions while collection dimensions are summed over.</p></div>
+The result retains all batch dimensions while instance dimensions are summed over.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1021,7 +1021,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def volume(self) -&gt; Tensor:
         &#34;&#34;&#34;
         Volume of the geometry as `phi.math.Tensor`.
-        The result retains all batch dimensions while collection dimensions are summed over.
+        The result retains all batch dimensions while instance dimensions are summed over.
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -1302,7 +1302,7 @@ def spatial_rank(self) -&gt; int:
 <dt id="phi.geom.Geometry.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
-The result retains all batch dimensions while collection dimensions are summed over.</p></div>
+The result retains all batch dimensions while instance dimensions are summed over.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1311,7 +1311,7 @@ The result retains all batch dimensions while collection dimensions are summed o
 def volume(self) -&gt; Tensor:
     &#34;&#34;&#34;
     Volume of the geometry as `phi.math.Tensor`.
-    The result retains all batch dimensions while collection dimensions are summed over.
+    The result retains all batch dimensions while instance dimensions are summed over.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -2460,7 +2460,7 @@ def shape(self):
 <dt id="phi.geom.Sphere.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
-The result retains all batch dimensions while collection dimensions are summed over.</p></div>
+The result retains all batch dimensions while instance dimensions are summed over.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>

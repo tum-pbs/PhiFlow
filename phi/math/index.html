@@ -53,7 +53,7 @@ from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, collection, merge_shapes, concat_shapes
+from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes
 from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike, Dict
 from .extrapolation import Extrapolation
 from ._ops import (
@@ -389,7 +389,7 @@ batch_dims = batch(tensor)
 Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code>, <code><a title="phi.math.stack" href="#phi.math.stack">stack()</a></code> and <code><a title="phi.math.concat" href="#phi.math.concat">concat()</a></code>.</p>
 <p>To create a shape with multiple types, use <code><a title="phi.math.merge_shapes" href="#phi.math.merge_shapes">merge_shapes()</a></code>, <code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes()</a></code> or the syntax <code>shape1 &amp; shape2</code>.</p>
 <p>See Also:
-<code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code></p>
+<code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>*args</code></strong></dt>
@@ -430,7 +430,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
     To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 &amp; shape2`.
 
     See Also:
-        `channel`, `spatial`, `collection`
+        `channel`, `spatial`, `instance`
 
     Args:
         *args: Either
@@ -607,7 +607,7 @@ channel_dims = channel(tensor)
 Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code>, <code><a title="phi.math.stack" href="#phi.math.stack">stack()</a></code> and <code><a title="phi.math.concat" href="#phi.math.concat">concat()</a></code>.</p>
 <p>To create a shape with multiple types, use <code><a title="phi.math.merge_shapes" href="#phi.math.merge_shapes">merge_shapes()</a></code>, <code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes()</a></code> or the syntax <code>shape1 &amp; shape2</code>.</p>
 <p>See Also:
-<code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code></p>
+<code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>*args</code></strong></dt>
@@ -648,7 +648,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
     To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 &amp; shape2`.
 
     See Also:
-        `spatial`, `batch`, `collection`
+        `spatial`, `batch`, `instance`
 
     Args:
         *args: Either
@@ -798,93 +798,6 @@ The result will have 2^d values for each vector in coordiantes in d dimensions.<
 
     &#34;&#34;&#34;
     return broadcast_op(functools.partial(_closest_grid_values, extrap=extrap, stack_dim_prefix=stack_dim_prefix), [grid, coordinates])</code></pre>
-</details>
-</dd>
-<dt id="phi.math.collection"><code class="name flex">
-<span>def <span class="ident">collection</span></span>(<span>*args, **dims: int)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the collection dimensions of an existing <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or creates a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only collection dimensions.</p>
-<p>Usage for filtering collection dimensions:</p>
-<pre><code class="language-python">collection_dims = collection(shape)
-collection_dims = collection(tensor)
-</code></pre>
-<p>Usage for creating a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only collection dimensions:</p>
-<pre><code class="language-python">collection_shape = collection('undef', points=2)
-# Out: (points=2, undef=None)
-</code></pre>
-<p>Here, the dimension <code>undef</code> is created with an undefined size of <code>None</code>.
-Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code>, <code><a title="phi.math.stack" href="#phi.math.stack">stack()</a></code> and <code><a title="phi.math.concat" href="#phi.math.concat">concat()</a></code>.</p>
-<p>To create a shape with multiple types, use <code><a title="phi.math.merge_shapes" href="#phi.math.merge_shapes">merge_shapes()</a></code>, <code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes()</a></code> or the syntax <code>shape1 &amp; shape2</code>.</p>
-<p>See Also:
-<code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code></p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>*args</code></strong></dt>
-<dd>
-<p>Either</p>
-<ul>
-<li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to filter or</li>
-<li>Names of dimensions with undefined sizes as <code>str</code>.</li>
-</ul>
-</dd>
-<dt><strong><code>**dims</code></strong></dt>
-<dd>Dimension sizes and names. Must be empty when used as a filter operation.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> containing only dimensions of type collection.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def collection(*args, **dims: int):
-    &#34;&#34;&#34;
-    Returns the collection dimensions of an existing `Shape` or creates a new `Shape` with only collection dimensions.
-
-    Usage for filtering collection dimensions:
-    ```python
-    collection_dims = collection(shape)
-    collection_dims = collection(tensor)
-    ```
-
-    Usage for creating a `Shape` with only collection dimensions:
-    ```python
-    collection_shape = collection(&#39;undef&#39;, points=2)
-    # Out: (points=2, undef=None)
-    ```
-    Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
-
-    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 &amp; shape2`.
-
-    See Also:
-        `channel`, `batch`, `spatial`
-
-    Args:
-        *args: Either
-
-            * `Shape` or `Tensor` to filter or
-            * Names of dimensions with undefined sizes as `str`.
-
-        **dims: Dimension sizes and names. Must be empty when used as a filter operation.
-
-    Returns:
-        `Shape` containing only dimensions of type collection.
-    &#34;&#34;&#34;
-    from phi.math import Tensor
-    if all(isinstance(arg, str) for arg in args) or dims:
-        for arg in args:
-            parts = [s.strip() for s in arg.split(&#39;,&#39;)]
-            for dim in parts:
-                if dim not in dims:
-                    dims[dim] = None
-        return math.Shape(dims.values(), dims.keys(), [COLLECTION_DIM] * len(dims))
-    elif len(args) == 1 and isinstance(args[0], Shape):
-        return args[0].collection
-    elif len(args) == 1 and isinstance(args[0], Tensor):
-        return args[0].shape.collection
-    else:
-        raise AssertionError(f&#34;collection() must be called either as a selector collection(Shape) or collection(Tensor) or as a constructor collection(*names, **dims). Got *args={args}, **dims={dims}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.concat"><code class="name flex">
@@ -1660,7 +1573,7 @@ These are the frequencies corresponding to the components of the result of <code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def flatten(value: Tensor, flat_dim: Shape = collection(&#39;flat&#39;)):
+<pre><code class="python">def flatten(value: Tensor, flat_dim: Shape = instance(&#39;flat&#39;)):
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     return pack_dims(value, value.shape, flat_dim)</code></pre>
 </details>
@@ -2103,6 +2016,93 @@ If <code>None</code>, performs the inverse FFT along all spatial dimensions of <
     return _backend_op1(x, Backend.imag)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.instance"><code class="name flex">
+<span>def <span class="ident">instance</span></span>(<span>*args, **dims: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the instance dimensions of an existing <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or creates a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only instance dimensions.</p>
+<p>Usage for filtering instance dimensions:</p>
+<pre><code class="language-python">instance_dims = instance(shape)
+instance_dims = instance(tensor)
+</code></pre>
+<p>Usage for creating a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only instance dimensions:</p>
+<pre><code class="language-python">instance_shape = instance('undef', points=2)
+# Out: (points=2, undef=None)
+</code></pre>
+<p>Here, the dimension <code>undef</code> is created with an undefined size of <code>None</code>.
+Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code>, <code><a title="phi.math.stack" href="#phi.math.stack">stack()</a></code> and <code><a title="phi.math.concat" href="#phi.math.concat">concat()</a></code>.</p>
+<p>To create a shape with multiple types, use <code><a title="phi.math.merge_shapes" href="#phi.math.merge_shapes">merge_shapes()</a></code>, <code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes()</a></code> or the syntax <code>shape1 &amp; shape2</code>.</p>
+<p>See Also:
+<code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*args</code></strong></dt>
+<dd>
+<p>Either</p>
+<ul>
+<li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to filter or</li>
+<li>Names of dimensions with undefined sizes as <code>str</code>.</li>
+</ul>
+</dd>
+<dt><strong><code>**dims</code></strong></dt>
+<dd>Dimension sizes and names. Must be empty when used as a filter operation.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> containing only dimensions of type instance.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def instance(*args, **dims: int):
+    &#34;&#34;&#34;
+    Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
+
+    Usage for filtering instance dimensions:
+    ```python
+    instance_dims = instance(shape)
+    instance_dims = instance(tensor)
+    ```
+
+    Usage for creating a `Shape` with only instance dimensions:
+    ```python
+    instance_shape = instance(&#39;undef&#39;, points=2)
+    # Out: (points=2, undef=None)
+    ```
+    Here, the dimension `undef` is created with an undefined size of `None`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
+
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 &amp; shape2`.
+
+    See Also:
+        `channel`, `batch`, `spatial`
+
+    Args:
+        *args: Either
+
+            * `Shape` or `Tensor` to filter or
+            * Names of dimensions with undefined sizes as `str`.
+
+        **dims: Dimension sizes and names. Must be empty when used as a filter operation.
+
+    Returns:
+        `Shape` containing only dimensions of type instance.
+    &#34;&#34;&#34;
+    from phi.math import Tensor
+    if all(isinstance(arg, str) for arg in args) or dims:
+        for arg in args:
+            parts = [s.strip() for s in arg.split(&#39;,&#39;)]
+            for dim in parts:
+                if dim not in dims:
+                    dims[dim] = None
+        return math.Shape(dims.values(), dims.keys(), [INSTANCE_DIM] * len(dims))
+    elif len(args) == 1 and isinstance(args[0], Shape):
+        return args[0].instance
+    elif len(args) == 1 and isinstance(args[0], Tensor):
+        return args[0].shape.instance
+    else:
+        raise AssertionError(f&#34;instance() must be called either as a selector instance(Shape) or instance(Tensor) or as a constructor instance(*names, **dims). Got *args={args}, **dims={dims}&#34;)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.isfinite"><code class="name flex">
 <span>def <span class="ident">isfinite</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -2530,7 +2530,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.merge_shapes"><code class="name flex">
-<span>def <span class="ident">merge_shapes</span></span>(<span>*shapes: phi.math._shape.Shape, check_exact: tuple = (), order=(&lt;function batch&gt;, &lt;function collection&gt;, &lt;function spatial&gt;, &lt;function channel&gt;))</span>
+<span>def <span class="ident">merge_shapes</span></span>(<span>*shapes: phi.math._shape.Shape, check_exact: tuple = (), order=(&lt;function batch&gt;, &lt;function instance&gt;, &lt;function spatial&gt;, &lt;function channel&gt;))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Combines <code>shapes</code> into a single <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, grouping dimensions by type.
@@ -2543,13 +2543,13 @@ If dimensions with equal names are present in multiple shapes, their types and s
 <dt><strong><code>*shapes</code></strong></dt>
 <dd><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> objects to combine.</dd>
 <dt><strong><code>check_exact</code></strong></dt>
-<dd>Sequence of type filters, such as <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code> or <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code>.
+<dd>Sequence of type filters, such as <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code> or <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>.
 These types are checked for exact match, i.e. shapes must either contain all dimensions of that type or none.
 The order of the dimensions does not matter.
 For example, when checking <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, the shapes <code>spatial(x=5)</code> and <code>spatial(y=4)</code> cannot be combined.
 However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, x=5)</code> and <code>channel('vector')</code>.</dd>
 <dt><strong><code>order</code></strong></dt>
-<dd>Dimension type order as <code>tuple</code> of type filters (<code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code> or <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code>). Dimensions are grouped by type while merging.</dd>
+<dd>Dimension type order as <code>tuple</code> of type filters (<code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code> or <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>). Dimensions are grouped by type while merging.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Merged <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></p></div>
@@ -2557,7 +2557,7 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, collection, spatial, channel)):
+<pre><code class="python">def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, instance, spatial, channel)):
     &#34;&#34;&#34;
     Combines `shapes` into a single `Shape`, grouping dimensions by type.
     If dimensions with equal names are present in multiple shapes, their types and sizes must match.
@@ -2569,12 +2569,12 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
 
     Args:
         *shapes: `Shape` objects to combine.
-        check_exact: Sequence of type filters, such as `channel`, `batch`, `spatial` or `collection`.
+        check_exact: Sequence of type filters, such as `channel`, `batch`, `spatial` or `instance`.
             These types are checked for exact match, i.e. shapes must either contain all dimensions of that type or none.
             The order of the dimensions does not matter.
             For example, when checking `spatial`, the shapes `spatial(x=5)` and `spatial(y=4)` cannot be combined.
             However, `spatial(x=5, y=4)` can be combined with `spatial(y=4, x=5)` and `channel(&#39;vector&#39;)`.
-        order: Dimension type order as `tuple` of type filters (`channel`, `batch`, `spatial` or `collection`). Dimensions are grouped by type while merging.
+        order: Dimension type order as `tuple` of type filters (`channel`, `batch`, `spatial` or `instance`). Dimensions are grouped by type while merging.
 
     Returns:
         Merged `Shape`
@@ -2618,7 +2618,7 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
 <dd>Mesh-grid dimensions, mapping names to values.
 Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or 1D native tensor.</dd>
 <dt><strong><code>dim_type</code></strong></dt>
-<dd>Dimension type of mesh-grid dimensions, one of <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code>.</dd>
+<dd>Dimension type of mesh-grid dimensions, one of <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>.</dd>
 <dt><strong><code>stack_dim</code></strong></dt>
 <dd>Vector dimension along which grids are stacked.</dd>
 </dl>
@@ -2635,7 +2635,7 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
     Args:
         **dimensions: Mesh-grid dimensions, mapping names to values.
             Values may be `int`, 1D `Tensor` or 1D native tensor.
-        dim_type: Dimension type of mesh-grid dimensions, one of `spatial`, `channel`, `batch`, `collection`.
+        dim_type: Dimension type of mesh-grid dimensions, one of `spatial`, `channel`, `batch`, `instance`.
         stack_dim: Vector dimension along which grids are stacked.
 
     Returns:
@@ -2970,7 +2970,7 @@ If channel dimensions are present, this method returns the indices where any com
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def nonzero(value: Tensor, list_dim: Shape = collection(&#39;nonzero&#39;), index_dim: Shape = channel(&#39;vector&#39;)):
+<pre><code class="python">def nonzero(value: Tensor, list_dim: Shape = instance(&#39;nonzero&#39;), index_dim: Shape = channel(&#39;vector&#39;)):
     &#34;&#34;&#34;
     Get spatial indices of non-zero / True values.
     
@@ -3857,7 +3857,7 @@ The order of dims must be equal to <code>start</code> and <code>grid.shape.spati
 </code></dt>
 <dd>
 <div class="desc"><p>Scatters <code>values</code> into <code>base_grid</code> at <code>indices</code>.
-Collection dimensions of <code>indices</code> and/or <code>values</code> are reduced during scattering.
+instance dimensions of <code>indices</code> and/or <code>values</code> are reduced during scattering.
 Depending on <code>mode</code>, this method has one of the following effects:</p>
 <ul>
 <li><code>mode='update'</code>: Replaces the values of <code>base_grid</code> at <code>indices</code> by <code>values</code>. The result is undefined if <code>indices</code> contains duplicates.</li>
@@ -3910,7 +3910,7 @@ Must also contain all <code>scatter_dims</code>.</dd>
             indices_gradient=False):
     &#34;&#34;&#34;
     Scatters `values` into `base_grid` at `indices`.
-    Collection dimensions of `indices` and/or `values` are reduced during scattering.
+    instance dimensions of `indices` and/or `values` are reduced during scattering.
     Depending on `mode`, this method has one of the following effects:
 
     * `mode=&#39;update&#39;`: Replaces the values of `base_grid` at `indices` by `values`. The result is undefined if `indices` contains duplicates.
@@ -3947,7 +3947,7 @@ Must also contain all <code>scatter_dims</code>.</dd>
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert indices.shape.channel.names == (&#39;vector&#39;,) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
-    batches = values.shape.non_channel.non_collection &amp; indices.shape.non_channel.non_collection
+    batches = values.shape.non_channel.non_instance &amp; indices.shape.non_channel.non_instance
     channels = grid_shape.channel &amp; values.shape.channel
     # --- Set up grid ---
     if isinstance(base_grid, Shape):
@@ -3960,12 +3960,12 @@ Must also contain all <code>scatter_dims</code>.</dd>
         indices = clip(indices, 0, tensor(grid_shape.spatial, channel(&#39;vector&#39;)) - 1)
     elif outside_handling == &#39;discard&#39;:
         indices_inside = min_((round_(indices) &gt;= 0) &amp; (round_(indices) &lt; tensor(grid_shape.spatial, channel(&#39;vector&#39;))), &#39;vector&#39;)
-        indices = boolean_mask(indices, indices.shape.collection.name, indices_inside)
-        if collection(values).rank &gt; 0:
-            values = boolean_mask(values, values.shape.collection.name, indices_inside)
+        indices = boolean_mask(indices, indices.shape.instance.name, indices_inside)
+        if instance(values).rank &gt; 0:
+            values = boolean_mask(values, values.shape.instance.name, indices_inside)
         if indices.shape.is_non_uniform:
             raise NotImplementedError()
-    lists = indices.shape.collection &amp; values.shape.collection
+    lists = indices.shape.instance &amp; values.shape.instance
 
     def scatter_forward(base_grid, indices, values):
         indices = to_int32(round_(indices))
@@ -4346,7 +4346,7 @@ spatial_dims = spatial(tensor)
 Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code>, <code><a title="phi.math.stack" href="#phi.math.stack">stack()</a></code> and <code><a title="phi.math.concat" href="#phi.math.concat">concat()</a></code>.</p>
 <p>To create a shape with multiple types, use <code><a title="phi.math.merge_shapes" href="#phi.math.merge_shapes">merge_shapes()</a></code>, <code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes()</a></code> or the syntax <code>shape1 &amp; shape2</code>.</p>
 <p>See Also:
-<code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code></p>
+<code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>*args</code></strong></dt>
@@ -4387,7 +4387,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
     To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 &amp; shape2`.
 
     See Also:
-        `channel`, `batch`, `collection`
+        `channel`, `batch`, `instance`
 
     Args:
         *args: Either
@@ -6200,8 +6200,8 @@ This is the default implementation.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Shapes enumerate dimensions, each consisting of a name, size and type.</p>
-<p>There are four types of dimensions: <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, and <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code>.</p>
-<p>To construct a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, use <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> or <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code>, depending on the desired dimension type.
+<p>There are four types of dimensions: <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, and <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>.</p>
+<p>To construct a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, use <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> or <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, depending on the desired dimension type.
 To create a shape with multiple types, use <code><a title="phi.math.merge_shapes" href="#phi.math.merge_shapes">merge_shapes()</a></code>, <code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes()</a></code> or the syntax <code>shape1 &amp; shape2</code>.</p>
 <p>The <code>__init__</code> constructor is for internal use only.</p></div>
 <details class="source">
@@ -6212,12 +6212,12 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
     &#34;&#34;&#34;
     Shapes enumerate dimensions, each consisting of a name, size and type.
 
-    There are four types of dimensions: `batch`, `spatial`, `channel`, and `collection`.
+    There are four types of dimensions: `batch`, `spatial`, `channel`, and `instance`.
     &#34;&#34;&#34;
 
     def __init__(self, sizes: tuple or list, names: tuple or list, types: tuple or list):
         &#34;&#34;&#34;
-        To construct a `Shape`, use `batch`, `spatial`, `channel` or `collection`, depending on the desired dimension type.
+        To construct a `Shape`, use `batch`, `spatial`, `channel` or `instance`, depending on the desired dimension type.
         To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 &amp; shape2`.
 
         The `__init__` constructor is for internal use only.
@@ -6399,7 +6399,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -6412,7 +6412,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         Filters this shape, returning only the non-batch dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -6425,7 +6425,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -6438,7 +6438,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         Filters this shape, returning only the non-spatial dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -6446,30 +6446,30 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         return self[[i for i, t in enumerate(self.types) if t != SPATIAL_DIM]]
 
     @property
-    def collection(self) -&gt; &#39;Shape&#39;:
+    def instance(self) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
-        Filters this shape, returning only the collection dimensions as a new `Shape` object.
+        Filters this shape, returning only the instance dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
         &#34;&#34;&#34;
-        return self[[i for i, t in enumerate(self.types) if t == COLLECTION_DIM]]
+        return self[[i for i, t in enumerate(self.types) if t == INSTANCE_DIM]]
 
     @property
-    def non_collection(self) -&gt; &#39;Shape&#39;:
+    def non_instance(self) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
-        Filters this shape, returning only the non-collection dimensions as a new `Shape` object.
+        Filters this shape, returning only the non-instance dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
         &#34;&#34;&#34;
-        return self[[i for i, t in enumerate(self.types) if t != COLLECTION_DIM]]
+        return self[[i for i, t in enumerate(self.types) if t != INSTANCE_DIM]]
 
     @property
     def channel(self) -&gt; &#39;Shape&#39;:
@@ -6477,7 +6477,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -6490,7 +6490,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         Filters this shape, returning only the non-channel dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -6576,7 +6576,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         A value of 1 means that a dimension of this Shape is contained in `names`.
 
         Args:
-          names: collection of dimension
+          names: instance of dimension
           names: tuple or list or set: 
 
         Returns:
@@ -6649,7 +6649,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             if len(same_type_dims) &gt; 0:
                 pos = self.index(same_type_dims.names[0])
             else:
-                pos = {BATCH_DIM: 0, COLLECTION_DIM: self.batch_rank, SPATIAL_DIM: self.batch.rank + self.collection_rank, CHANNEL_DIM: self.rank + 1}[dim.type]
+                pos = {BATCH_DIM: 0, INSTANCE_DIM: self.batch_rank, SPATIAL_DIM: self.batch.rank + self.instance_rank, CHANNEL_DIM: self.rank + 1}[dim.type]
         elif pos &lt; 0:
             pos += self.rank + 1
         sizes = list(self.sizes)
@@ -6668,7 +6668,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         The complementary operation is `Shape.only()`.
 
         Args:
-          dims: Single dimension (str) or collection of dimensions (tuple, list, Shape)
+          dims: Single dimension (str) or instance of dimensions (tuple, list, Shape)
           dims: Dimensions to exclude as `str` or `tuple` or `list` or `Shape`. Dimensions that are not included in this shape are ignored.
 
         Returns:
@@ -6693,7 +6693,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         The complementary operation is :func:`Shape.without`.
 
         Args:
-          dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
+          dims: single dimension (str) or instance of dimensions (tuple, list, Shape)
           dims: str or tuple or list or Shape: 
 
         Returns:
@@ -6731,11 +6731,11 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         return r
 
     @property
-    def collection_rank(self) -&gt; int:
-        &#34;&#34;&#34; Number of collection dimensions &#34;&#34;&#34;
+    def instance_rank(self) -&gt; int:
+        &#34;&#34;&#34; Number of instance dimensions &#34;&#34;&#34;
         r = 0
         for ty in self.types:
-            if ty == COLLECTION_DIM:
+            if ty == INSTANCE_DIM:
                 r += 1
         return r
 
@@ -6764,7 +6764,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
 
         Shapes with undefined sizes may be used in `phi.math.tensor()`, `phi.math.wrap()`, `phi.math.stack()` or `phi.math.concat()`.
 
-        To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `collection()`)
+        To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `instance()`)
         with positional `str` arguments, e.g. `spatial(&#39;x&#39;)`.
         &#34;&#34;&#34;
         for size in self.sizes:
@@ -7003,7 +7003,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
 <dd>
 <div class="desc"><p>Filters this shape, returning only the batch dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">Shape.instance</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">Shape.non_instance</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -7016,7 +7016,7 @@ def batch(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+        `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -7045,7 +7045,7 @@ def batch_rank(self) -&gt; int:
 <dd>
 <div class="desc"><p>Filters this shape, returning only the channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">Shape.instance</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">Shape.non_instance</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -7058,7 +7058,7 @@ def channel(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+        `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -7083,11 +7083,11 @@ def channel_rank(self) -&gt; int:
     return r</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.collection"><code class="name">var <span class="ident">collection</span> : phi.math._shape.Shape</code></dt>
+<dt id="phi.math.Shape.instance"><code class="name">var <span class="ident">instance</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"><p>Filters this shape, returning only the collection dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
+<div class="desc"><p>Filters this shape, returning only the instance dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">Shape.instance</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">Shape.non_instance</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -7095,32 +7095,32 @@ def channel_rank(self) -&gt; int:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def collection(self) -&gt; &#39;Shape&#39;:
+def instance(self) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
-    Filters this shape, returning only the collection dimensions as a new `Shape` object.
+    Filters this shape, returning only the instance dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+        `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
     &#34;&#34;&#34;
-    return self[[i for i, t in enumerate(self.types) if t == COLLECTION_DIM]]</code></pre>
+    return self[[i for i, t in enumerate(self.types) if t == INSTANCE_DIM]]</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.collection_rank"><code class="name">var <span class="ident">collection_rank</span> : int</code></dt>
+<dt id="phi.math.Shape.instance_rank"><code class="name">var <span class="ident">instance_rank</span> : int</code></dt>
 <dd>
-<div class="desc"><p>Number of collection dimensions</p></div>
+<div class="desc"><p>Number of instance dimensions</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def collection_rank(self) -&gt; int:
-    &#34;&#34;&#34; Number of collection dimensions &#34;&#34;&#34;
+def instance_rank(self) -&gt; int:
+    &#34;&#34;&#34; Number of instance dimensions &#34;&#34;&#34;
     r = 0
     for ty in self.types:
-        if ty == COLLECTION_DIM:
+        if ty == INSTANCE_DIM:
             r += 1
     return r</code></pre>
 </details>
@@ -7215,7 +7215,7 @@ def name(self) -&gt; str:
 <dd>
 <div class="desc"><p>Filters this shape, returning only the non-batch dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">Shape.instance</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">Shape.non_instance</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -7228,7 +7228,7 @@ def non_batch(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the non-batch dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+        `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -7240,7 +7240,7 @@ def non_batch(self) -&gt; &#39;Shape&#39;:
 <dd>
 <div class="desc"><p>Filters this shape, returning only the non-channel dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">Shape.instance</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">Shape.non_instance</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -7253,7 +7253,7 @@ def non_channel(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the non-channel dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+        `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -7261,11 +7261,11 @@ def non_channel(self) -&gt; &#39;Shape&#39;:
     return self[[i for i, t in enumerate(self.types) if t != CHANNEL_DIM]]</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.non_collection"><code class="name">var <span class="ident">non_collection</span> : phi.math._shape.Shape</code></dt>
+<dt id="phi.math.Shape.non_instance"><code class="name">var <span class="ident">non_instance</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"><p>Filters this shape, returning only the non-collection dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
+<div class="desc"><p>Filters this shape, returning only the non-instance dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">Shape.instance</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">Shape.non_instance</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -7273,24 +7273,24 @@ def non_channel(self) -&gt; &#39;Shape&#39;:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def non_collection(self) -&gt; &#39;Shape&#39;:
+def non_instance(self) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
-    Filters this shape, returning only the non-collection dimensions as a new `Shape` object.
+    Filters this shape, returning only the non-instance dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+        `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
     &#34;&#34;&#34;
-    return self[[i for i, t in enumerate(self.types) if t != COLLECTION_DIM]]</code></pre>
+    return self[[i for i, t in enumerate(self.types) if t != INSTANCE_DIM]]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.non_spatial"><code class="name">var <span class="ident">non_spatial</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Filters this shape, returning only the non-spatial dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">Shape.instance</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">Shape.non_instance</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -7303,7 +7303,7 @@ def non_spatial(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the non-spatial dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+        `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -7402,7 +7402,7 @@ The size of a dimension can be an <code>int</code> or a <code><a title="phi.math
 <dd>
 <div class="desc"><p>Filters this shape, returning only the spatial dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.</p>
 <p>See also:
-<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">Shape.collection</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">Shape.non_collection</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
+<code><a title="phi.math.Shape.batch" href="#phi.math.Shape.batch">Shape.batch</a></code>, <code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">Shape.spatial</a></code>, <code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">Shape.instance</a></code>, <code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">Shape.channel</a></code>, <code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">Shape.non_batch</a></code>, <code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">Shape.non_spatial</a></code>, <code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">Shape.non_instance</a></code>, <code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">Shape.non_channel</a></code>.</p>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
 <details class="source">
@@ -7415,7 +7415,7 @@ def spatial(self) -&gt; &#39;Shape&#39;:
     Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
     See also:
-        `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+        `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
     Returns:
         New `Shape` object
@@ -7500,7 +7500,7 @@ def volume(self) -&gt; int or None:
 <dd>
 <div class="desc"><p>Returns <code>True</code> if no dimension size is <code>None</code>.</p>
 <p>Shapes with undefined sizes may be used in <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code>, <code><a title="phi.math.stack" href="#phi.math.stack">stack()</a></code> or <code><a title="phi.math.concat" href="#phi.math.concat">concat()</a></code>.</p>
-<p>To create an undefined size, call a constructor function (<code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.collection" href="#phi.math.collection">collection()</a></code>)
+<p>To create an undefined size, call a constructor function (<code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>)
 with positional <code>str</code> arguments, e.g. <code>spatial('x')</code>.</p></div>
 <details class="source">
 <summary>
@@ -7513,7 +7513,7 @@ def well_defined(self):
 
     Shapes with undefined sizes may be used in `phi.math.tensor()`, `phi.math.wrap()`, `phi.math.stack()` or `phi.math.concat()`.
 
-    To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `collection()`)
+    To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `instance()`)
     with positional `str` arguments, e.g. `spatial(&#39;x&#39;)`.
     &#34;&#34;&#34;
     for size in self.sizes:
@@ -7810,7 +7810,7 @@ A value of 1 means that a dimension of this Shape is contained in <code>names</c
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>names</code></strong></dt>
-<dd>collection of dimension</dd>
+<dd>instance of dimension</dd>
 <dt><strong><code>names</code></strong></dt>
 <dd>tuple or list or set: </dd>
 </dl>
@@ -7826,7 +7826,7 @@ A value of 1 means that a dimension of this Shape is contained in <code>names</c
     A value of 1 means that a dimension of this Shape is contained in `names`.
 
     Args:
-      names: collection of dimension
+      names: instance of dimension
       names: tuple or list or set: 
 
     Returns:
@@ -7873,7 +7873,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dims</code></strong></dt>
-<dd>single dimension (str) or collection of dimensions (tuple, list, Shape)</dd>
+<dd>single dimension (str) or instance of dimensions (tuple, list, Shape)</dd>
 <dt><strong><code>dims</code></strong></dt>
 <dd>str or tuple or list or Shape: </dd>
 </dl>
@@ -7891,7 +7891,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     The complementary operation is :func:`Shape.without`.
 
     Args:
-      dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
+      dims: single dimension (str) or instance of dimensions (tuple, list, Shape)
       dims: str or tuple or list or Shape: 
 
     Returns:
@@ -8058,7 +8058,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dims</code></strong></dt>
-<dd>Single dimension (str) or collection of dimensions (tuple, list, Shape)</dd>
+<dd>Single dimension (str) or instance of dimensions (tuple, list, Shape)</dd>
 <dt><strong><code>dims</code></strong></dt>
 <dd>Dimensions to exclude as <code>str</code> or <code>tuple</code> or <code>list</code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>. Dimensions that are not included in this shape are ignored.</dd>
 </dl>
@@ -8076,7 +8076,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     The complementary operation is `Shape.only()`.
 
     Args:
-      dims: Single dimension (str) or collection of dimensions (tuple, list, Shape)
+      dims: Single dimension (str) or instance of dimensions (tuple, list, Shape)
       dims: Dimensions to exclude as `str` or `tuple` or `list` or `Shape`. Dimensions that are not included in this shape are ignored.
 
     Returns:
@@ -10006,7 +10006,6 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.clip" href="#phi.math.clip">clip</a></code></li>
 <li><code><a title="phi.math.close" href="#phi.math.close">close</a></code></li>
 <li><code><a title="phi.math.closest_grid_values" href="#phi.math.closest_grid_values">closest_grid_values</a></code></li>
-<li><code><a title="phi.math.collection" href="#phi.math.collection">collection</a></code></li>
 <li><code><a title="phi.math.concat" href="#phi.math.concat">concat</a></code></li>
 <li><code><a title="phi.math.concat_shapes" href="#phi.math.concat_shapes">concat_shapes</a></code></li>
 <li><code><a title="phi.math.conjugate" href="#phi.math.conjugate">conjugate</a></code></li>
@@ -10037,6 +10036,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.grid_sample" href="#phi.math.grid_sample">grid_sample</a></code></li>
 <li><code><a title="phi.math.ifft" href="#phi.math.ifft">ifft</a></code></li>
 <li><code><a title="phi.math.imag" href="#phi.math.imag">imag</a></code></li>
+<li><code><a title="phi.math.instance" href="#phi.math.instance">instance</a></code></li>
 <li><code><a title="phi.math.isfinite" href="#phi.math.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.math.jit_compile" href="#phi.math.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear</a></code></li>
@@ -10172,14 +10172,14 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.Shape.batch_rank" href="#phi.math.Shape.batch_rank">batch_rank</a></code></li>
 <li><code><a title="phi.math.Shape.channel" href="#phi.math.Shape.channel">channel</a></code></li>
 <li><code><a title="phi.math.Shape.channel_rank" href="#phi.math.Shape.channel_rank">channel_rank</a></code></li>
-<li><code><a title="phi.math.Shape.collection" href="#phi.math.Shape.collection">collection</a></code></li>
-<li><code><a title="phi.math.Shape.collection_rank" href="#phi.math.Shape.collection_rank">collection_rank</a></code></li>
 <li><code><a title="phi.math.Shape.get_size" href="#phi.math.Shape.get_size">get_size</a></code></li>
 <li><code><a title="phi.math.Shape.get_sizes" href="#phi.math.Shape.get_sizes">get_sizes</a></code></li>
 <li><code><a title="phi.math.Shape.get_type" href="#phi.math.Shape.get_type">get_type</a></code></li>
 <li><code><a title="phi.math.Shape.get_types" href="#phi.math.Shape.get_types">get_types</a></code></li>
 <li><code><a title="phi.math.Shape.index" href="#phi.math.Shape.index">index</a></code></li>
 <li><code><a title="phi.math.Shape.indices" href="#phi.math.Shape.indices">indices</a></code></li>
+<li><code><a title="phi.math.Shape.instance" href="#phi.math.Shape.instance">instance</a></code></li>
+<li><code><a title="phi.math.Shape.instance_rank" href="#phi.math.Shape.instance_rank">instance_rank</a></code></li>
 <li><code><a title="phi.math.Shape.is_empty" href="#phi.math.Shape.is_empty">is_empty</a></code></li>
 <li><code><a title="phi.math.Shape.is_non_uniform" href="#phi.math.Shape.is_non_uniform">is_non_uniform</a></code></li>
 <li><code><a title="phi.math.Shape.is_uniform" href="#phi.math.Shape.is_uniform">is_uniform</a></code></li>
@@ -10189,7 +10189,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.Shape.names" href="#phi.math.Shape.names">names</a></code></li>
 <li><code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">non_batch</a></code></li>
 <li><code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">non_channel</a></code></li>
-<li><code><a title="phi.math.Shape.non_collection" href="#phi.math.Shape.non_collection">non_collection</a></code></li>
+<li><code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">non_instance</a></code></li>
 <li><code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">non_spatial</a></code></li>
 <li><code><a title="phi.math.Shape.only" href="#phi.math.Shape.only">only</a></code></li>
 <li><code><a title="phi.math.Shape.rank" href="#phi.math.Shape.rank">rank</a></code></li>

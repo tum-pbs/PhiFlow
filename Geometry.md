@@ -4,7 +4,7 @@ The module [phi.geom](phi/geom) integrates geometric shapes and supports differe
 
 The class [`Geometry`](phi/geom/#phi.geom.Geometry) serves as a base for all geometry objects, such as boxes or spheres.
 
-All properties of `Geometry` support the use of batch, collection and spatial dimensions.
+All properties of `Geometry` support the use of batch, instance and spatial dimensions.
 The corresponding values take the type of [Φ-tensors](./Math.md).
 This allows a single `Geometry` object to describe a collection of shapes with varying properties.
 

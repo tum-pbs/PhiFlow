@@ -1081,7 +1081,7 @@ For <code>TensorLike</code> objects, only value the sum over all value attribute
 <span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes the mean value by reducing all spatial / collection dimensions.</p>
+<div class="desc"><p>Computes the mean value by reducing all spatial / instance dimensions.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>field</code></strong></dt>
@@ -1095,7 +1095,7 @@ For <code>TensorLike</code> objects, only value the sum over all value attribute
 </summary>
 <pre><code class="python">def mean(field: SampledField) -&gt; math.Tensor:
     &#34;&#34;&#34;
-    Computes the mean value by reducing all spatial / collection dimensions.
+    Computes the mean value by reducing all spatial / instance dimensions.
 
     Args:
         field: `SampledField`
@@ -3456,7 +3456,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
         assert bounds is None or isinstance(bounds, Box), &#39;Invalid bounds.&#39;
         self._bounds = bounds
         color = &#39;#0060ff&#39; if color is None else color
-        self._color = math.wrap(color, collection(&#39;points&#39;)) if isinstance(color, (tuple, list)) else math.wrap(color)
+        self._color = math.wrap(color, instance(&#39;points&#39;)) if isinstance(color, (tuple, list)) else math.wrap(color)
 
     @property
     def shape(self):
@@ -3537,7 +3537,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
     def __and__(self, other):
         assert isinstance(other, PointCloud)
         from ._field_math import concat
-        return concat([self, other], collection(&#39;points&#39;))</code></pre>
+        return concat([self, other], instance(&#39;points&#39;))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
