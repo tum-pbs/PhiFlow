@@ -2,6 +2,7 @@ import itertools
 import sys
 import time
 import warnings
+from functools import partial
 from threading import Event
 from typing import Tuple
 
@@ -57,8 +58,18 @@ class Viewer(VisModel):
         self._log = SceneLog(self.scene)
         self.log_file = self._log.log_file
         self._elapsed = None
-        self._actions = dict(actions)
-        self._actions[Action('reset', Viewer.reset.__doc__)] = self.reset
+        self.reset_step = 0
+        self._actions = {}
+        custom_reset = False
+        self.reset_count = 0
+        for action, function in actions.items():
+            if action.name == 'reset':
+                self._actions[action] = partial(self.reset, custom_reset=function)
+                custom_reset = True
+            else:
+                self._actions[action] = function
+        if not custom_reset:
+            self._actions[Action('reset', Viewer.reset.__doc__)] = self.reset
 
     def log_scalars(self, **values):
         self._log.log_scalars(self.steps, **values)
@@ -167,8 +178,10 @@ class Viewer(VisModel):
 
         if len(args) == 0:
             def count():
+                i = 0
                 while True:
-                    yield self.steps
+                    yield i
+                    i += 1
 
             step_source = count()
         else:
@@ -176,13 +189,13 @@ class Viewer(VisModel):
 
         try:
             for step in step_source:
-                self.steps = step
+                self.steps = step - self.reset_step
                 try:
                     self._pre_step()
                     t = time.perf_counter()
-                    yield step
+                    yield step - self.reset_step
                     self._elapsed = time.perf_counter() - t
-                    self.steps += 1
+                    self.steps = step - self.reset_step + 1
                     if rec_dim:
                         self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                     if self.log_performance:
@@ -215,17 +228,18 @@ class Viewer(VisModel):
     def can_progress(self) -> bool:
         return self._in_loop
 
-    def reset(self):
+    def reset(self, custom_reset=None):
         """
         Restores all viewed fields to the states they were in when the viewer was created.
         Changes variable values in the user namespace.
         """
-        reset_function = self.namespace.get_variable('reset')
-        if callable(reset_function):
-            reset_function()
+        if custom_reset:
+            custom_reset()
         for name, value in self.initial_field_values.items():
             self.namespace.set_variable(name, value)
+        self.reset_step += self.steps
         self.steps = 0
+        self.reset_count += 1
 
 
 class AsyncViewer(Viewer):

@@ -2,7 +2,7 @@ import inspect
 import os
 from threading import Thread
 
-from ._user_namespace import get_user_namespace, UserNamespace
+from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
 from ._vis_base import get_gui, default_gui, Control, display_name, value_range, Action, VisModel, Gui
 from ..field import SampledField, Scene
@@ -67,6 +67,7 @@ def view(*fields: str or SampledField,
          keep_alive=True,
          select: str or tuple or list = '',
          framerate=None,
+         namespace=None,
          **config) -> Viewer:
     """
     Show `fields` in a graphical user interface.
@@ -101,9 +102,10 @@ def view(*fields: str or SampledField,
     Returns:
         `Viewer`
     """
-    user_namespace = get_user_namespace(1)
+    user_namespace = get_user_namespace(1) if namespace is None else DictNamespace(namespace)
     variables = _default_field_variables(user_namespace, fields)
-    actions = _default_actions(user_namespace)
+    actions = dict(ACTIONS)
+    ACTIONS.clear()
     if scene is False:
         scene = None
     elif scene is True:
@@ -145,18 +147,6 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
     return {n: v for n, v in zip(names, values)}
 
 
-def _default_actions(ns: UserNamespace):
-    actions = {}
-    for name, fun in ns.list_variables(only_public=True, only_current_scope=True).items():
-        if inspect.isfunction(fun):
-            signature = inspect.signature(fun)
-            if not signature.parameters:
-                doc = inspect.getdoc(fun)
-                action = Action(name, doc)
-                actions[action] = fun
-    return actions
-
-
 def control(value, range: tuple = None, description="", **kwargs):
     """
     Mark a variable as controllable by any GUI created via `view()`.
@@ -192,3 +182,11 @@ def control(value, range: tuple = None, description="", **kwargs):
 
 
 CONTROL_VARS = {}
+
+
+def action(fun):
+    doc = inspect.getdoc(fun)
+    ACTIONS[Action(fun.__name__, doc)] = fun
+
+
+ACTIONS = {}
