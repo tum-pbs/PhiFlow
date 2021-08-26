@@ -937,9 +937,37 @@ The output of math operations has the same precision as its inputs.</p>
         raise NotImplementedError(self)
 
     def shape(self, tensor):
+        &#34;&#34;&#34;
+        Returns the shape of a tensor.
+        The shape is iterable and implements `len()`.
+        For non-eager tensors, undefined dimensions should return a placeholder value representing the size.
+
+        See Also:
+            `Backend.staticshape()`.
+
+        Args:
+            tensor: Native tensor compatible with this backend.
+
+        Returns:
+            Shape of `tensor`
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def staticshape(self, tensor):
+    def staticshape(self, tensor) -&gt; tuple:
+        &#34;&#34;&#34;
+        Evaluates the static shape of a native tensor.
+        If the tensor is eager, the shape is a `tuple[int]`.
+        For placeholder tensors, unknown dimensions are represented as `None`.
+
+        See Also:
+            `Backend.shape()`.
+
+        Args:
+            tensor: Native tensor compatible with this backend.
+
+        Returns:
+            `tuple` of sizes. Each size is an `int` if the size is defined, else `None`.
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def cast(self, x, dtype: DType):
@@ -3407,12 +3435,37 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <span>def <span class="ident">shape</span></span>(<span>self, tensor)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns the shape of a tensor.
+The shape is iterable and implements <code>len()</code>.
+For non-eager tensors, undefined dimensions should return a placeholder value representing the size.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.staticshape" href="#phi.math.backend.Backend.staticshape">Backend.staticshape()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>Native tensor compatible with this backend.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Shape of <code>tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def shape(self, tensor):
+    &#34;&#34;&#34;
+    Returns the shape of a tensor.
+    The shape is iterable and implements `len()`.
+    For non-eager tensors, undefined dimensions should return a placeholder value representing the size.
+
+    See Also:
+        `Backend.staticshape()`.
+
+    Args:
+        tensor: Native tensor compatible with this backend.
+
+    Returns:
+        Shape of `tensor`
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3516,15 +3569,40 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.staticshape"><code class="name flex">
-<span>def <span class="ident">staticshape</span></span>(<span>self, tensor)</span>
+<span>def <span class="ident">staticshape</span></span>(<span>self, tensor) ‑> tuple</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Evaluates the static shape of a native tensor.
+If the tensor is eager, the shape is a <code>tuple[int]</code>.
+For placeholder tensors, unknown dimensions are represented as <code>None</code>.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.shape" href="#phi.math.backend.Backend.shape">Backend.shape()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>Native tensor compatible with this backend.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>tuple</code> of sizes. Each size is an <code>int</code> if the size is defined, else <code>None</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def staticshape(self, tensor):
+<pre><code class="python">def staticshape(self, tensor) -&gt; tuple:
+    &#34;&#34;&#34;
+    Evaluates the static shape of a native tensor.
+    If the tensor is eager, the shape is a `tuple[int]`.
+    For placeholder tensors, unknown dimensions are represented as `None`.
+
+    See Also:
+        `Backend.shape()`.
+
+    Args:
+        tensor: Native tensor compatible with this backend.
+
+    Returns:
+        `tuple` of sizes. Each size is an `int` if the size is defined, else `None`.
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
