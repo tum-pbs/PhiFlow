@@ -1,3 +1,5 @@
+import warnings
+
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Output
@@ -155,11 +157,20 @@ class DashGui(Gui):
             log.setLevel(logging.ERROR)
 
             port = self.config.get('port', 8051)
+            debug = self.config.get('debug', False)
+            use_waitress = False
+            if not debug:
+                try:
+                    import waitress
+                    use_waitress = True
+                except ImportError:
+                    warnings.warn('waitress is not installed, falling back to dash development server. To enable it, run  $ pip install waitress')
             print('Starting Dash server on http://localhost:%d/' % port)
-            self.dash_app.dash.run_server(debug=self.config.get('debug', False),
-                                          host=self.config.get('host', '0.0.0.0'),
-                                          port=port,
-                                          use_reloader=False)
+            if use_waitress:
+                import waitress
+                waitress.serve(self.dash_app.dash.server, port=port)
+            else:
+                self.dash_app.dash.run_server(debug=debug, host=self.config.get('host', '0.0.0.0'), port=port, use_reloader=False)
             return self
 
     def auto_play(self):
