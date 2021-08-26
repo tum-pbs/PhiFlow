@@ -58,7 +58,7 @@ class TorchBackend(Backend):
         elif isinstance(x, np.ndarray):
             try:
                 tensor = torch.from_numpy(x)
-            except ValueError:
+            except ValueError:  # or TypeError?
                 tensor = torch.from_numpy(x.copy())
             tensor = tensor.to(self.get_default_device().ref)
         elif isinstance(x, (tuple, list)):
@@ -466,7 +466,7 @@ class TorchBackend(Backend):
 
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):
-            return tuple(tensor.shape)
+            return tuple([int(s) for s in tensor.shape])
         else:
             return NUMPY.staticshape(tensor)
 

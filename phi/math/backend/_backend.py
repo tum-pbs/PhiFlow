@@ -471,9 +471,37 @@ class Backend:
         raise NotImplementedError(self)
 
     def shape(self, tensor):
+        """
+        Returns the shape of a tensor.
+        The shape is iterable and implements `len()`.
+        For non-eager tensors, undefined dimensions should return a placeholder value representing the size.
+
+        See Also:
+            `Backend.staticshape()`.
+
+        Args:
+            tensor: Native tensor compatible with this backend.
+
+        Returns:
+            Shape of `tensor`
+        """
         raise NotImplementedError(self)
 
-    def staticshape(self, tensor):
+    def staticshape(self, tensor) -> tuple:
+        """
+        Evaluates the static shape of a native tensor.
+        If the tensor is eager, the shape is a `tuple[int]`.
+        For placeholder tensors, unknown dimensions are represented as `None`.
+
+        See Also:
+            `Backend.shape()`.
+
+        Args:
+            tensor: Native tensor compatible with this backend.
+
+        Returns:
+            `tuple` of sizes. Each size is an `int` if the size is defined, else `None`.
+        """
         raise NotImplementedError(self)
 
     def cast(self, x, dtype: DType):
