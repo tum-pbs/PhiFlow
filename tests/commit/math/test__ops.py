@@ -77,6 +77,15 @@ class TestMathFunctions(TestCase):
         std = math.std(ones)
         math.assert_close(0, std)
 
+    def test_median(self):
+        t = math.random_normal(batch(batch=10), instance(samples=10))
+        m = math.median(t)
+        mi = math.median(t, t.shape.instance)
+        for backend in BACKENDS:
+            with backend:
+                t_ = math.tensor(t)
+                m_ = math.median(t)
+
     def test_grid_sample(self):
         for backend in BACKENDS:
             with backend:

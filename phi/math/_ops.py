@@ -1394,10 +1394,31 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=mask.shape.without(dim))
 
 
-def gather(values: Tensor, indices: Tensor):
-    batch = values.shape.batch & indices.shape.batch
-    native_values = reshaped_native(values, [batch, *values.shape.spatial, values.shape.channel])
-    native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch])
+def gather(values: Tensor, indices: Tensor, dims: str or Shape or tuple or list = None):
+    """
+    Gathers the entries of `values` at positions described by `indices`.
+
+    See Also:
+        `scatter()`.
+
+    Args:
+        values: `Tensor` containing values to gather.
+        indices: `int` `Tensor`. Multi-dimensional position references in `values`.
+            Must contain a single channel dimension for the index vector matching the number of `dims`.
+        dims: Dimensions indexed by `indices`.
+            If `None`, will default to all spatial dimensions or all instance dimensions, depending on which ones are present (but not both).
+
+    Returns:
+        `Tensor` with combined batch dimensions, channel dimensions of `values` and spatial/instance dimensions of `indices`.
+    """
+    if dims is None:
+        assert values.shape.instance.is_empty or values.shape.spatial.is_empty, f"Specify gather dimensions for values with both instance and spatial dimensions. Got {values.shape}"
+        dims = values.shape.instance if values.shape.spatial.is_empty else values.shape.spatial
+    dims = parse_dim_order(dims)
+    batch = (values.shape.batch & indices.shape.batch).without(dims)
+    channel = values.shape.channel.without(dims)
+    native_values = reshaped_native(values, [batch, *dims, channel])
+    native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch.non_channel, indices.shape.channel])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
     result = reshaped_tensor(native_result, [batch, *indices.shape.non_channel.non_batch, values.shape.channel])
@@ -1425,6 +1446,9 @@ def scatter(base_grid: Tensor or Shape,
     * PyTorch: [`torch.scatter`](https://pytorch.org/docs/stable/generated/torch.scatter.html), [`torch.scatter_add`](https://pytorch.org/docs/stable/generated/torch.scatter_add.html)
     * TensorFlow: [`tf.tensor_scatter_nd_add`](https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_add), [`tf.tensor_scatter_nd_update`](https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_update)
     * Jax: [`jax.lax.scatter_add`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter_add.html), [`jax.lax.scatter`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter.html)
+
+    See Also:
+        `gather()`.
 
     Args:
         base_grid: `Tensor` into which `values` are scattered.
