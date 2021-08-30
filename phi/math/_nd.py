@@ -27,6 +27,10 @@ def vec_squared(vec: Tensor):
     return math.sum_(vec ** 2, dim=channel('vector'))
 
 
+def vec_normalize(vec: Tensor):
+    return vec / vec_abs(vec)
+
+
 def cross_product(vec1: Tensor, vec2: Tensor):
     vec1 = math.tensor(vec1)
     vec2 = math.tensor(vec2)
@@ -52,7 +56,7 @@ def cross_product(vec1: Tensor, vec2: Tensor):
         raise AssertionError(f'dims = {spatial_rank}. Vector product not available in > 3 dimensions')
 
 
-def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
+def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     """
     Multiplies the target so that its total content matches the source.
 
@@ -60,16 +64,14 @@ def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
       target: a tensor
       source: a tensor or number
       epsilon: small number to prevent division by zero or None. (Default value = 1e-5)
-      target: Tensor: 
-      source: Tensor: 
 
     Returns:
       normalized tensor of the same shape as target
 
     """
-    target_total = math.sum_(target, dim=target.shape.non_batch.names)
+    target_total = math.sum_(target)
     denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total
-    source_total = math.sum_(source, dim=source.shape.non_batch.names)
+    source_total = math.sum_(source)
     return target * (source_total / denominator)
 
 

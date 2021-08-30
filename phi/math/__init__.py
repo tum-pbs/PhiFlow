@@ -49,7 +49,7 @@ from ._ops import (
 )
 from ._nd import (
     shift,
-    spatial_sum, vec_abs, vec_squared, cross_product,
+    spatial_sum, vec_abs, vec_squared, vec_normalize, cross_product,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
