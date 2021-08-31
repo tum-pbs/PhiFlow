@@ -41,7 +41,7 @@ See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visual
 &#34;&#34;&#34;
 from ._viewer import Viewer
 from ._matplotlib import plot, animate, plot_scalars, savefig
-from ._vis import view, control, show
+from ._vis import view, control, show, action
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 
@@ -73,6 +73,20 @@ __pdoc__ = {
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="phi.vis.action"><code class="name flex">
+<span>def <span class="ident">action</span></span>(<span>fun)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action(fun):
+    doc = inspect.getdoc(fun)
+    ACTIONS[Action(fun.__name__, doc)] = fun</code></pre>
+</details>
+</dd>
 <dt id="phi.vis.animate"><code class="name flex">
 <span>def <span class="ident">animate</span></span>(<span>fields: phi.field._field.SampledField, dim='frames', show_color_bar=False, size=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) ‑> matplotlib.animation.Animation</span>
 </code></dt>
@@ -457,7 +471,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
-<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = False, keep_alive=True, select: str = '', framerate=None, **config) ‑> phi.vis._viewer.Viewer</span>
+<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = False, keep_alive=True, select: str = '', framerate=None, namespace=None, **config) ‑> phi.vis._viewer.Viewer</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show <code>fields</code> in a graphical user interface.</p>
@@ -512,6 +526,7 @@ For each <code>select</code> dimension, an associated selection slider will be c
          keep_alive=True,
          select: str or tuple or list = &#39;&#39;,
          framerate=None,
+         namespace=None,
          **config) -&gt; Viewer:
     &#34;&#34;&#34;
     Show `fields` in a graphical user interface.
@@ -546,9 +561,10 @@ For each <code>select</code> dimension, an associated selection slider will be c
     Returns:
         `Viewer`
     &#34;&#34;&#34;
-    user_namespace = get_user_namespace(1)
+    user_namespace = get_user_namespace(1) if namespace is None else DictNamespace(namespace)
     variables = _default_field_variables(user_namespace, fields)
-    actions = _default_actions(user_namespace)
+    actions = dict(ACTIONS)
+    ACTIONS.clear()
     if scene is False:
         scene = None
     elif scene is True:
@@ -613,8 +629,18 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         self._log = SceneLog(self.scene)
         self.log_file = self._log.log_file
         self._elapsed = None
-        self._actions = dict(actions)
-        self._actions[Action(&#39;reset&#39;, Viewer.reset.__doc__)] = self.reset
+        self.reset_step = 0
+        self._actions = {}
+        custom_reset = False
+        self.reset_count = 0
+        for action, function in actions.items():
+            if action.name == &#39;reset&#39;:
+                self._actions[action] = partial(self.reset, custom_reset=function)
+                custom_reset = True
+            else:
+                self._actions[action] = function
+        if not custom_reset:
+            self._actions[Action(&#39;reset&#39;, Viewer.reset.__doc__)] = self.reset
 
     def log_scalars(self, **values):
         self._log.log_scalars(self.steps, **values)
@@ -723,8 +749,10 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
 
         if len(args) == 0:
             def count():
+                i = 0
                 while True:
-                    yield self.steps
+                    yield i
+                    i += 1
 
             step_source = count()
         else:
@@ -732,13 +760,13 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
 
         try:
             for step in step_source:
-                self.steps = step
+                self.steps = step - self.reset_step
                 try:
                     self._pre_step()
                     t = time.perf_counter()
-                    yield step
+                    yield step - self.reset_step
                     self._elapsed = time.perf_counter() - t
-                    self.steps += 1
+                    self.steps = step - self.reset_step + 1
                     if rec_dim:
                         self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                     if self.log_performance:
@@ -771,17 +799,18 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
     def can_progress(self) -&gt; bool:
         return self._in_loop
 
-    def reset(self):
+    def reset(self, custom_reset=None):
         &#34;&#34;&#34;
         Restores all viewed fields to the states they were in when the viewer was created.
         Changes variable values in the user namespace.
         &#34;&#34;&#34;
-        reset_function = self.namespace.get_variable(&#39;reset&#39;)
-        if callable(reset_function):
-            reset_function()
+        if custom_reset:
+            custom_reset()
         for name, value in self.initial_field_values.items():
             self.namespace.set_variable(name, value)
-        self.steps = 0</code></pre>
+        self.reset_step += self.steps
+        self.steps = 0
+        self.reset_count += 1</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -890,8 +919,10 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 
     if len(args) == 0:
         def count():
+            i = 0
             while True:
-                yield self.steps
+                yield i
+                i += 1
 
         step_source = count()
     else:
@@ -899,13 +930,13 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 
     try:
         for step in step_source:
-            self.steps = step
+            self.steps = step - self.reset_step
             try:
                 self._pre_step()
                 t = time.perf_counter()
-                yield step
+                yield step - self.reset_step
                 self._elapsed = time.perf_counter() - t
-                self.steps += 1
+                self.steps = step - self.reset_step + 1
                 if rec_dim:
                     self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                 if self.log_performance:
@@ -935,6 +966,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
+<li><code><a title="phi.vis.action" href="#phi.vis.action">action</a></code></li>
 <li><code><a title="phi.vis.animate" href="#phi.vis.animate">animate</a></code></li>
 <li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
 <li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>
