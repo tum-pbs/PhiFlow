@@ -318,7 +318,13 @@ def _print_tensor(value: Tensor, name: str or None):
         print(" " * 16 + name)
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
     if value.shape.spatial_rank == 0:
-        print(value.numpy())
+        print(f"shape={value.shape}")
+        if value.shape.rank <= 1:
+            text = np.array2string(value.numpy(), precision=2, separator=', ', max_line_width=np.inf)
+            print(' ' + re.sub('[\\[\\]]', '', text))
+        else:
+            text = np.array2string(value.numpy(value.shape), precision=2, separator=', ', max_line_width=np.inf)
+            print(text)
     elif value.shape.spatial_rank == 1:
         for index_dict in value.shape.non_spatial.meshgrid():
             if value.shape.non_spatial.volume > 1:
@@ -335,7 +341,7 @@ def _print_tensor(value: Tensor, name: str or None):
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
 
 
-def map_(function, *values: Tensor) -> Tensor:
+def map_(function, *values: Tensor, sequential=True) -> Tensor:
     """
     Calls `function` on all elements of `value`.
 
@@ -977,49 +983,41 @@ def sum_(value: Tensor or list or tuple,
                    collapsed_function=lambda inner, red_shape: inner * red_shape.volume)
 
 
-def prod(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def prod(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.prod(native, dim),
                    collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)
 
 
-def mean(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
-    return _reduce(value, dim,
-                   native_function=lambda backend, native, dim: backend.mean(native, dim))
+def mean(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.mean(native, dim))
 
 
-def std(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def median(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.median(native, dim))
+
+
+def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.std(native, dim),
                    collapsed_function=lambda inner, red_shape: inner,
                    unaffected_function=lambda value: value * 0)
 
 
-def any_(boolean_tensor: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
-    return _reduce(boolean_tensor, dim,
-                   native_function=lambda backend, native, dim: backend.any(native, dim))
+def any_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.any(native, dim))
 
 
-def all_(boolean_tensor: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
-    return _reduce(boolean_tensor, dim,
-                   native_function=lambda backend, native, dim: backend.all(native, dim))
+def all_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.all(native, dim))
 
 
-def max_(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
-    return _reduce(value, dim,
-                   native_function=lambda backend, native, dim: backend.max(native, dim))
+def max_(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.max(native, dim))
 
 
-def min_(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
-    return _reduce(value, dim,
-                   native_function=lambda backend, native, dim: backend.min(native, dim))
+def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
 def dot(x: Tensor,
@@ -1472,7 +1470,7 @@ def scatter(base_grid: Tensor or Shape,
     assert outside_handling in ('discard', 'clamp', 'undefined')
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
-    assert indices.shape.channel.names == ('vector',) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
+    assert indices.shape.channel.names == ('vector',) or (grid_shape.spatial_rank + grid_shape.instance_rank == 1 and indices.shape.channel_rank == 0)
     batches = values.shape.non_channel.non_instance & indices.shape.non_channel.non_instance
     channels = grid_shape.channel & values.shape.channel
     # --- Set up grid ---
@@ -1495,7 +1493,7 @@ def scatter(base_grid: Tensor or Shape,
 
     def scatter_forward(base_grid, indices, values):
         indices = to_int32(round_(indices))
-        native_grid = reshaped_native(base_grid, [batches, *base_grid.shape.spatial.names, channels], force_expand=True)
+        native_grid = reshaped_native(base_grid, [batches, *base_grid.shape.instance, *base_grid.shape.spatial, channels], force_expand=True)
         native_values = reshaped_native(values, [batches, lists, channels], force_expand=True)
         native_indices = reshaped_native(indices, [batches, lists, 'vector'], force_expand=True)
         backend = choose_backend(native_indices, native_values, native_grid)
@@ -1507,7 +1505,7 @@ def scatter(base_grid: Tensor or Shape,
             count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode='add')
             native_result = summed / backend.maximum(count, 1)
             native_result = backend.where(count == 0, native_grid, native_result)
-        return reshaped_tensor(native_result, [batches, *spatial(base_grid), channels], check_sizes=True)
+        return reshaped_tensor(native_result, [batches, *instance(base_grid), *spatial(base_grid), channels], check_sizes=True)
 
     def scatter_backward(shaped_base_grid_, shaped_indices_, shaped_values_, output, d_output):
         from ._nd import spatial_gradient
