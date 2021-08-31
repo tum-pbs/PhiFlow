@@ -40,6 +40,10 @@ def troubleshoot_tensorflow():
     except ImportError:
         return "Not installed."
     try:
+        import tensorflow_probability
+    except ImportError:
+        return "Module 'tensorflow_probability' missing. Some functions may be unavailable, such as math.median() and math.quantile()"
+    try:
         from phi import tf
     except BaseException as err:
         return f"Installed but not available due to internal error: {err}"

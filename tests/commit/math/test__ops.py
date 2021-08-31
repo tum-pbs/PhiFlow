@@ -186,6 +186,19 @@ class TestMathFunctions(TestCase):
                 y_ = math.cumulative_sum(t_, t.shape[0])
                 math.assert_close(y_, [(0, 1, 2, 3), (-1, -1, -1, -1)], msg=backend.name)
 
+    def test_quantile(self):
+        for backend in BACKENDS:
+            with backend:
+                t = math.tensor([(1, 2, 3, 4), (1, 2, 3, 4), (6, 7, 8, 9)], batch('batch'), instance('list'))
+                q = math.quantile(t, 0.5)
+                math.assert_close(q, (2.5, 2.5, 7.5), msg=backend.name)
+                q = math.quantile(t, [0.5, 0.6])
+                math.assert_close(q, [(2.5, 2.5, 7.5), (2.8, 2.8, 7.8)], msg=backend.name)
+
+    def test_median(self):
+        t = math.tensor([(1, 2, 3, 10), (0, 1, 3, 10)], batch('batch'), instance('list'))
+        math.assert_close(math.median(t), [2.5, 2])
+
     def test_fft(self):
         def get_2d_sine(grid_size, L):
             indices = np.array(np.meshgrid(*list(map(range, grid_size))))

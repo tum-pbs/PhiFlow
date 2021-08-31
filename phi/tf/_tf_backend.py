@@ -333,6 +333,12 @@ class TFBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return tf.reduce_all(boolean_tensor, axis=axis, keepdims=keepdims)
 
+    def quantile(self, x, quantiles):
+        import tensorflow_probability as tfp
+        x = self.to_float(x)
+        result = tfp.stats.percentile(x, quantiles * 100, axis=-1, interpolation='linear')
+        return result
+
     def scatter(self, base_grid, indices, values, mode: str):
         base_grid, values = self.auto_cast(base_grid, values)
         indices = self.as_tensor(indices)

@@ -935,7 +935,7 @@ def channel(*args, **dims: int):
     Returns:
         `Shape` containing only dimensions of type channel.
     """
-    from phi.math import Tensor
+    from ._tensors import Tensor
     if all(isinstance(arg, str) for arg in args) or dims:
         for arg in args:
             parts = [s.strip() for s in arg.split(',')]

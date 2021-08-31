@@ -1041,6 +1041,54 @@ def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
+def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: str or int or tuple or list or None or Shape = None):
+    """
+
+    Args:
+        value: `Tensor`
+        quantiles: Single quantile or tensor of quantiles to compute.
+            Must be of type `float`, `tuple`, `list` or `Tensor`.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor`
+    """
+    dims = _resolve_dims(dim, value.shape)
+    native_values = reshaped_native(value, [*value.shape.without(dims), value.shape.only(dims)])
+    backend = choose_backend(native_values)
+    q = tensor(quantiles, default_list_dim=instance('quantiles'))
+    native_quantiles = reshaped_native(q, [q.shape])
+    native_result = backend.quantile(native_values, native_quantiles)
+    return reshaped_tensor(native_result, [q.shape, *value.shape.without(dims)])
+
+
+def median(value, dim: str or int or tuple or list or None or Shape = None):
+    """
+    Reduces `dim` of `value` by picking the median value.
+    For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.
+
+    Args:
+        value: `Tensor`
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor`
+    """
+    return quantile(value, 0.5, dim)
+
+
 def dot(x: Tensor,
         x_dims: str or tuple or list or Shape,
         y: Tensor,

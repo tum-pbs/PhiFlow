@@ -275,6 +275,9 @@ class NumPyBackend(Backend):
         #     return array / count
         return result
 
+    def quantile(self, x, quantiles):
+        return np.quantile(x, quantiles, axis=-1)
+
     def fft(self, x, axes: tuple or list):
         x = self.to_complex(x)
         if not axes:

@@ -591,6 +591,19 @@ class Backend:
     def all(self, boolean_tensor, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
+    def quantile(self, x, quantiles):
+        """
+        Reduces the last / inner axis of x.
+
+        Args:
+            x: Tensor
+            quantiles: List or 1D tensor of quantiles to compute.
+
+        Returns:
+            Tensor with shape (quantiles, *x.shape[:-1])
+        """
+        raise NotImplementedError(self)
+
     def fft(self, x, axes: tuple or list):
         """
         Computes the n-dimensional FFT along all but the first and last dimensions.

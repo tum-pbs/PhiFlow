@@ -32,7 +32,7 @@ from ._ops import (
     pack_dims, unpack_dims, rename_dims, flatten, expand, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
-    sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
+    sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all, quantile, median,  # reduce
     dot,
     abs_ as abs, sign,
     round_ as round, ceil, floor,

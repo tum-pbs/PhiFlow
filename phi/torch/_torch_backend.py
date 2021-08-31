@@ -318,6 +318,11 @@ class TorchBackend(Backend):
                 boolean_tensor = torch.all(boolean_tensor, dim=axis, keepdim=keepdims)
             return boolean_tensor
 
+    def quantile(self, x, quantiles):
+        x = self.to_float(x)
+        result = torch.quantile(x, quantiles, dim=-1)
+        return result
+
     def divide_no_nan(self, x, y):
         x, y = self.auto_cast(x, y)
         return divide_no_nan(x, y)

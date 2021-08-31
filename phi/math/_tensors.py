@@ -1159,7 +1159,8 @@ class TensorStack(Tensor):
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
            *shape: Shape,
-           convert: bool = True) -> Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
+           convert: bool = True,
+           default_list_dim=channel('vector')) -> Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
     """
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
@@ -1229,7 +1230,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             inner_shape = [] if shape is None else [shape[1:]]
             elements = [tensor(d, *inner_shape, convert=convert) for d in data]
             common_shape = merge_shapes(*[e.shape for e in elements])
-            stack_dim = channel('vector') if shape is None else shape[0].with_sizes([len(elements)])
+            stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(elements)])
             assert all(stack_dim not in t.shape for t in elements), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in elements]
             from ._ops import cast_same
@@ -1239,7 +1240,8 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         backend = choose_backend(data)
         if shape is None:
             assert backend.ndims(data) <= 1, "Specify dimension names for tensors with more than 1 dimension"
-            shape = Shape(data.shape, ['vector'] * backend.ndims(data), [CHANNEL_DIM] * backend.ndims(data))  # [] or ['vector']
+            shape = default_list_dim if backend.ndims(data) == 1 else EMPTY_SHAPE
+            shape = shape.with_sizes(backend.shape(data))
         else:
             # fill in sizes or check them
             sizes = backend.staticshape(data)
