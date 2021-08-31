@@ -78,14 +78,14 @@ from ._ops import (
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,
-    fft, ifft, convolve,
+    fft, ifft, convolve, cumulative_sum,
     dtype, cast,
     close, assert_close,
     record_gradients, gradients, stop_gradient
 )
 from ._nd import (
     shift,
-    spatial_sum, vec_abs, vec_squared, cross_product,
+    spatial_sum, vec_abs, vec_squared, vec_normalize, cross_product,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
@@ -232,10 +232,8 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def all_(boolean_tensor: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
-    return _reduce(boolean_tensor, dim,
-                   native_function=lambda backend, native, dim: backend.all(native, dim))</code></pre>
+<pre><code class="python">def all_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
+    return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.all(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.all_available"><code class="name flex">
@@ -304,10 +302,8 @@ Tracing placeholders are considered not available, even when they hold example v
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def any_(boolean_tensor: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
-    return _reduce(boolean_tensor, dim,
-                   native_function=lambda backend, native, dim: backend.any(native, dim))</code></pre>
+<pre><code class="python">def any_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
+    return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.any(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.assert_close"><code class="name flex">
@@ -1091,6 +1087,56 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
         raise AssertionError(f&#39;dims = {spatial_rank}. Vector product not available in &gt; 3 dimensions&#39;)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.cumulative_sum"><code class="name flex">
+<span>def <span class="ident">cumulative_sum</span></span>(<span>x: phi.math._tensors.Tensor, dim: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Performs a cumulative sum of <code>x</code> along <code>dim</code>.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://numpy.org/doc/stable/reference/generated/numpy.cumsum.html"><code>cumsum</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.cumsum.html"><code>cumsum</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/math/cumsum"><code>cumsum</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.cumsum.html"><code>cumsum</code></a></li>
+</ul>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Dimension along which to sum, as <code>str</code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with the same shape as <code>x</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cumulative_sum(x: Tensor, dim: str or Shape):
+    &#34;&#34;&#34;
+    Performs a cumulative sum of `x` along `dim`.
+
+    Implementations:
+
+    * NumPy: [`cumsum`](https://numpy.org/doc/stable/reference/generated/numpy.cumsum.html)
+    * PyTorch: [`cumsum`](https://pytorch.org/docs/stable/generated/torch.cumsum.html)
+    * TensorFlow: [`cumsum`](https://www.tensorflow.org/api_docs/python/tf/math/cumsum)
+    * Jax: [`cumsum`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.cumsum.html)
+
+    Args:
+        x: `Tensor`
+        dim: Dimension along which to sum, as `str` or `Shape`.
+
+    Returns:
+        `Tensor` with the same shape as `x`.
+    &#34;&#34;&#34;
+    dim = parse_dim_order(dim)
+    assert len(dim) == 1, f&#34;dim must be a single dimension but got {dim}&#34;
+    native_x = x.native(x.shape)
+    native_result = choose_backend(native_x).cumsum(native_x, x.shape.index(dim[0]))
+    return NativeTensor(native_result, x.shape)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.custom_gradient"><code class="name flex">
 <span>def <span class="ident">custom_gradient</span></span>(<span>f: Callable, gradient: Callable)</span>
 </code></dt>
@@ -1565,7 +1611,7 @@ These are the frequencies corresponding to the components of the result of <code
 </details>
 </dd>
 <dt id="phi.math.flatten"><code class="name flex">
-<span>def <span class="ident">flatten</span></span>(<span>value: phi.math._tensors.Tensor, flat_dim: phi.math._shape.Shape = (flatᶜᵒˡ=None))</span>
+<span>def <span class="ident">flatten</span></span>(<span>value: phi.math._tensors.Tensor, flat_dim: phi.math._shape.Shape = (flatⁱ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1836,18 +1882,54 @@ Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the 
 </details>
 </dd>
 <dt id="phi.math.gather"><code class="name flex">
-<span>def <span class="ident">gather</span></span>(<span>values: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">gather</span></span>(<span>values: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor, dims: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Gathers the entries of <code>values</code> at positions described by <code>indices</code>.</p>
+<p>See Also:
+<code><a title="phi.math.scatter" href="#phi.math.scatter">scatter()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> containing values to gather.</dd>
+<dt><strong><code>indices</code></strong></dt>
+<dd><code>int</code> <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>. Multi-dimensional position references in <code>values</code>.
+Must contain a single channel dimension for the index vector matching the number of <code>dims</code>.</dd>
+<dt><strong><code>dims</code></strong></dt>
+<dd>Dimensions indexed by <code>indices</code>.
+If <code>None</code>, will default to all spatial dimensions or all instance dimensions, depending on which ones are present (but not both).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with combined batch dimensions, channel dimensions of <code>values</code> and spatial/instance dimensions of <code>indices</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gather(values: Tensor, indices: Tensor):
-    batch = values.shape.batch &amp; indices.shape.batch
-    native_values = reshaped_native(values, [batch, *values.shape.spatial, values.shape.channel])
-    native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch])
+<pre><code class="python">def gather(values: Tensor, indices: Tensor, dims: str or Shape or tuple or list = None):
+    &#34;&#34;&#34;
+    Gathers the entries of `values` at positions described by `indices`.
+
+    See Also:
+        `scatter()`.
+
+    Args:
+        values: `Tensor` containing values to gather.
+        indices: `int` `Tensor`. Multi-dimensional position references in `values`.
+            Must contain a single channel dimension for the index vector matching the number of `dims`.
+        dims: Dimensions indexed by `indices`.
+            If `None`, will default to all spatial dimensions or all instance dimensions, depending on which ones are present (but not both).
+
+    Returns:
+        `Tensor` with combined batch dimensions, channel dimensions of `values` and spatial/instance dimensions of `indices`.
+    &#34;&#34;&#34;
+    if dims is None:
+        assert values.shape.instance.is_empty or values.shape.spatial.is_empty, f&#34;Specify gather dimensions for values with both instance and spatial dimensions. Got {values.shape}&#34;
+        dims = values.shape.instance if values.shape.spatial.is_empty else values.shape.spatial
+    dims = parse_dim_order(dims)
+    batch = (values.shape.batch &amp; indices.shape.batch).without(dims)
+    channel = values.shape.channel.without(dims)
+    native_values = reshaped_native(values, [batch, *dims, channel])
+    native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch.non_channel, indices.shape.channel])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
     result = reshaped_tensor(native_result, [batch, *indices.shape.non_channel.non_batch, values.shape.channel])
@@ -2495,10 +2577,8 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def max_(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
-    return _reduce(value, dim,
-                   native_function=lambda backend, native, dim: backend.max(native, dim))</code></pre>
+<pre><code class="python">def max_(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
+    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.max(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.maximum"><code class="name flex">
@@ -2523,10 +2603,8 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mean(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
-    return _reduce(value, dim,
-                   native_function=lambda backend, native, dim: backend.mean(native, dim))</code></pre>
+<pre><code class="python">def mean(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
+    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.mean(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.merge_shapes"><code class="name flex">
@@ -2674,10 +2752,8 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def min_(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
-    return _reduce(value, dim,
-                   native_function=lambda backend, native, dim: backend.min(native, dim))</code></pre>
+<pre><code class="python">def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
+    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.min(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.minimize"><code class="name flex">
@@ -2942,7 +3018,7 @@ see <code><a title="phi.math.backend.Backend.prefers_channels_last" href="backen
 </details>
 </dd>
 <dt id="phi.math.nonzero"><code class="name flex">
-<span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim: phi.math._shape.Shape = (nonzeroᶜᵒˡ=None), index_dim: phi.math._shape.Shape = (vectorᶜ=None))</span>
+<span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim: phi.math._shape.Shape = (nonzeroⁱ=None), index_dim: phi.math._shape.Shape = (vectorᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get spatial indices of non-zero / True values.</p>
@@ -3007,7 +3083,7 @@ If channel dimensions are present, this method returns the indices where any com
 </details>
 </dd>
 <dt id="phi.math.normalize_to"><code class="name flex">
-<span>def <span class="ident">normalize_to</span></span>(<span>target: phi.math._tensors.Tensor, source: phi.math._tensors.Tensor, epsilon=1e-05)</span>
+<span>def <span class="ident">normalize_to</span></span>(<span>target: phi.math._tensors.Tensor, source: float, epsilon=1e-05)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Multiplies the target so that its total content matches the source.</p>
@@ -3019,10 +3095,6 @@ If channel dimensions are present, this method returns the indices where any com
 <dd>a tensor or number</dd>
 <dt><strong><code>epsilon</code></strong></dt>
 <dd>small number to prevent division by zero or None. (Default value = 1e-5)</dd>
-<dt><strong><code>target</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>source</code></strong></dt>
-<dd>Tensor: </dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>normalized tensor of the same shape as target</p></div>
@@ -3030,7 +3102,7 @@ If channel dimensions are present, this method returns the indices where any com
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
+<pre><code class="python">def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     &#34;&#34;&#34;
     Multiplies the target so that its total content matches the source.
 
@@ -3038,16 +3110,14 @@ If channel dimensions are present, this method returns the indices where any com
       target: a tensor
       source: a tensor or number
       epsilon: small number to prevent division by zero or None. (Default value = 1e-5)
-      target: Tensor: 
-      source: Tensor: 
 
     Returns:
       normalized tensor of the same shape as target
 
     &#34;&#34;&#34;
-    target_total = math.sum_(target, dim=target.shape.non_batch.names)
+    target_total = math.sum_(target)
     denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total
-    source_total = math.sum_(source, dim=source.shape.non_batch.names)
+    source_total = math.sum_(source)
     return target * (source_total / denominator)</code></pre>
 </details>
 </dd>
@@ -3423,8 +3493,7 @@ math.functional_gradient(f)(math.ones(x=6))
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def prod(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
+<pre><code class="python">def prod(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.prod(native, dim),
                    collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)</code></pre>
@@ -3871,6 +3940,8 @@ Depending on <code>mode</code>, this method has one of the following effects:</p
 <li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_add"><code>tf.tensor_scatter_nd_add</code></a>, <a href="https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_update"><code>tf.tensor_scatter_nd_update</code></a></li>
 <li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter_add.html"><code>jax.lax.scatter_add</code></a>, <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter.html"><code>jax.lax.scatter</code></a></li>
 </ul>
+<p>See Also:
+<code><a title="phi.math.gather" href="#phi.math.gather">gather()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>base_grid</code></strong></dt>
@@ -3924,6 +3995,9 @@ Must also contain all <code>scatter_dims</code>.</dd>
     * TensorFlow: [`tf.tensor_scatter_nd_add`](https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_add), [`tf.tensor_scatter_nd_update`](https://www.tensorflow.org/api_docs/python/tf/tensor_scatter_nd_update)
     * Jax: [`jax.lax.scatter_add`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter_add.html), [`jax.lax.scatter`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scatter.html)
 
+    See Also:
+        `gather()`.
+
     Args:
         base_grid: `Tensor` into which `values` are scattered.
         indices: `Tensor` of n-dimensional indices at which to place `values`.
@@ -3946,7 +4020,7 @@ Must also contain all <code>scatter_dims</code>.</dd>
     assert outside_handling in (&#39;discard&#39;, &#39;clamp&#39;, &#39;undefined&#39;)
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
-    assert indices.shape.channel.names == (&#39;vector&#39;,) or (grid_shape.spatial_rank == 1 and indices.shape.channel_rank == 0)
+    assert indices.shape.channel.names == (&#39;vector&#39;,) or (grid_shape.spatial_rank + grid_shape.instance_rank == 1 and indices.shape.channel_rank == 0)
     batches = values.shape.non_channel.non_instance &amp; indices.shape.non_channel.non_instance
     channels = grid_shape.channel &amp; values.shape.channel
     # --- Set up grid ---
@@ -3969,7 +4043,7 @@ Must also contain all <code>scatter_dims</code>.</dd>
 
     def scatter_forward(base_grid, indices, values):
         indices = to_int32(round_(indices))
-        native_grid = reshaped_native(base_grid, [batches, *base_grid.shape.spatial.names, channels], force_expand=True)
+        native_grid = reshaped_native(base_grid, [batches, *base_grid.shape.instance, *base_grid.shape.spatial, channels], force_expand=True)
         native_values = reshaped_native(values, [batches, lists, channels], force_expand=True)
         native_indices = reshaped_native(indices, [batches, lists, &#39;vector&#39;], force_expand=True)
         backend = choose_backend(native_indices, native_values, native_grid)
@@ -3981,7 +4055,7 @@ Must also contain all <code>scatter_dims</code>.</dd>
             count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode=&#39;add&#39;)
             native_result = summed / backend.maximum(count, 1)
             native_result = backend.where(count == 0, native_grid, native_result)
-        return reshaped_tensor(native_result, [batches, *spatial(base_grid), channels], check_sizes=True)
+        return reshaped_tensor(native_result, [batches, *instance(base_grid), *spatial(base_grid), channels], check_sizes=True)
 
     def scatter_backward(shaped_base_grid_, shaped_indices_, shaped_values_, output, d_output):
         from ._nd import spatial_gradient
@@ -4556,8 +4630,7 @@ The size along <code>dim</code> is determined from <code>len(values)</code> and 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def std(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
+<pre><code class="python">def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -&gt; Tensor:
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.std(native, dim),
                    collapsed_function=lambda inner, red_shape: inner,
@@ -5119,6 +5192,19 @@ The grid values at the new points are determined via linear interpolation.</p>
 </summary>
 <pre><code class="python">def vec_abs(vec: Tensor):
     return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel.names))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.vec_normalize"><code class="name flex">
+<span>def <span class="ident">vec_normalize</span></span>(<span>vec: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def vec_normalize(vec: Tensor):
+    return vec / vec_abs(vec)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.vec_squared"><code class="name flex">
@@ -10014,6 +10100,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.copy" href="#phi.math.copy">copy</a></code></li>
 <li><code><a title="phi.math.cos" href="#phi.math.cos">cos</a></code></li>
 <li><code><a title="phi.math.cross_product" href="#phi.math.cross_product">cross_product</a></code></li>
+<li><code><a title="phi.math.cumulative_sum" href="#phi.math.cumulative_sum">cumulative_sum</a></code></li>
 <li><code><a title="phi.math.custom_gradient" href="#phi.math.custom_gradient">custom_gradient</a></code></li>
 <li><code><a title="phi.math.divide_no_nan" href="#phi.math.divide_no_nan">divide_no_nan</a></code></li>
 <li><code><a title="phi.math.dot" href="#phi.math.dot">dot</a></code></li>
@@ -10107,6 +10194,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.unstack" href="#phi.math.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.upsample2x" href="#phi.math.upsample2x">upsample2x</a></code></li>
 <li><code><a title="phi.math.vec_abs" href="#phi.math.vec_abs">vec_abs</a></code></li>
+<li><code><a title="phi.math.vec_normalize" href="#phi.math.vec_normalize">vec_normalize</a></code></li>
 <li><code><a title="phi.math.vec_squared" href="#phi.math.vec_squared">vec_squared</a></code></li>
 <li><code><a title="phi.math.where" href="#phi.math.where">where</a></code></li>
 <li><code><a title="phi.math.wrap" href="#phi.math.wrap">wrap</a></code></li>

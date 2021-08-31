@@ -863,6 +863,9 @@ The output of math operations has the same precision as its inputs.</p>
     def einsum(self, equation, *tensors):
         raise NotImplementedError(self)
 
+    def cumsum(self, x, axis: int):
+        raise NotImplementedError(self)
+
     def while_loop(self, loop: Callable, values: tuple):
         &#34;&#34;&#34;
         ```python
@@ -2126,6 +2129,19 @@ Higher dimensions may not be supported.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def cos(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.cumsum"><code class="name flex">
+<span>def <span class="ident">cumsum</span></span>(<span>self, x, axis: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cumsum(self, x, axis: int):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -4523,6 +4539,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.coordinates" href="#phi.math.backend.Backend.coordinates">coordinates</a></code></li>
 <li><code><a title="phi.math.backend.Backend.copy" href="#phi.math.backend.Backend.copy">copy</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cos" href="#phi.math.backend.Backend.cos">cos</a></code></li>
+<li><code><a title="phi.math.backend.Backend.cumsum" href="#phi.math.backend.Backend.cumsum">cumsum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.custom_gradient" href="#phi.math.backend.Backend.custom_gradient">custom_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.div" href="#phi.math.backend.Backend.div">div</a></code></li>
 <li><code><a title="phi.math.backend.Backend.divide_no_nan" href="#phi.math.backend.Backend.divide_no_nan">divide_no_nan</a></code></li>
