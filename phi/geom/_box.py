@@ -289,6 +289,9 @@ def bounding_box(geometry):
 
 
 class GridCell(BaseBox):
+    """
+    An instance of GridCell represents all cells of a regular grid as a batch of boxes.
+    """
 
     def __init__(self, resolution: math.Shape, bounds: BaseBox):
         assert resolution.spatial_rank == resolution.rank, 'resolution must be purely spatial but got %s' % (resolution,)

@@ -16,22 +16,36 @@ from .extrapolation import Extrapolation
 
 
 def spatial_sum(value: Tensor):
+    """ Sum over all spatial dimensions of `value`. """
     return math.sum_(value, dim=value.shape.spatial.names)
 
 
 def vec_abs(vec: Tensor):
-    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel.names))
+    """ Computes the vector length of `vec`. The combined channel dimensions of `vec` are interpreted as a vector. """
+    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel))
 
 
 def vec_squared(vec: Tensor):
-    return math.sum_(vec ** 2, dim=channel('vector'))
+    """ Computes the squared length of `vec`. The combined channel dimensions of `vec` are interpreted as a vector. """
+    return math.sum_(vec ** 2, dim=vec.shape.channel)
 
 
 def vec_normalize(vec: Tensor):
+    """ Normalizes the vectors in `vec`. The combined channel dimensions of `vec` are interpreted as a vector. """
     return vec / vec_abs(vec)
 
 
-def cross_product(vec1: Tensor, vec2: Tensor):
+def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
+    """
+    Computes the cross product of two vectors in 2D.
+
+    Args:
+        vec1: `Tensor` with a single channel dimension called `'vector'`
+        vec2: `Tensor` with a single channel dimension called `'vector'`
+
+    Returns:
+        `Tensor`
+    """
     vec1 = math.tensor(vec1)
     vec2 = math.tensor(vec2)
     spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
@@ -58,16 +72,15 @@ def cross_product(vec1: Tensor, vec2: Tensor):
 
 def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     """
-    Multiplies the target so that its total content matches the source.
+    Multiplies the target so that its sum matches the source.
 
     Args:
-      target: a tensor
-      source: a tensor or number
-      epsilon: small number to prevent division by zero or None. (Default value = 1e-5)
+        target: `Tensor`
+        source: `Tensor` or constant
+        epsilon: Small number to prevent division by zero.
 
     Returns:
-      normalized tensor of the same shape as target
-
+        Normalized tensor of the same shape as target
     """
     target_total = math.sum_(target)
     denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total

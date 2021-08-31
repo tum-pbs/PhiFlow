@@ -355,6 +355,10 @@ NO_GEOMETRY = _NoGeometry()
 
 
 class Point(Geometry):
+    """
+    Points have zero volume and are determined by a single location.
+    An instance of `Point` represents a single n-dimensional point or a batch of points.
+    """
 
     def __init__(self, location: math.Tensor):
         self._location = location
@@ -399,6 +403,7 @@ class Point(Geometry):
 
 
 def assert_same_rank(rank1, rank2, error_message):
+    """ Tests that two objects have the same spatial rank. Objects can be of types: `int`, `None` (no check), `Geometry`, `Shape`, `Tensor` """
     rank1_, rank2_ = _rank(rank1), _rank(rank2)
     if rank1_ is not None and rank2_ is not None:
         assert rank1_ == rank2_, 'Ranks do not match: %s and %s. %s' % (rank1_, rank2_, error_message)

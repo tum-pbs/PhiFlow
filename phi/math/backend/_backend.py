@@ -338,16 +338,7 @@ class Backend:
         raise NotImplementedError(self)
 
     def divide_no_nan(self, x, y):
-        """
-        Computes x/y but returns 0 if y=0.
-
-        Args:
-          x: 
-          y: 
-
-        Returns:
-
-        """
+        """ Computes x/y but returns 0 if y=0. """
         raise NotImplementedError(self)
 
     def where(self, condition, x=None, y=None):
@@ -1065,14 +1056,14 @@ def choose_backend(*values, prefer_default=False) -> Backend:
 
     This function is used by most math functions operating on `Tensor` objects to delegate the actual computations.
 
+    Backends need to be registered to be available, e.g. via the global import `phi.<backend>` or `phi.detect_backends()`.
+
     Args:
         *values:
-        prefer_default: if True, selects the default backend assuming it can handle handle the values, see `default_backend()`.
-        raise_error: Determines the behavior of this function if no backend can handle the given values.
-            If True, raises a `NoBackendFound` error, else returns `None`.
+        prefer_default: Whether to always select the default backend if it can work with `values`, see `default_backend()`.
 
     Returns:
-        the selected `Backend`
+        The selected `Backend`
     """
     # --- Default Backend has priority ---
     if _is_applicable(_DEFAULT[-1], values) and (prefer_default or _is_specific(_DEFAULT[-1], values)):

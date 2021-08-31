@@ -19,7 +19,17 @@ from .backend._dtype import DType, combine_types
 
 
 def choose_backend_t(*values, prefer_default=False) -> Backend:
-    """ Choose backend for given `Tensor` or native tensor values. """
+    """
+    Choose backend for given `Tensor` or native tensor values.
+    Backends need to be registered to be available, e.g. via the global import `phi.<backend>` or `phi.detect_backends()`.
+
+    Args:
+        *values: Sequence of `Tensor`s, native tensors or constants.
+        prefer_default: Whether to always select the default backend if it can work with `values`, see `default_backend()`.
+
+    Returns:
+        The selected `phi.math.backend.Backend`
+    """
     natives = sum([v._natives() if isinstance(v, Tensor) else (v,) for v in values], ())
     return choose_backend(*natives, prefer_default=prefer_default)
 
@@ -364,7 +374,7 @@ def map_(function, *values: Tensor) -> Tensor:
     return wrap(result).vector.split(shape)
 
 
-def _initialize(uniform_initializer, shapes: tuple, dtype=None):
+def _initialize(uniform_initializer, shapes: tuple, dtype=None) -> Tensor:
     shape = concat_shapes(*shapes)
     if shape.is_non_uniform:
         stack_dim = shape.shape.without('dims')[0:1]
@@ -375,53 +385,59 @@ def _initialize(uniform_initializer, shapes: tuple, dtype=None):
         return uniform_initializer(shape, dtype)
 
 
-def zeros(*shape: Shape, dtype: DType = None):
+def zeros(*shape: Shape, dtype: DType = None) -> Tensor:
     """
-    Define a tensor with specified shape with value 0 / False everywhere.
+    Define a tensor with specified shape with value `0.0` / `0` / `False` everywhere.
     
     This method may not immediately allocate the memory to store the values.
 
+    See Also:
+        `zeros_like()`, `ones()`.
+
     Args:
-      shape: base tensor shape (Default value = EMPTY_SHAPE)
-      dtype: data type (Default value = None)
+        *shape: This (possibly empty) sequence of `Shape`s is concatenated, preserving the order.
+        dtype: Data type as `DType` object. Defaults to `float` matching the current precision setting.
 
     Returns:
-      tensor of specified shape
-
+        `Tensor`
     """
     return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype)
 
 
-def zeros_like(obj):
+def zeros_like(obj) -> Tensor:
+    """ Create a `Tensor` containing only `0.0` / `0` / `False` with the same shape and dtype as `obj`. """
     nest, values = disassemble_tree(obj)
     values0 = [zeros(t.shape, dtype=t.dtype) for t in values]
     return assemble_tree(nest, values0)
 
 
-def ones(*shape: Shape, dtype: DType = None):
+def ones(*shape: Shape, dtype: DType = None) -> Tensor:
     """
-    Define a tensor with specified shape with value 1 / True everywhere.
+    Define a tensor with specified shape with value `1.0`/ `1` / `True` everywhere.
     
     This method may not immediately allocate the memory to store the values.
 
+    See Also:
+        `ones_like()`, `zeros()`.
+
     Args:
-      shape: base tensor shape (Default value = EMPTY_SHAPE)
-      dtype: data type (Default value = None)
+        *shape: This (possibly empty) sequence of `Shape`s is concatenated, preserving the order.
+        dtype: Data type as `DType` object. Defaults to `float` matching the current precision setting.
 
     Returns:
-      tensor of specified shape
-
+        `Tensor`
     """
     return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype)
 
 
-def ones_like(tensor: Tensor):
+def ones_like(tensor: Tensor) -> Tensor:
+    """ Create a `Tensor` containing only `1.0` / `1` / `True` with the same shape and dtype as `obj`. """
     return zeros(tensor.shape, dtype=tensor.dtype) + 1
 
 
-def random_normal(*shape: Shape, dtype: DType = None):
+def random_normal(*shape: Shape, dtype: DType = None) -> Tensor:
     """
-    Creates a `Tensor` with the specified shape, filled with random values distributed according to a normal / Gaussian distribution.
+    Creates a `Tensor` with the specified shape, filled with random values sampled from a normal / Gaussian distribution.
 
     Implementations:
 
@@ -431,8 +447,8 @@ def random_normal(*shape: Shape, dtype: DType = None):
     * Jax: [`jax.random.normal`](https://jax.readthedocs.io/en/latest/_autosummary/jax.random.normal.html)
 
     Args:
-        shape: (optional) Base `Shape`
-        dtype: (optional) `DType`. If `None`, a float tensor with the current default precision is created, see `get_precision()`.
+        *shape: This (possibly empty) sequence of `Shape`s is concatenated, preserving the order.
+        dtype: (optional) floating point `DType`. If `None`, a float tensor with the current default precision is created, see `get_precision()`.
 
     Returns:
         `Tensor`
@@ -446,7 +462,17 @@ def random_normal(*shape: Shape, dtype: DType = None):
     return _initialize(uniform_random_normal, shape, dtype)
 
 
-def random_uniform(*shape: Shape, dtype: DType = None):
+def random_uniform(*shape: Shape, dtype: DType = None) -> Tensor:
+    """
+    Creates a `Tensor` with the specified shape, filled with random values sampled from a uniform distribution.
+
+    Args:
+        *shape: This (possibly empty) sequence of `Shape`s is concatenated, preserving the order.
+        dtype: (optional) floating point `DType`. If `None`, a float tensor with the current default precision is created, see `get_precision()`.
+
+    Returns:
+        `Tensor`
+    """
 
     def uniform_random_uniform(shape, dtype):
         native = choose_backend(*shape.sizes, prefer_default=True).random_uniform(shape.sizes)
@@ -561,13 +587,44 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), **dimensions: int or
     return stack(channels, stack_dim)
 
 
-def linspace(start, stop, number: int, dim: Shape = channel('linspace')):
+def linspace(start, stop, number: int, dim: Shape = channel('linspace')) -> Tensor:
+    """
+    Returns `number` evenly spaced numbers between `start` and `stop`.
+
+    See Also:
+        `arange()`, `meshgrid()`.
+
+    Args:
+        start: First value.
+        stop: Last value.
+        number: How many numbers to return, `int`.
+        dim: Dimension name and type as `Shape` object. The `size` of `dim` is ignored.
+
+    Returns:
+        `Tensor`
+    """
     assert dim.rank == 1
     native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
     return NativeTensor(native, dim.with_sizes([number]))
 
 
 def arange(dim: Shape, start_or_stop: int, stop: int or None = None, step=1):
+    """
+    Returns evenly spaced values between `start` and `stop`.
+    If only one limit is given, `0` is used for the start.
+
+    See Also:
+        `range_tensor()`, `linspace()`, `meshgrid()`.
+
+    Args:
+        dim: Dimension name and type as `Shape` object. The `size` of `dim` is ignored.
+        start_or_stop: Start if two limits are given, stop otherwise. `int`
+        stop: (Optional) `stop`
+        step: Distance between values.
+
+    Returns:
+        `Tensor`
+    """
     if stop is None:
         start, stop = 0, start_or_stop
     else:
@@ -577,9 +634,21 @@ def arange(dim: Shape, start_or_stop: int, stop: int or None = None, step=1):
 
 
 def range_tensor(shape: Shape):
+    """
+    Returns a `Tensor` with given `shape` containing the linear indices of each element.
+    For 1D tensors, this equivalent to `arange()` with `step=1`.
+
+    See Also:
+        `arange()`, `meshgrid()`.
+
+    Args:
+        shape: Tensor shape.
+
+    Returns:
+        `Tensor`
+    """
     data = arange(spatial('range'), 0, shape.volume)
-    result = unpack_dims(data, 'range', shape)
-    return result
+    return unpack_dims(data, 'range', shape)
 
 
 def stack(values: tuple or list, dim: Shape):
@@ -702,6 +771,20 @@ def _closest_grid_values(grid: Tensor,
 
 
 def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation'):
+    """
+    Samples values of `grid` at the locations referenced by `coordinates`.
+    Values lying in between sample points are determined via linear interpolation.
+    For values outside the valid bounds of `grid` (`coord < 0 or coord > grid.shape - 1`), `extrap` is used to determine the neighboring grid values.
+
+    Args:
+        grid: Grid with at least one spatial dimension and no instance dimensions.
+        coordinates: Coordinates with a single channel dimension called `'vector'`.
+            The size of the `vector` dimension must match the number of spatial dimensions of `grid`.
+        extrap: Extrapolation used to determine the values of `grid` outside its valid bounds.
+
+    Returns:
+        `Tensor` with channel dimensions of `grid`, spatial and instance dimensions of `coordinates` and combined batch dimensions.
+    """
     result = broadcast_op(functools.partial(_grid_sample, extrap=extrap), [grid, coordinates])
     return result
 
@@ -748,6 +831,16 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
 
 
 def join_spaces(*tensors):
+    """
+    Adds the spatial dimensions of all tensors to all other tensors.
+    When spatial dimensions are present with multiple tensors, they must have the same size.
+
+    Args:
+        *tensors: Sequence of `Tensor`s.
+
+    Returns:
+        List of `Tensor`s with same values as `tensors` but additional spatial dimensions.
+    """
     spatial_dims = merge_shapes(*[t.shape.spatial for t in tensors])
     return [CollapsedTensor(t, t.shape.non_spatial & spatial_dims) for t in tensors]
 
@@ -883,7 +976,18 @@ def rename_dims(value: Tensor or Shape, dims: str or tuple or list or Shape, nam
         return value._with_shape_replaced(value.shape._replace_names_and_types(dims, names))
 
 
-def flatten(value: Tensor, flat_dim: Shape = instance('flat')):
+def flatten(value: Tensor, flat_dim: Shape = instance('flat')) -> Tensor:
+    """
+    Returns a `Tensor` with the same values as `value` but only a single dimension `flat_dim`.
+    The order of the values in memory is not changed.
+
+    Args:
+        value: `Tensor`
+        flat_dim: Dimension name and type as `Shape` object. The size is ignored.
+
+    Returns:
+        `Tensor`
+    """
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     return pack_dims(value, value.shape, flat_dim)
 
@@ -898,15 +1002,11 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
 
     Args:
       condition: determines where to choose values from value_true or from value_false
-      value_true: values to pick where condition != 0 / True
-      value_false: values to pick where condition == 0 / False
-      condition: Tensor or float or int: 
-      value_true: Tensor or float or int: 
-      value_false: Tensor or float or int: 
+      value_true: Values to pick where `condition != 0 / True`
+      value_false: Values to pick where `condition == 0 / False`
 
     Returns:
-      tensor containing dimensions of all inputs
-
+        `Tensor` containing dimensions of all inputs.
     """
     condition = tensor(condition)
     value_true = tensor(value_true)
@@ -988,7 +1088,7 @@ def _resolve_dims(dim: str or tuple or list or Shape or None,
 def sum_(value: Tensor or list or tuple,
          dim: str or int or tuple or list or None or Shape = None) -> Tensor:
     """
-    Sums the tensor values along the specified dimensions.
+    Sums `values` along the specified dimensions.
 
     Args:
         value: `Tensor` or `list` / `tuple` of Tensors.
@@ -1009,16 +1109,64 @@ def sum_(value: Tensor or list or tuple,
 
 
 def prod(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    """
+    Multiplies `values` along the specified dimensions.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.prod(native, dim),
                    collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)
 
 
 def mean(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    """
+    Computes the mean over `values` along the specified dimensions.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.mean(native, dim))
 
 
 def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    """
+    Computes the standard deviation over `values` along the specified dimensions.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.std(native, dim),
                    collapsed_function=lambda inner, red_shape: inner,
@@ -1026,18 +1174,82 @@ def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None
 
 
 def any_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    """
+    Tests whether any entry of `boolean_tensor` is `True` along the specified dimensions.
+
+    Args:
+        boolean_tensor: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
     return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.any(native, dim))
 
 
 def all_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    """
+    Tests whether all entries of `boolean_tensor` are `True` along the specified dimensions.
+
+    Args:
+        boolean_tensor: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
     return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.all(native, dim))
 
 
 def max_(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    """
+    Determines the maximum value of `values` along the specified dimensions.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.max(native, dim))
 
 
 def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+    """
+    Determines the minimum value of `values` along the specified dimensions.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
@@ -1184,27 +1396,42 @@ def abs_(x) -> Tensor:
     return _backend_op1(x, Backend.abs)
 
 
-def sign(x) -> Tensor:
+def sign(x):
+    """
+    The sign of positive numbers is 1 and -1 for negative numbers.
+    The sign of 0 is undefined.
+
+    Args:
+        x: `Tensor` or `TensorLike`
+
+    Returns:
+        `Tensor` or `TensorLike` matching `x`.
+    """
     return _backend_op1(x, Backend.sign)
 
 
 def round_(x) -> Tensor:
+    """ Rounds the `Tensor` or `TensorLike` `x` to the closest integer. """
     return _backend_op1(x, Backend.round)
 
 
 def ceil(x) -> Tensor:
+    """ Computes *⌈x⌉* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.ceil)
 
 
 def floor(x) -> Tensor:
+    """ Computes *⌊x⌋* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.floor)
 
 
 def sqrt(x) -> Tensor:
+    """ Computes *sqrt(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.sqrt)
 
 
 def exp(x) -> Tensor:
+    """ Computes *exp(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.exp)
 
 
@@ -1220,19 +1447,21 @@ def to_float(x) -> Tensor:
         `cast()`.
 
     Args:
-        x: values to convert
+        x: `Tensor` or `TensorLike` to convert
 
     Returns:
-        `Tensor` of same shape as `x`
+        `Tensor` or `TensorLike` matching `x`.
     """
     return _backend_op1(x, Backend.to_float)
 
 
-def to_int32(x) -> Tensor:
+def to_int32(x):
+    """ Converts the `Tensor` or `TensorLike` `x` to 32-bit integer. """
     return _backend_op1(x, Backend.to_int32)
 
 
 def to_int64(x) -> Tensor:
+    """ Converts the `Tensor` or `TensorLike` `x` to 64-bit integer. """
     return _backend_op1(x, Backend.to_int64)
 
 
@@ -1257,6 +1486,7 @@ def to_complex(x) -> Tensor:
 
 
 def isfinite(x) -> Tensor:
+    """ Returns a `Tensor` or `TensorLike` matching `x` with values `True` where `x` has a finite value and `False` otherwise. """
     return _backend_op1(x, Backend.isfinite)
 
 
@@ -1303,27 +1533,32 @@ def conjugate(x) -> Tensor:
 
 
 def sin(x) -> Tensor:
+    """ Computes *sin(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.sin)
 
 
 def cos(x) -> Tensor:
+    """ Computes *cos(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.cos)
 
 
 def tan(x) -> Tensor:
+    """ Computes *tan(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.tan)
 
 
 def log(x) -> Tensor:
-    """ Natural logarithm. """
+    """ Computes the natural logarithm of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.log)
 
 
 def log2(x) -> Tensor:
+    """ Computes *log(x)* of the `Tensor` or `TensorLike` `x` with base 2. """
     return _backend_op1(x, Backend.log2)
 
 
 def log10(x) -> Tensor:
+    """ Computes *log(x)* of the `Tensor` or `TensorLike` `x` with base 10. """
     return _backend_op1(x, Backend.log10)
 
 
@@ -1372,19 +1607,27 @@ def cast_same(*values: Tensor) -> Tuple[Tensor]:
         return values
 
 
-def divide_no_nan(x, y):
-    return custom_op2(x, y, divide_no_nan, lambda x_, y_: choose_backend(x_, y_).divide_no_nan(x_, y_), lambda y_, x_: divide_no_nan(x_, y_), lambda y_, x_: choose_backend(x_, y_).divide_no_nan(x_, y_))
+def divide_no_nan(x: Tensor, y: Tensor):
+    """ Computes *x/y* with the `Tensor`s `x` and `y` but returns 0 where *y=0*. """
+    return custom_op2(x, y,
+                      l_operator=divide_no_nan,
+                      l_native_function=lambda x_, y_: choose_backend(x_, y_).divide_no_nan(x_, y_),
+                      r_operator=lambda y_, x_: divide_no_nan(x_, y_),
+                      r_native_function=lambda y_, x_: choose_backend(x_, y_).divide_no_nan(x_, y_))
 
 
 def maximum(x: Tensor or float, y: Tensor or float):
+    """ Computes the element-wise maximum of `x` and `y`. """
     return custom_op2(x, y, maximum, lambda x_, y_: choose_backend(x_, y_).maximum(x_, y_))
 
 
 def minimum(x: Tensor or float, y: Tensor or float):
+    """ Computes the element-wise minimum of `x` and `y`. """
     return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_))
 
 
 def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
+    """ Limits the values of the `Tensor` `x` to lie between `lower_limit` and `upper_limit` (inclusive). """
     if isinstance(lower_limit, Number) and isinstance(upper_limit, Number):
 
         def clip_(x):
@@ -1653,7 +1896,16 @@ def ifft(k: Tensor, dims: str or tuple or list or Shape = None):
     return NativeTensor(result_native, k.shape)
 
 
-def dtype(x):
+def dtype(x) -> DType:
+    """
+    Returns the data type of `x`.
+
+    Args:
+        x: `Tensor` or native tensor.
+
+    Returns:
+        `DType`
+    """
     if isinstance(x, Tensor):
         return x.dtype
     else:

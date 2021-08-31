@@ -81,4 +81,5 @@ class GeometryStack(Geometry):
 
 
 def stack(geometries: List[Geometry], dim: Shape):
+    """ Stacks `geometries` along `dim`. The size of `dim` is ignored. """
     return GeometryStack(geometries, dim)
