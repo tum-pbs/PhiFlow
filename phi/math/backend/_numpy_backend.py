@@ -63,6 +63,8 @@ class NumPyBackend(Backend):
     imag = staticmethod(np.imag)
     real = staticmethod(np.real)
     conj = staticmethod(np.conjugate)
+    einsum = staticmethod(np.einsum)
+    cumsum = staticmethod(np.cumsum)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
@@ -181,9 +183,6 @@ class NumPyBackend(Backend):
 
     def matmul(self, A, b):
         return np.stack([A.dot(b[i]) for i in range(b.shape[0])])
-
-    def einsum(self, equation, *tensors):
-        return np.einsum(equation, *tensors)
 
     def while_loop(self, loop: Callable, values: tuple):
         while np.any(values[0]):

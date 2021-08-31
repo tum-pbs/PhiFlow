@@ -397,6 +397,9 @@ class Backend:
     def einsum(self, equation, *tensors):
         raise NotImplementedError(self)
 
+    def cumsum(self, x, axis: int):
+        raise NotImplementedError(self)
+
     def while_loop(self, loop: Callable, values: tuple):
         """
         ```python

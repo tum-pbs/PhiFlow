@@ -139,7 +139,9 @@ class JaxBackend(Backend):
     staticshape = staticmethod(jnp.shape)
     imag = staticmethod(jnp.imag)
     real = staticmethod(jnp.real)
-    conj = staticmethod(np.conjugate)
+    conj = staticmethod(jnp.conjugate)
+    einsum = staticmethod(jnp.einsum)
+    cumsum = staticmethod(jnp.cumsum)
 
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):
@@ -280,9 +282,6 @@ class JaxBackend(Backend):
 
     def matmul(self, A, b):
         return jnp.stack([A.dot(b[i]) for i in range(b.shape[0])])
-
-    def einsum(self, equation, *tensors):
-        return jnp.einsum(equation, *tensors)
 
     def while_loop(self, loop: Callable, values: tuple):
         if all(self.is_available(t) for t in values):

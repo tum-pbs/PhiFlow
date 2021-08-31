@@ -211,6 +211,9 @@ class TFBackend(Backend):
     def einsum(self, equation, *tensors):
         return tf.einsum(equation, *tensors)
 
+    def cumsum(self, x, axis: int):
+        return tf.cumsum(x, axis=axis, exclusive=False)
+
     def while_loop(self, loop: Callable, values: tuple):
         cond = lambda c, *vals: tf.reduce_any(c)
         return tf.nest.map_structure(tf.stop_gradient, tf.while_loop(cond, loop, values))

@@ -341,7 +341,7 @@ def _print_tensor(value: Tensor, name: str or None):
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
 
 
-def map_(function, *values: Tensor, sequential=True) -> Tensor:
+def map_(function, *values: Tensor) -> Tensor:
     """
     Calls `function` on all elements of `value`.
 
@@ -479,6 +479,31 @@ def transpose(x, axes):
         return CollapsedTensor(x, x.shape[axes])  # TODO avoid nesting
     else:
         return choose_backend(x).transpose(x, axes)
+
+
+def cumulative_sum(x: Tensor, dim: str or Shape):
+    """
+    Performs a cumulative sum of `x` along `dim`.
+
+    Implementations:
+
+    * NumPy: [`cumsum`](https://numpy.org/doc/stable/reference/generated/numpy.cumsum.html)
+    * PyTorch: [`cumsum`](https://pytorch.org/docs/stable/generated/torch.cumsum.html)
+    * TensorFlow: [`cumsum`](https://www.tensorflow.org/api_docs/python/tf/math/cumsum)
+    * Jax: [`cumsum`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.cumsum.html)
+
+    Args:
+        x: `Tensor`
+        dim: Dimension along which to sum, as `str` or `Shape`.
+
+    Returns:
+        `Tensor` with the same shape as `x`.
+    """
+    dim = parse_dim_order(dim)
+    assert len(dim) == 1, f"dim must be a single dimension but got {dim}"
+    native_x = x.native(x.shape)
+    native_result = choose_backend(native_x).cumsum(native_x, x.shape.index(dim[0]))
+    return NativeTensor(native_result, x.shape)
 
 
 def fftfreq(resolution: Shape, dx: Tensor or float = 1, dtype: DType = None):
@@ -991,10 +1016,6 @@ def prod(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
 
 def mean(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.mean(native, dim))
-
-
-def median(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
-    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.median(native, dim))
 
 
 def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:

@@ -42,7 +42,7 @@ from ._ops import (
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,
-    fft, ifft, convolve,
+    fft, ifft, convolve, cumulative_sum,
     dtype, cast,
     close, assert_close,
     record_gradients, gradients, stop_gradient

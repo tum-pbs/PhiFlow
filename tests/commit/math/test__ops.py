@@ -77,15 +77,6 @@ class TestMathFunctions(TestCase):
         std = math.std(ones)
         math.assert_close(0, std)
 
-    def test_median(self):
-        t = math.random_normal(batch(batch=10), instance(samples=10))
-        m = math.median(t)
-        mi = math.median(t, t.shape.instance)
-        for backend in BACKENDS:
-            with backend:
-                t_ = math.tensor(t)
-                m_ = math.median(t)
-
     def test_grid_sample(self):
         for backend in BACKENDS:
             with backend:
@@ -184,6 +175,16 @@ class TestMathFunctions(TestCase):
         split = points.points.split(grid.shape.spatial)
         self.assertEqual(grid.shape, split.shape)
         math.assert_close(grid, split)
+
+    def test_cumulative_sum(self):
+        t = math.tensor([(0, 1, 2, 3), (-1, -2, -3, -4)], spatial('y,x'))
+        for backend in BACKENDS:
+            with backend:
+                t_ = math.tensor(t)
+                x_ = math.cumulative_sum(t_, 'x')
+                math.assert_close(x_, [(0, 1, 3, 6), (-1, -3, -6, -10)], msg=backend.name)
+                y_ = math.cumulative_sum(t_, t.shape[0])
+                math.assert_close(y_, [(0, 1, 2, 3), (-1, -1, -1, -1)], msg=backend.name)
 
     def test_fft(self):
         def get_2d_sine(grid_size, L):

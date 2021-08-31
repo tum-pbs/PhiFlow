@@ -121,6 +121,7 @@ class TorchBackend(Backend):
     nonzero = torch.nonzero
     flip = torch.flip
     seed = staticmethod(torch.manual_seed)
+    einsum = staticmethod(torch.einsum)
 
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(f)
@@ -362,8 +363,8 @@ class TorchBackend(Backend):
             return torch.transpose(result, 0, 1)
         raise NotImplementedError(type(A), type(b))
 
-    def einsum(self, equation, *tensors):
-        return torch.einsum(equation, *tensors)
+    def cumsum(self, x, axis: int):
+        return torch.cumsum(x, dim=axis)
 
     def while_loop(self, loop: Callable, values: tuple):
         if torch._C._get_tracing_state() is not None:
