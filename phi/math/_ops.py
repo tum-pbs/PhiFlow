@@ -1043,6 +1043,14 @@ def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
 
 def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: str or int or tuple or list or None or Shape = None):
     """
+    Compute the q-th quantile of `value` along `dim` for each q in `quantiles`.
+
+    Implementations:
+
+    * NumPy: [`quantile`](https://numpy.org/doc/stable/reference/generated/numpy.quantile.html)
+    * PyTorch: [`quantile`](https://pytorch.org/docs/stable/generated/torch.quantile.html#torch.quantile)
+    * TensorFlow: [`tfp.stats.percentile`](https://www.tensorflow.org/probability/api_docs/python/tfp/stats/percentile)
+    * Jax: [`quantile`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.quantile.html)
 
     Args:
         value: `Tensor`
@@ -1057,7 +1065,7 @@ def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: st
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
-        `Tensor`
+        `Tensor` with dimensions of `quantiles` and non-reduced dimensions of `value`.
     """
     dims = _resolve_dims(dim, value.shape)
     native_values = reshaped_native(value, [*value.shape.without(dims), value.shape.only(dims)])
@@ -1072,6 +1080,8 @@ def median(value, dim: str or int or tuple or list or None or Shape = None):
     """
     Reduces `dim` of `value` by picking the median value.
     For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.
+
+    Currently implemented via `quantile()`.
 
     Args:
         value: `Tensor`
