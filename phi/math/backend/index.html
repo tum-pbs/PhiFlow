@@ -1057,6 +1057,19 @@ The output of math operations has the same precision as its inputs.</p>
     def all(self, boolean_tensor, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
+    def quantile(self, x, quantiles):
+        &#34;&#34;&#34;
+        Reduces the last / inner axis of x.
+
+        Args:
+            x: Tensor
+            quantiles: List or 1D tensor of quantiles to compute.
+
+        Returns:
+            Tensor with shape (quantiles, *x.shape[:-1])
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
     def fft(self, x, axes: tuple or list):
         &#34;&#34;&#34;
         Computes the n-dimensional FFT along all but the first and last dimensions.
@@ -3286,6 +3299,38 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.quantile"><code class="name flex">
+<span>def <span class="ident">quantile</span></span>(<span>self, x, quantiles)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Reduces the last / inner axis of x.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>Tensor</dd>
+<dt><strong><code>quantiles</code></strong></dt>
+<dd>List or 1D tensor of quantiles to compute.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor with shape (quantiles, *x.shape[:-1])</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def quantile(self, x, quantiles):
+    &#34;&#34;&#34;
+    Reduces the last / inner axis of x.
+
+    Args:
+        x: Tensor
+        quantiles: List or 1D tensor of quantiles to compute.
+
+    Returns:
+        Tensor with shape (quantiles, *x.shape[:-1])
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.random_normal"><code class="name flex">
 <span>def <span class="ident">random_normal</span></span>(<span>self, shape)</span>
 </code></dt>
@@ -4598,6 +4643,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.precision" href="#phi.math.backend.Backend.precision">precision</a></code></li>
 <li><code><a title="phi.math.backend.Backend.prefers_channels_last" href="#phi.math.backend.Backend.prefers_channels_last">prefers_channels_last</a></code></li>
 <li><code><a title="phi.math.backend.Backend.prod" href="#phi.math.backend.Backend.prod">prod</a></code></li>
+<li><code><a title="phi.math.backend.Backend.quantile" href="#phi.math.backend.Backend.quantile">quantile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_normal" href="#phi.math.backend.Backend.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
 <li><code><a title="phi.math.backend.Backend.range" href="#phi.math.backend.Backend.range">range</a></code></li>

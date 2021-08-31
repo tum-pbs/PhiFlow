@@ -68,7 +68,7 @@ from ._ops import (
     pack_dims, unpack_dims, rename_dims, flatten, expand, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
-    sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
+    sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all, quantile, median,  # reduce
     dot,
     abs_ as abs, sign,
     round_ as round, ceil, floor,
@@ -657,7 +657,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
     Returns:
         `Shape` containing only dimensions of type channel.
     &#34;&#34;&#34;
-    from phi.math import Tensor
+    from ._tensors import Tensor
     if all(isinstance(arg, str) for arg in args) or dims:
         for arg in args:
             parts = [s.strip() for s in arg.split(&#39;,&#39;)]
@@ -2607,6 +2607,55 @@ If a vector field is passed, the laplace is computed component-wise.</p>
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.mean(native, dim))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.median"><code class="name flex">
+<span>def <span class="ident">median</span></span>(<span>value, dim: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Reduces <code>dim</code> of <code>value</code> by picking the median value.
+For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>
+<p>Dimension or dimensions to be reduced. One of</p>
+<ul>
+<li><code>None</code> to reduce all non-batch dimensions</li>
+<li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
+<li><code>Tuple[str]</code> or <code>List[str]</code></li>
+<li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
+</ul>
+</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def median(value, dim: str or int or tuple or list or None or Shape = None):
+    &#34;&#34;&#34;
+    Reduces `dim` of `value` by picking the median value.
+    For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.
+
+    Args:
+        value: `Tensor`
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor`
+    &#34;&#34;&#34;
+    return quantile(value, 0.5, dim)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.merge_shapes"><code class="name flex">
 <span>def <span class="ident">merge_shapes</span></span>(<span>*shapes: phi.math._shape.Shape, check_exact: tuple = (), order=(&lt;function batch&gt;, &lt;function instance&gt;, &lt;function spatial&gt;, &lt;function channel&gt;))</span>
 </code></dt>
@@ -3497,6 +3546,62 @@ math.functional_gradient(f)(math.ones(x=6))
     return _reduce(value, dim,
                    native_function=lambda backend, native, dim: backend.prod(native, dim),
                    collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.quantile"><code class="name flex">
+<span>def <span class="ident">quantile</span></span>(<span>value: phi.math._tensors.Tensor, quantiles: float, dim: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dt><strong><code>quantiles</code></strong></dt>
+<dd>Single quantile or tensor of quantiles to compute.
+Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>
+<p>Dimension or dimensions to be reduced. One of</p>
+<ul>
+<li><code>None</code> to reduce all non-batch dimensions</li>
+<li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
+<li><code>Tuple[str]</code> or <code>List[str]</code></li>
+<li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
+</ul>
+</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: str or int or tuple or list or None or Shape = None):
+    &#34;&#34;&#34;
+
+    Args:
+        value: `Tensor`
+        quantiles: Single quantile or tensor of quantiles to compute.
+            Must be of type `float`, `tuple`, `list` or `Tensor`.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+    Returns:
+        `Tensor`
+    &#34;&#34;&#34;
+    dims = _resolve_dims(dim, value.shape)
+    native_values = reshaped_native(value, [*value.shape.without(dims), value.shape.only(dims)])
+    backend = choose_backend(native_values)
+    q = tensor(quantiles, default_list_dim=instance(&#39;quantiles&#39;))
+    native_quantiles = reshaped_native(q, [q.shape])
+    native_result = backend.quantile(native_values, native_quantiles)
+    return reshaped_tensor(native_result, [q.shape, *value.shape.without(dims)])</code></pre>
 </details>
 </dd>
 <dt id="phi.math.random_normal"><code class="name flex">
@@ -4751,7 +4856,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.math.tensor"><code class="name flex">
-<span>def <span class="ident">tensor</span></span>(<span>data: phi.math._tensors.Tensor, *shape: phi.math._shape.Shape, convert: bool = True) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">tensor</span></span>(<span>data: phi.math._tensors.Tensor, *shape: phi.math._shape.Shape, convert: bool = True, default_list_dim=(vectorᶜ=None)) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a Tensor from the specified <code>data</code>.
@@ -4801,7 +4906,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </summary>
 <pre><code class="python">def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
            *shape: Shape,
-           convert: bool = True) -&gt; Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
+           convert: bool = True,
+           default_list_dim=channel(&#39;vector&#39;)) -&gt; Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
     &#34;&#34;&#34;
     Create a Tensor from the specified `data`.
     If `convert=True`, converts `data` to the preferred format of the default backend.
@@ -4871,7 +4977,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             inner_shape = [] if shape is None else [shape[1:]]
             elements = [tensor(d, *inner_shape, convert=convert) for d in data]
             common_shape = merge_shapes(*[e.shape for e in elements])
-            stack_dim = channel(&#39;vector&#39;) if shape is None else shape[0].with_sizes([len(elements)])
+            stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(elements)])
             assert all(stack_dim not in t.shape for t in elements), f&#34;Cannot stack tensors with dimension &#39;{stack_dim}&#39; because a tensor already has that dimension.&#34;
             elements = [CollapsedTensor(e, common_shape) if e.shape.rank &lt; common_shape.rank else e for e in elements]
             from ._ops import cast_same
@@ -4881,7 +4987,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         backend = choose_backend(data)
         if shape is None:
             assert backend.ndims(data) &lt;= 1, &#34;Specify dimension names for tensors with more than 1 dimension&#34;
-            shape = Shape(data.shape, [&#39;vector&#39;] * backend.ndims(data), [CHANNEL_DIM] * backend.ndims(data))  # [] or [&#39;vector&#39;]
+            shape = default_list_dim if backend.ndims(data) == 1 else EMPTY_SHAPE
+            shape = shape.with_sizes(backend.shape(data))
         else:
             # fill in sizes or check them
             sizes = backend.staticshape(data)
@@ -10138,6 +10245,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.max" href="#phi.math.max">max</a></code></li>
 <li><code><a title="phi.math.maximum" href="#phi.math.maximum">maximum</a></code></li>
 <li><code><a title="phi.math.mean" href="#phi.math.mean">mean</a></code></li>
+<li><code><a title="phi.math.median" href="#phi.math.median">median</a></code></li>
 <li><code><a title="phi.math.merge_shapes" href="#phi.math.merge_shapes">merge_shapes</a></code></li>
 <li><code><a title="phi.math.meshgrid" href="#phi.math.meshgrid">meshgrid</a></code></li>
 <li><code><a title="phi.math.min" href="#phi.math.min">min</a></code></li>
@@ -10156,6 +10264,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.print" href="#phi.math.print">print</a></code></li>
 <li><code><a title="phi.math.print_gradient" href="#phi.math.print_gradient">print_gradient</a></code></li>
 <li><code><a title="phi.math.prod" href="#phi.math.prod">prod</a></code></li>
+<li><code><a title="phi.math.quantile" href="#phi.math.quantile">quantile</a></code></li>
 <li><code><a title="phi.math.random_normal" href="#phi.math.random_normal">random_normal</a></code></li>
 <li><code><a title="phi.math.random_uniform" href="#phi.math.random_uniform">random_uniform</a></code></li>
 <li><code><a title="phi.math.range" href="#phi.math.range">range</a></code></li>
