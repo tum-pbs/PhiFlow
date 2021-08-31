@@ -257,12 +257,13 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <span>def <span class="ident">ceil</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>⌈x⌉</em> of the <code>Tensor</code> or <code>TensorLike</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def ceil(x) -&gt; Tensor:
+    &#34;&#34;&#34; Computes *⌈x⌉* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.ceil)</code></pre>
 </details>
 </dd>
@@ -300,12 +301,36 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <span>def <span class="ident">concat</span></span>(<span>fields: List[~SampledFieldType], dim: phi.math._shape.Shape) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Concatenates the given <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>s along <code>dim</code>.</p>
+<p>See Also:
+<code><a title="phi.field.stack" href="#phi.field.stack">stack()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>fields</code></strong></dt>
+<dd>List of matching <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> instances.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Concatenation dimension as <code>Shape</code>. Size is ignored.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> matching concatenated fields.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def concat(fields: List[SampledFieldType], dim: Shape) -&gt; SampledFieldType:
+    &#34;&#34;&#34;
+    Concatenates the given `SampledField`s along `dim`.
+
+    See Also:
+        `stack()`.
+
+    Args:
+        fields: List of matching `SampledField` instances.
+        dim: Concatenation dimension as `Shape`. Size is ignored.
+
+    Returns:
+        `SampledField` matching concatenated fields.
+    &#34;&#34;&#34;
     assert all(isinstance(f, SampledField) for f in fields)
     assert all(isinstance(f, type(fields[0])) for f in fields)
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
@@ -370,12 +395,13 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <span>def <span class="ident">cos</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>cos(x)</em> of the <code>Tensor</code> or <code>TensorLike</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def cos(x) -&gt; Tensor:
+    &#34;&#34;&#34; Computes *cos(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.cos)</code></pre>
 </details>
 </dd>
@@ -383,12 +409,13 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <span>def <span class="ident">curl</span></span>(<span>field: phi.field._grid.Grid, type: type = phi.field._grid.CenteredGrid)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes the finite-difference curl of the give 2D <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def curl(field: Grid, type: type = CenteredGrid):
+    &#34;&#34;&#34; Computes the finite-difference curl of the give 2D `StaggeredGrid`. &#34;&#34;&#34;
     assert field.spatial_rank in (2, 3), &#34;curl is only defined in 2 and 3 spatial dimensions.&#34;
     if field.spatial_rank == 2 and type == StaggeredGrid:
         assert isinstance(field, CenteredGrid) and &#39;vector&#39; not in field.shape, f&#34;2D curl requires scalar field but got {field}&#34;
@@ -504,12 +531,13 @@ The new values are determined via linear interpolation.</p>
 <span>def <span class="ident">exp</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>exp(x)</em> of the <code>Tensor</code> or <code>TensorLike</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def exp(x) -&gt; Tensor:
+    &#34;&#34;&#34; Computes *exp(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
 </dd>
@@ -573,12 +601,13 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <span>def <span class="ident">floor</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>⌊x⌋</em> of the <code>Tensor</code> or <code>TensorLike</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def floor(x) -&gt; Tensor:
+    &#34;&#34;&#34; Computes *⌊x⌋* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.floor)</code></pre>
 </details>
 </dd>
@@ -830,12 +859,13 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 <span>def <span class="ident">isfinite</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns a <code>Tensor</code> or <code>TensorLike</code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def isfinite(x) -&gt; Tensor:
+    &#34;&#34;&#34; Returns a `Tensor` or `TensorLike` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
 </dd>
@@ -1283,12 +1313,13 @@ The function output must have the same dimension layout as the inputs and the ba
 <span>def <span class="ident">normalize</span></span>(<span>field: phi.field._field.SampledField, norm: phi.field._field.SampledField, epsilon=1e-05)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Multiplies the values of <code>field</code> so that its sum matches the source.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
+    &#34;&#34;&#34; Multiplies the values of `field` so that its sum matches the source. &#34;&#34;&#34;
     data = math.normalize_to(field.values, norm.values, epsilon)
     return field.with_values(data)</code></pre>
 </details>
@@ -1479,12 +1510,13 @@ Currently, <code>geometry</code> may have at most one channel dimension.</p>
 <span>def <span class="ident">round</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Rounds the <code>Tensor</code> or <code>TensorLike</code> <code>x</code> to the closest integer.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def round_(x) -&gt; Tensor:
+    &#34;&#34;&#34; Rounds the `Tensor` or `TensorLike` `x` to the closest integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
 </dd>
@@ -1578,15 +1610,33 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 </details>
 </dd>
 <dt id="phi.field.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sign</span></span>(<span>x)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The sign of positive numbers is 1 and -1 for negative numbers.
+The sign of 0 is undefined.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd><code>Tensor</code> or <code>TensorLike</code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> or <code>TensorLike</code> matching <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sign(x) -&gt; Tensor:
+<pre><code class="python">def sign(x):
+    &#34;&#34;&#34;
+    The sign of positive numbers is 1 and -1 for negative numbers.
+    The sign of 0 is undefined.
+
+    Args:
+        x: `Tensor` or `TensorLike`
+
+    Returns:
+        `Tensor` or `TensorLike` matching `x`.
+    &#34;&#34;&#34;
     return _backend_op1(x, Backend.sign)</code></pre>
 </details>
 </dd>
@@ -1594,12 +1644,13 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 <span>def <span class="ident">sin</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>sin(x)</em> of the <code>Tensor</code> or <code>TensorLike</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sin(x) -&gt; Tensor:
+    &#34;&#34;&#34; Computes *sin(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
 </dd>
@@ -1838,12 +1889,13 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <span>def <span class="ident">sqrt</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes <em>sqrt(x)</em> of the <code>Tensor</code> or <code>TensorLike</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sqrt(x) -&gt; Tensor:
+    &#34;&#34;&#34; Computes *sqrt(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sqrt)</code></pre>
 </details>
 </dd>
@@ -1851,12 +1903,36 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <span>def <span class="ident">stack</span></span>(<span>fields, dim: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Stacks the given <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>s along <code>dim</code>.</p>
+<p>See Also:
+<code><a title="phi.field.concat" href="#phi.field.concat">concat()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>fields</code></strong></dt>
+<dd>List of matching <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> instances.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Stack dimension as <code>Shape</code>. Size is ignored.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> matching stacked fields.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stack(fields, dim: Shape):
+    &#34;&#34;&#34;
+    Stacks the given `SampledField`s along `dim`.
+
+    See Also:
+        `concat()`.
+
+    Args:
+        fields: List of matching `SampledField` instances.
+        dim: Stack dimension as `Shape`. Size is ignored.
+
+    Returns:
+        `SampledField` matching stacked fields.
+    &#34;&#34;&#34;
     assert all(isinstance(f, SampledField) for f in fields), f&#34;All fields must be SampledFields of the same type but got {fields}&#34;
     assert all(isinstance(f, type(fields[0])) for f in fields), f&#34;All fields must be SampledFields of the same type but got {fields}&#34;
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
@@ -2018,10 +2094,10 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd>values to convert</dd>
+<dd><code>Tensor</code> or <code>TensorLike</code> to convert</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code>Tensor</code> of same shape as <code>x</code></p></div>
+<p><code>Tensor</code> or <code>TensorLike</code> matching <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2038,24 +2114,25 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
         `cast()`.
 
     Args:
-        x: values to convert
+        x: `Tensor` or `TensorLike` to convert
 
     Returns:
-        `Tensor` of same shape as `x`
+        `Tensor` or `TensorLike` matching `x`.
     &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_float)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.to_int32"><code class="name flex">
-<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_int32</span></span>(<span>x)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Converts the <code>Tensor</code> or <code>TensorLike</code> <code>x</code> to 32-bit integer.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int32(x) -&gt; Tensor:
+<pre><code class="python">def to_int32(x):
+    &#34;&#34;&#34; Converts the `Tensor` or `TensorLike` `x` to 32-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int32)</code></pre>
 </details>
 </dd>
@@ -2063,12 +2140,13 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <span>def <span class="ident">to_int64</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Converts the <code>Tensor</code> or <code>TensorLike</code> <code>x</code> to 64-bit integer.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def to_int64(x) -&gt; Tensor:
+    &#34;&#34;&#34; Converts the `Tensor` or `TensorLike` `x` to 64-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int64)</code></pre>
 </details>
 </dd>
@@ -2184,15 +2262,44 @@ The new values are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.field.where"><code class="name flex">
-<span>def <span class="ident">where</span></span>(<span>mask: phi.field._field.Field, field_true: phi.field._field.Field, field_false: phi.field._field.Field)</span>
+<span>def <span class="ident">where</span></span>(<span>mask: phi.field._field.Field, field_true: phi.field._field.Field, field_false: phi.field._field.Field) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Element-wise where operation.
+Picks the value of <code>field_true</code> where <code>mask=1 / True</code> and the value of <code>field_false</code> where <code>mask=0 / False</code>.</p>
+<p>The fields are automatically resampled if necessary, preferring the sample points of <code>mask</code>.
+At least one of the arguments must be a <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>mask</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code>Geometry</code> object.</dd>
+<dt><strong><code>field_true</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></dd>
+<dt><strong><code>field_false</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def where(mask: Field or Geometry, field_true: Field, field_false: Field):
+<pre><code class="python">def where(mask: Field or Geometry, field_true: Field, field_false: Field) -&gt; SampledField:
+    &#34;&#34;&#34;
+    Element-wise where operation.
+    Picks the value of `field_true` where `mask=1 / True` and the value of `field_false` where `mask=0 / False`.
+
+    The fields are automatically resampled if necessary, preferring the sample points of `mask`.
+    At least one of the arguments must be a `SampledField`.
+
+    Args:
+        mask: `Field` or `Geometry` object.
+        field_true: `Field`
+        field_false: `Field`
+
+    Returns:
+        `SampledField`
+    &#34;&#34;&#34;
     if isinstance(mask, Geometry):
         mask = HardGeometryMask(mask)
     elif isinstance(mask, SampledField):

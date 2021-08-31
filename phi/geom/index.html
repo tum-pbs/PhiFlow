@@ -67,12 +67,13 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <span>def <span class="ident">assert_same_rank</span></span>(<span>rank1, rank2, error_message)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Tests that two objects have the same spatial rank. Objects can be of types: <code>int</code>, <code>None</code> (no check), <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>, <code>Shape</code>, <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def assert_same_rank(rank1, rank2, error_message):
+    &#34;&#34;&#34; Tests that two objects have the same spatial rank. Objects can be of types: `int`, `None` (no check), `Geometry`, `Shape`, `Tensor` &#34;&#34;&#34;
     rank1_, rank2_ = _rank(rank1), _rank(rank2)
     if rank1_ is not None and rank2_ is not None:
         assert rank1_ == rank2_, &#39;Ranks do not match: %s and %s. %s&#39; % (rank1_, rank2_, error_message)</code></pre>
@@ -159,12 +160,13 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <span>def <span class="ident">stack</span></span>(<span>geometries: List[phi.geom._geom.Geometry], dim: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Stacks <code>geometries</code> along <code>dim</code>. The size of <code>dim</code> is ignored.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stack(geometries: List[Geometry], dim: Shape):
+    &#34;&#34;&#34; Stacks `geometries` along `dim`. The size of `dim` is ignored. &#34;&#34;&#34;
     return GeometryStack(geometries, dim)</code></pre>
 </details>
 </dd>
@@ -1697,12 +1699,15 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <span>(</span><span>resolution: phi.math._shape.Shape, bounds: phi.geom._box.BaseBox)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Abstract base type for box-like geometries.</p></div>
+<div class="desc"><p>An instance of GridCell represents all cells of a regular grid as a batch of boxes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class GridCell(BaseBox):
+    &#34;&#34;&#34;
+    An instance of GridCell represents all cells of a regular grid as a batch of boxes.
+    &#34;&#34;&#34;
 
     def __init__(self, resolution: math.Shape, bounds: BaseBox):
         assert resolution.spatial_rank == resolution.rank, &#39;resolution must be purely spatial but got %s&#39; % (resolution,)
@@ -2062,20 +2067,17 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <span>(</span><span>location: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Abstract base class for N-dimensional shapes.</p>
-<p>Main implementing classes:</p>
-<ul>
-<li>Sphere</li>
-<li>box family: box (generator), Box, Cuboid, BaseBox</li>
-</ul>
-<p>All geometry objects support batching.
-Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
-All batch dimensions are listed in Geometry.shape.</p></div>
+<div class="desc"><p>Points have zero volume and are determined by a single location.
+An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a></code> represents a single n-dimensional point or a batch of points.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Point(Geometry):
+    &#34;&#34;&#34;
+    Points have zero volume and are determined by a single location.
+    An instance of `Point` represents a single n-dimensional point or a batch of points.
+    &#34;&#34;&#34;
 
     def __init__(self, location: math.Tensor):
         self._location = location

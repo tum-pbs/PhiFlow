@@ -76,17 +76,15 @@ __pdoc__ = {
 <dd>
 <div class="desc"><p>Selects a suitable backend to handle the given values.</p>
 <p>This function is used by most math functions operating on <code>Tensor</code> objects to delegate the actual computations.</p>
+<p>Backends need to be registered to be available, e.g. via the global import <code>phi.&lt;backend&gt;</code> or <code><a title="phi.detect_backends" href="../../index.html#phi.detect_backends">detect_backends()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt>*values:</dt>
 <dt><strong><code>prefer_default</code></strong></dt>
-<dd>if True, selects the default backend assuming it can handle handle the values, see <code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend()</a></code>.</dd>
-<dt><strong><code>raise_error</code></strong></dt>
-<dd>Determines the behavior of this function if no backend can handle the given values.
-If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.math.backend.NoBackendFound">NoBackendFound</a></code> error, else returns <code>None</code>.</dd>
+<dd>Whether to always select the default backend if it can work with <code>values</code>, see <code><a title="phi.math.backend.default_backend" href="#phi.math.backend.default_backend">default_backend()</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>the selected <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code></p></div>
+<p>The selected <code><a title="phi.math.backend.Backend" href="#phi.math.backend.Backend">Backend</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -97,14 +95,14 @@ If True, raises a <code><a title="phi.math.backend.NoBackendFound" href="#phi.ma
 
     This function is used by most math functions operating on `Tensor` objects to delegate the actual computations.
 
+    Backends need to be registered to be available, e.g. via the global import `phi.&lt;backend&gt;` or `phi.detect_backends()`.
+
     Args:
         *values:
-        prefer_default: if True, selects the default backend assuming it can handle handle the values, see `default_backend()`.
-        raise_error: Determines the behavior of this function if no backend can handle the given values.
-            If True, raises a `NoBackendFound` error, else returns `None`.
+        prefer_default: Whether to always select the default backend if it can work with `values`, see `default_backend()`.
 
     Returns:
-        the selected `Backend`
+        The selected `Backend`
     &#34;&#34;&#34;
     # --- Default Backend has priority ---
     if _is_applicable(_DEFAULT[-1], values) and (prefer_default or _is_specific(_DEFAULT[-1], values)):
@@ -804,16 +802,7 @@ The output of math operations has the same precision as its inputs.</p>
         raise NotImplementedError(self)
 
     def divide_no_nan(self, x, y):
-        &#34;&#34;&#34;
-        Computes x/y but returns 0 if y=0.
-
-        Args:
-          x: 
-          y: 
-
-        Returns:
-
-        &#34;&#34;&#34;
+        &#34;&#34;&#34; Computes x/y but returns 0 if y=0. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def where(self, condition, x=None, y=None):
@@ -2208,30 +2197,13 @@ Higher dimensions may not be supported.</p>
 <span>def <span class="ident">divide_no_nan</span></span>(<span>self, x, y)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes x/y but returns 0 if y=0.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>x</code></strong></dt>
-<dd>&nbsp;</dd>
-<dt><strong><code>y</code></strong></dt>
-<dd>&nbsp;</dd>
-</dl>
-<p>Returns:</p></div>
+<div class="desc"><p>Computes x/y but returns 0 if y=0.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def divide_no_nan(self, x, y):
-    &#34;&#34;&#34;
-    Computes x/y but returns 0 if y=0.
-
-    Args:
-      x: 
-      y: 
-
-    Returns:
-
-    &#34;&#34;&#34;
+    &#34;&#34;&#34; Computes x/y but returns 0 if y=0. &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
