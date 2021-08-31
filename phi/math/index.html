@@ -2613,6 +2613,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <dd>
 <div class="desc"><p>Reduces <code>dim</code> of <code>value</code> by picking the median value.
 For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.</p>
+<p>Currently implemented via <code><a title="phi.math.quantile" href="#phi.math.quantile">quantile()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
@@ -2639,6 +2640,8 @@ For odd dimension sizes (ambigous choice), the linear average of the two median 
     &#34;&#34;&#34;
     Reduces `dim` of `value` by picking the median value.
     For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.
+
+    Currently implemented via `quantile()`.
 
     Args:
         value: `Tensor`
@@ -3552,7 +3555,15 @@ math.functional_gradient(f)(math.ones(x=6))
 <span>def <span class="ident">quantile</span></span>(<span>value: phi.math._tensors.Tensor, quantiles: float, dim: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><h2 id="args">Args</h2>
+<div class="desc"><p>Compute the q-th quantile of <code>value</code> along <code>dim</code> for each q in <code>quantiles</code>.</p>
+<p>Implementations:</p>
+<ul>
+<li>NumPy: <a href="https://numpy.org/doc/stable/reference/generated/numpy.quantile.html"><code>quantile</code></a></li>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.quantile.html#torch.quantile"><code>quantile</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/probability/api_docs/python/tfp/stats/percentile"><code>tfp.stats.percentile</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.quantile.html"><code>quantile</code></a></li>
+</ul>
+<h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
 <dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
@@ -3572,13 +3583,21 @@ Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <co
 </dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with dimensions of <code>quantiles</code> and non-reduced dimensions of <code>value</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: str or int or tuple or list or None or Shape = None):
     &#34;&#34;&#34;
+    Compute the q-th quantile of `value` along `dim` for each q in `quantiles`.
+
+    Implementations:
+
+    * NumPy: [`quantile`](https://numpy.org/doc/stable/reference/generated/numpy.quantile.html)
+    * PyTorch: [`quantile`](https://pytorch.org/docs/stable/generated/torch.quantile.html#torch.quantile)
+    * TensorFlow: [`tfp.stats.percentile`](https://www.tensorflow.org/probability/api_docs/python/tfp/stats/percentile)
+    * Jax: [`quantile`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.quantile.html)
 
     Args:
         value: `Tensor`
@@ -3593,7 +3612,7 @@ Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <co
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
-        `Tensor`
+        `Tensor` with dimensions of `quantiles` and non-reduced dimensions of `value`.
     &#34;&#34;&#34;
     dims = _resolve_dims(dim, value.shape)
     native_values = reshaped_native(value, [*value.shape.without(dims), value.shape.only(dims)])
