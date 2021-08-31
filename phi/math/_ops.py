@@ -970,7 +970,7 @@ def _reduce(value: Tensor or list or tuple,
     else:
         if isinstance(value, (tuple, list)):
             values = [wrap(v) for v in value]
-            value = stack(values, batch('0'))
+            value = stack(values, instance('0'))
             assert dim in ('0', None), "dim must be '0' or None when passing a sequence of tensors"
         else:
             value = wrap(value)
