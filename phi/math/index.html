@@ -5494,7 +5494,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         if shape is None:
             assert backend.ndims(data) &lt;= 1, &#34;Specify dimension names for tensors with more than 1 dimension&#34;
             shape = default_list_dim if backend.ndims(data) == 1 else EMPTY_SHAPE
-            shape = shape.with_sizes(backend.shape(data))
+            shape = shape.with_sizes(backend.staticshape(data))
         else:
             # fill in sizes or check them
             sizes = backend.staticshape(data)
