@@ -239,3 +239,8 @@ class TestTensors(TestCase):
         math.assert_close(d1 // 2, d1 * 0, d1 % 1)
         math.assert_close(d1 / 2, d1 * 0.5, 0.5 * d1)
         math.assert_close(math.sin(d1 * 0), d1 * 0)
+
+    def test_collapsed_non_uniform_tensor(self):
+        non_uniform = math.stack([math.zeros(spatial(a=2)), math.ones(spatial(a=3))], batch('b'))
+        e = math.expand(non_uniform, channel('vector'))
+        assert e.shape.without('vector') == non_uniform.shape
