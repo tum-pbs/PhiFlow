@@ -12,7 +12,7 @@ from phi.torch.flow import *
 DOMAIN = dict(x=80, y=64)
 LEFT = StaggeredGrid(HardGeometryMask(Box[:40, :]), extrapolation.ZERO, **DOMAIN)
 RIGHT = StaggeredGrid(HardGeometryMask(Box[40:, :]), extrapolation.ZERO, **DOMAIN)
-TARGET = RIGHT * StaggeredGrid(lambda x: math.exp(-0.5 * math.vec_squared(x - (50, 10)) / 32**2), extrapolation.ZERO, **DOMAIN) * (0, 2)
+TARGET = RIGHT * StaggeredGrid(lambda x: math.exp(-0.5 * math.vec_squared(x - (50, 10), 'vector') / 32**2), extrapolation.ZERO, **DOMAIN) * (0, 2)
 
 
 def loss(v0, p0):

@@ -20,19 +20,19 @@ def spatial_sum(value: Tensor):
     return math.sum_(value, dim=value.shape.spatial.names)
 
 
-def vec_abs(vec: Tensor):
-    """ Computes the vector length of `vec`. The combined channel dimensions of `vec` are interpreted as a vector. """
-    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel))
+def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    """ Computes the vector length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
+    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim))
 
 
-def vec_squared(vec: Tensor):
-    """ Computes the squared length of `vec`. The combined channel dimensions of `vec` are interpreted as a vector. """
-    return math.sum_(vec ** 2, dim=vec.shape.channel)
+def vec_squared(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    """ Computes the squared length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
+    return math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim)
 
 
-def vec_normalize(vec: Tensor):
-    """ Normalizes the vectors in `vec`. The combined channel dimensions of `vec` are interpreted as a vector. """
-    return vec / vec_abs(vec)
+def vec_normalize(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    """ Normalizes the vectors in `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
+    return vec / vec_abs(vec, vec_dim=vec_dim)
 
 
 def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
