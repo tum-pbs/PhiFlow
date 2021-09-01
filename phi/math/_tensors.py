@@ -1241,7 +1241,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         if shape is None:
             assert backend.ndims(data) <= 1, "Specify dimension names for tensors with more than 1 dimension"
             shape = default_list_dim if backend.ndims(data) == 1 else EMPTY_SHAPE
-            shape = shape.with_sizes(backend.shape(data))
+            shape = shape.with_sizes(backend.staticshape(data))
         else:
             # fill in sizes or check them
             sizes = backend.staticshape(data)
