@@ -5797,45 +5797,45 @@ The grid values at the new points are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.math.vec_abs"><code class="name flex">
-<span>def <span class="ident">vec_abs</span></span>(<span>vec: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">vec_abs</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes the vector length of <code>vec</code>. The combined channel dimensions of <code>vec</code> are interpreted as a vector.</p></div>
+<div class="desc"><p>Computes the vector length of <code>vec</code>. If <code>vec_dim</code> is None, the combined channel dimensions of <code>vec</code> are interpreted as a vector.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec_abs(vec: Tensor):
-    &#34;&#34;&#34; Computes the vector length of `vec`. The combined channel dimensions of `vec` are interpreted as a vector. &#34;&#34;&#34;
-    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel))</code></pre>
+<pre><code class="python">def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    &#34;&#34;&#34; Computes the vector length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. &#34;&#34;&#34;
+    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.vec_normalize"><code class="name flex">
-<span>def <span class="ident">vec_normalize</span></span>(<span>vec: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">vec_normalize</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Normalizes the vectors in <code>vec</code>. The combined channel dimensions of <code>vec</code> are interpreted as a vector.</p></div>
+<div class="desc"><p>Normalizes the vectors in <code>vec</code>. If <code>vec_dim</code> is None, the combined channel dimensions of <code>vec</code> are interpreted as a vector.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec_normalize(vec: Tensor):
-    &#34;&#34;&#34; Normalizes the vectors in `vec`. The combined channel dimensions of `vec` are interpreted as a vector. &#34;&#34;&#34;
-    return vec / vec_abs(vec)</code></pre>
+<pre><code class="python">def vec_normalize(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    &#34;&#34;&#34; Normalizes the vectors in `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. &#34;&#34;&#34;
+    return vec / vec_abs(vec, vec_dim=vec_dim)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.vec_squared"><code class="name flex">
-<span>def <span class="ident">vec_squared</span></span>(<span>vec: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">vec_squared</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: str = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes the squared length of <code>vec</code>. The combined channel dimensions of <code>vec</code> are interpreted as a vector.</p></div>
+<div class="desc"><p>Computes the squared length of <code>vec</code>. If <code>vec_dim</code> is None, the combined channel dimensions of <code>vec</code> are interpreted as a vector.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec_squared(vec: Tensor):
-    &#34;&#34;&#34; Computes the squared length of `vec`. The combined channel dimensions of `vec` are interpreted as a vector. &#34;&#34;&#34;
-    return math.sum_(vec ** 2, dim=vec.shape.channel)</code></pre>
+<pre><code class="python">def vec_squared(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    &#34;&#34;&#34; Computes the squared length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. &#34;&#34;&#34;
+    return math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.where"><code class="name flex">
