@@ -2645,8 +2645,10 @@ If a vector field is passed, the laplace is computed component-wise.</p>
         `phi.math.Tensor` of same shape as `x`
 
     &#34;&#34;&#34;
-    if not isinstance(dx, (int, float)):
+    if isinstance(dx, (tuple, list)):
         dx = wrap(dx, batch(&#39;_laplace&#39;))
+    elif isinstance(dx, Tensor) and dx.vector.exists:
+        dx = math.rename_dims(dx, &#39;vector&#39;, batch(&#39;_laplace&#39;))
     if isinstance(x, Extrapolation):
         return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch(&#39;_laplace&#39;))
