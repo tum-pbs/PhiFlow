@@ -163,7 +163,7 @@ setup(
         'matplotlib'  # also required by dash for color maps
     ],
     # Optional packages:
-    # - dash + plotly + imageio (for webgl-viewer)
+    # - dash + plotly (included in dash) + imageio (for webgl-viewer)
     # - torch
     # - tensorflow
     # - jax

@@ -3,7 +3,6 @@
 import warnings
 
 import numpy as np
-from matplotlib.colors import ListedColormap
 
 ORANGE_WHITE_BLUE = [
     [0.      ,  22.00000005,   1.00000035,  76.0000011 ],
@@ -91,6 +90,8 @@ COLORMAPS = {
 try:
     from matplotlib.pyplot import colormaps
     from matplotlib.cm import get_cmap
+    from matplotlib.colors import ListedColormap
+
     for name in colormaps():
         colormap = get_cmap(name)
         if isinstance(colormap, ListedColormap):
