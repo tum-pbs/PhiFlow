@@ -660,6 +660,9 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         self.message = message
         self._log.log(message)
 
+    def __rrshift__(self, other):
+        self.info(other)
+
     @property
     def field_names(self) -&gt; tuple:
         return tuple(self.initial_field_values.keys())
