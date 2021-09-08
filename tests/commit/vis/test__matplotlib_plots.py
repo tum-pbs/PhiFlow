@@ -2,8 +2,9 @@ from unittest import TestCase
 
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise
 from phi.geom import Sphere, Box
-from phi.math import extrapolation, wrap, instance, channel
+from phi.math import extrapolation, wrap, instance, channel, batch
 from phi.vis._matplotlib._matplotlib_plots import plot
+from phi.vis import show
 import matplotlib.pyplot as plt
 
 
@@ -16,12 +17,26 @@ class TestMatplotlibPlots(TestCase):
         assert isinstance(fig, plt.Figure)
         plt.show()
 
+    def test_plot_scalar_batch(self):
+        plt.close()
+        grid = CenteredGrid(Noise(batch(b=2)), extrapolation.ZERO, bounds=Box[0:1, 0:1], x=10, y=10)
+        fig = plot(grid)
+        assert isinstance(fig, plt.Figure)
+        show()
+
     def test_plot_vector_grid(self):
         plt.close()
         grid = CenteredGrid(Noise(vector=2), extrapolation.ZERO, x=64, y=8, bounds=Box(0, [1, 1])) * 0.1
         fig = plot(grid)
         assert isinstance(fig, plt.Figure)
         plt.show()
+
+    def test_plot_vector_batch(self):
+        plt.close()
+        grid = CenteredGrid(Noise(batch(b=2), vector=2), extrapolation.ZERO, bounds=Box[0:1, 0:1], x=10, y=10)
+        fig = plot(grid * 0.1)
+        assert isinstance(fig, plt.Figure)
+        show()
 
     def test_plot_staggered_grid(self):
         plt.close()

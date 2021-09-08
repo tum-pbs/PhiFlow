@@ -99,8 +99,8 @@ def _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_a
         right, top = field.bounds.upper.vector.unstack_spatial('x,y')
         extent = (float(left), float(right), float(bottom), float(top))
         if same_scale:
-            plt_args['vmin'] = math.min(b_values).native()
-            plt_args['vmax'] = math.max(b_values).native()
+            plt_args['vmin'] = float(b_values.min)
+            plt_args['vmax'] = float(b_values.max)
         for b in range(batch_size):
             im = axes[b].imshow(b_values.batch[b].numpy('y,x'), origin='lower', extent=extent, **plt_args)
             if show_color_bar:
@@ -114,6 +114,7 @@ def _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_a
             u, v = [d.numpy('x,y') for d in data.vector.unstack_spatial('x,y')]
             color = axes[b].xaxis.label.get_color()
             axes[b].quiver(x-u/2, y-v/2, u, v, color=color)
+            axes[b].set_aspect('equal', adjustable='box')
     elif isinstance(field, PointCloud):
         for b in range(batch_size):
             points = math.pack_dims(field.points, field.points.shape.batch, batch('batch')).batch[b]
@@ -139,6 +140,7 @@ def _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_a
             M = axes[b].transData.get_matrix()
             x_scale, y_scale = M[0, 0], M[1, 1]
             axes[b].scatter(x, y, marker=shape, color=color, s=(size * 2 * x_scale) ** 2)
+            axes[b].set_aspect('equal', adjustable='box')
     else:
         raise NotImplementedError(f"No figure recipe for {field}")
 
@@ -159,7 +161,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  down='',
                  smooth=1,
                  smooth_alpha=0.2,
-                 smooth_linewidth=1.,
+                 smooth_linewidth=2.,
                  size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
