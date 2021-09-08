@@ -89,6 +89,9 @@ class Viewer(VisModel):
         self.message = message
         self._log.log(message)
 
+    def __rrshift__(self, other):
+        self.info(other)
+
     @property
     def field_names(self) -> tuple:
         return tuple(self.initial_field_values.keys())
