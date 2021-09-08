@@ -77,6 +77,10 @@ class TestMathFunctions(TestCase):
         std = math.std(ones)
         math.assert_close(0, std)
 
+    def test_sum_by_type(self):
+        a = math.ones(spatial(x=3, y=4), batch(b=10), instance(i=2), channel(vector=2))
+        math.assert_close(math.sum(a, spatial), 12)
+
     def test_grid_sample(self):
         for backend in BACKENDS:
             with backend:

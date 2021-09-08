@@ -1053,7 +1053,7 @@ def nonzero(value: Tensor, list_dim: Shape = instance('nonzero'), index_dim: Sha
 
 
 def _reduce(value: Tensor or list or tuple,
-            dim: str or tuple or list or Shape or None,
+            dim: str or tuple or list or Shape or Callable or None,
             native_function: Callable,
             collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
             unaffected_function: Callable = lambda value: value) -> Tensor:
@@ -1078,11 +1078,14 @@ def _reduce(value: Tensor or list or tuple,
         return value._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
 
 
-def _resolve_dims(dim: str or tuple or list or Shape or None,
+def _resolve_dims(dim: str or tuple or list or Shape or None or Callable,
                   t_shape: Shape) -> Tuple[str]:
     if dim is None:
         return t_shape.non_batch.names
-    return parse_dim_order(dim)
+    elif callable(dim):  # dim type like spatial
+        return dim(t_shape)
+    else:
+        return parse_dim_order(dim)
 
 
 def sum_(value: Tensor or list or tuple,
@@ -1098,6 +1101,7 @@ def sum_(value: Tensor or list or tuple,
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1120,6 +1124,7 @@ def prod(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1142,6 +1147,7 @@ def mean(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1162,6 +1168,7 @@ def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1185,6 +1192,7 @@ def any_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or li
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1205,6 +1213,7 @@ def all_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or li
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1225,6 +1234,7 @@ def max_(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1245,6 +1255,7 @@ def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1253,7 +1264,9 @@ def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
-def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: str or int or tuple or list or None or Shape = None):
+def quantile(value: Tensor,
+             quantiles: float or tuple or list or Tensor,
+             dim: str or int or tuple or list or None or Shape or Callable = None):
     """
     Compute the q-th quantile of `value` along `dim` for each q in `quantiles`.
 
@@ -1274,7 +1287,8 @@ def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: st
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
-            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
+            * `'0'` when `isinstance(value, (tuple, list))` to reduce the sequence of Tensors
 
     Returns:
         `Tensor` with dimensions of `quantiles` and non-reduced dimensions of `value`.
@@ -1288,7 +1302,7 @@ def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: st
     return reshaped_tensor(native_result, [q.shape, *value.shape.without(dims)])
 
 
-def median(value, dim: str or int or tuple or list or None or Shape = None):
+def median(value, dim: str or int or tuple or list or None or Shape or Callable = None):
     """
     Reduces `dim` of `value` by picking the median value.
     For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.
@@ -1303,6 +1317,7 @@ def median(value, dim: str or int or tuple or list or None or Shape = None):
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1312,9 +1327,9 @@ def median(value, dim: str or int or tuple or list or None or Shape = None):
 
 
 def dot(x: Tensor,
-        x_dims: str or tuple or list or Shape,
+        x_dims: str or tuple or list or Shape or Callable or None,
         y: Tensor,
-        y_dims: str or tuple or list or Shape) -> Tensor:
+        y_dims: str or tuple or list or Shape or Callable or None) -> Tensor:
     """
     Computes the dot product along the specified dimensions.
     Contracts `x_dims` with `y_dims` by first multiplying the elements and then summing them up.

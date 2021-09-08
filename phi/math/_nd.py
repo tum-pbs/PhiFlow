@@ -15,11 +15,6 @@ from ._tensors import wrap
 from .extrapolation import Extrapolation
 
 
-def spatial_sum(value: Tensor):
-    """ Sum over all spatial dimensions of `value`. """
-    return math.sum_(value, dim=value.shape.spatial.names)
-
-
 def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
     """ Computes the vector length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
     return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim))
