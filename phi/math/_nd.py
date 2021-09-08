@@ -346,8 +346,10 @@ def laplace(x: Tensor,
         `phi.math.Tensor` of same shape as `x`
 
     """
-    if not isinstance(dx, (int, float)):
+    if isinstance(dx, (tuple, list)):
         dx = wrap(dx, batch('_laplace'))
+    elif isinstance(dx, Tensor) and dx.vector.exists:
+        dx = math.rename_dims(dx, 'vector', batch('_laplace'))
     if isinstance(x, Extrapolation):
         return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch('_laplace'))
