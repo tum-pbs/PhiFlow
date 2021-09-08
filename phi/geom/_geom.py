@@ -282,8 +282,8 @@ class _InvertedGeometry(Geometry):
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
         return -self.geometry.approximate_signed_distance(location)
 
-    def approximate_fraction_inside(self, other_geometry: Geometry) -> Tensor:
-        return 1 - self.geometry.approximate_fraction_inside(other_geometry)
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
+        return 1 - self.geometry.approximate_fraction_inside(other_geometry, 1 - balance)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         return self.geometry.push(positions, outward=not outward, shift_amount=shift_amount)
@@ -332,7 +332,7 @@ class _NoGeometry(Geometry):
     def lies_inside(self, location):
         return math.zeros(location.shape.non_channel, dtype=math.DType(bool))
 
-    def approximate_fraction_inside(self, other_geometry):
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
         return math.zeros(other_geometry.shape)
 
     def shifted(self, delta):

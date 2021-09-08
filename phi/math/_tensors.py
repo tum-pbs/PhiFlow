@@ -1468,7 +1468,7 @@ def copy_with(obj, **tensor_attributes):
         return cpy
 
 
-def variable_attributes(obj):
+def variable_attributes(obj) -> Tuple[str]:
     if hasattr(obj, '__variable_attrs__'):
         return obj.__variable_attrs__()
     elif hasattr(obj, '__value_attrs__'):

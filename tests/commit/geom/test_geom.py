@@ -27,3 +27,9 @@ class TestGeom(TestCase):
     def test_stack_volume(self):
         u = stack([Box[0:1, 0:1], Box[0:2, 0:2]], batch('batch'))
         math.assert_close(u.volume, [1, 4])
+
+    def test_stack_type(self):
+        bounds1 = Box[0:1, 0:1]
+        bounds2 = Box[0:10, 0:10]
+        bounds = stack([bounds1, bounds2], batch('batch'))
+        self.assertIsInstance(bounds, Box)
