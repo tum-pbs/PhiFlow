@@ -167,6 +167,10 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </summary>
 <pre><code class="python">def stack(geometries: List[Geometry], dim: Shape):
     &#34;&#34;&#34; Stacks `geometries` along `dim`. The size of `dim` is ignored. &#34;&#34;&#34;
+    if all(type(g) == type(geometries[0]) for g in geometries):
+        attrs = variable_attributes(geometries[0])
+        new_attributes = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
+        return copy_with(geometries[0], **new_attributes)
     return GeometryStack(geometries, dim)</code></pre>
 </details>
 </dd>
