@@ -75,6 +75,7 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def lies_inside(self, location):
         bool_inside = (location >= self.lower) & (location <= self.upper)
+        bool_inside = math.any(bool_inside, math.instance)
         return math.all(bool_inside, 'vector')
 
     def approximate_signed_distance(self, location):
@@ -93,6 +94,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
         distance = math.abs(location - center) - extent * 0.5
+        distance = math.min(distance, math.instance)
         return math.max(distance, 'vector')
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:

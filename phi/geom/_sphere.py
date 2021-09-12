@@ -40,7 +40,7 @@ class Sphere(Geometry):
 
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
-        return distance_squared <= self.radius ** 2
+        return math.any(distance_squared <= self.radius ** 2, math.instance)
 
     def approximate_signed_distance(self, location):
         """
@@ -57,7 +57,7 @@ class Sphere(Geometry):
         distance_squared = math.vec_squared(location - self.center)
         distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
         distance = math.sqrt(distance_squared)
-        return distance - self.radius
+        return math.min(distance - self.radius, math.instance)
 
     def bounding_radius(self):
         return self.radius

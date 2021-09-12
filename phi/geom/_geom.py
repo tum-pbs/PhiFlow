@@ -54,7 +54,6 @@ class Geometry:
 
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
-
         """
         raise NotImplementedError()
 
@@ -67,9 +66,10 @@ class Geometry:
         """
         Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.
 
+        When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.
+
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor:
 
         Returns:
           bool tensor of shape (*location.shape[:-1], 1).
@@ -85,6 +85,9 @@ class Geometry:
         The exact distance metric used depends on the geometry.
         The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
         The distance metric is differentiable and its gradients are bounded at every point in space.
+
+        When dealing with unions or collections of geometries (instance dimensions), the shortest distance to any instance is returned.
+        This also holds for negative distances.
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
