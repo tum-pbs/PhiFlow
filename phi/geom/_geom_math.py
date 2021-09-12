@@ -20,13 +20,13 @@ def concat(geometries: tuple or list,
     """
     if all(isinstance(g, type(geometries[0])) for g in geometries):
         characteristics = [{a: getattr(g, a) for a in variable_attributes(g)} for g in geometries]
-        if sizes is not None:
-            characteristics = [{key: math.expand(val, dim) for key, val in c.items()}
-                               for c, size in zip(characteristics, sizes)]
         new_attributes = {}
-        for key in characteristics[0].keys():
-            concatenated = math.concat([c[key] for c in characteristics], dim)
-            new_attributes[key] = concatenated
+        for c in characteristics[0].keys():
+            if any([item[c].shape.volume > 1 for item in characteristics]) or any([not math.close(item[c], characteristics[0][c]) for item in characteristics]):
+                for item, size in zip(characteristics, sizes):
+                    item[c] = math.expand(item[c], dim.with_size(size))
+                concatenated = math.concat([item[c] for item in characteristics], dim)
+                new_attributes[c] = concatenated
         return copy_with(geometries[0], **new_attributes)
     else:
         raise NotImplementedError()
