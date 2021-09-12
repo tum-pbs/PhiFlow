@@ -113,7 +113,7 @@ def _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_a
             data = math.pack_dims(field.values, field.shape.batch, batch('batch')).batch[b]
             u, v = [d.numpy('x,y') for d in data.vector.unstack_spatial('x,y')]
             color = axes[b].xaxis.label.get_color()
-            axes[b].quiver(x-u/2, y-v/2, u, v, color=color)
+            axes[b].quiver(x, y, u, v, color=color, units='xy', scale=1)
             axes[b].set_aspect('equal', adjustable='box')
     elif isinstance(field, PointCloud):
         for b in range(batch_size):
