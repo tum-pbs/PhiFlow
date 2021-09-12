@@ -270,7 +270,9 @@ def center_of_mass(density: SampledField):
 
 def pad(grid: GridType, widths: int or tuple or list or dict) -> GridType:
     """
-    Pads a `Grid` using its current extrapolation.
+    Pads a `Grid` using its extrapolation.
+
+    Unlike `phi.math.pad()`, this function also affects the `bounds` of the grid, changing its size and origin depending on `widths`.
 
     Args:
         grid: `CenteredGrid` or `StaggeredGrid`
