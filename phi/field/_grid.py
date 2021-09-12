@@ -19,6 +19,7 @@ class Grid(SampledField):
         SampledField.__init__(self, elements, values, extrapolation)
         assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
+        assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
         self._bounds = bounds
         self._resolution = resolution
 
