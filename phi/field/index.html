@@ -1328,7 +1328,8 @@ The function output must have the same dimension layout as the inputs and the ba
 <span>def <span class="ident">pad</span></span>(<span>grid: ~GridType, widths: int) ‑> ~GridType</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Pads a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> using its current extrapolation.</p>
+<div class="desc"><p>Pads a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> using its extrapolation.</p>
+<p>Unlike <code><a title="phi.math.pad" href="../math/index.html#phi.math.pad">pad()</a></code>, this function also affects the <code>bounds</code> of the grid, changing its size and origin depending on <code>widths</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>grid</code></strong></dt>
@@ -1345,7 +1346,9 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
 </summary>
 <pre><code class="python">def pad(grid: GridType, widths: int or tuple or list or dict) -&gt; GridType:
     &#34;&#34;&#34;
-    Pads a `Grid` using its current extrapolation.
+    Pads a `Grid` using its extrapolation.
+
+    Unlike `phi.math.pad()`, this function also affects the `bounds` of the grid, changing its size and origin depending on `widths`.
 
     Args:
         grid: `CenteredGrid` or `StaggeredGrid`

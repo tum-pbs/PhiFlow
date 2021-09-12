@@ -115,13 +115,13 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     &#34;&#34;&#34;
     if all(isinstance(g, type(geometries[0])) for g in geometries):
         characteristics = [{a: getattr(g, a) for a in variable_attributes(g)} for g in geometries]
-        if sizes is not None:
-            characteristics = [{key: math.expand(val, dim) for key, val in c.items()}
-                               for c, size in zip(characteristics, sizes)]
         new_attributes = {}
-        for key in characteristics[0].keys():
-            concatenated = math.concat([c[key] for c in characteristics], dim)
-            new_attributes[key] = concatenated
+        for c in characteristics[0].keys():
+            if any([item[c].shape.volume &gt; 1 for item in characteristics]) or any([not math.close(item[c], characteristics[0][c]) for item in characteristics]):
+                for item, size in zip(characteristics, sizes):
+                    item[c] = math.expand(item[c], dim.with_size(size))
+                concatenated = math.concat([item[c] for item in characteristics], dim)
+                new_attributes[c] = concatenated
         return copy_with(geometries[0], **new_attributes)
     else:
         raise NotImplementedError()</code></pre>
@@ -302,8 +302,9 @@ A point lies inside the union if it lies within at least one of the geometries.<
 
     def lies_inside(self, location):
         bool_inside = (location &gt;= self.lower) &amp; (location &lt;= self.upper)
-        bool_inside = math.any(bool_inside, math.instance)
-        return math.all(bool_inside, &#39;vector&#39;)
+        bool_inside = math.all(bool_inside, &#39;vector&#39;)
+        bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
+        return bool_inside
 
     def approximate_signed_distance(self, location):
         &#34;&#34;&#34;
@@ -321,7 +322,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
         distance = math.abs(location - center) - extent * 0.5
-        distance = math.min(distance, math.instance)
+        distance = math.min(distance, self.shape.instance)  # union for instance dimensions
         return math.max(distance, &#39;vector&#39;)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
@@ -488,7 +489,7 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
     center = 0.5 * (self.lower + self.upper)
     extent = self.upper - self.lower
     distance = math.abs(location - center) - extent * 0.5
-    distance = math.min(distance, math.instance)
+    distance = math.min(distance, self.shape.instance)  # union for instance dimensions
     return math.max(distance, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
@@ -603,8 +604,9 @@ The sphere is centered at the center of this geometry.</p>
 </summary>
 <pre><code class="python">def lies_inside(self, location):
     bool_inside = (location &gt;= self.lower) &amp; (location &lt;= self.upper)
-    bool_inside = math.any(bool_inside, math.instance)
-    return math.all(bool_inside, &#39;vector&#39;)</code></pre>
+    bool_inside = math.all(bool_inside, &#39;vector&#39;)
+    bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
+    return bool_inside</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.local_to_global"><code class="name flex">
@@ -2402,7 +2404,7 @@ Defined through center position and radius.</p>
 
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
-        return math.any(distance_squared &lt;= self.radius ** 2, math.instance)
+        return math.any(distance_squared &lt;= self.radius ** 2, self.shape.instance)  # union for instance dimensions
 
     def approximate_signed_distance(self, location):
         &#34;&#34;&#34;
@@ -2419,7 +2421,7 @@ Defined through center position and radius.</p>
         distance_squared = math.vec_squared(location - self.center)
         distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
         distance = math.sqrt(distance_squared)
-        return math.min(distance - self.radius, math.instance)
+        return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def bounding_radius(self):
         return self.radius
@@ -2526,7 +2528,7 @@ Very close to the sphere center, the distance takes a constant value.</p>
     distance_squared = math.vec_squared(location - self.center)
     distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
     distance = math.sqrt(distance_squared)
-    return math.min(distance - self.radius, math.instance)</code></pre>
+    return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.bounding_half_extent"><code class="name flex">
@@ -2584,7 +2586,7 @@ The sphere is centered at the center of this geometry.</p>
 </summary>
 <pre><code class="python">def lies_inside(self, location):
     distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
-    return math.any(distance_squared &lt;= self.radius ** 2, math.instance)</code></pre>
+    return math.any(distance_squared &lt;= self.radius ** 2, self.shape.instance)  # union for instance dimensions</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.rotated"><code class="name flex">
