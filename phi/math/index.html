@@ -85,7 +85,7 @@ from ._ops import (
 )
 from ._nd import (
     shift,
-    spatial_sum, vec_abs, vec_squared, vec_normalize, cross_product,
+    vec_abs, vec_squared, vec_normalize, cross_product,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
@@ -240,6 +240,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -262,6 +263,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -344,6 +346,7 @@ Tracing placeholders are considered not available, even when they hold example v
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -366,6 +369,7 @@ Tracing placeholders are considered not available, even when they hold example v
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -1334,9 +1338,9 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def dot(x: Tensor,
-        x_dims: str or tuple or list or Shape,
+        x_dims: str or tuple or list or Shape or Callable or None,
         y: Tensor,
-        y_dims: str or tuple or list or Shape) -&gt; Tensor:
+        y_dims: str or tuple or list or Shape or Callable or None) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the dot product along the specified dimensions.
     Contracts `x_dims` with `y_dims` by first multiplying the elements and then summing them up.
@@ -2802,6 +2806,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -2824,6 +2829,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -2863,6 +2869,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -2885,6 +2892,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -2912,6 +2920,7 @@ For odd dimension sizes (ambigous choice), the linear average of the two median 
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -2922,7 +2931,7 @@ For odd dimension sizes (ambigous choice), the linear average of the two median 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def median(value, dim: str or int or tuple or list or None or Shape = None):
+<pre><code class="python">def median(value, dim: str or int or tuple or list or None or Shape or Callable = None):
     &#34;&#34;&#34;
     Reduces `dim` of `value` by picking the median value.
     For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.
@@ -2937,6 +2946,7 @@ For odd dimension sizes (ambigous choice), the linear average of the two median 
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -3098,6 +3108,7 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -3120,6 +3131,7 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -3878,6 +3890,7 @@ math.functional_gradient(f)(math.ones(x=6))
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -3900,6 +3913,7 @@ math.functional_gradient(f)(math.ones(x=6))
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -3937,7 +3951,8 @@ Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <co
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
-<li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
+<li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to reduce the sequence of Tensors</li>
 </ul>
 </dd>
 </dl>
@@ -3947,7 +3962,9 @@ Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <co
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def quantile(value: Tensor, quantiles: float or tuple or list or Tensor, dim: str or int or tuple or list or None or Shape = None):
+<pre><code class="python">def quantile(value: Tensor,
+             quantiles: float or tuple or list or Tensor,
+             dim: str or int or tuple or list or None or Shape or Callable = None):
     &#34;&#34;&#34;
     Compute the q-th quantile of `value` along `dim` for each q in `quantiles`.
 
@@ -3968,7 +3985,8 @@ Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <co
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
-            * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
+            * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to reduce the sequence of Tensors
 
     Returns:
         `Tensor` with dimensions of `quantiles` and non-reduced dimensions of `value`.
@@ -5129,20 +5147,6 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
         raise ValueError(&#39;Invalid difference type: {}. Can be CENTRAL or FORWARD&#39;.format(difference))</code></pre>
 </details>
 </dd>
-<dt id="phi.math.spatial_sum"><code class="name flex">
-<span>def <span class="ident">spatial_sum</span></span>(<span>value: phi.math._tensors.Tensor)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sum over all spatial dimensions of <code>value</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def spatial_sum(value: Tensor):
-    &#34;&#34;&#34; Sum over all spatial dimensions of `value`. &#34;&#34;&#34;
-    return math.sum_(value, dim=value.shape.spatial.names)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.sqrt"><code class="name flex">
 <span>def <span class="ident">sqrt</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -5216,6 +5220,7 @@ The size along <code>dim</code> is determined from <code>len(values)</code> and 
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -5238,6 +5243,7 @@ The size along <code>dim</code> is determined from <code>len(values)</code> and 
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -5316,6 +5322,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <li><code>str</code> containing single dimension or comma-separated list of dimensions</li>
 <li><code>Tuple[str]</code> or <code>List[str]</code></li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></li>
+<li><code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code> to select dimensions by type</li>
 <li><code>'0'</code> when <code>isinstance(value, (tuple, list))</code> to add up the sequence of Tensors</li>
 </ul>
 </dd>
@@ -5339,6 +5346,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
             * `str` containing single dimension or comma-separated list of dimensions
             * `Tuple[str]` or `List[str]`
             * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
             * `&#39;0&#39;` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
 
     Returns:
@@ -10794,7 +10802,6 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear</a></code></li>
 <li><code><a title="phi.math.spatial" href="#phi.math.spatial">spatial</a></code></li>
 <li><code><a title="phi.math.spatial_gradient" href="#phi.math.spatial_gradient">spatial_gradient</a></code></li>
-<li><code><a title="phi.math.spatial_sum" href="#phi.math.spatial_sum">spatial_sum</a></code></li>
 <li><code><a title="phi.math.sqrt" href="#phi.math.sqrt">sqrt</a></code></li>
 <li><code><a title="phi.math.stack" href="#phi.math.stack">stack</a></code></li>
 <li><code><a title="phi.math.std" href="#phi.math.std">std</a></code></li>

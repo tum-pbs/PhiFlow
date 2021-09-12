@@ -212,6 +212,10 @@ A point lies inside the union if it lies within at least one of the geometries.<
         return NO_GEOMETRY
     elif len(geometries) == 1:
         return geometries[0]
+    elif all(type(g) == type(geometries[0]) for g in geometries):
+        attrs = variable_attributes(geometries[0])
+        values = {a: math.stack([getattr(g, a) for g in geometries], math.instance(&#39;union&#39;)) for a in attrs}
+        return copy_with(geometries[0], **values)
     else:
         base_geometries = ()
         for geometry in geometries:
@@ -298,6 +302,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
 
     def lies_inside(self, location):
         bool_inside = (location &gt;= self.lower) &amp; (location &lt;= self.upper)
+        bool_inside = math.any(bool_inside, math.instance)
         return math.all(bool_inside, &#39;vector&#39;)
 
     def approximate_signed_distance(self, location):
@@ -316,6 +321,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
         distance = math.abs(location - center) - extent * 0.5
+        distance = math.min(distance, math.instance)
         return math.max(distance, &#39;vector&#39;)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
@@ -482,6 +488,7 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
     center = 0.5 * (self.lower + self.upper)
     extent = self.upper - self.lower
     distance = math.abs(location - center) - extent * 0.5
+    distance = math.min(distance, math.instance)
     return math.max(distance, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
@@ -582,12 +589,11 @@ The sphere is centered at the center of this geometry.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
+<p>When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
-<dt><strong><code>location</code></strong></dt>
-<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -597,6 +603,7 @@ The sphere is centered at the center of this geometry.</p>
 </summary>
 <pre><code class="python">def lies_inside(self, location):
     bool_inside = (location &gt;= self.lower) &amp; (location &lt;= self.upper)
+    bool_inside = math.any(bool_inside, math.instance)
     return math.all(bool_inside, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
@@ -1041,7 +1048,6 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
-
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -1054,9 +1060,10 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.
 
+        When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.
+
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor:
 
         Returns:
           bool tensor of shape (*location.shape[:-1], 1).
@@ -1072,6 +1079,9 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         The exact distance metric used depends on the geometry.
         The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
         The distance metric is differentiable and its gradients are bounded at every point in space.
+
+        When dealing with unions or collections of geometries (instance dimensions), the shortest distance to any instance is returned.
+        This also holds for negative distances.
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
@@ -1394,6 +1404,8 @@ Locations outside return positive values, inside negative values and zero exactl
 <p>The exact distance metric used depends on the geometry.
 The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
 The distance metric is differentiable and its gradients are bounded at every point in space.</p>
+<p>When dealing with unions or collections of geometries (instance dimensions), the shortest distance to any instance is returned.
+This also holds for negative distances.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
@@ -1415,6 +1427,9 @@ The distance metric is differentiable and its gradients are bounded at every poi
     The exact distance metric used depends on the geometry.
     The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
     The distance metric is differentiable and its gradients are bounded at every point in space.
+
+    When dealing with unions or collections of geometries (instance dimensions), the shortest distance to any instance is returned.
+    This also holds for negative distances.
 
     Args:
       location: float tensor of shape (batch_size, ..., rank)
@@ -1493,12 +1508,11 @@ The sphere is centered at the center of this geometry.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
+<p>When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
-<dt><strong><code>location</code></strong></dt>
-<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -1510,9 +1524,10 @@ The sphere is centered at the center of this geometry.</p>
     &#34;&#34;&#34;
     Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.
 
+    When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.
+
     Args:
       location: float tensor of shape (batch_size, ..., rank)
-      location: Tensor:
 
     Returns:
       bool tensor of shape (*location.shape[:-1], 1).
@@ -1691,7 +1706,6 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 
     Returns:
         geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
-
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -2166,6 +2180,8 @@ Locations outside return positive values, inside negative values and zero exactl
 <p>The exact distance metric used depends on the geometry.
 The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
 The distance metric is differentiable and its gradients are bounded at every point in space.</p>
+<p>When dealing with unions or collections of geometries (instance dimensions), the shortest distance to any instance is returned.
+This also holds for negative distances.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
@@ -2224,12 +2240,11 @@ The sphere is centered at the center of this geometry.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
+<p>When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
-<dt><strong><code>location</code></strong></dt>
-<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -2387,7 +2402,7 @@ Defined through center position and radius.</p>
 
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
-        return distance_squared &lt;= self.radius ** 2
+        return math.any(distance_squared &lt;= self.radius ** 2, math.instance)
 
     def approximate_signed_distance(self, location):
         &#34;&#34;&#34;
@@ -2404,7 +2419,7 @@ Defined through center position and radius.</p>
         distance_squared = math.vec_squared(location - self.center)
         distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
         distance = math.sqrt(distance_squared)
-        return distance - self.radius
+        return math.min(distance - self.radius, math.instance)
 
     def bounding_radius(self):
         return self.radius
@@ -2511,7 +2526,7 @@ Very close to the sphere center, the distance takes a constant value.</p>
     distance_squared = math.vec_squared(location - self.center)
     distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
     distance = math.sqrt(distance_squared)
-    return distance - self.radius</code></pre>
+    return math.min(distance - self.radius, math.instance)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.bounding_half_extent"><code class="name flex">
@@ -2555,12 +2570,11 @@ The sphere is centered at the center of this geometry.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
+<p>When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
 <dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
-<dt><strong><code>location</code></strong></dt>
-<dd>Tensor:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
@@ -2570,7 +2584,7 @@ The sphere is centered at the center of this geometry.</p>
 </summary>
 <pre><code class="python">def lies_inside(self, location):
     distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
-    return distance_squared &lt;= self.radius ** 2</code></pre>
+    return math.any(distance_squared &lt;= self.radius ** 2, math.instance)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.rotated"><code class="name flex">
