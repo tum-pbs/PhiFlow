@@ -38,6 +38,7 @@ class TestGeom(TestCase):
         union = geom.union(Box[0:1, 0:1], Box[2:3, 0:1])
         self.assertIsInstance(union, Box)
         math.assert_close(union.approximate_signed_distance((0, 0)), union.approximate_signed_distance((3, 1)), 0)
+        math.assert_close(union.approximate_signed_distance((1.5, 0)), 0.5)
 
     def test_union_varying(self):
         box = Box[0:1, 0:1]
