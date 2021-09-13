@@ -332,7 +332,7 @@ class Domain:
         Returns:
              PointCloud representation of `geometries`.
         """
-        geometries = HardGeometryMask(union(geometries)) >> self.grid()
+        geometries = HardGeometryMask(union(geometries)) @ self.grid()
         initial_points = _distribute_points(geometries.values, points_per_cell, center=center)
         return self.points(initial_points, color=color)
 

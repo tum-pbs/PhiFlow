@@ -5,7 +5,7 @@ from phi.physics._boundaries import Domain, STICKY
 
 
 def step(particles, domain, dt, accessible):
-    velocity = particles >> domain.staggered_grid()
+    velocity = particles @ domain.staggered_grid()
     div_free_velocity, _, occupied = \
         flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, particles, accessible)
     particles = flip.map_velocity_to_particles(particles, div_free_velocity, occupied, previous_velocity_grid=velocity, viscosity=0.9)

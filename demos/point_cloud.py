@@ -21,7 +21,7 @@ points = advect.advect(points, points * (-1, 1), -5)  # Euler
 
 # Grid sampling
 scattered_data = field.sample(points, DOMAIN.cells)
-scattered_grid = points >> DOMAIN.vector_grid()
-scattered_sgrid = points >> DOMAIN.staggered_grid()
+scattered_grid = points @ DOMAIN.vector_grid()
+scattered_sgrid = points @ DOMAIN.staggered_grid()
 
 view()

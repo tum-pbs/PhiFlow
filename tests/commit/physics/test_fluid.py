@@ -21,7 +21,7 @@ class FluidTest(TestCase):
                 smoke = CenteredGrid(Sphere(center=(math.random_uniform(batch(**batch_dims)) * 100, 10), radius=5), extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
                 velocity = grid_type(0, extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
                 for _ in range(2):
-                    velocity += smoke * (0, 0.1) >> velocity
+                    velocity += smoke * (0, 0.1) @ velocity
                     velocity, _ = fluid.make_incompressible(velocity)
                 math.assert_close(divergence(velocity).values, 0, abs_tolerance=2e-5)
                 if result is None:

@@ -50,7 +50,8 @@ class Field:
         
         Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-        The operator `self >> representation`, calls `at()` with `keep_extrapolation=False`.
+        Operator alias:
+            `self @ representation`.
 
         See Also:
             `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
@@ -68,7 +69,7 @@ class Field:
         extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
-    def __rshift__(self, other: 'SampledField'):
+    def __matmul__(self, other: 'SampledField'):  # values @ representation
         """
         Resampling operator with change of extrapolation.
 
@@ -80,8 +81,9 @@ class Field:
         """
         return self.at(other, keep_extrapolation=False)
 
-    def __rrshift__(self, other):
-        assert isinstance(self, SampledField), f"SampledField required for second argument of resampling '>>' but got {type(self)}"
+    def __rmatmul__(self, other):  # values @ representation
+        if not isinstance(self, SampledField):
+            return NotImplemented
         if isinstance(other, Geometry):
             return self.with_values(other)
         return NotImplemented

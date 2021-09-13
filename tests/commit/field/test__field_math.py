@@ -42,7 +42,7 @@ class TestFieldMath(TestCase):
 
     def test_trace_function(self):
         def f(x: StaggeredGrid, y: CenteredGrid):
-            return x + (y >> x)
+            return x + (y @ x)
 
         ft = field.jit_compile(f)
         domain = Domain(x=4, y=3)
@@ -56,7 +56,7 @@ class TestFieldMath(TestCase):
 
     def test_gradient_function(self):
         def f(x: StaggeredGrid, y: CenteredGrid):
-            pred = x + (y >> x)
+            pred = x + (y @ x)
             loss = field.l2_loss(pred)
             return loss
 

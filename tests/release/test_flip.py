@@ -5,7 +5,7 @@ from phi.physics._boundaries import Domain, STICKY
 
 
 def step(particles, domain, dt, accessible):
-    velocity = particles >> domain.staggered_grid()
+    velocity = particles @ domain.staggered_grid()
     div_free_velocity, pressure, occupied = flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, particles, accessible)
     particles = flip.map_velocity_to_particles(particles, div_free_velocity, occupied, previous_velocity_grid=velocity)
     particles = advect.runge_kutta_4(particles, div_free_velocity, dt, accessible=accessible, occupied=occupied)
@@ -41,8 +41,8 @@ class FlipTest(TestCase):
         for i in range(100):
             state = step(**state)
 
-        occupied_start = PARTICLES.with_values(1) >> DOMAIN.scalar_grid()
-        occupied_end = state['particles'].with_values(1) >> DOMAIN.scalar_grid()
+        occupied_start = PARTICLES.with_values(1) @ DOMAIN.scalar_grid()
+        occupied_end = state['particles'].with_values(1) @ DOMAIN.scalar_grid()
         math.assert_close(occupied_start.values, occupied_end.values)
         math.assert_close(PARTICLES.points, state['particles'].points, abs_tolerance=1e-3)
 

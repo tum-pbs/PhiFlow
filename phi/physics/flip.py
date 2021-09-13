@@ -32,8 +32,8 @@ def make_incompressible(velocity: StaggeredGrid,
       occupation_mask: StaggeredGrid
     """
     points = particles.with_values(math.tensor(1., convert=True))
-    occupied_centered = points >> domain.scalar_grid()
-    occupied_staggered = points >> domain.staggered_grid()
+    occupied_centered = points @ domain.scalar_grid()
+    occupied_staggered = points @ domain.staggered_grid()
 
     if isinstance(obstacles, StaggeredGrid):
         accessible = obstacles
@@ -97,12 +97,12 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud,
     if viscosity > 0.:
         # --- PIC ---
         velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
-        velocities += viscosity * (velocity_grid >> previous_particle_velocity).values
+        velocities += viscosity * (velocity_grid @ previous_particle_velocity).values
     if viscosity < 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
         v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
-        v_change = (v_change_field >> previous_particle_velocity).values
+        v_change = (v_change_field @ previous_particle_velocity).values
         velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
     return previous_particle_velocity.with_values(velocities)
 

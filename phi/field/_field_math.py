@@ -414,7 +414,7 @@ def assert_close(*fields: SampledField or math.Tensor or Number,
                  verbose: bool = True):
     """ Raises an AssertionError if the `values` of the given fields are not close. See `phi.math.assert_close()`. """
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
-    values = [(f >> f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
+    values = [(f @ f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
 
 

@@ -22,12 +22,12 @@ smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=smoke_res ** 2, y=smoke_res **
 viewer = view(smoke, velocity, play=False)
 for _ in viewer.range(warmup=1):
     # Resize grids if needed
-    inflow = SoftGeometryMask(INFLOW) >> CenteredGrid(0, smoke.extrapolation, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS)
-    smoke = smoke >> inflow
-    velocity = velocity >> StaggeredGrid(0, velocity.extrapolation, x=v_res ** 2, y=v_res ** 2, bounds=BOUNDS)
+    inflow = SoftGeometryMask(INFLOW) @ CenteredGrid(0, smoke.extrapolation, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS)
+    smoke = smoke @ inflow
+    velocity = velocity @ StaggeredGrid(0, velocity.extrapolation, x=v_res ** 2, y=v_res ** 2, bounds=BOUNDS)
     # Physics step
     smoke = advect.mac_cormack(smoke, velocity, 1) + inflow
-    buoyancy_force = smoke * (0, 0.1) >> velocity  # resamples smoke to velocity sample points
+    buoyancy_force = smoke * (0, 0.1) @ velocity  # resamples smoke to velocity sample points
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
     try:
         with math.SolveTape() as solves:
