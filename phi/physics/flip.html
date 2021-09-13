@@ -61,8 +61,8 @@ def make_incompressible(velocity: StaggeredGrid,
       occupation_mask: StaggeredGrid
     &#34;&#34;&#34;
     points = particles.with_values(math.tensor(1., convert=True))
-    occupied_centered = points &gt;&gt; domain.scalar_grid()
-    occupied_staggered = points &gt;&gt; domain.staggered_grid()
+    occupied_centered = points @ domain.scalar_grid()
+    occupied_staggered = points @ domain.staggered_grid()
 
     if isinstance(obstacles, StaggeredGrid):
         accessible = obstacles
@@ -126,12 +126,12 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud,
     if viscosity &gt; 0.:
         # --- PIC ---
         velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
-        velocities += viscosity * (velocity_grid &gt;&gt; previous_particle_velocity).values
+        velocities += viscosity * (velocity_grid @ previous_particle_velocity).values
     if viscosity &lt; 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
         v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
-        v_change = (v_change_field &gt;&gt; previous_particle_velocity).values
+        v_change = (v_change_field @ previous_particle_velocity).values
         velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
     return previous_particle_velocity.with_values(velocities)
 
@@ -224,8 +224,8 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
       occupation_mask: StaggeredGrid
     &#34;&#34;&#34;
     points = particles.with_values(math.tensor(1., convert=True))
-    occupied_centered = points &gt;&gt; domain.scalar_grid()
-    occupied_staggered = points &gt;&gt; domain.staggered_grid()
+    occupied_centered = points @ domain.scalar_grid()
+    occupied_staggered = points @ domain.staggered_grid()
 
     if isinstance(obstacles, StaggeredGrid):
         accessible = obstacles
@@ -317,12 +317,12 @@ Otherwise this is the ratio between FLIP and PIC (0. for pure FLIP)</dd>
     if viscosity &gt; 0.:
         # --- PIC ---
         velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
-        velocities += viscosity * (velocity_grid &gt;&gt; previous_particle_velocity).values
+        velocities += viscosity * (velocity_grid @ previous_particle_velocity).values
     if viscosity &lt; 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
         v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
-        v_change = (v_change_field &gt;&gt; previous_particle_velocity).values
+        v_change = (v_change_field @ previous_particle_velocity).values
         velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
     return previous_particle_velocity.with_values(velocities)</code></pre>
 </details>

@@ -155,7 +155,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
                  verbose: bool = True):
     &#34;&#34;&#34; Raises an AssertionError if the `values` of the given fields are not close. See `phi.math.assert_close()`. &#34;&#34;&#34;
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
-    values = [(f &gt;&gt; f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
+    values = [(f @ f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)</code></pre>
 </details>
 </dd>
@@ -2801,7 +2801,8 @@ def shape(self) -&gt; Shape:
         
         Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-        The operator `self &gt;&gt; representation`, calls `at()` with `keep_extrapolation=False`.
+        Operator alias:
+            `self @ representation`.
 
         See Also:
             `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
@@ -2819,7 +2820,7 @@ def shape(self) -&gt; Shape:
         extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
-    def __rshift__(self, other: &#39;SampledField&#39;):
+    def __matmul__(self, other: &#39;SampledField&#39;):  # values @ representation
         &#34;&#34;&#34;
         Resampling operator with change of extrapolation.
 
@@ -2831,8 +2832,9 @@ def shape(self) -&gt; Shape:
         &#34;&#34;&#34;
         return self.at(other, keep_extrapolation=False)
 
-    def __rrshift__(self, other):
-        assert isinstance(self, SampledField), f&#34;SampledField required for second argument of resampling &#39;&gt;&gt;&#39; but got {type(self)}&#34;
+    def __rmatmul__(self, other):  # values @ representation
+        if not isinstance(self, SampledField):
+            return NotImplemented
         if isinstance(other, Geometry):
             return self.with_values(other)
         return NotImplemented
@@ -2940,7 +2942,8 @@ def spatial_rank(self) -&gt; int:
 <div class="desc"><p>Samples this field at the sample points of <code>representation</code>.
 The result will approximate the values of this field on the data structure of <code>representation</code>.</p>
 <p>Unlike <code>Field.sample()</code>, this method returns a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> object, not a <code>Tensor</code>.</p>
-<p>The operator <code>self &gt;&gt; representation</code>, calls <code>at()</code> with <code>keep_extrapolation=False</code>.</p>
+<p>Operator alias:
+<code>self @ representation</code>.</p>
 <p>See Also:
 <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, <code><a title="phi.field.reduce_sample" href="#phi.field.reduce_sample">reduce_sample()</a></code>, <a href="https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields">Resampling overview</a>.</p>
 <h2 id="args">Args</h2>
@@ -2965,7 +2968,8 @@ This can result in non-compatible value tensors for staggered grids where the te
     
     Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-    The operator `self &gt;&gt; representation`, calls `at()` with `keep_extrapolation=False`.
+    Operator alias:
+        `self @ representation`.
 
     See Also:
         `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
