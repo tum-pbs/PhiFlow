@@ -3027,8 +3027,9 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
                 for dim in shape:
                     if dim not in group:
                         group = group._expand(dim, pos=-1)
-                    elif not math.close(dim.size, group.get_size(dim.name)):  # check size match
-                        raise IncompatibleShapes(f&#34;Cannot merge shapes {shapes} because dimension &#39;{dim.name}&#39; exists with different sizes.&#34;, *shapes)
+                    else:  # check size match
+                        if not _size_equal(dim.size, group.get_size(dim.name)):
+                            raise IncompatibleShapes(f&#34;Cannot merge shapes {shapes} because dimension &#39;{dim.name}&#39; exists with different sizes.&#34;, *shapes)
         merged.append(group)
     return concat_shapes(*merged)</code></pre>
 </details>
