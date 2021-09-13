@@ -4069,12 +4069,13 @@ return values
         &#34;&#34;&#34; Backend that this device belongs to. Different backends represent the same device with different objects. &#34;&#34;&#34;
 
     def __repr__(self):
-        mem = f&#34;{(self.memory / 1024 ** 2)} MB&#34; if self.memory &gt; 0 else &#34;memory: n/a&#34;
+        mem = f&#34;{(self.memory / 1024 ** 2):.0f} MB&#34; if self.memory &gt; 0 else &#34;memory: n/a&#34;
         pro = f&#34;{self.processor_count} processors&#34; if self.processor_count &gt; 0 else &#34;processors: n/a&#34;
+        ref = f&#34; &#39;{self.ref}&#39;&#34; if isinstance(self.ref, str) else &#34;&#34;
         descr = self.description.replace(&#39;\n&#39;, &#39;  &#39;)
         if len(descr) &gt; 30:
             descr = descr[:28] + &#34;...&#34;
-        return f&#34;&#39;{self.name}&#39; ({self.device_type}) | {mem} | {pro} | {descr}&#34;</code></pre>
+        return f&#34;{self.name} ({self.device_type}{ref}) | {mem} | {pro} | {descr}&#34;</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
