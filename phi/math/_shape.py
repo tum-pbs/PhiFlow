@@ -1098,10 +1098,18 @@ def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, 
                 for dim in shape:
                     if dim not in group:
                         group = group._expand(dim, pos=-1)
-                    elif not math.close(dim.size, group.get_size(dim.name)):  # check size match
-                        raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
+                    else:  # check size match
+                        if not _size_equal(dim.size, group.get_size(dim.name)):
+                            raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
         merged.append(group)
     return concat_shapes(*merged)
+
+
+def _size_equal(s1, s2):
+    if isinstance(s1, int):
+        return isinstance(s2, int) and s2 == s1
+    else:
+        return math.close(s1, s2)
 
 
 def concat_shapes(*shapes: Shape):
