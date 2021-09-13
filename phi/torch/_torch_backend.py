@@ -17,7 +17,8 @@ from phi.math.backend._backend import combined_dim, SolveResult
 class TorchBackend(Backend):
 
     def __init__(self):
-        self.cpu = ComputeDevice(self, "CPU", 'CPU', -1, -1, "", ref='cpu')
+        cpu = NUMPY.cpu
+        self.cpu = ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')
         Backend.__init__(self, 'PyTorch', default_device=self.cpu)
 
     def prefers_channels_last(self) -> bool:

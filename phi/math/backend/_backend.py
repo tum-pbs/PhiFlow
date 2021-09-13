@@ -35,12 +35,13 @@ class ComputeDevice:
         """ Backend that this device belongs to. Different backends represent the same device with different objects. """
 
     def __repr__(self):
-        mem = f"{(self.memory / 1024 ** 2)} MB" if self.memory > 0 else "memory: n/a"
+        mem = f"{(self.memory / 1024 ** 2):.0f} MB" if self.memory > 0 else "memory: n/a"
         pro = f"{self.processor_count} processors" if self.processor_count > 0 else "processors: n/a"
+        ref = f" '{self.ref}'" if isinstance(self.ref, str) else ""
         descr = self.description.replace('\n', '  ')
         if len(descr) > 30:
             descr = descr[:28] + "..."
-        return f"'{self.name}' ({self.device_type}) | {mem} | {pro} | {descr}"
+        return f"{self.name} ({self.device_type}{ref}) | {mem} | {pro} | {descr}"
 
 
 class Backend:
