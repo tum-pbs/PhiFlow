@@ -60,3 +60,13 @@ class TestMatplotlibPlots(TestCase):
         fig = plot(cloud)
         assert isinstance(fig, plt.Figure)
         plt.show()
+
+    def test_plot_multiple(self):
+        plt.close()
+        grid = CenteredGrid(Noise(), extrapolation.ZERO, Box[0:1, 0:1], x=50, y=10)
+        grid2 = CenteredGrid(grid, extrapolation.ZERO, Box[0:2, 0:1], x=20, y=50)
+        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
+        cloud = PointCloud(Sphere(points, radius=0.1), bounds=Box(0, [1, 1]))
+        fig = plot([grid, grid2, cloud])
+        assert isinstance(fig, plt.Figure)
+        plt.show()
