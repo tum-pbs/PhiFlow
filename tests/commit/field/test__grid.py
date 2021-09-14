@@ -67,3 +67,11 @@ class GridTest(TestCase):
         math.assert_close(grid_.values.vector['x'].x[-1], 0)
         math.assert_close(grid_.values.vector['y'].y[0], 0)
         math.assert_close(grid_.values.vector['y'].y[-1], 0)
+
+    def test_grid_constant_extrapolation(self):
+        grid = CenteredGrid(math.random_uniform(spatial(x=50, y=10)), 0., Box[0:1, 0:1])
+        self.assertEqual(grid.extrapolation, extrapolation.ZERO)
+        grid = CenteredGrid(0, 0, Box[0:1, 0:1], x=50, y=10)
+        self.assertEqual(grid.extrapolation, extrapolation.ZERO)
+        grid = StaggeredGrid(0, 0, Box[0:1, 0:1], x=50, y=10)
+        self.assertEqual(grid.extrapolation, extrapolation.ZERO)
