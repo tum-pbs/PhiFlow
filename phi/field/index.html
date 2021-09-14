@@ -2469,7 +2469,7 @@ def shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values: Any, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
+<span>(</span><span>values: Any, extrapolation: Any = 0.0, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
@@ -2497,7 +2497,8 @@ Has to be one of the following:</p>
 </ul>
 </dd>
 <dt><strong><code>extrapolation</code></strong></dt>
-<dd>The grid extrapolation determines the value outside the <code>values</code> tensor.</dd>
+<dd>The grid extrapolation determines the value outside the <code>values</code> tensor.
+Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>, <code><a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></code>.</dd>
 <dt><strong><code>bounds</code></strong></dt>
 <dd>Physical size and location of the grid as <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code>.</dd>
 <dt><strong><code>resolution</code></strong></dt>
@@ -2526,7 +2527,7 @@ Has to be one of the following:</p>
 
     def __init__(self,
                  values: Any,
-                 extrapolation: math.Extrapolation or math.Tensor,
+                 extrapolation: Any = 0.,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
@@ -2543,12 +2544,13 @@ Has to be one of the following:</p>
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+                Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid as `phi.geom.Box`.
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
-        assert isinstance(extrapolation, math.Extrapolation)
-        # extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         if resolution is None and not resolution_:
             assert isinstance(values, math.Tensor), &#34;Grid resolution must be specified when &#39;values&#39; is not a Tensor.&#34;
             resolution = values.shape.spatial
@@ -5140,7 +5142,7 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: Any, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
+<span>(</span><span>values: Any, extrapolation: Any = 0.0, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -5170,7 +5172,8 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
 </ul>
 </dd>
 <dt><strong><code>extrapolation</code></strong></dt>
-<dd>The grid extrapolation determines the value outside the <code>values</code> tensor.</dd>
+<dd>The grid extrapolation determines the value outside the <code>values</code> tensor.
+Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>, <code><a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></code>.</dd>
 <dt><strong><code>bounds</code></strong></dt>
 <dd>Physical size and location of the grid.</dd>
 <dt><strong><code>resolution</code></strong></dt>
@@ -5200,7 +5203,7 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
 
     def __init__(self,
                  values: Any,
-                 extrapolation: math.Extrapolation,
+                 extrapolation: Any = 0.,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
@@ -5219,12 +5222,13 @@ Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">sta
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+                Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid.
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
-        assert isinstance(extrapolation, math.Extrapolation)
-        # extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         if resolution is None and not resolution_:
             assert isinstance(values, Tensor), &#34;Grid resolution must be specified when &#39;values&#39; is not a Tensor.&#34;
             any_dim = values.shape.spatial.names[0]
