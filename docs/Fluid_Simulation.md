@@ -63,12 +63,12 @@ from phi.flow import *
 DOMAIN = Domain(x=64, y=80)
 velocity = PointCloud(Sphere(positions, 1), values)
 velocity_grid = velocity.sample_in(DOMAIN.cells)
-velocity_grid = velocity >> DOMAIN.grid()
-velocity_grid = velocity >> DOMAIN.staggered_grid()
+velocity_grid = velocity @ DOMAIN.grid()
+velocity_grid = velocity @ DOMAIN.staggered_grid()
 ```
-Here, the `>>` operator is a shorthand for calling `velocity.at(...)` and `grid()` without arguments creates a grid with all values being zero.
+Here, the `@` operator is a shorthand for calling `velocity.at(...)` and `grid()` without arguments creates a grid with all values being zero.
 
-Sampling back to particles works the same way, i.e. `velocity_grid >> velocity`.
+Sampling back to particles works the same way, i.e. `velocity_grid @ velocity`.
 
 
 ### Diffusion (Viscosity)
