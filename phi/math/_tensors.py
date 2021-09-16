@@ -1022,7 +1022,8 @@ class TensorStack(Tensor):
             if order is not None and self._shape.without(self.stack_dim).names == tuple(filter(lambda name: name != self.stack_dim.name, order)):
                 inner_order = [dim for dim in order if dim != self.stack_dim.name]
                 natives = [t.native(inner_order) for t in self.tensors]
-                native = choose_backend(*natives).stack(natives, axis=tuple(order).index(self.stack_dim.name))
+                assert self.stack_dim.name in order, f"Dimension {self.stack_dim} missing from 'order'. Got {order} but tensor has shape {self.shape}."
+                native = choose_backend(*natives).stack(natives, axis=order.index(self.stack_dim.name))
                 return native
             assert not self.shape.is_non_uniform, f"Cannot convert non-uniform tensor with shape {self.shape} to native tensor."
             return self._cache().native(order=order)
