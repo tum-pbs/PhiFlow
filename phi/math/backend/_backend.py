@@ -12,7 +12,6 @@ SolveResult = namedtuple('SolveResult', [
     'method', 'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
 ])
 
-
 class ComputeDevice:
     """
     A physical device that can be selected to perform backend computations.
