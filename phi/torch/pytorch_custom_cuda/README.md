@@ -109,3 +109,6 @@ included in a Python file.
       return {out};
     }
     ```
+   
+# TIPS
+- Torch vectors are row major. Therefore, the leading dimension for CUDA operations is the number of columns

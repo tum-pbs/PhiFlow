@@ -9,7 +9,7 @@ from phi.math import batch
 from phi.physics._boundaries import Domain, STICKY as CLOSED
 
 
-DIR = join(dirname(dirname(dirname(dirname(abspath(__file__))))), 'test_data')
+DIR = join(dirname(dirname(dirname(dirname(abspath(__file__))))), 'Profiling_data')
 
 
 class TestScene(TestCase):

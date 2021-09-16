@@ -13,11 +13,11 @@ try:
         current_dir, "cuda/build/resample_gradient.so"
     )
     assert os.path.isfile(resample_op_path), (
-        'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to compile them'
+        'CUDA binaries not found at %s. Run "python setup_debug.py tf_cuda" to compile them'
         % resample_op_path
     )
     assert os.path.isfile(resample_gradient_op_path), (
-        'CUDA binaries not found at %s. Run "python setup.py tf_cuda" to '
+        'CUDA binaries not found at %s. Run "python setup_debug.py tf_cuda" to '
         "compile them" % resample_gradient_op_path
     )
     resample_op = tf.load_op_library(resample_op_path)

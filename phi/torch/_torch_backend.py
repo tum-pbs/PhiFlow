@@ -1,6 +1,6 @@
 import numbers
 import warnings
-from collections import namedtuple
+from collections import namedtuple, Counter
 from contextlib import contextmanager
 from functools import wraps
 from typing import List, Callable
@@ -15,15 +15,23 @@ from phi.math.backend import Backend, NUMPY, ComputeDevice
 from phi.math.backend._backend import combined_dim, SolveResult
 
 import pytorch_custom_cuda
+import cProfile
 
-SparseCSRMatrix = namedtuple('SparseCSRMatrix', ['values', 'row_pointer', 'col_index']) # Index base 0
-
+SparseCSRMatrix = namedtuple('SparseCSRMatrix', [
+    'values', 'row_pointer', 'col_index', 'rows', 'cols'
+]) # This variable definition might be temporal right here, later it can be moved to math.backend
 
 class TorchBackend(Backend):
 
     def __init__(self):
+        self.pr = cProfile.Profile()
         self.cpu = ComputeDevice(self, "CPU", 'CPU', -1, -1, "", ref='cpu')
         Backend.__init__(self, 'PyTorch', default_device=self.cpu)
+
+    def close_profiler(self):
+        self.pr.create_stats()
+        self.pr.dump_stats('../Profiling_data/original_cg_sparse.pstat')
+        print("Your profile has been saved in phi/Profiling_data/")
 
     def prefers_channels_last(self) -> bool:
         return False
@@ -362,13 +370,20 @@ class TorchBackend(Backend):
         return torch.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
+        b_vector = len(b.shape) == 1  # is b a vector?
         if isinstance(A, SparseCSRMatrix):
             A_rows = len(A.row_pointer) - 1
+            B_rows = b.size(0)
+            A_cols = B_rows
             B_cols = b.size(1)
-            C = pytorch_custom_cuda.cusparse_matmul(A.row_pointer, A.col_index, A.values, b, A_rows)
-            C = C.reshape(B_cols, A_rows).T
+            if b_vector:
+                C = pytorch_custom_cuda.cusparse_SpMV(A.row_pointer, A.col_index, A.values, b,
+                                                      A_rows, A_cols)
+            else:
+                C = pytorch_custom_cuda.cusparse_SpMM(A.row_pointer, A.col_index, A.values, b,
+                                                      A_rows, A_cols, B_rows, B_cols)
+                C = C.reshape(B_cols, A_rows).T
             return C
-
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
@@ -479,6 +494,8 @@ class TorchBackend(Backend):
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):
             return tuple(tensor.shape)
+        elif isinstance(tensor, SparseCSRMatrix):
+            return (tensor.rows, tensor.cols)
         else:
             return NUMPY.staticshape(tensor)
 
@@ -614,7 +631,7 @@ class TorchBackend(Backend):
             curr_count += c[i]
         colind = nnz_indices[1].type(torch.int32)
 
-        return SparseCSRMatrix(values=vals, row_pointer=rpoint, col_index=colind)
+        return SparseCSRMatrix(values=vals, row_pointer=rpoint, col_index=colind, rows=matrix.shape[0], cols=matrix.shape[1])
 
     def sparse_tensor(self, indices, values, shape):
         indices_ = self.to_int64(indices)
@@ -636,6 +653,19 @@ class TorchBackend(Backend):
         idx = self.unstack(idx, axis=0)
         return idx, tensor._values()
 
+    def linear(self, lin, vector):
+        if callable(lin):
+            return lin(vector)
+        elif isinstance(lin, (tuple, list)):
+            for lin_i in lin:
+                lin_shape = self.staticshape(lin_i)
+                assert len(lin_shape) == 2
+            return self.stack([self.matmul(m, v) for m, v in zip(lin, self.unstack(vector))])
+        else:
+            lin_shape = self.staticshape(lin)
+            assert len(lin_shape) == 2, f"A must be a matrix but got shape {lin_shape}"
+            return self.matmul(lin, vector)
+
     def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if method == 'auto':
             return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
@@ -653,8 +683,45 @@ class TorchBackend(Backend):
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
-        x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg(lin, y, x0, rtol, atol, max_iter)
+        x, residual, iterations, function_evaluations, converged, diverged = self._conjugate_gradient_solve(lin, y, x0, rtol, atol, max_iter)
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
+
+    def _conjugate_gradient_solve(self, lin, y, x0, rtol, atol, max_iter):
+        batch_size = y.shape[0]
+        tolerance_sq = self.maximum(rtol ** 2 * torch.sum(y ** 2, -1), atol ** 2)
+        x = x0
+        dx = residual = y - self.linear(lin, x) # r0 = b - A * x0
+        it_counter = torch.tensor(0, dtype=torch.int32, device=x.device)
+        iterations = self.zeros([batch_size], dtype=torch.int32, device=x.device)
+        function_evaluations = self.ones([batch_size], dtype=torch.int32, device=x.device)
+        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdim=True)
+        diverged = self.any(~torch.isfinite(x), dim=1)
+        converged = self.all(residual_squared <= tolerance_sq, dim=1)  # r0 ~ 0
+        finished = converged | diverged | (iterations >= max_iter);
+        not_finished_1 = (~finished).to(torch.int32)
+        while ~torch.all(finished):
+            it_counter += 1
+            iterations += not_finished_1
+            dy = self.linear(lin, dx)
+            function_evaluations += not_finished_1
+            dx_dy = self.sum(dx * dy, dim=-1, keepdim=True)
+            step_size = divide_no_nan(residual_squared, dx_dy)  # a_i = <r_i,r_i> / <r_i, A * r_i>
+            step_size *= torch.unsqueeze(not_finished_1.to(y.dtype),
+                                         -1)  # this is not really necessary but ensures batch-independence
+            x += step_size * dx  # x_(i+1) = x_i + a_i * r_i
+            if it_counter % 20 == 0:
+                residual = y - self.linear(lin, x)
+                function_evaluations += 1
+            else:
+                residual = residual - step_size * dy  # in-place subtraction affects convergence
+            residual_squared_old = residual_squared
+            residual_squared = self.sum(residual ** 2, -1, keepdim=True)  #r_(i+1) = b - A * xi
+            dx = residual + divide_no_nan(residual_squared, residual_squared_old) * dx
+            diverged = self.any(residual_squared / rsq0 > 100, dim=1) & (iterations >= 8)
+            converged = self.all(residual_squared <= tolerance_sq, dim=1)
+            finished = converged | diverged | (iterations >= max_iter)
+            not_finished_1 = (~finished).to(torch.int32)
+        return x, residual, iterations, function_evaluations, converged, diverged
 
     def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if callable(lin) or trj:
@@ -663,7 +730,9 @@ class TorchBackend(Backend):
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
+        self.pr.enable()
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
+        self.pr.disable()
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
@@ -792,7 +861,6 @@ _TO_TORCH = {
     DType(bool): torch.bool,
 }
 _FROM_TORCH = {np: dtype for dtype, np in _TO_TORCH.items()}
-
 
 @torch.jit._script_if_tracing
 def torch_sparse_cg(lin, y, x0, rtol, atol, max_iter):
