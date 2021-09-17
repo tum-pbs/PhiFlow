@@ -102,7 +102,8 @@ def view(*fields: str or SampledField,
     Returns:
         `Viewer`
     """
-    user_namespace = get_user_namespace(1) if namespace is None else DictNamespace(namespace)
+    default_namespace = get_user_namespace(1)
+    user_namespace = default_namespace if namespace is None else DictNamespace(namespace, title=default_namespace.get_title(), description=default_namespace.get_description(), reference=default_namespace.get_reference())
     variables = _default_field_variables(user_namespace, fields)
     actions = dict(ACTIONS)
     ACTIONS.clear()

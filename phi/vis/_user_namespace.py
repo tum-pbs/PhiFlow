@@ -177,8 +177,15 @@ class LocalNamespace(UserNamespace):
 
 class DictNamespace(UserNamespace):
 
-    def __init__(self, variables: dict):
+    def __init__(self,
+                 variables: dict,
+                 title: str = "Unknown",
+                 description: str = "Custom namespace, unknown source.",
+                 reference: str = 'unknown'):
         self.variables = variables
+        self.title = title
+        self.description = description
+        self.reference = reference
 
     def list_variables(self, only_public=False, only_current_scope=False) -> dict:
         variables = self.variables
@@ -193,10 +200,10 @@ class DictNamespace(UserNamespace):
         self.variables[name] = value
 
     def get_title(self):
-        return "dict"
+        return self.title
 
     def get_description(self):
-        return "custom namespace backed by dict"
+        return self.description
 
     def get_reference(self):
-        return "unknown"
+        return self.reference
