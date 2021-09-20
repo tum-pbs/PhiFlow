@@ -1,4 +1,4 @@
-# Φ<sub>Flow</sub>
+# ![PhiFlow](docs/figures/Logo1.png)
 
 ![Build Status](https://github.com/tum-pbs/PhiFlow/actions/workflows/unit-tests.yml/badge.svg)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/phiflow.svg)](https://pypi.org/project/phiflow/)
