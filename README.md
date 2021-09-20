@@ -1,12 +1,10 @@
-# Φ<sub>Flow</sub>
+# ![PhiFlow](docs/figures/Logo1_layout.png)
 
 ![Build Status](https://github.com/tum-pbs/PhiFlow/actions/workflows/unit-tests.yml/badge.svg)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/phiflow.svg)](https://pypi.org/project/phiflow/)
 [![PyPI license](https://img.shields.io/pypi/l/phiflow.svg)](https://pypi.org/project/phiflow/)
 [![Code Coverage](https://codecov.io/gh/tum-pbs/PhiFlow/branch/develop/graph/badge.svg)](https://codecov.io/gh/tum-pbs/PhiFlow/branch/develop/)
 [![Google Collab Book](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb)
-
-![Gui](https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png)
 
 Φ<sub>Flow</sub> is an open-source simulation toolkit built for optimization and machine learning applications.
 It is written mostly in Python and can be used with
@@ -20,6 +18,8 @@ making it easy to build end-to-end differentiable functions involving both learn
 This is major version 2 of Φ<sub>Flow</sub>.
 Version 1 is available in the [branch `1.5`](https://github.com/tum-pbs/PhiFlow/tree/1.5) but will not receive new features anymore.
 Older versions are available through the [release history](https://github.com/tum-pbs/PhiFlow/releases).
+
+![Gui](https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png)
 
 ## Features
 
