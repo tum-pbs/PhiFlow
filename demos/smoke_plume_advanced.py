@@ -19,7 +19,7 @@ INFLOW = Sphere(center=(50, 10), radius=5)
 velocity = StaggeredGrid((0, 0), extrapolation.ZERO, x=v_res ** 2, y=v_res ** 2, bounds=BOUNDS)
 smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS)
 
-viewer = view(smoke, velocity, play=False)
+viewer = view(smoke, velocity, namespace=globals(), play=False)
 for _ in viewer.range(warmup=1):
     # Resize grids if needed
     inflow = SoftGeometryMask(INFLOW) @ CenteredGrid(0, smoke.extrapolation, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS)

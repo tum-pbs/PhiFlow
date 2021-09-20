@@ -18,7 +18,7 @@ velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 obstacle_mask = CenteredGrid(HardGeometryMask(obstacle.geometry), extrapolation.BOUNDARY, **DOMAIN)
 pressure = None
 
-for _ in view(velocity, obstacle_mask, play=True).range():
+for _ in view(velocity, obstacle_mask, play=True, namespace=globals()).range():
     obstacle = move_obstacle(obstacle)
     velocity = advect.mac_cormack(velocity, velocity, DT)
     velocity, pressure = fluid.make_incompressible(velocity, (obstacle,))

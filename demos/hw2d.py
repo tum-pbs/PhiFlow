@@ -111,7 +111,7 @@ print(
     )
 )
 
-for _ in view(density, omega, phi, play=False, framerate=10).range():
+for _ in view(density, omega, phi, play=False, framerate=10, namespace=globals()).range():
     new_state = rk4(dt, density=density, omega=omega, phi=phi, age=age, dx=dx)
     density, omega, phi = new_state["density"], new_state["omega"], new_state["phi"]
     age += dt

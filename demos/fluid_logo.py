@@ -18,7 +18,7 @@ INFLOW = CenteredGrid(Box[14:21, 6:10], extrapolation.BOUNDARY, **DOMAIN) + \
 velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 smoke = pressure = divergence = remaining_divergence = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 
-for _ in view(display=['smoke', 'velocity', 'pressure', 'OBSTACLE_MASK'], play=False).range(warmup=1):
+for _ in view(display=['smoke', 'velocity', 'pressure', 'OBSTACLE_MASK'], play=False, namespace=globals()).range(warmup=1):
     smoke = advect.semi_lagrangian(smoke, velocity, 1) + INFLOW
     buoyancy_force = smoke * (0, 0.1) @ velocity  # resamples density to velocity sample points
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force

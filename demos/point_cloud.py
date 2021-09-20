@@ -24,4 +24,4 @@ scattered_data = field.sample(points, DOMAIN.cells)
 scattered_grid = points @ DOMAIN.vector_grid()
 scattered_sgrid = points @ DOMAIN.staggered_grid()
 
-view()
+view(namespace=globals())

@@ -25,10 +25,10 @@ gradient_function = field.functional_gradient(loss, get_output=True)
 velocity_fit = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 marker_fit = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 smooth_difference = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
-app = view(display=['marker_fit', 'gradient'], play=False)
+viewer = view(display=['marker_fit', 'gradient'], play=False, namespace=globals())
 
-for iteration in app.range(warmup=1):
+for iteration in viewer.range(warmup=1):
     (loss, marker_fit, smooth_difference), (gradient,) = gradient_function(velocity_fit)
-    app.info(f"Loss = {loss:.2f}")
-    app.log_scalars(loss=loss)
+    viewer.info(f"Loss = {loss:.2f}")
+    viewer.log_scalars(loss=loss)
     velocity_fit -= gradient
