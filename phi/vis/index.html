@@ -584,7 +584,8 @@ For each <code>select</code> dimension, an associated selection slider will be c
     Returns:
         `Viewer`
     &#34;&#34;&#34;
-    user_namespace = get_user_namespace(1) if namespace is None else DictNamespace(namespace)
+    default_namespace = get_user_namespace(1)
+    user_namespace = default_namespace if namespace is None else DictNamespace(namespace, title=default_namespace.get_title(), description=default_namespace.get_description(), reference=default_namespace.get_reference())
     variables = _default_field_variables(user_namespace, fields)
     actions = dict(ACTIONS)
     ACTIONS.clear()

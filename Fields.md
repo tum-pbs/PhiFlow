@@ -25,7 +25,7 @@ Important methods
 * `unstack(dim) -> tuple[Field]` slices the field along a dimension
 
 Fields implement many mathematical operators, e.g. `+, -, * , /, **`.
-The shift operator `>>` calls the `at()` method on the left field.
+The shift operator `@` calls the `at()` method on the left field.
 
 The class [`SampledField`](phi/field/#phi.field.SampledField) extends `Field` to form the basis for all fields that explicitly store their data.
 The most important sampled fields are 
@@ -74,10 +74,10 @@ This is useful for sampling the velocity of rotating objects.
 
 ## Resampling Fields
 Given `val: Field` and `representation: SampledField` with different values structures or different sampling points, 
-they can be made compatible using [`at()`](phi/field/#phi.field.Field.at) or `>>`.
+they can be made compatible using [`at()`](phi/field/#phi.field.Field.at) or `@`.
 ```python
 val.at(representation, keep_extrapolation=False)  # resamples val at the elements of representation
-val >> representation  # same as above
+val @ representation  # same as above
 ```
 These functions return a `Field` of the same type as `representation`.
 If they are already sampled at the same elements, the above operations simply return `val`.
