@@ -62,6 +62,9 @@ class NumPyBackend(Backend):
     staticshape = staticmethod(np.shape)
     imag = staticmethod(np.imag)
     real = staticmethod(np.real)
+    conj = staticmethod(np.conjugate)
+    einsum = staticmethod(np.einsum)
+    cumsum = staticmethod(np.cumsum)
 
     def as_tensor(self, x, convert_external=True):
         if self.is_tensor(x, only_native=convert_external):
@@ -181,9 +184,6 @@ class NumPyBackend(Backend):
     def matmul(self, A, b):
         return np.stack([A.dot(b[i]) for i in range(b.shape[0])])
 
-    def einsum(self, equation, *tensors):
-        return np.einsum(equation, *tensors)
-
     def while_loop(self, loop: Callable, values: tuple):
         while np.any(values[0]):
             values = loop(*values)
@@ -275,25 +275,29 @@ class NumPyBackend(Backend):
         #     return array / count
         return result
 
-    def fft(self, x):
-        rank = len(x.shape) - 2
-        assert rank >= 1
-        if rank == 1:
-            return np.fft.fft(x, axis=1)
-        elif rank == 2:
-            return np.fft.fft2(x, axes=[1, 2])
-        else:
-            return np.fft.fftn(x, axes=list(range(1, rank + 1)))
+    def quantile(self, x, quantiles):
+        return np.quantile(x, quantiles, axis=-1)
 
-    def ifft(self, k):
-        rank = len(k.shape) - 2
-        assert rank >= 1
-        if rank == 1:
-            return np.fft.ifft(k, axis=1).astype(k.dtype)
-        elif rank == 2:
-            return np.fft.ifft2(k, axes=[1, 2]).astype(k.dtype)
+    def fft(self, x, axes: tuple or list):
+        x = self.to_complex(x)
+        if not axes:
+            return x
+        if len(axes) == 1:
+            return np.fft.fft(x, axis=axes[0]).astype(x.dtype)
+        elif len(axes) == 2:
+            return np.fft.fft2(x, axes=axes).astype(x.dtype)
         else:
-            return np.fft.ifftn(k, axes=list(range(1, rank + 1))).astype(k.dtype)
+            return np.fft.fftn(x, axes=axes).astype(x.dtype)
+
+    def ifft(self, k, axes: tuple or list):
+        if not axes:
+            return k
+        if len(axes) == 1:
+            return np.fft.ifft(k, axis=axes[0]).astype(k.dtype)
+        elif len(axes) == 2:
+            return np.fft.ifft2(k, axes=axes).astype(k.dtype)
+        else:
+            return np.fft.ifftn(k, axes=axes).astype(k.dtype)
 
     def dtype(self, array) -> DType:
         if isinstance(array, int):
@@ -352,26 +356,58 @@ class NumPyBackend(Backend):
     #     return gradient
 
     def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> Any:
-        if method == 'auto' and not trj and issparse(lin):
-            batch_size = self.staticshape(y)[0]
-            xs = []
-            converged = []
-            for batch in range(batch_size):
-                # use_umfpack=self.precision == 64
-                x = spsolve(lin, y[batch])  # returns nan when diverges
-                xs.append(x)
-                converged.append(np.all(np.isfinite(x)))
-            x = np.stack(xs)
-            converged = np.stack(converged)
-            diverged = ~converged
-            iterations = [-1] * batch_size  # spsolve does not perform iterations
-            return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, "")
+        if method == 'direct':
+            return self.direct_linear_solve(lin, y)
+        elif method == 'CG-native':
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.cg)
+        elif method == 'GMres':
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.gmres)
+        elif method == 'biCG':
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.bicg)
+        elif method == 'CGS':
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.cgs)
+        elif method == 'lGMres':
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.lgmres)
+        # elif method == 'minres':
+        #     return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.minres)
+        elif method == 'QMR':
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.qmr)
+        elif method == 'GCrotMK':
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.gcrotmk)
+        elif method == 'auto':
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+            # return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
         else:
             return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
+
+    def direct_linear_solve(self, lin, y) -> Any:
+        batch_size = self.staticshape(y)[0]
+        xs = []
+        converged = []
+        if isinstance(lin, (tuple, list)):
+            assert all(issparse(l) for l in lin)
+        else:
+            assert issparse(lin)
+            lin = [lin] * batch_size
+        # Solve each example independently
+        for batch in range(batch_size):
+            # use_umfpack=self.precision == 64
+            x = spsolve(lin[batch], y[batch])  # returns nan when diverges
+            xs.append(x)
+            converged.append(np.all(np.isfinite(x)))
+        x = np.stack(xs)
+        converged = np.stack(converged)
+        diverged = ~converged
+        iterations = [-1] * batch_size  # spsolve does not perform iterations
+        return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, "")
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> Any:
         if trj or callable(lin):
             return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)  # generic implementation
+        else:
+            return self.scipy_iterative_sparse_solve(lin, y, x0, rtol, atol, max_iter, scipy_function=scipy.sparse.linalg.bicg)  # more stable than cg
+
+    def scipy_iterative_sparse_solve(self, lin, y, x0, rtol, atol, max_iter, scipy_function=cg) -> Any:
         bs_y = self.staticshape(y)[0]
         bs_x0 = self.staticshape(x0)[0]
         batch_size = combined_dim(bs_y, bs_x0)
@@ -390,11 +426,11 @@ class NumPyBackend(Backend):
         converged = []
         diverged = []
         for b in range(batch_size):
-            x, ret_val = cg(lin[b], y[b], x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b], callback=count_callback)
+            x, ret_val = scipy_function(lin[b], y[b], x0=x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b], callback=count_callback)
             # ret_val: 0=success, >0=not converged, <0=error
             xs.append(x)
             converged.append(ret_val == 0)
             diverged.append(ret_val < 0 or np.any(~np.isfinite(x)))
         x = np.stack(xs)
         f_eval = [i + 1 for i in iterations]
-        return SolveResult('scipy.sparse.linalg.cg', x, None, iterations, f_eval, converged, diverged, "")
+        return SolveResult(f'scipy.sparse.linalg.{scipy_function.__name__}', x, None, iterations, f_eval, converged, diverged, "")

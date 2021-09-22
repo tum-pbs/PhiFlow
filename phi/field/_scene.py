@@ -160,7 +160,7 @@ class Scene(object):
         Returns:
             Single `Scene` object representing the new scene(s).
         """
-        shape = (shape & math.batch(**dimensions)).to_batch()
+        shape = shape & math.batch(**dimensions)
         parent_directory = expanduser(parent_directory)
         abs_dir = abspath(parent_directory)
         if not isdir(abs_dir):
@@ -397,7 +397,7 @@ class Scene(object):
         return repr(self.paths)
 
     def __eq__(self, other):
-        return isinstance(other, Scene) and math.all(other._paths == self._paths)
+        return isinstance(other, Scene) and (other._paths == self._paths).all
 
     def copy_calling_script(self, full_trace=False, include_context_information=True):
         """

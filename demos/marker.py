@@ -21,10 +21,10 @@ DT = 0.2
 
 velocity = DOMAIN.staggered_grid(Noise(vector=2, scale=100)) * 4
 dense_marker = CenteredGrid(checkerboard(), DOMAIN.boundaries['scalar'], DOMAIN.bounds)
-points = math.join_dimensions(DOMAIN.cells.center.x[::4].y[::4], ('x', 'y'), collection('points')).points.as_batch()
+points = math.pack_dims(DOMAIN.cells.center.x[::4].y[::4], ('x', 'y'), instance('points')).points.as_batch()
 sparse_marker = DOMAIN.points(points)
 
-for _ in view(framerate=10, play=False).range():
+for _ in view(framerate=10, play=False, namespace=globals()).range():
     velocity, _ = fluid.make_incompressible(velocity)
     dense_marker = advect.advect(dense_marker, velocity, DT)
     sparse_marker = advect.advect(sparse_marker, velocity, DT)

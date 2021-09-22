@@ -33,10 +33,10 @@ There are four types of dimensions
 |------------------------------------------------|---------------------------------------------------------------:|-----------------------|
 | [`spatial`](phi/math/#phi.math.spatial)        |                   Spans a grid with equidistant sample points. | `x`, `y`, `z`         |
 | [`channel`](phi/math/#phi.math.channel)        |    Set of properties sampled at per sample point per instance. | `vector`, `color`     |
-| [`collection`](phi/math/#phi.math.collection)  | Collection of (interacting) objects belonging to one instance. | `points`, `particles` |
+| [`instance`](phi/math/#phi.math.instance)  | Collection of (interacting) objects belonging to one instance. | `points`, `particles` |
 | [`batch`](phi/math/#phi.math.batch)            |                               Lists non-interacting instances. | `batch`, `frames`     |
 
-The default dimension order is `(batch, collection, channel, spatial)`.
+The default dimension order is `(batch, instance, channel, spatial)`.
 When a dimension is not present on a tensor, values are assumed to be constant along that dimension.
 Based on these rules rule, operators and functions may add dimensions to tensors as needed. 
 
@@ -49,7 +49,7 @@ Spatial operations, such as `spatial_gradient()` or `divergence()` operate on sp
 When operating on multiple spatial tensors, these tensors are typically required to have the same spatial dimensions, else an `IncompatibleShapes` error may be raised.
 The function `join_spaces()` can be used to add the missing spatial dimensions so that these errors are avoided.
 
-| Operation                                               |    Batch    |  Collection |   Spatial   |    Channel    |
+| Operation                                               |    Batch    |  instance |   Spatial   |    Channel    |
 |---------------------------------------------------------|:-----------:|:-----------:|:-----------:|:-------------:|
 | convolve                                                |      -      |      -      |      ★      |       ⟷       |
 | nonzero                                                 |      -      |     ★/⟷     |     ★/⟷     |       ⟷       |
@@ -85,7 +85,6 @@ Important `Shape` properties (see the [API documentation](phi/math/#phi.math.Sha
 * `.sizes: tuple` enumerates the sizes as ints or None, similar to NumPy's shapes
 * `.names: tuple` enumerates the dimension names
 * `.rank: int = len(shape)` number of dimensions
-* `.named_sizes` to iterate over `name, size` of each dimension
 * `.batch: Shape` / `.spatial: Shape` / `.channel: Shape` contains only batch / spatial / channel dimensions
 * `.non_batch: Shape` / `.non_spatial: Shape` / `.non_channel: Shape` contains only the other two types of dimensions
 * `.batch_rank: Shape` / `.spatial_rank: Shape` / `.channel_rank: Shape` alias for `.batch.rank`

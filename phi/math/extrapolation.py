@@ -1,9 +1,11 @@
 """
-Defines standard extrapolations.
-
 Extrapolations are used for padding tensors and sampling coordinates lying outside the tensor bounds.
+Standard extrapolations are listed as global variables in this module.
+
+Extrapolations are an important part of sampled fields such as grids.
+See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
-from typing import Union
+from typing import Union, Dict
 
 from .backend import choose_backend
 from ._shape import Shape, channel
@@ -160,7 +162,7 @@ class ConstantExtrapolation(Extrapolation):
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value._native
-            ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+            ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             backend = choose_backend(native)
             result_tensor = backend.pad(native, ordered_pad_widths, 'constant', self.value.native())
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
@@ -170,7 +172,7 @@ class ConstantExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
-                for size, dim, dim_type in value.shape.dimensions:
+                for size, dim, dim_type in value.shape._dimensions:
                     if dim not in widths:
                         new_sizes.append(size)
                     else:
@@ -300,7 +302,7 @@ class _CopyExtrapolation(Extrapolation):
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value._native
-            ordered_pad_widths = value.shape.order(widths, default=(0, 0))
+            ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             result_tensor = choose_backend(native).pad(native, ordered_pad_widths, repr(self))
             if result_tensor is NotImplemented:
                 return Extrapolation.pad(self, value, widths)
@@ -312,7 +314,7 @@ class _CopyExtrapolation(Extrapolation):
             if len(inner_widths) > 0:
                 inner = self.pad(inner, widths)
             new_sizes = []
-            for size, dim, dim_type in value.shape.dimensions:
+            for size, dim, dim_type in value.shape._dimensions:
                 if dim not in widths:
                     new_sizes.append(size)
                 else:
@@ -759,5 +761,32 @@ def from_dict(dictionary: dict) -> Extrapolation:
         return SYMMETRIC
     elif etype == 'reflect':
         return REFLECT
+    elif etype == 'mixed':
+        dims: Dict[str, tuple] = dictionary['dims']
+        extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
+        return _MixedExtrapolation(extrapolations)
     else:
         raise ValueError(dictionary)
+
+
+def order_by_shape(shape: Shape, sequence, default=None) -> tuple or list:
+    """
+    If sequence is a dict with dimension names as keys, orders its values according to this shape.
+
+    Otherwise, the sequence is returned unchanged.
+
+    Args:
+      sequence: Sequence or dict to be ordered
+      default: default value used for dimensions not contained in sequence
+
+    Returns:
+      ordered sequence of values
+    """
+    if isinstance(sequence, dict):
+        result = [sequence.get(name, default) for name in shape.names]
+        return result
+    elif isinstance(sequence, (tuple, list)):
+        assert len(sequence) == shape.rank
+        return sequence
+    else:  # just a constant
+        return sequence

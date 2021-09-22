@@ -108,9 +108,6 @@ class TFBackend(Backend):
     def random_normal(self, shape):
         return tf.random.normal(shape, dtype=to_numpy_dtype(self.float_type))
 
-    def rank(self, value):
-        return len(value.shape)
-
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         return tf.range(start, limit, delta, to_numpy_dtype(dtype))
 
@@ -171,9 +168,11 @@ class TFBackend(Backend):
                 axis = list(axis)
         return tf.reduce_mean(value, axis, keepdims=keepdims)
 
-    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
+    def grid_sample(self, grid, coordinates, extrapolation='constant'):
         if use_cuda(grid):
-            # TODO reshape for spatial_dims
+            if self.staticshape(grid)[0] > self.staticshape(coordinates)[0]:
+                assert self.staticshape(coordinates)[0] == 1
+                coordinates = self.tile(coordinates, [self.staticshape(grid)[0], *[1] * (self.ndims(coordinates) - 1)])
             return resample_cuda(grid, coordinates, extrapolation)
         else:
             return NotImplemented
@@ -211,6 +210,9 @@ class TFBackend(Backend):
 
     def einsum(self, equation, *tensors):
         return tf.einsum(equation, *tensors)
+
+    def cumsum(self, x, axis: int):
+        return tf.cumsum(x, axis=axis, exclusive=False)
 
     def while_loop(self, loop: Callable, values: tuple):
         cond = lambda c, *vals: tf.reduce_any(c)
@@ -331,6 +333,12 @@ class TFBackend(Backend):
     def all(self, boolean_tensor, axis=None, keepdims=False):
         return tf.reduce_all(boolean_tensor, axis=axis, keepdims=keepdims)
 
+    def quantile(self, x, quantiles):
+        import tensorflow_probability as tfp
+        x = self.to_float(x)
+        result = tfp.stats.percentile(x, quantiles * 100, axis=-1, interpolation='linear')
+        return result
+
     def scatter(self, base_grid, indices, values, mode: str):
         base_grid, values = self.auto_cast(base_grid, values)
         indices = self.as_tensor(indices)
@@ -344,36 +352,48 @@ class TFBackend(Backend):
             result.append(scatter(b_grid, b_indices, b_values))
         return self.stack(result, axis=0)
 
-    def fft(self, x):
-        rank = len(x.shape) - 2
-        assert rank >= 1
+    def fft(self, x, axes: tuple or list):
+        if not axes:
+            return x
         x = self.to_complex(x)
-        if rank == 1:
-            return tf.stack([tf.signal.fft(c) for c in tf.unstack(x, axis=-1)], axis=-1)
-        elif rank == 2:
-            return tf.stack([tf.signal.fft2d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
-        elif rank == 3:
-            return tf.stack([tf.signal.fft3d(c) for c in tf.unstack(x, axis=-1)], axis=-1)
+        perm = (*[i for i in range(self.ndims(x)) if i not in axes], *axes)
+        iperm = np.argsort(perm)
+        if len(axes) == 1:
+            return tf.transpose(tf.signal.fft(tf.transpose(x, perm)), iperm)
+        elif len(axes) == 2:
+            return tf.transpose(tf.signal.fft2d(tf.transpose(x, perm)), iperm)
+        elif len(axes) == 3:
+            return tf.transpose(tf.signal.fft3d(tf.transpose(x, perm)), iperm)
         else:
-            raise NotImplementedError('n-dimensional FFT not implemented.')  # TODO perform multiple lower-dimensional FFTs
+            for axis in axes:
+                x = self.fft(x, [axis])
+            return x
 
-    def ifft(self, k):
-        rank = len(k.shape) - 2
-        assert rank >= 1
-        if rank == 1:
-            return tf.stack([tf.signal.ifft(c) for c in tf.unstack(k, axis=-1)], axis=-1)
-        elif rank == 2:
-            return tf.stack([tf.signal.ifft2d(c) for c in tf.unstack(k, axis=-1)], axis=-1)
-        elif rank == 3:
-            return tf.stack([tf.signal.ifft3d(c) for c in tf.unstack(k, axis=-1)], axis=-1)
+    def ifft(self, k, axes: tuple or list):
+        if not axes:
+            return k
+        k = self.to_complex(k)
+        perm = (*[i for i in range(self.ndims(k)) if i not in axes], *axes)
+        iperm = np.argsort(perm)
+        if len(axes) == 1:
+            return tf.transpose(tf.signal.ifft(tf.transpose(k, perm)), iperm)
+        elif len(axes) == 2:
+            return tf.transpose(tf.signal.ifft2d(tf.transpose(k, perm)), iperm)
+        elif len(axes) == 3:
+            return tf.transpose(tf.signal.ifft3d(tf.transpose(k, perm)), iperm)
         else:
-            raise NotImplementedError('n-dimensional inverse FFT not implemented.')
+            for axis in axes:
+                k = self.ifft(k, [axis])
+            return k
 
-    def imag(self, complex):
-        return tf.math.imag(complex)
+    def imag(self, x):
+        return tf.math.imag(x)
 
-    def real(self, complex):
-        return tf.math.real(complex)
+    def real(self, x):
+        return tf.math.real(x)
+
+    def conj(self, x):
+        return tf.math.conj(x)
 
     def cast(self, x, dtype: DType):
         if not self.is_tensor(x, only_native=True):

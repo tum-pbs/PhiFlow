@@ -1,12 +1,10 @@
-import inspect, traceback
+import inspect
 import json
-import sys
 from contextlib import contextmanager
 from time import perf_counter
 from typing import Optional, Callable
 
 from ._backend import Backend, BACKENDS, _DEFAULT
-from ._dtype import DType
 
 
 class BackendCall:
@@ -57,36 +55,52 @@ class BackendCall:
 
 
 class ExtCall:
+    """ Function invocation that is not a Backend method but internally calls Backend methods. """
 
-    def __init__(self, parent: 'ExtCall' or None, stack: list):
+    def __init__(self,
+                 parent: 'ExtCall' or None,
+                 name: str,
+                 level: int,
+                 function: str,
+                 code_context: list or None,
+                 file_name: str,
+                 line_number: int):
+        """
+        Args:
+            parent: Parent call.
+            name: Name of this call, see `ExtCall.determine_name()`.
+            level: Number of parent stack items including this one.
+        """
         self._parent = parent
         if parent is None:
             self._parents = ()
         else:
             self._parents = parent._parents + (parent,)
-        self._stack = stack  # stack trace from inspect.stack() including parent calls
         self._children = []  # BackendCalls and ExtCalls
         self._converted = False
+        self._name = name
+        self._level = level
+        self._function = function
+        self._code_context = code_context
+        self._file_name = file_name
+        self._line_number = line_number
 
     def common_call(self, stack: list):
         """ Returns the deepest ExtCall in the hierarchy of this call that contains `stack`. """
         if self._parent is None:
             return self
-        if len(stack) < len(self._stack):
+        if len(stack) < self._level:
             return self._parent.common_call(stack)
-        for i in range(len(self._stack)):
-            if self._stack[-1-i].function != stack[-1-i].function:
+        for i in range(self._level - 1):
+            if self._parents[i+1]._function != stack[-1-i].function:
                 return self._parents[i]
         return self
 
     def add(self, child):
         self._children.append(child)
 
-    @property
-    def _name(self):
-        if not self._stack:
-            return ""
-        info = self._stack[0]
+    @staticmethod
+    def determine_name(info):
         fun = info.function
         if 'self' in info.frame.f_locals:
             if fun == '__init__':
@@ -116,9 +130,9 @@ class ExtCall:
         if not self._converted:
             if self._parent is None:
                 return "/"
-            return f"{self._name} ({len(self._stack)})"
+            return f"{self._name} ({self._level})"
         else:
-            context = self._stack[0].code_context
+            context = self._code_context
             return f"sum {1000 * self._duration:.2f} ms  {context}"
 
     def __len__(self):
@@ -142,9 +156,9 @@ class ExtCall:
         return parent
 
     def _calling_code(self, backtrack=0):
-        if len(self._stack) > backtrack + 1:
-            frame = self._stack[backtrack+1]
-            return frame.code_context[0].strip(), frame.filename, frame.function, frame.lineno
+        if self._level > backtrack + 1:
+            call: ExtCall = self._parents[-backtrack-1]
+            return call._code_context[0].strip(), call._file_name, call._function, call._line_number
         else:
             return "", "", "", -1
 
@@ -156,7 +170,7 @@ class ExtCall:
         else:
             funcs = [par._name for par in include_parents] + [self._name]
             text = f"{'. ' * depth}-> {' -> '.join(funcs)} ({1000 * self._duration:.2f} ms)"
-            if len(self._stack) > len(include_parents)+1:
+            if self._level > len(include_parents)+1:
                 code = self._calling_code(backtrack=len(include_parents))[0]
                 if len(code) > code_len:
                     code = code[:code_len-3] + "..."
@@ -221,7 +235,7 @@ class Profile:
     def __init__(self, trace: bool, backends: tuple or list, subtract_trace_time: bool):
         self._start = perf_counter()
         self._stop = None
-        self._root = ExtCall(None, [])
+        self._root = ExtCall(None, "", 0, "", "", "", -1)
         self._last_ext_call = self._root
         self._messages = []
         self._trace = trace
@@ -255,8 +269,10 @@ class Profile:
             if self._trace:
                 stack = inspect.stack()[2:]
                 call = self._last_ext_call.common_call(stack)
-                for i in range(len(call._stack), len(stack)):
-                    sub_call = ExtCall(call, stack[len(stack) - i - 1:])
+                for i in range(call._level, len(stack)):
+                    stack_frame = stack[len(stack) - i - 1]
+                    name = ExtCall.determine_name(stack_frame)  # if len(stack) - i > 1 else ""
+                    sub_call = ExtCall(call, name, i + 1, stack_frame.function, stack_frame.code_context, stack_frame.filename, stack_frame.lineno)
                     call.add(sub_call)
                     call = sub_call
                 call.add(backend_call)

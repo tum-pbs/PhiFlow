@@ -3,11 +3,11 @@ from unittest import TestCase
 import numpy
 
 import phi
-from phi import math
+from phi import math, geom
 from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask
 from phi.geom import Box
 from phi import field
-from phi.math import Solve, extrapolation, collection, channel, spatial
+from phi.math import Solve, extrapolation, instance, channel, spatial, batch
 from phi.math.backend import Backend
 from phi.physics._boundaries import Domain
 
@@ -17,11 +17,23 @@ BACKENDS = phi.detect_backends()
 
 class TestFieldMath(TestCase):
 
-    def test_gradient(self):
+    def test_spatial_gradient(self):
         domain = Domain(x=4, y=3)
         phi = domain.grid() * (1, 2)
         grad = field.spatial_gradient(phi, stack_dim=channel('spatial_gradient'))
         self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
+
+    def test_spatial_gradient_batched(self):
+        bounds = geom.stack([Box[0:1, 0:1], Box[0:10, 0:10]], batch('batch'))
+        grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
+        grad = field.spatial_gradient(grid)
+        self.assertIsInstance(grad, CenteredGrid)
+
+    def test_laplace_batched(self):
+        bounds = geom.stack([Box[0:1, 0:1], Box[0:10, 0:10]], batch('batch'))
+        grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
+        lap = field.laplace(grid)
+        self.assertIsInstance(lap, CenteredGrid)
 
     def test_divergence_centered(self):
         v = CenteredGrid(1, extrapolation.ZERO, bounds=Box[0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
@@ -30,7 +42,7 @@ class TestFieldMath(TestCase):
 
     def test_trace_function(self):
         def f(x: StaggeredGrid, y: CenteredGrid):
-            return x + (y >> x)
+            return x + (y @ x)
 
         ft = field.jit_compile(f)
         domain = Domain(x=4, y=3)
@@ -44,7 +56,7 @@ class TestFieldMath(TestCase):
 
     def test_gradient_function(self):
         def f(x: StaggeredGrid, y: CenteredGrid):
-            pred = x + (y >> x)
+            pred = x + (y @ x)
             loss = field.l2_loss(pred)
             return loss
 
@@ -74,7 +86,7 @@ class TestFieldMath(TestCase):
     def test_downsample_staggered_2d(self):
         grid = Domain(x=32, y=40).staggered_grid(1)
         downsampled = field.downsample2x(grid)
-        self.assertEqual((spatial(x=16, y=20) & channel(vector=2)).alphabetically(), downsampled.shape.alphabetically())
+        self.assertEqual(set(spatial(x=16, y=20) & channel(vector=2)), set(downsampled.shape))
 
     def test_abs(self):
         grid = Domain(x=4, y=3).staggered_grid(-1)
@@ -131,7 +143,7 @@ class TestFieldMath(TestCase):
             self.assertEqual(converted.values.default_backend, backend)
 
     def test_convert_point_cloud(self):
-        points = Domain(x=4, y=3).points(math.random_uniform(collection(points=4) & channel(vector=2))).with_values(math.random_normal(collection(points=4) & channel(vector=2)))
+        points = Domain(x=4, y=3).points(math.random_uniform(instance(points=4) & channel(vector=2))).with_values(math.random_normal(instance(points=4) & channel(vector=2)))
         for backend in BACKENDS:
             converted = field.convert(points, backend)
             self.assertEqual(converted.values.default_backend, backend)

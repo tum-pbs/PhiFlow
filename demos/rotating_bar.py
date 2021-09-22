@@ -10,7 +10,7 @@ obstacle = Obstacle(Box[47:53, 20:70], angular_velocity=0.05)
 obstacle_mask = CenteredGrid(obstacle.geometry, extrapolation.ZERO, **DOMAIN)  # to show in user interface
 velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 
-for frame in view(velocity, obstacle_mask, framerate=10, display=('velocity', 'obstacle_mask')).range():
+for frame in view(velocity, obstacle_mask, namespace=globals(), framerate=10, display=('velocity', 'obstacle_mask')).range():
     obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(-obstacle.angular_velocity * DT))  # rotate bar
     velocity = advect.mac_cormack(velocity, velocity, DT)
     velocity, pressure = fluid.make_incompressible(velocity, (obstacle,))

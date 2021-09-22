@@ -21,7 +21,7 @@ In Eulerian simulations, all the grid values have to be adjusted to account for 
 
 The corresponding functions are located in `phi.physics.advect` which is part of the standard import and take `Field` instances as arguments.
 
-For Eulerian simulations, the velocity may be sampled at the cell centers (`CenteredGrid`) or in [staggered form](Staggered_Grids.md) at the face centers (`StaggeredGrid`).
+For Eulerian simulations, the velocity may be sampled at the cell centers (`CenteredGrid`) or in [staggered form](Staggered_Grids.html) at the face centers (`StaggeredGrid`).
 The following example demonstrates semi-Lagrangian advection \[Stam 1999\] with both types of velocities.
 ```python
 from phi.flow import *
@@ -46,7 +46,7 @@ If the velocity is sampled on a grid but the advected quantity is a `PointCloud`
 The projection operation may be used to make a given velocity grid divergence-free \[Chorin and Temam 1968\].
 This is a simple way of ensuring the fluid is incompressible as advection on a divergence-free field is volume-preserving.
 
-This operation works best with [staggered grids](Staggered_Grids.md) as they allow for an exact computation of the divergence.
+This operation works best with [staggered grids](Staggered_Grids.html) as they allow for an exact computation of the divergence.
 
 The function `fluid.make_incompressible(velocity, domain, obstacles, solve_params, pressure_guess)` solves a linear system of equations to compute the pressure.
 It then subtracts the pressure spatial_gradient from the velocity to obtain a divergence-free field.
@@ -63,12 +63,12 @@ from phi.flow import *
 DOMAIN = Domain(x=64, y=80)
 velocity = PointCloud(Sphere(positions, 1), values)
 velocity_grid = velocity.sample_in(DOMAIN.cells)
-velocity_grid = velocity >> DOMAIN.grid()
-velocity_grid = velocity >> DOMAIN.staggered_grid()
+velocity_grid = velocity @ DOMAIN.grid()
+velocity_grid = velocity @ DOMAIN.staggered_grid()
 ```
-Here, the `>>` operator is a shorthand for calling `velocity.at(...)` and `grid()` without arguments creates a grid with all values being zero.
+Here, the `@` operator is a shorthand for calling `velocity.at(...)` and `grid()` without arguments creates a grid with all values being zero.
 
-Sampling back to particles works the same way, i.e. `velocity_grid >> velocity`.
+Sampling back to particles works the same way, i.e. `velocity_grid @ velocity`.
 
 
 ### Diffusion (Viscosity)

@@ -29,16 +29,19 @@ class TestWildcardImportDocs(TestCase):
         self.assertLessEqual(undocumented_fraction, max_undoc_frac, f"{len(undocumented)/loc_len:.2%} of {modulename} imports undocumented. Missing Docstrings in {len(undocumented)}/{loc_len}:\n- " + "\n- ".join(undocumented))
 
     def test_phi_flow(self):
-        self.assert_less_undocumented_wc("phi.flow", 0)
+        self.assert_less_undocumented_wc('phi.flow', 0)
 
     def test_phi_math(self):
-        self.assert_less_undocumented_wc("phi.math", 0.3)
+        self.assert_less_undocumented_wc('phi.math', 0)
 
     def test_phi_physics(self):
-        self.assert_less_undocumented_wc("phi.physics", 0.1)
+        self.assert_less_undocumented_wc('phi.physics', 0)
 
     def test_phi_field(self):
-        self.assert_less_undocumented_wc("phi.field", 0.2)
+        self.assert_less_undocumented_wc('phi.field', 0)
+
+    def test_phi_geom(self):
+        self.assert_less_undocumented_wc('phi.geom', 0)
 
     def test_phi_struct(self):
-        self.assert_less_undocumented_wc("phi.struct", 0.4)
+        self.assert_less_undocumented_wc('phi.struct', 0.4)

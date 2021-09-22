@@ -1,13 +1,11 @@
 # coding=utf-8
 import inspect
-import os
 import datetime
-import subprocess
-import warnings
-from os.path import dirname, exists, join, isfile
+from os.path import dirname, join
 
 import dash_core_components as dcc
 import dash_html_components as html
+import socket
 from dash.dependencies import Input, Output
 
 import phi
@@ -23,6 +21,8 @@ def build_app_details(dashapp):
         app_file = 'Unknown'
     return dcc.Markdown(f"""
 ## Details
+
+Host: {socket.gethostname()}
 
 Script path: {app_file}
 

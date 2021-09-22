@@ -22,67 +22,6 @@ nu = (-1) ** (N + 1) * nu  # Smoothing coefficient & sign
 PARAMS = dict(c1=c1, nu=nu, N=N, arak=arakawa_coeff, kappa=kappa_coeff)
 
 
-class Namespace(dict):
-    def __mul__(self, other):
-        if isinstance(other, Namespace):
-            return Namespace({key: other[key] * val for key, val in self.items()})
-        else:
-            return Namespace({key: other * val for key, val in self.items()})
-
-    __rmul__ = __mul__
-
-    def __div__(self, other):
-        if isinstance(other, Namespace):
-            return Namespace({key: val / other[key] for key, val in self.items()})
-        else:
-            return Namespace({key: val / other for key, val in self.items()})
-
-    def __truediv__(self, other):
-        if isinstance(other, Namespace):
-            return Namespace({key: val / other[key] for key, val in self.items()})
-        else:
-            return Namespace({key: val / other for key, val in self.items()})
-
-    def __rdiv__(self, other):
-        if isinstance(other, Namespace):
-            return Namespace({key: other[key] / val for key, val in self.items()})
-        else:
-            return Namespace({key: other / val for key, val in self.items()})
-
-    def __add__(self, other):
-        if isinstance(other, Namespace):
-            return Namespace({key: other[key] + val for key, val in self.items()})
-        else:
-            return Namespace({key: other + val for key, val in self.items()})
-
-    __radd__ = __add__
-
-    def __sub__(self, other):
-        return Namespace({key: other - val for key, val in self.items()})
-
-    def __getattr__(self, key):
-        try:
-            return self[key]
-        except KeyError as k:
-            raise AttributeError(k)
-
-    def __setattr__(self, key, value):
-        self[key] = value
-
-    def __delattr__(self, key):
-        try:
-            del self[key]
-        except KeyError as k:
-            raise AttributeError(k)
-
-    @property
-    def dtype(self):
-        return self["density"].dtype
-
-    def copy(self):
-        return Namespace({key: val for key, val in self.items()})
-
-
 def get_phi(plasma, guess=None):
     """Fourier Poisson Solve for Phi"""
     centered_omega = plasma.omega  # - math.mean(plasma.omega)
@@ -95,7 +34,6 @@ def get_phi(plasma, guess=None):
     )
 
 
-# Diffusion function
 def diffuse(arr, N, dx):
     if not isinstance(N, int):
         print(f"{N} {type(N)}")
@@ -129,18 +67,12 @@ def step_gradient_2d(plasma, phi, N=0, nu=0, c1=0, arak=0, kappa=0, dt=0):
         n += -kappa * dy_p
     if nu:
         n += nu * diffuse(plasma.density, N=N, dx=plasma.dx)
-    return Namespace(
-        density=n,
-        omega=o,
-        phi=phi,  # NOTE: NOT A GRADIENT
-        age=plasma.age + dt,
-        dx=plasma.dx,
-    )
+    return math.Dict(density=n, omega=o, phi=phi, age=plasma.age + dt, dx=plasma.dx)
 
 
 def rk4_step(dt, physics_params, gradient_func=step_gradient_2d, **kwargs):
     gradient_func = partial(gradient_func, **physics_params)
-    yn = Namespace(**kwargs)  # given dict to Namespace
+    yn = math.Dict(**kwargs)  # given dict to Namespace
     in_age = yn.age
     # Only in the first iteration recalculate phi
     if yn.age == 0:
@@ -156,13 +88,7 @@ def rk4_step(dt, physics_params, gradient_func=step_gradient_2d, **kwargs):
     k4 = dt * gradient_func(yn + k3, p3, dt=dt)
     y1 = yn + (k1 + 2 * k2 + 2 * k3 + k4) / 6
     phi = get_phi(y1)  # , guess=pn+p3*0.5)
-    return Namespace(
-        density=y1.density,
-        omega=y1.omega,
-        phi=phi,  # TODO: Somehow this does not work properly
-        age=in_age + dt,  # y1 contains 2 time steps from compute
-        dx=yn.dx,
-    )
+    return math.Dict(density=y1.density, omega=y1.omega, phi=phi, age=in_age + dt, dx=yn.dx)
 
 
 domain = dict(extrapolation=extrapolation.PERIODIC, bounds=Box[0:L, 0:L])
@@ -185,7 +111,7 @@ print(
     )
 )
 
-for _ in view(density, omega, phi, play=False, framerate=10).range():
+for _ in view(density, omega, phi, play=False, framerate=10, namespace=globals()).range():
     new_state = rk4(dt, density=density, omega=omega, phi=phi, age=age, dx=dx)
     density, omega, phi = new_state["density"], new_state["omega"], new_state["phi"]
     age += dt

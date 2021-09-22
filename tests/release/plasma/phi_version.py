@@ -24,7 +24,7 @@ with math.precision(64):
             return arr
 
         # Calculate Gradients
-        dx_p, dy_p = field.spatial_gradient(phi).unstack("spatial_gradient")
+        dx_p, dy_p = field.spatial_gradient(phi).vector.unstack()
         # Get difference
         diff = phi - plasma.density
         # Step 2.1: New Omega.

@@ -2,14 +2,16 @@ from typing import List
 
 from phi import math
 from ._geom import Geometry
-from ..math._shape import shape_stack, Shape, COLLECTION_DIM
+from ..math import Tensor
+from ..math._shape import shape_stack, Shape, INSTANCE_DIM
+from ..math._tensors import variable_attributes, copy_with
 
 
 class GeometryStack(Geometry):
 
     def __init__(self, geometries: tuple or list, stack_dim: Shape):
         self.geometries = tuple(geometries)
-        self.stack_dim = stack_dim.with_sizes([len(geometries)])
+        self.stack_dim = stack_dim.with_size(len(geometries))
         self._shape = shape_stack(self.stack_dim, *[g.shape for g in geometries])
 
     def unstack(self, dimension):
@@ -29,8 +31,8 @@ class GeometryStack(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        if self.stack_dim.type == COLLECTION_DIM:
-            raise NotImplementedError("collection dimensions not yet supported")
+        if self.stack_dim.type == INSTANCE_DIM:
+            raise NotImplementedError("instance dimensions not yet supported")
         return math.stack([g.volume for g in self.geometries], self.stack_dim)
 
     def lies_inside(self, location: math.Tensor):
@@ -61,6 +63,9 @@ class GeometryStack(Geometry):
         geometries = [g.rotated(angle) for g in self.geometries]
         return GeometryStack(geometries, self.stack_dim)
 
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+        raise NotImplementedError('GeometryStack.push() is not yet implemented.')
+
     def __eq__(self, other):
         return isinstance(other, GeometryStack) \
                and self._shape == other.shape \
@@ -81,4 +86,9 @@ class GeometryStack(Geometry):
 
 
 def stack(geometries: List[Geometry], dim: Shape):
+    """ Stacks `geometries` along `dim`. The size of `dim` is ignored. """
+    if all(type(g) == type(geometries[0]) for g in geometries):
+        attrs = variable_attributes(geometries[0])
+        new_attributes = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
+        return copy_with(geometries[0], **new_attributes)
     return GeometryStack(geometries, dim)

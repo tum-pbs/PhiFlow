@@ -75,7 +75,9 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def lies_inside(self, location):
         bool_inside = (location >= self.lower) & (location <= self.upper)
-        return math.all(bool_inside, 'vector')
+        bool_inside = math.all(bool_inside, 'vector')
+        bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
+        return bool_inside
 
     def approximate_signed_distance(self, location):
         """
@@ -93,7 +95,9 @@ class BaseBox(Geometry):  # not a Subwoofer
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
         distance = math.abs(location - center) - extent * 0.5
-        return math.max(distance, 'vector')
+        distance = math.max(distance, 'vector')
+        distance = math.min(distance, self.shape.instance)  # union for instance dimensions
+        return distance
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         loc_to_center = positions - self.center
@@ -189,7 +193,7 @@ class Box(BaseBox, metaclass=BoxType):
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
-               and self.shape.alphabetically() == other.shape.alphabetically()\
+               and set(self.shape) == set(other.shape)\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
 
@@ -244,7 +248,7 @@ class Cuboid(BaseBox):
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
-               and self.shape.alphabetically() == other.shape.alphabetically()\
+               and set(self.shape) == set(other.shape)\
                and math.close(self._center, other.center)\
                and math.close(self._half_size, other.half_size)
 
@@ -289,6 +293,9 @@ def bounding_box(geometry):
 
 
 class GridCell(BaseBox):
+    """
+    An instance of GridCell represents all cells of a regular grid as a batch of boxes.
+    """
 
     def __init__(self, resolution: math.Shape, bounds: BaseBox):
         assert resolution.spatial_rank == resolution.rank, 'resolution must be purely spatial but got %s' % (resolution,)
@@ -306,19 +313,7 @@ class GridCell(BaseBox):
 
     @property
     def center(self):
-        """
-        Center point of the box or batch of boxes.
-        
-        The shape of the location extends the shape of the Box instance by a `vector` dimension.
-        
-        :return: Tensor describing the center location(s)
-
-        Args:
-
-        Returns:
-
-        """
-        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in self.resolution.named_sizes})
+        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
         points = self.bounds.local_to_global(local_coords)
         return points
 
@@ -366,7 +361,7 @@ class GridCell(BaseBox):
         return GridCell(resolution, bounds)
 
     def list_cells(self, dim_name):
-        center = math.join_dimensions(self.center, self._shape.spatial.names, dim_name)
+        center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
 
     def stagger(self, dim: str, lower: bool, upper: bool):

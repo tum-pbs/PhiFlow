@@ -6,9 +6,9 @@ import time
 
 from phi import math
 from phi import field
-from phi.vis import App
 from phi.geom import Box
-from phi.physics import Domain, PERIODIC
+from phi.math import spatial
+from phi.physics._boundaries import Domain, PERIODIC
 from .numpy_reference import HW, Namespace
 from .phi_version import step_gradient_2d, rk4_step, get_domain_phi
 
@@ -111,12 +111,12 @@ with math.precision(64):
             domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
             hw_state_phi = Namespace(
                 density=domain.grid(
-                    math.tensor(init_values * density_coeff, names=["x", "y"])
+                    math.tensor(init_values * density_coeff, spatial('x, y'))
                 ),
                 omega=domain.grid(
-                    math.tensor(init_values * omega_coeff, names=["x", "y"])
+                    math.tensor(init_values * omega_coeff, spatial('x, y'))
                 ),
-                phi=domain.grid(math.tensor(init_values * phi_coeff, names=["x", "y"])),
+                phi=domain.grid(math.tensor(init_values * phi_coeff, spatial('x, y'))),
                 # domain=domain,
                 age=0,
                 dx=dx,
@@ -125,11 +125,6 @@ with math.precision(64):
 
             get_phi = partial(get_domain_phi, domain=domain)
             rk4_step2 = partial(rk4_step, params=params, get_phi=get_phi)
-            app = App("Hasegawa-Wakatani", dt=dt)
-            app.set_state(
-                hw_state_phi, step_function=rk4_step2, show=["density", "omega", "phi"]
-            )
-            app.prepare()
             # Run
             def compare(iterable):
                 for k in iterable[0].keys():
@@ -160,10 +155,9 @@ with math.precision(64):
                 np_times.append(np_time)
                 # Phi
                 t0 = time.time()
-                app.step()
+                hw_state_phi = rk4_step2(dt=dt, **hw_state_phi)
                 phi_time = time.time() - t0
                 phi_times.append(phi_time)
-                hw_state_phi = app.state
                 compare([hw_state_numpy, hw_state_phi])
                 # if i % 100 == 0:
                 #    plot({'numpy': hw_state_numpy.density,

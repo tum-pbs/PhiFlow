@@ -84,11 +84,11 @@ def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
     """
     # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
-        obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) >> velocity
+        obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) @ velocity
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
         else:
-            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) >> velocity
+            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
             velocity = (1 - obs_mask) * velocity + obs_mask * (angular_velocity + obstacle.velocity)
     return velocity
 

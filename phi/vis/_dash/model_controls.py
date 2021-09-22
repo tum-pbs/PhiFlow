@@ -37,8 +37,13 @@ def build_model_controls(app: DashApp):
                             for control in model_bools]
         model_textfields = []
         for control in model_texts:
-            text_area = dcc.Textarea(placeholder=control.initial, id=control.name, value=control.initial, rows=1, style={'width': '600px', 'display': 'inline-block'})
-            model_textfields.append(html.Div([display_name(control.name) + '  ', text_area]))
+            if not control.value_range:
+                text_area = dcc.Textarea(placeholder=control.initial, id=control.name, value=control.initial, rows=1, style={'width': '600px', 'display': 'inline-block'})
+                model_textfields.append(html.Div([display_name(control.name) + '  ', text_area]))
+            else:
+                options = [{'label': o, 'value': o} for o in value_range(control)[1]]
+                dropdown = dcc.Dropdown(id=control.name, options=options, value=control.initial, style={'display': 'inline-block', 'width': 200})
+                model_textfields.append(html.Div([display_name(control.name) + '  ', dropdown]))
         return [
             dcc.Markdown('### Model'),
             *model_sliders_float,

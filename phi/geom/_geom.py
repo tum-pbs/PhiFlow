@@ -40,7 +40,7 @@ class Geometry:
     def volume(self) -> Tensor:
         """
         Volume of the geometry as `phi.math.Tensor`.
-        The result retains all batch dimensions while collection dimensions are summed over.
+        The result retains all batch dimensions while instance dimensions are summed over.
         """
         raise NotImplementedError()
 
@@ -54,7 +54,6 @@ class Geometry:
 
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
-
         """
         raise NotImplementedError()
 
@@ -67,9 +66,10 @@ class Geometry:
         """
         Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.
 
+        When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.
+
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor:
 
         Returns:
           bool tensor of shape (*location.shape[:-1], 1).
@@ -85,6 +85,9 @@ class Geometry:
         The exact distance metric used depends on the geometry.
         The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
         The distance metric is differentiable and its gradients are bounded at every point in space.
+
+        When dealing with unions or collections of geometries (instance dimensions), the shortest distance to any instance is returned.
+        This also holds for negative distances.
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
@@ -282,8 +285,8 @@ class _InvertedGeometry(Geometry):
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
         return -self.geometry.approximate_signed_distance(location)
 
-    def approximate_fraction_inside(self, other_geometry: Geometry) -> Tensor:
-        return 1 - self.geometry.approximate_fraction_inside(other_geometry)
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
+        return 1 - self.geometry.approximate_fraction_inside(other_geometry, 1 - balance)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         return self.geometry.push(positions, outward=not outward, shift_amount=shift_amount)
@@ -332,7 +335,7 @@ class _NoGeometry(Geometry):
     def lies_inside(self, location):
         return math.zeros(location.shape.non_channel, dtype=math.DType(bool))
 
-    def approximate_fraction_inside(self, other_geometry):
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
         return math.zeros(other_geometry.shape)
 
     def shifted(self, delta):
@@ -355,6 +358,10 @@ NO_GEOMETRY = _NoGeometry()
 
 
 class Point(Geometry):
+    """
+    Points have zero volume and are determined by a single location.
+    An instance of `Point` represents a single n-dimensional point or a batch of points.
+    """
 
     def __init__(self, location: math.Tensor):
         self._location = location
@@ -399,6 +406,7 @@ class Point(Geometry):
 
 
 def assert_same_rank(rank1, rank2, error_message):
+    """ Tests that two objects have the same spatial rank. Objects can be of types: `int`, `None` (no check), `Geometry`, `Shape`, `Tensor` """
     rank1_, rank2_ = _rank(rank1), _rank(rank2)
     if rank1_ is not None and rank2_ is not None:
         assert rank1_ == rank2_, 'Ranks do not match: %s and %s. %s' % (rank1_, rank2_, error_message)
