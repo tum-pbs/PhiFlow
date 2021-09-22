@@ -322,8 +322,9 @@ A point lies inside the union if it lies within at least one of the geometries.<
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
         distance = math.abs(location - center) - extent * 0.5
+        distance = math.max(distance, &#39;vector&#39;)
         distance = math.min(distance, self.shape.instance)  # union for instance dimensions
-        return math.max(distance, &#39;vector&#39;)
+        return distance
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
         loc_to_center = positions - self.center
@@ -489,8 +490,9 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
     center = 0.5 * (self.lower + self.upper)
     extent = self.upper - self.lower
     distance = math.abs(location - center) - extent * 0.5
+    distance = math.max(distance, &#39;vector&#39;)
     distance = math.min(distance, self.shape.instance)  # union for instance dimensions
-    return math.max(distance, &#39;vector&#39;)</code></pre>
+    return distance</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.bounding_half_extent"><code class="name flex">
