@@ -95,8 +95,9 @@ class BaseBox(Geometry):  # not a Subwoofer
         center = 0.5 * (self.lower + self.upper)
         extent = self.upper - self.lower
         distance = math.abs(location - center) - extent * 0.5
+        distance = math.max(distance, 'vector')
         distance = math.min(distance, self.shape.instance)  # union for instance dimensions
-        return math.max(distance, 'vector')
+        return distance
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         loc_to_center = positions - self.center
