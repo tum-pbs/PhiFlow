@@ -13,8 +13,8 @@ OBSTACLE = Obstacle(union(OBSTACLE_GEOMETRIES))
 OBSTACLE_MASK = HardGeometryMask(OBSTACLE.geometry) @ CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 
 INFLOW = CenteredGrid(Box[14:21, 6:10], extrapolation.BOUNDARY, **DOMAIN) + \
-         CenteredGrid(Box[79:86, 6:10], extrapolation.BOUNDARY, **DOMAIN) * 0.8 + \
-         CenteredGrid(Box[44:47, 49:50], extrapolation.BOUNDARY, **DOMAIN) * 0.1
+         CenteredGrid(Box[81:88, 6:10], extrapolation.BOUNDARY, **DOMAIN) * 0.9 + \
+         CenteredGrid(Box[44:47, 49:51], extrapolation.BOUNDARY, **DOMAIN) * 0.4
 velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 smoke = pressure = divergence = remaining_divergence = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 
