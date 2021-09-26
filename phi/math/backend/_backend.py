@@ -12,6 +12,14 @@ SolveResult = namedtuple('SolveResult', [
     'method', 'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
 ])
 
+class SparseCSRMatrix:
+    def __init__(self, values, row_ptr, col_index, rows, cols):
+        self.values = values
+        self.row_ptr = row_ptr
+        self.col_index = col_index
+        self.rows = rows
+        self.cols = cols
+
 class ComputeDevice:
     """
     A physical device that can be selected to perform backend computations.
