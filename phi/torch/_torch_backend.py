@@ -13,13 +13,10 @@ import torch.nn.functional as torchf
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice
 from phi.math.backend._backend import combined_dim, SolveResult
+from phi.math.backend._csr_type import SparseCSRMatrix
 
 import pytorch_custom_cuda
 import cProfile
-
-SparseCSRMatrix = namedtuple('SparseCSRMatrix', [
-    'values', 'row_pointer', 'col_index', 'rows', 'cols'
-]) # This variable definition might be temporal right here, later it can be moved to math.backend
 
 class TorchBackend(Backend):
 
