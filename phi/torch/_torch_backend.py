@@ -12,8 +12,7 @@ import torch.nn.functional as torchf
 
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice
-from phi.math.backend._backend import combined_dim, SolveResult
-from phi.math.backend._csr_type import SparseCSRMatrix
+from phi.math.backend._backend import combined_dim, SolveResult, SparseCSRMatrix
 
 import pytorch_custom_cuda
 import cProfile
@@ -367,23 +366,22 @@ class TorchBackend(Backend):
         return torch.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
-        b_vector = len(b.shape) == 1  # is b a vector?
         if isinstance(A, SparseCSRMatrix):
-            A_rows = len(A.row_pointer) - 1
             B_rows = b.size(0)
-            A_cols = B_rows
-            B_cols = b.size(1)
-            if b_vector:
-                C = pytorch_custom_cuda.cusparse_SpMV(A.row_pointer, A.col_index, A.values, b,
-                                                      A_rows, A_cols)
+            if len(b.shape) == 1:
+                B_cols = 1
             else:
-                C = pytorch_custom_cuda.cusparse_SpMM(A.row_pointer, A.col_index, A.values, b,
-                                                      A_rows, A_cols, B_rows, B_cols)
-                C = C.reshape(B_cols, A_rows).T
+                B_cols = b.size(1)
+            C = pytorch_custom_cuda.cusparse_SpMM(A.row_ptr, A.col_index, A.values, b,
+                A.rows, A.cols, B_rows, B_cols)
+            if len(b.shape) == 1:
+                C = C.reshape(A.rows)
             return C
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
+        if isinstance(A, torch.Tensor) and isinstance(b, torch.Tensor):
+            return torch.matmul(A, b.T).T
         raise NotImplementedError(type(A), type(b))
 
     def einsum(self, equation, *tensors):
@@ -628,7 +626,7 @@ class TorchBackend(Backend):
             curr_count += c[i]
         colind = nnz_indices[1].type(torch.int32)
 
-        return SparseCSRMatrix(values=vals, row_pointer=rpoint, col_index=colind, rows=matrix.shape[0], cols=matrix.shape[1])
+        return SparseCSRMatrix(values=vals, row_ptr=rpoint, col_index=colind, rows=matrix.shape[0], cols=matrix.shape[1])
 
     def sparse_tensor(self, indices, values, shape):
         indices_ = self.to_int64(indices)

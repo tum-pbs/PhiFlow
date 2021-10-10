@@ -124,11 +124,6 @@ torch::Tensor cusparse_SpMM(
     // Create dense matrix C
     CHECK_CUSPARSE( cusparseCreateDnMat(&matC, C_num_rows, C_num_cols, ldc, dC.data_ptr<float>(),
                                         CUDA_R_32F, CUSPARSE_ORDER_COL) )
-    /// TEST !
-    cusparseDnVecDescr_t vecX;
-    CHECK_CUSPARSE( cusparseCreateDnVec(&vecX, A_nnz, dA_values.data_ptr<float>(), CUDA_R_32F) )
-
-
     // allocate an external buffer if needed
     CHECK_CUSPARSE( cusparseSpMM_bufferSize(
                                  handle,
