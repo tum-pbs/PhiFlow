@@ -428,7 +428,7 @@ class TFBackend(Backend):
         else:
             return NUMPY.dtype(array)
 
-    def sparse_tensor(self, indices, values, shape):
+    def sparse_coo_tensor(self, indices, values, shape):
         indices = [tf.convert_to_tensor(i, tf.int64) for i in indices]
         indices = tf.cast(tf.stack(indices, axis=-1), tf.int64)
         return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)

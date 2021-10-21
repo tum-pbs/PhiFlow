@@ -310,13 +310,16 @@ class NumPyBackend(Backend):
             array = np.array(array)
         return from_numpy_dtype(array.dtype)
 
-    def sparse_tensor(self, indices, values, shape):
+    def sparse_coo_tensor(self, indices, values, shape):
         if not isinstance(indices, (tuple, list)):
             indices = self.unstack(indices, -1)
-        if len(indices) == 2:
-            return scipy.sparse.csc_matrix((values, indices), shape=shape)
+        if len(shape) == 2:
+            return scipy.sparse.coo_matrix((values, indices), shape=shape)
         else:
             raise NotImplementedError(f"len(indices) = {len(indices)} not supported. Only (2) allowed.")
+
+    def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
+        return scipy.sparse.csr_matrix((values, column_indices, row_pointers), shape=shape)
 
     def coordinates(self, tensor):
         assert scipy.sparse.issparse(tensor)

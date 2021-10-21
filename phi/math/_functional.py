@@ -8,14 +8,12 @@ import logging
 import numpy as np
 
 from . import _ops as math
-from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, \
-    sum_, to_float
-from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, vector_add, merge_shapes, spatial, instance, \
-    batch, concat_shapes
-from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, \
-    disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap, cached
-from .backend import choose_backend, Backend, get_current_profile, get_precision
+from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, to_float
+from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
+from ._tensors import Tensor, NativeTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
+from .backend import choose_backend, Backend
 from .backend._backend import SolveResult
+
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -233,7 +231,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
             return self.f(*args, **kwargs)
         backend = math.choose_backend_t(*tensors)
-        if not backend.supports(Backend.sparse_tensor):
+        if not backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
                 logging.debug(f"Φ-lin: Running '{self.f.__name__}' as-is with {backend} because it is being traced.")
@@ -250,12 +248,17 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         tracer = self._get_or_trace(key)
         return tracer.get_sparse_coordinate_matrix()
 
+    def sparse_matrix(self, x, *condition_args, **kwargs):
+        key = self._condition_key(x, condition_args, kwargs)
+        tracer = self._get_or_trace(key)
+        return tracer.get_sparse_matrix()
+
     def _condition_key(self, x, condition_args, kwargs):
         kwargs['n_condition_args'] = len(condition_args)
         for i, c_arg in enumerate(condition_args):
             kwargs[f'_condition_arg[{i}]'] = c_arg
         key, _ = key_from_args(x, cache=False, **kwargs)
-        assert key.backend.supports(Backend.sparse_tensor)
+        assert key.backend.supports(Backend.sparse_coo_tensor)
         return key
 
     def stencil_inspector(self, *args, **kwargs):
@@ -559,6 +562,7 @@ class ShiftLinTracer(Tensor):
         self.val: Dict[Shape, Tensor] = simplify_add(values_by_shift)
         self._shape = shape
         self._sparse_coo = None
+        self._sparse_csr = None
 
     def native(self, order: str or tuple or list or Shape = None):
         """
@@ -593,17 +597,10 @@ class ShiftLinTracer(Tensor):
         native_out = backend.reshape(native_out, order_out.sizes)
         return NativeTensor(native_out, order_out)
 
-    def get_sparse_coordinate_matrix(self) -> 'FixedShiftSparseTensor':
+    def get_sparse_coordinate_matrix(self) -> 'SparseMatrixContainer':
         """
         Builds a sparse matrix that represents this linear operation.
         Independent dimensions, those that can be treated as batch dimensions, are recognized automatically and ignored.
-        
-        :return: native sparse tensor
-
-        Args:
-
-        Returns:
-
         """
         if self._sparse_coo is not None:
             return self._sparse_coo
@@ -625,11 +622,33 @@ class ShiftLinTracer(Tensor):
         vals = backend.flatten(backend.stack(vals, -1))
         rows = np.arange(out_shape.volume * len(self.val)) // len(self.val)
         # TODO sort indices?
-        self._sparse_coo = FixedShiftSparseTensor((out_shape.volume, src_shape.volume),
-                                                  set(self.val.keys()), rows, cols,
-                                                  NativeTensor(vals, instance(nnz=len(vals))),
-                                                  self.dependent_dims)
+        self._sparse_coo = SparseMatrixContainer('coo', (out_shape.volume, src_shape.volume),
+                                                 set(self.val.keys()), self.dependent_dims,
+                                                 NativeTensor(vals, instance(nnz=len(vals))), rows, cols)
         return self._sparse_coo
+
+    def get_sparse_csr_matrix(self) -> 'SparseMatrixContainer':
+        """
+        Builds a sparse matrix that represents this linear operation.
+        Independent dimensions, those that can be treated as batch dimensions, are recognized automatically and ignored.
+        """
+        if self._sparse_csr is not None:
+            return self._sparse_csr
+        coo = self.get_sparse_coordinate_matrix()
+        idx = np.arange(1, len(coo.values)+1)  # start indexing at 1 since 0 might get removed
+        import scipy.sparse
+        scipy_csr = scipy.sparse.csr_matrix((idx, (coo.rows, coo.cols)), shape=coo.shape)
+        col_indices = scipy_csr.indices
+        row_ptr = scipy_csr.indptr
+        values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
+        self._sparse_csr = SparseMatrixContainer('csr', coo.shape, coo.indices_key, coo.src_shape, values, row_ptr, col_indices)
+        return self._sparse_csr
+
+    def get_sparse_matrix(self) -> 'SparseMatrixContainer':
+        if self.default_backend.supports(Backend.csr_matrix):
+            return self.get_sparse_csr_matrix()
+        else:
+            return self.get_sparse_coordinate_matrix()
 
     def build_sparse_csr_matrix(self):
         raise NotImplementedError()
@@ -665,7 +684,7 @@ class ShiftLinTracer(Tensor):
     def shift(self, shifts: dict, val_fun, new_shape):
         """
         Shifts all values of this tensor by `shifts`.
-        Values shifted outside will be mapped with periodic boundary conditions when the matrix is built, see `get_sparse_coordinate_matrix()`.
+        Values shifted outside will be mapped with periodic boundary conditions when the matrix is built.
 
         Args:
             shifts: Offsets by dimension
@@ -774,9 +793,35 @@ def cell_number(cells, resolution: Shape):
         return 0,
 
 
-class FixedShiftSparseTensor:
+class SparseMatrixContainer:
+    """
+    This class holds information about a sparse matrix and can be passed as argument of JIT-compiled functions.
+    It is typically craeted by a PhiFlow tracer object, such as `ShiftLinTracer`.
+    Only the values tensor is variable, the sparsity pattern is fixed.
 
-    def __init__(self, shape: tuple, indices_key, rows, cols, values: Tensor, src_shape: Shape):
+    TensorFlow doesn't allow native sparse tensors as arguments of JIT-compiled functions.
+    """
+
+    def __init__(self,
+                 indexing_type: str,
+                 shape: tuple,
+                 indices_key,
+                 src_shape: Shape,
+                 values: Tensor,
+                 rows, cols,
+                 ):
+        """
+
+        Args:
+            shape: Sparse matrix shape
+            indices_key: Low-dimensional representation of the sparsity pattern, typically a set of offsets.
+            rows: Row indices
+            cols: Column indices
+            values: Values
+            src_shape: Non-flattened `Shape` of `x` vectors compatible with this matrix.
+        """
+        assert indexing_type in ('coo', 'csr')
+        self.indexing_type = indexing_type
         self.shape = shape
         self.indices_key = indices_key
         self.rows = rows
@@ -785,14 +830,20 @@ class FixedShiftSparseTensor:
         self.src_shape = src_shape
 
     def __eq__(self, other):
-        return isinstance(other, FixedShiftSparseTensor) and self.indices_key == other.indices_key and self.src_shape == other.src_shape
+        return isinstance(other, SparseMatrixContainer) and \
+               self.indexing_type == other.indexing_type and \
+               self.indices_key == other.indices_key and \
+               self.src_shape == other.src_shape
 
     def __variable_attrs__(self):
         return 'values',
 
     def native(self):
         backend = choose_backend(self.rows, self.cols, *self.values._natives())
-        return backend.sparse_tensor((self.rows, self.cols), self.values.native(), self.shape)
+        if self.indexing_type == 'coo':
+            return backend.sparse_coo_tensor((self.rows, self.cols), self.values.native(), self.shape)
+        else:  # csr
+            return backend.csr_matrix(self.cols, self.rows, self.values.native(), self.shape)
 
 
 class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors there
@@ -1202,10 +1253,10 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
     if not all_available(*y_tensors, *x0_tensors):  # jit mode
-        f = jit_compile_linear(f) if backend.supports(Backend.sparse_tensor) else jit_compile(f)
+        f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
-    if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_tensor):
-        matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
+    if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_coo_tensor):
+        matrix = f.sparse_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
         # arg_tree, arg_tensors = disassemble_tree(f_args)
@@ -1277,7 +1328,7 @@ def attach_gradient_solve(forward_solve: Callable):
     return solve_with_grad
 
 
-def _matrix_solve_forward(y, solve: Solve, matrix: FixedShiftSparseTensor,
+def _matrix_solve_forward(y, solve: Solve, matrix: SparseMatrixContainer,
                           backend: Backend = None, is_backprop=False):  # kwargs
     matrix_native = matrix.native()
     active_dims = matrix.src_shape

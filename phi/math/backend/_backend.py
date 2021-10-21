@@ -78,11 +78,11 @@ class Backend:
 
         Possible features:
 
-        * `sparse_tensor`
+        * `sparse_coo_tensor`
         * `gradients
 
         Args:
-            feature: `str` or unbound Backend method, e.g. `Backend.sparse_tensor`
+            feature: `str` or unbound Backend method, e.g. `Backend.sparse_coo_tensor`
 
         Returns:
             Whether the feature is supported.
@@ -668,17 +668,36 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def sparse_tensor(self, indices, values, shape):
+    def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
         """
-        Optional features.
+        Create a sparse matrix in coordinate list (COO) format.
+
+        Optional feature.
 
         Args:
-          indices: tuple/list matching the dimensions (pair for matrix)
-          values: param shape:
-          shape: 
+            indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
+            values: 1D values tensor matching `indices`
+            shape: Shape of the sparse matrix
 
         Returns:
+            Native representation of the sparse matrix
+        """
+        raise NotImplementedError(self)
 
+    def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
+        """
+        Create a sparse matrix in compressed sparse row (CSR) format.
+
+        Optional feature.
+
+        Args:
+            column_indices: Column indices
+            row_pointers:
+            values:
+            shape:
+
+        Returns:
+            Native representation of the sparse matrix
         """
         raise NotImplementedError(self)
 

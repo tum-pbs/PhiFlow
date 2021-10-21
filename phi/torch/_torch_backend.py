@@ -581,7 +581,7 @@ class TorchBackend(Backend):
             multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
 
-    def sparse_tensor(self, indices, values, shape):
+    def sparse_coo_tensor(self, indices, values, shape):
         indices_ = self.to_int64(indices)
         values_ = self.to_float(values)
         if not self.is_available(values_):

@@ -544,9 +544,9 @@ class TestMathFunctions(TestCase):
         v = [3, 4, 5]
         shape = (2, 3)
         for backend in BACKENDS:
-            if backend.supports(Backend.sparse_tensor):
+            if backend.supports(Backend.sparse_coo_tensor):
                 with backend:
-                    matrix = backend.sparse_tensor(i, v, shape)
+                    matrix = backend.sparse_coo_tensor(i, v, shape)
                     i_, v_ = backend.coordinates(matrix)
                     self.assertIsInstance(i_, tuple, msg=backend.name)
                     assert len(i_) == 2
