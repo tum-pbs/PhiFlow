@@ -1,3 +1,4 @@
+import logging
 import os
 from numbers import Number
 from typing import Callable
@@ -192,6 +193,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  grid='y',
                  log_scale='',
                  legend='upper right',
+                 x='steps',
                  xlim=None,
                  ylim=None,
                  titles=True,
@@ -215,6 +217,8 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         assert isinstance(names, math.Tensor), f"Invalid argument 'names': {type(names)}"
     if not isinstance(colors, math.Tensor):
         colors = math.wrap(colors)
+    if xlabel is None:
+        xlabel = 'Iterations' if x == 'steps' else 'Time (s)'
 
     shape = (scene.shape & names.shape)
     batches = shape.without(reduce).without(additional_reduce)
@@ -244,20 +248,29 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
             curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
 
         def single_plot(name, path, label, i, color):
+            logging.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
             if curve.ndim == 2:
-                x, values, *_ = curve.T
+                x_values, values, *_ = curve.T
             else:
                 values = curve
-                x = np.arange(len(values))
+                x_values = np.arange(len(values))
+            if x == 'steps':
+                pass
+            else:
+                assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
+                logging.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
+                _, x_values, *_ = numpy.loadtxt(os.path.join(path, "log_step_time.txt")).T
+                x_values = np.cumsum(x_values[:len(values)])
             if transform:
-                x, values = transform(np.stack([x, values]))
+                x_values, values = transform(np.stack([x_values, values]))
             if color == 'default':
                 color = cycle[i]
             elif isinstance(color, Number):
                 color = cycle[int(color)]
-            axis.plot(x, values, color=color, alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
+            logging.debug(f"Plotting curve {label}")
+            axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(x_values, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
             if grid:
                 grid_axis = 'both' if 'x' in grid and 'y' in grid else grid
                 axis.grid(which='both', axis=grid_axis, linestyle='--')
