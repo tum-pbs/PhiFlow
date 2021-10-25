@@ -243,15 +243,10 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         tracer = self._get_or_trace(key)
         return tracer.apply(tensors[0])
 
-    def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+    def sparse_matrix(self, x, *condition_args, format: str = None, **kwargs):
         key = self._condition_key(x, condition_args, kwargs)
         tracer = self._get_or_trace(key)
-        return tracer.get_sparse_coordinate_matrix()
-
-    def sparse_matrix(self, x, *condition_args, **kwargs):
-        key = self._condition_key(x, condition_args, kwargs)
-        tracer = self._get_or_trace(key)
-        return tracer.get_sparse_matrix()
+        return tracer.get_sparse_matrix(format)
 
     def _condition_key(self, x, condition_args, kwargs):
         kwargs['n_condition_args'] = len(condition_args)
@@ -585,7 +580,7 @@ class ShiftLinTracer(Tensor):
 
     def apply(self, value: Tensor) -> NativeTensor:
         assert value.shape == self.source.shape
-        mat = self.get_sparse_coordinate_matrix().native()
+        mat = self.get_sparse_matrix().native()
         independent_dims = self.independent_dims
         # TODO slice for missing dimensions
         order_src = concat_shapes(value.shape.only(independent_dims), value.shape.without(independent_dims))
@@ -640,15 +635,20 @@ class ShiftLinTracer(Tensor):
         scipy_csr = scipy.sparse.csr_matrix((idx, (coo.rows, coo.cols)), shape=coo.shape)
         col_indices = scipy_csr.indices
         row_ptr = scipy_csr.indptr
+        if coo.values.nnz.size != len(scipy_csr.data):
+            warnings.warn("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.")
+            return coo
         values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
         self._sparse_csr = SparseMatrixContainer('csr', coo.shape, coo.indices_key, coo.src_shape, values, row_ptr, col_indices)
         return self._sparse_csr
 
-    def get_sparse_matrix(self) -> 'SparseMatrixContainer':
-        if self.default_backend.supports(Backend.csr_matrix):
+    def get_sparse_matrix(self, matrix_format: str = None) -> 'SparseMatrixContainer':
+        if self.default_backend.supports(Backend.csr_matrix) and matrix_format in (None, 'csr'):
             return self.get_sparse_csr_matrix()
-        else:
+        elif self.default_backend.supports(Backend.sparse_coo_tensor) and matrix_format in (None, 'coo'):
             return self.get_sparse_coordinate_matrix()
+        else:
+            raise NotImplementedError(f"Cannot create sparse matrix using backend '{self.default_backend}' given type '{matrix_format}'")
 
     def build_sparse_csr_matrix(self):
         raise NotImplementedError()
@@ -1216,7 +1216,10 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     return minimize(min_func, solve)
 
 
-def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or list = (), f_kwargs: dict = None) -> X:
+def solve_linear(f: Callable[[X], Y],
+                 y: Y, solve: Solve[X, Y],
+                 f_args: tuple or list = (),
+                 f_kwargs: dict = None) -> X:
     """
     Solves the system of linear equations *f(x) = y* and returns *x*.
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
@@ -1255,7 +1258,7 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or
     if not all_available(*y_tensors, *x0_tensors):  # jit mode
         f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
-    if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_coo_tensor):
+    if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
         matrix = f.sparse_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
