@@ -7,6 +7,7 @@ See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapola
 """
 from typing import Union, Dict
 
+from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
 from ._shape import Shape, channel
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
@@ -158,17 +159,19 @@ class ConstantExtrapolation(Extrapolation):
         Returns:
 
         """
+        derivative = get_spatial_derivative_order()
+        pad_value = self.value if derivative == 0 else math.zeros()
         value = value._simplify()
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             backend = choose_backend(native)
-            result_tensor = backend.pad(native, ordered_pad_widths, 'constant', self.value.native())
+            result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value._inner.shape.volume > 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after _simplify
+            if value._inner.shape.volume > 1 or not math.all_available(pad_value, value) or not math.close(pad_value, value._inner):  # .inner should be safe after _simplify
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []

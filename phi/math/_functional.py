@@ -12,8 +12,7 @@ from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
 from ._tensors import Tensor, NativeTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
 from .backend import choose_backend, Backend
-from .backend._backend import SolveResult
-
+from .backend._backend import SolveResult, get_spatial_derivative_order
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -23,39 +22,40 @@ class SignatureKey:
 
     def __init__(self,
                  source_function: Callable or None,
-                 nest,
+                 tree,
                  shapes: Shape or Tuple[Shape],
                  kwargs: dict or None,
                  backend: Backend,
                  tracing: bool):
-        assert isinstance(nest, TensorLike), nest
+        assert isinstance(tree, TensorLike), tree
         if source_function is None:  # this is an input signature
             assert isinstance(shapes, tuple)
         self.source_function = source_function
-        self.nest = nest
+        self.tree = tree
         self.shapes = shapes
         self.kwargs = kwargs
         self.backend = backend
         self.tracing = tracing
+        self.spatial_derivative_order = get_spatial_derivative_order()
 
     def __repr__(self):
-        return f"{self.nest} with shapes {self.shapes}"
+        return f"{self.tree} with shapes {self.shapes}"
 
     def __eq__(self, other: 'SignatureKey'):
         assert isinstance(other, SignatureKey)
-        return self.nest == other.nest and self.shapes == other.shapes and self.kwargs == other.kwargs and self.backend == other.backend
+        return self.tree == other.tree and self.shapes == other.shapes and self.kwargs == other.kwargs and self.backend == other.backend and self.spatial_derivative_order == other.spatial_derivative_order
 
     def __hash__(self):
         return hash(self.shapes) + hash(self.backend)
 
     def matches_structure_and_names(self, other: 'SignatureKey'):
         assert isinstance(other, SignatureKey)
-        return self.nest == other.nest and all(s1.names == s2.names for s1, s2 in zip(self.shapes, other.shapes)) and self.kwargs == other.kwargs and self.backend == other.backend
+        return self.tree == other.tree and all(s1.names == s2.names for s1, s2 in zip(self.shapes, other.shapes)) and self.kwargs == other.kwargs and self.backend == other.backend
 
     def extrapolate(self, rec_in: 'SignatureKey', new_in: 'SignatureKey') -> 'SignatureKey':
         assert self.source_function is not None, "extrapolate() must be called on output keys"
         shapes = [self._extrapolate_shape(s, rec_in, new_in) for s in self.shapes]
-        return SignatureKey(self.source_function, self.nest, shapes, self.kwargs, self.backend)
+        return SignatureKey(self.source_function, self.tree, shapes, self.kwargs, self.backend)
 
     @staticmethod
     def _extrapolate_shape(shape_: Shape, rec_in: 'SignatureKey', new_in: 'SignatureKey') -> Shape:
@@ -109,7 +109,7 @@ class JitFunction:
             logging.debug(f"Φ-jit: Tracing '{self.f.__name__}'")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_tree(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
@@ -131,7 +131,7 @@ class JitFunction:
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
-        return assemble_tree(output_key.nest, output_tensors)
+        return assemble_tree(output_key.tree, output_tensors)
 
     def __repr__(self):
         return f"jit({self.f.__name__})"
@@ -202,7 +202,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         with in_key.backend:
             x = math.ones(in_key.shapes[0])
             tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
-        f_input = assemble_tree(in_key.nest, [tracer])
+        f_input = assemble_tree(in_key.tree, [tracer])
         assert isinstance(f_input, tuple)
         condition_args = [in_key.kwargs[f'_condition_arg[{i}]'] for i in range(in_key.kwargs['n_condition_args'])]
         kwargs = {k: v for k, v in in_key.kwargs.items() if not (k.startswith('_condition_arg[') or k == 'n_condition_args')}
@@ -318,7 +318,7 @@ class GradientFunction:
             logging.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_tree(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
@@ -345,11 +345,11 @@ class GradientFunction:
         if self.get_output:
             result_shapes = list(output_key.shapes) + [key.shapes[i] for i in wrt_tensors]
             output_tensors = assemble_tensors(native_result, result_shapes)
-            output_structure, grad_tuple = assemble_tree((output_key.nest, [key.nest[i] for i in wrt_tensors]), output_tensors)
+            output_structure, grad_tuple = assemble_tree((output_key.tree, [key.tree[i] for i in wrt_tensors]), output_tensors)
             return output_structure, grad_tuple
         else:
             output_tensors = assemble_tensors(native_result, [key.shapes[i] for i in wrt_tensors])
-            return assemble_tree([key.nest[i] for i in wrt_tensors], output_tensors)
+            return assemble_tree([key.tree[i] for i in wrt_tensors], output_tensors)
 
     def __repr__(self):
         return f"grad({self.f.__name__})"
@@ -426,7 +426,7 @@ class CustomGradientFunction:
         def forward_native(*natives, **kwargs):
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_tree(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
@@ -440,13 +440,13 @@ class CustomGradientFunction:
             x_tensors = assemble_tensors(x_natives, in_key.shapes)
             y_tensors = assemble_tensors(y_natives, out_key.shapes)
             dy_tensors = assemble_tensors(dy_natives, out_key.shapes)
-            x = assemble_tree(in_key.nest, x_tensors)
+            x = assemble_tree(in_key.tree, x_tensors)
             assert isinstance(x, tuple)
-            y = assemble_tree(out_key.nest, y_tensors)
-            dy = assemble_tree(out_key.nest, dy_tensors)
+            y = assemble_tree(out_key.tree, y_tensors)
+            dy = assemble_tree(out_key.tree, dy_tensors)
             result = self.gradient(*x, y, dy, **in_key.kwargs)
             assert isinstance(result, (tuple, list)), "Gradient function must return tuple or list"
-            result_natives = self.incomplete_tree_to_natives(result, in_key.nest, list(in_key.shapes))
+            result_natives = self.incomplete_tree_to_natives(result, in_key.tree, list(in_key.shapes))
             return result_natives
 
         forward_native.__name__ = f"forward '{self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)}'"
@@ -466,7 +466,7 @@ class CustomGradientFunction:
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
-        return assemble_tree(output_key.nest, output_tensors)
+        return assemble_tree(output_key.tree, output_tensors)
 
     def __repr__(self):
         return f"custom_gradient(forward={self.f.__name__}, backward={self.gradient.__name__}, id={id(self)})"
