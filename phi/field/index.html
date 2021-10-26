@@ -1744,8 +1744,8 @@ These arguments can be of any type.</dd>
         f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
-        matrix = f.sparse_matrix(solve.x0, *f_args, **(f_kwargs or {}))
-        return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
+        matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))
+        return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
     else:
         # arg_tree, arg_tensors = disassemble_tree(f_args)
         # arg_tensors = cached(arg_tensors)

@@ -4914,8 +4914,8 @@ These arguments can be of any type.</dd>
         f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
-        matrix = f.sparse_matrix(solve.x0, *f_args, **(f_kwargs or {}))
-        return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
+        matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))
+        return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
     else:
         # arg_tree, arg_tensors = disassemble_tree(f_args)
         # arg_tensors = cached(arg_tensors)
@@ -6766,8 +6766,8 @@ This is the default implementation.</p>
         assert in_key.shapes[0].is_uniform, f&#34;math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}&#34;
         with in_key.backend:
             x = math.ones(in_key.shapes[0])
-            tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape)
-        f_input = assemble_tree(in_key.nest, [tracer])
+            tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
+        f_input = assemble_tree(in_key.tree, [tracer])
         assert isinstance(f_input, tuple)
         condition_args = [in_key.kwargs[f&#39;_condition_arg[{i}]&#39;] for i in range(in_key.kwargs[&#39;n_condition_args&#39;])]
         kwargs = {k: v for k, v in in_key.kwargs.items() if not (k.startswith(&#39;_condition_arg[&#39;) or k == &#39;n_condition_args&#39;)}
@@ -6811,7 +6811,13 @@ This is the default implementation.</p>
     def sparse_matrix(self, x, *condition_args, format: str = None, **kwargs):
         key = self._condition_key(x, condition_args, kwargs)
         tracer = self._get_or_trace(key)
+        assert math.close(tracer.bias, 0), &#34;This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead.&#34;
         return tracer.get_sparse_matrix(format)
+
+    def sparse_matrix_and_bias(self, x, *condition_args, format: str = None, **kwargs):
+        key = self._condition_key(x, condition_args, kwargs)
+        tracer = self._get_or_trace(key)
+        return tracer.get_sparse_matrix(format), tracer.bias
 
     def _condition_key(self, x, condition_args, kwargs):
         kwargs[&#39;n_condition_args&#39;] = len(condition_args)
@@ -6850,7 +6856,23 @@ This is the default implementation.</p>
 <pre><code class="python">def sparse_matrix(self, x, *condition_args, format: str = None, **kwargs):
     key = self._condition_key(x, condition_args, kwargs)
     tracer = self._get_or_trace(key)
+    assert math.close(tracer.bias, 0), &#34;This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead.&#34;
     return tracer.get_sparse_matrix(format)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.LinearFunction.sparse_matrix_and_bias"><code class="name flex">
+<span>def <span class="ident">sparse_matrix_and_bias</span></span>(<span>self, x, *condition_args, format: str = None, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sparse_matrix_and_bias(self, x, *condition_args, format: str = None, **kwargs):
+    key = self._condition_key(x, condition_args, kwargs)
+    tracer = self._get_or_trace(key)
+    return tracer.get_sparse_matrix(format), tracer.bias</code></pre>
 </details>
 </dd>
 <dt id="phi.math.LinearFunction.stencil_inspector"><code class="name flex">
@@ -9640,6 +9662,8 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return iter(self.native())
 
     def _tensor(self, other):
+        if isinstance(other, Tensor):
+            return other
         return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
 
     def _op1(self, native_function):
@@ -10876,6 +10900,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <h4><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code></h4>
 <ul class="">
 <li><code><a title="phi.math.LinearFunction.sparse_matrix" href="#phi.math.LinearFunction.sparse_matrix">sparse_matrix</a></code></li>
+<li><code><a title="phi.math.LinearFunction.sparse_matrix_and_bias" href="#phi.math.LinearFunction.sparse_matrix_and_bias">sparse_matrix_and_bias</a></code></li>
 <li><code><a title="phi.math.LinearFunction.stencil_inspector" href="#phi.math.LinearFunction.stencil_inspector">stencil_inspector</a></code></li>
 </ul>
 </li>

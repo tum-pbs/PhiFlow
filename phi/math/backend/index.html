@@ -1333,7 +1333,8 @@ The output of math operations has the same precision as its inputs.</p>
         def cg_loop_body(continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
             continue_1 = self.to_int32(continue_)
             it_counter += 1; iterations += continue_1
-            dy = self.linear(lin, dx); function_evaluations += continue_1
+            with spatial_derivative_evaluation(1):
+                dy = self.linear(lin, dx); function_evaluations += continue_1
             dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
             step_size = self.divide_no_nan(residual_squared, dx_dy)
             step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
@@ -1391,7 +1392,8 @@ The output of math operations has the same precision as its inputs.</p>
             residual = residual - step_size * dy  # in-place subtraction affects convergence
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-            dy = self.linear(lin, dx); function_evaluations += continue_1
+            with spatial_derivative_evaluation(1):
+                dy = self.linear(lin, dx); function_evaluations += continue_1
             diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
             converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
             if trajectory is not None:
@@ -1970,7 +1972,8 @@ This method may be used to register internal calls with the profiler.</p>
     def cg_loop_body(continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
         continue_1 = self.to_int32(continue_)
         it_counter += 1; iterations += continue_1
-        dy = self.linear(lin, dx); function_evaluations += continue_1
+        with spatial_derivative_evaluation(1):
+            dy = self.linear(lin, dx); function_evaluations += continue_1
         dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
         step_size = self.divide_no_nan(residual_squared, dx_dy)
         step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
@@ -2038,7 +2041,8 @@ This method may be used to register internal calls with the profiler.</p>
         residual = residual - step_size * dy  # in-place subtraction affects convergence
         residual_squared = self.sum(residual ** 2, -1, keepdims=True)
         dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-        dy = self.linear(lin, dx); function_evaluations += continue_1
+        with spatial_derivative_evaluation(1):
+            dy = self.linear(lin, dx); function_evaluations += continue_1
         diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
         converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
         if trajectory is not None:
