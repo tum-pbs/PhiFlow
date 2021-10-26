@@ -304,7 +304,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid='y', log_scale='', legend='upper right', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default')</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid='y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default')</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -325,6 +325,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                  grid=&#39;y&#39;,
                  log_scale=&#39;&#39;,
                  legend=&#39;upper right&#39;,
+                 x=&#39;steps&#39;,
                  xlim=None,
                  ylim=None,
                  titles=True,
@@ -348,6 +349,8 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
         assert isinstance(names, math.Tensor), f&#34;Invalid argument &#39;names&#39;: {type(names)}&#34;
     if not isinstance(colors, math.Tensor):
         colors = math.wrap(colors)
+    if xlabel is None:
+        xlabel = &#39;Iterations&#39; if x == &#39;steps&#39; else &#39;Time (s)&#39;
 
     shape = (scene.shape &amp; names.shape)
     batches = shape.without(reduce).without(additional_reduce)
@@ -377,20 +380,29 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
             curve_labels = math.map(lambda p, n: f&#34;{os.path.basename(p)} - {n}&#34;, scene.paths[b], names[b])
 
         def single_plot(name, path, label, i, color):
+            logging.debug(f&#34;Reading {os.path.join(path, f&#39;log_{name}.txt&#39;)}&#34;)
             curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
             if curve.ndim == 2:
-                x, values, *_ = curve.T
+                x_values, values, *_ = curve.T
             else:
                 values = curve
-                x = np.arange(len(values))
+                x_values = np.arange(len(values))
+            if x == &#39;steps&#39;:
+                pass
+            else:
+                assert x == &#39;time&#39;, f&#34;x must be &#39;steps&#39; or &#39;time&#39; but got {x}&#34;
+                logging.debug(f&#34;Reading {os.path.join(path, &#39;log_step_time.txt&#39;)}&#34;)
+                _, x_values, *_ = numpy.loadtxt(os.path.join(path, &#34;log_step_time.txt&#34;)).T
+                x_values = np.cumsum(x_values[:len(values)])
             if transform:
-                x, values = transform(np.stack([x, values]))
+                x_values, values = transform(np.stack([x_values, values]))
             if color == &#39;default&#39;:
                 color = cycle[i]
             elif isinstance(color, Number):
                 color = cycle[int(color)]
-            axis.plot(x, values, color=color, alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
+            logging.debug(f&#34;Plotting curve {label}&#34;)
+            axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(x_values, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
             if grid:
                 grid_axis = &#39;both&#39; if &#39;x&#39; in grid and &#39;y&#39; in grid else grid
                 axis.grid(which=&#39;both&#39;, axis=grid_axis, linestyle=&#39;--&#39;)

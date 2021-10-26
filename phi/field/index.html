@@ -956,7 +956,7 @@ All positional arguments must be of type <code>Tensor</code> or <code>TensorLike
 </details>
 </dd>
 <dt id="phi.field.jit_compile_linear"><code class="name flex">
-<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction</span>
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
@@ -1701,7 +1701,10 @@ These arguments can be of any type.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or list = (), f_kwargs: dict = None) -&gt; X:
+<pre><code class="python">def solve_linear(f: Callable[[X], Y],
+                 y: Y, solve: Solve[X, Y],
+                 f_args: tuple or list = (),
+                 f_kwargs: dict = None) -&gt; X:
     &#34;&#34;&#34;
     Solves the system of linear equations *f(x) = y* and returns *x*.
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
@@ -1738,10 +1741,10 @@ These arguments can be of any type.</dd>
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
     if not all_available(*y_tensors, *x0_tensors):  # jit mode
-        f = jit_compile_linear(f) if backend.supports(Backend.sparse_tensor) else jit_compile(f)
+        f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
-    if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_tensor):
-        matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
+    if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
+        matrix = f.sparse_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
         # arg_tree, arg_tensors = disassemble_tree(f_args)

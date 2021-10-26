@@ -2472,7 +2472,7 @@ All positional arguments must be of type <code><a title="phi.math.Tensor" href="
 </details>
 </dd>
 <dt id="phi.math.jit_compile_linear"><code class="name flex">
-<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction</span>
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
@@ -4871,7 +4871,10 @@ These arguments can be of any type.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or list = (), f_kwargs: dict = None) -&gt; X:
+<pre><code class="python">def solve_linear(f: Callable[[X], Y],
+                 y: Y, solve: Solve[X, Y],
+                 f_args: tuple or list = (),
+                 f_kwargs: dict = None) -&gt; X:
     &#34;&#34;&#34;
     Solves the system of linear equations *f(x) = y* and returns *x*.
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
@@ -4908,10 +4911,10 @@ These arguments can be of any type.</dd>
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
     if not all_available(*y_tensors, *x0_tensors):  # jit mode
-        f = jit_compile_linear(f) if backend.supports(Backend.sparse_tensor) else jit_compile(f)
+        f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
-    if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_tensor):
-        matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
+    if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
+        matrix = f.sparse_matrix(solve.x0, *f_args, **(f_kwargs or {}))
         return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
     else:
         # arg_tree, arg_tensors = disassemble_tree(f_args)
@@ -6793,7 +6796,7 @@ This is the default implementation.</p>
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
             return self.f(*args, **kwargs)
         backend = math.choose_backend_t(*tensors)
-        if not backend.supports(Backend.sparse_tensor):
+        if not backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;)
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
                 logging.debug(f&#34;Φ-lin: Running &#39;{self.f.__name__}&#39; as-is with {backend} because it is being traced.&#34;)
@@ -6805,17 +6808,17 @@ This is the default implementation.</p>
         tracer = self._get_or_trace(key)
         return tracer.apply(tensors[0])
 
-    def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+    def sparse_matrix(self, x, *condition_args, format: str = None, **kwargs):
         key = self._condition_key(x, condition_args, kwargs)
         tracer = self._get_or_trace(key)
-        return tracer.get_sparse_coordinate_matrix()
+        return tracer.get_sparse_matrix(format)
 
     def _condition_key(self, x, condition_args, kwargs):
         kwargs[&#39;n_condition_args&#39;] = len(condition_args)
         for i, c_arg in enumerate(condition_args):
             kwargs[f&#39;_condition_arg[{i}]&#39;] = c_arg
         key, _ = key_from_args(x, cache=False, **kwargs)
-        assert key.backend.supports(Backend.sparse_tensor)
+        assert key.backend.supports(Backend.sparse_coo_tensor)
         return key
 
     def stencil_inspector(self, *args, **kwargs):
@@ -6835,8 +6838,8 @@ This is the default implementation.</p>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="phi.math.LinearFunction.sparse_coordinate_matrix"><code class="name flex">
-<span>def <span class="ident">sparse_coordinate_matrix</span></span>(<span>self, x, *condition_args, **kwargs)</span>
+<dt id="phi.math.LinearFunction.sparse_matrix"><code class="name flex">
+<span>def <span class="ident">sparse_matrix</span></span>(<span>self, x, *condition_args, format: str = None, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -6844,10 +6847,10 @@ This is the default implementation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+<pre><code class="python">def sparse_matrix(self, x, *condition_args, format: str = None, **kwargs):
     key = self._condition_key(x, condition_args, kwargs)
     tracer = self._get_or_trace(key)
-    return tracer.get_sparse_coordinate_matrix()</code></pre>
+    return tracer.get_sparse_matrix(format)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.LinearFunction.stencil_inspector"><code class="name flex">
@@ -10872,7 +10875,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li>
 <h4><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code></h4>
 <ul class="">
-<li><code><a title="phi.math.LinearFunction.sparse_coordinate_matrix" href="#phi.math.LinearFunction.sparse_coordinate_matrix">sparse_coordinate_matrix</a></code></li>
+<li><code><a title="phi.math.LinearFunction.sparse_matrix" href="#phi.math.LinearFunction.sparse_matrix">sparse_matrix</a></code></li>
 <li><code><a title="phi.math.LinearFunction.stencil_inspector" href="#phi.math.LinearFunction.stencil_inspector">stencil_inspector</a></code></li>
 </ul>
 </li>

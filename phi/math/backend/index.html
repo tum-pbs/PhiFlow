@@ -541,11 +541,11 @@ The output of math operations has the same precision as its inputs.</p>
 
         Possible features:
 
-        * `sparse_tensor`
+        * `sparse_coo_tensor`
         * `gradients
 
         Args:
-            feature: `str` or unbound Backend method, e.g. `Backend.sparse_tensor`
+            feature: `str` or unbound Backend method, e.g. `Backend.sparse_coo_tensor`
 
         Returns:
             Whether the feature is supported.
@@ -1131,17 +1131,36 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def sparse_tensor(self, indices, values, shape):
+    def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
         &#34;&#34;&#34;
-        Optional features.
+        Create a sparse matrix in coordinate list (COO) format.
+
+        Optional feature.
 
         Args:
-          indices: tuple/list matching the dimensions (pair for matrix)
-          values: param shape:
-          shape: 
+            indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
+            values: 1D values tensor matching `indices`
+            shape: Shape of the sparse matrix
 
         Returns:
+            Native representation of the sparse matrix
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
 
+    def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
+        &#34;&#34;&#34;
+        Create a sparse matrix in compressed sparse row (CSR) format.
+
+        Optional feature.
+
+        Args:
+            column_indices: Column indices
+            row_pointers:
+            values:
+            shape:
+
+        Returns:
+            Native representation of the sparse matrix
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -2131,6 +2150,44 @@ Higher dimensions may not be supported.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def cos(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.csr_matrix"><code class="name flex">
+<span>def <span class="ident">csr_matrix</span></span>(<span>self, column_indices, row_pointers, values, shape: tuple)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a sparse matrix in compressed sparse row (CSR) format.</p>
+<p>Optional feature.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>column_indices</code></strong></dt>
+<dd>Column indices</dd>
+</dl>
+<p>row_pointers:
+values:
+shape:</p>
+<h2 id="returns">Returns</h2>
+<p>Native representation of the sparse matrix</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
+    &#34;&#34;&#34;
+    Create a sparse matrix in compressed sparse row (CSR) format.
+
+    Optional feature.
+
+    Args:
+        column_indices: Column indices
+        row_pointers:
+        values:
+        shape:
+
+    Returns:
+        Native representation of the sparse matrix
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3541,36 +3598,40 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
     return self.prod(self.shape(array))</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.sparse_tensor"><code class="name flex">
-<span>def <span class="ident">sparse_tensor</span></span>(<span>self, indices, values, shape)</span>
+<dt id="phi.math.backend.Backend.sparse_coo_tensor"><code class="name flex">
+<span>def <span class="ident">sparse_coo_tensor</span></span>(<span>self, indices: tuple, values, shape: tuple)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Optional features.</p>
+<div class="desc"><p>Create a sparse matrix in coordinate list (COO) format.</p>
+<p>Optional feature.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>indices</code></strong></dt>
-<dd>tuple/list matching the dimensions (pair for matrix)</dd>
+<dd>2D tensor of shape <code>(2, n)</code> or tuple/list of two 1D tensors <code>(rows, cols)</code>.</dd>
 <dt><strong><code>values</code></strong></dt>
-<dd>param shape:</dd>
+<dd>1D values tensor matching <code>indices</code></dd>
 <dt><strong><code>shape</code></strong></dt>
-<dd>&nbsp;</dd>
+<dd>Shape of the sparse matrix</dd>
 </dl>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p>Native representation of the sparse matrix</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sparse_tensor(self, indices, values, shape):
+<pre><code class="python">def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
     &#34;&#34;&#34;
-    Optional features.
+    Create a sparse matrix in coordinate list (COO) format.
+
+    Optional feature.
 
     Args:
-      indices: tuple/list matching the dimensions (pair for matrix)
-      values: param shape:
-      shape: 
+        indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
+        values: 1D values tensor matching `indices`
+        shape: Shape of the sparse matrix
 
     Returns:
-
+        Native representation of the sparse matrix
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -3700,13 +3761,13 @@ For placeholder tensors, unknown dimensions are represented as <code>None</code>
 Features correspond to a method of this backend that must be implemented if the feature is supported.</p>
 <p>Possible features:</p>
 <ul>
-<li><code>sparse_tensor</code></li>
+<li><code>sparse_coo_tensor</code></li>
 <li>`gradients</li>
 </ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>feature</code></strong></dt>
-<dd><code>str</code> or unbound Backend method, e.g. <code><a title="phi.math.backend.Backend.sparse_tensor" href="#phi.math.backend.Backend.sparse_tensor">Backend.sparse_tensor()</a></code></dd>
+<dd><code>str</code> or unbound Backend method, e.g. <code><a title="phi.math.backend.Backend.sparse_coo_tensor" href="#phi.math.backend.Backend.sparse_coo_tensor">Backend.sparse_coo_tensor()</a></code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Whether the feature is supported.</p></div>
@@ -3721,11 +3782,11 @@ Features correspond to a method of this backend that must be implemented if the 
 
     Possible features:
 
-    * `sparse_tensor`
+    * `sparse_coo_tensor`
     * `gradients
 
     Args:
-        feature: `str` or unbound Backend method, e.g. `Backend.sparse_tensor`
+        feature: `str` or unbound Backend method, e.g. `Backend.sparse_coo_tensor`
 
     Returns:
         Whether the feature is supported.
@@ -4557,6 +4618,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.coordinates" href="#phi.math.backend.Backend.coordinates">coordinates</a></code></li>
 <li><code><a title="phi.math.backend.Backend.copy" href="#phi.math.backend.Backend.copy">copy</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cos" href="#phi.math.backend.Backend.cos">cos</a></code></li>
+<li><code><a title="phi.math.backend.Backend.csr_matrix" href="#phi.math.backend.Backend.csr_matrix">csr_matrix</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cumsum" href="#phi.math.backend.Backend.cumsum">cumsum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.custom_gradient" href="#phi.math.backend.Backend.custom_gradient">custom_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.div" href="#phi.math.backend.Backend.div">div</a></code></li>
@@ -4631,7 +4693,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.sign" href="#phi.math.backend.Backend.sign">sign</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sin" href="#phi.math.backend.Backend.sin">sin</a></code></li>
 <li><code><a title="phi.math.backend.Backend.size" href="#phi.math.backend.Backend.size">size</a></code></li>
-<li><code><a title="phi.math.backend.Backend.sparse_tensor" href="#phi.math.backend.Backend.sparse_tensor">sparse_tensor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sparse_coo_tensor" href="#phi.math.backend.Backend.sparse_coo_tensor">sparse_coo_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sqrt" href="#phi.math.backend.Backend.sqrt">sqrt</a></code></li>
 <li><code><a title="phi.math.backend.Backend.stack" href="#phi.math.backend.Backend.stack">stack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.staticshape" href="#phi.math.backend.Backend.staticshape">staticshape</a></code></li>
