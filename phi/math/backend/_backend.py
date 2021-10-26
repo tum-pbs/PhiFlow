@@ -870,7 +870,8 @@ class Backend:
         def cg_loop_body(continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
             continue_1 = self.to_int32(continue_)
             it_counter += 1; iterations += continue_1
-            dy = self.linear(lin, dx); function_evaluations += continue_1
+            with spatial_derivative_evaluation(1):
+                dy = self.linear(lin, dx); function_evaluations += continue_1
             dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
             step_size = self.divide_no_nan(residual_squared, dx_dy)
             step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
@@ -928,7 +929,8 @@ class Backend:
             residual = residual - step_size * dy  # in-place subtraction affects convergence
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-            dy = self.linear(lin, dx); function_evaluations += continue_1
+            with spatial_derivative_evaluation(1):
+                dy = self.linear(lin, dx); function_evaluations += continue_1
             diverged = self.any(residual_squared / rsq0 > 100, axis=(1,)) & (iterations >= 8)
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
@@ -1249,3 +1251,23 @@ def combined_dim(dim1, dim2, type_str: str = 'batch'):
         return dim1
     assert dim1 == dim2, f"Incompatible {type_str} dimensions: x0 {dim1}, y {dim2}"
     return dim1
+
+
+_DERIVATIVE_CONTEXT = [0]
+
+
+@contextmanager
+def spatial_derivative_evaluation(order=1):
+    _DERIVATIVE_CONTEXT.append(order)
+    try:
+        yield None
+    finally:
+        assert _DERIVATIVE_CONTEXT.pop(-1) == order
+
+
+def get_spatial_derivative_order():
+    """
+    Extrapolations may behave differently when extrapolating the derivative of a grid.
+    Returns 1 inside a CG loop, and 0 by default.
+    """
+    return _DERIVATIVE_CONTEXT[-1]
