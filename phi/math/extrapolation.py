@@ -189,9 +189,8 @@ class ConstantExtrapolation(Extrapolation):
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim)
         elif is_tracer(value):
-            assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
-            return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
+            return value.shift(lower, value.shape.after_pad(widths), lambda v: ZERO.pad(v, widths), lambda b: self.pad(b, widths))
         else:
             raise NotImplementedError()
 
@@ -419,18 +418,18 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
 
         """
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
-        result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values  ~half the computation time
+        result = value.shift(lower, value.shape.after_pad(widths), lambda v: ZERO.pad(v, widths), lambda b: ZERO.pad(b, widths))  # inner values  ~half the computation time
         for bound_dim, (bound_lo, bound_hi) in widths.items():
             for i in range(bound_lo):  # i=0 means outer
                 # this sets corners to 0
                 lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
                 mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
-                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
+                boundary = value.shift(lower, result.shape, lambda v: self.pad(v, widths) * mask, lambda b: ZERO.pad(b, widths))
                 result += boundary
             for i in range(bound_hi):
                 lower = {dim: i - lo - hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
                 mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
-                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)  # ~ half the computation time
+                boundary = value.shift(lower, result.shape, lambda v: self.pad(v, widths) * mask, lambda b: ZERO.pad(b, widths))  # ~ half the computation time
                 result += boundary  # this does basically nothing if value is the identity
         return result
 
@@ -484,7 +483,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
         if value.shape.get_sizes(tuple(widths.keys())) != value.source.shape.get_sizes(tuple(widths.keys())):
             raise NotImplementedError("Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor." % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
-        return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
+        return value.shift(lower, value.shape.after_pad(widths), lambda v: self.pad(v, widths), lambda b: ZERO.pad(b, widths))
 
 
 class _SymmetricExtrapolation(_CopyExtrapolation):
@@ -582,13 +581,13 @@ class _NoExtrapolation(Extrapolation):
 
 
 ZERO = ConstantExtrapolation(0)
-""" Extrapolates with the constant value 0 """
+""" Extrapolates with the constant value 0 (Dirichlet boundary condition). """
 ONE = ConstantExtrapolation(1)
-""" Extrapolates with the constant value 1 """
+""" Extrapolates with the constant value 1 (Dirichlet boundary condition). """
 PERIODIC = _PeriodicExtrapolation(1)
-""" Extends a grid by tiling it """
+""" Extends a grid by tiling it (Periodic boundary condition). """
 BOUNDARY = _BoundaryExtrapolation(2)
-""" Extends a grid with its edge values. The value of a point lying outside the grid is determined by the closest grid value(s). """
+""" Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). """
 SYMMETRIC = _SymmetricExtrapolation(3)
 """ Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. """
 REFLECT = _ReflectExtrapolation(4)

@@ -441,6 +441,8 @@ class Tensor:
         return iter(self.native())
 
     def _tensor(self, other):
+        if isinstance(other, Tensor):
+            return other
         return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
 
     def _op1(self, native_function):

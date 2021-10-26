@@ -201,7 +201,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         assert in_key.shapes[0].is_uniform, f"math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}"
         with in_key.backend:
             x = math.ones(in_key.shapes[0])
-            tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape)
+            tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
         f_input = assemble_tree(in_key.nest, [tracer])
         assert isinstance(f_input, tuple)
         condition_args = [in_key.kwargs[f'_condition_arg[{i}]'] for i in range(in_key.kwargs['n_condition_args'])]
@@ -246,7 +246,13 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
     def sparse_matrix(self, x, *condition_args, format: str = None, **kwargs):
         key = self._condition_key(x, condition_args, kwargs)
         tracer = self._get_or_trace(key)
+        assert math.close(tracer.bias, 0), "This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead."
         return tracer.get_sparse_matrix(format)
+
+    def sparse_matrix_and_bias(self, x, *condition_args, format: str = None, **kwargs):
+        key = self._condition_key(x, condition_args, kwargs)
+        tracer = self._get_or_trace(key)
+        return tracer.get_sparse_matrix(format), tracer.bias
 
     def _condition_key(self, x, condition_args, kwargs):
         kwargs['n_condition_args'] = len(condition_args)
@@ -541,20 +547,28 @@ def simplify_add(val: dict) -> Dict[Shape, Tensor]:
 
 
 class ShiftLinTracer(Tensor):
+    """
+    Tracer object for linear and affine functions.
+    The sparsity pattern is assumed equal for all grid cells and is reflected in `val` (e.g. for a 5-point stencil, `val` has 5 items).
+    The Tensors stored in `val` include position-dependent dimensions, allowing for different stencils at different positions.
+    Dimensions not contained in any `val` Tensor are treated as independent (batch dimensions).
+    """
 
-    def __init__(self, source: Tensor, values_by_shift: dict, shape: Shape):
+    def __init__(self, source: Tensor, values_by_shift: dict, shape: Shape, bias: Tensor):
         """
-
-
         Args:
-          source: placeholder tensor
-          values_by_shift: shift: Shape -> values: Tensor.
-        shift only contains only non-zero shift dims.
-        Missing dims are interpreted as independent.
-          shape: shape of this tensor
+            source: placeholder tensor
+            values_by_shift: `dict` mapping relative shifts (`Shape`) to value Tensors.
+                Shape keys only contain non-zero shift dims. Missing dims are interpreted as independent.
+            shape: shape of this tensor
+            bias: Constant Tensor to be added to the multiplication output, A*x + b.
+                A bias naturally arises at boundary cells with non-trivial boundary conditions if no ghost cells are added to the matrix.
+                When non-zero, this tracer technically represents an affine function, not a linear one.
+                However, the bias can be subtracted from the solution vector when solving a linear system, allowing this function to be solved with regular linear system solvers.
         """
         self.source = source
         self.val: Dict[Shape, Tensor] = simplify_add(values_by_shift)
+        self.bias = bias
         self._shape = shape
         self._sparse_coo = None
         self._sparse_csr = None
@@ -650,9 +664,6 @@ class ShiftLinTracer(Tensor):
         else:
             raise NotImplementedError(f"Cannot create sparse matrix using backend '{self.default_backend}' given type '{matrix_format}'")
 
-    def build_sparse_csr_matrix(self):
-        raise NotImplementedError()
-
     @property
     def dependent_dims(self):
         return merge_shapes(*[t.shape for t in self.val.values()])
@@ -679,17 +690,21 @@ class ShiftLinTracer(Tensor):
     def _getitem(self, selection: dict):
         starts = {dim: (item.start or 0) if isinstance(item, slice) else item for dim, item in selection.items()}
         new_shape = math.zeros(self._shape)[selection].shape
-        return self.shift(starts, lambda v: v[selection], new_shape)
+        return self.shift(starts, new_shape, lambda v: v[selection], lambda b: b[selection])
 
-    def shift(self, shifts: dict, val_fun, new_shape):
+    def shift(self, shifts: dict,
+              new_shape: Shape,
+              val_fun: Callable,
+              bias_fun: Callable = None):
         """
         Shifts all values of this tensor by `shifts`.
         Values shifted outside will be mapped with periodic boundary conditions when the matrix is built.
 
         Args:
             shifts: Offsets by dimension
-            val_fun: Function to apply to the matrix values, may change the tensor shapes
             new_shape: Shape of the shifted tensor, must match the shape returned by `val_fun`.
+            val_fun: Function to apply to the matrix values, may change the tensor shapes
+            bias_fun: Function to apply to the bias vector, may change the tensor shape
 
         Returns:
             Shifted tensor, possibly with altered values.
@@ -703,13 +718,14 @@ class ShiftLinTracer(Tensor):
                 if delta:
                     shift = shift._replace_single_size(dim, shift.get_size(dim) + delta) if dim in shift else shift._expand(spatial(**{dim: delta}))
             val[shift] = val_fun(values)
-        return ShiftLinTracer(self.source, val, new_shape)
+        bias = bias_fun(self.bias)
+        return ShiftLinTracer(self.source, val, new_shape, bias)
 
     def unstack(self, dimension):
         raise NotImplementedError()
 
     def __neg__(self):
-        return ShiftLinTracer(self.source, {shift: -values for shift, values in self.val.items()}, self._shape)
+        return ShiftLinTracer(self.source, {shift: -values for shift, values in self.val.items()}, self._shape, -self.bias)
 
     def _op1(self, native_function):  # only __neg__ is linear
         raise NotImplementedError('Only linear operations are supported')
@@ -756,14 +772,16 @@ class ShiftLinTracer(Tensor):
                         values[dim_shift] = operator(math.zeros_like(other_values), other_values)
                     else:
                         values[dim_shift] = other_values
-            return ShiftLinTracer(self.source, values, self._shape)
+            bias = operator(self.bias, other.bias)
+            return ShiftLinTracer(self.source, values, self._shape, bias)
         else:
             other = self._tensor(other)
             values = {}
             for dim_shift, val in self.val.items():
                 val_, other_ = math.join_spaces(val, other)
                 values[dim_shift] = operator(val_, other_)
-            return ShiftLinTracer(self.source, values, self._shape & other.shape)
+            bias = operator(self.bias, other)
+            return ShiftLinTracer(self.source, values, self._shape & other.shape, bias)
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
@@ -775,8 +793,10 @@ class ShiftLinTracer(Tensor):
         raise NotImplementedError()
 
     def _natives(self) -> tuple:
-        return sum([v._natives() for v in self.val.values()], ())
-        # raise NotImplementedError()  # should not be used, this tensor should be regarded as not available
+        """
+        This function should only be used to determine the compatible backends, this tensor should be regarded as not available.
+        """
+        return sum([v._natives() for v in self.val.values()], ()) + self.bias._natives()
 
 
 def cell_indices(shape: Shape) -> tuple:
@@ -1259,8 +1279,8 @@ def solve_linear(f: Callable[[X], Y],
         f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
-        matrix = f.sparse_matrix(solve.x0, *f_args, **(f_kwargs or {}))
-        return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
+        matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))
+        return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
     else:
         # arg_tree, arg_tensors = disassemble_tree(f_args)
         # arg_tensors = cached(arg_tensors)
@@ -1279,9 +1299,9 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
     batch_dims = (y_tensor.shape & x0_tensor.shape).without(active_dims)
     x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch_dims, active_dims], force_expand=True))
     y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, active_dims], force_expand=True))
-    rtol = reshaped_native(math.to_float(solve.relative_tolerance), [batch_dims], force_expand=True)
-    atol = reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True)
-    maxi = reshaped_native(solve.max_iterations, [batch_dims], force_expand=True)
+    rtol = backend.as_tensor(reshaped_native(math.to_float(solve.relative_tolerance), [batch_dims], force_expand=True))
+    atol = backend.as_tensor(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
+    maxi = backend.as_tensor(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     if trj:
         assert all_available(y_tensor, x0_tensor), "Cannot record linear solve in jit mode"
