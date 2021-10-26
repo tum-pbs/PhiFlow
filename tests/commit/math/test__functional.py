@@ -246,6 +246,18 @@ class TestFunctional(TestCase):
                 except Diverged:
                     pass
 
+    def test_solve_linear_matrix_dirichlet(self):
+        for backend in BACKENDS:
+            with backend:
+                y = CenteredGrid(1, extrapolation.ONE, x=3)
+                x0 = CenteredGrid(0, extrapolation.ONE, x=3)
+                solve = math.Solve('CG', 0, 1e-3, x0=x0, max_iterations=100)
+                # x_ref = field.solve_linear(field.laplace, y, solve)
+                # print(x_ref.values)
+                x_jit = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+                print(x_jit.values)
+                math.assert_close(x_jit.values, [-0.5, -1, -0.5], abs_tolerance=1e-3, msg=backend)
+
     def test_jit_solves(self):
         @math.jit_compile
         def solve(y, method):
