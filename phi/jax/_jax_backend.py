@@ -260,6 +260,7 @@ class JaxBackend(Backend):
 
     def meshgrid(self, *coordinates):
         self._check_float64()
+        coordinates = [self.as_tensor(c) for c in coordinates]
         return jnp.meshgrid(*coordinates, indexing='ij')
 
     def linspace(self, start, stop, number):
