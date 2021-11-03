@@ -14,4 +14,5 @@ for frame in view(velocity, obstacle_mask, namespace=globals(), framerate=10, di
     obstacle = obstacle.copied_with(geometry=obstacle.geometry.rotated(-obstacle.angular_velocity * DT))  # rotate bar
     velocity = advect.mac_cormack(velocity, velocity, DT)
     velocity, pressure = fluid.make_incompressible(velocity, (obstacle,))
+    fluid.masked_laplace.tracers.clear()  # we will need to retrace because the matrix changes each step. This is not needed when JIT-compiling the physics.
     obstacle_mask = CenteredGrid(obstacle.geometry, extrapolation.ZERO, **DOMAIN)
