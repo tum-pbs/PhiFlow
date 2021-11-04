@@ -43,7 +43,8 @@ def u_net(in_channels: int,
           out_channels: int,
           levels: int = 4,
           filters: int or tuple or list = 16,
-          batch_norm=True) -> nn.Module:
+          batch_norm=True,
+          in_spatial=None) -> nn.Module:
     if not batch_norm:
         raise NotImplementedError("only batch_norm=True currently supported")
     if isinstance(filters, (tuple, list)):

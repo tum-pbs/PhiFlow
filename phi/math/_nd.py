@@ -15,19 +15,32 @@ from ._tensors import wrap
 from .extrapolation import Extrapolation
 
 
-def spatial_sum(value: Tensor):
-    return math.sum_(value, dim=value.shape.spatial.names)
+def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    """ Computes the vector length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
+    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim))
 
 
-def vec_abs(vec: Tensor):
-    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel.names))
+def vec_squared(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    """ Computes the squared length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
+    return math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim)
 
 
-def vec_squared(vec: Tensor):
-    return math.sum_(vec ** 2, dim=channel('vector'))
+def vec_normalize(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    """ Normalizes the vectors in `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
+    return vec / vec_abs(vec, vec_dim=vec_dim)
 
 
-def cross_product(vec1: Tensor, vec2: Tensor):
+def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
+    """
+    Computes the cross product of two vectors in 2D.
+
+    Args:
+        vec1: `Tensor` with a single channel dimension called `'vector'`
+        vec2: `Tensor` with a single channel dimension called `'vector'`
+
+    Returns:
+        `Tensor`
+    """
     vec1 = math.tensor(vec1)
     vec2 = math.tensor(vec2)
     spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
@@ -52,24 +65,21 @@ def cross_product(vec1: Tensor, vec2: Tensor):
         raise AssertionError(f'dims = {spatial_rank}. Vector product not available in > 3 dimensions')
 
 
-def normalize_to(target: Tensor, source: Tensor, epsilon=1e-5):
+def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     """
-    Multiplies the target so that its total content matches the source.
+    Multiplies the target so that its sum matches the source.
 
     Args:
-      target: a tensor
-      source: a tensor or number
-      epsilon: small number to prevent division by zero or None. (Default value = 1e-5)
-      target: Tensor: 
-      source: Tensor: 
+        target: `Tensor`
+        source: `Tensor` or constant
+        epsilon: Small number to prevent division by zero.
 
     Returns:
-      normalized tensor of the same shape as target
-
+        Normalized tensor of the same shape as target
     """
-    target_total = math.sum_(target, dim=target.shape.non_batch.names)
+    target_total = math.sum_(target)
     denominator = math.maximum(target_total, epsilon) if epsilon is not None else target_total
-    source_total = math.sum_(source, dim=source.shape.non_batch.names)
+    source_total = math.sum_(source)
     return target * (source_total / denominator)
 
 
@@ -331,8 +341,10 @@ def laplace(x: Tensor,
         `phi.math.Tensor` of same shape as `x`
 
     """
-    if not isinstance(dx, (int, float)):
+    if isinstance(dx, (tuple, list)):
         dx = wrap(dx, batch('_laplace'))
+    elif isinstance(dx, Tensor) and dx.vector.exists:
+        dx = math.rename_dims(dx, 'vector', batch('_laplace'))
     if isinstance(x, Extrapolation):
         return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch('_laplace'))
@@ -446,7 +458,7 @@ def upsample2x(grid: Tensor,
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
         stacked = math.stack([interp_left, interp_right], spatial('_interleave'))
-        grid = math.join_dimensions(stacked, (dim.name, '_interleave'), dim)
+        grid = math.pack_dims(stacked, (dim.name, '_interleave'), dim)
     return grid
 
 

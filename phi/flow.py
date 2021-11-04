@@ -28,7 +28,7 @@ from .physics._boundaries import Obstacle
 from .math import PI
 
 # Functions
-from .math import wrap, tensor, spatial, channel, batch, collection
+from .math import wrap, tensor, spatial, channel, batch, instance
 from .geom import union
 from .vis import show
 

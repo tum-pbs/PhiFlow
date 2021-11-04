@@ -139,6 +139,9 @@ class JaxBackend(Backend):
     staticshape = staticmethod(jnp.shape)
     imag = staticmethod(jnp.imag)
     real = staticmethod(jnp.real)
+    conj = staticmethod(jnp.conjugate)
+    einsum = staticmethod(jnp.einsum)
+    cumsum = staticmethod(jnp.cumsum)
 
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):
@@ -257,6 +260,7 @@ class JaxBackend(Backend):
 
     def meshgrid(self, *coordinates):
         self._check_float64()
+        coordinates = [self.as_tensor(c) for c in coordinates]
         return jnp.meshgrid(*coordinates, indexing='ij')
 
     def linspace(self, start, stop, number):
@@ -279,9 +283,6 @@ class JaxBackend(Backend):
 
     def matmul(self, A, b):
         return jnp.stack([A.dot(b[i]) for i in range(b.shape[0])])
-
-    def einsum(self, equation, *tensors):
-        return jnp.einsum(equation, *tensors)
 
     def while_loop(self, loop: Callable, values: tuple):
         if all(self.is_available(t) for t in values):
@@ -371,26 +372,29 @@ class JaxBackend(Backend):
             result.append(scatter(b_grid, b_indices, b_values, dnums))
         return jnp.stack(result)
 
-    def fft(self, x):
-        rank = len(x.shape) - 2
-        assert rank >= 1
-        if rank == 1:
-            return jnp.fft.fft(x, axis=1)
-        elif rank == 2:
-            return jnp.fft.fft2(x, axes=[1, 2])
-        else:
-            return jnp.fft.fftn(x, axes=list(range(1, rank + 1)))
+    def quantile(self, x, quantiles):
+        return jnp.quantile(x, quantiles, axis=-1)
 
-    def ifft(self, k):
-        assert self.dtype(k).kind == complex
-        rank = len(k.shape) - 2
-        assert rank >= 1
-        if rank == 1:
-            return jnp.fft.ifft(k, axis=1).astype(k.dtype)
-        elif rank == 2:
-            return jnp.fft.ifft2(k, axes=[1, 2]).astype(k.dtype)
+    def fft(self, x, axes: tuple or list):
+        x = self.to_complex(x)
+        if not axes:
+            return x
+        if len(axes) == 1:
+            return np.fft.fft(x, axis=axes[0]).astype(x.dtype)
+        elif len(axes) == 2:
+            return np.fft.fft2(x, axes=axes).astype(x.dtype)
         else:
-            return jnp.fft.ifftn(k, axes=list(range(1, rank + 1))).astype(k.dtype)
+            return np.fft.fftn(x, axes=axes).astype(x.dtype)
+
+    def ifft(self, k, axes: tuple or list):
+        if not axes:
+            return k
+        if len(axes) == 1:
+            return np.fft.ifft(k, axis=axes[0]).astype(k.dtype)
+        elif len(axes) == 2:
+            return np.fft.ifft2(k, axes=axes).astype(k.dtype)
+        else:
+            return np.fft.ifftn(k, axes=axes).astype(k.dtype)
 
     def dtype(self, array) -> DType:
         if isinstance(array, int):
@@ -408,17 +412,3 @@ class JaxBackend(Backend):
             return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
         else:
             return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
-
-    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool):
-        if self.is_available(y) or trj:
-            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
-        batch_size = combined_dim(self.staticshape(y)[0], self.staticshape(x0)[0])
-        xs = []
-        for b in range(batch_size):
-            # TODO if lin is batch-dependent, we may need to split it as lin_b = lambda x: lin(stack(...,x))[b]
-            x, _ = cg(partial(lin, batch_index=b), y[b], x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b])
-            xs.append(x)
-        x = jnp.stack(xs)
-        diverged = jnp.any(~jnp.isfinite(x), axis=(1,))
-        converged = ~diverged
-        return SolveResult('jax.scipy.sparse.linalg.cg', x, None, [-1] * batch_size, [-1] * batch_size, converged, diverged, "")

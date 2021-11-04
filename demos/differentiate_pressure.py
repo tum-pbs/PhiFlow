@@ -12,7 +12,7 @@ from phi.torch.flow import *
 DOMAIN = dict(x=80, y=64)
 LEFT = StaggeredGrid(HardGeometryMask(Box[:40, :]), extrapolation.ZERO, **DOMAIN)
 RIGHT = StaggeredGrid(HardGeometryMask(Box[40:, :]), extrapolation.ZERO, **DOMAIN)
-TARGET = RIGHT * StaggeredGrid(lambda x: math.exp(-0.5 * math.vec_squared(x - (50, 10)) / 32**2), extrapolation.ZERO, **DOMAIN) * (0, 2)
+TARGET = RIGHT * StaggeredGrid(lambda x: math.exp(-0.5 * math.vec_squared(x - (50, 10), 'vector') / 32**2), extrapolation.ZERO, **DOMAIN) * (0, 2)
 
 
 def loss(v0, p0):
@@ -23,7 +23,7 @@ def loss(v0, p0):
 eval_grad = field.functional_gradient(loss, [0], get_output=True)
 p0 = None
 velocity_fit = StaggeredGrid(Noise(), extrapolation.ZERO, **DOMAIN) * 0.1 * LEFT
-viewer = view('incompressible_velocity', TARGET, 'gradient', velocity_fit, 'remaining_divergence', play=False)
+viewer = view('incompressible_velocity', TARGET, 'gradient', velocity_fit, 'remaining_divergence', play=False, namespace=globals())
 
 for iteration in viewer.range(warmup=1):
     (loss, incompressible_velocity, pressure_guess), (gradient,) = eval_grad(velocity_fit, p0)

@@ -15,19 +15,13 @@ from phi.math.backend import Backend, NUMPY, ComputeDevice
 from phi.math.backend._backend import combined_dim, SolveResult, SparseCSRMatrix
 
 import pytorch_custom_cuda as torch_cuda
-import cProfile
 
 class TorchBackend(Backend):
 
     def __init__(self):
-        self.pr = cProfile.Profile()
-        self.cpu = ComputeDevice(self, "CPU", 'CPU', -1, -1, "", ref='cpu')
+        cpu = NUMPY.cpu
+        self.cpu = ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')
         Backend.__init__(self, 'PyTorch', default_device=self.cpu)
-
-    def close_profiler(self):
-        self.pr.create_stats()
-        self.pr.dump_stats('../Profiling_data/original_cg_sparse.pstat')
-        print("Your profile has been saved in phi/Profiling_data/")
 
     def prefers_channels_last(self) -> bool:
         return False
@@ -67,7 +61,7 @@ class TorchBackend(Backend):
         elif isinstance(x, np.ndarray):
             try:
                 tensor = torch.from_numpy(x)
-            except ValueError:
+            except ValueError:  # or TypeError?
                 tensor = torch.from_numpy(x.copy())
             tensor = tensor.to(self.get_default_device().ref)
         elif isinstance(x, (tuple, list)):
@@ -96,9 +90,8 @@ class TorchBackend(Backend):
 
     def numpy(self, tensor):
         if tensor.requires_grad:
-            return tensor.detach().cpu().numpy()
-        else:
-            return tensor.cpu().numpy()
+            tensor = tensor.detach()
+        return tensor.resolve_conj().cpu().numpy()
 
     def to_dlpack(self, tensor):
         from torch.utils import dlpack
@@ -130,6 +123,7 @@ class TorchBackend(Backend):
     nonzero = torch.nonzero
     flip = torch.flip
     seed = staticmethod(torch.manual_seed)
+    einsum = staticmethod(torch.einsum)
 
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(f)
@@ -268,7 +262,7 @@ class TorchBackend(Backend):
         result = undo_transform(result)
         return result
 
-    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
+    def grid_sample(self, grid, coordinates, extrapolation='constant'):
         assert extrapolation in ('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect'), extrapolation
         extrapolation = {'undefined': 'zeros', 'zeros': 'zeros', 'boundary': 'border', 'reflect': 'reflection'}.get(extrapolation, None)
         if extrapolation is None:
@@ -326,6 +320,11 @@ class TorchBackend(Backend):
                 boolean_tensor = torch.all(boolean_tensor, dim=axis, keepdim=keepdims)
             return boolean_tensor
 
+    def quantile(self, x, quantiles):
+        x = self.to_float(x)
+        result = torch.quantile(x, quantiles, dim=-1)
+        return result
+
     def divide_no_nan(self, x, y):
         x, y = self.auto_cast(x, y)
         return divide_no_nan(x, y)
@@ -369,12 +368,7 @@ class TorchBackend(Backend):
         if isinstance(A, SparseCSRMatrix):
             b_rows = b.size(0)
             b_cols = 1 if len(b.shape) == 1 else b.size(1)
-            if b_cols == 1:
-                C = torch_cuda.cusparse_SpMV(A.row_ptr, A.col_index, A.values, b,
-                                                      A.rows, A.cols)
-                C = C.reshape(A.rows)
-            else:
-                C = torch_cuda.cusparse_SpMM(A.row_ptr, A.col_index, A.values, b,
+            C = torch_cuda.cusparse_SpMM(A.row_ptr, A.col_index, A.values, b,
                 A.rows, A.cols, b_rows, b_cols)
             return C
         if isinstance(A, torch.Tensor) and A.is_sparse:
@@ -384,8 +378,8 @@ class TorchBackend(Backend):
             return torch.matmul(A, b.T).T
         raise NotImplementedError(type(A), type(b))
 
-    def einsum(self, equation, *tensors):
-        return torch.einsum(equation, *tensors)
+    def cumsum(self, x, axis: int):
+        return torch.cumsum(x, dim=axis)
 
     def while_loop(self, loop: Callable, values: tuple):
         if torch._C._get_tracing_state() is not None:
@@ -490,7 +484,7 @@ class TorchBackend(Backend):
         if self.is_tensor(tensor, only_native=True):
             return tuple(tensor.shape)
         elif isinstance(tensor, SparseCSRMatrix):
-            return (tensor.rows, tensor.cols)
+            return tuple([int(s) for s in tensor.shape])
         else:
             return NUMPY.staticshape(tensor)
 
@@ -544,27 +538,17 @@ class TorchBackend(Backend):
         result = scatter(base_grid_flat, dim=1, index=indices, src=values)
         return torch.reshape(result, base_grid.shape)
 
-    def fft(self, x):
+    def fft(self, x, axes: tuple or list):
         if not x.is_complex():
             x = self.to_complex(x)
-        for i in range(1, len(x.shape) - 1):
+        for i in axes:
             x = torch.fft.fft(x, dim=i)
         return x
-        # Using old torch.Tensor.fft
-        # rank = len(x.shape) - 2
-        # x = channels_first(x)
-        # x = torch.view_as_real(x)
-        # k = torch.Tensor.fft(x, rank)
-        # if k.is_complex():
-        #     k = self.real(k).contiguous()
-        # k = torch.view_as_complex(k)
-        # k = channels_last(k)
-        # return k
 
-    def ifft(self, k):
+    def ifft(self, k, axes: tuple or list):
         if not k.is_complex():
             k = self.to_complex(k)
-        for i in range(1, len(k.shape) - 1):
+        for i in axes:
             k = torch.fft.ifft(k, dim=i)
         return k
 
@@ -576,9 +560,14 @@ class TorchBackend(Backend):
             return self.zeros(x.shape, DType(float, dtype.precision))
 
     def real(self, x):
-        dtype = self.dtype(x)
-        if dtype.kind == complex:
+        if self.dtype(x).kind == complex:
             return torch.real(x)
+        else:
+            return x
+
+    def conj(self, x):
+        if self.dtype(x).kind == complex:
+            return torch.conj(x)
         else:
             return x
 
@@ -629,6 +618,7 @@ class TorchBackend(Backend):
         return SparseCSRMatrix(values=vals, row_ptr=rpoint, col_index=colind, rows=matrix.shape[0], cols=matrix.shape[1])
 
     def sparse_tensor(self, indices, values, shape):
+    def sparse_coo_tensor(self, indices, values, shape):
         indices_ = self.to_int64(indices)
         values_ = self.to_float(values)
         if not self.is_available(values_):
@@ -678,45 +668,11 @@ class TorchBackend(Backend):
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
-        x, residual, iterations, function_evaluations, converged, diverged = self._conjugate_gradient_solve(lin, y, x0, rtol, atol, max_iter)
+        rtol = self.as_tensor(rtol)
+        atol = self.as_tensor(atol)
+        max_iter = self.as_tensor(max_iter)
+        x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg(lin, y, x0, rtol, atol, max_iter)
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
-
-    def _conjugate_gradient_solve(self, lin, y, x0, rtol, atol, max_iter):
-        batch_size = y.shape[0]
-        tolerance_sq = self.maximum(rtol ** 2 * torch.sum(y ** 2, -1), atol ** 2)
-        x = x0
-        dx = residual = y - self.linear(lin, x) # r0 = b - A * x0
-        it_counter = torch.tensor(0, dtype=torch.int32, device=x.device)
-        iterations = self.zeros([batch_size], dtype=torch.int32, device=x.device)
-        function_evaluations = self.ones([batch_size], dtype=torch.int32, device=x.device)
-        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdim=True)
-        diverged = self.any(~torch.isfinite(x), dim=1)
-        converged = self.all(residual_squared <= tolerance_sq, dim=1)  # r0 ~ 0
-        finished = converged | diverged | (iterations >= max_iter);
-        not_finished_1 = (~finished).to(torch.int32)
-        while ~torch.all(finished):
-            it_counter += 1
-            iterations += not_finished_1
-            dy = self.linear(lin, dx)
-            function_evaluations += not_finished_1
-            dx_dy = self.sum(dx * dy, dim=-1, keepdim=True)
-            step_size = divide_no_nan(residual_squared, dx_dy)  # a_i = <r_i,r_i> / <r_i, A * r_i>
-            step_size *= torch.unsqueeze(not_finished_1.to(y.dtype),
-                                         -1)  # this is not really necessary but ensures batch-independence
-            x += step_size * dx  # x_(i+1) = x_i + a_i * r_i
-            if it_counter % 20 == 0:
-                residual = y - self.linear(lin, x)
-                function_evaluations += 1
-            else:
-                residual = residual - step_size * dy  # in-place subtraction affects convergence
-            residual_squared_old = residual_squared
-            residual_squared = self.sum(residual ** 2, -1, keepdim=True)  #r_(i+1) = b - A * xi
-            dx = residual + divide_no_nan(residual_squared, residual_squared_old) * dx
-            diverged = self.any(residual_squared / rsq0 > 100, dim=1) & (iterations >= 8)
-            converged = self.all(residual_squared <= tolerance_sq, dim=1)
-            finished = converged | diverged | (iterations >= max_iter)
-            not_finished_1 = (~finished).to(torch.int32)
-        return x, residual, iterations, function_evaluations, converged, diverged
 
     def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if callable(lin) or trj:
@@ -725,9 +681,10 @@ class TorchBackend(Backend):
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
-        self.pr.enable()
+        rtol = self.as_tensor(rtol)
+        atol = self.as_tensor(atol)
+        max_iter = self.as_tensor(max_iter)
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
-        self.pr.disable()
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
@@ -768,6 +725,8 @@ class TorchBackend(Backend):
         return self.functional_gradient(jit, wrt, get_output)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
+        if self.ndims(y) > 0:
+            y = self.sum(y)
         grad = torch.autograd.grad(y, xs, grad_y)
         return grad
 
@@ -856,6 +815,7 @@ _TO_TORCH = {
     DType(bool): torch.bool,
 }
 _FROM_TORCH = {np: dtype for dtype, np in _TO_TORCH.items()}
+
 
 @torch.jit._script_if_tracing
 def torch_sparse_cg(lin, y, x0, rtol, atol, max_iter):

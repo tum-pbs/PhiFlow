@@ -12,5 +12,5 @@ class TestAngularVelocity(TestCase):
         DOMAIN = Domain(x=4, y=3)
         field = AngularVelocity([0, 0])
         self.assertEqual(channel(vector=2), field.shape.channel)
-        field >> DOMAIN.vector_grid()
-        field >> DOMAIN.staggered_grid()
+        field @ DOMAIN.vector_grid()
+        field @ DOMAIN.staggered_grid()

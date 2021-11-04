@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi import math
-from phi.math import spatial, channel, batch, collection
+from phi.math import spatial, channel, batch, instance
 from phi.math._shape import shape_stack, vector_add, IncompatibleShapes, EMPTY_SHAPE
 
 
@@ -36,15 +36,15 @@ class TestShape(TestCase):
         self.assertEqual(12, stacked.shape.volume)
 
     def test_subshapes(self):
-        s = batch(batch=10) & spatial(x=4, y=3) & channel(vector=2) & collection(points=1)
+        s = batch(batch=10) & spatial(x=4, y=3) & channel(vector=2) & instance(points=1)
         self.assertEqual(batch(batch=10), s.batch)
         self.assertEqual(spatial(x=4, y=3), s.spatial)
         self.assertEqual(channel(vector=2), s.channel)
-        self.assertEqual(collection(points=1), s.collection)
+        self.assertEqual(instance(points=1), s.instance)
         self.assertEqual(batch(batch=10), batch(s))
         self.assertEqual(spatial(x=4, y=3), spatial(s))
         self.assertEqual(channel(vector=2), channel(s))
-        self.assertEqual(collection(points=1), collection(s))
+        self.assertEqual(instance(points=1), instance(s))
 
     def test_indexing(self):
         s = batch(batch=10) & spatial(x=4, y=3) & channel(vector=2)

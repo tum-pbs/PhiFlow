@@ -8,14 +8,11 @@ import logging
 import numpy as np
 
 from . import _ops as math
-from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, \
-    sum_, to_float
-from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, SPATIAL_DIM, vector_add, merge_shapes, spatial, collection, \
-    batch, concat_shapes
-from ._tensors import Tensor, NativeTensor, CollapsedTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, \
-    disassemble_tensors, assemble_tensors, TensorLikeType, variable_attributes, wrap, cached
-from .backend import choose_backend, Backend, get_current_profile, get_precision
-from .backend._backend import SolveResult
+from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, to_float
+from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
+from ._tensors import Tensor, NativeTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
+from .backend import choose_backend, Backend
+from .backend._backend import SolveResult, get_spatial_derivative_order
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -25,39 +22,40 @@ class SignatureKey:
 
     def __init__(self,
                  source_function: Callable or None,
-                 nest,
+                 tree,
                  shapes: Shape or Tuple[Shape],
                  kwargs: dict or None,
                  backend: Backend,
                  tracing: bool):
-        assert isinstance(nest, TensorLike), nest
+        assert isinstance(tree, TensorLike), tree
         if source_function is None:  # this is an input signature
             assert isinstance(shapes, tuple)
         self.source_function = source_function
-        self.nest = nest
+        self.tree = tree
         self.shapes = shapes
         self.kwargs = kwargs
         self.backend = backend
         self.tracing = tracing
+        self.spatial_derivative_order = get_spatial_derivative_order()
 
     def __repr__(self):
-        return f"{self.nest} with shapes {self.shapes}"
+        return f"{self.tree} with shapes {self.shapes}"
 
     def __eq__(self, other: 'SignatureKey'):
         assert isinstance(other, SignatureKey)
-        return self.nest == other.nest and self.shapes == other.shapes and self.kwargs == other.kwargs and self.backend == other.backend
+        return self.tree == other.tree and self.shapes == other.shapes and self.kwargs == other.kwargs and self.backend == other.backend and self.spatial_derivative_order == other.spatial_derivative_order
 
     def __hash__(self):
         return hash(self.shapes) + hash(self.backend)
 
     def matches_structure_and_names(self, other: 'SignatureKey'):
         assert isinstance(other, SignatureKey)
-        return self.nest == other.nest and all(s1.names == s2.names for s1, s2 in zip(self.shapes, other.shapes)) and self.kwargs == other.kwargs and self.backend == other.backend
+        return self.tree == other.tree and all(s1.names == s2.names for s1, s2 in zip(self.shapes, other.shapes)) and self.kwargs == other.kwargs and self.backend == other.backend
 
     def extrapolate(self, rec_in: 'SignatureKey', new_in: 'SignatureKey') -> 'SignatureKey':
         assert self.source_function is not None, "extrapolate() must be called on output keys"
         shapes = [self._extrapolate_shape(s, rec_in, new_in) for s in self.shapes]
-        return SignatureKey(self.source_function, self.nest, shapes, self.kwargs, self.backend)
+        return SignatureKey(self.source_function, self.tree, shapes, self.kwargs, self.backend)
 
     @staticmethod
     def _extrapolate_shape(shape_: Shape, rec_in: 'SignatureKey', new_in: 'SignatureKey') -> Shape:
@@ -111,7 +109,7 @@ class JitFunction:
             logging.debug(f"Φ-jit: Tracing '{self.f.__name__}'")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_tree(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
@@ -133,7 +131,7 @@ class JitFunction:
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
-        return assemble_tree(output_key.nest, output_tensors)
+        return assemble_tree(output_key.tree, output_tensors)
 
     def __repr__(self):
         return f"jit({self.f.__name__})"
@@ -146,7 +144,7 @@ class JitFunction:
 def jit_compile(f: Callable) -> Callable:
     """
     Compiles a graph based on the function `f`.
-    The graph compilation is performed just-in-time (jit) when the returned function is called for the first time.
+    The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.
 
     The traced function will compute the same result as `f` but may run much faster.
     Some checks may be disabled in the compiled function.
@@ -156,6 +154,14 @@ def jit_compile(f: Callable) -> Callable:
     @math.jit_compile
     def my_function(x: math.Tensor) -> math.Tensor:
     ```
+
+    Invoking the returned function may invoke re-tracing / re-compiling `f` after the first call if either
+
+    * it is called with a different number of arguments,
+    * the keyword arguments differ from previous invocations,
+    * the positional tensor arguments have different dimension names or types (the dimension order also counts),
+    * any positional `Tensor` arguments require a different backend than previous invocations,
+    * `TensorLike` positional arguments do not match in non-variable properties.
 
     Compilation is implemented for the following backends:
 
@@ -195,8 +201,8 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         assert in_key.shapes[0].is_uniform, f"math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}"
         with in_key.backend:
             x = math.ones(in_key.shapes[0])
-            tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape)
-        f_input = assemble_tree(in_key.nest, [tracer])
+            tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
+        f_input = assemble_tree(in_key.tree, [tracer])
         assert isinstance(f_input, tuple)
         condition_args = [in_key.kwargs[f'_condition_arg[{i}]'] for i in range(in_key.kwargs['n_condition_args'])]
         kwargs = {k: v for k, v in in_key.kwargs.items() if not (k.startswith('_condition_arg[') or k == 'n_condition_args')}
@@ -225,7 +231,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
             return self.f(*args, **kwargs)
         backend = math.choose_backend_t(*tensors)
-        if not backend.supports(Backend.sparse_tensor):
+        if not backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
                 logging.debug(f"Φ-lin: Running '{self.f.__name__}' as-is with {backend} because it is being traced.")
@@ -237,17 +243,23 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         tracer = self._get_or_trace(key)
         return tracer.apply(tensors[0])
 
-    def sparse_coordinate_matrix(self, x, *condition_args, **kwargs):
+    def sparse_matrix(self, x, *condition_args, format: str = None, **kwargs):
         key = self._condition_key(x, condition_args, kwargs)
         tracer = self._get_or_trace(key)
-        return tracer.get_sparse_coordinate_matrix()
+        assert math.close(tracer.bias, 0), "This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead."
+        return tracer.get_sparse_matrix(format)
+
+    def sparse_matrix_and_bias(self, x, *condition_args, format: str = None, **kwargs):
+        key = self._condition_key(x, condition_args, kwargs)
+        tracer = self._get_or_trace(key)
+        return tracer.get_sparse_matrix(format), tracer.bias
 
     def _condition_key(self, x, condition_args, kwargs):
         kwargs['n_condition_args'] = len(condition_args)
         for i, c_arg in enumerate(condition_args):
             kwargs[f'_condition_arg[{i}]'] = c_arg
         key, _ = key_from_args(x, cache=False, **kwargs)
-        assert key.backend.supports(Backend.sparse_tensor)
+        assert key.backend.supports(Backend.sparse_coo_tensor)
         return key
 
     def stencil_inspector(self, *args, **kwargs):
@@ -306,7 +318,7 @@ class GradientFunction:
             logging.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_tree(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
@@ -333,11 +345,11 @@ class GradientFunction:
         if self.get_output:
             result_shapes = list(output_key.shapes) + [key.shapes[i] for i in wrt_tensors]
             output_tensors = assemble_tensors(native_result, result_shapes)
-            output_structure, grad_tuple = assemble_tree((output_key.nest, [key.nest[i] for i in wrt_tensors]), output_tensors)
+            output_structure, grad_tuple = assemble_tree((output_key.tree, [key.tree[i] for i in wrt_tensors]), output_tensors)
             return output_structure, grad_tuple
         else:
             output_tensors = assemble_tensors(native_result, [key.shapes[i] for i in wrt_tensors])
-            return assemble_tree([key.nest[i] for i in wrt_tensors], output_tensors)
+            return assemble_tree([key.tree[i] for i in wrt_tensors], output_tensors)
 
     def __repr__(self):
         return f"grad({self.f.__name__})"
@@ -414,7 +426,7 @@ class CustomGradientFunction:
         def forward_native(*natives, **kwargs):
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
-            values = assemble_tree(in_key.nest, in_tensors)
+            values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
@@ -428,13 +440,13 @@ class CustomGradientFunction:
             x_tensors = assemble_tensors(x_natives, in_key.shapes)
             y_tensors = assemble_tensors(y_natives, out_key.shapes)
             dy_tensors = assemble_tensors(dy_natives, out_key.shapes)
-            x = assemble_tree(in_key.nest, x_tensors)
+            x = assemble_tree(in_key.tree, x_tensors)
             assert isinstance(x, tuple)
-            y = assemble_tree(out_key.nest, y_tensors)
-            dy = assemble_tree(out_key.nest, dy_tensors)
+            y = assemble_tree(out_key.tree, y_tensors)
+            dy = assemble_tree(out_key.tree, dy_tensors)
             result = self.gradient(*x, y, dy, **in_key.kwargs)
             assert isinstance(result, (tuple, list)), "Gradient function must return tuple or list"
-            result_natives = self.incomplete_tree_to_natives(result, in_key.nest, list(in_key.shapes))
+            result_natives = self.incomplete_tree_to_natives(result, in_key.tree, list(in_key.shapes))
             return result_natives
 
         forward_native.__name__ = f"forward '{self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)}'"
@@ -454,7 +466,7 @@ class CustomGradientFunction:
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
-        return assemble_tree(output_key.nest, output_tensors)
+        return assemble_tree(output_key.tree, output_tensors)
 
     def __repr__(self):
         return f"custom_gradient(forward={self.f.__name__}, backward={self.gradient.__name__}, id={id(self)})"
@@ -535,22 +547,31 @@ def simplify_add(val: dict) -> Dict[Shape, Tensor]:
 
 
 class ShiftLinTracer(Tensor):
+    """
+    Tracer object for linear and affine functions.
+    The sparsity pattern is assumed equal for all grid cells and is reflected in `val` (e.g. for a 5-point stencil, `val` has 5 items).
+    The Tensors stored in `val` include position-dependent dimensions, allowing for different stencils at different positions.
+    Dimensions not contained in any `val` Tensor are treated as independent (batch dimensions).
+    """
 
-    def __init__(self, source: Tensor, values_by_shift: dict, shape: Shape):
+    def __init__(self, source: Tensor, values_by_shift: dict, shape: Shape, bias: Tensor):
         """
-
-
         Args:
-          source: placeholder tensor
-          values_by_shift: shift: Shape -> values: Tensor.
-        shift only contains only non-zero shift dims.
-        Missing dims are interpreted as independent.
-          shape: shape of this tensor
+            source: placeholder tensor
+            values_by_shift: `dict` mapping relative shifts (`Shape`) to value Tensors.
+                Shape keys only contain non-zero shift dims. Missing dims are interpreted as independent.
+            shape: shape of this tensor
+            bias: Constant Tensor to be added to the multiplication output, A*x + b.
+                A bias naturally arises at boundary cells with non-trivial boundary conditions if no ghost cells are added to the matrix.
+                When non-zero, this tracer technically represents an affine function, not a linear one.
+                However, the bias can be subtracted from the solution vector when solving a linear system, allowing this function to be solved with regular linear system solvers.
         """
         self.source = source
         self.val: Dict[Shape, Tensor] = simplify_add(values_by_shift)
+        self.bias = bias
         self._shape = shape
         self._sparse_coo = None
+        self._sparse_csr = None
 
     def native(self, order: str or tuple or list or Shape = None):
         """
@@ -573,7 +594,7 @@ class ShiftLinTracer(Tensor):
 
     def apply(self, value: Tensor) -> NativeTensor:
         assert value.shape == self.source.shape
-        mat = self.get_sparse_coordinate_matrix().native()
+        mat = self.get_sparse_matrix().native()
         independent_dims = self.independent_dims
         # TODO slice for missing dimensions
         order_src = concat_shapes(value.shape.only(independent_dims), value.shape.without(independent_dims))
@@ -585,17 +606,10 @@ class ShiftLinTracer(Tensor):
         native_out = backend.reshape(native_out, order_out.sizes)
         return NativeTensor(native_out, order_out)
 
-    def get_sparse_coordinate_matrix(self) -> 'FixedShiftSparseTensor':
+    def get_sparse_coordinate_matrix(self) -> 'SparseMatrixContainer':
         """
         Builds a sparse matrix that represents this linear operation.
         Independent dimensions, those that can be treated as batch dimensions, are recognized automatically and ignored.
-        
-        :return: native sparse tensor
-
-        Args:
-
-        Returns:
-
         """
         if self._sparse_coo is not None:
             return self._sparse_coo
@@ -617,14 +631,38 @@ class ShiftLinTracer(Tensor):
         vals = backend.flatten(backend.stack(vals, -1))
         rows = np.arange(out_shape.volume * len(self.val)) // len(self.val)
         # TODO sort indices?
-        self._sparse_coo = FixedShiftSparseTensor((out_shape.volume, src_shape.volume),
-                                                  set(self.val.keys()), rows, cols,
-                                                  NativeTensor(vals, collection(nnz=len(vals))),
-                                                  self.dependent_dims)
+        self._sparse_coo = SparseMatrixContainer('coo', (out_shape.volume, src_shape.volume),
+                                                 set(self.val.keys()), self.dependent_dims,
+                                                 NativeTensor(vals, instance(nnz=len(vals))), rows, cols)
         return self._sparse_coo
 
-    def build_sparse_csr_matrix(self):
-        raise NotImplementedError()
+    def get_sparse_csr_matrix(self) -> 'SparseMatrixContainer':
+        """
+        Builds a sparse matrix that represents this linear operation.
+        Independent dimensions, those that can be treated as batch dimensions, are recognized automatically and ignored.
+        """
+        if self._sparse_csr is not None:
+            return self._sparse_csr
+        coo = self.get_sparse_coordinate_matrix()
+        idx = np.arange(1, len(coo.values)+1)  # start indexing at 1 since 0 might get removed
+        import scipy.sparse
+        scipy_csr = scipy.sparse.csr_matrix((idx, (coo.rows, coo.cols)), shape=coo.shape)
+        col_indices = scipy_csr.indices
+        row_ptr = scipy_csr.indptr
+        if coo.values.nnz.size != len(scipy_csr.data):
+            warnings.warn("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.")
+            return coo
+        values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
+        self._sparse_csr = SparseMatrixContainer('csr', coo.shape, coo.indices_key, coo.src_shape, values, row_ptr, col_indices)
+        return self._sparse_csr
+
+    def get_sparse_matrix(self, matrix_format: str = None) -> 'SparseMatrixContainer':
+        if self.default_backend.supports(Backend.csr_matrix) and matrix_format in (None, 'csr'):
+            return self.get_sparse_csr_matrix()
+        elif self.default_backend.supports(Backend.sparse_coo_tensor) and matrix_format in (None, 'coo'):
+            return self.get_sparse_coordinate_matrix()
+        else:
+            raise NotImplementedError(f"Cannot create sparse matrix using backend '{self.default_backend}' given type '{matrix_format}'")
 
     @property
     def dependent_dims(self):
@@ -652,17 +690,21 @@ class ShiftLinTracer(Tensor):
     def _getitem(self, selection: dict):
         starts = {dim: (item.start or 0) if isinstance(item, slice) else item for dim, item in selection.items()}
         new_shape = math.zeros(self._shape)[selection].shape
-        return self.shift(starts, lambda v: v[selection], new_shape)
+        return self.shift(starts, new_shape, lambda v: v[selection], lambda b: b[selection])
 
-    def shift(self, shifts: dict, val_fun, new_shape):
+    def shift(self, shifts: dict,
+              new_shape: Shape,
+              val_fun: Callable,
+              bias_fun: Callable = None):
         """
         Shifts all values of this tensor by `shifts`.
-        Values shifted outside will be mapped with periodic boundary conditions when the matrix is built, see `get_sparse_coordinate_matrix()`.
+        Values shifted outside will be mapped with periodic boundary conditions when the matrix is built.
 
         Args:
             shifts: Offsets by dimension
-            val_fun: Function to apply to the matrix values, may change the tensor shapes
             new_shape: Shape of the shifted tensor, must match the shape returned by `val_fun`.
+            val_fun: Function to apply to the matrix values, may change the tensor shapes
+            bias_fun: Function to apply to the bias vector, may change the tensor shape
 
         Returns:
             Shifted tensor, possibly with altered values.
@@ -676,13 +718,14 @@ class ShiftLinTracer(Tensor):
                 if delta:
                     shift = shift._replace_single_size(dim, shift.get_size(dim) + delta) if dim in shift else shift._expand(spatial(**{dim: delta}))
             val[shift] = val_fun(values)
-        return ShiftLinTracer(self.source, val, new_shape)
+        bias = bias_fun(self.bias)
+        return ShiftLinTracer(self.source, val, new_shape, bias)
 
     def unstack(self, dimension):
         raise NotImplementedError()
 
     def __neg__(self):
-        return ShiftLinTracer(self.source, {shift: -values for shift, values in self.val.items()}, self._shape)
+        return ShiftLinTracer(self.source, {shift: -values for shift, values in self.val.items()}, self._shape, -self.bias)
 
     def _op1(self, native_function):  # only __neg__ is linear
         raise NotImplementedError('Only linear operations are supported')
@@ -729,14 +772,16 @@ class ShiftLinTracer(Tensor):
                         values[dim_shift] = operator(math.zeros_like(other_values), other_values)
                     else:
                         values[dim_shift] = other_values
-            return ShiftLinTracer(self.source, values, self._shape)
+            bias = operator(self.bias, other.bias)
+            return ShiftLinTracer(self.source, values, self._shape, bias)
         else:
             other = self._tensor(other)
             values = {}
             for dim_shift, val in self.val.items():
                 val_, other_ = math.join_spaces(val, other)
                 values[dim_shift] = operator(val_, other_)
-            return ShiftLinTracer(self.source, values, self._shape & other.shape)
+            bias = operator(self.bias, other)
+            return ShiftLinTracer(self.source, values, self._shape & other.shape, bias)
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
@@ -748,8 +793,10 @@ class ShiftLinTracer(Tensor):
         raise NotImplementedError()
 
     def _natives(self) -> tuple:
-        return sum([v._natives() for v in self.val.values()], ())
-        # raise NotImplementedError()  # should not be used, this tensor should be regarded as not available
+        """
+        This function should only be used to determine the compatible backends, this tensor should be regarded as not available.
+        """
+        return sum([v._natives() for v in self.val.values()], ()) + self.bias._natives()
 
 
 def cell_indices(shape: Shape) -> tuple:
@@ -766,9 +813,35 @@ def cell_number(cells, resolution: Shape):
         return 0,
 
 
-class FixedShiftSparseTensor:
+class SparseMatrixContainer:
+    """
+    This class holds information about a sparse matrix and can be passed as argument of JIT-compiled functions.
+    It is typically craeted by a PhiFlow tracer object, such as `ShiftLinTracer`.
+    Only the values tensor is variable, the sparsity pattern is fixed.
 
-    def __init__(self, shape: tuple, indices_key, rows, cols, values: Tensor, src_shape: Shape):
+    TensorFlow doesn't allow native sparse tensors as arguments of JIT-compiled functions.
+    """
+
+    def __init__(self,
+                 indexing_type: str,
+                 shape: tuple,
+                 indices_key,
+                 src_shape: Shape,
+                 values: Tensor,
+                 rows, cols,
+                 ):
+        """
+
+        Args:
+            shape: Sparse matrix shape
+            indices_key: Low-dimensional representation of the sparsity pattern, typically a set of offsets.
+            rows: Row indices
+            cols: Column indices
+            values: Values
+            src_shape: Non-flattened `Shape` of `x` vectors compatible with this matrix.
+        """
+        assert indexing_type in ('coo', 'csr')
+        self.indexing_type = indexing_type
         self.shape = shape
         self.indices_key = indices_key
         self.rows = rows
@@ -777,14 +850,20 @@ class FixedShiftSparseTensor:
         self.src_shape = src_shape
 
     def __eq__(self, other):
-        return isinstance(other, FixedShiftSparseTensor) and self.indices_key == other.indices_key and self.src_shape == other.src_shape
+        return isinstance(other, SparseMatrixContainer) and \
+               self.indexing_type == other.indexing_type and \
+               self.indices_key == other.indices_key and \
+               self.src_shape == other.src_shape
 
     def __variable_attrs__(self):
         return 'values',
 
     def native(self):
         backend = choose_backend(self.rows, self.cols, *self.values._natives())
-        return backend.sparse_tensor((self.rows, self.cols), self.values.native(), self.shape)
+        if self.indexing_type == 'coo':
+            return backend.sparse_coo_tensor((self.rows, self.cols), self.values.native(), self.shape)
+        else:  # csr
+            return backend.csr_matrix(self.cols, self.rows, self.values.native(), self.shape)
 
 
 class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors there
@@ -803,13 +882,13 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         assert isinstance(method, str)
         self.method: str = method
         """ Optimization method to use. Available solvers depend on the solve function that is used to perform the solve. """
-        self.relative_tolerance: Tensor = wrap(relative_tolerance)
+        self.relative_tolerance: Tensor = math.to_float(wrap(relative_tolerance))
         """ Relative tolerance for linear solves only. This must be `0` for minimization problems.
         For systems of equations *f(x)=y*, the final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. """
-        self.absolute_tolerance: Tensor = wrap(absolute_tolerance)
+        self.absolute_tolerance: Tensor = math.to_float(wrap(absolute_tolerance))
         """ Absolut tolerance for optimization problems and linear solves.
         For systems of equations *f(x)=y*, the final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. """
-        self.max_iterations: Tensor = wrap(max_iterations)
+        self.max_iterations: Tensor = math.to_int32(wrap(max_iterations))
         """ Maximum number of iterations to perform before raising a `NotConverged` error is raised. """
         self.x0 = x0
         """ Initial guess for the method, of same type and dimensionality as the solve result.
@@ -889,7 +968,7 @@ class SolveInfo(Generic[X, Y]):
             if self.diverged.any:
                 msg = f"Solve diverged within {iterations if iterations is not None else '?'} iterations using {method}."
             elif not self.converged.trajectory[-1].all:
-                msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}."
+                msg = f"Solve did not converge to rel={solve.relative_tolerance}, abs={solve.absolute_tolerance} within {solve.max_iterations} iterations using {method}. Max residual: {[math.max_(t.trajectory[-1]) for t in disassemble_tree(self.residual)[1]]}"
             else:
                 msg = f"Converged within {iterations if iterations is not None else '?'} iterations."
         self.msg = msg
@@ -1157,7 +1236,10 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     return minimize(min_func, solve)
 
 
-def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or list = (), f_kwargs: dict = None) -> X:
+def solve_linear(f: Callable[[X], Y],
+                 y: Y, solve: Solve[X, Y],
+                 f_args: tuple or list = (),
+                 f_kwargs: dict = None) -> X:
     """
     Solves the system of linear equations *f(x) = y* and returns *x*.
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
@@ -1194,11 +1276,11 @@ def solve_linear(f: Callable[[X], Y], y: Y, solve: Solve[X, Y], f_args: tuple or
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
     if not all_available(*y_tensors, *x0_tensors):  # jit mode
-        f = jit_compile_linear(f) if backend.supports(Backend.sparse_tensor) else jit_compile(f)
+        f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
-    if isinstance(f, LinearFunction) and backend.supports(Backend.sparse_tensor):
-        matrix = f.sparse_coordinate_matrix(solve.x0, *f_args, **(f_kwargs or {}))
-        return _matrix_solve(y, solve, matrix, backend=backend)  # custom_gradient
+    if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
+        matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))
+        return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
     else:
         # arg_tree, arg_tensors = disassemble_tree(f_args)
         # arg_tensors = cached(arg_tensors)
@@ -1217,9 +1299,9 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
     batch_dims = (y_tensor.shape & x0_tensor.shape).without(active_dims)
     x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch_dims, active_dims], force_expand=True))
     y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, active_dims], force_expand=True))
-    rtol = backend.to_float(reshaped_native(solve.relative_tolerance, [batch_dims], force_expand=True))
-    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
-    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
+    rtol = backend.as_tensor(reshaped_native(math.to_float(solve.relative_tolerance), [batch_dims], force_expand=True))
+    atol = backend.as_tensor(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
+    maxi = backend.as_tensor(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     if trj:
         assert all_available(y_tensor, x0_tensor), "Cannot record linear solve in jit mode"
@@ -1269,7 +1351,7 @@ def attach_gradient_solve(forward_solve: Callable):
     return solve_with_grad
 
 
-def _matrix_solve_forward(y, solve: Solve, matrix: FixedShiftSparseTensor,
+def _matrix_solve_forward(y, solve: Solve, matrix: SparseMatrixContainer,
                           backend: Backend = None, is_backprop=False):  # kwargs
     matrix_native = matrix.native()
     active_dims = matrix.src_shape

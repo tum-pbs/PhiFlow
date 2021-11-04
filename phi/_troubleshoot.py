@@ -40,6 +40,10 @@ def troubleshoot_tensorflow():
     except ImportError:
         return "Not installed."
     try:
+        import tensorflow_probability
+    except ImportError:
+        return "Module 'tensorflow_probability' missing. Some functions may be unavailable, such as math.median() and math.quantile(). To install it, run  $ pip install tensorflow-probability"
+    try:
         from phi import tf
     except BaseException as err:
         return f"Installed but not available due to internal error: {err}"
@@ -117,23 +121,19 @@ def troubleshoot_dash():
     try:
         import dash
     except ImportError:
-        return "Dash not installed"
+        return "Dash not installed. Will fallback to console interface. To install dash, run  $ pip install dash"
     try:
         import plotly
     except ImportError:
-        return "Plotly not installed"
+        return "Plotly not installed. This package is required by dash. To install it, run  $ pip install plotly"
     try:
         import imageio
     except ImportError:
-        return "ImageIO not installed, 3D view might not work."
-    try:
-        import matplotlib
-    except ImportError:
-        return "Matplotlib not installed"
+        return "Dash installed but ImageIO not available, 3D view will not work. You can fix this by running  $ pip install imageio"
     try:
         dash.Dash('Test')
     except BaseException as e:
-        return f"Runtime error: {e}"
+        return f"Dash runtime error: {e}"
     return 'OK'
 
 

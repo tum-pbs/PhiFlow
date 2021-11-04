@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise
 from phi.geom import Sphere, Box
-from phi.math import extrapolation, wrap, collection, channel
+from phi.math import extrapolation, wrap, instance, channel
 from phi.vis._dash._plotly_plots import plot
 import plotly
 
@@ -28,14 +28,14 @@ class TestMatplotlibPlots(TestCase):
         fig.show()
 
     def test_plot_point_cloud(self):
-        points = wrap([(.2, .4), (.9, .8)], collection('points'), channel('vector'))
+        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         cloud = PointCloud(Sphere(points, radius=0.1))
         fig = plot(cloud)
         assert isinstance(fig, plotly.graph_objs.Figure)
         fig.show()
 
     def test_plot_point_cloud_bounded(self):
-        points = wrap([(.2, .4), (.9, .8)], collection('points'), channel('vector'))
+        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         cloud = PointCloud(Sphere(points, radius=0.1), bounds=Box(0, [1, 1]))
         fig = plot(cloud)
         assert isinstance(fig, plotly.graph_objs.Figure)

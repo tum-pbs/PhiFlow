@@ -36,6 +36,16 @@ class TestFunctional(TestCase):
                 if backend.supports(Backend.jit_compile):
                     self.assertEqual(len(scalar_mul.traces), trace_count_0 + 3)
 
+    def test_jit_compile_with_native(self):
+        @math.jit_compile
+        def scalar_mul(x, fac=1):
+            return x * fac
+
+        for backend in BACKENDS:
+            with backend:
+                x = backend.ones([3, 2])
+                math.assert_close(scalar_mul(x, fac=1), 1, msg=backend)
+
     def test_jit_compile_linear(self):
         math.GLOBAL_AXIS_ORDER.x_last()
         x = math.random_normal(batch(batch=3) & spatial(x=4, y=3))  # , vector=2
@@ -47,7 +57,7 @@ class TestFunctional(TestCase):
             val = val.x[:-2].y[1:] + val.x[2:].y[:-1]
             val = math.pad(val, {'x': (0, 0), 'y': (0, 1)}, math.extrapolation.ZERO)
             val = math.pad(val, {'x': (2, 2), 'y': (0, 1)}, math.extrapolation.BOUNDARY)
-            return math.sum([val, val], dim=0) - val
+            return math.sum([val, val], dim='0') - val
 
         functions = [
             linear_function,
@@ -63,6 +73,8 @@ class TestFunctional(TestCase):
 
     def test_functional_gradient(self):
         def f(x: math.Tensor, y: math.Tensor):
+            assert isinstance(x, math.Tensor)
+            assert isinstance(y, math.Tensor)
             pred = x
             loss = math.l2_loss(pred - y)
             return loss, pred
@@ -233,6 +245,16 @@ class TestFunctional(TestCase):
                     assert False
                 except Diverged:
                     pass
+
+    def test_solve_linear_matrix_dirichlet(self):
+        for backend in BACKENDS:
+            with backend:
+                y = CenteredGrid(1, extrapolation.ONE, x=3)
+                x0 = CenteredGrid(0, extrapolation.ONE, x=3)
+                solve = math.Solve('CG', 0, 1e-3, x0=x0, max_iterations=100)
+                x_ref = field.solve_linear(field.laplace, y, solve)
+                x_jit = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+                math.assert_close(x_ref.values, x_jit.values, [-0.5, -1, -0.5], abs_tolerance=1e-3, msg=backend)
 
     def test_jit_solves(self):
         @math.jit_compile

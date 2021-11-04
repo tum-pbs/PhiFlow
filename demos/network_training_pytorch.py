@@ -9,14 +9,13 @@ from phi.torch.flow import *
 net = u_net(2, 2)
 optimizer = optim.Adam(net.parameters(), lr=1e-3)
 
-DOMAIN = Domain(x=64, y=64)
-prediction = DOMAIN.vector_grid(0)
-prediction_div = DOMAIN.scalar_grid(0)
-viewer = view(play=False)
+prediction = CenteredGrid((0, 0), extrapolation.BOUNDARY, x=64, y=64)
+prediction_div = CenteredGrid(0, 0, x=64, y=64)
+viewer = view(play=False, namespace=globals(), select='batch')
 
 for step in viewer.range(100):
     # Load or generate training data
-    data = DOMAIN.vector_grid(Noise(batch=8, vector=2))
+    data = CenteredGrid(Noise(batch(batch=8), channel(vector=2)), extrapolation.BOUNDARY, x=64, y=64)
     # Initialize optimizer
     optimizer.zero_grad()
     # Prediction
@@ -25,9 +24,9 @@ for step in viewer.range(100):
     prediction_div = field.divergence(prediction)
     # Define loss
     loss = field.l2_loss(prediction_div) + field.l2_loss(prediction - data)
-    viewer.log_scalars(loss=loss, div=field.mean(abs(prediction_div)), distance=math.vec_abs(field.mean(abs(prediction - data))))
+    viewer.log_scalars(loss=loss.mean, div=field.mean(abs(prediction_div)).mean, distance=math.vec_abs(field.mean(abs(prediction - data))).mean)
     # Compute gradients and update weights
-    loss.native().backward()
+    loss.mean.backward()
     optimizer.step()
 
 torch.save(net.state_dict(), 'torch_net.pth')

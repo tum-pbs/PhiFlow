@@ -12,16 +12,23 @@ from phi import field
 from phi.field import SampledField, Scene
 from phi.math import Shape, EMPTY_SHAPE
 
-Control = namedtuple('Control', ['name', 'control_type', 'initial', 'value_range', 'description', 'kwargs'])
+Control = namedtuple('Control', [
+    'name',
+    'control_type',  # type (float, int, str, bool)
+    'initial',
+    'value_range',  # (lo, hi) or ("
+    'description',  # str
+    'kwargs'  # dict
+])
 
 Action = namedtuple('Action', ['name', 'description'])
 
 
-def value_range(control: Control):
-    if isinstance(control.value_range, tuple):
-        assert len(control.value_range) == 2, f"Tuple must be (min, max) but got length {len(control.value_range)}"
-        return control.value_range
+def value_range(control: Control) -> tuple:
     if control.control_type == float:
+        if isinstance(control.value_range, tuple):
+            assert len(control.value_range) == 2, f"Tuple must be (min, max) but got length {len(control.value_range)}"
+            return control.value_range
         log_scale = is_log_control(control)
         if log_scale:
             magn = log10(control.initial)
@@ -34,6 +41,9 @@ def value_range(control: Control):
             else:
                 val_range = (2. * control.initial, -2. * control.initial)
     elif control.control_type == int:
+        if isinstance(control.value_range, tuple):
+            assert len(control.value_range) == 2, f"Tuple must be (min, max) but got length {len(control.value_range)}"
+            return control.value_range
         if control.initial == 0:
             val_range = (-10, 10)
         elif control.initial > 0:
@@ -41,8 +51,11 @@ def value_range(control: Control):
         else:
             val_range = (2 * control.initial, -2 * control.initial)
     elif control.control_type == bool:
+        assert control.value_range is None, "Specifying range for bool controls is not allowed."
         return False, True
     elif control.control_type == str:
+        if isinstance(control.value_range, tuple):
+            return "", control.value_range
         return "", ""
     else:
         raise AssertionError(f"Not a numeric control: {control}")

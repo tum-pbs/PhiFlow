@@ -76,8 +76,8 @@ class TestMathNDNumpy(TestCase):
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
         expected_values = math.ones(spatial(x=3, y=3))
         expected_valid = extrapolated_values
-        assert extrapolated_values == expected_values
-        assert extrapolated_valid == expected_valid
+        math.assert_close(extrapolated_values, expected_values)
+        math.assert_close(extrapolated_valid, expected_valid)
 
     def test_extrapolate_valid_3x3(self):
         valid = tensor([[0, 0, 0],
@@ -93,8 +93,8 @@ class TestMathNDNumpy(TestCase):
                                   [2, 3, 4],
                                   [2, 3, 4]], spatial('x, y'))
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
-        assert extrapolated_values == expected_values
-        assert extrapolated_valid == expected_valid
+        math.assert_close(extrapolated_values, expected_values)
+        math.assert_close(extrapolated_valid, expected_valid)
 
     def test_extrapolate_valid_4x4(self):
         valid = tensor([[0, 0, 0, 0],
@@ -114,8 +114,8 @@ class TestMathNDNumpy(TestCase):
                                   [2, 3, 4, 4],
                                   [2, 2, 3.25, 4]], spatial('x, y'))
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
-        assert extrapolated_values == expected_values
-        assert extrapolated_valid == expected_valid
+        math.assert_close(extrapolated_values, expected_values)
+        math.assert_close(extrapolated_valid, expected_valid)
 
     def test_extrapolate_valid_3D_3x3x3_1(self):
         valid = tensor([[[0, 0, 0],
@@ -155,8 +155,8 @@ class TestMathNDNumpy(TestCase):
                                    [2, 3, 4],
                                    [2, 2, 0]]], spatial('x, y, z'))
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 1)
-        assert extrapolated_values == expected_values
-        assert extrapolated_valid == expected_valid
+        math.assert_close(extrapolated_values, expected_values)
+        math.assert_close(extrapolated_valid, expected_valid)
 
     def test_extrapolate_valid_3D_3x3x3_2(self):
         valid = tensor([[[0, 0, 0],
@@ -188,8 +188,8 @@ class TestMathNDNumpy(TestCase):
                                    [2, 3, 4],
                                    [2, 2, 3]]], spatial('x, y, z'))
         extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
-        assert extrapolated_values == expected_values
-        assert extrapolated_valid == expected_valid
+        math.assert_close(extrapolated_values, expected_values)
+        math.assert_close(extrapolated_valid, expected_valid)
 
     # Fourier Laplace
 

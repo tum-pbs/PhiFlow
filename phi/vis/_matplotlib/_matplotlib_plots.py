@@ -1,3 +1,4 @@
+import logging
 import os
 from numbers import Number
 from typing import Callable
@@ -12,13 +13,17 @@ from phi.geom import Sphere, BaseBox
 from phi.math import channel, batch
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name
-from phi.field import Grid, StaggeredGrid, PointCloud
-from phi.field import Scene
-from phi.field._field import SampledField
+from phi.field import Grid, StaggeredGrid, PointCloud, Scene, unstack, SampledField
 from phi.field._scene import _str
 
 
-def plot(field: SampledField, title=False, show_color_bar=True, size=(12, 5), same_scale=True, **plt_args):
+def plot(field: SampledField or tuple or list,
+         title=False,
+         size=(12, 5),
+         show_color_bar=True,
+         same_scale=True,
+         existing_figure: plt.Figure or None = None,
+         **plt_args):
     """
     Creates a Matplotlib figure to display a single field or batch of fields.
 
@@ -26,21 +31,20 @@ def plot(field: SampledField, title=False, show_color_bar=True, size=(12, 5), sa
     [`matplotlib.pyplot.savefig()`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html) to view the figure.
 
     Args:
-        field: `SampledField`, may contain batch dimensions which will create subfigures.
-        title: Figure title.
+        field: `SampledField`, may contain batch dimensions which will create sub-figures.
+        title: Figure/sub-figure title. If `str` or `tuple`/`list` of `str`. `True` to generate a title automatically.
         show_color_bar: Whether to show a colorbar for heatmap plots.
         size: Figure (width, height) in inches.
         same_scale: Whether to use the same value scale for all subplots.
+        existing_figure: Existing Matplotlib figure to add this plot to. Figure will not be cleared before plotting.
         **plt_args: Additional plotting arguments passed to Matplotlib.
 
     Returns:
         [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
     """
-    batch_size, b_values = _batch(field)
-    fig, axes = plt.subplots(1, batch_size, figsize=size)
-    axes = axes if isinstance(axes, np.ndarray) else [axes]
+    fig, fields = _subplots(field, size, existing_figure=existing_figure)
     if title:
-        for b in range(batch_size):
+        for b in range(len(fig.axes)):
             if isinstance(title, str):
                 sub_title = title
             elif title is True:
@@ -50,25 +54,40 @@ def plot(field: SampledField, title=False, show_color_bar=True, size=(12, 5), sa
             else:
                 sub_title = None
             if sub_title is not None:
-                axes[b].set_title(sub_title)
-    _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args)
+                fig.axes[b].set_title(sub_title)
+    if same_scale and any(isinstance(f, Grid) for f in fields):
+        min_val = min([float(f.values.min) for f in fields if isinstance(f, Grid)])
+        max_val = min([float(f.values.max) for f in fields if isinstance(f, Grid)])
+    else:
+        min_val, max_val = None, None
+    for axis, field in zip(fig.axes, fields):
+        _plot(axis, field, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
     plt.tight_layout()
     return fig
 
 
-def animate(fields: SampledField, dim='frames',
-            show_color_bar=False, size=(8, 6), same_scale=True, repeat=True, interval=200, **plt_args) -> animation.Animation:
+def animate(fields: SampledField,
+            dim='frames',
+            repeat=True,
+            interval=200,
+            title=False,
+            size=(8, 6),
+            show_color_bar=False,
+            same_scale=True,
+            **plt_args) -> animation.Animation:
     """
     Creates a Matplotlib animation from `fields`.
     `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
 
     Args:
         fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
-        show_color_bar: Whether to show a color bar
-        size: Figure size
-        same_scale: Whether to use the same scale, both temporally and for all sub-figures.
+        dim: Time dimension to animate (default=`'frames'`).
         repeat: Whether the video should loop.
         interval: Frame time in milliseconds.
+        title: Figure/sub-figure title. If `str` or `tuple`/`list` of `str`. `True` to generate a title automatically.
+        size: Figure size
+        show_color_bar: Whether to show a color bar
+        same_scale: Whether to use the same scale, both temporally and for all sub-figures.
         **plt_args: Further plotting arguments, see `plot()`.
 
     Returns:
@@ -77,80 +96,88 @@ def animate(fields: SampledField, dim='frames',
     assert isinstance(fields, SampledField)
     assert dim in fields.shape, f"Animation dimension {dim} not present in data."
     fields = list(fields.unstack(dim))
-    batch_size, b_values = _batch(fields[0])
-    fig, axes = plt.subplots(1, batch_size, figsize=size)
-    axes = axes if isinstance(axes, np.ndarray) else [axes]
+    fig, _ = _subplots(fields[0], size, None)
 
     def func(frame: int):
         field = fields[frame]
-        batch_size, b_values = _batch(field)
-        for axis in axes:
+        for axis in fig.axes:
             axis.clear()
-        _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args)
+        plot(field, existing_figure=fig, title=title, show_color_bar=show_color_bar, same_scale=same_scale, **plt_args)
 
-    ani = animation.FuncAnimation(fig, func, init_func=lambda: axes, repeat=repeat, frames=len(fields), interval=interval)
+    ani = animation.FuncAnimation(fig, func, init_func=lambda: fig.axes, repeat=repeat, frames=len(fields), interval=interval)
     plt.close(fig)
     return ani
 
 
-def _plot(field, b_values, axes, batch_size, show_color_bar, same_scale, **plt_args):
+def _plot(axis, field, show_color_bar, vmin, vmax, **plt_args):
     if isinstance(field, Grid) and field.shape.channel.volume == 1:
         left, bottom = field.bounds.lower.vector.unstack_spatial('x,y')
         right, top = field.bounds.upper.vector.unstack_spatial('x,y')
         extent = (float(left), float(right), float(bottom), float(top))
-        if same_scale:
-            plt_args['vmin'] = math.min(b_values).native()
-            plt_args['vmax'] = math.max(b_values).native()
-        for b in range(batch_size):
-            im = axes[b].imshow(b_values.batch[b].numpy('y,x'), origin='lower', extent=extent, **plt_args)
-            if show_color_bar:
-                plt.colorbar(im, ax=axes[b])
+        im = axis.imshow(field.values.numpy('y,x'), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
+        if show_color_bar:
+            plt.colorbar(im, ax=axis)
     elif isinstance(field, Grid):  # vector field
         if isinstance(field, StaggeredGrid):
             field = field.at_centers()
-        for b in range(batch_size):
-            x, y = [d.numpy('x,y') for d in field.points.vector.unstack_spatial('x,y')]
-            data = math.join_dimensions(field.values, field.shape.batch, batch('batch')).batch[b]
-            u, v = [d.numpy('x,y') for d in data.vector.unstack_spatial('x,y')]
-            color = axes[b].xaxis.label.get_color()
-            axes[b].quiver(x-u/2, y-v/2, u, v, color=color)
+        x, y = [d.numpy('x,y') for d in field.points.vector.unstack_spatial('x,y')]
+        u, v = [d.numpy('x,y') for d in field.values.vector.unstack_spatial('x,y')]
+        color = axis.xaxis.label.get_color()
+        axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
+        axis.set_aspect('equal', adjustable='box')
     elif isinstance(field, PointCloud):
-        for b in range(batch_size):
-            points = math.join_dimensions(field.points, field.points.shape.batch, batch('batch')).batch[b]
-            x, y = [d.numpy() for d in points.vector.unstack_spatial('x,y')]
-            color = [str(d) for d in field.color.points.unstack(len(x))]
-            if field.bounds:
-                lower_x, lower_y = [float(d) for d in field.bounds.lower.vector.unstack_spatial('x,y')]
-                upper_x, upper_y = [float(d) for d in field.bounds.upper.vector.unstack_spatial('x,y')]
-            else:
-                lower_x, lower_y = [np.min(x), np.min(y)]
-                upper_x, upper_y = [np.max(x), np.max(y)]
-            if isinstance(field.elements, Sphere):
-                shape = 'o'
-                size = float(field.elements.bounding_radius())
-            elif isinstance(field.elements, BaseBox):
-                shape = 's'
-                size = float(field.elements.bounding_half_extent())
-            else:
-                shape = 'X'
-                size = float(field.elements.bounding_radius())
-            axes[b].set_xlim((lower_x, upper_x))
-            axes[b].set_ylim((lower_y, upper_y))
-            M = axes[b].transData.get_matrix()
-            x_scale, y_scale = M[0, 0], M[1, 1]
-            axes[b].scatter(x, y, marker=shape, color=color, s=(size * 2 * x_scale) ** 2)
+        points = field.points
+        x, y = [d.numpy() for d in points.vector.unstack_spatial('x,y')]
+        color = [str(d) for d in field.color.points.unstack(len(x))]
+        if field.bounds:
+            lower_x, lower_y = [float(d) for d in field.bounds.lower.vector.unstack_spatial('x,y')]
+            upper_x, upper_y = [float(d) for d in field.bounds.upper.vector.unstack_spatial('x,y')]
+        else:
+            lower_x, lower_y = [np.min(x), np.min(y)]
+            upper_x, upper_y = [np.max(x), np.max(y)]
+        if isinstance(field.elements, Sphere):
+            shape = 'o'
+            size = float(field.elements.bounding_radius())
+        elif isinstance(field.elements, BaseBox):
+            shape = 's'
+            size = float(field.elements.bounding_half_extent())
+        else:
+            shape = 'X'
+            size = float(field.elements.bounding_radius())
+        axis.set_xlim((lower_x, upper_x))
+        axis.set_ylim((lower_y, upper_y))
+        M = axis.transData.get_matrix()
+        x_scale, y_scale = M[0, 0], M[1, 1]
+        axis.scatter(x, y, marker=shape, color=color, s=(size * 2 * x_scale) ** 2)
+        axis.set_aspect('equal', adjustable='box')
     else:
         raise NotImplementedError(f"No figure recipe for {field}")
 
 
-def _batch(field: SampledField):
-    if isinstance(field, PointCloud):
-        batch_size = field.shape.batch.volume
+def _subplots(field: SampledField or tuple or list,
+              size: tuple,
+              existing_figure: plt.Figure or None):
+
+    def recursive_unstack(field, flat: list):
+        if isinstance(field, SampledField) and field.shape.batch_rank == 0:
+            flat.append(field)
+        elif isinstance(field, SampledField):
+            fields = unstack(field, field.shape.batch[0])
+            for f in fields:
+                recursive_unstack(f, flat)
+        else:
+            assert isinstance(field, (tuple, list))
+            for f in field:
+                recursive_unstack(f, flat)
+        return flat
+
+    fields = recursive_unstack(field, [])
+    if existing_figure is not None:
+        assert len(existing_figure.axes) == len(fields)
+        return existing_figure, fields
     else:
-        batch_size = field.shape.batch.volume
-    values = math.join_dimensions(field.values, field.shape.channel, channel('channel')).channel[0]
-    b_values = math.join_dimensions(values, field.shape.batch, batch('batch'))
-    return batch_size, b_values
+        fig, _ = plt.subplots(1, len(fields), figsize=size)
+        return fig, fields
 
 
 def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
@@ -159,13 +186,14 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  down='',
                  smooth=1,
                  smooth_alpha=0.2,
-                 smooth_linewidth=1.,
+                 smooth_linewidth=2.,
                  size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
                  grid='y',
                  log_scale='',
                  legend='upper right',
+                 x='steps',
                  xlim=None,
                  ylim=None,
                  titles=True,
@@ -189,6 +217,8 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         assert isinstance(names, math.Tensor), f"Invalid argument 'names': {type(names)}"
     if not isinstance(colors, math.Tensor):
         colors = math.wrap(colors)
+    if xlabel is None:
+        xlabel = 'Iterations' if x == 'steps' else 'Time (s)'
 
     shape = (scene.shape & names.shape)
     batches = shape.without(reduce).without(additional_reduce)
@@ -218,20 +248,29 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
             curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
 
         def single_plot(name, path, label, i, color):
+            logging.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
             if curve.ndim == 2:
-                x, values, *_ = curve.T
+                x_values, values, *_ = curve.T
             else:
                 values = curve
-                x = np.arange(len(values))
+                x_values = np.arange(len(values))
+            if x == 'steps':
+                pass
+            else:
+                assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
+                logging.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
+                _, x_values, *_ = numpy.loadtxt(os.path.join(path, "log_step_time.txt")).T
+                x_values = np.cumsum(x_values[:len(values)])
             if transform:
-                x, values = transform(np.stack([x, values]))
+                x_values, values = transform(np.stack([x_values, values]))
             if color == 'default':
                 color = cycle[i]
             elif isinstance(color, Number):
                 color = cycle[int(color)]
-            axis.plot(x, values, color=color, alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(x, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
+            logging.debug(f"Plotting curve {label}")
+            axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
+            axis.plot(*smooth_uniform_curve(x_values, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
             if grid:
                 grid_axis = 'both' if 'x' in grid and 'y' in grid else grid
                 axis.grid(which='both', axis=grid_axis, linestyle='--')

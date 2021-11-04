@@ -43,28 +43,33 @@ class Field:
         """ For internal use only. Use `sample()` instead. """
         raise NotImplementedError(self)
 
-    def at(self, representation: 'SampledField') -> 'SampledField':
+    def at(self, representation: 'SampledField', keep_extrapolation=False) -> 'SampledField':
         """
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
         
         Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
 
-        Equal to `self >> representation`.
+        Operator alias:
+            `self @ representation`.
+
+        See Also:
+            `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
         Args:
-          representation: Field object defining the sample points. The values of `representation` are ignored.
-          representation: SampledField: 
+            representation: Field object defining the sample points. The values of `representation` are ignored.
+            keep_extrapolation: Only available if `self` is a `SampledField`.
+                If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
+                This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
 
         Returns:
-          Field object of same type as `representation`
-
+            Field object of same type as `representation`
         """
         resampled = reduce_sample(self, representation.elements)
-        extrap = self.extrapolation if isinstance(self, SampledField) else representation.extrapolation
+        extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
-    def __rshift__(self, other: 'SampledField'):
+    def __matmul__(self, other: 'SampledField'):  # values @ representation
         """
         Resampling operator with change of extrapolation.
 
@@ -74,10 +79,14 @@ class Field:
         Returns:
             Copy of other with values and extrapolation from this Field.
         """
-        if isinstance(self, SampledField):
-            return self.with_extrapolation(other.extrapolation).at(other)
-        else:
-            return self.at(other)
+        return self.at(other, keep_extrapolation=False)
+
+    def __rmatmul__(self, other):  # values @ representation
+        if not isinstance(self, SampledField):
+            return NotImplemented
+        if isinstance(other, Geometry):
+            return self.with_values(other)
+        return NotImplemented
 
     def __getitem__(self, item: dict) -> 'Field':
         """
@@ -280,7 +289,7 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
     Spatial dimensions of `geometry` can be used to sample a grid of geometries.
 
     See Also:
-        `reduce_sample()`, `Field.at()`.
+        `reduce_sample()`, `Field.at()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
         field: Source `Field` to sample.
@@ -305,7 +314,7 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
     Currently, `geometry` may have at most one channel dimension.
 
     See Also:
-        `sample()`, `Field.at()`.
+        `sample()`, `Field.at()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
         field: Source `Field` to sample.
@@ -320,6 +329,7 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
     if geometry.shape.channel:  # Reduce this dimension
         assert geometry.shape.channel.rank == 1, "Only single-dimension reduction supported."
         if field.shape.channel:
+            assert field.shape.channel.volume == geometry.shape.channel.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
             components = unstack(field, field.shape.channel.name)
             sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
         else:

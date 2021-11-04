@@ -14,6 +14,7 @@ See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 
 from phi.flow import *
 from . import TENSORFLOW
+from ._keras_util import parameter_count, dense_net, u_net
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers

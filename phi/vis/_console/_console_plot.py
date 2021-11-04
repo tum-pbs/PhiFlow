@@ -1,9 +1,8 @@
 import numpy
 
-from phi.field import Grid
+from phi.field import Grid, CenteredGrid
 from ._console_util import underline, get_arrow
-
-from ...physics import Domain
+from ...math import extrapolation
 
 FILLED = [' ', '.', ':', '-', '=', '+', '*', '#', '%', '@']
 
@@ -11,7 +10,7 @@ FILLED = [' ', '.', ':', '-', '=', '+', '*', '#', '%', '@']
 def heatmap(grid: Grid, cols: int, rows: int, title: str):
     inner_cols = cols - 10
     inner_rows = rows - 2
-    grid >>= Domain(x=inner_cols, y=inner_rows, bounds=grid.bounds).scalar_grid()
+    grid @= CenteredGrid(0, extrapolation.ZERO, x=inner_cols, y=inner_rows, bounds=grid.bounds)
     data = grid.values.numpy('y,x')
     min_, max_ = numpy.min(data), numpy.max(data)
     col_indices = (data - min_) / (max_ - min_) * len(FILLED)
@@ -31,7 +30,7 @@ def heatmap(grid: Grid, cols: int, rows: int, title: str):
 def quiver(grid: Grid, cols: int, rows: int, title: str, threshold: float, basic_chars=True):
     inner_cols = cols - 10
     inner_rows = rows - 2
-    grid >>= Domain(x=inner_cols, y=inner_rows, bounds=grid.bounds).scalar_grid()
+    grid @= CenteredGrid(0, extrapolation.ZERO, x=inner_cols, y=inner_rows, bounds=grid.bounds)
     data = grid.values.numpy('y,x,vector')[::-1]
     thick_threshold = numpy.max(numpy.sum(data ** 2, -1)) / 4  # half the vector length
 

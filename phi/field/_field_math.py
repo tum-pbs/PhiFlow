@@ -165,7 +165,7 @@ def divergence(field: Grid) -> CenteredGrid:
         for i, dim in enumerate(field.shape.spatial.names):
             div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).gradient[0]
             components.append(div_dim)
-        data = math.sum(components, 0)
+        data = math.sum(components, dim='0')
         return CenteredGrid(data, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
     elif isinstance(field, CenteredGrid):
         left, right = shift(field, (-1, 1), stack_dim=batch('div_'))
@@ -178,6 +178,7 @@ def divergence(field: Grid) -> CenteredGrid:
 
 
 def curl(field: Grid, type: type = CenteredGrid):
+    """ Computes the finite-difference curl of the give 2D `StaggeredGrid`. """
     assert field.spatial_rank in (2, 3), "curl is only defined in 2 and 3 spatial dimensions."
     if field.spatial_rank == 2 and type == StaggeredGrid:
         assert isinstance(field, CenteredGrid) and 'vector' not in field.shape, f"2D curl requires scalar field but got {field}"
@@ -216,11 +217,15 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
         `SampledField` matching the first `SampledField` in `inputs`.
     """
     input_tensors = [i.values if isinstance(i, SampledField) else math.tensor(i) for i in inputs]
-    result = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
+    values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
-            return i.with_values(values=result).with_extrapolation(extrapolation)
-    return result
+            result = i.with_values(values=values)
+            if extrapolation is not None:
+                result = result.with_extrapolation(extrapolation)
+            return result
+    else:
+        raise AssertionError("At least one input must be a SampledField.")
 
 
 def data_bounds(field: SampledField):
@@ -232,7 +237,7 @@ def data_bounds(field: SampledField):
 
 def mean(field: SampledField) -> math.Tensor:
     """
-    Computes the mean value by reducing all spatial / collection dimensions.
+    Computes the mean value by reducing all spatial / instance dimensions.
 
     Args:
         field: `SampledField`
@@ -244,6 +249,7 @@ def mean(field: SampledField) -> math.Tensor:
 
 
 def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
+    """ Multiplies the values of `field` so that its sum matches the source. """
     data = math.normalize_to(field.values, norm.values, epsilon)
     return field.with_values(data)
 
@@ -264,7 +270,9 @@ def center_of_mass(density: SampledField):
 
 def pad(grid: GridType, widths: int or tuple or list or dict) -> GridType:
     """
-    Pads a `Grid` using its current extrapolation.
+    Pads a `Grid` using its extrapolation.
+
+    Unlike `phi.math.pad()`, this function also affects the `bounds` of the grid, changing its size and origin depending on `widths`.
 
     Args:
         grid: `CenteredGrid` or `StaggeredGrid`
@@ -342,6 +350,19 @@ def upsample2x(grid: GridType) -> GridType:
 
 
 def concat(fields: List[SampledFieldType], dim: Shape) -> SampledFieldType:
+    """
+    Concatenates the given `SampledField`s along `dim`.
+
+    See Also:
+        `stack()`.
+
+    Args:
+        fields: List of matching `SampledField` instances.
+        dim: Concatenation dimension as `Shape`. Size is ignored.
+
+    Returns:
+        `SampledField` matching concatenated fields.
+    """
     assert all(isinstance(f, SampledField) for f in fields)
     assert all(isinstance(f, type(fields[0])) for f in fields)
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
@@ -358,6 +379,19 @@ def concat(fields: List[SampledFieldType], dim: Shape) -> SampledFieldType:
 
 
 def stack(fields, dim: Shape):
+    """
+    Stacks the given `SampledField`s along `dim`.
+
+    See Also:
+        `concat()`.
+
+    Args:
+        fields: List of matching `SampledField` instances.
+        dim: Stack dimension as `Shape`. Size is ignored.
+
+    Returns:
+        `SampledField` matching stacked fields.
+    """
     assert all(isinstance(f, SampledField) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
     assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
@@ -380,11 +414,26 @@ def assert_close(*fields: SampledField or math.Tensor or Number,
                  verbose: bool = True):
     """ Raises an AssertionError if the `values` of the given fields are not close. See `phi.math.assert_close()`. """
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
-    values = [(f >> f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
+    values = [(f @ f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
 
 
-def where(mask: Field or Geometry, field_true: Field, field_false: Field):
+def where(mask: Field or Geometry, field_true: Field, field_false: Field) -> SampledField:
+    """
+    Element-wise where operation.
+    Picks the value of `field_true` where `mask=1 / True` and the value of `field_false` where `mask=0 / False`.
+
+    The fields are automatically resampled if necessary, preferring the sample points of `mask`.
+    At least one of the arguments must be a `SampledField`.
+
+    Args:
+        mask: `Field` or `Geometry` object.
+        field_true: `Field`
+        field_false: `Field`
+
+    Returns:
+        `SampledField`
+    """
     if isinstance(mask, Geometry):
         mask = HardGeometryMask(mask)
     elif isinstance(mask, SampledField):

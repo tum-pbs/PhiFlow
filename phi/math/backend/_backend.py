@@ -42,12 +42,13 @@ class ComputeDevice:
         """ Backend that this device belongs to. Different backends represent the same device with different objects. """
 
     def __repr__(self):
-        mem = f"{(self.memory / 1024 ** 2)} MB" if self.memory > 0 else "memory: n/a"
+        mem = f"{(self.memory / 1024 ** 2):.0f} MB" if self.memory > 0 else "memory: n/a"
         pro = f"{self.processor_count} processors" if self.processor_count > 0 else "processors: n/a"
+        ref = f" '{self.ref}'" if isinstance(self.ref, str) else ""
         descr = self.description.replace('\n', '  ')
         if len(descr) > 30:
             descr = descr[:28] + "..."
-        return f"'{self.name}' ({self.device_type}) | {mem} | {pro} | {descr}"
+        return f"{self.name} ({self.device_type}{ref}) | {mem} | {pro} | {descr}"
 
 
 class Backend:
@@ -84,11 +85,11 @@ class Backend:
 
         Possible features:
 
-        * `sparse_tensor`
+        * `sparse_coo_tensor`
         * `gradients
 
         Args:
-            feature: `str` or unbound Backend method, e.g. `Backend.sparse_tensor`
+            feature: `str` or unbound Backend method, e.g. `Backend.sparse_coo_tensor`
 
         Returns:
             Whether the feature is supported.
@@ -345,16 +346,7 @@ class Backend:
         raise NotImplementedError(self)
 
     def divide_no_nan(self, x, y):
-        """
-        Computes x/y but returns 0 if y=0.
-
-        Args:
-          x: 
-          y: 
-
-        Returns:
-
-        """
+        """ Computes x/y but returns 0 if y=0. """
         raise NotImplementedError(self)
 
     def where(self, condition, x=None, y=None):
@@ -402,6 +394,9 @@ class Backend:
         raise NotImplementedError(self)
 
     def einsum(self, equation, *tensors):
+        raise NotImplementedError(self)
+
+    def cumsum(self, x, axis: int):
         raise NotImplementedError(self)
 
     def while_loop(self, loop: Callable, values: tuple):
@@ -478,9 +473,37 @@ class Backend:
         raise NotImplementedError(self)
 
     def shape(self, tensor):
+        """
+        Returns the shape of a tensor.
+        The shape is iterable and implements `len()`.
+        For non-eager tensors, undefined dimensions should return a placeholder value representing the size.
+
+        See Also:
+            `Backend.staticshape()`.
+
+        Args:
+            tensor: Native tensor compatible with this backend.
+
+        Returns:
+            Shape of `tensor`
+        """
         raise NotImplementedError(self)
 
-    def staticshape(self, tensor):
+    def staticshape(self, tensor) -> tuple:
+        """
+        Evaluates the static shape of a native tensor.
+        If the tensor is eager, the shape is a `tuple[int]`.
+        For placeholder tensors, unknown dimensions are represented as `None`.
+
+        See Also:
+            `Backend.shape()`.
+
+        Args:
+            tensor: Native tensor compatible with this backend.
+
+        Returns:
+            `tuple` of sizes. Each size is an `int` if the size is defined, else `None`.
+        """
         raise NotImplementedError(self)
 
     def cast(self, x, dtype: DType):
@@ -567,27 +590,42 @@ class Backend:
     def all(self, boolean_tensor, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def fft(self, x):
+    def quantile(self, x, quantiles):
+        """
+        Reduces the last / inner axis of x.
+
+        Args:
+            x: Tensor
+            quantiles: List or 1D tensor of quantiles to compute.
+
+        Returns:
+            Tensor with shape (quantiles, *x.shape[:-1])
+        """
+        raise NotImplementedError(self)
+
+    def fft(self, x, axes: tuple or list):
         """
         Computes the n-dimensional FFT along all but the first and last dimensions.
 
         Args:
           x: tensor of dimension 3 or higher
+          axes: Along which axes to perform the FFT
 
         Returns:
-
+            Complex tensor `k`
         """
         raise NotImplementedError(self)
 
-    def ifft(self, k):
+    def ifft(self, k, axes: tuple or list):
         """
         Computes the n-dimensional inverse FFT along all but the first and last dimensions.
 
         Args:
           k: tensor of dimension 3 or higher
+          axes: Along which axes to perform the inverse FFT
 
         Returns:
-
+            Complex tensor `x`
         """
         raise NotImplementedError(self)
 
@@ -595,6 +633,9 @@ class Backend:
         raise NotImplementedError(self)
 
     def real(self, x):
+        raise NotImplementedError(self)
+
+    def conj(self, x):
         raise NotImplementedError(self)
 
     def sin(self, x):
@@ -634,17 +675,36 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def sparse_tensor(self, indices, values, shape):
+    def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
         """
-        Optional features.
+        Create a sparse matrix in coordinate list (COO) format.
+
+        Optional feature.
 
         Args:
-          indices: tuple/list matching the dimensions (pair for matrix)
-          values: param shape:
-          shape: 
+            indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
+            values: 1D values tensor matching `indices`
+            shape: Shape of the sparse matrix
 
         Returns:
+            Native representation of the sparse matrix
+        """
+        raise NotImplementedError(self)
 
+    def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
+        """
+        Create a sparse matrix in compressed sparse row (CSR) format.
+
+        Optional feature.
+
+        Args:
+            column_indices: Column indices
+            row_pointers:
+            values:
+            shape:
+
+        Returns:
+            Native representation of the sparse matrix
         """
         raise NotImplementedError(self)
 
@@ -806,25 +866,27 @@ class Backend:
         tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
         x = x0
         dx = residual = y - self.linear(lin, x)
-        it_counter = 0
         iterations = self.zeros([batch_size], DType(int, 32))
         function_evaluations = self.ones([batch_size], DType(int, 32))
         residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
         diverged = self.any(~self.isfinite(x), axis=(1,))
         converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
         trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
-        finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
-        while ~self.all(finished):
-            it_counter += 1; iterations += not_finished_1
-            dy = self.linear(lin, dx); function_evaluations += not_finished_1
+        continue_ = ~converged & ~diverged & (iterations < max_iter)
+
+        def cg_loop_body(continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
+            continue_1 = self.to_int32(continue_)
+            it_counter += 1; iterations += continue_1
+            with spatial_derivative_evaluation(1):
+                dy = self.linear(lin, dx); function_evaluations += continue_1
             dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
             step_size = self.divide_no_nan(residual_squared, dx_dy)
-            step_size *= self.expand_dims(self.to_float(not_finished_1), -1)  # this is not really necessary but ensures batch-independence
+            step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
             x += step_size * dx
-            if it_counter % 50 == 0:
-                residual = y - self.linear(lin, x); function_evaluations += 1
-            else:
-                residual = residual - step_size * dy  # in-place subtraction affects convergence
+            # if it_counter % 50 == 0:
+            #     residual = y - self.linear(lin, x); function_evaluations += 1
+            # else:
+            residual = residual - step_size * dy  # in-place subtraction affects convergence
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
@@ -834,7 +896,10 @@ class Backend:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
                 x = self.copy(x)
                 iterations = self.copy(iterations)
-            finished = converged | diverged | (iterations >= max_iter); not_finished_1 = self.to_int32(~finished)  # ; active = self.to_float(self.expand_dims(not_finished_1, -1))
+            continue_ = ~converged & ~diverged & (iterations < max_iter)
+            return continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged
+
+        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = self.while_loop(cg_loop_body, (continue_, 0, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged))
         return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
@@ -857,7 +922,7 @@ class Backend:
         trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
         continue_ = ~converged & ~diverged & (iterations < max_iter)
 
-        def loop(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
+        def acg_loop_body(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
             continue_1 = self.to_int32(continue_)
             it_counter += 1
             iterations += continue_1
@@ -871,7 +936,8 @@ class Backend:
             residual = residual - step_size * dy  # in-place subtraction affects convergence
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-            dy = self.linear(lin, dx); function_evaluations += continue_1
+            with spatial_derivative_evaluation(1):
+                dy = self.linear(lin, dx); function_evaluations += continue_1
             diverged = self.any(residual_squared / rsq0 > 100, axis=(1,)) & (iterations >= 8)
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
@@ -881,8 +947,7 @@ class Backend:
             continue_ = ~converged & ~diverged & (iterations < max_iter)
             return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
 
-        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged =\
-            self.while_loop(loop, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
+        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = self.while_loop(acg_loop_body, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
         return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
 
     def linear(self, lin, vector):
@@ -907,14 +972,13 @@ class Backend:
     def stop_gradient(self, value):
         raise NotImplementedError(self)
 
-    def grid_sample(self, grid, spatial_dims: tuple, coordinates, extrapolation='constant'):
+    def grid_sample(self, grid, coordinates, extrapolation='constant'):
         """
         Interpolates a regular grid at the specified coordinates.
 
         Args:
-            grid: Tensor
-            spatial_dims: Dimension indices that correspond to coordinate vectors
-            coordinates: Tensor of floating grid indices.
+            grid: Tensor of shape (batch, spatial..., channel)
+            coordinates: Tensor of floating grid indices of shape (batch, instance..., vector).
                 The last dimension must match `spatial_dims`.
                 The first grid point of dimension i lies at position 0, the last at values.shape[i]-1.
             extrapolation: Values to use for coordinates outside the grid.
@@ -1021,14 +1085,14 @@ def choose_backend(*values, prefer_default=False) -> Backend:
 
     This function is used by most math functions operating on `Tensor` objects to delegate the actual computations.
 
+    Backends need to be registered to be available, e.g. via the global import `phi.<backend>` or `phi.detect_backends()`.
+
     Args:
         *values:
-        prefer_default: if True, selects the default backend assuming it can handle handle the values, see `default_backend()`.
-        raise_error: Determines the behavior of this function if no backend can handle the given values.
-            If True, raises a `NoBackendFound` error, else returns `None`.
+        prefer_default: Whether to always select the default backend if it can work with `values`, see `default_backend()`.
 
     Returns:
-        the selected `Backend`
+        The selected `Backend`
     """
     # --- Default Backend has priority ---
     if _is_applicable(_DEFAULT[-1], values) and (prefer_default or _is_specific(_DEFAULT[-1], values)):
@@ -1194,3 +1258,23 @@ def combined_dim(dim1, dim2, type_str: str = 'batch'):
         return dim1
     assert dim1 == dim2, f"Incompatible {type_str} dimensions: x0 {dim1}, y {dim2}"
     return dim1
+
+
+_DERIVATIVE_CONTEXT = [0]
+
+
+@contextmanager
+def spatial_derivative_evaluation(order=1):
+    _DERIVATIVE_CONTEXT.append(order)
+    try:
+        yield None
+    finally:
+        assert _DERIVATIVE_CONTEXT.pop(-1) == order
+
+
+def get_spatial_derivative_order():
+    """
+    Extrapolations may behave differently when extrapolating the derivative of a grid.
+    Returns 1 inside a CG loop, and 0 by default.
+    """
+    return _DERIVATIVE_CONTEXT[-1]

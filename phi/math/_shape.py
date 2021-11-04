@@ -7,26 +7,23 @@ from phi import math
 BATCH_DIM = 'batch'
 SPATIAL_DIM = 'spatial'
 CHANNEL_DIM = 'channel'
-COLLECTION_DIM = 'collection'
+INSTANCE_DIM = 'înstance'
+TYPE_ABBR = {SPATIAL_DIM: "ˢ", CHANNEL_DIM: "ᶜ", INSTANCE_DIM: "ⁱ", BATCH_DIM: "ᵇ", None: "⁻"}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
 
 
 class Shape:
-    """Shapes enumerate dimensions, each consisting of a name, size and type."""
+    """
+    Shapes enumerate dimensions, each consisting of a name, size and type.
+
+    There are four types of dimensions: `batch`, `spatial`, `channel`, and `instance`.
+    """
 
     def __init__(self, sizes: tuple or list, names: tuple or list, types: tuple or list):
         """
-        To construct a Shape manually, use `shape()` instead.
-        This constructor is meant for internal use only.
+        To construct a `Shape`, use `batch`, `spatial`, `channel` or `instance`, depending on the desired dimension type.
+        To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
-        Construct a Shape from sizes, names and types sequences.
-        All arguments must have same length.
-
-        To create a Shape with inferred dimension types, use :func:`shape(**dims)` instead.
-
-        Args:
-            sizes: Ordered dimension sizes
-            names: Ordered dimension names, either strings (spatial, batch) or integers (channel)
-            types: Ordered types, all values should be one of (CHANNEL_DIM, SPATIAL_DIM, BATCH_DIM)
+        The `__init__` constructor is for internal use only.
         """
         assert len(sizes) == len(names) == len(types), f"sizes={sizes} ({len(sizes)}), names={names} ({len(names)}), types={types} ({len(types)})"
         if len(sizes) > 0:
@@ -205,7 +202,7 @@ class Shape:
         Filters this shape, returning only the batch dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -218,7 +215,7 @@ class Shape:
         Filters this shape, returning only the non-batch dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -231,7 +228,7 @@ class Shape:
         Filters this shape, returning only the spatial dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -244,7 +241,7 @@ class Shape:
         Filters this shape, returning only the non-spatial dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -252,30 +249,30 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t != SPATIAL_DIM]]
 
     @property
-    def collection(self) -> 'Shape':
+    def instance(self) -> 'Shape':
         """
-        Filters this shape, returning only the collection dimensions as a new `Shape` object.
+        Filters this shape, returning only the instance dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
         """
-        return self[[i for i, t in enumerate(self.types) if t == COLLECTION_DIM]]
+        return self[[i for i, t in enumerate(self.types) if t == INSTANCE_DIM]]
 
     @property
-    def non_collection(self) -> 'Shape':
+    def non_instance(self) -> 'Shape':
         """
-        Filters this shape, returning only the non-collection dimensions as a new `Shape` object.
+        Filters this shape, returning only the non-instance dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
         """
-        return self[[i for i, t in enumerate(self.types) if t != COLLECTION_DIM]]
+        return self[[i for i, t in enumerate(self.types) if t != INSTANCE_DIM]]
 
     @property
     def channel(self) -> 'Shape':
@@ -283,7 +280,7 @@ class Shape:
         Filters this shape, returning only the channel dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -296,7 +293,7 @@ class Shape:
         Filters this shape, returning only the non-channel dimensions as a new `Shape` object.
 
         See also:
-            `Shape.batch`, `Shape.spatial`, `Shape.collection`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_collection`, `Shape.non_channel`.
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`.
 
         Returns:
             New `Shape` object
@@ -382,7 +379,7 @@ class Shape:
         A value of 1 means that a dimension of this Shape is contained in `names`.
 
         Args:
-          names: collection of dimension
+          names: instance of dimension
           names: tuple or list or set: 
 
         Returns:
@@ -397,8 +394,7 @@ class Shape:
         return tuple(mask)
 
     def __repr__(self):
-        TYPE_ABBR = {SPATIAL_DIM: "ˢ", CHANNEL_DIM: "ᵛ", COLLECTION_DIM: "ᶜ", BATCH_DIM: "ᵇ"}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
-        strings = [f"{name}{TYPE_ABBR.get(dim_type, '')}={size}" for size, name, dim_type in self._dimensions]
+        strings = [f"{name}{TYPE_ABBR.get(dim_type, '?')}={size}" for size, name, dim_type in self._dimensions]
         return '(' + ', '.join(strings) + ')'
 
     def __eq__(self, other):
@@ -449,13 +445,14 @@ class Shape:
         warnings.warn("Shape.expand() is deprecated. Use merge_shapes() or concat_shapes() instead.", DeprecationWarning)
         if not dim:
             return self
+        assert dim.name not in self, f"Cannot expand shape {self} by {dim} because dimension already exists."
         assert isinstance(dim, Shape) and dim.rank == 1, f"Shape.expand() requires a single dimension as a Shape but got {dim}"
         if pos is None:
             same_type_dims = self[[i for i, t in enumerate(self.types) if t == dim.type]]
             if len(same_type_dims) > 0:
                 pos = self.index(same_type_dims.names[0])
             else:
-                pos = {BATCH_DIM: 0, COLLECTION_DIM: self.batch_rank, SPATIAL_DIM: self.batch.rank + self.collection_rank, CHANNEL_DIM: self.rank + 1}[dim.type]
+                pos = {BATCH_DIM: 0, INSTANCE_DIM: self.batch_rank, SPATIAL_DIM: self.batch.rank + self.instance_rank, CHANNEL_DIM: self.rank + 1}[dim.type]
         elif pos < 0:
             pos += self.rank + 1
         sizes = list(self.sizes)
@@ -474,7 +471,7 @@ class Shape:
         The complementary operation is `Shape.only()`.
 
         Args:
-          dims: Single dimension (str) or collection of dimensions (tuple, list, Shape)
+          dims: Single dimension (str) or instance of dimensions (tuple, list, Shape)
           dims: Dimensions to exclude as `str` or `tuple` or `list` or `Shape`. Dimensions that are not included in this shape are ignored.
 
         Returns:
@@ -499,7 +496,7 @@ class Shape:
         The complementary operation is :func:`Shape.without`.
 
         Args:
-          dims: single dimension (str) or collection of dimensions (tuple, list, Shape)
+          dims: single dimension (str) or instance of dimensions (tuple, list, Shape)
           dims: str or tuple or list or Shape: 
 
         Returns:
@@ -537,11 +534,11 @@ class Shape:
         return r
 
     @property
-    def collection_rank(self) -> int:
-        """ Number of collection dimensions """
+    def instance_rank(self) -> int:
+        """ Number of instance dimensions """
         r = 0
         for ty in self.types:
-            if ty == COLLECTION_DIM:
+            if ty == INSTANCE_DIM:
                 r += 1
         return r
 
@@ -570,10 +567,13 @@ class Shape:
 
         Shapes with undefined sizes may be used in `phi.math.tensor()`, `phi.math.wrap()`, `phi.math.stack()` or `phi.math.concat()`.
 
-        To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `collection()`)
+        To create an undefined size, call a constructor function (`batch()`, `spatial()`, `channel()`, `instance()`)
         with positional `str` arguments, e.g. `spatial('x')`.
         """
-        return None not in self.sizes
+        for size in self.sizes:
+            if size is None:
+                return False
+        return True
 
     @property
     def shape(self) -> 'Shape':
@@ -672,13 +672,32 @@ class Shape:
             names = [n if n is not None else o for n, o in zip(names, self.names)]
         return Shape(self.sizes, names, self.types)
 
+    def _replace_names_and_types(self,
+                                 dims: 'Shape' or str or tuple or list,
+                                 new: 'Shape' or str or tuple or list) -> 'Shape':
+        dims = parse_dim_order(dims)
+        sizes = [math.rename_dims(s, dims, new) if isinstance(s, math.Tensor) else s for s in self.sizes]
+        if isinstance(new, Shape):  # replace names and types
+            names = list(self.names)
+            types = list(self.types)
+            for old_name, new_dim in zip(dims, new):
+                names[self.index(old_name)] = new_dim.name
+                types[self.index(old_name)] = new_dim.type
+            return Shape(sizes, names, types)
+        else:  # replace only names
+            new = parse_dim_order(new)
+            names = list(self.names)
+            for old_name, new_name in zip(dims, new):
+                names[self.index(old_name)] = new_name
+            return Shape(sizes, names, self.types)
+
     def _with_types(self, types: 'Shape'):
         return Shape(self.sizes, self.names, [types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)])
 
     def _perm(self, names: Tuple[str]):
         assert len(set(names)) == len(names), f"No duplicates allowed but got {names}"
-        assert len(names) >= len(self.names), f"Cannot find permutation for {self} because names {set(self.names) - set(names)} are missing"
-        assert len(names) <= len(self.names), f"Cannot find permutation for {self} because too many names were passed: {names}"
+        assert len(names) >= len(self.names), f"Cannot find permutation for {self} given {names} because names {set(self.names) - set(names)} are missing"
+        assert len(names) <= len(self.names), f"Cannot find permutation for {self} given {names} because too many names were passed: {names}"
         perm = [self.names.index(name) for name in names]
         return perm
 
@@ -851,12 +870,12 @@ def spatial(*args, **dims: int):
     # Out: (x=2, y=3, undef=None)
     ```
     Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in when wrapping an existing tensor using `tensor` or `wrap`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
-    To create a shape with multiple types, use `merge_shapes()` or the syntax `shape1 & shape2`.
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
     See Also:
-        `channel`, `batch`, `collection`
+        `channel`, `batch`, `instance`
 
     Args:
         *args: Either
@@ -901,12 +920,12 @@ def channel(*args, **dims: int):
     # Out: (vector=2, undef=None)
     ```
     Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in when wrapping an existing tensor using `tensor` or `wrap`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
-    To create a shape with multiple types, use `merge_shapes()` or the syntax `shape1 & shape2`.
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
     See Also:
-        `spatial`, `batch`, `collection`
+        `spatial`, `batch`, `instance`
 
     Args:
         *args: Either
@@ -919,7 +938,7 @@ def channel(*args, **dims: int):
     Returns:
         `Shape` containing only dimensions of type channel.
     """
-    from phi.math import Tensor
+    from ._tensors import Tensor
     if all(isinstance(arg, str) for arg in args) or dims:
         for arg in args:
             parts = [s.strip() for s in arg.split(',')]
@@ -951,12 +970,12 @@ def batch(*args, **dims: int):
     # Out: (batch=2, undef=None)
     ```
     Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in when wrapping an existing tensor using `tensor` or `wrap`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
-    To create a shape with multiple types, use `merge_shapes()` or the syntax `shape1 & shape2`.
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
     See Also:
-        `channel`, `spatial`, `collection`
+        `channel`, `spatial`, `instance`
 
     Args:
         *args: Either
@@ -985,25 +1004,25 @@ def batch(*args, **dims: int):
         raise AssertionError(f"batch() must be called either as a selector batch(Shape) or batch(Tensor) or as a constructor batch(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def collection(*args, **dims: int):
+def instance(*args, **dims: int):
     """
-    Returns the collection dimensions of an existing `Shape` or creates a new `Shape` with only collection dimensions.
+    Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
 
-    Usage for filtering collection dimensions:
+    Usage for filtering instance dimensions:
     ```python
-    collection_dims = collection(shape)
-    collection_dims = collection(tensor)
+    instance_dims = instance(shape)
+    instance_dims = instance(tensor)
     ```
 
-    Usage for creating a `Shape` with only collection dimensions:
+    Usage for creating a `Shape` with only instance dimensions:
     ```python
-    collection_shape = collection('undef', points=2)
+    instance_shape = instance('undef', points=2)
     # Out: (points=2, undef=None)
     ```
     Here, the dimension `undef` is created with an undefined size of `None`.
-    Undefined sizes are automatically filled in when wrapping an existing tensor using `tensor` or `wrap`.
+    Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
-    To create a shape with multiple types, use `merge_shapes()` or the syntax `shape1 & shape2`.
+    To create a shape with multiple types, use `merge_shapes()`, `concat_shapes()` or the syntax `shape1 & shape2`.
 
     See Also:
         `channel`, `batch`, `spatial`
@@ -1017,7 +1036,7 @@ def collection(*args, **dims: int):
         **dims: Dimension sizes and names. Must be empty when used as a filter operation.
 
     Returns:
-        `Shape` containing only dimensions of type collection.
+        `Shape` containing only dimensions of type instance.
     """
     from phi.math import Tensor
     if all(isinstance(arg, str) for arg in args) or dims:
@@ -1026,16 +1045,16 @@ def collection(*args, **dims: int):
             for dim in parts:
                 if dim not in dims:
                     dims[dim] = None
-        return math.Shape(dims.values(), dims.keys(), [COLLECTION_DIM] * len(dims))
+        return math.Shape(dims.values(), dims.keys(), [INSTANCE_DIM] * len(dims))
     elif len(args) == 1 and isinstance(args[0], Shape):
-        return args[0].collection
+        return args[0].instance
     elif len(args) == 1 and isinstance(args[0], Tensor):
-        return args[0].shape.collection
+        return args[0].shape.instance
     else:
-        raise AssertionError(f"collection() must be called either as a selector collection(Shape) or collection(Tensor) or as a constructor collection(*names, **dims). Got *args={args}, **dims={dims}")
+        raise AssertionError(f"instance() must be called either as a selector instance(Shape) or instance(Tensor) or as a constructor instance(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, collection, spatial, channel)):
+def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, instance, spatial, channel)):
     """
     Combines `shapes` into a single `Shape`, grouping dimensions by type.
     If dimensions with equal names are present in multiple shapes, their types and sizes must match.
@@ -1047,12 +1066,12 @@ def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, 
 
     Args:
         *shapes: `Shape` objects to combine.
-        check_exact: Sequence of type filters, such as `channel`, `batch`, `spatial` or `collection`.
+        check_exact: Sequence of type filters, such as `channel`, `batch`, `spatial` or `instance`.
             These types are checked for exact match, i.e. shapes must either contain all dimensions of that type or none.
             The order of the dimensions does not matter.
             For example, when checking `spatial`, the shapes `spatial(x=5)` and `spatial(y=4)` cannot be combined.
             However, `spatial(x=5, y=4)` can be combined with `spatial(y=4, x=5)` and `channel('vector')`.
-        order: Dimension type order as `tuple` of type filters (`channel`, `batch`, `spatial` or `collection`). Dimensions are grouped by type while merging.
+        order: Dimension type order as `tuple` of type filters (`channel`, `batch`, `spatial` or `instance`). Dimensions are grouped by type while merging.
 
     Returns:
         Merged `Shape`
@@ -1079,10 +1098,18 @@ def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, 
                 for dim in shape:
                     if dim not in group:
                         group = group._expand(dim, pos=-1)
-                    elif dim.size != group.get_size(dim.name):  # check size match
-                        raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
+                    else:  # check size match
+                        if not _size_equal(dim.size, group.get_size(dim.name)):
+                            raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
         merged.append(group)
     return concat_shapes(*merged)
+
+
+def _size_equal(s1, s2):
+    if isinstance(s1, int):
+        return isinstance(s2, int) and s2 == s1
+    else:
+        return math.close(s1, s2)
 
 
 def concat_shapes(*shapes: Shape):
@@ -1128,7 +1155,7 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
     sizes = []
     for name in names:
         dim_sizes = [(shape.get_size(name) if name in shape else 1) for shape in shapes]
-        if min(dim_sizes) == max(dim_sizes):
+        if all([math.close(s, dim_sizes[0]) for s in dim_sizes[1:]]):
             dim_sizes = dim_sizes[0]
         else:
             from ._ops import stack

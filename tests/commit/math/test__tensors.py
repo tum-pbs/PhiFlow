@@ -7,6 +7,7 @@ from phi import math
 from phi.math import channel, batch
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor
+from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
 
@@ -174,6 +175,24 @@ class TestTensors(TestCase):
         self.assertEqual(math.random_normal(nonuniform).shape, nonuniform)
         self.assertEqual(math.random_uniform(nonuniform).shape, nonuniform)
 
+    def test_repr(self):
+        print("--- Eager ---")
+        print(repr(math.zeros(batch(b=10))))
+        print(repr(math.zeros(batch(b=10)) > 0))
+        print(repr(math.ones(channel(vector=3))))
+        print(repr(math.ones(batch(vector=3))))
+
+        def tracable(x):
+            print(x)
+            return x
+
+        print("--- Placeholders ---")
+        for backend in BACKENDS:
+            if backend.supports(Backend.jit_compile):
+                with backend:
+                    math.jit_compile(tracable)(math.ones(channel(vector=3)))
+
+
     def test_tensor_like(self):
 
         class Success(Exception): pass
@@ -211,3 +230,17 @@ class TestTensors(TestCase):
             math.cos(t)
         except AssertionError:
             pass
+
+    def test_Dict(self):
+        d1 = math.Dict(a=1, b=math.ones(), c=math.ones(spatial(x=3)))
+        math.assert_close(d1 * 2, d1 + d1, 2 * d1, 2 / d1)
+        math.assert_close(0 + d1, d1, d1 - 0, abs(d1), round(d1))
+        math.assert_close(-d1, 0 - d1)
+        math.assert_close(d1 // 2, d1 * 0, d1 % 1)
+        math.assert_close(d1 / 2, d1 * 0.5, 0.5 * d1)
+        math.assert_close(math.sin(d1 * 0), d1 * 0)
+
+    def test_collapsed_non_uniform_tensor(self):
+        non_uniform = math.stack([math.zeros(spatial(a=2)), math.ones(spatial(a=3))], batch('b'))
+        e = math.expand(non_uniform, channel('vector'))
+        assert e.shape.without('vector') == non_uniform.shape

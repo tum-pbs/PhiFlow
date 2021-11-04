@@ -17,8 +17,8 @@ from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, collection, merge_shapes, concat_shapes
-from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike
+from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes
+from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike, Dict
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
@@ -29,27 +29,27 @@ from ._ops import (
     zeros_like, ones_like,
     stack, unstack, concat,
     pad,
-    join_dimensions, split_dimension, flatten, expand, transpose,  # reshape operations
+    pack_dims, unpack_dims, rename_dims, flatten, expand, transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
-    sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all,  # reduce
+    sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all, quantile, median,  # reduce
     dot,
     abs_ as abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
     sqrt, exp, sin, cos, tan, log, log2, log10,
-    to_float, to_int32, to_int64, to_complex, imag, real,
+    to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,
-    fft, ifft, convolve,
+    fft, ifft, convolve, cumulative_sum,
     dtype, cast,
     close, assert_close,
     record_gradients, gradients, stop_gradient
 )
 from ._nd import (
     shift,
-    spatial_sum, vec_abs, vec_squared, cross_product,
+    vec_abs, vec_squared, vec_normalize, cross_product,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,

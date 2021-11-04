@@ -149,11 +149,11 @@ def build_graph_view(dashapp):
         html.Div([
             html.Button('Refresh now', id=REFRESH_GRAPHS_BUTTON.component_id),
             dcc.Checklist(id='auto-refresh-checkbox', options=[{'label': 'Auto-refresh', 'value': 'refresh'}], value=['refresh'], style={'display': 'inline-block'}),
-            dcc.Checklist(id='subplots-checkbox', options=[{'label': 'Subplots', 'value': 'subplots'}], value=[], style={'display': 'inline-block'}),
+            dcc.Checklist(id='subplots-checkbox', options=[{'label': 'Subplots', 'value': 'subplots'}], value=['subplots'], style={'display': 'inline-block'}),
             html.Div(style={'display': 'inline-block', 'width': '200px'}, children=[
                 dcc.Slider(id='smooth-slider', min=1, max=10, marks={1: 'Off', 5: '25 steps', 10: '100'}),
             ]),
-            dcc.Checklist(id='log-graph-checkbox', options=[{'label': 'Log(x)', 'value': 'x'}, {'label': 'Log(y)', 'value': 'y'}], value=[], style={'display': 'inline-block'}),
+            dcc.Checklist(id='log-graph-checkbox', options=[{'label': 'Log(x)', 'value': 'x'}, {'label': 'Log(y)', 'value': 'y'}], value=['y'], style={'display': 'inline-block'}),
         ]),
         dcc.Interval(id='graph-update', interval=5000, disabled=False),
         html.Div(id='graph-figure-container', style={'height': 600, 'width': '100%'}, children=[

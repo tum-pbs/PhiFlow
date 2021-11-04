@@ -173,3 +173,37 @@ class LocalNamespace(UserNamespace):
 
     def get_reference(self):
         return f"{os.path.basename(self.module.__file__)[:-3]}_{self.function_name}"
+
+
+class DictNamespace(UserNamespace):
+
+    def __init__(self,
+                 variables: dict,
+                 title: str = "Unknown",
+                 description: str = "Custom namespace, unknown source.",
+                 reference: str = 'unknown'):
+        self.variables = variables
+        self.title = title
+        self.description = description
+        self.reference = reference
+
+    def list_variables(self, only_public=False, only_current_scope=False) -> dict:
+        variables = self.variables
+        if only_public:
+            variables = {n: v for n, v in variables.items() if not n.startswith('_')}
+        return variables
+
+    def get_variable(self, name: str, default=None):
+        return self.variables.get(name, default)
+
+    def set_variable(self, name: str, value):
+        self.variables[name] = value
+
+    def get_title(self):
+        return self.title
+
+    def get_description(self):
+        return self.description
+
+    def get_reference(self):
+        return self.reference

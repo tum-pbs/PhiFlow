@@ -19,6 +19,7 @@ class Grid(SampledField):
         SampledField.__init__(self, elements, values, extrapolation)
         assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
+        assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
         self._bounds = bounds
         self._resolution = resolution
 
@@ -43,7 +44,10 @@ class Grid(SampledField):
         raise NotImplementedError(self)
 
     def with_values(self, values):
-        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+        if isinstance(values, math.Tensor):
+            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+        else:
+            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
     def with_extrapolation(self, extrapolation: math.Extrapolation):
         return type(self)(self.values, extrapolation=extrapolation, bounds=self.bounds)
@@ -123,7 +127,7 @@ class CenteredGrid(Grid):
 
     def __init__(self,
                  values: Any,
-                 extrapolation: math.Extrapolation or math.Tensor,
+                 extrapolation: Any = 0.,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
@@ -140,12 +144,13 @@ class CenteredGrid(Grid):
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+                Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid as `phi.geom.Box`.
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         """
-        assert isinstance(extrapolation, math.Extrapolation)
-        # extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         if resolution is None and not resolution_:
             assert isinstance(values, math.Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
             resolution = values.shape.spatial
@@ -235,7 +240,7 @@ class StaggeredGrid(Grid):
 
     def __init__(self,
                  values: Any,
-                 extrapolation: math.Extrapolation,
+                 extrapolation: Any = 0.,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
@@ -254,12 +259,13 @@ class StaggeredGrid(Grid):
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+                Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid.
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         """
-        assert isinstance(extrapolation, math.Extrapolation)
-        # extrapolation = math.extrapolation.ConstantExtrapolation(math.tensor(extrapolation))
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         if resolution is None and not resolution_:
             assert isinstance(values, Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
             any_dim = values.shape.spatial.names[0]
@@ -298,6 +304,19 @@ class StaggeredGrid(Grid):
     def cells(self):
         return GridCell(self.resolution, self.bounds)
 
+    def with_extrapolation(self, extrapolation: math.Extrapolation):
+        if all(extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names):
+            return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
+        else:
+            values = []
+            for dim, component in zip(self.shape.spatial.names, self.values.unstack('vector')):
+                old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
+                new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
+                widths = (new_lo - old_lo, new_hi - old_hi)
+                values.append(math.pad(component, {dim: widths}, self.extrapolation))
+            values = math.stack(values, channel('vector'))
+            return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
+
     def _sample(self, geometry: Geometry) -> Tensor:
         channels = [sample(component, geometry) for component in self.vector.unstack()]
         return math.stack(channels, channel('vector'))
@@ -312,6 +331,12 @@ class StaggeredGrid(Grid):
         return math.stack(channels, channel('vector'))
 
     def at_centers(self) -> CenteredGrid:
+        """
+        Interpolates the staggered values to the cell centers.
+
+        Returns:
+            `CenteredGrid` sampled at cell centers.
+        """
         return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
     def __getitem__(self, item: dict):
