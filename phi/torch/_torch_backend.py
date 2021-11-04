@@ -14,7 +14,7 @@ from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice
 from phi.math.backend._backend import combined_dim, SolveResult, SparseCSRMatrix
 
-import pytorch_custom_cuda
+import pytorch_custom_cuda as torch_cuda
 import cProfile
 
 class TorchBackend(Backend):
@@ -367,15 +367,15 @@ class TorchBackend(Backend):
 
     def matmul(self, A, b):
         if isinstance(A, SparseCSRMatrix):
-            B_rows = b.size(0)
-            if len(b.shape) == 1:
-                B_cols = 1
-            else:
-                B_cols = b.size(1)
-            C = pytorch_custom_cuda.cusparse_SpMM(A.row_ptr, A.col_index, A.values, b,
-                A.rows, A.cols, B_rows, B_cols)
-            if len(b.shape) == 1:
+            b_rows = b.size(0)
+            b_cols = 1 if len(b.shape) == 1 else b.size(1)
+            if b_cols == 1:
+                C = torch_cuda.cusparse_SpMV(A.row_ptr, A.col_index, A.values, b,
+                                                      A.rows, A.cols)
                 C = C.reshape(A.rows)
+            else:
+                C = torch_cuda.cusparse_SpMM(A.row_ptr, A.col_index, A.values, b,
+                A.rows, A.cols, b_rows, b_cols)
             return C
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
