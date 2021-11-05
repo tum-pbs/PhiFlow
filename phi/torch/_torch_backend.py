@@ -89,7 +89,9 @@ class TorchBackend(Backend):
     def numpy(self, tensor):
         if tensor.requires_grad:
             tensor = tensor.detach()
-        return tensor.resolve_conj().cpu().numpy()
+        if hasattr(tensor, 'resolve_conj'):
+            tensor = tensor.resolve_conj()
+        return tensor.cpu().numpy()
 
     def to_dlpack(self, tensor):
         from torch.utils import dlpack
