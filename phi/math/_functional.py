@@ -816,7 +816,7 @@ def cell_number(cells, resolution: Shape):
 class SparseMatrixContainer:
     """
     This class holds information about a sparse matrix and can be passed as argument of JIT-compiled functions.
-    It is typically craeted by a PhiFlow tracer object, such as `ShiftLinTracer`.
+    It is typically created by a PhiFlow tracer object, such as `ShiftLinTracer`.
     Only the values tensor is variable, the sparsity pattern is fixed.
 
     TensorFlow doesn't allow native sparse tensors as arguments of JIT-compiled functions.
