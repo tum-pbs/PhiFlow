@@ -12,9 +12,18 @@ import torch.nn.functional as torchf
 
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice
-from phi.math.backend._backend import combined_dim, SolveResult, SparseCSRMatrix
+from phi.math.backend._backend import combined_dim, SolveResult
 
 import pytorch_custom_cuda as torch_cuda
+
+
+class SparseCSRMatrix:
+    def __init__(self, values, row_ptr, col_index, shape):
+        self.values = values
+        self.row_ptr = row_ptr
+        self.col_index = col_index
+        self.shape = shape
+
 
 class TorchBackend(Backend):
 
@@ -592,7 +601,7 @@ class TorchBackend(Backend):
             multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
 
-    def matrix_csr(self, matrix):
+    def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
         """
         Converts a matrix into a CSR sparse matrix representation.
 
@@ -602,22 +611,9 @@ class TorchBackend(Backend):
             SparseCSRMatrix
         """
 
-        original_device = matrix.device
+        return SparseCSRMatrix(values=values, row_ptr=row_pointers, col_index=column_indices,
+                               shape=shape)
 
-        nnz_indices = torch.nonzero(matrix, as_tuple=True)
-        vals = matrix[nnz_indices]
-
-        c = Counter(nnz_indices[0].tolist())
-        rpoint = torch.zeros(matrix.shape[0] + 1, dtype=torch.int32).to(original_device)
-        curr_count = 0
-        for i in range(matrix.shape[0] + 1):
-            rpoint[i] = curr_count
-            curr_count += c[i]
-        colind = nnz_indices[1].type(torch.int32)
-
-        return SparseCSRMatrix(values=vals, row_ptr=rpoint, col_index=colind, rows=matrix.shape[0], cols=matrix.shape[1])
-
-    def sparse_tensor(self, indices, values, shape):
     def sparse_coo_tensor(self, indices, values, shape):
         indices_ = self.to_int64(indices)
         values_ = self.to_float(values)
