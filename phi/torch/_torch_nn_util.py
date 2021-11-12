@@ -84,19 +84,61 @@ class UNet(nn.Module):
         return x
 
 
+class ConvDenseNet(nn.Module):
+
+    def __init__(self,
+                 in_channels: int,
+                 in_spatial: tuple,
+                 filter_counts: tuple,
+                 dense_layers: list,
+                 d=2):
+        super(ConvDenseNet, self).__init__()
+        # Conv
+        self._levels = len(filter_counts)
+        self.inc = DoubleConv(in_channels, filter_counts[0], d=d)
+        for i in range(1, self._levels):
+            self.add_module(f'conv{i}', Down(filter_counts[i - 1], filter_counts[i], d=d))
+        # Dense
+        in_neurons = int(numpy.prod(in_spatial) * filter_counts[-1] / 2 ** (d * (len(filter_counts) - 1)))
+        self._dense_layers = (in_neurons, *dense_layers)
+        for i, (s1, s2) in enumerate(zip(self._dense_layers[:-1], self._dense_layers[1:])):
+            self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
+
+    def forward(self, x):
+        x = self.inc(x)
+        for i in range(1, self._levels):
+            x = getattr(self, f'conv{i}')(x)
+        x = torch.reshape(x, (x.shape[0], -1))
+        for i in range(len(self._dense_layers) - 2):
+            x = F.relu(getattr(self, f'linear{i}')(x))
+        x = getattr(self, f'linear{len(self._dense_layers) - 2}')(x)
+        return x
+
+
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
 
-    def __init__(self, in_channels, out_channels, mid_channels=None):
+    def __init__(self, in_channels, out_channels, mid_channels=None, d=2):
         super().__init__()
+        if d == 2:
+            conv = nn.Conv2d
+            norm = nn.BatchNorm2d
+        elif d == 1:
+            conv = nn.Conv1d
+            norm = nn.BatchNorm1d
+        elif d == 3:
+            conv = nn.Conv3d
+            norm = nn.BatchNorm3d
+        else:
+            raise ValueError(f"{d} dimensions are not supported, must be [1,3].")
         if not mid_channels:
             mid_channels = out_channels
         self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(mid_channels),
+            conv(in_channels, mid_channels, kernel_size=3, padding=1),
+            norm(mid_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
+            conv(mid_channels, out_channels, kernel_size=3, padding=1),
+            norm(out_channels),
             nn.ReLU(inplace=True)
         )
 
@@ -107,11 +149,20 @@ class DoubleConv(nn.Module):
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, d=2):
         super().__init__()
+        if d == 1:
+            maxpool = nn.MaxPool1d
+        elif d == 2:
+            maxpool = nn.MaxPool2d
+        elif d == 3:
+            maxpool = nn.MaxPool3d
+        else:
+            raise ValueError(f"{d} dimensions are not supported, must be [1,3].")
+
         self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
-            DoubleConv(in_channels, out_channels)
+            maxpool(2),
+            DoubleConv(in_channels, out_channels, d=d)
         )
 
     def forward(self, x):
