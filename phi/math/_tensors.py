@@ -730,7 +730,7 @@ class NativeTensor(Tensor):
                 assert isinstance(sel, int), f"Attempting slice missing dimension {name} with {selection}"
         if len(selections) == 0:
             return self
-        gathered = self._native[tuple(selections)]
+        gathered = self.default_backend.multi_slice(self._native, tuple(selections))
         new_shape = new_shape.with_sizes(choose_backend(gathered).staticshape(gathered))
         return NativeTensor(gathered, new_shape)
 

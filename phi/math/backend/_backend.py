@@ -991,6 +991,9 @@ class Backend:
     def size(self, array):
         return self.prod(self.shape(array))
 
+    def multi_slice(self, tensor, slices: tuple):
+        return tensor[slices]
+
     def batch_gather(self, tensor, batches):
         if isinstance(batches, int):
             batches = [batches]
