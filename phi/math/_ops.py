@@ -351,7 +351,7 @@ def _print_tensor(value: Tensor, name: str or None):
         raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
 
 
-def map_(function, *values: Tensor) -> Tensor:
+def map_(function, *values) -> Tensor:
     """
     Calls `function` on all elements of `value`.
 
@@ -362,6 +362,7 @@ def map_(function, *values: Tensor) -> Tensor:
     Returns:
         `Tensor` of same shape as `value`.
     """
+    values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
     values_reshaped = [CollapsedTensor(v, shape) for v in values]
     flat = [flatten(v) for v in values_reshaped]

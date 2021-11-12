@@ -1111,11 +1111,11 @@ _SOLVE_TAPES: List[SolveTape] = []
 def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     """
     Finds a minimum of the scalar function *f(x)*.
-    The `method` argument of `solve` determines which method is used.
-    All methods supported by `scipy.optimize.minimize` are supported,
+    The `method` argument of `solve` determines which optimizer is used.
+    All optimizers supported by `scipy.optimize.minimize` are supported,
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
 
-    This method is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
+    `math.minimize()` is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 
