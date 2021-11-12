@@ -111,7 +111,7 @@ class TorchBackend(Backend):
         if neg_slices:
             tensor = torch.flip(tensor, neg_slices)
         pos_slices = [slice(s.start, s.stop, -s.step) if i in neg_slices else s for i, s in enumerate(slices)]
-        return tensor[pos_slices]
+        return tensor[tuple(pos_slices)]
 
     sqrt = torch.sqrt
     exp = torch.exp

@@ -126,7 +126,8 @@ def l2_loss(x) -> Tensor:
 def frequency_loss(x,
                    frequency_falloff: float = 100,
                    threshold=1e-5,
-                   ignore_mean=False) -> Tensor:
+                   ignore_mean=False,
+                   n=2) -> Tensor:
     """
     Penalizes the squared `values` in frequency (Fourier) space.
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
@@ -142,16 +143,19 @@ def frequency_loss(x,
     Returns:
       Scalar loss value
     """
+    assert n in (1, 2)
     if isinstance(x, Tensor):
         if ignore_mean:
             x -= math.mean(x, x.shape.non_batch)
         k_squared = vec_squared(math.fftfreq(x.shape.spatial))
         weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
+
         diff_fft = abs_square(math.fft(x) * weights)
         diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
-        return l2_loss(diff_fft)
+        return l2_loss(diff_fft) if n == 2 else l1_loss(diff_fft)
     elif isinstance(x, TensorLike):
-        return sum([frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean) for a in variable_values(x)])
+        losses = [frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean, n) for a in variable_values(x)]
+        return sum(losses)
     else:
         raise ValueError(x)
 
