@@ -20,8 +20,8 @@ import pytorch_custom_cuda as torch_cuda
 class SparseCSRMatrix:
     def __init__(self, values, row_ptr, col_index, shape):
         self.values = values
-        self.row_ptr = row_ptr
-        self.col_index = col_index
+        self.rows = row_ptr
+        self.cols = col_index
         self.shape = shape
 
 
@@ -379,8 +379,7 @@ class TorchBackend(Backend):
         if isinstance(A, SparseCSRMatrix):
             b_rows = b.size(0)
             b_cols = 1 if len(b.shape) == 1 else b.size(1)
-            C = torch_cuda.cusparse_SpMM(A.row_ptr, A.col_index, A.values, b,
-                A.rows, A.cols, b_rows, b_cols)
+            C = torch_cuda.cusparse_SpMM(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
             return C
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
@@ -603,6 +602,30 @@ class TorchBackend(Backend):
             multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
 
+    def convert_to_matrix_csr_(self, matrix):
+        """
+        Converts a matrix into a CSR sparse matrix representation.
+        Args:
+            matrix: 2 dimensional tensor
+        Returns:
+            SparseCSRMatrix
+        """
+
+        original_device = matrix.device
+
+        nnz_indices = torch.nonzero(matrix, as_tuple=True)
+        vals = matrix[nnz_indices]
+
+        c = Counter(nnz_indices[0].tolist())
+        rpoint = torch.zeros(matrix.shape[0] + 1, dtype=torch.int32).to(original_device)
+        curr_count = 0
+        for i in range(matrix.shape[0] + 1):
+            rpoint[i] = curr_count
+            curr_count += c[i]
+        colind = nnz_indices[1].type(torch.int32)
+
+        return SparseCSRMatrix(values=vals, row_ptr=rpoint, col_index=colind, shape=matrix.shape)
+
     def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
         """
         Converts a matrix into a CSR sparse matrix representation.
@@ -612,7 +635,9 @@ class TorchBackend(Backend):
         Returns:
             SparseCSRMatrix
         """
-
+        row_pointers = self.as_tensor(row_pointers)
+        column_indices = self.as_tensor(column_indices)
+        shape = np.asarray(shape)
         return SparseCSRMatrix(values=values, row_ptr=row_pointers, col_index=column_indices,
                                shape=shape)
 
