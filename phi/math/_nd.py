@@ -352,7 +352,7 @@ def laplace(x: Tensor,
     if isinstance(x, Extrapolation):
         return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch('_laplace'))
-    result = (left + right - 2 * center) / dx
+    result = (left + right - 2 * center) / (dx ** 2)
     result = math.sum_(result, '_laplace')
     return result
 
