@@ -1578,6 +1578,10 @@ def log10(x) -> Tensor:
     return _backend_op1(x, Backend.log10)
 
 
+def sigmoid(x) -> Tensor:
+    return _backend_op1(x, Backend.sigmoid)
+
+
 def cast(x: Tensor, dtype: DType) -> Tensor:
     """
     Casts `x` to a different data type.

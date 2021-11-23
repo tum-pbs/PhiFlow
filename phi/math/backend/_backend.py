@@ -650,6 +650,9 @@ class Backend:
     def log10(self, x):
         raise NotImplementedError(self)
 
+    def sigmoid(self, x):
+        return 1 / (1 + self.exp(-x))
+
     def dtype(self, array) -> DType:
         raise NotImplementedError(self)
 

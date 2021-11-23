@@ -421,6 +421,9 @@ class TFBackend(Backend):
     def log10(self, x):
         return tf.math.log(x) / 2.3025850929940456840  # log(x) / log(10)
 
+    def sigmoid(self, x):
+        return tf.math.sigmoid(x)
+
     def dtype(self, array) -> DType:
         if tf.is_tensor(array):
             dt = array.dtype.as_numpy_dtype
