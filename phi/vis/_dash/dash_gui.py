@@ -168,6 +168,7 @@ class DashGui(Gui):
             print('Starting Dash server on http://localhost:%d/' % port)
             if use_waitress:
                 import waitress
+                logging.getLogger('waitress').setLevel(logging.ERROR)
                 waitress.serve(self.dash_app.dash.server, port=port)
             else:
                 self.dash_app.dash.run_server(debug=debug, host=self.config.get('host', '0.0.0.0'), port=port, use_reloader=False)
