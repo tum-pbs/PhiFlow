@@ -680,7 +680,6 @@ class TorchBackend(Backend):
         if method == 'auto':
             return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
         elif method == 'CG':
-            #return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, False)
             return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
         elif method == 'CG-adaptive':
             return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
