@@ -84,7 +84,7 @@ class CudaCommand(distutils.cmd.Command):
         pass
 
     def run(self):
-        src_path = abspath('./phi/tf/cuda/src')
+        src_path = abspath('phi/tf/cuda/src')
         build_path = abspath('./phi/tf/cuda/build')
         logfile_path = abspath('./phi/tf/cuda/log.txt')
         print("Source Path:\t" + src_path)
@@ -115,6 +115,23 @@ class CudaCommand(distutils.cmd.Command):
                 raise err
         print(f"Compilation complete. See {logfile_path} for details.")
 
+
+class TorchCuda(distutils.cmd.Command):
+    description = 'Compile PyTorch CUDA library'
+    user_options = []
+
+    def initialize_options(self) -> None:
+        pass
+
+    def finalize_options(self) -> None:
+        pass
+
+    def compile_torch_cuda(self):
+        command = ['python', './phi/torch/cuda/torch_cuda_setup.py', 'install']
+        subprocess.check_call(command)
+
+    def run(self):
+        self.compile_torch_cuda()
 
 try:
     with open(join(dirname(__file__), 'docs/Package_Info.md'), 'r') as readme:
@@ -148,6 +165,7 @@ setup(
               'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
+        'torch_cuda': TorchCuda
     },
     description='Differentiable PDE solving framework for machine learning',
     long_description=long_description,

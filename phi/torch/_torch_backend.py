@@ -14,8 +14,7 @@ from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice
 from phi.math.backend._backend import combined_dim, SolveResult
 
-import pytorch_custom_cuda as torch_cuda
-
+import torch_cuda
 
 class SparseCSRMatrix:
     def __init__(self, values, row_ptr, col_index, shape):
@@ -379,13 +378,16 @@ class TorchBackend(Backend):
         if isinstance(A, SparseCSRMatrix):
             b_rows = b.size(0)
             b_cols = 1 if len(b.shape) == 1 else b.size(1)
-            C = torch_cuda.cusparse_SpMM(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
+            time = 0
+            C = torch_cuda.cusparse_SpMM_BA(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
             return C
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
-            return torch.transpose(result, 0, 1)
+            result = torch.transpose(result, 0, 1)
+            return result
         if isinstance(A, torch.Tensor) and isinstance(b, torch.Tensor):
-            return torch.matmul(A, b.T).T
+            result = torch.matmul(A, b.T).T
+            return result
         raise NotImplementedError(type(A), type(b))
 
     def cumsum(self, x, axis: int):
@@ -678,6 +680,7 @@ class TorchBackend(Backend):
         if method == 'auto':
             return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
         elif method == 'CG':
+            #return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, False)
             return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
         elif method == 'CG-adaptive':
             return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
@@ -685,17 +688,42 @@ class TorchBackend(Backend):
             raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
+        global total_elapsed
+
+        def check_matrix_sparsity(lin: SparseCSRMatrix):
+            return print("Matrix is {}% sparse".format(1.0 - len(lin.values) / (lin.shape[0] * lin.shape[1])))
+
+        if isinstance(lin, SparseCSRMatrix):
+            #check_matrix_sparsity(lin)
+            if trj == []:
+                trj = False
+            res = torch_cuda.conjugate_gradient(lin.values, lin.cols, lin.rows, lin.shape[0], lin.shape[1],
+                                                len(lin.values), y, x0, rtol, atol, max_iter, trj)
+            if trj:
+                last_res = []
+                for inst in res:
+                    x, residual, iterations, function_evaluations, converged, diverged = inst
+                    last_res.append(SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})",
+                                                x, residual, iterations, function_evaluations, converged, diverged, ""))
+                return last_res
+            else:
+                x, residual, iterations, function_evaluations, converged, diverged = res[0]
+                return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})",
+                                                x, residual, iterations, function_evaluations, converged, diverged, "")
         if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
             return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
+
         assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
         rtol = self.as_tensor(rtol)
         atol = self.as_tensor(atol)
         max_iter = self.as_tensor(max_iter)
-        x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg(lin, y, x0, rtol, atol, max_iter)
-        return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
+        x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg(lin, y, x0, rtol, atol,
+                                                                                                 max_iter)
+        return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual,
+                           iterations, function_evaluations, converged, diverged, "")
 
     def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if callable(lin) or trj:

@@ -27,7 +27,9 @@
     cusparseStatus_t err;                                                      \
     if ((err = (call)) != CUSPARSE_STATUS_SUCCESS)                             \
     {                                                                          \
-        fprintf(stderr, "Got error %d at %s:%d\n", err, __FILE__, __LINE__);   \
+        fprintf(stderr, "Got error %d named %s, %s. At %s %d\n",               \
+            err, cusparseGetErrorName(err),                                    \
+            cusparseGetErrorString(err),__FILE__, __LINE__);                   \
         cudaError_t cuda_err = cudaGetLastError();                             \
         if (cuda_err != cudaSuccess)                                           \
         {                                                                      \
@@ -37,8 +39,4 @@
         exit(1);                                                               \
     }                                                                          \
 }
-
-#define CHECK_CUDA_TENSOR(x) TORCH_CHECK(x.is_cuda(), #x " must be a CUDA tensor")
-#define CHECK_CONTIGUOUS(x) TORCH_CHECK(x.is_contiguous(), #x " must be contiguous")
-#define CHECK_INPUT(x) CHECK_CUDA_TENSOR(x); CHECK_CONTIGUOUS(x)
 #endif
