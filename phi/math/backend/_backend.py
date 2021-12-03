@@ -674,6 +674,9 @@ class Backend:
 
         Optional feature.
 
+        See Also:
+            `Backend.csr_matrix()`, `Backend.csc_matrix()`.
+
         Args:
             indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
             values: 1D values tensor matching `indices`
@@ -690,11 +693,34 @@ class Backend:
 
         Optional feature.
 
+        See Also:
+            `Backend.sparse_coo_tensor()`, `Backend.csc_matrix()`.
+
         Args:
-            column_indices: Column indices
-            row_pointers:
-            values:
-            shape:
+            column_indices: Column indices corresponding to `values`, 1D tensor
+            row_pointers: Indices in `values` where any row starts, 1D tensor of length `rows + 1`
+            values: Non-zero values, 1D tensor
+            shape: Shape of the full matrix
+
+        Returns:
+            Native representation of the sparse matrix
+        """
+        raise NotImplementedError(self)
+
+    def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+        """
+        Create a sparse matrix in compressed sparse column (CSC) format.
+
+        Optional feature.
+
+        See Also:
+            `Backend.sparse_coo_tensor()`, `Backend.csr_matrix()`.
+
+        Args:
+            column_pointers: Indices in `values` where any column starts, 1D tensor of length `cols + 1`
+            row_indices: Row indices corresponding to `values`.
+            values: Non-zero values, 1D tensor
+            shape: Shape of the full matrix
 
         Returns:
             Native representation of the sparse matrix

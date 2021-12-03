@@ -570,8 +570,7 @@ class ShiftLinTracer(Tensor):
         self.val: Dict[Shape, Tensor] = simplify_add(values_by_shift)
         self.bias = bias
         self._shape = shape
-        self._sparse_coo = None
-        self._sparse_csr = None
+        self._sparse_coo = self._sparse_csr = self._sparse_csc = None
 
     def native(self, order: str or tuple or list or Shape = None):
         """
@@ -656,7 +655,29 @@ class ShiftLinTracer(Tensor):
         self._sparse_csr = SparseMatrixContainer('csr', coo.shape, coo.indices_key, coo.src_shape, values, row_ptr, col_indices)
         return self._sparse_csr
 
+    def get_sparse_csc_matrix(self) -> 'SparseMatrixContainer':
+        """
+        Builds a sparse matrix that represents this linear operation.
+        Independent dimensions, those that can be treated as batch dimensions, are recognized automatically and ignored.
+        """
+        if self._sparse_csc is not None:
+            return self._sparse_csc
+        coo = self.get_sparse_coordinate_matrix()
+        idx = np.arange(1, len(coo.values)+1)  # start indexing at 1 since 0 might get removed
+        import scipy.sparse
+        scipy_csr = scipy.sparse.csc_matrix((idx, (coo.rows, coo.cols)), shape=coo.shape)
+        row_indices = scipy_csr.indices
+        col_ptr = scipy_csr.indptr
+        if coo.values.nnz.size != len(scipy_csr.data):
+            warnings.warn("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.")
+            return coo
+        values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
+        self._sparse_csc = SparseMatrixContainer('csc', coo.shape, coo.indices_key, coo.src_shape, values, row_indices, col_ptr)
+        return self._sparse_csc
+
     def get_sparse_matrix(self, matrix_format: str = None) -> 'SparseMatrixContainer':
+        if self.default_backend.supports(Backend.csc_matrix) and matrix_format in (None, 'csc'):
+            return self.get_sparse_csc_matrix()
         if self.default_backend.supports(Backend.csr_matrix) and matrix_format in (None, 'csr'):
             return self.get_sparse_csr_matrix()
         elif self.default_backend.supports(Backend.sparse_coo_tensor) and matrix_format in (None, 'coo'):
@@ -840,7 +861,7 @@ class SparseMatrixContainer:
             values: Values
             src_shape: Non-flattened `Shape` of `x` vectors compatible with this matrix.
         """
-        assert indexing_type in ('coo', 'csr')
+        assert indexing_type in ('coo', 'csr', 'csc')
         self.indexing_type = indexing_type
         self.shape = shape
         self.indices_key = indices_key
@@ -860,10 +881,13 @@ class SparseMatrixContainer:
 
     def native(self):
         backend = choose_backend(self.rows, self.cols, *self.values._natives())
+        if self.indexing_type == 'csc':
+            return backend.csc_matrix(self.cols, self.rows, self.values.native(), self.shape)
+        if self.indexing_type == 'csr':
+            return backend.csr_matrix(self.cols, self.rows, self.values.native(), self.shape)
         if self.indexing_type == 'coo':
             return backend.sparse_coo_tensor((self.rows, self.cols), self.values.native(), self.shape)
-        else:  # csr
-            return backend.csr_matrix(self.cols, self.rows, self.values.native(), self.shape)
+        assert False, self.indexing_type
 
 
 class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors there
