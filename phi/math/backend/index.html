@@ -1137,6 +1137,9 @@ The output of math operations has the same precision as its inputs.</p>
 
         Optional feature.
 
+        See Also:
+            `Backend.csr_matrix()`, `Backend.csc_matrix()`.
+
         Args:
             indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
             values: 1D values tensor matching `indices`
@@ -1153,11 +1156,34 @@ The output of math operations has the same precision as its inputs.</p>
 
         Optional feature.
 
+        See Also:
+            `Backend.sparse_coo_tensor()`, `Backend.csc_matrix()`.
+
         Args:
-            column_indices: Column indices
-            row_pointers:
-            values:
-            shape:
+            column_indices: Column indices corresponding to `values`, 1D tensor
+            row_pointers: Indices in `values` where any row starts, 1D tensor of length `rows + 1`
+            values: Non-zero values, 1D tensor
+            shape: Shape of the full matrix
+
+        Returns:
+            Native representation of the sparse matrix
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+        &#34;&#34;&#34;
+        Create a sparse matrix in compressed sparse column (CSC) format.
+
+        Optional feature.
+
+        See Also:
+            `Backend.sparse_coo_tensor()`, `Backend.csr_matrix()`.
+
+        Args:
+            column_pointers: Indices in `values` where any column starts, 1D tensor of length `cols + 1`
+            row_indices: Row indices corresponding to `values`.
+            values: Non-zero values, 1D tensor
+            shape: Shape of the full matrix
 
         Returns:
             Native representation of the sparse matrix
@@ -1453,6 +1479,9 @@ The output of math operations has the same precision as its inputs.</p>
 
     def size(self, array):
         return self.prod(self.shape(array))
+
+    def multi_slice(self, tensor, slices: tuple):
+        return tensor[slices]
 
     def batch_gather(self, tensor, batches):
         if isinstance(batches, int):
@@ -2157,20 +2186,71 @@ Higher dimensions may not be supported.</p>
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.csc_matrix"><code class="name flex">
+<span>def <span class="ident">csc_matrix</span></span>(<span>self, column_pointers, row_indices, values, shape: tuple)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a sparse matrix in compressed sparse column (CSC) format.</p>
+<p>Optional feature.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.sparse_coo_tensor" href="#phi.math.backend.Backend.sparse_coo_tensor">Backend.sparse_coo_tensor()</a></code>, <code><a title="phi.math.backend.Backend.csr_matrix" href="#phi.math.backend.Backend.csr_matrix">Backend.csr_matrix()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>column_pointers</code></strong></dt>
+<dd>Indices in <code>values</code> where any column starts, 1D tensor of length <code>cols + 1</code></dd>
+<dt><strong><code>row_indices</code></strong></dt>
+<dd>Row indices corresponding to <code>values</code>.</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Non-zero values, 1D tensor</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>Shape of the full matrix</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Native representation of the sparse matrix</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+    &#34;&#34;&#34;
+    Create a sparse matrix in compressed sparse column (CSC) format.
+
+    Optional feature.
+
+    See Also:
+        `Backend.sparse_coo_tensor()`, `Backend.csr_matrix()`.
+
+    Args:
+        column_pointers: Indices in `values` where any column starts, 1D tensor of length `cols + 1`
+        row_indices: Row indices corresponding to `values`.
+        values: Non-zero values, 1D tensor
+        shape: Shape of the full matrix
+
+    Returns:
+        Native representation of the sparse matrix
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.csr_matrix"><code class="name flex">
 <span>def <span class="ident">csr_matrix</span></span>(<span>self, column_indices, row_pointers, values, shape: tuple)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a sparse matrix in compressed sparse row (CSR) format.</p>
 <p>Optional feature.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.sparse_coo_tensor" href="#phi.math.backend.Backend.sparse_coo_tensor">Backend.sparse_coo_tensor()</a></code>, <code><a title="phi.math.backend.Backend.csc_matrix" href="#phi.math.backend.Backend.csc_matrix">Backend.csc_matrix()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>column_indices</code></strong></dt>
-<dd>Column indices</dd>
+<dd>Column indices corresponding to <code>values</code>, 1D tensor</dd>
+<dt><strong><code>row_pointers</code></strong></dt>
+<dd>Indices in <code>values</code> where any row starts, 1D tensor of length <code>rows + 1</code></dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Non-zero values, 1D tensor</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>Shape of the full matrix</dd>
 </dl>
-<p>row_pointers:
-values:
-shape:</p>
 <h2 id="returns">Returns</h2>
 <p>Native representation of the sparse matrix</p></div>
 <details class="source">
@@ -2183,11 +2263,14 @@ shape:</p>
 
     Optional feature.
 
+    See Also:
+        `Backend.sparse_coo_tensor()`, `Backend.csc_matrix()`.
+
     Args:
-        column_indices: Column indices
-        row_pointers:
-        values:
-        shape:
+        column_indices: Column indices corresponding to `values`, 1D tensor
+        row_pointers: Indices in `values` where any row starts, 1D tensor of length `rows + 1`
+        values: Non-zero values, 1D tensor
+        shape: Shape of the full matrix
 
     Returns:
         Native representation of the sparse matrix
@@ -3117,6 +3200,19 @@ This method need not provide a gradient for the operation.</p>
     return a * b</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.multi_slice"><code class="name flex">
+<span>def <span class="ident">multi_slice</span></span>(<span>self, tensor, slices: tuple)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def multi_slice(self, tensor, slices: tuple):
+    return tensor[slices]</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.ndims"><code class="name flex">
 <span>def <span class="ident">ndims</span></span>(<span>self, tensor)</span>
 </code></dt>
@@ -3608,6 +3704,8 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
 <dd>
 <div class="desc"><p>Create a sparse matrix in coordinate list (COO) format.</p>
 <p>Optional feature.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.csr_matrix" href="#phi.math.backend.Backend.csr_matrix">Backend.csr_matrix()</a></code>, <code><a title="phi.math.backend.Backend.csc_matrix" href="#phi.math.backend.Backend.csc_matrix">Backend.csc_matrix()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>indices</code></strong></dt>
@@ -3628,6 +3726,9 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
     Create a sparse matrix in coordinate list (COO) format.
 
     Optional feature.
+
+    See Also:
+        `Backend.csr_matrix()`, `Backend.csc_matrix()`.
 
     Args:
         indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
@@ -4622,6 +4723,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.coordinates" href="#phi.math.backend.Backend.coordinates">coordinates</a></code></li>
 <li><code><a title="phi.math.backend.Backend.copy" href="#phi.math.backend.Backend.copy">copy</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cos" href="#phi.math.backend.Backend.cos">cos</a></code></li>
+<li><code><a title="phi.math.backend.Backend.csc_matrix" href="#phi.math.backend.Backend.csc_matrix">csc_matrix</a></code></li>
 <li><code><a title="phi.math.backend.Backend.csr_matrix" href="#phi.math.backend.Backend.csr_matrix">csr_matrix</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cumsum" href="#phi.math.backend.Backend.cumsum">cumsum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.custom_gradient" href="#phi.math.backend.Backend.custom_gradient">custom_gradient</a></code></li>
@@ -4669,6 +4771,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.minimum" href="#phi.math.backend.Backend.minimum">minimum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.mod" href="#phi.math.backend.Backend.mod">mod</a></code></li>
 <li><code><a title="phi.math.backend.Backend.mul" href="#phi.math.backend.Backend.mul">mul</a></code></li>
+<li><code><a title="phi.math.backend.Backend.multi_slice" href="#phi.math.backend.Backend.multi_slice">multi_slice</a></code></li>
 <li><code><a title="phi.math.backend.Backend.name" href="#phi.math.backend.Backend.name">name</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ndims" href="#phi.math.backend.Backend.ndims">ndims</a></code></li>
 <li><code><a title="phi.math.backend.Backend.nonzero" href="#phi.math.backend.Backend.nonzero">nonzero</a></code></li>

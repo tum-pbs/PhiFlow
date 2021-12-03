@@ -1898,7 +1898,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 </details>
 </dd>
 <dt id="phi.math.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>x, frequency_falloff: float = 100, threshold=1e-05, ignore_mean=False) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>x, frequency_falloff: float = 100, threshold=1e-05, ignore_mean=False, n=2) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Penalizes the squared <code>values</code> in frequency (Fourier) space.
@@ -1925,7 +1925,8 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 <pre><code class="python">def frequency_loss(x,
                    frequency_falloff: float = 100,
                    threshold=1e-5,
-                   ignore_mean=False) -&gt; Tensor:
+                   ignore_mean=False,
+                   n=2) -&gt; Tensor:
     &#34;&#34;&#34;
     Penalizes the squared `values` in frequency (Fourier) space.
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
@@ -1941,16 +1942,19 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
     Returns:
       Scalar loss value
     &#34;&#34;&#34;
+    assert n in (1, 2)
     if isinstance(x, Tensor):
         if ignore_mean:
             x -= math.mean(x, x.shape.non_batch)
         k_squared = vec_squared(math.fftfreq(x.shape.spatial))
         weights = math.exp(-0.5 * k_squared * frequency_falloff ** 2)
+
         diff_fft = abs_square(math.fft(x) * weights)
         diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
-        return l2_loss(diff_fft)
+        return l2_loss(diff_fft) if n == 2 else l1_loss(diff_fft)
     elif isinstance(x, TensorLike):
-        return sum([frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean) for a in variable_values(x)])
+        losses = [frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean, n) for a in variable_values(x)]
+        return sum(losses)
     else:
         raise ValueError(x)</code></pre>
 </details>
@@ -2749,7 +2753,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 </details>
 </dd>
 <dt id="phi.math.map"><code class="name flex">
-<span>def <span class="ident">map</span></span>(<span>function, *values: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">map</span></span>(<span>function, *values) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calls <code>function</code> on all elements of <code>value</code>.</p>
@@ -2766,7 +2770,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def map_(function, *values: Tensor) -&gt; Tensor:
+<pre><code class="python">def map_(function, *values) -&gt; Tensor:
     &#34;&#34;&#34;
     Calls `function` on all elements of `value`.
 
@@ -2777,6 +2781,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
     Returns:
         `Tensor` of same shape as `value`.
     &#34;&#34;&#34;
+    values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
     values_reshaped = [CollapsedTensor(v, shape) for v in values]
     flat = [flatten(v) for v in values_reshaped]
@@ -3146,10 +3151,10 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
 </code></dt>
 <dd>
 <div class="desc"><p>Finds a minimum of the scalar function <em>f(x)</em>.
-The <code>method</code> argument of <code>solve</code> determines which method is used.
-All methods supported by <code>scipy.optimize.minimize</code> are supported,
+The <code>method</code> argument of <code>solve</code> determines which optimizer is used.
+All optimizers supported by <code>scipy.optimize.minimize</code> are supported,
 see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .</p>
-<p>This method is limited to backends that support <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code>, currently PyTorch, TensorFlow and Jax.</p>
+<p><code>math.minimize()</code> is limited to backends that support <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code>, currently PyTorch, TensorFlow and Jax.</p>
 <p>To obtain additional information about the performed solve, use a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code>.</p>
 <p>See Also:
 <code><a title="phi.math.solve_nonlinear" href="#phi.math.solve_nonlinear">solve_nonlinear()</a></code>.</p>
@@ -3181,11 +3186,11 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
 <pre><code class="python">def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -&gt; X:
     &#34;&#34;&#34;
     Finds a minimum of the scalar function *f(x)*.
-    The `method` argument of `solve` determines which method is used.
-    All methods supported by `scipy.optimize.minimize` are supported,
+    The `method` argument of `solve` determines which optimizer is used.
+    All optimizers supported by `scipy.optimize.minimize` are supported,
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
 
-    This method is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
+    `math.minimize()` is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 

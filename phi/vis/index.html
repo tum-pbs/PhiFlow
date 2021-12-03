@@ -84,7 +84,8 @@ __pdoc__ = {
 </summary>
 <pre><code class="python">def action(fun):
     doc = inspect.getdoc(fun)
-    ACTIONS[Action(fun.__name__, doc)] = fun</code></pre>
+    ACTIONS[Action(fun.__name__, doc)] = fun
+    return fun</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.animate"><code class="name flex">
@@ -307,7 +308,42 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid='y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>scene</code></strong></dt>
+<dd><code>str</code> or <code>Tensor</code>. Scene paths containing the data to plot.</dd>
+<dt><strong><code>names</code></strong></dt>
+<dd>Data files to plot for each scene. The file must be located inside the scene directory and have the name <code>log_&lt;name&gt;.txt</code>.</dd>
+<dt><strong><code>reduce</code></strong></dt>
+<dd>Tensor dimensions along which all curves are plotted in the same diagram.</dd>
+<dt><strong><code>down</code></strong></dt>
+<dd>Tensor dimensions along which diagrams are ordered top-to-bottom instead of left-to-right.</dd>
+<dt><strong><code>smooth</code></strong></dt>
+<dd><code>int</code> or <code>Tensor</code>. Number of data points to average, -1 for all.</dd>
+<dt><strong><code>smooth_alpha</code></strong></dt>
+<dd>Opacity of the non-smoothed curves under the smoothed curves.</dd>
+<dt><strong><code>smooth_linewidth</code></strong></dt>
+<dd>Line width of the smoothed curves.</dd>
+<dt><strong><code>size</code></strong></dt>
+<dd>Figure size in inches.</dd>
+<dt><strong><code>transform</code></strong></dt>
+<dd>Function <code>T(x,y) -&gt; (x,y)</code> transforming the curves.</dd>
+<dt>tight_layout:</dt>
+<dt>grid:</dt>
+<dt>log_scale:</dt>
+<dt>legend:</dt>
+<dt>x:</dt>
+<dt>xlim:</dt>
+<dt>ylim:</dt>
+<dt>titles:</dt>
+<dt>labels:</dt>
+<dt>xlabel:</dt>
+<dt>ylabel:</dt>
+<dt><strong><code>colors</code></strong></dt>
+<dd>Line colors as <code>str</code>, <code>int</code> or <code>Tensor</code>. Integers are interpreted as indices of the default color list.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>MatPlotLib <a href="https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure">figure</a></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -333,6 +369,34 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                  xlabel: str = None,
                  ylabel: str = None,
                  colors: math.Tensor = &#39;default&#39;):
+    &#34;&#34;&#34;
+
+    Args:
+        scene: `str` or `Tensor`. Scene paths containing the data to plot.
+        names: Data files to plot for each scene. The file must be located inside the scene directory and have the name `log_&lt;name&gt;.txt`.
+        reduce: Tensor dimensions along which all curves are plotted in the same diagram.
+        down: Tensor dimensions along which diagrams are ordered top-to-bottom instead of left-to-right.
+        smooth: `int` or `Tensor`. Number of data points to average, -1 for all.
+        smooth_alpha: Opacity of the non-smoothed curves under the smoothed curves.
+        smooth_linewidth: Line width of the smoothed curves.
+        size: Figure size in inches.
+        transform: Function `T(x,y) -&gt; (x,y)` transforming the curves.
+        tight_layout:
+        grid:
+        log_scale:
+        legend:
+        x:
+        xlim:
+        ylim:
+        titles:
+        labels:
+        xlabel:
+        ylabel:
+        colors: Line colors as `str`, `int` or `Tensor`. Integers are interpreted as indices of the default color list.
+
+    Returns:
+        MatPlotLib [figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure)
+    &#34;&#34;&#34;
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -379,7 +443,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
         else:
             curve_labels = math.map(lambda p, n: f&#34;{os.path.basename(p)} - {n}&#34;, scene.paths[b], names[b])
 
-        def single_plot(name, path, label, i, color):
+        def single_plot(name, path, label, i, color, smooth):
             logging.debug(f&#34;Reading {os.path.join(path, f&#39;log_{name}.txt&#39;)}&#34;)
             curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
             if curve.ndim == 2:
@@ -398,7 +462,11 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                 x_values, values = transform(np.stack([x_values, values]))
             if color == &#39;default&#39;:
                 color = cycle[i]
-            elif isinstance(color, Number):
+            try:
+                color = int(color)
+            except ValueError:
+                pass
+            if isinstance(color, Number):
                 color = cycle[int(color)]
             logging.debug(f&#34;Plotting curve {label}&#34;)
             axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
@@ -420,7 +488,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                 axis.set_ylabel(ylabel)
             return name
 
-        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors)
+        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors, smooth)
         if legend:
             axis.legend(loc=legend)
     # Final touches
