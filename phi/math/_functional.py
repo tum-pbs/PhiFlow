@@ -751,20 +751,11 @@ class ShiftLinTracer(Tensor):
     def _op1(self, native_function):  # only __neg__ is linear
         raise NotImplementedError('Only linear operations are supported')
 
-    def __add__(self, other):
-        return self._op2(other, lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), zeros_for_missing_self=False, zeros_for_missing_other=False)
-
-    def __sub__(self, other):
-        return self._op2(other, lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), zeros_for_missing_other=False)
-
-    def __rsub__(self, other):
-        return self._op2(other, lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), zeros_for_missing_self=False)
-
     def _op2(self, other: Tensor,
              operator: Callable,
              native_function: Callable,
-             zeros_for_missing_self=True,
-             zeros_for_missing_other=True) -> 'ShiftLinTracer':
+             op_name: str = 'unknown',
+             op_symbol: str = '?') -> 'ShiftLinTracer':
         """
         Tensor-tensor operation.
 
@@ -772,9 +763,11 @@ class ShiftLinTracer(Tensor):
             other:
             operator:
             native_function:
-            zeros_for_missing_self: perform `operator` where `self == 0`
-            zeros_for_missing_other: perform `operator` where `other == 0`
         """
+        assert op_symbol in '+-*/', f"Unsupported operation encountered while tracing linear function: {native_function}"
+        zeros_for_missing_self = op_name not in ['add', 'radd', 'rsub']  # perform `operator` where `self == 0`
+        zeros_for_missing_other = op_name not in ['add', 'radd', 'sub']  # perform `operator` where `other == 0`
+
         if isinstance(other, ShiftLinTracer):
             assert self.source is other.source, "Multiple linear tracers are not yet supported."
             assert set(self._shape) == set(other._shape), f"Tracers have different shapes: {self._shape} and {other._shape}"
@@ -797,12 +790,18 @@ class ShiftLinTracer(Tensor):
             return ShiftLinTracer(self.source, values, self._shape, bias)
         else:
             other = self._tensor(other)
-            values = {}
-            for dim_shift, val in self.val.items():
-                val_, other_ = math.join_spaces(val, other)
-                values[dim_shift] = operator(val_, other_)
-            bias = operator(self.bias, other)
-            return ShiftLinTracer(self.source, values, self._shape & other.shape, bias)
+            if op_symbol in '*/':
+                values = {}
+                for dim_shift, val in self.val.items():
+                    val_, other_ = math.join_spaces(val, other)
+                    values[dim_shift] = operator(val_, other_)
+                bias = operator(self.bias, other)
+                return ShiftLinTracer(self.source, values, self._shape & other.shape, bias)
+            elif op_symbol in '+-':
+                bias = operator(self.bias, other)
+                return ShiftLinTracer(self.source, self.val, self._shape & other.shape, bias)
+            else:
+                raise ValueError(f"Unsupported operation encountered while tracing linear function: {native_function}")
 
     def _tensor_reduce(self,
                        dims: Tuple[str],

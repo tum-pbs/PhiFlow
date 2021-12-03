@@ -1629,17 +1629,18 @@ def divide_no_nan(x: Tensor, y: Tensor):
                       l_operator=divide_no_nan,
                       l_native_function=lambda x_, y_: choose_backend(x_, y_).divide_no_nan(x_, y_),
                       r_operator=lambda y_, x_: divide_no_nan(x_, y_),
-                      r_native_function=lambda y_, x_: choose_backend(x_, y_).divide_no_nan(x_, y_))
+                      r_native_function=lambda y_, x_: choose_backend(x_, y_).divide_no_nan(x_, y_),
+                      op_name='divide_no_nan')
 
 
 def maximum(x: Tensor or float, y: Tensor or float):
     """ Computes the element-wise maximum of `x` and `y`. """
-    return custom_op2(x, y, maximum, lambda x_, y_: choose_backend(x_, y_).maximum(x_, y_))
+    return custom_op2(x, y, maximum, lambda x_, y_: choose_backend(x_, y_).maximum(x_, y_), op_name='maximum')
 
 
 def minimum(x: Tensor or float, y: Tensor or float):
     """ Computes the element-wise minimum of `x` and `y`. """
-    return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_))
+    return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_), op_name='minimum')
 
 
 def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
