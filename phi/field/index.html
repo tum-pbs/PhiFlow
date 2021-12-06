@@ -78,7 +78,7 @@ from ._field_math import (
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,
     concat, stack,
-    where,
+    where, maximum, minimum,
     vec_squared, vec_abs,
     downsample2x, upsample2x,
     extrapolate_valid,
@@ -1111,6 +1111,43 @@ For <code>TensorLike</code> objects, only value the sum over all value attribute
     return result</code></pre>
 </details>
 </dd>
+<dt id="phi.field.maximum"><code class="name flex">
+<span>def <span class="ident">maximum</span></span>(<span>f1: phi.field._field.Field, f2: phi.field._field.Field)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Element-wise maximum.
+One of the given fields needs to be an instance of <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> and the the result will be sampled at the corresponding points.
+If both are <code>SampledFields</code> but have different points, <code>f1</code> takes priority.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f1</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code>Geometry</code> or constant.</dd>
+<dt><strong><code>f2</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code>Geometry</code> or constant.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def maximum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+    &#34;&#34;&#34;
+    Element-wise maximum.
+    One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
+    If both are `SampledFields` but have different points, `f1` takes priority.
+
+    Args:
+        f1: `Field` or `Geometry` or constant.
+        f2: `Field` or `Geometry` or constant.
+
+    Returns:
+        `SampledField`
+    &#34;&#34;&#34;
+    f1, f2 = _auto_resample(f1, f2)
+    return f1.with_values(math.maximum(f1.values, f2.values))</code></pre>
+</details>
+</dd>
 <dt id="phi.field.mean"><code class="name flex">
 <span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -1265,6 +1302,43 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         tape._add(solve, trj, result)
     result.convergence_check(False)  # raises ConvergenceException
     return x</code></pre>
+</details>
+</dd>
+<dt id="phi.field.minimum"><code class="name flex">
+<span>def <span class="ident">minimum</span></span>(<span>f1: phi.field._field.Field, f2: phi.field._field.Field)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Element-wise minimum.
+One of the given fields needs to be an instance of <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> and the the result will be sampled at the corresponding points.
+If both are <code>SampledFields</code> but have different points, <code>f1</code> takes priority.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f1</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code>Geometry</code> or constant.</dd>
+<dt><strong><code>f2</code></strong></dt>
+<dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> or <code>Geometry</code> or constant.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def minimum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+    &#34;&#34;&#34;
+    Element-wise minimum.
+    One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
+    If both are `SampledFields` but have different points, `f1` takes priority.
+
+    Args:
+        f1: `Field` or `Geometry` or constant.
+        f2: `Field` or `Geometry` or constant.
+
+    Returns:
+        `SampledField`
+    &#34;&#34;&#34;
+    f1, f2 = _auto_resample(f1, f2)
+    return f1.with_values(math.minimum(f1.values, f2.values))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.native_call"><code class="name flex">
@@ -2272,7 +2346,7 @@ The new values are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.field.where"><code class="name flex">
-<span>def <span class="ident">where</span></span>(<span>mask: phi.field._field.Field, field_true: phi.field._field.Field, field_false: phi.field._field.Field) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">where</span></span>(<span>mask: phi.field._field.Field, field_true: phi.field._field.Field, field_false: phi.field._field.Field) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Element-wise where operation.
@@ -2294,7 +2368,7 @@ At least one of the arguments must be a <code><a title="phi.field.SampledField" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def where(mask: Field or Geometry, field_true: Field, field_false: Field) -&gt; SampledField:
+<pre><code class="python">def where(mask: Field or Geometry or float, field_true: Field or float, field_false: Field or float) -&gt; SampledFieldType:
     &#34;&#34;&#34;
     Element-wise where operation.
     Picks the value of `field_true` where `mask=1 / True` and the value of `field_false` where `mask=0 / False`.
@@ -2310,21 +2384,8 @@ At least one of the arguments must be a <code><a title="phi.field.SampledField" 
     Returns:
         `SampledField`
     &#34;&#34;&#34;
-    if isinstance(mask, Geometry):
-        mask = HardGeometryMask(mask)
-    elif isinstance(mask, SampledField):
-        field_true = field_true.at(mask)
-        field_false = field_false.at(mask)
-    elif isinstance(field_true, SampledField):
-        mask = mask.at(field_true)
-        field_false = field_false.at(field_true)
-    elif isinstance(field_false, SampledField):
-        mask = mask.at(field_true)
-        field_true = field_true.at(mask)
-    else:
-        raise NotImplementedError(&#39;At least one argument must be a SampledField&#39;)
+    mask, field_true, field_false = _auto_resample(mask, field_true, field_false)
     values = mask.values * field_true.values + (1 - mask.values) * field_false.values
-    # values = math.where(mask.values, field_true.values, field_false.values)
     return field_true.with_values(values)</code></pre>
 </details>
 </dd>
@@ -2844,7 +2905,7 @@ def shape(self) -&gt; Shape:
     def __rmatmul__(self, other):  # values @ representation
         if not isinstance(self, SampledField):
             return NotImplemented
-        if isinstance(other, Geometry):
+        if isinstance(other, (Geometry, float, int, complex, tuple, list)):
             return self.with_values(other)
         return NotImplemented
 
@@ -5535,8 +5596,10 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 <li><code><a title="phi.field.l1_loss" href="#phi.field.l1_loss">l1_loss</a></code></li>
 <li><code><a title="phi.field.l2_loss" href="#phi.field.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.field.laplace" href="#phi.field.laplace">laplace</a></code></li>
+<li><code><a title="phi.field.maximum" href="#phi.field.maximum">maximum</a></code></li>
 <li><code><a title="phi.field.mean" href="#phi.field.mean">mean</a></code></li>
 <li><code><a title="phi.field.minimize" href="#phi.field.minimize">minimize</a></code></li>
+<li><code><a title="phi.field.minimum" href="#phi.field.minimum">minimum</a></code></li>
 <li><code><a title="phi.field.native_call" href="#phi.field.native_call">native_call</a></code></li>
 <li><code><a title="phi.field.normalize" href="#phi.field.normalize">normalize</a></code></li>
 <li><code><a title="phi.field.pad" href="#phi.field.pad">pad</a></code></li>
