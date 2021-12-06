@@ -38,7 +38,7 @@ from ._field_math import (
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,
     concat, stack,
-    where,
+    where, maximum, minimum,
     vec_squared, vec_abs,
     downsample2x, upsample2x,
     extrapolate_valid,

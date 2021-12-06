@@ -1,5 +1,5 @@
 from numbers import Number
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 from phi import geom
 from phi import math
@@ -418,7 +418,7 @@ def assert_close(*fields: SampledField or math.Tensor or Number,
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
 
 
-def where(mask: Field or Geometry, field_true: Field, field_false: Field) -> SampledField:
+def where(mask: Field or Geometry or float, field_true: Field or float, field_false: Field or float) -> SampledFieldType:
     """
     Element-wise where operation.
     Picks the value of `field_true` where `mask=1 / True` and the value of `field_false` where `mask=0 / False`.
@@ -434,22 +434,50 @@ def where(mask: Field or Geometry, field_true: Field, field_false: Field) -> Sam
     Returns:
         `SampledField`
     """
-    if isinstance(mask, Geometry):
-        mask = HardGeometryMask(mask)
-    elif isinstance(mask, SampledField):
-        field_true = field_true.at(mask)
-        field_false = field_false.at(mask)
-    elif isinstance(field_true, SampledField):
-        mask = mask.at(field_true)
-        field_false = field_false.at(field_true)
-    elif isinstance(field_false, SampledField):
-        mask = mask.at(field_true)
-        field_true = field_true.at(mask)
-    else:
-        raise NotImplementedError('At least one argument must be a SampledField')
+    mask, field_true, field_false = _auto_resample(mask, field_true, field_false)
     values = mask.values * field_true.values + (1 - mask.values) * field_false.values
-    # values = math.where(mask.values, field_true.values, field_false.values)
     return field_true.with_values(values)
+
+
+def maximum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+    """
+    Element-wise maximum.
+    One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
+    If both are `SampledFields` but have different points, `f1` takes priority.
+
+    Args:
+        f1: `Field` or `Geometry` or constant.
+        f2: `Field` or `Geometry` or constant.
+
+    Returns:
+        `SampledField`
+    """
+    f1, f2 = _auto_resample(f1, f2)
+    return f1.with_values(math.maximum(f1.values, f2.values))
+
+
+def minimum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+    """
+    Element-wise minimum.
+    One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
+    If both are `SampledFields` but have different points, `f1` takes priority.
+
+    Args:
+        f1: `Field` or `Geometry` or constant.
+        f2: `Field` or `Geometry` or constant.
+
+    Returns:
+        `SampledField`
+    """
+    f1, f2 = _auto_resample(f1, f2)
+    return f1.with_values(math.minimum(f1.values, f2.values))
+
+
+def _auto_resample(*fields: Field):
+    for sampled_field in fields:
+        if isinstance(sampled_field, SampledField):
+            return [f @ sampled_field for f in fields]
+    raise AssertionError(f"At least one argument must be a SampledField but got {fields}")
 
 
 def vec_abs(field: SampledField):
