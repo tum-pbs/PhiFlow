@@ -84,7 +84,7 @@ class Field:
     def __rmatmul__(self, other):  # values @ representation
         if not isinstance(self, SampledField):
             return NotImplemented
-        if isinstance(other, Geometry):
+        if isinstance(other, (Geometry, float, int, complex, tuple, list)):
             return self.with_values(other)
         return NotImplemented
 

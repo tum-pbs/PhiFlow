@@ -38,7 +38,7 @@ def _plot(field: SampledField,
           row: int = None, col: int = None,
           ):
     if field.spatial_rank == 1 and isinstance(field, Grid):
-        x = field.points.numpy().flatten()
+        x = field.points.vector[0].numpy().flatten()
         y = math.reshaped_native(real_values(field), [field.shape.spatial], to_numpy=True)
         fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers'), row=row, col=col)
         fig.update_layout(showlegend=False)

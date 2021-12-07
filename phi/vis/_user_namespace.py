@@ -146,7 +146,10 @@ class LocalNamespace(UserNamespace):
         self.function_name: str = frames[0].function
         self.module = inspect.getmodule(self.frame)
         if self.module:
-            self.function = getattr(self.module, self.function_name)
+            if hasattr(self.module, self.function_name):
+                self.function = getattr(self.module, self.function_name)
+            else:
+                self.function = None
         else:
             assert 'ipykernel' in sys.modules, f"Unable to locate file in which {self.function_name} is declared."
             self.function = JupyterNamespace().get_variable(self.function_name)
@@ -166,10 +169,10 @@ class LocalNamespace(UserNamespace):
         return display_name(self.function_name)
 
     def get_description(self):
-        if self.function.__doc__:
+        if self.function is not None and self.function.__doc__:
             return self.function.__doc__
         else:
-            return f"Function `{self.function_name}()` in \"{self.module.__file__}\""
+            return f"Function `{self.function_name}()` in '{self.module.__file__}'"
 
     def get_reference(self):
         return f"{os.path.basename(self.module.__file__)[:-3]}_{self.function_name}"

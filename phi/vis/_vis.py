@@ -188,6 +188,7 @@ CONTROL_VARS = {}
 def action(fun):
     doc = inspect.getdoc(fun)
     ACTIONS[Action(fun.__name__, doc)] = fun
+    return fun
 
 
 ACTIONS = {}

@@ -570,8 +570,7 @@ class ShiftLinTracer(Tensor):
         self.val: Dict[Shape, Tensor] = simplify_add(values_by_shift)
         self.bias = bias
         self._shape = shape
-        self._sparse_coo = None
-        self._sparse_csr = None
+        self._sparse_coo = self._sparse_csr = self._sparse_csc = None
 
     def native(self, order: str or tuple or list or Shape = None):
         """
@@ -656,7 +655,29 @@ class ShiftLinTracer(Tensor):
         self._sparse_csr = SparseMatrixContainer('csr', coo.shape, coo.indices_key, coo.src_shape, values, row_ptr, col_indices)
         return self._sparse_csr
 
+    def get_sparse_csc_matrix(self) -> 'SparseMatrixContainer':
+        """
+        Builds a sparse matrix that represents this linear operation.
+        Independent dimensions, those that can be treated as batch dimensions, are recognized automatically and ignored.
+        """
+        if self._sparse_csc is not None:
+            return self._sparse_csc
+        coo = self.get_sparse_coordinate_matrix()
+        idx = np.arange(1, len(coo.values)+1)  # start indexing at 1 since 0 might get removed
+        import scipy.sparse
+        scipy_csr = scipy.sparse.csc_matrix((idx, (coo.rows, coo.cols)), shape=coo.shape)
+        row_indices = scipy_csr.indices
+        col_ptr = scipy_csr.indptr
+        if coo.values.nnz.size != len(scipy_csr.data):
+            warnings.warn("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.")
+            return coo
+        values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
+        self._sparse_csc = SparseMatrixContainer('csc', coo.shape, coo.indices_key, coo.src_shape, values, row_indices, col_ptr)
+        return self._sparse_csc
+
     def get_sparse_matrix(self, matrix_format: str = None) -> 'SparseMatrixContainer':
+        if self.default_backend.supports(Backend.csc_matrix) and matrix_format in (None, 'csc'):
+            return self.get_sparse_csc_matrix()
         if self.default_backend.supports(Backend.csr_matrix) and matrix_format in (None, 'csr'):
             return self.get_sparse_csr_matrix()
         elif self.default_backend.supports(Backend.sparse_coo_tensor) and matrix_format in (None, 'coo'):
@@ -730,20 +751,11 @@ class ShiftLinTracer(Tensor):
     def _op1(self, native_function):  # only __neg__ is linear
         raise NotImplementedError('Only linear operations are supported')
 
-    def __add__(self, other):
-        return self._op2(other, lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), zeros_for_missing_self=False, zeros_for_missing_other=False)
-
-    def __sub__(self, other):
-        return self._op2(other, lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), zeros_for_missing_other=False)
-
-    def __rsub__(self, other):
-        return self._op2(other, lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), zeros_for_missing_self=False)
-
     def _op2(self, other: Tensor,
              operator: Callable,
              native_function: Callable,
-             zeros_for_missing_self=True,
-             zeros_for_missing_other=True) -> 'ShiftLinTracer':
+             op_name: str = 'unknown',
+             op_symbol: str = '?') -> 'ShiftLinTracer':
         """
         Tensor-tensor operation.
 
@@ -751,9 +763,11 @@ class ShiftLinTracer(Tensor):
             other:
             operator:
             native_function:
-            zeros_for_missing_self: perform `operator` where `self == 0`
-            zeros_for_missing_other: perform `operator` where `other == 0`
         """
+        assert op_symbol in '+-*/', f"Unsupported operation encountered while tracing linear function: {native_function}"
+        zeros_for_missing_self = op_name not in ['add', 'radd', 'rsub']  # perform `operator` where `self == 0`
+        zeros_for_missing_other = op_name not in ['add', 'radd', 'sub']  # perform `operator` where `other == 0`
+
         if isinstance(other, ShiftLinTracer):
             assert self.source is other.source, "Multiple linear tracers are not yet supported."
             assert set(self._shape) == set(other._shape), f"Tracers have different shapes: {self._shape} and {other._shape}"
@@ -776,12 +790,18 @@ class ShiftLinTracer(Tensor):
             return ShiftLinTracer(self.source, values, self._shape, bias)
         else:
             other = self._tensor(other)
-            values = {}
-            for dim_shift, val in self.val.items():
-                val_, other_ = math.join_spaces(val, other)
-                values[dim_shift] = operator(val_, other_)
-            bias = operator(self.bias, other)
-            return ShiftLinTracer(self.source, values, self._shape & other.shape, bias)
+            if op_symbol in '*/':
+                values = {}
+                for dim_shift, val in self.val.items():
+                    val_, other_ = math.join_spaces(val, other)
+                    values[dim_shift] = operator(val_, other_)
+                bias = operator(self.bias, other)
+                return ShiftLinTracer(self.source, values, self._shape & other.shape, bias)
+            elif op_symbol in '+-':
+                bias = operator(self.bias, other)
+                return ShiftLinTracer(self.source, self.val, self._shape & other.shape, bias)
+            else:
+                raise ValueError(f"Unsupported operation encountered while tracing linear function: {native_function}")
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
@@ -840,7 +860,7 @@ class SparseMatrixContainer:
             values: Values
             src_shape: Non-flattened `Shape` of `x` vectors compatible with this matrix.
         """
-        assert indexing_type in ('coo', 'csr')
+        assert indexing_type in ('coo', 'csr', 'csc')
         self.indexing_type = indexing_type
         self.shape = shape
         self.indices_key = indices_key
@@ -860,10 +880,13 @@ class SparseMatrixContainer:
 
     def native(self):
         backend = choose_backend(self.rows, self.cols, *self.values._natives())
+        if self.indexing_type == 'csc':
+            return backend.csc_matrix(self.cols, self.rows, self.values.native(), self.shape)
+        if self.indexing_type == 'csr':
+            return backend.csr_matrix(self.cols, self.rows, self.values.native(), self.shape)
         if self.indexing_type == 'coo':
             return backend.sparse_coo_tensor((self.rows, self.cols), self.values.native(), self.shape)
-        else:  # csr
-            return backend.csr_matrix(self.cols, self.rows, self.values.native(), self.shape)
+        assert False, self.indexing_type
 
 
 class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors there
@@ -1111,11 +1134,11 @@ _SOLVE_TAPES: List[SolveTape] = []
 def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     """
     Finds a minimum of the scalar function *f(x)*.
-    The `method` argument of `solve` determines which method is used.
-    All methods supported by `scipy.optimize.minimize` are supported,
+    The `method` argument of `solve` determines which optimizer is used.
+    All optimizers supported by `scipy.optimize.minimize` are supported,
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
 
-    This method is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
+    `math.minimize()` is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 

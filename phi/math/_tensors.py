@@ -339,80 +339,89 @@ class Tensor:
         return TensorDim(self, name)
 
     def __add__(self, other):
-        return self._op2(other, lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y))
+        return self._op2(other, lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), 'add', '+')
 
     def __radd__(self, other):
-        return self._op2(other, lambda x, y: y + x, lambda x, y: choose_backend(x, y).add(y, x))
+        return self._op2(other, lambda x, y: y + x, lambda x, y: choose_backend(x, y).add(y, x), 'radd', '+')
 
     def __sub__(self, other):
-        return self._op2(other, lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y))
+        return self._op2(other, lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), 'sub', '-')
 
     def __rsub__(self, other):
-        return self._op2(other, lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x))
+        return self._op2(other, lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), 'rsub', '-')
 
     def __and__(self, other):
-        return self._op2(other, lambda x, y: x & y, lambda x, y: choose_backend(x, y).and_(x, y))
+        return self._op2(other, lambda x, y: x & y, lambda x, y: choose_backend(x, y).and_(x, y), 'and', '&')
+
+    def __rand__(self, other):
+        return self._op2(other, lambda x, y: y & x, lambda x, y: choose_backend(x, y).and_(y, x), 'rand', '&')
 
     def __or__(self, other):
-        return self._op2(other, lambda x, y: x | y, lambda x, y: choose_backend(x, y).or_(x, y))
+        return self._op2(other, lambda x, y: x | y, lambda x, y: choose_backend(x, y).or_(x, y), 'or', '|')
+
+    def __ror__(self, other):
+        return self._op2(other, lambda x, y: y | x, lambda x, y: choose_backend(x, y).or_(y, x), 'ror', '|')
 
     def __xor__(self, other):
-        return self._op2(other, lambda x, y: x ^ y, lambda x, y: choose_backend(x, y).xor(x, y))
+        return self._op2(other, lambda x, y: x ^ y, lambda x, y: choose_backend(x, y).xor(x, y), 'xor', '^')
+
+    def __rxor__(self, other):
+        return self._op2(other, lambda x, y: y ^ x, lambda x, y: choose_backend(x, y).xor(y, x), 'rxor', '^')
 
     def __mul__(self, other):
-        return self._op2(other, lambda x, y: x * y, lambda x, y: choose_backend(x, y).mul(x, y))
+        return self._op2(other, lambda x, y: x * y, lambda x, y: choose_backend(x, y).mul(x, y), 'mul', '*')
 
     def __rmul__(self, other):
-        return self._op2(other, lambda x, y: y * x, lambda x, y: choose_backend(x, y).mul(y, x))
+        return self._op2(other, lambda x, y: y * x, lambda x, y: choose_backend(x, y).mul(y, x), 'rmul', '*')
 
     def __truediv__(self, other):
-        return self._op2(other, lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y))
+        return self._op2(other, lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), 'truediv', '/')
 
     def __rtruediv__(self, other):
-        return self._op2(other, lambda x, y: y / x, lambda x, y: choose_backend(x, y).div(y, x))
+        return self._op2(other, lambda x, y: y / x, lambda x, y: choose_backend(x, y).div(y, x), 'rtruediv', '/')
 
     def __divmod__(self, other):
-        return self._op2(other, lambda x, y: divmod(x, y), lambda x, y: divmod(x, y))
+        return self._op2(other, lambda x, y: divmod(x, y), lambda x, y: divmod(x, y), 'divmod', 'divmod')
 
     def __rdivmod__(self, other):
-        return self._op2(other, lambda x, y: divmod(y, x), lambda x, y: divmod(y, x))
+        return self._op2(other, lambda x, y: divmod(y, x), lambda x, y: divmod(y, x), 'rdivmod', 'divmod')
 
     def __floordiv__(self, other):
-        return self._op2(other, lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y))
+        return self._op2(other, lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y), 'floordiv', '//')
 
     def __rfloordiv__(self, other):
-        return self._op2(other, lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x))
+        return self._op2(other, lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x), 'rfloordiv', '//')
 
     def __pow__(self, power, modulo=None):
         assert modulo is None
-        return self._op2(power, lambda x, y: x ** y, lambda x, y: choose_backend(x, y).pow(x, y))
+        return self._op2(power, lambda x, y: x ** y, lambda x, y: choose_backend(x, y).pow(x, y), 'pow', '**')
 
     def __rpow__(self, other):
-        return self._op2(other, lambda x, y: y ** x, lambda x, y: choose_backend(x, y).pow(y, x))
+        return self._op2(other, lambda x, y: y ** x, lambda x, y: choose_backend(x, y).pow(y, x), 'rpow', '**')
 
     def __mod__(self, other):
-        return self._op2(other, lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y))
+        return self._op2(other, lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y), 'mod', '%')
 
     def __rmod__(self, other):
-        return self._op2(other, lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x))
+        return self._op2(other, lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), 'rmod', '%')
 
     def __eq__(self, other):
-        return self._op2(other, lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y))
+        return self._op2(other, lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y), 'eq', '==')
 
     def __ne__(self, other):
-        return self._op2(other, lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y))
+        return self._op2(other, lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y), 'ne', '!=')
 
     def __lt__(self, other):
-        return self._op2(other, lambda x, y: x < y, lambda x, y: choose_backend(x, y).greater_than(y, x))
+        return self._op2(other, lambda x, y: x < y, lambda x, y: choose_backend(x, y).greater_than(y, x), 'lt', '<')
 
     def __le__(self, other):
-        return self._op2(other, lambda x, y: x <= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x))
+        return self._op2(other, lambda x, y: x <= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), 'le', '<=')
 
     def __gt__(self, other):
-        return self._op2(other, lambda x, y: x > y, lambda x, y: choose_backend(x, y).greater_than(x, y))
+        return self._op2(other, lambda x, y: x > y, lambda x, y: choose_backend(x, y).greater_than(x, y), 'gt', '>')
 
     def __ge__(self, other):
-        return self._op2(other, lambda x, y: x >= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y))
+        return self._op2(other, lambda x, y: x >= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), 'ge', '>=')
 
     def __abs__(self):
         return self._op1(lambda t: choose_backend(t).abs(t))
@@ -457,20 +466,20 @@ class Tensor:
         """
         raise NotImplementedError(self.__class__)
 
-    def _op2(self, other: 'Tensor', operator: Callable, native_function: Callable) -> 'Tensor':
+    def _op2(self, other: 'Tensor', operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
         """
         Apply a broadcast operation on two tensors.
 
         Args:
-          other: second argument
-          operator: function (Tensor, Tensor) -> Tensor, used to propagate the operation to children tensors to have Python choose the callee
-          native_function: function (native tensor, native tensor) -> native tensor
-          other: 'Tensor': 
-          operator: Callable:
-          native_function: Callable:
+            other: second argument
+            operator: function (Tensor, Tensor) -> Tensor, used to propagate the operation to children tensors to have Python choose the callee
+            native_function: function (native tensor, native tensor) -> native tensor
+            op_name: Name of the python function without leading and trailing `__`.
+                Examples: 'add', 'radd', 'sub', 'mul', 'and', 'eq', 'ge'.
+            op_symbol: Operation symbol, such as '+', '-', '&', '%', '>='
 
         Returns:
-
+            `Tensor`
         """
         raise NotImplementedError()
 
@@ -730,7 +739,7 @@ class NativeTensor(Tensor):
                 assert isinstance(sel, int), f"Attempting slice missing dimension {name} with {selection}"
         if len(selections) == 0:
             return self
-        gathered = self._native[tuple(selections)]
+        gathered = self.default_backend.multi_slice(self._native, tuple(selections))
         new_shape = new_shape.with_sizes(choose_backend(gathered).staticshape(gathered))
         return NativeTensor(gathered, new_shape)
 
@@ -749,7 +758,7 @@ class NativeTensor(Tensor):
         native = native_function(self._native)
         return NativeTensor(native, self.shape) if native is not None else self
 
-    def _op2(self, other, operator, native_function):
+    def _op2(self, other, operator, native_function, op_name: str = 'unknown', op_symbol: str = '?'):
         try:
             other = self._tensor(other)
         except NoBackendFound:
@@ -900,7 +909,7 @@ class CollapsedTensor(Tensor):  # package-private
         else:
             return CollapsedTensor(self._inner._op1(native_function), self._shape)
 
-    def _op2(self, other, operator, native_function):
+    def _op2(self, other, operator, native_function, op_name: str = 'unknown', op_symbol: str = '?'):
         try:
             other_t = self._tensor(other)
         except NoBackendFound:
@@ -1090,7 +1099,7 @@ class TensorStack(Tensor):
         else:
             return self._cache()._op1(native_function)
 
-    def _op2(self, other, operator, native_function):
+    def _op2(self, other, operator, native_function, op_name: str = 'unknown', op_symbol: str = '?'):
         other = self._tensor(other)
         if self.requires_broadcast:
             if self.stack_dim.name in other.shape:
@@ -1316,7 +1325,7 @@ def op2_native(x: Tensor, y: Tensor, native_function: Callable):
     return NativeTensor(result_tensor, new_shape)
 
 
-def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_function, r_operator=None, r_native_function=None):
+def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_function, r_operator=None, r_native_function=None, op_name: str = 'unknown') -> Tensor:
     """
     Perform a custom operator on two tensors.
     This method first tries calling _op2() on the first tensor and if that fails, tries it on the second tensor.
@@ -1328,15 +1337,16 @@ def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_func
       l_native_function: 
       r_operator:  (Default value = None)
       r_native_function:  (Default value = None)
+      op_name: Name of the operator function for debugging purposes. Leading 'r' will be added for the operand-reversed version.
 
     Returns:
-
+        `Tensor`
     """
     x = wrap(x)
     y = wrap(y)
-    result = x._op2(y, l_operator, l_native_function)
+    result = x._op2(y, l_operator, l_native_function, op_name, op_name)
     if result is NotImplemented:
-        result = y._op2(x, r_operator or l_operator, r_native_function or l_native_function)
+        result = y._op2(x, r_operator or l_operator, r_native_function or l_native_function, f'r{op_name}', op_name)
         if result is NotImplemented:
             raise NotImplementedError(f"Operation not supported between {type(x)} and {type(y)}")
     return result

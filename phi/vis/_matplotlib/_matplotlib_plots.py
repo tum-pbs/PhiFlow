@@ -201,6 +201,34 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  xlabel: str = None,
                  ylabel: str = None,
                  colors: math.Tensor = 'default'):
+    """
+
+    Args:
+        scene: `str` or `Tensor`. Scene paths containing the data to plot.
+        names: Data files to plot for each scene. The file must be located inside the scene directory and have the name `log_<name>.txt`.
+        reduce: Tensor dimensions along which all curves are plotted in the same diagram.
+        down: Tensor dimensions along which diagrams are ordered top-to-bottom instead of left-to-right.
+        smooth: `int` or `Tensor`. Number of data points to average, -1 for all.
+        smooth_alpha: Opacity of the non-smoothed curves under the smoothed curves.
+        smooth_linewidth: Line width of the smoothed curves.
+        size: Figure size in inches.
+        transform: Function `T(x,y) -> (x,y)` transforming the curves.
+        tight_layout:
+        grid:
+        log_scale:
+        legend:
+        x:
+        xlim:
+        ylim:
+        titles:
+        labels:
+        xlabel:
+        ylabel:
+        colors: Line colors as `str`, `int` or `Tensor`. Integers are interpreted as indices of the default color list.
+
+    Returns:
+        MatPlotLib [figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure)
+    """
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -247,7 +275,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         else:
             curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
 
-        def single_plot(name, path, label, i, color):
+        def single_plot(name, path, label, i, color, smooth):
             logging.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
             if curve.ndim == 2:
@@ -266,7 +294,11 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 x_values, values = transform(np.stack([x_values, values]))
             if color == 'default':
                 color = cycle[i]
-            elif isinstance(color, Number):
+            try:
+                color = int(color)
+            except ValueError:
+                pass
+            if isinstance(color, Number):
                 color = cycle[int(color)]
             logging.debug(f"Plotting curve {label}")
             axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
@@ -288,7 +320,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 axis.set_ylabel(ylabel)
             return name
 
-        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors)
+        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors, smooth)
         if legend:
             axis.legend(loc=legend)
     # Final touches
