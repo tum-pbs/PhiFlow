@@ -250,3 +250,8 @@ class TestTensors(TestCase):
         non_uniform = math.stack([math.zeros(spatial(a=2)), math.ones(spatial(a=3))], batch('b'))
         e = math.expand(non_uniform, channel('vector'))
         assert e.shape.without('vector') == non_uniform.shape
+
+    def test_slice_by_item_name(self):
+        t = math.tensor(spatial(x=4, y=3))
+        math.assert_close(t.dims['x'], 4)
+        math.assert_close(t.dims['y'], 3)
