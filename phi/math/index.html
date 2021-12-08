@@ -3454,7 +3454,7 @@ If channel dimensions are present, this method returns the indices where any com
         native = reshaped_native(value, [*value.shape.spatial])
         backend = choose_backend(native)
         indices = backend.nonzero(native)
-        indices_shape = Shape(backend.staticshape(indices), (list_dim.name, index_dim.name), (list_dim.type, index_dim.type))
+        indices_shape = Shape(backend.staticshape(indices), (list_dim.name, index_dim.name), (list_dim.type, index_dim.type), (None, value.shape.spatial.names))
         return NativeTensor(indices, indices_shape)
 
     return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)</code></pre>
@@ -7338,8 +7338,11 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
 
     def __repr__(self):
         def size_repr(size, items):
-            if items is not None and len(items) &lt;= 4:
-                return &#34;,&#34;.join(items)
+            if items is not None:
+                if len(items) &lt;= 4:
+                    return &#34;,&#34;.join(items)
+                else:
+                    return f&#34;{size}:{items[0]}..{items[-1]}&#34;
             else:
                 return size
 

@@ -208,7 +208,7 @@ class ConstantExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
-                for size, dim, dim_type in value.shape._dimensions:
+                for size, dim, *_ in value.shape._dimensions:
                     if dim not in widths:
                         new_sizes.append(size)
                     else:
@@ -349,7 +349,7 @@ class _CopyExtrapolation(Extrapolation):
             if len(inner_widths) &gt; 0:
                 inner = self.pad(inner, widths)
             new_sizes = []
-            for size, dim, dim_type in value.shape._dimensions:
+            for size, dim, *_ in value.shape._dimensions:
                 if dim not in widths:
                     new_sizes.append(size)
                 else:
@@ -1066,7 +1066,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
-                for size, dim, dim_type in value.shape._dimensions:
+                for size, dim, *_ in value.shape._dimensions:
                     if dim not in widths:
                         new_sizes.append(size)
                     else:
@@ -1275,7 +1275,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
             return self.pad(value._cache(), widths)
         else:  # Stays constant value, only extend shape
             new_sizes = []
-            for size, dim, dim_type in value.shape._dimensions:
+            for size, dim, *_ in value.shape._dimensions:
                 if dim not in widths:
                     new_sizes.append(size)
                 else:
