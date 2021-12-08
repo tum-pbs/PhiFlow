@@ -799,7 +799,7 @@ class CollapsedTensor(Tensor):  # package-private
     def __init__(self, tensor: Tensor, shape: Shape):
         for name in tensor.shape.names:
             assert name in shape
-        for size, name, dim_type in tensor.shape._dimensions:
+        for size, name, dim_type, *_ in tensor.shape._dimensions:
             assert wrap(shape.get_size(name) == size).all, f"Shape mismatch while trying to set {name}={shape.get_size(name)} but has size {size}"
             assert shape.get_type(name) == dim_type, f"Dimension type mismatch for dimension '{name}': {shape.get_type(name)}, {dim_type}"
         if isinstance(tensor, CollapsedTensor):
@@ -819,7 +819,7 @@ class CollapsedTensor(Tensor):  # package-private
                 return None
             if self.shape.is_uniform:
                 native = self._inner.native(order=self.shape.names)
-                multiples = [1 if name in self._inner.shape else size for size, name, _ in self.shape._dimensions]
+                multiples = [1 if name in self._inner.shape else size for size, name, *_ in self.shape._dimensions]
                 backend = choose_backend(native)
                 tiled = backend.tile(native, multiples)
                 self._cached = NativeTensor(tiled, self.shape)
@@ -1610,7 +1610,7 @@ def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
             return t
         if t.shape.is_uniform:
             native = t._inner.native(order=t.shape.names)
-            multiples = [1 if name in t._inner.shape else size for size, name, _ in t.shape._dimensions]
+            multiples = [1 if name in t._inner.shape else size for size, name, *_ in t.shape._dimensions]
             backend = choose_backend(native)
             tiled = backend.tile(native, multiples)
             return NativeTensor(tiled, t.shape)

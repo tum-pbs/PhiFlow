@@ -175,7 +175,7 @@ class ConstantExtrapolation(Extrapolation):
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
-                for size, dim, dim_type in value.shape._dimensions:
+                for size, dim, *_ in value.shape._dimensions:
                     if dim not in widths:
                         new_sizes.append(size)
                     else:
@@ -316,7 +316,7 @@ class _CopyExtrapolation(Extrapolation):
             if len(inner_widths) > 0:
                 inner = self.pad(inner, widths)
             new_sizes = []
-            for size, dim, dim_type in value.shape._dimensions:
+            for size, dim, *_ in value.shape._dimensions:
                 if dim not in widths:
                     new_sizes.append(size)
                 else:

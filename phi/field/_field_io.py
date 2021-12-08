@@ -49,7 +49,15 @@ def write_single_field(field: SampledField, file: str):
         lower = field.box.lower.numpy()
         upper = field.box.upper.numpy()
         extrap = field.extrapolation.to_dict()
-        np.savez_compressed(file, dim_names=dim_names, dim_types=field.values.shape.types, field_type=type(field).__name__, lower=lower, upper=upper, extrapolation=extrap, data=data)
+        np.savez_compressed(file,
+                            dim_names=dim_names,
+                            dim_types=field.values.shape.types,
+                            dim_item_names=field.values.shape.item_names,
+                            field_type=type(field).__name__,
+                            lower=lower,
+                            upper=upper,
+                            extrapolation=extrap,
+                            data=data)
     else:
         raise NotImplementedError(f"{type(field)} not implemented. Only Grid allowed.")
 
@@ -89,7 +97,8 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
     implemented_types = ('CenteredGrid', 'StaggeredGrid')
     if ftype in implemented_types:
         data = stored['data']
-        data = NativeTensor(data, math.Shape(data.shape, stored['dim_names'], stored['dim_types']))
+        dim_item_names = stored.get('dim_item_names', (None,) * len(data.shape))
+        data = NativeTensor(data, math.Shape(data.shape, tuple(stored['dim_names']), tuple(stored['dim_types']), tuple(dim_item_names)))
         if convert_to_backend:
             data = math.tensor(data, convert=convert_to_backend)
         lower = math.wrap(stored['lower'])

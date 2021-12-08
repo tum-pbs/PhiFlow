@@ -881,7 +881,7 @@ def broadcast_op(operation: Callable,
             gathered = [t[i] if isinstance(t, tuple) else t for t in unstacked]
             result_unstacked.append(broadcast_op(operation, gathered, iter_dims=set(iter_dims) - {dim}))
         if not no_return:
-            return TensorStack(result_unstacked, Shape([None], [dim], [dim_type]))
+            return TensorStack(result_unstacked, Shape((None,), (dim,), (dim_type,), (None,)))
 
 
 def unpack_dims(value: Tensor, dim: str, unpacked_dims: Shape):
@@ -1047,7 +1047,7 @@ def nonzero(value: Tensor, list_dim: Shape = instance('nonzero'), index_dim: Sha
         native = reshaped_native(value, [*value.shape.spatial])
         backend = choose_backend(native)
         indices = backend.nonzero(native)
-        indices_shape = Shape(backend.staticshape(indices), (list_dim.name, index_dim.name), (list_dim.type, index_dim.type))
+        indices_shape = Shape(backend.staticshape(indices), (list_dim.name, index_dim.name), (list_dim.type, index_dim.type), (None, value.shape.spatial.names))
         return NativeTensor(indices, indices_shape)
 
     return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)

@@ -415,8 +415,11 @@ class Shape:
 
     def __repr__(self):
         def size_repr(size, items):
-            if items is not None and len(items) <= 4:
-                return ",".join(items)
+            if items is not None:
+                if len(items) <= 4:
+                    return ",".join(items)
+                else:
+                    return f"{size}:{items[0]}..{items[-1]}"
             else:
                 return size
 
