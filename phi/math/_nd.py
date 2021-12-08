@@ -65,6 +65,33 @@ def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
         raise AssertionError(f'dims = {spatial_rank}. Vector product not available in > 3 dimensions')
 
 
+def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
+    """
+    Rotates `vector` around the origin.
+
+    Args:
+        vector: n-dimensional vector with a channel dimension called `'vector'`
+        angle: Euler angle. The direction is the rotation axis and the length is the amount (in radians).
+
+    Returns:
+        Rotated vector as `Tensor`
+    """
+    assert 'vector' in vector.shape, "vector must have 'vector' dimension."
+    if vector.vector.size == 2:
+        sin = math.sin(angle)
+        cos = math.cos(angle)
+        y, x = vector.vector.unstack()
+        if GLOBAL_AXIS_ORDER.is_x_first:
+            x, y = y, x
+        rot_x = cos * x - sin * y
+        rot_y = sin * x + cos * y
+        return math.stack([rot_y, rot_x], channel('vector'))
+    elif vector.vector.size == 1:
+        raise AssertionError(f"Cannot rotate a 1D vector. shape={vector.shape}")
+    else:
+        raise NotImplementedError(f"Rotation in {vector.vector.size}D not yet implemented.")
+
+
 def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     """
     Multiplies the target so that its sum matches the source.

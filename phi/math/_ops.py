@@ -1579,6 +1579,7 @@ def log10(x) -> Tensor:
 
 
 def sigmoid(x) -> Tensor:
+    """ Computes the sigmoid function of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.sigmoid)
 
 
