@@ -81,6 +81,12 @@ class TestTensors(TestCase):
         v = math.tensor(np.ones([10, 4, 3, 2]), batch('batch'), spatial('x,y'), channel('vector'))
         self.assertEqual((10, 4, 3, 2), v.shape.sizes)
 
+    def test_tensor_from_shape(self):
+        s = spatial(x=4, y=3)
+        t = math.tensor(s)
+        math.assert_close(t, [4, 3])
+        self.assertEqual(t.shape.get_item_names('dims'), ('x', 'y'))
+
     def test_native_constant_ops(self):
         v = math.tensor(np.ones([1, 4, 3, 2]), batch('batch'), spatial('x,y'), channel('vector'))
         math.assert_close(v + 1, 2)

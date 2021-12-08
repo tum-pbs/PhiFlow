@@ -627,7 +627,7 @@ class TensorDim:
         if name is not None:
             new_names = list(new_names)
             new_names[self.index] = name
-        new_shape = Shape(shape.sizes, new_names, new_types)
+        new_shape = Shape(shape.sizes, new_names, tuple(new_types), shape.item_names)
         return self.tensor._with_shape_replaced(new_shape)
 
     @property
@@ -713,7 +713,7 @@ class NativeTensor(Tensor):
         return self._shape
 
     def _with_shape_replaced(self, new_shape):
-        new_shape = Shape(self._shape.sizes, new_shape.names, new_shape.types)
+        new_shape = Shape(self._shape.sizes, new_shape.names, new_shape.types, new_shape.item_names)
         return NativeTensor(self._native, new_shape)
 
     def _with_natives_replaced(self, natives: list):
@@ -1227,7 +1227,11 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
                 shape = shape.with_sizes(data.shape.sizes)
             return data._with_shape_replaced(shape)
     elif isinstance(data, Shape):
-        assert shape is not None
+        if shape is None:
+            shape = channel('dims')
+        else:
+            assert shape.rank == 1, "Can only convert 1D shapes to Tensors"
+        shape = shape._with_item_names((data.names,))
         data = data.sizes
     elif isinstance(data, (numbers.Number, bool, str)):
         assert not shape, f"Trying to create a zero-dimensional Tensor from value '{data}' but shape={shape}"
@@ -1292,12 +1296,12 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
         if len(shape) == 0:
             return NativeTensor(other_tensor, EMPTY_SHAPE)
         elif len(shape) == compat_shape.rank:
-            return NativeTensor(other_tensor, compat_shape.with_sizes(shape))
+            return NativeTensor(other_tensor, compat_shape.with_sizes(shape))  # TODO this can lead to errors, remove?
         elif len(shape) == compat_shape.channel.rank:
             other_tensor = wrap(data, compat_shape.channel)
             return other_tensor
         elif len(shape) == 1:
-            return NativeTensor(other_tensor, Shape(shape, ['vector'], [CHANNEL_DIM]))
+            return NativeTensor(other_tensor, Shape(shape, ('vector',), (CHANNEL_DIM,), (None,)))
         else:
             raise ValueError("Cannot broadcast object of rank %d to tensor with shape %s" % (backend.ndims(data), compat_shape))
 
@@ -1560,7 +1564,7 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
     else:
         backend = choose_backend(obj)
         sizes = backend.staticshape(obj)
-        shape = Shape(sizes, [f"dim{i}" for i in range(len(sizes))], [None] * len(sizes))
+        shape = Shape(sizes, tuple([f"dim{i}" for i in range(len(sizes))]), (None,) * len(sizes), (None,) * len(sizes))
         shape.is_native_shape = True
         if backend.ndims(obj) != 0:
             warnings.warn(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")

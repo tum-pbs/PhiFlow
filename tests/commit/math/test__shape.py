@@ -52,6 +52,7 @@ class TestShape(TestCase):
         self.assertEqual(batch(batch=10), s[[0]])
         self.assertEqual(spatial(x=4, y=3), s[1:3])
         self.assertEqual(spatial(x=4), s['x'])
+        self.assertEqual(spatial(x=4, y=3), s['x, y'])
 
     def test_after_gather(self):
         self.assertEqual(spatial(x=2), spatial(x=3).after_gather({'x': slice(None, None, 2)}))
@@ -59,4 +60,13 @@ class TestShape(TestCase):
 
     def test_vector_add(self):
         self.assertEqual(vector_add(batch(batch=10) & spatial(x=4, y=3), spatial(x=1, y=-1, z=2)), batch(batch=10) & spatial(x=5, y=2, z=2))
+
+    def test_item_names(self):
+        s = spatial(x=4, y=3)
+        named = s.shape
+        self.assertEqual(named.get_item_names('dims'), ('x', 'y'))
+        shape = math.concat_shapes(batch(b=10), named)
+        self.assertEqual(shape.get_item_names('dims'), ('x', 'y'))
+        shape = math.merge_shapes(batch(b=10), named)
+        self.assertEqual(shape.get_item_names('dims'), ('x', 'y'))
 
