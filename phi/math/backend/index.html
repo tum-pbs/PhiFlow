@@ -1113,6 +1113,9 @@ The output of math operations has the same precision as its inputs.</p>
     def log10(self, x):
         raise NotImplementedError(self)
 
+    def sigmoid(self, x):
+        return 1 / (1 + self.exp(-x))
+
     def dtype(self, array) -&gt; DType:
         raise NotImplementedError(self)
 
@@ -3659,6 +3662,19 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.sigmoid"><code class="name flex">
+<span>def <span class="ident">sigmoid</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sigmoid(self, x):
+    return 1 / (1 + self.exp(-x))</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.sign"><code class="name flex">
 <span>def <span class="ident">sign</span></span>(<span>self, x)</span>
 </code></dt>
@@ -4797,6 +4813,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.seed" href="#phi.math.backend.Backend.seed">seed</a></code></li>
 <li><code><a title="phi.math.backend.Backend.set_default_device" href="#phi.math.backend.Backend.set_default_device">set_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.shape" href="#phi.math.backend.Backend.shape">shape</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sigmoid" href="#phi.math.backend.Backend.sigmoid">sigmoid</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sign" href="#phi.math.backend.Backend.sign">sign</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sin" href="#phi.math.backend.Backend.sin">sin</a></code></li>
 <li><code><a title="phi.math.backend.Backend.size" href="#phi.math.backend.Backend.size">size</a></code></li>

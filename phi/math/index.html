@@ -73,7 +73,7 @@ from ._ops import (
     abs_ as abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
-    sqrt, exp, sin, cos, tan, log, log2, log10,
+    sqrt, exp, sin, cos, tan, log, log2, log10, sigmoid,
     to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
     boolean_mask,
     isfinite,
@@ -4772,6 +4772,19 @@ The output of math operations has the same precision as its inputs.</p>
             components.append(x[slices])
         offset_tensors.append(stack(components, stack_dim) if stack_dim is not None else components[0])
     return offset_tensors</code></pre>
+</details>
+</dd>
+<dt id="phi.math.sigmoid"><code class="name flex">
+<span>def <span class="ident">sigmoid</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sigmoid(x) -&gt; Tensor:
+    return _backend_op1(x, Backend.sigmoid)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sign"><code class="name flex">
@@ -10897,6 +10910,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.seed" href="#phi.math.seed">seed</a></code></li>
 <li><code><a title="phi.math.set_global_precision" href="#phi.math.set_global_precision">set_global_precision</a></code></li>
 <li><code><a title="phi.math.shift" href="#phi.math.shift">shift</a></code></li>
+<li><code><a title="phi.math.sigmoid" href="#phi.math.sigmoid">sigmoid</a></code></li>
 <li><code><a title="phi.math.sign" href="#phi.math.sign">sign</a></code></li>
 <li><code><a title="phi.math.sin" href="#phi.math.sin">sin</a></code></li>
 <li><code><a title="phi.math.solve_linear" href="#phi.math.solve_linear">solve_linear</a></code></li>
