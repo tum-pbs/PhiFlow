@@ -85,7 +85,7 @@ from ._ops import (
 )
 from ._nd import (
     shift,
-    vec_abs, vec_squared, vec_normalize, cross_product,
+    vec_abs, vec_squared, vec_normalize, cross_product, rotate_vector,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
@@ -4417,6 +4417,51 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
     return value</code></pre>
 </details>
 </dd>
+<dt id="phi.math.rotate_vector"><code class="name flex">
+<span>def <span class="ident">rotate_vector</span></span>(<span>vector: phi.math._tensors.Tensor, angle: float) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Rotates <code>vector</code> around the origin.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>vector</code></strong></dt>
+<dd>n-dimensional vector with a channel dimension called <code>'vector'</code></dd>
+<dt><strong><code>angle</code></strong></dt>
+<dd>Euler angle. The direction is the rotation axis and the length is the amount (in radians).</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Rotated vector as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Rotates `vector` around the origin.
+
+    Args:
+        vector: n-dimensional vector with a channel dimension called `&#39;vector&#39;`
+        angle: Euler angle. The direction is the rotation axis and the length is the amount (in radians).
+
+    Returns:
+        Rotated vector as `Tensor`
+    &#34;&#34;&#34;
+    assert &#39;vector&#39; in vector.shape, &#34;vector must have &#39;vector&#39; dimension.&#34;
+    if vector.vector.size == 2:
+        sin = math.sin(angle)
+        cos = math.cos(angle)
+        y, x = vector.vector.unstack()
+        if GLOBAL_AXIS_ORDER.is_x_first:
+            x, y = y, x
+        rot_x = cos * x - sin * y
+        rot_y = sin * x + cos * y
+        return math.stack([rot_y, rot_x], channel(&#39;vector&#39;))
+    elif vector.vector.size == 1:
+        raise AssertionError(f&#34;Cannot rotate a 1D vector. shape={vector.shape}&#34;)
+    else:
+        raise NotImplementedError(f&#34;Rotation in {vector.vector.size}D not yet implemented.&#34;)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.round"><code class="name flex">
 <span>def <span class="ident">round</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -4778,12 +4823,13 @@ The output of math operations has the same precision as its inputs.</p>
 <span>def <span class="ident">sigmoid</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes the sigmoid function of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sigmoid(x) -&gt; Tensor:
+    &#34;&#34;&#34; Computes the sigmoid function of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sigmoid)</code></pre>
 </details>
 </dd>
@@ -7256,6 +7302,17 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         &#34;&#34;&#34;
         return self[[i for i, t in enumerate(self.types) if t != CHANNEL_DIM]]
 
+    @property
+    def non_singleton(self) -&gt; &#39;Shape&#39;:
+        &#34;&#34;&#34;
+        Filters this shape, returning only non-singleton dimensions as a new `Shape` object.
+        Dimensions are singleton if their size is exactly `1`.
+
+        Returns:
+            New `Shape` object
+        &#34;&#34;&#34;
+        return self[[i for i, s in enumerate(self.sizes) if not _size_equal(s, 1)]]
+
     def unstack(self, dim=&#39;dims&#39;) -&gt; Tuple[&#39;Shape&#39;]:
         &#34;&#34;&#34;
         Slices this `Shape` along a dimension.
@@ -8062,6 +8119,28 @@ def non_instance(self) -&gt; &#39;Shape&#39;:
         New `Shape` object
     &#34;&#34;&#34;
     return self[[i for i, t in enumerate(self.types) if t != INSTANCE_DIM]]</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Shape.non_singleton"><code class="name">var <span class="ident">non_singleton</span> : phi.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"><p>Filters this shape, returning only non-singleton dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.
+Dimensions are singleton if their size is exactly <code>1</code>.</p>
+<h2 id="returns">Returns</h2>
+<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def non_singleton(self) -&gt; &#39;Shape&#39;:
+    &#34;&#34;&#34;
+    Filters this shape, returning only non-singleton dimensions as a new `Shape` object.
+    Dimensions are singleton if their size is exactly `1`.
+
+    Returns:
+        New `Shape` object
+    &#34;&#34;&#34;
+    return self[[i for i, s in enumerate(self.sizes) if not _size_equal(s, 1)]]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.non_spatial"><code class="name">var <span class="ident">non_spatial</span> : phi.math._shape.Shape</code></dt>
@@ -10904,6 +10983,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.rename_dims" href="#phi.math.rename_dims">rename_dims</a></code></li>
 <li><code><a title="phi.math.reshaped_native" href="#phi.math.reshaped_native">reshaped_native</a></code></li>
 <li><code><a title="phi.math.reshaped_tensor" href="#phi.math.reshaped_tensor">reshaped_tensor</a></code></li>
+<li><code><a title="phi.math.rotate_vector" href="#phi.math.rotate_vector">rotate_vector</a></code></li>
 <li><code><a title="phi.math.round" href="#phi.math.round">round</a></code></li>
 <li><code><a title="phi.math.sample_subgrid" href="#phi.math.sample_subgrid">sample_subgrid</a></code></li>
 <li><code><a title="phi.math.scatter" href="#phi.math.scatter">scatter</a></code></li>
@@ -11019,6 +11099,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.Shape.non_batch" href="#phi.math.Shape.non_batch">non_batch</a></code></li>
 <li><code><a title="phi.math.Shape.non_channel" href="#phi.math.Shape.non_channel">non_channel</a></code></li>
 <li><code><a title="phi.math.Shape.non_instance" href="#phi.math.Shape.non_instance">non_instance</a></code></li>
+<li><code><a title="phi.math.Shape.non_singleton" href="#phi.math.Shape.non_singleton">non_singleton</a></code></li>
 <li><code><a title="phi.math.Shape.non_spatial" href="#phi.math.Shape.non_spatial">non_spatial</a></code></li>
 <li><code><a title="phi.math.Shape.only" href="#phi.math.Shape.only">only</a></code></li>
 <li><code><a title="phi.math.Shape.rank" href="#phi.math.Shape.rank">rank</a></code></li>
