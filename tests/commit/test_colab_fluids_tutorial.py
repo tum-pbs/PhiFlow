@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi.flow import *
 from phi.math.backend import Backend
-from phi.physics._boundaries import STICKY, Domain
+from phi.physics._boundaries import Domain, STICKY
 
 BACKENDS = phi.detect_backends()
 
@@ -13,12 +13,11 @@ class ColabNotebookTest(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.record_gradients):
                 with backend:
-                    DOMAIN = Domain(x=32, y=40, boundaries=STICKY, bounds=Box[0:32, 0:40])
                     INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel('vector'))
-                    INFLOW = DOMAIN.grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
+                    INFLOW = CenteredGrid(Sphere(center=INFLOW_LOCATION, radius=3), extrapolation.BOUNDARY, x=32, y=40) * 0.6
 
-                    smoke = DOMAIN.scalar_grid(math.zeros(batch(inflow_loc=4)))
-                    velocity = initial_velocity = DOMAIN.staggered_grid(0) * math.ones(batch(inflow_loc=4))
+                    smoke = CenteredGrid(math.zeros(batch(inflow_loc=4)), extrapolation.BOUNDARY, x=32, y=40)
+                    velocity = initial_velocity = StaggeredGrid(0, 0, x=32, y=40) * math.ones(batch(inflow_loc=4))
 
                     with math.record_gradients(velocity.values):
                         for _ in range(3):
@@ -33,9 +32,8 @@ class ColabNotebookTest(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.functional_gradient):
                 with backend:
-                    DOMAIN = Domain(x=32, y=40, boundaries=STICKY, bounds=Box[0:32, 0:40])
                     INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel('vector'))
-                    INFLOW = DOMAIN.scalar_grid(Sphere(center=INFLOW_LOCATION, radius=3)) * 0.6
+                    INFLOW = CenteredGrid(Sphere(center=INFLOW_LOCATION, radius=3), extrapolation.BOUNDARY, x=32, y=40) * 0.6
 
                     def simulate(velocity: StaggeredGrid, smoke: CenteredGrid):
                         for _ in range(3):
@@ -46,8 +44,8 @@ class ColabNotebookTest(TestCase):
                         loss = field.l2_loss(diffuse.explicit(smoke - field.stop_gradient(smoke.inflow_loc[-1]), 1, 1, 10))
                         return loss, smoke, velocity
 
-                    initial_smoke = DOMAIN.scalar_grid(math.zeros(batch(inflow_loc=4)))
-                    initial_velocity = DOMAIN.staggered_grid(0) * math.ones(batch(inflow_loc=4))
+                    initial_smoke = CenteredGrid(math.zeros(batch(inflow_loc=4)), extrapolation.BOUNDARY, x=32, y=40)
+                    initial_velocity = StaggeredGrid(0, 0, x=32, y=40) * math.ones(batch(inflow_loc=4))
 
                     sim_grad = field.functional_gradient(simulate, wrt=[0], get_output=False)
 
