@@ -10399,7 +10399,11 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 
     def __getitem__(self, item):
         if isinstance(item, str):
-            item = self.tensor.shape.spatial.index(item)
+            item_names = self.tensor.shape.get_item_names(self.name)
+            if item_names is not None and item in item_names:
+                item = item_names.index(item)
+            else:
+                item = self.tensor.shape.spatial.index(item)
         elif isinstance(item, Tensor) and item.dtype == DType(bool):
             from ._ops import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
