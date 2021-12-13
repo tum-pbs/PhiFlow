@@ -39,9 +39,17 @@ def _plot(field: SampledField,
           ):
     if field.spatial_rank == 1 and isinstance(field, Grid):
         x = field.points.vector[0].numpy().flatten()
-        y = math.reshaped_native(real_values(field), [field.shape.spatial], to_numpy=True)
-        fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers'), row=row, col=col)
-        fig.update_layout(showlegend=False)
+        channels = field.values.shape.channel
+        if channels.rank == 1 and channels.get_item_names(0) is not None:
+            for i, name in enumerate(channels.get_item_names(0)):
+                y = math.reshaped_native(real_values(field[{channels.name: i}]), [field.shape.spatial], to_numpy=True)
+                fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name=name), row=row, col=col)
+            fig.update_layout(showlegend=True)
+        else:
+            for channel in channels.meshgrid():
+                y = math.reshaped_native(real_values(field[channel]), [field.shape.spatial], to_numpy=True)
+                fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Test'), row=row, col=col)
+            fig.update_layout(showlegend=False)
     elif field.spatial_rank == 2 and isinstance(field, Grid) and field.shape.channel.volume == 1:  # heatmap
         values = real_values(field).numpy('y,x')
         x = field.points.vector['x'].y[0].numpy()
@@ -89,11 +97,13 @@ def _plot(field: SampledField,
             upper_x, upper_y = [numpy.max(x), numpy.max(y)]
         radius = field.elements.bounding_radius() * size[1] / (upper_y - lower_y)
         radius = math.maximum(radius, 2)
-        if radius.rank == 0:
-            marker_size = 2 * float(radius)
-        else:
-            marker_size = (2 * radius).unstack(radius.shape.instance.name)
-        marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter')
+        marker_size = 2 * float(radius) if radius.rank == 0 else (2 * radius).numpy()
+        symbol = field.elements.shape_type.numpy()
+        symbol = numpy.where(symbol == '?', 'asterisk', symbol)
+        symbol = numpy.where(symbol == 'B', 'square', symbol)
+        symbol = numpy.where(symbol == 'S', 'circle', symbol)
+        symbol = symbol if symbol.shape else str(symbol)
+        marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
         fig.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         fig.update_xaxes(range=[lower_x, upper_x])
         fig.update_yaxes(range=[lower_y, upper_y])
