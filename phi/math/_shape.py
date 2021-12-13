@@ -185,14 +185,16 @@ class Shape:
         else:
             raise ValueError(dims)
 
-    def get_item_names(self, dim: str or 'Shape') -> tuple or None:
+    def get_item_names(self, dim: str or 'Shape' or int) -> tuple or None:
         """
         Args:
-            dim: Dimension, either as name `str` or single-dimension `Shape`.
+            dim: Dimension, either as `int` index, `str` name or single-dimension `Shape`.
 
         Returns:
             Item names as `tuple` or `None` if not defined.
         """
+        if isinstance(dim, int):
+            return self.item_names[dim]
         if isinstance(dim, str):
             return self.item_names[self.names.index(dim)]
         elif isinstance(dim, Shape):

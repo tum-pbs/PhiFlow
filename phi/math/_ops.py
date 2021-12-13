@@ -652,20 +652,28 @@ def range_tensor(shape: Shape):
     return unpack_dims(data, 'range', shape)
 
 
-def stack(values: tuple or list, dim: Shape):
+def stack(values: tuple or list or dict, dim: Shape):
     """
     Lazy stack.
     Stacks `values` along the new dimension `dim`.
 
     Args:
         values: Sequence of `Tensor` objects to be stacked.
+            If a `dict`, keys must be of type `str` and are used as item names along `dim`.
         dim: Single-dimension `Shape`. This dimension must not be present with any of the `values`.
             The size along `dim` is determined from `len(values)` and can be set to undefined (`None`).
 
     Returns:
         `Tensor` containing `values` stacked along `dim`.
     """
+    if isinstance(values, dict):
+        dim_item_names = tuple(values.keys())
+        values = tuple(values.values())
+    else:
+        dim_item_names = None
     values = cast_same(*values)
+    if dim_item_names:
+        dim = dim._with_item_names((dim_item_names,) + (None,) * values[0].shape.rank)
 
     def inner_stack(*values):
         return TensorStack(values, dim)
