@@ -45,3 +45,7 @@ class TestGeom(TestCase):
         sphere = Sphere((0, 0), radius=1)
         union = geom.union(box, sphere)
         math.assert_close(union.approximate_signed_distance((1, 1)), union.approximate_signed_distance((0, -1)), 0)
+
+    def test_shape_type(self):
+        box = Box[0:1, 1:2]
+        self.assertEqual(box.rotated(0.1).shape_type, 'rotB')

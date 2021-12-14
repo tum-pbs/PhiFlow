@@ -44,6 +44,10 @@ class Union(Geometry):
         warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.")
         return math.sum([g.volume for g in self.geometries], dim='0')
 
+    @property
+    def shape_type(self) -> math.Tensor:
+        return math.tensor('?')
+
     def bounding_radius(self):
         return self._bounding_box().bounding_radius()
 
@@ -56,10 +60,10 @@ class Union(Geometry):
         upper = math.max([b.upper for b in boxes], dim='0')
         return Box(lower, upper)
 
-    def shifted(self, delta):
+    def shifted(self, delta) -> Geometry:
         return Union([geometry.shifted(delta) for geometry in self.geometries])
 
-    def rotated(self, angle):
+    def rotated(self, angle) -> Geometry:
         return rotate(self, angle)
 
 

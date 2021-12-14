@@ -34,21 +34,15 @@ class RotatedGeometry(Geometry):
     def volume(self) -> Tensor:
         return self._geometry.volume
 
-    def _rotate(self, location):
-        sin = math.sin(self.angle)
-        cos = math.cos(self.angle)
-        y, x = location.vector.unstack()
-        if GLOBAL_AXIS_ORDER.is_x_first:
-            x, y = y, x
-        rot_x = cos * x - sin * y
-        rot_y = sin * x + cos * y
-        return math.stack([rot_y, rot_x], channel('vector'))
+    @property
+    def shape_type(self) -> Tensor:
+        return math.map(lambda s: f"rot{s}", self._geometry.shape_type)
 
     def global_to_child(self, location):
         """ Inverse transform. """
         delta = location - self.center
         if location.shape.get_size('vector') == 2:
-            rotated = self._rotate(delta)
+            rotated = math.rotate_vector(delta, self._angle)
         elif location.shape.get_size('vector') == 3:
             raise NotImplementedError('not yet implemented')  # ToDo apply angle
         else:
@@ -59,7 +53,7 @@ class RotatedGeometry(Geometry):
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0):
         rotated = self.global_to_child(positions)
         shifted_positions = self.geometry.push(rotated, outward=outward, shift_amount=shift_amount)
-        return positions + self._rotate(shifted_positions - rotated)
+        return positions + math.rotate_vector(shifted_positions - rotated, self._angle)
 
     def lies_inside(self, location):
         return self.geometry.lies_inside(self.global_to_child(location))
@@ -78,11 +72,24 @@ class RotatedGeometry(Geometry):
     def rank(self):
         return self.geometry.spatial_rank
 
-    def shifted(self, delta):
+    def shifted(self, delta) -> Geometry:
         return RotatedGeometry(self._geometry.shifted(delta), self._angle)
 
-    def rotated(self, angle):
+    def rotated(self, angle) -> Geometry:
         return RotatedGeometry(self._geometry, self._angle + angle)
+
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        return RotatedGeometry(self._geometry.scaled(factor), self._angle)
+
+    def unstack(self, dimension: str) -> tuple:
+        return tuple([RotatedGeometry(g, self._angle) for g in self._geometry.unstack(dimension)])
+
+    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+        loc = self._geometry.sample_uniform(*shape)
+        return math.rotate_vector(loc, self._angle)
+
+    def __hash__(self):
+        return hash(self._angle) + hash(self._geometry)
 
 
 def rotate(geometry: Geometry, angle: Number or Tensor) -> Geometry:

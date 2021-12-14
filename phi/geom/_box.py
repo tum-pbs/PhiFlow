@@ -1,12 +1,12 @@
-from typing import Dict
+from typing import Dict, Tuple
 
 import numpy as np
 
-from phi import struct, math
+from phi import math
 from ._geom import Geometry, _fill_spatial_with_singleton
 from ._transform import rotate
 from ..math import wrap
-from ..math._tensors import Tensor
+from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim
 
 
@@ -57,6 +57,10 @@ class BaseBox(Geometry):  # not a Subwoofer
     @property
     def volume(self) -> Tensor:
         return math.prod(self.size, 'vector')
+
+    @property
+    def shape_type(self) -> Tensor:
+        return math.tensor('B')
 
     def bounding_radius(self):
         return math.max(self.size, 'vector') * 1.414214
@@ -116,6 +120,10 @@ class BaseBox(Geometry):  # not a Subwoofer
         indices = self.shape.spatial.index(dimensions)
         return Box(self.lower[indices], self.upper[indices])
 
+    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+        uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
+        return self.lower + uniform * self.size
+
     def corner_representation(self) -> 'Box':
         return Box(self.lower, self.upper)
 
@@ -126,8 +134,11 @@ class BaseBox(Geometry):  # not a Subwoofer
         """ Tests if the other box lies fully inside this box. """
         return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
-    def rotated(self, angle):
+    def rotated(self, angle) -> Geometry:
         return rotate(self, angle)
+
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        return Cuboid(self.center, self.half_size * factor)
 
 
 class BoxType(type):
@@ -219,11 +230,11 @@ class Box(BaseBox, metaclass=BoxType):
     def size(self):
         return self.upper - self.lower
 
-    @struct.derived()
+    @property
     def center(self):
         return 0.5 * (self.lower + self.upper)
 
-    @struct.derived()
+    @property
     def half_size(self):
         return self.size * 0.5
 
@@ -282,7 +293,7 @@ class Cuboid(BaseBox):
     def upper(self):
         return self.center + self.half_size
 
-    def shifted(self, delta):
+    def shifted(self, delta) -> 'Cuboid':
         return Cuboid(self._center + delta, self._half_size)
 
 
@@ -298,7 +309,8 @@ class GridCell(BaseBox):
     """
 
     def __init__(self, resolution: math.Shape, bounds: BaseBox):
-        assert resolution.spatial_rank == resolution.rank, 'resolution must be purely spatial but got %s' % (resolution,)
+        assert resolution.spatial_rank == resolution.rank, f"resolution must be purely spatial but got {resolution}"
+        assert resolution.spatial_rank == bounds.spatial_rank, f"bounds must match dimensions of resolution but got {bounds} for resolution {resolution}"
         self._resolution = resolution
         self._bounds = bounds
         self._shape = resolution & bounds.shape.non_spatial
@@ -403,3 +415,17 @@ class GridCell(BaseBox):
 
     def __repr__(self):
         return f"{self._resolution}, bounds={self._bounds}"
+
+    def __variable_attrs__(self):
+        return '_center', '_half_size'
+
+    def __with_attrs__(self, **attrs):
+        return copy_with(self.center_representation(), **attrs)
+
+    @property
+    def _center(self):
+        return self.center
+
+    @property
+    def _half_size(self):
+        return self.half_size

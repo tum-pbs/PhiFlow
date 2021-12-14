@@ -1,20 +1,15 @@
 from typing import Dict
 
-from phi import math, struct
+from phi import math
 
 from ._geom import Geometry, _fill_spatial_with_singleton
-from ..math import wrap
+from ..math import wrap, Tensor
 
 
 class Sphere(Geometry):
     """
     N-dimensional sphere.
     Defined through center position and radius.
-
-    Args:
-
-    Returns:
-
     """
 
     def __init__(self, center, radius):
@@ -38,6 +33,10 @@ class Sphere(Geometry):
     def volume(self) -> math.Tensor:
         return 4 / 3 * math.PI * self._radius ** 3
 
+    @property
+    def shape_type(self) -> Tensor:
+        return math.tensor('S')
+
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
         return math.any(distance_squared <= self.radius ** 2, self.shape.instance)  # union for instance dimensions
@@ -59,6 +58,9 @@ class Sphere(Geometry):
         distance = math.sqrt(distance_squared)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
+    def sample_uniform(self, *shape: math.Shape):
+        raise NotImplementedError('Not yet implemented')  # ToDo
+
     def bounding_radius(self):
         return self.radius
 
@@ -71,5 +73,19 @@ class Sphere(Geometry):
     def rotated(self, angle):
         return self
 
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        return Sphere(self.center, self.radius * factor)
+
     def __variable_attrs__(self):
         return '_radius', '_center'
+
+    def unstack(self, dimension: str) -> tuple:
+        center = self.center.dimension(dimension).unstack(self.shape.get_size(dimension))
+        radius = self.radius.dimension(dimension).unstack(self.shape.get_size(dimension))
+        return tuple([Sphere(c, r) for c, r in zip(center, radius)])
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+        raise NotImplementedError()
+
+    def __hash__(self):
+        return hash(self._center) + hash(self._radius)

@@ -35,6 +35,11 @@ class GeometryStack(Geometry):
             raise NotImplementedError("instance dimensions not yet supported")
         return math.stack([g.volume for g in self.geometries], self.stack_dim)
 
+    @property
+    def shape_type(self) -> Tensor:
+        types = [g.shape_type for g in self.geometries]
+        return math.stack(types, self.stack_dim)
+
     def lies_inside(self, location: math.Tensor):
         if self.stack_dim in location.shape:
             location = location.unstack(self.stack_dim.name)
