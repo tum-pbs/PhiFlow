@@ -3140,7 +3140,8 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
 <div class="desc"><p>Finds a minimum of the scalar function <em>f(x)</em>.
 The <code>method</code> argument of <code>solve</code> determines which optimizer is used.
 All optimizers supported by <code>scipy.optimize.minimize</code> are supported,
-see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .</p>
+see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .
+Additionally a gradient descent solver with adaptive step size can be used with <code>method='GD'</code>.</p>
 <p><code>math.minimize()</code> is limited to backends that support <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code>, currently PyTorch, TensorFlow and Jax.</p>
 <p>To obtain additional information about the performed solve, use a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code>.</p>
 <p>See Also:
@@ -3176,6 +3177,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
     The `method` argument of `solve` determines which optimizer is used.
     All optimizers supported by `scipy.optimize.minimize` are supported,
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
+    Additionally a gradient descent solver with adaptive step size can be used with `method=&#39;GD&#39;`.
 
     `math.minimize()` is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
 
@@ -5220,7 +5222,8 @@ Stacks <code>values</code> along the new dimension <code>dim</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd>Sequence of <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> objects to be stacked.</dd>
+<dd>Sequence of <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> objects to be stacked.
+If a <code>dict</code>, keys must be of type <code>str</code> and are used as item names along <code>dim</code>.</dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Single-dimension <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>. This dimension must not be present with any of the <code>values</code>.
 The size along <code>dim</code> is determined from <code>len(values)</code> and can be set to undefined (<code>None</code>).</dd>
@@ -5231,20 +5234,28 @@ The size along <code>dim</code> is determined from <code>len(values)</code> and 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(values: tuple or list, dim: Shape):
+<pre><code class="python">def stack(values: tuple or list or dict, dim: Shape):
     &#34;&#34;&#34;
     Lazy stack.
     Stacks `values` along the new dimension `dim`.
 
     Args:
         values: Sequence of `Tensor` objects to be stacked.
+            If a `dict`, keys must be of type `str` and are used as item names along `dim`.
         dim: Single-dimension `Shape`. This dimension must not be present with any of the `values`.
             The size along `dim` is determined from `len(values)` and can be set to undefined (`None`).
 
     Returns:
         `Tensor` containing `values` stacked along `dim`.
     &#34;&#34;&#34;
+    if isinstance(values, dict):
+        dim_item_names = tuple(values.keys())
+        values = tuple(values.values())
+    else:
+        dim_item_names = None
     values = cast_same(*values)
+    if dim_item_names:
+        dim = dim._with_item_names((dim_item_names,) + (None,) * values[0].shape.rank)
 
     def inner_stack(*values):
         return TensorStack(values, dim)
@@ -7167,14 +7178,16 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             raise ValueError(dims)
 
-    def get_item_names(self, dim: str or &#39;Shape&#39;) -&gt; tuple or None:
+    def get_item_names(self, dim: str or &#39;Shape&#39; or int) -&gt; tuple or None:
         &#34;&#34;&#34;
         Args:
-            dim: Dimension, either as name `str` or single-dimension `Shape`.
+            dim: Dimension, either as `int` index, `str` name or single-dimension `Shape`.
 
         Returns:
             Item names as `tuple` or `None` if not defined.
         &#34;&#34;&#34;
+        if isinstance(dim, int):
+            return self.item_names[dim]
         if isinstance(dim, str):
             return self.item_names[self.names.index(dim)]
         elif isinstance(dim, Shape):
@@ -8444,7 +8457,7 @@ def well_defined(self):
 <div class="desc"><h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dim</code></strong></dt>
-<dd>Dimension, either as name <code>str</code> or single-dimension <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
+<dd>Dimension, either as <code>int</code> index, <code>str</code> name or single-dimension <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Item names as <code>tuple</code> or <code>None</code> if not defined.</p></div>
@@ -8452,14 +8465,16 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_item_names(self, dim: str or &#39;Shape&#39;) -&gt; tuple or None:
+<pre><code class="python">def get_item_names(self, dim: str or &#39;Shape&#39; or int) -&gt; tuple or None:
     &#34;&#34;&#34;
     Args:
-        dim: Dimension, either as name `str` or single-dimension `Shape`.
+        dim: Dimension, either as `int` index, `str` name or single-dimension `Shape`.
 
     Returns:
         Item names as `tuple` or `None` if not defined.
     &#34;&#34;&#34;
+    if isinstance(dim, int):
+        return self.item_names[dim]
     if isinstance(dim, str):
         return self.item_names[self.names.index(dim)]
     elif isinstance(dim, Shape):
@@ -10375,7 +10390,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         if name is not None:
             new_names = list(new_names)
             new_names[self.index] = name
-        new_shape = Shape(shape.sizes, new_names, tuple(new_types), shape.item_names)
+        new_shape = Shape(shape.sizes, tuple(new_names), tuple(new_types), shape.item_names)
         return self.tensor._with_shape_replaced(new_shape)
 
     @property

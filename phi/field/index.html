@@ -1184,7 +1184,8 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 <div class="desc"><p>Finds a minimum of the scalar function <em>f(x)</em>.
 The <code>method</code> argument of <code>solve</code> determines which optimizer is used.
 All optimizers supported by <code>scipy.optimize.minimize</code> are supported,
-see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .</p>
+see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html">https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html</a> .
+Additionally a gradient descent solver with adaptive step size can be used with <code>method='GD'</code>.</p>
 <p><code>math.minimize()</code> is limited to backends that support <code><a title="phi.field.functional_gradient" href="#phi.field.functional_gradient">functional_gradient()</a></code>, currently PyTorch, TensorFlow and Jax.</p>
 <p>To obtain additional information about the performed solve, use a <code>SolveTape</code>.</p>
 <p>See Also:
@@ -1220,6 +1221,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
     The `method` argument of `solve` determines which optimizer is used.
     All optimizers supported by `scipy.optimize.minimize` are supported,
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
+    Additionally a gradient descent solver with adaptive step size can be used with `method=&#39;GD&#39;`.
 
     `math.minimize()` is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
 
