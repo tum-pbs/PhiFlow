@@ -352,6 +352,7 @@ class GridCell(BaseBox):
     def __getitem__(self, item: dict):
         bounds = self._bounds
         dx = self.size
+        gather_dict = {}
         for dim, selection in item.items():
             if dim in self._resolution:
                 if isinstance(selection, int):
@@ -369,7 +370,8 @@ class GridCell(BaseBox):
                 lower = bounds.lower + start * dim_mask * dx
                 upper = bounds.upper + (stop - self.resolution.get_size(dim)) * dim_mask * dx
                 bounds = Box(lower, upper)
-        resolution = self._resolution.after_gather(item)
+                gather_dict[dim] = slice(start, stop)
+        resolution = self._resolution.after_gather(gather_dict)
         return GridCell(resolution, bounds)
 
     def list_cells(self, dim_name):
