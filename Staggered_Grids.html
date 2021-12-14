@@ -14747,15 +14747,46 @@ The number of sample points depends on the grid type and extrapolation.</p>
 <div class="jp-OutputArea-child">
 
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[5]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_1866/2992262166.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-fg">----&gt; 1</span><span class="ansi-red-fg"> </span>grid<span class="ansi-blue-fg">.</span>x<span class="ansi-blue-fg">[</span><span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">]</span>  <span class="ansi-red-fg"># spatial slice</span>
 
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_field.py</span> in <span class="ansi-cyan-fg">__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    387</span>         <span class="ansi-green-fg">if</span> isinstance<span class="ansi-blue-fg">(</span>item<span class="ansi-blue-fg">,</span> str<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    388</span>             item <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>field<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">.</span>spatial<span class="ansi-blue-fg">.</span>index<span class="ansi-blue-fg">(</span>item<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 389</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>field<span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">{</span>self<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">:</span> item<span class="ansi-blue-fg">}</span><span class="ansi-blue-fg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">    390</span> 
+<span class="ansi-green-intense-fg ansi-bold">    391</span>     <span class="ansi-green-fg">def</span> __call__<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">*</span>args<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">**</span>kwargs<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
 
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>StaggeredGrid[(xˢ=3, yˢ=10, vectorᶜ=2), size=(0.099999964, 1.0), extrapolation=0]</pre>
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py</span> in <span class="ansi-cyan-fg">__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    353</span>                 values <span class="ansi-blue-fg">=</span> math<span class="ansi-blue-fg">.</span>stack<span class="ansi-blue-fg">(</span>values<span class="ansi-blue-fg">,</span> channel<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#39;vector&#39;</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    354</span>         extrapolation <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>_extrapolation<span class="ansi-blue-fg">[</span>item<span class="ansi-blue-fg">]</span>
+<span class="ansi-green-fg">--&gt; 355</span><span class="ansi-red-fg">         </span>bounds <span class="ansi-blue-fg">=</span> GridCell<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>_resolution<span class="ansi-blue-fg">,</span> self<span class="ansi-blue-fg">.</span>_bounds<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">[</span>item<span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">.</span>bounds
+<span class="ansi-green-intense-fg ansi-bold">    356</span>         <span class="ansi-green-fg">if</span> <span class="ansi-blue-fg">&#39;vector&#39;</span> <span class="ansi-green-fg">in</span> item<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    357</span>             <span class="ansi-green-fg">if</span> isinstance<span class="ansi-blue-fg">(</span>item<span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">&#39;vector&#39;</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">,</span> int<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/geom/_box.py</span> in <span class="ansi-cyan-fg">__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    371</span>                 bounds <span class="ansi-blue-fg">=</span> Box<span class="ansi-blue-fg">(</span>lower<span class="ansi-blue-fg">,</span> upper<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    372</span>         resolution <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>_resolution<span class="ansi-blue-fg">.</span>after_gather<span class="ansi-blue-fg">(</span>item<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-fg">--&gt; 373</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> GridCell<span class="ansi-blue-fg">(</span>resolution<span class="ansi-blue-fg">,</span> bounds<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    374</span> 
+<span class="ansi-green-intense-fg ansi-bold">    375</span>     <span class="ansi-green-fg">def</span> list_cells<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> dim_name<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+
+<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/geom/_box.py</span> in <span class="ansi-cyan-fg">__init__</span><span class="ansi-blue-fg">(self, resolution, bounds)</span>
+<span class="ansi-green-intense-fg ansi-bold">    311</span>     <span class="ansi-green-fg">def</span> __init__<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> resolution<span class="ansi-blue-fg">:</span> math<span class="ansi-blue-fg">.</span>Shape<span class="ansi-blue-fg">,</span> bounds<span class="ansi-blue-fg">:</span> BaseBox<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    312</span>         <span class="ansi-green-fg">assert</span> resolution<span class="ansi-blue-fg">.</span>spatial_rank <span class="ansi-blue-fg">==</span> resolution<span class="ansi-blue-fg">.</span>rank<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">f&#34;resolution must be purely spatial but got {resolution}&#34;</span>
+<span class="ansi-green-fg">--&gt; 313</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">assert</span> resolution<span class="ansi-blue-fg">.</span>spatial_rank <span class="ansi-blue-fg">==</span> bounds<span class="ansi-blue-fg">.</span>spatial_rank<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">f&#34;bounds must match dimensions of resolution but got {bounds} for resolution {resolution}&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    314</span>         self<span class="ansi-blue-fg">.</span>_resolution <span class="ansi-blue-fg">=</span> resolution
+<span class="ansi-green-intense-fg ansi-bold">    315</span>         self<span class="ansi-blue-fg">.</span>_bounds <span class="ansi-blue-fg">=</span> bounds
+
+<span class="ansi-red-fg">AssertionError</span>: bounds must match dimensions of resolution but got Box[0.099999964x1.0 at 0.0,0.0] for resolution (yˢ=10)</pre>
 </div>
-
 </div>
 
 </div>

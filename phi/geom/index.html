@@ -51,7 +51,7 @@ from ._union import union
 from ._box import Box, GridCell, BaseBox
 from ._sphere import Sphere
 from ._stack import stack
-from ._geom_math import concat, invert
+from ._geom_math import concat, invert, pack_dims
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
 </details>
@@ -154,6 +154,59 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         New `phi.geom.Geometry` object with same surface but swapped normals
     &#34;&#34;&#34;
     return ~geometry</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.pack_dims"><code class="name flex">
+<span>def <span class="ident">pack_dims</span></span>(<span>value: phi.geom._geom.Geometry, dims: phi.math._shape.Shape, packed_dim: phi.math._shape.Shape, pos: int = None) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Reshapes dimensions of a geometry.</p>
+<p>See Also:
+<code><a title="phi.math.pack_dims" href="../math/index.html#phi.math.pack_dims">pack_dims()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> containing <code>dims</code></dd>
+<dt><strong><code>dims</code></strong></dt>
+<dd>Dimensions to pack into a single dimension.</dd>
+<dt><strong><code>packed_dim</code></strong></dt>
+<dd>The new dimension.</dd>
+<dt><strong><code>pos</code></strong></dt>
+<dd>(Optional) Position of the new dimension.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with <code>packed_dim</code> instead of <code>dims</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pack_dims(value: Geometry,
+              dims: Shape or tuple or list,
+              packed_dim: Shape,
+              pos: int or None = None) -&gt; Geometry:
+    &#34;&#34;&#34;
+    Reshapes dimensions of a geometry.
+
+    See Also:
+        `phi.math.pack_dims()`.
+
+    Args:
+        value: `Geometry` containing `dims`
+        dims: Dimensions to pack into a single dimension.
+        packed_dim: The new dimension.
+        pos: (Optional) Position of the new dimension.
+
+    Returns:
+        `Geometry` with `packed_dim` instead of `dims`.
+    &#34;&#34;&#34;
+    new_attrs = {}
+    for a in variable_attributes(value):
+        v = getattr(value, a)
+        if all(d in v.shape for d in dims):
+            new_attrs[a] = math.pack_dims(v, dims, packed_dim, pos=pos)
+        else:
+            assert all(d not in v.shape for d in dims), f&#34;Cannot pack_dims for attribute {a} of {value}&#34;
+    return copy_with(value, **new_attrs)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.stack"><code class="name flex">
@@ -285,6 +338,10 @@ A point lies inside the union if it lies within at least one of the geometries.<
     def volume(self) -&gt; Tensor:
         return math.prod(self.size, &#39;vector&#39;)
 
+    @property
+    def shape_type(self) -&gt; Tensor:
+        return math.tensor(&#39;B&#39;)
+
     def bounding_radius(self):
         return math.max(self.size, &#39;vector&#39;) * 1.414214
 
@@ -343,6 +400,10 @@ A point lies inside the union if it lies within at least one of the geometries.<
         indices = self.shape.spatial.index(dimensions)
         return Box(self.lower[indices], self.upper[indices])
 
+    def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
+        uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
+        return self.lower + uniform * self.size
+
     def corner_representation(self) -&gt; &#39;Box&#39;:
         return Box(self.lower, self.upper)
 
@@ -353,8 +414,11 @@ A point lies inside the union if it lies within at least one of the geometries.<
         &#34;&#34;&#34; Tests if the other box lies fully inside this box. &#34;&#34;&#34;
         return np.all(other.lower &gt;= self.lower) and np.all(other.upper &lt;= self.upper)
 
-    def rotated(self, angle):
-        return rotate(self, angle)</code></pre>
+    def rotated(self, angle) -&gt; Geometry:
+        return rotate(self, angle)
+
+    def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+        return Cuboid(self.center, self.half_size * factor)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -414,6 +478,23 @@ def lower(self) -&gt; Tensor:
 <pre><code class="python">@property
 def shape(self):
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.BaseBox.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
+Boxes return <code>'B'</code> and spheres return <code>'S'</code>.
+Returns <code>'?'</code> for unknown types, e.g. a union over multiple types.
+Custom types can return their own identifiers.</p>
+<h2 id="returns">Returns</h2>
+<p>String <code>Tensor</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape_type(self) -&gt; Tensor:
+    return math.tensor(&#39;B&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.size"><code class="name">var <span class="ident">size</span> : phi.math._tensors.Tensor</code></dt>
@@ -673,7 +754,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.rotated"><code class="name flex">
-<span>def <span class="ident">rotated</span></span>(<span>self, angle)</span>
+<span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a rotated version of this geometry.
@@ -684,16 +765,51 @@ The geometry is rotated about its center point.</p>
 <dd>scalar (2d) or vector (3D+) representing delta angle</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
-<dd>rotated geometry</dd>
-</dl></div>
+<p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rotated(self, angle):
+<pre><code class="python">def rotated(self, angle) -&gt; Geometry:
     return rotate(self, angle)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.BaseBox.sample_uniform"><code class="name flex">
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*shape</code></strong></dt>
+<dd>How many points to sample per individual geometry.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> containing all dimensions from <code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">Geometry.shape</a></code>, <code>shape</code> as well as a <code>channel</code> dimension <code>vector</code> matching the dimensionality of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
+    uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
+    return self.lower + uniform * self.size</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.BaseBox.scaled"><code class="name flex">
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: float) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Scales each individual geometry by <code>factor</code>.
+The individual <code>center</code> points act as pivots for the operation.</p>
+<h2 id="args">Args</h2>
+<p>factor:
+Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+    return Cuboid(self.center, self.half_size * factor)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.shifted"><code class="name flex">
@@ -830,11 +946,11 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     def size(self):
         return self.upper - self.lower
 
-    @struct.derived()
+    @property
     def center(self):
         return 0.5 * (self.lower + self.upper)
 
-    @struct.derived()
+    @property
     def half_size(self):
         return self.size * 0.5
 
@@ -856,17 +972,14 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
 <dl>
 <dt id="phi.geom.Box.center"><code class="name">var <span class="ident">center</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def __get__(self, instance, owner):
-    if instance is not None:
-        return self.getter(instance)
-    else:
-        self.owner = owner
-        return self</code></pre>
+<pre><code class="python">@property
+def center(self):
+    return 0.5 * (self.lower + self.upper)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Box.half_size"><code class="name">var <span class="ident">half_size</span></code></dt>
@@ -876,12 +989,9 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def __get__(self, instance, owner):
-    if instance is not None:
-        return self.getter(instance)
-    else:
-        self.owner = owner
-        return self</code></pre>
+<pre><code class="python">@property
+def half_size(self):
+    return self.size * 0.5</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Box.lower"><code class="name">var <span class="ident">lower</span></code></dt>
@@ -1042,6 +1152,19 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError()
 
+    @property
+    def shape_type(self) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Returns the type (or types) of this geometry as a string `Tensor`
+        Boxes return `&#39;B&#39;` and spheres return `&#39;S&#39;`.
+        Returns `&#39;?&#39;` for unknown types, e.g. a union over multiple types.
+        Custom types can return their own identifiers.
+
+        Returns:
+            String `Tensor`
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
     def unstack(self, dimension: str) -&gt; tuple:
         &#34;&#34;&#34;
         Unstacks this Geometry along the given dimension.
@@ -1143,6 +1266,18 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
+    def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Samples uniformly distributed random points inside this volume.
+
+        Args:
+            *shape: How many points to sample per individual geometry.
+
+        Returns:
+            `Tensor` containing all dimensions from `Geometry.shape`, `shape` as well as a `channel` dimension `vector` matching the dimensionality of this `Geometry`.
+        &#34;&#34;&#34;
+        raise NotImplementedError(self.__class__)
+
     def bounding_radius(self) -&gt; Tensor:
         &#34;&#34;&#34;
         Returns the radius of a Sphere object that fully encloses this geometry.
@@ -1188,7 +1323,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def rotated(self, angle) -&gt; &#39;Geometry&#39;:
+    def rotated(self, angle: float or Tensor) -&gt; &#39;Geometry&#39;:
         &#34;&#34;&#34;
         Returns a rotated version of this geometry.
         The geometry is rotated about its center point.
@@ -1197,7 +1332,19 @@ All batch dimensions are listed in Geometry.shape.</p></div>
           angle: scalar (2d) or vector (3D+) representing delta angle
 
         Returns:
-          Geometry: rotated geometry
+            Rotated `Geometry`
+        &#34;&#34;&#34;
+        raise NotImplementedError(self.__class__)
+
+    def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+        &#34;&#34;&#34;
+        Scales each individual geometry by `factor`.
+        The individual `center` points act as pivots for the operation.
+
+        Args:
+            factor:
+
+        Returns:
 
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
@@ -1302,6 +1449,32 @@ def center(self) -&gt; Tensor:
 def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
     Specifies the number of copies of the geometry as batch and spatial dimensions.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Geometry.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
+Boxes return <code>'B'</code> and spheres return <code>'S'</code>.
+Returns <code>'?'</code> for unknown types, e.g. a union over multiple types.
+Custom types can return their own identifiers.</p>
+<h2 id="returns">Returns</h2>
+<p>String <code>Tensor</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape_type(self) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Returns the type (or types) of this geometry as a string `Tensor`
+    Boxes return `&#39;B&#39;` and spheres return `&#39;S&#39;`.
+    Returns `&#39;?&#39;` for unknown types, e.g. a union over multiple types.
+    Custom types can return their own identifiers.
+
+    Returns:
+        String `Tensor`
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -1576,7 +1749,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.rotated"><code class="name flex">
-<span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">rotated</span></span>(<span>self, angle: float) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a rotated version of this geometry.
@@ -1587,15 +1760,12 @@ The geometry is rotated about its center point.</p>
 <dd>scalar (2d) or vector (3D+) representing delta angle</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
-<dd>rotated geometry</dd>
-</dl></div>
+<p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rotated(self, angle) -&gt; &#39;Geometry&#39;:
+<pre><code class="python">def rotated(self, angle: float or Tensor) -&gt; &#39;Geometry&#39;:
     &#34;&#34;&#34;
     Returns a rotated version of this geometry.
     The geometry is rotated about its center point.
@@ -1604,7 +1774,62 @@ The geometry is rotated about its center point.</p>
       angle: scalar (2d) or vector (3D+) representing delta angle
 
     Returns:
-      Geometry: rotated geometry
+        Rotated `Geometry`
+    &#34;&#34;&#34;
+    raise NotImplementedError(self.__class__)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Geometry.sample_uniform"><code class="name flex">
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*shape</code></strong></dt>
+<dd>How many points to sample per individual geometry.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> containing all dimensions from <code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">Geometry.shape</a></code>, <code>shape</code> as well as a <code>channel</code> dimension <code>vector</code> matching the dimensionality of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Samples uniformly distributed random points inside this volume.
+
+    Args:
+        *shape: How many points to sample per individual geometry.
+
+    Returns:
+        `Tensor` containing all dimensions from `Geometry.shape`, `shape` as well as a `channel` dimension `vector` matching the dimensionality of this `Geometry`.
+    &#34;&#34;&#34;
+    raise NotImplementedError(self.__class__)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Geometry.scaled"><code class="name flex">
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: float) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Scales each individual geometry by <code>factor</code>.
+The individual <code>center</code> points act as pivots for the operation.</p>
+<h2 id="args">Args</h2>
+<p>factor:
+Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+    &#34;&#34;&#34;
+    Scales each individual geometry by `factor`.
+    The individual `center` points act as pivots for the operation.
+
+    Args:
+        factor:
+
+    Returns:
 
     &#34;&#34;&#34;
     raise NotImplementedError(self.__class__)</code></pre>
@@ -1732,7 +1957,8 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     &#34;&#34;&#34;
 
     def __init__(self, resolution: math.Shape, bounds: BaseBox):
-        assert resolution.spatial_rank == resolution.rank, &#39;resolution must be purely spatial but got %s&#39; % (resolution,)
+        assert resolution.spatial_rank == resolution.rank, f&#34;resolution must be purely spatial but got {resolution}&#34;
+        assert resolution.spatial_rank == bounds.spatial_rank, f&#34;bounds must match dimensions of resolution but got {bounds} for resolution {resolution}&#34;
         self._resolution = resolution
         self._bounds = bounds
         self._shape = resolution &amp; bounds.shape.non_spatial
@@ -1836,7 +2062,21 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         return hash(self._resolution) + hash(self._bounds)
 
     def __repr__(self):
-        return f&#34;{self._resolution}, bounds={self._bounds}&#34;</code></pre>
+        return f&#34;{self._resolution}, bounds={self._bounds}&#34;
+
+    def __variable_attrs__(self):
+        return &#39;_center&#39;, &#39;_half_size&#39;
+
+    def __with_attrs__(self, **attrs):
+        return copy_with(self.center_representation(), **attrs)
+
+    @property
+    def _center(self):
+        return self.center
+
+    @property
+    def _half_size(self):
+        return self.half_size</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1984,10 +2224,7 @@ The geometry is rotated about its center point.</p>
 <dd>scalar (2d) or vector (3D+) representing delta angle</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
-<dd>rotated geometry</dd>
-</dl></div>
+<p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2296,10 +2533,7 @@ The geometry is rotated about its center point.</p>
 <dd>scalar (2d) or vector (3D+) representing delta angle</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
-<dd>rotated geometry</dd>
-</dl></div>
+<p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2365,9 +2599,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional sphere.
-Defined through center position and radius.</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+Defined through center position and radius.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2376,11 +2608,6 @@ Defined through center position and radius.</p>
     &#34;&#34;&#34;
     N-dimensional sphere.
     Defined through center position and radius.
-
-    Args:
-
-    Returns:
-
     &#34;&#34;&#34;
 
     def __init__(self, center, radius):
@@ -2404,6 +2631,10 @@ Defined through center position and radius.</p>
     def volume(self) -&gt; math.Tensor:
         return 4 / 3 * math.PI * self._radius ** 3
 
+    @property
+    def shape_type(self) -&gt; Tensor:
+        return math.tensor(&#39;S&#39;)
+
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
         return math.any(distance_squared &lt;= self.radius ** 2, self.shape.instance)  # union for instance dimensions
@@ -2425,6 +2656,9 @@ Defined through center position and radius.</p>
         distance = math.sqrt(distance_squared)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
+    def sample_uniform(self, *shape: math.Shape):
+        raise NotImplementedError(&#39;Not yet implemented&#39;)  # ToDo
+
     def bounding_radius(self):
         return self.radius
 
@@ -2437,8 +2671,22 @@ Defined through center position and radius.</p>
     def rotated(self, angle):
         return self
 
+    def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+        return Sphere(self.center, self.radius * factor)
+
     def __variable_attrs__(self):
-        return &#39;_radius&#39;, &#39;_center&#39;</code></pre>
+        return &#39;_radius&#39;, &#39;_center&#39;
+
+    def unstack(self, dimension: str) -&gt; tuple:
+        center = self.center.dimension(dimension).unstack(self.shape.get_size(dimension))
+        radius = self.radius.dimension(dimension).unstack(self.shape.get_size(dimension))
+        return tuple([Sphere(c, r) for c, r in zip(center, radius)])
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
+        raise NotImplementedError()
+
+    def __hash__(self):
+        return hash(self._center) + hash(self._radius)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2480,6 +2728,23 @@ def radius(self):
 <pre><code class="python">@property
 def shape(self):
     return _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Sphere.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
+Boxes return <code>'B'</code> and spheres return <code>'S'</code>.
+Returns <code>'?'</code> for unknown types, e.g. a union over multiple types.
+Custom types can return their own identifiers.</p>
+<h2 id="returns">Returns</h2>
+<p>String <code>Tensor</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape_type(self) -&gt; Tensor:
+    return math.tensor(&#39;S&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
@@ -2591,6 +2856,30 @@ The sphere is centered at the center of this geometry.</p>
     return math.any(distance_squared &lt;= self.radius ** 2, self.shape.instance)  # union for instance dimensions</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.Sphere.push"><code class="name flex">
+<span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Shifts positions either into or out of geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>positions</code></strong></dt>
+<dd>Tensor holding positions to shift</dd>
+<dt><strong><code>outward</code></strong></dt>
+<dd>Flag for indicating inward (False) or outward (True) shift</dd>
+<dt><strong><code>shift_amount</code></strong></dt>
+<dd>Minimum distance between positions and box boundaries after shifting</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor holding shifted positions</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Sphere.rotated"><code class="name flex">
 <span>def <span class="ident">rotated</span></span>(<span>self, angle)</span>
 </code></dt>
@@ -2603,16 +2892,50 @@ The geometry is rotated about its center point.</p>
 <dd>scalar (2d) or vector (3D+) representing delta angle</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
-<dd>rotated geometry</dd>
-</dl></div>
+<p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def rotated(self, angle):
     return self</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Sphere.sample_uniform"><code class="name flex">
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phi.math._shape.Shape)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*shape</code></strong></dt>
+<dd>How many points to sample per individual geometry.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> containing all dimensions from <code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">Geometry.shape</a></code>, <code>shape</code> as well as a <code>channel</code> dimension <code>vector</code> matching the dimensionality of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sample_uniform(self, *shape: math.Shape):
+    raise NotImplementedError(&#39;Not yet implemented&#39;)  # ToDo</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Sphere.scaled"><code class="name flex">
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: float) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Scales each individual geometry by <code>factor</code>.
+The individual <code>center</code> points act as pivots for the operation.</p>
+<h2 id="args">Args</h2>
+<p>factor:
+Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+    return Sphere(self.center, self.radius * factor)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.shifted"><code class="name flex">
@@ -2640,6 +2963,32 @@ The geometry is rotated about its center point.</p>
     return Sphere(self._center + delta, self._radius)</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.Sphere.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstacks this Geometry along the given dimension.
+The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>dimension along which to unstack</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>geometries</code></dt>
+<dd>tuple of length equal to <code>geometry.shape.get_size(dimension)</code></dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
+    center = self.center.dimension(dimension).unstack(self.shape.get_size(dimension))
+    radius = self.radius.dimension(dimension).unstack(self.shape.get_size(dimension))
+    return tuple([Sphere(c, r) for c, r in zip(center, radius)])</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 </dl>
@@ -2657,10 +3006,11 @@ The geometry is rotated about its center point.</p>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="phi.geom.assert_same_rank" href="#phi.geom.assert_same_rank">assert_same_rank</a></code></li>
 <li><code><a title="phi.geom.concat" href="#phi.geom.concat">concat</a></code></li>
 <li><code><a title="phi.geom.invert" href="#phi.geom.invert">invert</a></code></li>
+<li><code><a title="phi.geom.pack_dims" href="#phi.geom.pack_dims">pack_dims</a></code></li>
 <li><code><a title="phi.geom.stack" href="#phi.geom.stack">stack</a></code></li>
 <li><code><a title="phi.geom.union" href="#phi.geom.union">union</a></code></li>
 </ul>
@@ -2685,7 +3035,10 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.BaseBox.project" href="#phi.geom.BaseBox.project">project</a></code></li>
 <li><code><a title="phi.geom.BaseBox.push" href="#phi.geom.BaseBox.push">push</a></code></li>
 <li><code><a title="phi.geom.BaseBox.rotated" href="#phi.geom.BaseBox.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.BaseBox.sample_uniform" href="#phi.geom.BaseBox.sample_uniform">sample_uniform</a></code></li>
+<li><code><a title="phi.geom.BaseBox.scaled" href="#phi.geom.BaseBox.scaled">scaled</a></code></li>
 <li><code><a title="phi.geom.BaseBox.shape" href="#phi.geom.BaseBox.shape">shape</a></code></li>
+<li><code><a title="phi.geom.BaseBox.shape_type" href="#phi.geom.BaseBox.shape_type">shape_type</a></code></li>
 <li><code><a title="phi.geom.BaseBox.shifted" href="#phi.geom.BaseBox.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.BaseBox.size" href="#phi.geom.BaseBox.size">size</a></code></li>
 <li><code><a title="phi.geom.BaseBox.unstack" href="#phi.geom.BaseBox.unstack">unstack</a></code></li>
@@ -2717,8 +3070,11 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.Geometry.lies_inside" href="#phi.geom.Geometry.lies_inside">lies_inside</a></code></li>
 <li><code><a title="phi.geom.Geometry.push" href="#phi.geom.Geometry.push">push</a></code></li>
 <li><code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.Geometry.sample_uniform" href="#phi.geom.Geometry.sample_uniform">sample_uniform</a></code></li>
+<li><code><a title="phi.geom.Geometry.scaled" href="#phi.geom.Geometry.scaled">scaled</a></code></li>
 <li><code><a title="phi.geom.Geometry.shallow_equals" href="#phi.geom.Geometry.shallow_equals">shallow_equals</a></code></li>
 <li><code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">shape</a></code></li>
+<li><code><a title="phi.geom.Geometry.shape_type" href="#phi.geom.Geometry.shape_type">shape_type</a></code></li>
 <li><code><a title="phi.geom.Geometry.shifted" href="#phi.geom.Geometry.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.Geometry.spatial_rank" href="#phi.geom.Geometry.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.geom.Geometry.unstack" href="#phi.geom.Geometry.unstack">unstack</a></code></li>
@@ -2768,10 +3124,15 @@ The geometry is rotated about its center point.</p>
 <li><code><a title="phi.geom.Sphere.bounding_radius" href="#phi.geom.Sphere.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Sphere.center" href="#phi.geom.Sphere.center">center</a></code></li>
 <li><code><a title="phi.geom.Sphere.lies_inside" href="#phi.geom.Sphere.lies_inside">lies_inside</a></code></li>
+<li><code><a title="phi.geom.Sphere.push" href="#phi.geom.Sphere.push">push</a></code></li>
 <li><code><a title="phi.geom.Sphere.radius" href="#phi.geom.Sphere.radius">radius</a></code></li>
 <li><code><a title="phi.geom.Sphere.rotated" href="#phi.geom.Sphere.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.Sphere.sample_uniform" href="#phi.geom.Sphere.sample_uniform">sample_uniform</a></code></li>
+<li><code><a title="phi.geom.Sphere.scaled" href="#phi.geom.Sphere.scaled">scaled</a></code></li>
 <li><code><a title="phi.geom.Sphere.shape" href="#phi.geom.Sphere.shape">shape</a></code></li>
+<li><code><a title="phi.geom.Sphere.shape_type" href="#phi.geom.Sphere.shape_type">shape_type</a></code></li>
 <li><code><a title="phi.geom.Sphere.shifted" href="#phi.geom.Sphere.shifted">shifted</a></code></li>
+<li><code><a title="phi.geom.Sphere.unstack" href="#phi.geom.Sphere.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.Sphere.volume" href="#phi.geom.Sphere.volume">volume</a></code></li>
 </ul>
 </li>
