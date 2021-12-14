@@ -627,7 +627,7 @@ class TensorDim:
         if name is not None:
             new_names = list(new_names)
             new_names[self.index] = name
-        new_shape = Shape(shape.sizes, new_names, tuple(new_types), shape.item_names)
+        new_shape = Shape(shape.sizes, tuple(new_names), tuple(new_types), shape.item_names)
         return self.tensor._with_shape_replaced(new_shape)
 
     @property

@@ -275,3 +275,12 @@ class TestFunctional(TestCase):
                     x = solve(CenteredGrid(1, extrapolation.ZERO, x=3), method=method)
                     math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
 
+    def test_gradient_descent_minimize(self):
+        def loss(x):
+            return x ** 2
+
+        for backend in BACKENDS:
+            if backend.supports(Backend.functional_gradient):
+                with backend:
+                    result = math.minimize(loss, Solve('GD', 0, 1e-5, 20, x0=3))
+                    math.assert_close(result, 0, abs_tolerance=1e-5, msg=backend.name)

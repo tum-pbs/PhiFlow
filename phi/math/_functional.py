@@ -1137,6 +1137,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     The `method` argument of `solve` determines which optimizer is used.
     All optimizers supported by `scipy.optimize.minimize` are supported,
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
+    Additionally a gradient descent solver with adaptive step size can be used with `method='GD'`.
 
     `math.minimize()` is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
 

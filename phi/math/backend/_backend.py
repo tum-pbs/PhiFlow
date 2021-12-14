@@ -1,9 +1,11 @@
+import logging
 from collections import namedtuple
 from contextlib import contextmanager
 from threading import Barrier
 from typing import List, Callable
 
 import numpy
+import scipy.optimize
 
 from ._dtype import DType, combine_types
 
@@ -745,6 +747,9 @@ class Backend:
         raise NotImplementedError(self)
 
     def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
+        if method == 'GD':
+            return self._minimize_gradient_descent(f, x0, atol, max_iter, trj)
+
         from scipy.optimize import OptimizeResult, minimize
         from threading import Thread
 
@@ -773,7 +778,7 @@ class Backend:
         trajectories = [[] for _ in range(batch_size)] if trj else None
         threads = []
 
-        for b in range(batch_size):
+        for b in range(batch_size):  # Run each independent example as a scipy minimization in a new thread
 
             def b_thread(b=b):
                 recent_b_losses = []
@@ -820,7 +825,7 @@ class Backend:
                 all_finished = True
                 f_output_available.wait()
                 break
-            _, f_b_losses, f_grad = fg(self.stack(f_inputs))
+            _, f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
             f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
             f_grad_np = self.numpy(f_grad).astype(numpy.float64)
             f_output_available.wait()
@@ -846,6 +851,71 @@ class Backend:
             x = self.stack(xs)
             residual = self.stack(final_losses)
             return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
+
+    def _minimize_gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size='adaptive'):
+        assert self.supports(Backend.functional_gradient)
+        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
+        batch_size = self.staticshape(x0)[0]
+        fg = self.functional_gradient(f, [0], get_output=True)
+        method = f"Gradient descent with {self.name}"
+
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+
+        adaptive_step_size = step_size == 'adaptive'
+        if adaptive_step_size:
+            step_size = self.zeros([batch_size]) + 0.1
+
+        _, loss, grad = fg(x0)  # Evaluate function and gradient
+        diverged = self.any(~self.isfinite(x0), axis=(1,))
+        converged = self.zeros([batch_size], DType(bool))
+        trajectory = [SolveResult(method, x0, loss, iterations, function_evaluations, converged, diverged, [""] * batch_size)] if trj else None
+        continue_ = ~converged & ~diverged & (iterations < max_iter)
+
+        def gd_step(continue_, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged):
+            prev_loss, prev_grad, prev_x = loss, grad, x
+            continue_1 = self.to_int32(continue_)
+            iterations += continue_1
+            if adaptive_step_size:
+                for i in range(20):
+                    dx = - grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
+                    next_x = x + dx
+                    predicted_loss_decrease = - self.sum(grad * dx, -1)  # >= 0
+                    _, next_loss, next_grad = fg(next_x); function_evaluations += continue_1
+                    converged = converged | (self.sum(next_grad ** 2, axis=-1) < atol ** 2)
+                    logging.debug(f"Gradient: {self.numpy(next_grad)} with step_size={self.numpy(step_size)}")
+                    actual_loss_decrease = loss - next_loss  # we want > 0
+                    # we want actual_loss_decrease to be at least half of predicted_loss_decrease
+                    act_pred = self.divide_no_nan(actual_loss_decrease, predicted_loss_decrease)
+                    logging.debug(f"Actual/Predicted: {self.numpy(act_pred)}")
+                    step_size_fac = self.clip(self.log(1 + 1.71828182845 * self.exp((act_pred - 0.5) * 2.)), 0.1, 10)
+                    logging.debug(f"step_size *= {self.numpy(step_size_fac)}")
+                    step_size *= step_size_fac
+                    if self.all((act_pred > 0.4) & (act_pred < 0.9) | converged | diverged):
+                        logging.debug(f"Finished step_size adjustment at step {i + 1}\n")
+                        break
+                else:
+                    converged = converged | (abs(actual_loss_decrease) < predicted_loss_decrease)
+                    logging.debug("Backend._minimize_gradient_descent(): No step size found!\n")
+                diverged = diverged | (next_loss > loss)
+                x, loss, grad = next_x, next_loss, next_grad
+            else:
+                x -= grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
+                _, loss, grad = fg(x); function_evaluations += continue_1
+                diverged = self.any(~self.isfinite(x), axis=(1,)) | (loss > prev_loss)
+                converged = ~diverged & (prev_loss - loss < atol)
+            if trj:
+                trajectory.append(SolveResult(method, self.numpy(x), self.numpy(loss), self.numpy(iterations), self.numpy(function_evaluations), self.numpy(diverged), self.numpy(converged), [""] * batch_size))
+            continue_ = ~converged & ~diverged & (iterations < max_iter)
+            return continue_, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged
+
+        not_converged, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged = self.while_loop(gd_step, (continue_, x0, loss, grad, iterations, function_evaluations, step_size, converged, diverged))
+
+        if trj:
+            trajectory.append(SolveResult(method, x, loss, iterations, function_evaluations + 1, converged, diverged, [""] * batch_size))
+            return trajectory
+        else:
+            return SolveResult(method, x, loss, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
     def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         """
