@@ -275,7 +275,7 @@ def unstack(field: Field, dim: str) -> tuple:
     size = field.shape.get_size(dim)
     if isinstance(size, Tensor):
         size = math.min(size)  # unstack StaggeredGrid along x or y
-    return tuple(field[{dim: i}] for i in range(size))
+    return tuple([field[{dim: i}] for i in range(size)])
 
 
 def sample(field: Field, geometry: Geometry) -> math.Tensor:

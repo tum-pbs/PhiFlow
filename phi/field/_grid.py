@@ -343,14 +343,15 @@ class StaggeredGrid(Grid):
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
         for dim, sel in item.items():
             if dim in self.shape.spatial:
-                sel = slice(sel, sel + 1) if isinstance(sel, int) else sel
-                values = []
-                for vdim, val in zip(self.shape.spatial.names, self.values.unstack('vector')):
-                    if vdim == dim:
-                        values.append(val[{dim: slice(sel.start, sel.stop + 1)}])
-                    else:
-                        values.append(val[{dim: sel}])
-                values = math.stack(values, channel('vector'))
+                raise AssertionError("Cannot slice StaggeredGrid along spatial dimensions.")
+                # sel = slice(sel, sel + 1) if isinstance(sel, int) else sel
+                # values = []
+                # for vdim, val in zip(self.shape.spatial.names, self.values.unstack('vector')):
+                #     if vdim == dim:
+                #         values.append(val[{dim: slice(sel.start, sel.stop + 1)}])
+                #     else:
+                #         values.append(val[{dim: sel}])
+                # values = math.stack(values, channel('vector'))
         extrapolation = self._extrapolation[item]
         bounds = GridCell(self._resolution, self._bounds)[item].bounds
         if 'vector' in item:

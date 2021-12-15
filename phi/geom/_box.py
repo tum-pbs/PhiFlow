@@ -3,7 +3,7 @@ from typing import Dict, Tuple
 import numpy as np
 
 from phi import math
-from ._geom import Geometry, _fill_spatial_with_singleton
+from ._geom import Geometry
 from ._transform import rotate
 from ..math import wrap
 from ..math._tensors import Tensor, copy_with
@@ -176,7 +176,7 @@ class Box(BaseBox, metaclass=BoxType):
     """
     Simple cuboid defined by location of lower and upper corner in physical space.
 
-    In addition to the regular constructor Box(lower, upper), Box supports construction via slicing, `Box[slice1, slice2,...]`
+    In addition to the regular constructor Box(lower, upper), `Box` supports construction from dimension names and via slicing, `Box[slice1, slice2,...]`
     Each slice marks the lower and upper edge of the box along one dimension.
     Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
     The parameter slice.step has no effect.
@@ -187,14 +187,24 @@ class Box(BaseBox, metaclass=BoxType):
         Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     """
 
-    def __init__(self, lower: Tensor or float or int, upper: Tensor or float or int):
+    def __init__(self,
+                 lower: Tensor or float or int = None,
+                 upper: Tensor or float or int = None,
+                 **size: int or Tensor):
         """
         Args:
           lower: physical location of lower corner
           upper: physical location of upper corner
+          **size: Upper l
         """
-        self._lower = wrap(lower)
-        self._upper = wrap(upper)
+        if lower is not None:
+            self._lower = wrap(lower)
+        if upper is not None:
+            self._upper = wrap(upper)
+        else:
+            self._upper = math.stack(size, math.channel('vector'))
+            if lower is None:
+                self._lower = math.zeros_like(self._upper)
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
@@ -216,7 +226,7 @@ class Box(BaseBox, metaclass=BoxType):
 
     @property
     def shape(self):
-        return _fill_spatial_with_singleton(self._lower.shape & self._upper.shape).non_channel
+        return (self._lower.shape & self._upper.shape).non_channel
 
     @property
     def lower(self):
@@ -249,10 +259,19 @@ class Box(BaseBox, metaclass=BoxType):
 
 
 class Cuboid(BaseBox):
+    """
+    Box specified by center position and half size.
+    """
 
-    def __init__(self, center, half_size):
+    def __init__(self,
+                 center: Tensor = 0,
+                 half_size: float or Tensor = None,
+                 **size: float or Tensor):
         self._center = wrap(center)
-        self._half_size = wrap(half_size)
+        if half_size is not None:
+            self._half_size = wrap(half_size)
+        else:
+            self._half_size = math.stack(size, math.channel('vector')) * 0.5
 
     def unstack(self, dimension):
         raise NotImplementedError()
@@ -279,7 +298,7 @@ class Cuboid(BaseBox):
 
     @property
     def shape(self):
-        return _fill_spatial_with_singleton(self._center.shape & self._half_size.shape).without('vector')
+        return (self._center.shape & self._half_size.shape).without('vector')
 
     @property
     def size(self):
@@ -322,6 +341,10 @@ class GridCell(BaseBox):
     @property
     def bounds(self):
         return self._bounds
+
+    @property
+    def spatial_rank(self) -> int:
+        return self._resolution.spatial_rank
 
     @property
     def center(self):

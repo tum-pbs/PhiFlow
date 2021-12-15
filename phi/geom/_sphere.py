@@ -1,8 +1,9 @@
+import warnings
 from typing import Dict
 
 from phi import math
 
-from ._geom import Geometry, _fill_spatial_with_singleton
+from ._geom import Geometry
 from ..math import wrap, Tensor
 
 
@@ -12,14 +13,33 @@ class Sphere(Geometry):
     Defined through center position and radius.
     """
 
-    def __init__(self, center, radius):
-        self._center = wrap(center)
-        assert 'vector' in self._center.shape, f"Sphere.center must have a 'vector' dimension. Try ({center},) * rank."
+    def __init__(self,
+                 center: Tensor = None,
+                 radius: float or Tensor = None,
+                 **center_: float or Tensor):
+        """
+        Args:
+            center: Sphere center as `Tensor` with `vector` dimension.
+                The spatial dimension order should be specified in the `vector` dimension via item names.
+            radius: Sphere radius as `float` or `Tensor`
+            **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
+        """
+        if center is not None:
+            if not isinstance(center, Tensor):
+                warnings.warn(f"constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.", DeprecationWarning)
+                self._center = wrap(center)
+            else:
+                self._center = center
+            assert 'vector' in self._center.shape, f"Sphere.center must have a 'vector' dimension. Use the syntax x=0.5."
+        else:
+            self._center = math.stack(center_, math.channel('vector'))
+            # self._center = wrap(math.spatial(**center_), math.channel('vector'))
+        assert radius is not None, "radius must be specified."
         self._radius = wrap(radius)
 
     @property
     def shape(self):
-        return _fill_spatial_with_singleton(self._center.shape & self._radius.shape).without('vector')
+        return (self._center.shape & self._radius.shape).without('vector')
 
     @property
     def radius(self):

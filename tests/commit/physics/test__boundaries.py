@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy
 
 from phi import math
-from phi.field import Noise
+from phi.field import Noise, CenteredGrid, StaggeredGrid
 from phi.math import spatial, channel
 from phi.physics._boundaries import Domain
 
@@ -41,10 +41,9 @@ class TestFieldMath(TestCase):
         math.assert_close(grid.values, 1)
 
     def test_domain_grid_memory_allocation(self):
-        domain = Domain(x=10000, y=10000, z=10000, w=10000)
-        grid = domain.scalar_grid()
+        grid = CenteredGrid(0, x=10000, y=10000, z=10000, w=10000)
         self.assertEqual((10000,) * 4, grid.shape.sizes)
-        sgrid = domain.staggered_grid()
+        sgrid = StaggeredGrid(0, x=10000, y=10000, z=10000, w=10000)
         self.assertEqual((10000, 10000, 10000, 10000, 4), sgrid.shape.sizes)
 
     def test_custom_spatial_dims(self):

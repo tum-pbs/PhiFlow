@@ -6,10 +6,10 @@ The simulation computes the resulting air flow in a closed box.
 from phi.flow import *
 
 
-DOMAIN = dict(x=64, y=64, bounds=Box[0:100, 0:100])
-velocity = StaggeredGrid((0, 0), extrapolation.ZERO, **DOMAIN)  # or use CenteredGrid
+DOMAIN = dict(x=64, y=64, bounds=Box(x=100, y=100))
+velocity = StaggeredGrid((0, 0), 0, **DOMAIN)  # or use CenteredGrid
 smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=200, y=200, bounds=DOMAIN['bounds'])
-INFLOW = 0.2 * CenteredGrid(SoftGeometryMask(Sphere(center=(50, 10), radius=5)), extrapolation.ZERO, resolution=smoke.resolution, bounds=smoke.bounds)
+INFLOW = 0.2 * CenteredGrid(SoftGeometryMask(Sphere(x=50, y=9.5, radius=5)), 0, smoke.bounds, smoke.resolution)
 pressure = None
 
 for _ in view(smoke, velocity, 'pressure', play=False, namespace=globals()).range(warmup=1):

@@ -39,14 +39,14 @@ class GridTest(TestCase):
         self.assertIsInstance(b1, StaggeredGrid)
         field.assert_close(b1, b2, b3)
 
-    def test_slice_staggered_grid_along_spatial(self):
-        v = StaggeredGrid(Noise(batch(batch=10)), x=10, y=20)
-        x1 = v[{'x': 1}]
-        x2 = v.x[1]
-        x3 = field.unstack(v, 'x')[1]
-        self.assertIsInstance(x1, StaggeredGrid)
-        field.assert_close(x1, x2, x3)
-        self.assertEqual(x1.bounds, Box[1:2, 0:20])
+    # def test_slice_staggered_grid_along_spatial(self):
+    #     v = StaggeredGrid(Noise(batch(batch=10)), x=10, y=20)
+    #     x1 = v[{'x': 1}]
+    #     x2 = v.x[1]
+    #     x3 = field.unstack(v, 'x')[1]
+    #     self.assertIsInstance(x1, StaggeredGrid)
+    #     field.assert_close(x1, x2, x3)
+    #     self.assertEqual(x1.bounds, Box[1:2, 0:20])
 
     def test_slice_centered_grid(self):
         g = CenteredGrid(Noise(batch(batch=10), channel(vector=2)), x=10, y=20)

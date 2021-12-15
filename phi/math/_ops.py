@@ -671,6 +671,7 @@ def stack(values: tuple or list or dict, dim: Shape):
         values = tuple(values.values())
     else:
         dim_item_names = None
+    values = [wrap(v) for v in values]
     values = cast_same(*values)
     if dim_item_names:
         dim = dim._with_item_names((dim_item_names,) + (None,) * values[0].shape.rank)

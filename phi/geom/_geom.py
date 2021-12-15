@@ -73,7 +73,7 @@ class Geometry:
     @property
     def spatial_rank(self) -> int:
         """ Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. """
-        return self.shape.spatial.rank
+        return self.center.shape.get_size('vector')
 
     def lies_inside(self, location: Tensor) -> Tensor:
         """
@@ -463,12 +463,3 @@ def _rank(rank):
     else:
         raise NotImplementedError(f"{type(rank)} now allowed. Allowed are (int, Geometry, Shape, Tensor).")
     return None if rank == 0 else rank
-
-
-def _fill_spatial_with_singleton(shape: Shape):
-    if shape.spatial.rank == shape.get_size('vector'):
-        return shape
-    else:
-        assert shape.spatial.rank == 0, shape
-        names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.get_size('vector')) for i in range(shape.get_size('vector'))]
-        return shape & spatial(**{n: 1 for n in names})

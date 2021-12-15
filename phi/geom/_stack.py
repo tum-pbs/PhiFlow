@@ -26,6 +26,10 @@ class GeometryStack(Geometry):
         return math.stack(centers, self.stack_dim)
 
     @property
+    def spatial_rank(self) -> int:
+        return self.geometries[0].spatial_rank
+
+    @property
     def shape(self) -> Shape:
         return self._shape
 
