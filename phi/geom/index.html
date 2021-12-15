@@ -865,11 +865,11 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 <dt id="phi.geom.Box"><code class="flex name class">
 <span>class <span class="ident">Box</span></span>
-<span>(</span><span>lower: phi.math._tensors.Tensor, upper: phi.math._tensors.Tensor)</span>
+<span>(</span><span>lower: phi.math._tensors.Tensor = None, upper: phi.math._tensors.Tensor = None, **size: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simple cuboid defined by location of lower and upper corner in physical space.</p>
-<p>In addition to the regular constructor Box(lower, upper), Box supports construction via slicing, <code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a>[slice1, slice2,&hellip;]</code>
+<p>In addition to the regular constructor Box(lower, upper), <code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a></code> supports construction from dimension names and via slicing, <code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a>[slice1, slice2,&hellip;]</code>
 Each slice marks the lower and upper edge of the box along one dimension.
 Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
 The parameter slice.step has no effect.</p>
@@ -883,6 +883,8 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
 <dd>physical location of lower corner</dd>
 <dt><strong><code>upper</code></strong></dt>
 <dd>physical location of upper corner</dd>
+<dt><strong><code>**size</code></strong></dt>
+<dd>Upper l</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -892,7 +894,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     &#34;&#34;&#34;
     Simple cuboid defined by location of lower and upper corner in physical space.
 
-    In addition to the regular constructor Box(lower, upper), Box supports construction via slicing, `Box[slice1, slice2,...]`
+    In addition to the regular constructor Box(lower, upper), `Box` supports construction from dimension names and via slicing, `Box[slice1, slice2,...]`
     Each slice marks the lower and upper edge of the box along one dimension.
     Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
     The parameter slice.step has no effect.
@@ -903,14 +905,24 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
         Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     &#34;&#34;&#34;
 
-    def __init__(self, lower: Tensor or float or int, upper: Tensor or float or int):
+    def __init__(self,
+                 lower: Tensor or float or int = None,
+                 upper: Tensor or float or int = None,
+                 **size: int or Tensor):
         &#34;&#34;&#34;
         Args:
           lower: physical location of lower corner
           upper: physical location of upper corner
+          **size: Upper l
         &#34;&#34;&#34;
-        self._lower = wrap(lower)
-        self._upper = wrap(upper)
+        if lower is not None:
+            self._lower = wrap(lower)
+        if upper is not None:
+            self._upper = wrap(upper)
+        else:
+            self._upper = math.stack(size, math.channel(&#39;vector&#39;))
+            if lower is None:
+                self._lower = math.zeros_like(self._upper)
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
@@ -932,7 +944,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
 
     @property
     def shape(self):
-        return _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape).non_channel
+        return (self._lower.shape &amp; self._upper.shape).non_channel
 
     @property
     def lower(self):
@@ -1015,7 +1027,7 @@ def lower(self):
 </summary>
 <pre><code class="python">@property
 def shape(self):
-    return _fill_spatial_with_singleton(self._lower.shape &amp; self._upper.shape).non_channel</code></pre>
+    return (self._lower.shape &amp; self._upper.shape).non_channel</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Box.size"><code class="name">var <span class="ident">size</span></code></dt>
@@ -1181,7 +1193,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     @property
     def spatial_rank(self) -&gt; int:
         &#34;&#34;&#34; Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. &#34;&#34;&#34;
-        return self.shape.spatial.rank
+        return self.center.shape.get_size(&#39;vector&#39;)
 
     def lies_inside(self, location: Tensor) -&gt; Tensor:
         &#34;&#34;&#34;
@@ -1489,7 +1501,7 @@ def shape_type(self) -&gt; Tensor:
 <pre><code class="python">@property
 def spatial_rank(self) -&gt; int:
     &#34;&#34;&#34; Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. &#34;&#34;&#34;
-    return self.shape.spatial.rank</code></pre>
+    return self.center.shape.get_size(&#39;vector&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
@@ -1972,6 +1984,10 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         return self._bounds
 
     @property
+    def spatial_rank(self) -&gt; int:
+        return self._resolution.spatial_rank
+
+    @property
     def center(self):
         local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
         points = self.bounds.local_to_global(local_coords)
@@ -2183,6 +2199,18 @@ def shape(self):
 <pre><code class="python">@property
 def size(self):
     return self.bounds.size / math.wrap(self.resolution.sizes)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.spatial_rank"><code class="name">var <span class="ident">spatial_rank</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def spatial_rank(self) -&gt; int:
+    return self._resolution.spatial_rank</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.GridCell.upper"><code class="name">var <span class="ident">upper</span></code></dt>
@@ -2597,11 +2625,21 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 <dt id="phi.geom.Sphere"><code class="flex name class">
 <span>class <span class="ident">Sphere</span></span>
-<span>(</span><span>center, radius)</span>
+<span>(</span><span>center: phi.math._tensors.Tensor = None, radius: float = None, **center_: float)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional sphere.
-Defined through center position and radius.</p></div>
+Defined through center position and radius.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>center</code></strong></dt>
+<dd>Sphere center as <code>Tensor</code> with <code>vector</code> dimension.
+The spatial dimension order should be specified in the <code>vector</code> dimension via item names.</dd>
+<dt><strong><code>radius</code></strong></dt>
+<dd>Sphere radius as <code>float</code> or <code>Tensor</code></dd>
+<dt><strong><code>**center_</code></strong></dt>
+<dd>Specifies center when the <code>center</code> argument is not given. Center position by dimension, e.g. <code>x=0.5, y=0.2</code>.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2612,14 +2650,33 @@ Defined through center position and radius.</p></div>
     Defined through center position and radius.
     &#34;&#34;&#34;
 
-    def __init__(self, center, radius):
-        self._center = wrap(center)
-        assert &#39;vector&#39; in self._center.shape, f&#34;Sphere.center must have a &#39;vector&#39; dimension. Try ({center},) * rank.&#34;
+    def __init__(self,
+                 center: Tensor = None,
+                 radius: float or Tensor = None,
+                 **center_: float or Tensor):
+        &#34;&#34;&#34;
+        Args:
+            center: Sphere center as `Tensor` with `vector` dimension.
+                The spatial dimension order should be specified in the `vector` dimension via item names.
+            radius: Sphere radius as `float` or `Tensor`
+            **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
+        &#34;&#34;&#34;
+        if center is not None:
+            if not isinstance(center, Tensor):
+                warnings.warn(f&#34;constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.&#34;, DeprecationWarning)
+                self._center = wrap(center)
+            else:
+                self._center = center
+            assert &#39;vector&#39; in self._center.shape, f&#34;Sphere.center must have a &#39;vector&#39; dimension. Use the syntax x=0.5.&#34;
+        else:
+            self._center = math.stack(center_, math.channel(&#39;vector&#39;))
+            # self._center = wrap(math.spatial(**center_), math.channel(&#39;vector&#39;))
+        assert radius is not None, &#34;radius must be specified.&#34;
         self._radius = wrap(radius)
 
     @property
     def shape(self):
-        return _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)
+        return (self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)
 
     @property
     def radius(self):
@@ -2729,7 +2786,7 @@ def radius(self):
 </summary>
 <pre><code class="python">@property
 def shape(self):
-    return _fill_spatial_with_singleton(self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)</code></pre>
+    return (self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
@@ -3098,6 +3155,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.GridCell.shape" href="#phi.geom.GridCell.shape">shape</a></code></li>
 <li><code><a title="phi.geom.GridCell.shifted" href="#phi.geom.GridCell.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.GridCell.size" href="#phi.geom.GridCell.size">size</a></code></li>
+<li><code><a title="phi.geom.GridCell.spatial_rank" href="#phi.geom.GridCell.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.geom.GridCell.stagger" href="#phi.geom.GridCell.stagger">stagger</a></code></li>
 <li><code><a title="phi.geom.GridCell.unstack" href="#phi.geom.GridCell.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.GridCell.upper" href="#phi.geom.GridCell.upper">upper</a></code></li>

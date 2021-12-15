@@ -2270,7 +2270,7 @@ The dimension can be batch, spatial or channel.</p>
     size = field.shape.get_size(dim)
     if isinstance(size, Tensor):
         size = math.min(size)  # unstack StaggeredGrid along x or y
-    return tuple(field[{dim: i}] for i in range(size))</code></pre>
+    return tuple([field[{dim: i}] for i in range(size)])</code></pre>
 </details>
 </dd>
 <dt id="phi.field.upsample2x"><code class="name flex">
@@ -5376,14 +5376,15 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
         for dim, sel in item.items():
             if dim in self.shape.spatial:
-                sel = slice(sel, sel + 1) if isinstance(sel, int) else sel
-                values = []
-                for vdim, val in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
-                    if vdim == dim:
-                        values.append(val[{dim: slice(sel.start, sel.stop + 1)}])
-                    else:
-                        values.append(val[{dim: sel}])
-                values = math.stack(values, channel(&#39;vector&#39;))
+                raise AssertionError(&#34;Cannot slice StaggeredGrid along spatial dimensions.&#34;)
+                # sel = slice(sel, sel + 1) if isinstance(sel, int) else sel
+                # values = []
+                # for vdim, val in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
+                #     if vdim == dim:
+                #         values.append(val[{dim: slice(sel.start, sel.stop + 1)}])
+                #     else:
+                #         values.append(val[{dim: sel}])
+                # values = math.stack(values, channel(&#39;vector&#39;))
         extrapolation = self._extrapolation[item]
         bounds = GridCell(self._resolution, self._bounds)[item].bounds
         if &#39;vector&#39; in item:
