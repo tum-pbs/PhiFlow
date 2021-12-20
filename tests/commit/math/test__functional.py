@@ -259,7 +259,7 @@ class TestFunctional(TestCase):
     def test_jit_solves(self):
         @math.jit_compile
         def solve(y, method):
-            print(f"Tracing {method}...")
+            print(f"Tracing {method} with {backend}...")
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             with SolveTape() as solves:
                 x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)

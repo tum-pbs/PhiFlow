@@ -330,6 +330,16 @@ class Tensor:
         else:
             raise ValueError(name)
 
+    def pack(self, dims, packed_dim):
+        """ See `pack_dims()` """
+        from ._ops import pack_dims
+        return pack_dims(self, dims, packed_dim)
+
+    def unpack(self, dim, unpacked_dims):
+        """ See `unpack_dims()` """
+        from ._ops import unpack_dims
+        return unpack_dims(self, dim, unpacked_dims)
+
     def __getattr__(self, name):
         if name.startswith('_'):
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")

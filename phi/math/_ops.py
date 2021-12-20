@@ -926,7 +926,7 @@ def unpack_dims(value: Tensor, dim: str, unpacked_dims: Shape):
 
 
 def pack_dims(value: Tensor,
-              dims: Shape or tuple or list,
+              dims: Shape or tuple or list or str,
               packed_dim: Shape,
               pos: int or None = None):
     """
@@ -950,7 +950,7 @@ def pack_dims(value: Tensor,
     Returns:
         `Tensor` with compressed shape.
     """
-    dims = dims.names if isinstance(dims, Shape) else dims
+    dims = parse_dim_order(dims)
     if len(dims) == 0 or all(dim not in value.shape for dim in dims):
         return CollapsedTensor(value, value.shape._expand(packed_dim.with_sizes([1]), pos))
     if len(dims) == 1:

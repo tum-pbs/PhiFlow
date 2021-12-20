@@ -81,6 +81,18 @@ class TestMathFunctions(TestCase):
         a = math.ones(spatial(x=3, y=4), batch(b=10), instance(i=2), channel(vector=2))
         math.assert_close(math.sum(a, spatial), 12)
 
+    def test_unstack(self):
+        a = math.random_uniform(batch(b=10), spatial(x=4, y=3), channel(vector=2))
+        u = math.unstack(a, 'vector')
+        self.assertIsInstance(u, tuple)
+        self.assertEqual(len(u), 2)
+        math.assert_close(u, math.unstack(a, channel))
+        # Multiple dimensions
+        u = math.unstack(a, 'x,y')
+        self.assertIsInstance(u, tuple)
+        self.assertEqual(len(u), 12)
+        math.assert_close(u, math.unstack(a, spatial))
+
     def test_grid_sample(self):
         for backend in BACKENDS:
             with backend:
