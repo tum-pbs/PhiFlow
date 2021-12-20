@@ -5,24 +5,16 @@ Fluid simulation with additional marker fields that are passively transported wi
 The dense marker is sampled on a regular grid while the sparse marker is a collection of particles.
 """
 
-from phi.physics._boundaries import Domain, STICKY as CLOSED
 from phi.flow import *
 
 
-math.seed(0)
-
-
-def checkerboard(size=8, offset=2):
-    return math.to_float(math.all((DOMAIN.cells.center - offset) % (2 * size) < size, 'vector'))
-
-
-DOMAIN = Domain(x=126, y=160, boundaries=CLOSED)
+DOMAIN = dict(x=64, y=64, bounds=Box(x=100, y=100))
 DT = 0.2
 
-velocity = DOMAIN.staggered_grid(Noise(vector=2, scale=100)) * 4
-dense_marker = CenteredGrid(checkerboard(), DOMAIN.boundaries['scalar'], DOMAIN.bounds)
-points = math.pack_dims(DOMAIN.cells.center.x[::4].y[::4], ('x', 'y'), instance('points')).points.as_batch()
-sparse_marker = DOMAIN.points(points)
+velocity = StaggeredGrid(Noise(vector=2, scale=100), 0, **DOMAIN) * 4
+points = math.meshgrid(x=8, y=8).pack('x,y', instance('points')) * 10 + 10
+sparse_marker = PointCloud(Sphere(points, 1), 1, 0, bounds=DOMAIN['bounds'])
+dense_marker = CenteredGrid(sparse_marker.elements, extrapolation.BOUNDARY, x=200, y=200, bounds=DOMAIN['bounds'])
 
 for _ in view(framerate=10, play=False, namespace=globals()).range():
     velocity, _ = fluid.make_incompressible(velocity)
