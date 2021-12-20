@@ -1702,9 +1702,26 @@ def convolve(value: Tensor,
     return result
 
 
-def unstack(value: Tensor, dim: str):
-    """ Alias for `Tensor.unstack()` """
-    return value.unstack(dim)
+def unstack(value: Tensor, dim: str or Shape or Callable):
+    """
+    Unstacks a `Tensor` along one or multiple dimensions.
+
+    Args:
+        value: `Tensor` to unstack.
+        dim: Dimensions as `Shape` or comma-separated `str` or dimension type, i.e. `channel`, `spatial`, `instance`, `batch`.
+
+    Returns:
+        `tuple` of `Tensor` objects.
+    """
+    if callable(dim):
+        dim = dim(value.shape)
+    dims = parse_dim_order(dim)
+    assert len(dims) > 0, "unstack() requires at least one dimension"
+    if len(dims) > 1:
+        packed_dim = batch('_unstack')
+        value = pack_dims(value, dims, packed_dim)
+        dims = [packed_dim]
+    return value.unstack(dims[0])
 
 
 def boolean_mask(x: Tensor, dim: str, mask: Tensor):
