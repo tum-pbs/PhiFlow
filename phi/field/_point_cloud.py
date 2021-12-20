@@ -25,7 +25,7 @@ class PointCloud(SampledField):
     def __init__(self,
                  elements: Geometry,
                  values: Any = 1,
-                 extrapolation=math.extrapolation.ZERO,
+                 extrapolation=float or math.extrapolation.ZERO,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
@@ -48,6 +48,10 @@ class PointCloud(SampledField):
     @property
     def shape(self):
         return self._elements.shape & self._values.shape.non_spatial
+
+    @property
+    def spatial_rank(self) -> int:
+        return self._elements.spatial_rank
 
     def __getitem__(self, item: dict):
         elements = self.elements[item]
