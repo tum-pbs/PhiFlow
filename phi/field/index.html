@@ -2619,8 +2619,6 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
-        if not isinstance(extrapolation, math.Extrapolation):
-            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         if resolution is None and not resolution_:
             assert isinstance(values, math.Tensor), &#34;Grid resolution must be specified when &#39;values&#39; is not a Tensor.&#34;
             resolution = values.shape.spatial
@@ -3125,7 +3123,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
     Base class for `CenteredGrid` and `StaggeredGrid`.
     &#34;&#34;&#34;
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: math.Extrapolation, resolution: Shape, bounds: Box):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, resolution: Shape, bounds: Box):
         SampledField.__init__(self, elements, values, extrapolation)
         assert values.shape.spatial_rank == elements.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
         assert values.shape.spatial_rank == bounds.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
@@ -3578,7 +3576,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
 <span>class <span class="ident">PointCloud</span></span>
-<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=builtins.float, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A point cloud consists of elements at arbitrary locations.
@@ -3625,7 +3623,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
     def __init__(self,
                  elements: Geometry,
                  values: Any = 1,
-                 extrapolation=math.extrapolation.ZERO,
+                 extrapolation=float or math.extrapolation.ZERO,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
@@ -3648,6 +3646,10 @@ When sampling this field on a grid, scatter functions may be used.</p>
     @property
     def shape(self):
         return self._elements.shape &amp; self._values.shape.non_spatial
+
+    @property
+    def spatial_rank(self) -&gt; int:
+        return self._elements.spatial_rank
 
     def __getitem__(self, item: dict):
         elements = self.elements[item]
@@ -3774,6 +3776,19 @@ def shape(self):
     return self._elements.shape &amp; self._values.shape.non_spatial</code></pre>
 </details>
 </dd>
+<dt id="phi.field.PointCloud.spatial_rank"><code class="name">var <span class="ident">spatial_rank</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
+This is equal to the spatial rank of the <code>data</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def spatial_rank(self) -&gt; int:
+    return self._elements.spatial_rank</code></pre>
+</details>
+</dd>
 </dl>
 <h3>Methods</h3>
 <dl>
@@ -3846,7 +3861,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.SampledField"><code class="flex name class">
 <span>class <span class="ident">SampledField</span></span>
-<span>(</span><span>elements: phi.geom._geom.Geometry, values: phi.math._tensors.Tensor, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: phi.math._tensors.Tensor, extrapolation: float)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
@@ -3868,13 +3883,15 @@ def shape(self):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     &#34;&#34;&#34;
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: math.Extrapolation):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation):
         &#34;&#34;&#34;
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
         &#34;&#34;&#34;
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         assert isinstance(extrapolation, Extrapolation), f&#34;Not a valid extrapolation: {extrapolation}&#34;
         assert isinstance(elements, Geometry), elements
         assert isinstance(values, Tensor), f&#34;Values must be a Tensor but got {values}.&#34;
@@ -5212,7 +5229,7 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: Any, extrapolation: Any = 0.0, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
+<span>(</span><span>values: Any, extrapolation: Any = builtins.float, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -5273,7 +5290,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
 
     def __init__(self,
                  values: Any,
-                 extrapolation: Any = 0.,
+                 extrapolation: Any = float or math.Extrapolation,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
@@ -5695,6 +5712,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 <li><code><a title="phi.field.PointCloud.bounds" href="#phi.field.PointCloud.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.PointCloud.color" href="#phi.field.PointCloud.color">color</a></code></li>
 <li><code><a title="phi.field.PointCloud.shape" href="#phi.field.PointCloud.shape">shape</a></code></li>
+<li><code><a title="phi.field.PointCloud.spatial_rank" href="#phi.field.PointCloud.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.field.PointCloud.with_bounds" href="#phi.field.PointCloud.with_bounds">with_bounds</a></code></li>
 <li><code><a title="phi.field.PointCloud.with_color" href="#phi.field.PointCloud.with_color">with_color</a></code></li>
 <li><code><a title="phi.field.PointCloud.with_elements" href="#phi.field.PointCloud.with_elements">with_elements</a></code></li>

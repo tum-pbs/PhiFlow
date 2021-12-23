@@ -3629,7 +3629,7 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def pack_dims(value: Tensor,
-              dims: Shape or tuple or list,
+              dims: Shape or tuple or list or str,
               packed_dim: Shape,
               pos: int or None = None):
     &#34;&#34;&#34;
@@ -3653,7 +3653,7 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
     Returns:
         `Tensor` with compressed shape.
     &#34;&#34;&#34;
-    dims = dims.names if isinstance(dims, Shape) else dims
+    dims = parse_dim_order(dims)
     if len(dims) == 0 or all(dim not in value.shape for dim in dims):
         return CollapsedTensor(value, value.shape._expand(packed_dim.with_sizes([1]), pos))
     if len(dims) == 1:
@@ -5805,14 +5805,40 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 <span>def <span class="ident">unstack</span></span>(<span>value: phi.math._tensors.Tensor, dim: str)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Alias for <code><a title="phi.math.Tensor.unstack" href="#phi.math.Tensor.unstack">Tensor.unstack()</a></code></p></div>
+<div class="desc"><p>Unstacks a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> along one or multiple dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to unstack.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Dimensions as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or comma-separated <code>str</code> or dimension type, i.e. <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>tuple</code> of <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> objects.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(value: Tensor, dim: str):
-    &#34;&#34;&#34; Alias for `Tensor.unstack()` &#34;&#34;&#34;
-    return value.unstack(dim)</code></pre>
+<pre><code class="python">def unstack(value: Tensor, dim: str or Shape or Callable):
+    &#34;&#34;&#34;
+    Unstacks a `Tensor` along one or multiple dimensions.
+
+    Args:
+        value: `Tensor` to unstack.
+        dim: Dimensions as `Shape` or comma-separated `str` or dimension type, i.e. `channel`, `spatial`, `instance`, `batch`.
+
+    Returns:
+        `tuple` of `Tensor` objects.
+    &#34;&#34;&#34;
+    if callable(dim):
+        dim = dim(value.shape)
+    dims = parse_dim_order(dim)
+    assert len(dims) &gt; 0, &#34;unstack() requires at least one dimension&#34;
+    if len(dims) &gt; 1:
+        packed_dim = batch(&#39;_unstack&#39;)
+        value = pack_dims(value, dims, packed_dim)
+        dims = [packed_dim]
+    return value.unstack(dims[0])</code></pre>
 </details>
 </dd>
 <dt id="phi.math.upsample2x"><code class="name flex">
@@ -9720,6 +9746,16 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         else:
             raise ValueError(name)
 
+    def pack(self, dims, packed_dim):
+        &#34;&#34;&#34; See `pack_dims()` &#34;&#34;&#34;
+        from ._ops import pack_dims
+        return pack_dims(self, dims, packed_dim)
+
+    def unpack(self, dim, unpacked_dims):
+        &#34;&#34;&#34; See `unpack_dims()` &#34;&#34;&#34;
+        from ._ops import unpack_dims
+        return unpack_dims(self, dim, unpacked_dims)
+
     def __getattr__(self, name):
         if name.startswith(&#39;_&#39;):
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
@@ -10213,6 +10249,36 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
     &#34;&#34;&#34;
     native = self.native(order=order)
     return choose_backend(native).numpy(native)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.pack"><code class="name flex">
+<span>def <span class="ident">pack</span></span>(<span>self, dims, packed_dim)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.pack_dims" href="#phi.math.pack_dims">pack_dims()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pack(self, dims, packed_dim):
+    &#34;&#34;&#34; See `pack_dims()` &#34;&#34;&#34;
+    from ._ops import pack_dims
+    return pack_dims(self, dims, packed_dim)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.unpack"><code class="name flex">
+<span>def <span class="ident">unpack</span></span>(<span>self, dim, unpacked_dims)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.unpack_dims" href="#phi.math.unpack_dims">unpack_dims()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unpack(self, dim, unpacked_dims):
+    &#34;&#34;&#34; See `unpack_dims()` &#34;&#34;&#34;
+    from ._ops import unpack_dims
+    return unpack_dims(self, dim, unpacked_dims)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.unstack"><code class="name flex">
@@ -11183,9 +11249,11 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.Tensor.min" href="#phi.math.Tensor.min">min</a></code></li>
 <li><code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">native</a></code></li>
 <li><code><a title="phi.math.Tensor.numpy" href="#phi.math.Tensor.numpy">numpy</a></code></li>
+<li><code><a title="phi.math.Tensor.pack" href="#phi.math.Tensor.pack">pack</a></code></li>
 <li><code><a title="phi.math.Tensor.rank" href="#phi.math.Tensor.rank">rank</a></code></li>
 <li><code><a title="phi.math.Tensor.shape" href="#phi.math.Tensor.shape">shape</a></code></li>
 <li><code><a title="phi.math.Tensor.sum" href="#phi.math.Tensor.sum">sum</a></code></li>
+<li><code><a title="phi.math.Tensor.unpack" href="#phi.math.Tensor.unpack">unpack</a></code></li>
 <li><code><a title="phi.math.Tensor.unstack" href="#phi.math.Tensor.unstack">unstack</a></code></li>
 </ul>
 </li>
