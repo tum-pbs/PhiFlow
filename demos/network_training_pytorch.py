@@ -6,8 +6,17 @@ from phi.torch.flow import *
 
 
 # TORCH.set_default_device('GPU')
-net = u_net(2, 2)
+net = u_net(2, 2).to(TORCH.get_default_device().ref)
 optimizer = optim.Adam(net.parameters(), lr=1e-3)
+
+
+@vis.action
+def save_model():
+    path = viewer.scene.subpath(f"net_{viewer.steps}.pth" if viewer.scene else f"net_{viewer.steps}.pth")
+    torch.save(net.state_dict(), path)
+    viewer.info(f"Model saved to {path}.")
+    # To load the network: net.load_state_dict(torch.load('net.pth'))
+
 
 prediction = CenteredGrid((0, 0), extrapolation.BOUNDARY, x=64, y=64)
 prediction_div = CenteredGrid(0, 0, x=64, y=64)
@@ -29,7 +38,4 @@ for step in viewer.range(100):
     loss.mean.backward()
     optimizer.step()
 
-torch.save(net.state_dict(), 'torch_net.pth')
-viewer.info("Network saved.")
-
-# To load the network: net.load_state_dict(torch.load('torch_net.pth'))
+save_model()

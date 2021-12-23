@@ -10,10 +10,10 @@ from phi.flow import *
 
 DOMAIN = dict(x=64, y=64, bounds=Box(x=100, y=100))
 DT = 0.2
+INITIAL_LOC = math.meshgrid(x=8, y=8).pack('x,y', instance('points')) * 10. + 10.
 
 velocity = StaggeredGrid(Noise(vector=2, scale=100), 0, **DOMAIN) * 4
-points = math.meshgrid(x=8, y=8).pack('x,y', instance('points')) * 10 + 10
-sparse_marker = PointCloud(Sphere(points, 1), 1, 0, bounds=DOMAIN['bounds'])
+sparse_marker = PointCloud(Sphere(INITIAL_LOC, 2), 1, 0, bounds=DOMAIN['bounds'])
 dense_marker = CenteredGrid(sparse_marker.elements, extrapolation.BOUNDARY, x=200, y=200, bounds=DOMAIN['bounds'])
 
 for _ in view(framerate=10, play=False, namespace=globals()).range():
