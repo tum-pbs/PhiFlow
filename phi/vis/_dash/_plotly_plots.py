@@ -7,12 +7,13 @@ from plotly.tools import DEFAULT_PLOTLY_COLORS
 
 from phi import math
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
+from phi.math import instance
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve
 
 
 def plot(field: SampledField, title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
-    fig_shape = figure_shape(field)
+    fig_shape = field.shape.batch
     if fig_shape.volume > 8:
         warnings.warn(f"Plotting {fig_shape.volume} sub-figures for remaining shape {fig_shape} which may be slow. Use 'select' to avoid drawing all examples in one figure.")
     title = titles(title, fig_shape, no_title=None)
@@ -86,9 +87,14 @@ def _plot(field: SampledField,
         fig.update_xaxes(range=x_range)
         fig.update_yaxes(range=y_range)
         fig.update_layout(showlegend=False)
+        fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
+        fig.update_yaxes(constrain='domain')
     elif field.spatial_rank == 2 and isinstance(field, PointCloud):
         x, y = [d.numpy() for d in field.points.vector.unstack_spatial('x,y')]
-        color = [str(d) for d in field.color.points.unstack(len(x))]
+        if field.color.shape.instance_rank == 0:
+            color = str(field.color)
+        else:
+            color = [str(d) for d in math.unstack(field.color, instance)]
         if field.bounds:
             lower_x, lower_y = [float(d) for d in field.bounds.lower.vector.unstack_spatial('x,y')]
             upper_x, upper_y = [float(d) for d in field.bounds.upper.vector.unstack_spatial('x,y')]
@@ -97,7 +103,7 @@ def _plot(field: SampledField,
             upper_x, upper_y = [numpy.max(x), numpy.max(y)]
         radius = field.elements.bounding_radius() * size[1] / (upper_y - lower_y)
         radius = math.maximum(radius, 2)
-        marker_size = 2 * float(radius) if radius.rank == 0 else (2 * radius).numpy()
+        marker_size = 1.4142 * float(radius) if radius.rank == 0 else (1.4142 * radius).numpy()
         symbol = field.elements.shape_type.numpy()
         symbol = numpy.where(symbol == '?', 'asterisk', symbol)
         symbol = numpy.where(symbol == 'B', 'square', symbol)
@@ -108,19 +114,14 @@ def _plot(field: SampledField,
         fig.update_xaxes(range=[lower_x, upper_x])
         fig.update_yaxes(range=[lower_y, upper_y])
         fig.update_layout(showlegend=False)
+        fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
+        fig.update_yaxes(constrain='domain')
     else:
         raise NotImplementedError(f"No figure recipe for {field}")
 
 
 def real_values(field: SampledField):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
-
-
-def figure_shape(field: SampledField):
-    if isinstance(field, PointCloud):
-        return field.shape.batch
-    else:
-        return field.shape.batch
 
 
 def titles(title: bool or str or tuple or list or math.Tensor, fig_shape: math.Shape, no_title: str = None) -> math.Tensor:
