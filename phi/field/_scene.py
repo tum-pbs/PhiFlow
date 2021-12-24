@@ -142,6 +142,7 @@ class Scene(object):
     @staticmethod
     def create(parent_directory: str,
                shape: math.Shape = math.EMPTY_SHAPE,
+               name='sim',
                copy_calling_script=True,
                **dimensions) -> 'Scene':
         """
@@ -153,6 +154,7 @@ class Scene(object):
         Args:
             parent_directory: Directory to hold the new `Scene`. If it doesn't exist, it will be created.
             shape: Determines number of scenes to create. Multiple scenes will be represented by a `Scene` with `is_batch=True`.
+            name: Name of the directory (excluding index). Default is `'sim'`.
             copy_calling_script: Whether to copy the Python file that invoked this method into the `src` folder of all created scenes.
                 See `Scene.copy_calling_script()`.
             dimensions: Additional batch dimensions
@@ -167,10 +169,10 @@ class Scene(object):
             os.makedirs(abs_dir)
             next_id = 0
         else:
-            indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith("sim_")]
+            indices = [int(f[len(name)+1:]) for f in os.listdir(abs_dir) if f.startswith(f"{name}_")]
             next_id = max([-1] + indices) + 1
         ids = math.wrap(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
-        paths = math.map(lambda id_: join(parent_directory, f"sim_{id_:06d}"), ids)
+        paths = math.map(lambda id_: join(parent_directory, f"{name}_{id_:06d}"), ids)
         scene = Scene(paths)
         scene.mkdir()
         if copy_calling_script:
@@ -182,6 +184,7 @@ class Scene(object):
 
     @staticmethod
     def list(parent_directory: str,
+             name='sim',
              include_other: bool = False,
              dim: Shape or None = None) -> 'Scene' or tuple:
         """
@@ -192,6 +195,7 @@ class Scene(object):
 
         Args:
             parent_directory: Directory that contains scene folders.
+            name: Name of the directory (excluding index). Default is `'sim'`.
             include_other: Whether folders that do not match the scene format should also be treated as scenes.
             dim: Stack dimension. If None, returns tuple of `Scene` objects. Otherwise, returns a scene batch with this dimension.
 
@@ -202,11 +206,11 @@ class Scene(object):
         abs_dir = abspath(parent_directory)
         if not isdir(abs_dir):
             return ()
-        names = [sim for sim in os.listdir(abs_dir) if sim.startswith("sim_") or (include_other and isdir(join(abs_dir, sim)))]
+        names = [sim for sim in os.listdir(abs_dir) if sim.startswith(f"{name}_") or (include_other and isdir(join(abs_dir, sim)))]
         if dim is None:
-            return tuple(Scene(join(parent_directory, name)) for name in names)
+            return tuple(Scene(join(parent_directory, n)) for n in names)
         else:
-            paths = math.wrap([join(parent_directory, name) for name in names], dim)
+            paths = math.wrap([join(parent_directory, n) for n in names], dim)
             return Scene(paths)
 
     @staticmethod
