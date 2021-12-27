@@ -4201,6 +4201,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
     @staticmethod
     def create(parent_directory: str,
                shape: math.Shape = math.EMPTY_SHAPE,
+               name=&#39;sim&#39;,
                copy_calling_script=True,
                **dimensions) -&gt; &#39;Scene&#39;:
         &#34;&#34;&#34;
@@ -4212,6 +4213,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         Args:
             parent_directory: Directory to hold the new `Scene`. If it doesn&#39;t exist, it will be created.
             shape: Determines number of scenes to create. Multiple scenes will be represented by a `Scene` with `is_batch=True`.
+            name: Name of the directory (excluding index). Default is `&#39;sim&#39;`.
             copy_calling_script: Whether to copy the Python file that invoked this method into the `src` folder of all created scenes.
                 See `Scene.copy_calling_script()`.
             dimensions: Additional batch dimensions
@@ -4226,10 +4228,10 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             os.makedirs(abs_dir)
             next_id = 0
         else:
-            indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith(&#34;sim_&#34;)]
+            indices = [int(f[len(name)+1:]) for f in os.listdir(abs_dir) if f.startswith(f&#34;{name}_&#34;)]
             next_id = max([-1] + indices) + 1
         ids = math.wrap(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
-        paths = math.map(lambda id_: join(parent_directory, f&#34;sim_{id_:06d}&#34;), ids)
+        paths = math.map(lambda id_: join(parent_directory, f&#34;{name}_{id_:06d}&#34;), ids)
         scene = Scene(paths)
         scene.mkdir()
         if copy_calling_script:
@@ -4241,6 +4243,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 
     @staticmethod
     def list(parent_directory: str,
+             name=&#39;sim&#39;,
              include_other: bool = False,
              dim: Shape or None = None) -&gt; &#39;Scene&#39; or tuple:
         &#34;&#34;&#34;
@@ -4251,6 +4254,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 
         Args:
             parent_directory: Directory that contains scene folders.
+            name: Name of the directory (excluding index). Default is `&#39;sim&#39;`.
             include_other: Whether folders that do not match the scene format should also be treated as scenes.
             dim: Stack dimension. If None, returns tuple of `Scene` objects. Otherwise, returns a scene batch with this dimension.
 
@@ -4261,11 +4265,11 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         abs_dir = abspath(parent_directory)
         if not isdir(abs_dir):
             return ()
-        names = [sim for sim in os.listdir(abs_dir) if sim.startswith(&#34;sim_&#34;) or (include_other and isdir(join(abs_dir, sim)))]
+        names = [sim for sim in os.listdir(abs_dir) if sim.startswith(f&#34;{name}_&#34;) or (include_other and isdir(join(abs_dir, sim)))]
         if dim is None:
-            return tuple(Scene(join(parent_directory, name)) for name in names)
+            return tuple(Scene(join(parent_directory, n)) for n in names)
         else:
-            paths = math.wrap([join(parent_directory, name) for name in names], dim)
+            paths = math.wrap([join(parent_directory, n) for n in names], dim)
             return Scene(paths)
 
     @staticmethod
@@ -4567,7 +4571,7 @@ def at(directory: str or tuple or list or math.Tensor or &#39;Scene&#39;, id: in
 </details>
 </dd>
 <dt id="phi.field.Scene.create"><code class="name flex">
-<span>def <span class="ident">create</span></span>(<span>parent_directory: str, shape: phi.math._shape.Shape = (), copy_calling_script=True, **dimensions) ‑> phi.field._scene.Scene</span>
+<span>def <span class="ident">create</span></span>(<span>parent_directory: str, shape: phi.math._shape.Shape = (), name='sim', copy_calling_script=True, **dimensions) ‑> phi.field._scene.Scene</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a new <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> or a batch of new scenes inside <code>parent_directory</code>.</p>
@@ -4579,6 +4583,8 @@ def at(directory: str or tuple or list or math.Tensor or &#39;Scene&#39;, id: in
 <dd>Directory to hold the new <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code>. If it doesn't exist, it will be created.</dd>
 <dt><strong><code>shape</code></strong></dt>
 <dd>Determines number of scenes to create. Multiple scenes will be represented by a <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> with <code>is_batch=True</code>.</dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>Name of the directory (excluding index). Default is <code>'sim'</code>.</dd>
 <dt><strong><code>copy_calling_script</code></strong></dt>
 <dd>Whether to copy the Python file that invoked this method into the <code>src</code> folder of all created scenes.
 See <code><a title="phi.field.Scene.copy_calling_script" href="#phi.field.Scene.copy_calling_script">Scene.copy_calling_script()</a></code>.</dd>
@@ -4594,6 +4600,7 @@ See <code><a title="phi.field.Scene.copy_calling_script" href="#phi.field.Scene.
 <pre><code class="python">@staticmethod
 def create(parent_directory: str,
            shape: math.Shape = math.EMPTY_SHAPE,
+           name=&#39;sim&#39;,
            copy_calling_script=True,
            **dimensions) -&gt; &#39;Scene&#39;:
     &#34;&#34;&#34;
@@ -4605,6 +4612,7 @@ def create(parent_directory: str,
     Args:
         parent_directory: Directory to hold the new `Scene`. If it doesn&#39;t exist, it will be created.
         shape: Determines number of scenes to create. Multiple scenes will be represented by a `Scene` with `is_batch=True`.
+        name: Name of the directory (excluding index). Default is `&#39;sim&#39;`.
         copy_calling_script: Whether to copy the Python file that invoked this method into the `src` folder of all created scenes.
             See `Scene.copy_calling_script()`.
         dimensions: Additional batch dimensions
@@ -4619,10 +4627,10 @@ def create(parent_directory: str,
         os.makedirs(abs_dir)
         next_id = 0
     else:
-        indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith(&#34;sim_&#34;)]
+        indices = [int(f[len(name)+1:]) for f in os.listdir(abs_dir) if f.startswith(f&#34;{name}_&#34;)]
         next_id = max([-1] + indices) + 1
     ids = math.wrap(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
-    paths = math.map(lambda id_: join(parent_directory, f&#34;sim_{id_:06d}&#34;), ids)
+    paths = math.map(lambda id_: join(parent_directory, f&#34;{name}_{id_:06d}&#34;), ids)
     scene = Scene(paths)
     scene.mkdir()
     if copy_calling_script:
@@ -4634,7 +4642,7 @@ def create(parent_directory: str,
 </details>
 </dd>
 <dt id="phi.field.Scene.list"><code class="name flex">
-<span>def <span class="ident">list</span></span>(<span>parent_directory: str, include_other: bool = False, dim: phi.math._shape.Shape = None) ‑> phi.field._scene.Scene</span>
+<span>def <span class="ident">list</span></span>(<span>parent_directory: str, name='sim', include_other: bool = False, dim: phi.math._shape.Shape = None) ‑> phi.field._scene.Scene</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lists all scenes inside the given directory.</p>
@@ -4644,6 +4652,8 @@ def create(parent_directory: str,
 <dl>
 <dt><strong><code>parent_directory</code></strong></dt>
 <dd>Directory that contains scene folders.</dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>Name of the directory (excluding index). Default is <code>'sim'</code>.</dd>
 <dt><strong><code>include_other</code></strong></dt>
 <dd>Whether folders that do not match the scene format should also be treated as scenes.</dd>
 <dt><strong><code>dim</code></strong></dt>
@@ -4657,6 +4667,7 @@ def create(parent_directory: str,
 </summary>
 <pre><code class="python">@staticmethod
 def list(parent_directory: str,
+         name=&#39;sim&#39;,
          include_other: bool = False,
          dim: Shape or None = None) -&gt; &#39;Scene&#39; or tuple:
     &#34;&#34;&#34;
@@ -4667,6 +4678,7 @@ def list(parent_directory: str,
 
     Args:
         parent_directory: Directory that contains scene folders.
+        name: Name of the directory (excluding index). Default is `&#39;sim&#39;`.
         include_other: Whether folders that do not match the scene format should also be treated as scenes.
         dim: Stack dimension. If None, returns tuple of `Scene` objects. Otherwise, returns a scene batch with this dimension.
 
@@ -4677,11 +4689,11 @@ def list(parent_directory: str,
     abs_dir = abspath(parent_directory)
     if not isdir(abs_dir):
         return ()
-    names = [sim for sim in os.listdir(abs_dir) if sim.startswith(&#34;sim_&#34;) or (include_other and isdir(join(abs_dir, sim)))]
+    names = [sim for sim in os.listdir(abs_dir) if sim.startswith(f&#34;{name}_&#34;) or (include_other and isdir(join(abs_dir, sim)))]
     if dim is None:
-        return tuple(Scene(join(parent_directory, name)) for name in names)
+        return tuple(Scene(join(parent_directory, n)) for n in names)
     else:
-        paths = math.wrap([join(parent_directory, name) for name in names], dim)
+        paths = math.wrap([join(parent_directory, n) for n in names], dim)
         return Scene(paths)</code></pre>
 </details>
 </dd>
