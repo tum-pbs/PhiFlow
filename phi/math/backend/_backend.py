@@ -173,7 +173,7 @@ class Backend:
     def set_default_device(self, device: ComputeDevice or str):
         if isinstance(device, str):
             devices = self.list_devices(device)
-            assert len(devices) >= 1, f"{self.name}: Cannot select '{device} because no device of this type is available."
+            assert len(devices) >= 1, f"{self.name}: Cannot select '{device}' because no device of this type is available."
             device = devices[0]
         self._default_device = device
 
@@ -272,7 +272,38 @@ class Backend:
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def functional_gradient(self, f: Callable, wrt: tuple or list, get_output: bool):
+        """
+        Args:
+            f: Function to differentiate.
+            wrt: Argument indices for which to compute the gradient.
+            get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
+
+        Returns:
+            A function `g` with the same arguments as `f`.
+            If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
+        """
+        raise NotImplementedError(self)
+
+    def functional_jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
+
+    def functional_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -> tuple:
+        """
+        First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
+        Element-wise Hessians will be computed along the batch dimension.
+        All other dimensions are parameter dimensions and will appear twice in the Hessian matrices.
+
+        Args:
+            f: Function whose first output is a scalar float or complex value.
+            wrt:
+            get_output:
+            get_gradient:
+
+        Returns:
+            Function returning `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
+            The result is always a `tuple` holding at most these three items.
+        """
         raise NotImplementedError(self)
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
@@ -289,6 +320,9 @@ class Backend:
         return NotImplemented
 
     def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError()
+
+    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):

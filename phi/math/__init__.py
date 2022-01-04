@@ -59,7 +59,7 @@ from ._nd import (
 )
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
-    functional_gradient, custom_gradient, print_gradient,
+    functional_gradient, functional_gradient as gradient, custom_gradient, print_gradient, hessian,
     solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
 )
 

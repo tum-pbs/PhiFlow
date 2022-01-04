@@ -414,6 +414,121 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True)
     return GradientFunction(f, wrt, get_output)
 
 
+class HessianFunction:
+
+    def __init__(self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool, jit=False):
+        self.f = f
+        self.wrt = wrt
+        self.get_output = get_output
+        self.get_gradient = get_gradient
+        self.grads: Dict[SignatureKey, Callable] = {}
+        self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
+        self.jit = jit
+
+    def _trace_hessian(self, in_key: SignatureKey, wrt_natives):
+        def f_native(*natives, **kwargs):
+            logging.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
+            assert not kwargs
+            in_tensors = assemble_tensors(natives, in_key.shapes)
+            values = assemble_tree(in_key.tree, in_tensors)
+            assert isinstance(values, tuple)  # was disassembled from *args
+            result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
+            nest, out_tensors = disassemble_tree(result)
+            result_natives, result_shapes = disassemble_tensors(out_tensors)
+            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
+            return result_natives
+        hessian_generator = in_key.backend.jit_compile_hessian if self.jit else in_key.backend.functional_hessian
+        return hessian_generator(f_native, wrt=wrt_natives, get_output=self.get_output, get_gradient=self.get_gradient)
+
+    def __call__(self, *args, **kwargs):
+        key, natives = key_from_args(*args, cache=True, **kwargs)
+        if not key.backend.supports(Backend.functional_gradient):
+            if math.default_backend().supports(Backend.functional_gradient):
+                warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()")
+                key.backend = math.default_backend()
+            else:
+                raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
+        wrt_tensors = self._track_wrt(args)
+        wrt_natives = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
+        if key not in self.grads:
+            self.grads[key] = self._trace_hessian(key, wrt_natives)
+        native_result = self.grads[key](*natives)
+        assert len(native_result) == 1 + int(self.get_output) + int(self.get_gradient)
+        output_key = match_output_signature(key, self.recorded_mappings)
+        result = ()
+        if self.get_output:
+            output_tensors = assemble_tensors(native_result[0], output_key.shapes)
+            result += assemble_tree(output_key.tree, output_tensors),
+        if self.get_gradient:
+            grad_tensors = assemble_tensors(native_result[int(self.get_output)], [key.shapes[i] for i in wrt_tensors])
+            result += assemble_tree([key.tree[i] for i in wrt_tensors], grad_tensors),
+        if len(wrt_natives) == 1:
+            native_hessian = native_result[-1][0][0]
+            hessian_tensor = NativeTensor(native_hessian, key.shapes[0] * 2)  # TODO
+            result += assemble_tree(key.tree[0], [hessian_tensor])
+        for i in range(len(self.wrt)):
+            for j in range(len(self.wrt)):
+                raise NotImplementedError()
+        return result
+
+    def __repr__(self):
+        return f"grad({self.f.__name__})"
+
+    @property
+    def __name__(self):
+        return self.f.__name__
+
+    def _track_wrt(self, args):
+        wrt_tensors = []
+        for i, arg in enumerate(args):
+            _, tensors = disassemble_tree(arg)
+            wrt_tensors.extend([i] * len(tensors))
+        return [t_i for t_i, arg_i in enumerate(wrt_tensors) if arg_i in self.wrt]
+
+    @staticmethod
+    def _track_wrt_natives(wrt_tensors, values):
+        wrt_natives = []
+        for i, value in enumerate(values):
+            wrt_natives.extend([i] * len(value._natives()))
+        return [n_i for n_i, t_i in enumerate(wrt_natives) if t_i in wrt_tensors]
+
+
+def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradient=True) -> Callable:
+    """
+    Creates a function which computes the Hessian (second derivative) of `f`.
+
+    Example:
+    ```python
+    def loss_function(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    hess, = functional_gradient(loss_function, get_output=False, get_gradient=False)(x, y)
+
+    (loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = functional_gradient(loss_function,
+                                        wrt=(0, 1), get_output=True)(x, y)
+    ```
+
+    When the gradient function is invoked, `f` is called with tensors that track the gradient.
+    For PyTorch, `arg.requires_grad = True` for all positional arguments of `f`.
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        get_output: Whether the Hessian function should also return the return values of `f`.
+        get_gradient: Whether the Hessian function should also return the gradient of `f`.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+
+    Returns:
+        Function with the same arguments as `f` that returns `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
+    """
+    return HessianFunction(f, wrt, get_output, get_gradient)
+
+
 class CustomGradientFunction:
 
     def __init__(self, f: Callable, gradient: Callable):

@@ -77,13 +77,17 @@ class TorchBackend(Backend):
                 tensor = self.to_float(tensor)
             elif dtype.kind == complex:
                 tensor = self.to_complex(tensor)
+        # --- Move to default device ---
+        if isinstance(tensor, torch.Tensor) and tensor.device != self.get_default_device().ref:
+            tensor = tensor.to(self.get_default_device().ref)
         return tensor
 
     def auto_cast(self, *tensors) -> list:
-        tensors = [t if isinstance(t, (torch.Tensor, numbers.Number, bool)) else self.as_tensor(t, True) for t in tensors]
+        tensors = [t if isinstance(t, (numbers.Number, bool)) else self.as_tensor(t, True) for t in tensors]
         return Backend.auto_cast(self, *tensors)
 
     def is_available(self, tensor) -> bool:
+        # return True
         return torch._C._get_tracing_state() is None  # TODO can we find out whether this tensor specifically is being traced?
 
     def numpy(self, tensor):
@@ -636,23 +640,27 @@ class TorchBackend(Backend):
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 
+    def _prepare_graph_inputs(self, args: tuple, wrt: tuple or list):
+        args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
+        for i, arg in enumerate(args):
+            if self.is_tensor(arg, True) and arg.requires_grad and not arg.is_leaf:
+                arg = torch.clone(arg).detach()
+                arg.requires_grad = i in wrt
+                args[i] = arg
+            elif i in wrt:
+                arg = self.as_tensor(arg, True)
+                arg = arg.detach()  # returns a new tensor in any case
+                arg.requires_grad = True
+                args[i] = arg
+        wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
+        for t in wrt_args:
+            assert t.requires_grad
+        return args, wrt_args
+
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)
         def eval_grad(*args):
-            args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
-            for i, arg in enumerate(args):
-                if self.is_tensor(arg, True) and arg.requires_grad and not arg.is_leaf:
-                    arg = torch.clone(arg).detach()
-                    arg.requires_grad = i in wrt
-                    args[i] = arg
-                elif i in wrt:
-                    arg = self.as_tensor(arg, True)
-                    arg = arg.detach()  # returns a new tensor in any case
-                    arg.requires_grad = True
-                    args[i] = arg
-            wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
-            for t in wrt_args:
-                assert t.requires_grad
+            args, wrt_args = self._prepare_graph_inputs(args, wrt)
             output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
             if loss.ndim > 0:
@@ -669,9 +677,72 @@ class TorchBackend(Backend):
                 return grads
         return eval_grad
 
+    def functional_jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+        pass
+
+    def functional_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
+        # if not get_output and not get_gradient:
+        @wraps(f)
+        def eval_hessian(*args):
+            batch_size = args[0].shape[0]
+            for arg in args:
+                assert arg.shape == batch_size, "All arguments must have a matching batch dimension as their first dimension."
+
+            def f_only_wrt_inputs(*wrt_args_only, reduce_batch=False):
+                all_args = list(args)
+                for i, arg in zip(wrt, wrt_args_only):
+                    all_args[i] = arg
+                output = f(*all_args)
+                loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+                if reduce_batch:
+                    if loss.ndim > 0:
+                        loss = loss.sum()
+                else:
+                    assert loss.ndim == 0, f"Loss (first output of f) may only contain batch dimensions but has shape {loss.shape}"
+                return loss
+
+            wrt_args = tuple([self.as_tensor(arg, True) for i, arg in enumerate(args) if i in wrt])
+            result = ()
+            if get_output:
+                result += f(*args),
+            if get_gradient:
+                result += torch.autograd.functional.jacobian(lambda *a: f_only_wrt_inputs(*a, reduce_batch=True), wrt_args),
+            result += torch.stack([torch.autograd.functional.hessian(f_only_wrt_inputs, [arg[b:b+1] for arg in wrt_args]) for b in range(batch_size)]),  # manual batch loop
+            return result
+        # else:
+        #     @wraps(f)
+        #     def eval_hessian(*args):
+        #         args, wrt_args = self._prepare_graph_inputs(args, wrt)
+        #         output = f(*args)
+        #         loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+        #         if loss.ndim > 0:
+        #             loss = loss.sum()
+        #
+        #         grads = torch.autograd.grad(loss, wrt_args, create_graph=True)  # grad() cannot be called during jit trace
+        #         hessian = tuple([torch.autograd.grad(g, wrt_args, allow_unused=True) for g in grads])  # TODO for each element of g
+        #
+        #         result = ()
+        #         if get_output:
+        #             loss = loss.detach()
+        #             if aux is not None:
+        #                 aux = [aux_.detach() for aux_ in aux]
+        #                 result += (loss, *aux),
+        #             else:
+        #                 result += loss,
+        #         if get_gradient:
+        #             result += tuple([g.detach() for g in grads]),
+        #         result += hessian,
+        #         return result
+
+        return eval_hessian
+
     def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
         jit = self.jit_compile(f)
         return self.functional_gradient(jit, wrt, get_output)
+
+    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+        jit = self.jit_compile(f)
+        return self.functional_hessian(jit, wrt, get_output, get_gradient)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         if self.ndims(y) > 0:
