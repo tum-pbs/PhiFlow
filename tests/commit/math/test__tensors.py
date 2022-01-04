@@ -255,3 +255,8 @@ class TestTensors(TestCase):
         t = math.tensor(spatial(x=4, y=3))
         math.assert_close(t.dims['x'], 4)
         math.assert_close(t.dims['y'], 3)
+
+    def test_serialize_tensor(self):
+        t = math.random_normal(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
+        math.assert_close(t, math.from_dict(math.to_dict(t)))
+

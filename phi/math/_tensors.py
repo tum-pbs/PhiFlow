@@ -122,6 +122,9 @@ class Tensor:
         """
         raise NotImplementedError()
 
+    def _to_dict(self):
+        return cached(self)._to_dict()
+
     def __len__(self):
         return self.shape.volume if self.rank == 1 else NotImplemented
 
@@ -739,6 +742,14 @@ class NativeTensor(Tensor):
     def _is_tracer(self) -> bool:
         return False
 
+    def _to_dict(self):
+        result = self.shape._to_dict(include_sizes=False)
+        if self.rank == 0:
+            result['data'] = self.numpy().item()
+        else:
+            result['data'] = self.numpy(self._shape).tolist()  # works for all 1+ dimensional arrays
+        return result
+
     def _getitem(self, selection: dict):
         if len(selection) == 0:
             return self
@@ -1253,8 +1264,9 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, (tuple, list)):
-        array = np.array(data)
-        if array.dtype != object:
+        if all([isinstance(d, (bool, int, float, complex, str)) for d in data]):
+            array = np.array(data)
+            assert array.dtype != object
             data = array
         else:
             inner_shape = [] if shape is None else [shape[1:]]
@@ -1602,7 +1614,7 @@ def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
     elif isinstance(obj, list):
         return [assemble_tree(item, values) for item in obj]
     elif isinstance(obj, tuple):
-        return tuple(assemble_tree(item, values) for item in obj)
+        return tuple([assemble_tree(item, values) for item in obj])
     elif isinstance(obj, dict):
         return {name: assemble_tree(val, values) for name, val in obj.items()}
     elif isinstance(obj, TensorLike):
@@ -1814,3 +1826,45 @@ class Dict(dict):
 
     def copy(self):
         return Dict(self)
+
+
+def to_dict(value: Tensor or Shape):
+    """
+    Returns a serializable form of a `Tensor` or `Shape`.
+    The result can be written to a JSON file, for example.
+
+    See Also:
+        `from_dict()`.
+
+    Args:
+        value: `Tensor` or `Shape`
+
+    Returns:
+        Serializable Python tree of primitives
+    """
+    if isinstance(value, Shape):
+        return value._to_dict(include_sizes=True)
+    elif isinstance(value, Tensor):
+        return value._to_dict()
+    raise ValueError(f"Cannot convert {value} to a dict")
+
+
+def from_dict(dict_: dict, convert=False):
+    """
+    Loads a `Tensor` or `Shape` from a serialized form.
+
+    See Also:
+        `to_dict()`.
+
+    Args:
+        dict_: Serialized tensor properties.
+        convert: Whether to convert the data to the current backend format or keep it as a Numpy array.
+
+    Returns:
+        `Tensor` or `Shape`.
+    """
+    shape = Shape._from_dict(dict_)
+    if 'data' in dict_:
+        return tensor(dict_['data'], shape, convert=convert)
+    else:
+        return shape

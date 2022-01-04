@@ -50,6 +50,20 @@ class Shape:
         # assert all(isinstance(n, str) for n in names), f"All names must be of type string but got {names}"
         # assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
 
+    def _to_dict(self, include_sizes=True):
+        result = dict(names=self.names, types=self.types, item_names=self.item_names)
+        if include_sizes:
+            if not all([isinstance(s, int)] for s in self.sizes):
+                raise NotImplementedError()
+            result['sizes'] = self.sizes
+        return result
+
+    @staticmethod
+    def _from_dict(dict_: dict):
+        names = tuple(dict_['names'])
+        sizes = tuple(dict_['sizes']) if 'sizes' in dict_ else (None,) * len(names)
+        return Shape(sizes, names, tuple(dict_['types']), tuple(dict_['item_names']))
+
     @property
     def _named_sizes(self):
         return zip(self.names, self.sizes)

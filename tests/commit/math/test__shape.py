@@ -70,3 +70,8 @@ class TestShape(TestCase):
         shape = math.merge_shapes(batch(b=10), named)
         self.assertEqual(shape.get_item_names('dims'), ('x', 'y'))
 
+    def test_serialize_shape(self):
+        s = math.concat_shapes(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
+        self.assertEqual(math.from_dict(math.to_dict(s)), s)
+
+
