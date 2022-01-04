@@ -276,6 +276,9 @@ class Scene(object):
         if isfile(json_file):
             with open(json_file) as stream:
                 self._properties = json.load(stream)
+            if '__tensors__' in self._properties:
+                for key in self._properties['__tensors__']:
+                    self._properties[key] = math.from_dict(self._properties[key])
         else:
             self._properties = {}
 
@@ -327,10 +330,19 @@ class Scene(object):
         self._properties.update(kw_updates)
         self._write_properties()
 
+    def _get_properties(self, index: dict):
+        tensor_names = {key for key, value in self._properties.items() if isinstance(value, math.Tensor)}
+        result = {key: math.to_dict(value[index]) if isinstance(value, math.Tensor) else value for key, value in self._properties.items()}
+        if tensor_names:
+            result['__tensors__'] = tuple(tensor_names)
+        return result
+
     def _write_properties(self):
-        for path in math.flatten(self.paths):
+        for instance in self.paths.shape.meshgrid():
+            path = str(self.paths[instance])
+            instance_properties = self._get_properties(instance)
             with open(join(path, "description.json"), "w") as out:
-                json.dump(self._properties, out, indent=2)
+                json.dump(instance_properties, out, indent=2)
 
     def write_sim_frame(self, arrays, fieldnames, frame):
         write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
