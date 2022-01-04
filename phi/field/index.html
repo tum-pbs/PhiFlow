@@ -4335,6 +4335,9 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         if isfile(json_file):
             with open(json_file) as stream:
                 self._properties = json.load(stream)
+            if &#39;__tensors__&#39; in self._properties:
+                for key in self._properties[&#39;__tensors__&#39;]:
+                    self._properties[key] = math.from_dict(self._properties[key])
         else:
             self._properties = {}
 
@@ -4386,10 +4389,19 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         self._properties.update(kw_updates)
         self._write_properties()
 
+    def _get_properties(self, index: dict):
+        tensor_names = {key for key, value in self._properties.items() if isinstance(value, math.Tensor)}
+        result = {key: math.to_dict(value[index]) if isinstance(value, math.Tensor) else value for key, value in self._properties.items()}
+        if tensor_names:
+            result[&#39;__tensors__&#39;] = tuple(tensor_names)
+        return result
+
     def _write_properties(self):
-        for path in math.flatten(self.paths):
+        for instance in self.paths.shape.meshgrid():
+            path = str(self.paths[instance])
+            instance_properties = self._get_properties(instance)
             with open(join(path, &#34;description.json&#34;), &#34;w&#34;) as out:
-                json.dump(self._properties, out, indent=2)
+                json.dump(instance_properties, out, indent=2)
 
     def write_sim_frame(self, arrays, fieldnames, frame):
         write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)

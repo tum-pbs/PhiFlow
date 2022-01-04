@@ -54,7 +54,7 @@ from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes
-from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike, Dict
+from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
@@ -1949,6 +1949,47 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
         return sum(losses)
     else:
         raise ValueError(x)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.from_dict"><code class="name flex">
+<span>def <span class="ident">from_dict</span></span>(<span>dict_: dict, convert=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Loads a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> from a serialized form.</p>
+<p>See Also:
+<code><a title="phi.math.to_dict" href="#phi.math.to_dict">to_dict()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dict_</code></strong></dt>
+<dd>Serialized tensor properties.</dd>
+<dt><strong><code>convert</code></strong></dt>
+<dd>Whether to convert the data to the current backend format or keep it as a Numpy array.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def from_dict(dict_: dict, convert=False):
+    &#34;&#34;&#34;
+    Loads a `Tensor` or `Shape` from a serialized form.
+
+    See Also:
+        `to_dict()`.
+
+    Args:
+        dict_: Serialized tensor properties.
+        convert: Whether to convert the data to the current backend format or keep it as a Numpy array.
+
+    Returns:
+        `Tensor` or `Shape`.
+    &#34;&#34;&#34;
+    shape = Shape._from_dict(dict_)
+    if &#39;data&#39; in dict_:
+        return tensor(dict_[&#39;data&#39;], shape, convert=convert)
+    else:
+        return shape</code></pre>
 </details>
 </dd>
 <dt id="phi.math.functional_gradient"><code class="name flex">
@@ -5552,8 +5593,9 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, (tuple, list)):
-        array = np.array(data)
-        if array.dtype != object:
+        if all([isinstance(d, (bool, int, float, complex, str)) for d in data]):
+            array = np.array(data)
+            assert array.dtype != object
             data = array
         else:
             inner_shape = [] if shape is None else [shape[1:]]
@@ -5624,6 +5666,46 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         `Tensor` of same shape as `x`
     &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_complex)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.to_dict"><code class="name flex">
+<span>def <span class="ident">to_dict</span></span>(<span>value: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a serializable form of a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.
+The result can be written to a JSON file, for example.</p>
+<p>See Also:
+<code><a title="phi.math.from_dict" href="#phi.math.from_dict">from_dict()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>value</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Serializable Python tree of primitives</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_dict(value: Tensor or Shape):
+    &#34;&#34;&#34;
+    Returns a serializable form of a `Tensor` or `Shape`.
+    The result can be written to a JSON file, for example.
+
+    See Also:
+        `from_dict()`.
+
+    Args:
+        value: `Tensor` or `Shape`
+
+    Returns:
+        Serializable Python tree of primitives
+    &#34;&#34;&#34;
+    if isinstance(value, Shape):
+        return value._to_dict(include_sizes=True)
+    elif isinstance(value, Tensor):
+        return value._to_dict()
+    raise ValueError(f&#34;Cannot convert {value} to a dict&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.to_float"><code class="name flex">
@@ -6752,7 +6834,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 </code></dt>
 <dd>
 <div class="desc"><p>Serialize this extrapolation to a dictionary that is serializable (JSON-writable).</p>
-<p>Use <code>from_dict()</code> to restore the Extrapolation object.</p></div>
+<p>Use <code><a title="phi.math.from_dict" href="#phi.math.from_dict">from_dict()</a></code> to restore the Extrapolation object.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7069,6 +7151,20 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         # assert len(sizes) == len(names) == len(types), f&#34;sizes={sizes} ({len(sizes)}), names={names} ({len(names)}), types={types} ({len(types)})&#34;
         # assert all(isinstance(n, str) for n in names), f&#34;All names must be of type string but got {names}&#34;
         # assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
+
+    def _to_dict(self, include_sizes=True):
+        result = dict(names=self.names, types=self.types, item_names=self.item_names)
+        if include_sizes:
+            if not all([isinstance(s, int)] for s in self.sizes):
+                raise NotImplementedError()
+            result[&#39;sizes&#39;] = self.sizes
+        return result
+
+    @staticmethod
+    def _from_dict(dict_: dict):
+        names = tuple(dict_[&#39;names&#39;])
+        sizes = tuple(dict_[&#39;sizes&#39;]) if &#39;sizes&#39; in dict_ else (None,) * len(names)
+        return Shape(sizes, names, tuple(dict_[&#39;types&#39;]), tuple(dict_[&#39;item_names&#39;]))
 
     @property
     def _named_sizes(self):
@@ -9538,6 +9634,9 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         &#34;&#34;&#34;
         raise NotImplementedError()
 
+    def _to_dict(self):
+        return cached(self)._to_dict()
+
     def __len__(self):
         return self.shape.volume if self.rank == 1 else NotImplemented
 
@@ -11018,6 +11117,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.fourier_laplace" href="#phi.math.fourier_laplace">fourier_laplace</a></code></li>
 <li><code><a title="phi.math.fourier_poisson" href="#phi.math.fourier_poisson">fourier_poisson</a></code></li>
 <li><code><a title="phi.math.frequency_loss" href="#phi.math.frequency_loss">frequency_loss</a></code></li>
+<li><code><a title="phi.math.from_dict" href="#phi.math.from_dict">from_dict</a></code></li>
 <li><code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.math.gather" href="#phi.math.gather">gather</a></code></li>
 <li><code><a title="phi.math.get_precision" href="#phi.math.get_precision">get_precision</a></code></li>
@@ -11091,6 +11191,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.tan" href="#phi.math.tan">tan</a></code></li>
 <li><code><a title="phi.math.tensor" href="#phi.math.tensor">tensor</a></code></li>
 <li><code><a title="phi.math.to_complex" href="#phi.math.to_complex">to_complex</a></code></li>
+<li><code><a title="phi.math.to_dict" href="#phi.math.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.to_float" href="#phi.math.to_float">to_float</a></code></li>
 <li><code><a title="phi.math.to_int32" href="#phi.math.to_int32">to_int32</a></code></li>
 <li><code><a title="phi.math.to_int64" href="#phi.math.to_int64">to_int64</a></code></li>

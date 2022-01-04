@@ -48,7 +48,7 @@ See the `phi.geom` module documentation at https://tum-pbs.github.io/PhiFlow/Geo
 
 from ._geom import Geometry, Point, assert_same_rank
 from ._union import union
-from ._box import Box, GridCell, BaseBox
+from ._box import Box, GridCell, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._stack import stack
 from ._geom_math import concat, invert, pack_dims
@@ -315,7 +315,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
     def center(self) -&gt; Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta) -&gt; &#39;BaseBox&#39;:
+    def shifted(self, delta, **delta_by_dim) -&gt; &#39;BaseBox&#39;:
         raise NotImplementedError()
 
     @property
@@ -813,7 +813,7 @@ Returns:</p></div>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta) ‑> phi.geom._box.BaseBox</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta, **delta_by_dim) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -833,7 +833,7 @@ Returns:</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def shifted(self, delta) -&gt; &#39;BaseBox&#39;:
+<pre><code class="python">def shifted(self, delta, **delta_by_dim) -&gt; &#39;BaseBox&#39;:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -920,7 +920,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
         if upper is not None:
             self._upper = wrap(upper)
         else:
-            self._upper = math.stack(size, math.channel(&#39;vector&#39;))
+            self._upper = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys())))
             if lower is None:
                 self._lower = math.zeros_like(self._upper)
 
@@ -966,7 +966,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     def half_size(self):
         return self.size * 0.5
 
-    def shifted(self, delta):
+    def shifted(self, delta, **delta_by_dim):
         return Box(self.lower + delta, self.upper + delta)
 
     def __repr__(self):
@@ -1058,7 +1058,7 @@ def upper(self):
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Box.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta)</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta, **delta_by_dim)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -1078,7 +1078,7 @@ def upper(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def shifted(self, delta):
+<pre><code class="python">def shifted(self, delta, **delta_by_dim):
     return Box(self.lower + delta, self.upper + delta)</code></pre>
 </details>
 </dd>
@@ -1107,6 +1107,206 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     lowers = self._lower.dimension(dimension).unstack(size)
     uppers = self._upper.dimension(dimension).unstack(size)
     return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.geom.Cuboid"><code class="flex name class">
+<span>class <span class="ident">Cuboid</span></span>
+<span>(</span><span>center: phi.math._tensors.Tensor = 0, half_size: float = None, **size: float)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Box specified by center position and half size.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Cuboid(BaseBox):
+    &#34;&#34;&#34;
+    Box specified by center position and half size.
+    &#34;&#34;&#34;
+
+    def __init__(self,
+                 center: Tensor = 0,
+                 half_size: float or Tensor = None,
+                 **size: float or Tensor):
+        self._center = wrap(center)
+        if half_size is not None:
+            self._half_size = wrap(half_size)
+        else:
+            self._half_size = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys()))) * 0.5
+
+    def unstack(self, dimension):
+        raise NotImplementedError()
+
+    def __eq__(self, other):
+        return isinstance(other, BaseBox)\
+               and set(self.shape) == set(other.shape)\
+               and math.close(self._center, other.center)\
+               and math.close(self._half_size, other.half_size)
+
+    def __hash__(self):
+        return hash(self._center)
+
+    def __variable_attrs__(self):
+        return &#39;_center&#39;, &#39;_half_size&#39;
+
+    @property
+    def center(self):
+        return self._center
+
+    @property
+    def half_size(self):
+        return self._half_size
+
+    @property
+    def shape(self):
+        return (self._center.shape &amp; self._half_size.shape).without(&#39;vector&#39;)
+
+    @property
+    def size(self):
+        return 2 * self.half_size
+
+    @property
+    def lower(self):
+        return self.center - self.half_size
+
+    @property
+    def upper(self):
+        return self.center + self.half_size
+
+    def shifted(self, delta, **delta_by_dim) -&gt; &#39;Cuboid&#39;:
+        return Cuboid(self._center + delta, self._half_size)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.geom._box.BaseBox</li>
+<li>phi.geom._geom.Geometry</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.geom.Cuboid.center"><code class="name">var <span class="ident">center</span></code></dt>
+<dd>
+<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def center(self):
+    return self._center</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Cuboid.half_size"><code class="name">var <span class="ident">half_size</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def half_size(self):
+    return self._half_size</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Cuboid.lower"><code class="name">var <span class="ident">lower</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def lower(self):
+    return self.center - self.half_size</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Cuboid.shape"><code class="name">var <span class="ident">shape</span></code></dt>
+<dd>
+<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape(self):
+    return (self._center.shape &amp; self._half_size.shape).without(&#39;vector&#39;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Cuboid.size"><code class="name">var <span class="ident">size</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def size(self):
+    return 2 * self.half_size</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Cuboid.upper"><code class="name">var <span class="ident">upper</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def upper(self):
+    return self.center + self.half_size</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.geom.Cuboid.shifted"><code class="name flex">
+<span>def <span class="ident">shifted</span></span>(<span>self, delta, **delta_by_dim) ‑> phi.geom._box.Cuboid</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a translated version of this geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>delta</code></strong></dt>
+<dd>direction vector</dd>
+<dt><strong><code>delta</code></strong></dt>
+<dd>Tensor:</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
+<dd>shifted geometry</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shifted(self, delta, **delta_by_dim) -&gt; &#39;Cuboid&#39;:
+    return Cuboid(self._center + delta, self._half_size)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Cuboid.unstack"><code class="name flex">
+<span>def <span class="ident">unstack</span></span>(<span>self, dimension)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unstacks this Geometry along the given dimension.
+The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>dimension</code></strong></dt>
+<dd>dimension along which to unstack</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>geometries</code></dt>
+<dd>tuple of length equal to <code>geometry.shape.get_size(dimension)</code></dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unstack(self, dimension):
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 </dl>
@@ -2057,7 +2257,8 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     def shape(self):
         return self._shape
 
-    def shifted(self, delta: Tensor) -&gt; BaseBox:
+    def shifted(self, delta: Tensor, **delta_by_dim) -&gt; BaseBox:
+        # delta += math.padded_stack()
         if delta.shape.spatial_rank == 0:
             return GridCell(self.resolution, self.bounds.shifted(delta))
         else:
@@ -2280,7 +2481,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </details>
 </dd>
 <dt id="phi.geom.GridCell.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._box.BaseBox</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor, **delta_by_dim) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -2300,7 +2501,8 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def shifted(self, delta: Tensor) -&gt; BaseBox:
+<pre><code class="python">def shifted(self, delta: Tensor, **delta_by_dim) -&gt; BaseBox:
+    # delta += math.padded_stack()
     if delta.shape.spatial_rank == 0:
         return GridCell(self.resolution, self.bounds.shifted(delta))
     else:
@@ -2669,7 +2871,7 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
                 self._center = center
             assert &#39;vector&#39; in self._center.shape, f&#34;Sphere.center must have a &#39;vector&#39; dimension. Use the syntax x=0.5.&#34;
         else:
-            self._center = math.stack(center_, math.channel(&#39;vector&#39;))
+            self._center = math.wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
             # self._center = wrap(math.spatial(**center_), math.channel(&#39;vector&#39;))
         assert radius is not None, &#34;radius must be specified.&#34;
         self._radius = wrap(radius)
@@ -3116,6 +3318,19 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.Box.size" href="#phi.geom.Box.size">size</a></code></li>
 <li><code><a title="phi.geom.Box.unstack" href="#phi.geom.Box.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.Box.upper" href="#phi.geom.Box.upper">upper</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid</a></code></h4>
+<ul class="two-column">
+<li><code><a title="phi.geom.Cuboid.center" href="#phi.geom.Cuboid.center">center</a></code></li>
+<li><code><a title="phi.geom.Cuboid.half_size" href="#phi.geom.Cuboid.half_size">half_size</a></code></li>
+<li><code><a title="phi.geom.Cuboid.lower" href="#phi.geom.Cuboid.lower">lower</a></code></li>
+<li><code><a title="phi.geom.Cuboid.shape" href="#phi.geom.Cuboid.shape">shape</a></code></li>
+<li><code><a title="phi.geom.Cuboid.shifted" href="#phi.geom.Cuboid.shifted">shifted</a></code></li>
+<li><code><a title="phi.geom.Cuboid.size" href="#phi.geom.Cuboid.size">size</a></code></li>
+<li><code><a title="phi.geom.Cuboid.unstack" href="#phi.geom.Cuboid.unstack">unstack</a></code></li>
+<li><code><a title="phi.geom.Cuboid.upper" href="#phi.geom.Cuboid.upper">upper</a></code></li>
 </ul>
 </li>
 <li>
