@@ -32,7 +32,7 @@ class Sphere(Geometry):
                 self._center = center
             assert 'vector' in self._center.shape, f"Sphere.center must have a 'vector' dimension. Use the syntax x=0.5."
         else:
-            self._center = math.stack(center_, math.channel('vector'))
+            self._center = math.wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
             # self._center = wrap(math.spatial(**center_), math.channel('vector'))
         assert radius is not None, "radius must be specified."
         self._radius = wrap(radius)

@@ -35,7 +35,7 @@ class BaseBox(Geometry):  # not a Subwoofer
     def center(self) -> Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta) -> 'BaseBox':
+    def shifted(self, delta, **delta_by_dim) -> 'BaseBox':
         raise NotImplementedError()
 
     @property
@@ -202,7 +202,7 @@ class Box(BaseBox, metaclass=BoxType):
         if upper is not None:
             self._upper = wrap(upper)
         else:
-            self._upper = math.stack(size, math.channel('vector'))
+            self._upper = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys())))
             if lower is None:
                 self._lower = math.zeros_like(self._upper)
 
@@ -248,7 +248,7 @@ class Box(BaseBox, metaclass=BoxType):
     def half_size(self):
         return self.size * 0.5
 
-    def shifted(self, delta):
+    def shifted(self, delta, **delta_by_dim):
         return Box(self.lower + delta, self.upper + delta)
 
     def __repr__(self):
@@ -271,7 +271,7 @@ class Cuboid(BaseBox):
         if half_size is not None:
             self._half_size = wrap(half_size)
         else:
-            self._half_size = math.stack(size, math.channel('vector')) * 0.5
+            self._half_size = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys()))) * 0.5
 
     def unstack(self, dimension):
         raise NotImplementedError()
@@ -312,7 +312,7 @@ class Cuboid(BaseBox):
     def upper(self):
         return self.center + self.half_size
 
-    def shifted(self, delta) -> 'Cuboid':
+    def shifted(self, delta, **delta_by_dim) -> 'Cuboid':
         return Cuboid(self._center + delta, self._half_size)
 
 
@@ -416,7 +416,8 @@ class GridCell(BaseBox):
     def shape(self):
         return self._shape
 
-    def shifted(self, delta: Tensor) -> BaseBox:
+    def shifted(self, delta: Tensor, **delta_by_dim) -> BaseBox:
+        # delta += math.padded_stack()
         if delta.shape.spatial_rank == 0:
             return GridCell(self.resolution, self.bounds.shifted(delta))
         else:
