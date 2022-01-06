@@ -4,6 +4,7 @@ import numpy
 from plotly import graph_objects
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
+from scipy.constants import value
 
 from phi import math
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
@@ -55,14 +56,11 @@ def _plot(field: SampledField,
         values = real_values(field).numpy('y,x')
         x = field.points.vector['x'].y[0].numpy()
         y = field.points.vector['y'].x[0].numpy()
-        zmin, zmax = numpy.nanmin(values), numpy.nanmax(values)
-        if not numpy.isfinite(zmin):
-            zmin = 0
-        if not numpy.isfinite(zmax):
-            zmax = 0
-        color_scale = get_div_map(zmin, zmax, equal_scale=True, colormap=colormap)
+        min_val, max_val = numpy.nanmin(values), numpy.nanmax(values)
+        min_val, max_val = min_val if numpy.isfinite(min_val) else 0, max_val if numpy.isfinite(max_val) else 0
+        color_scale = get_div_map(min_val, max_val, equal_scale=True, colormap=colormap)
         # color_bar = graph_objects.heatmap.ColorBar(x=1.15)   , colorbar=color_bar
-        fig.add_heatmap(row=row, col=col, x=x, y=y, z=values, zauto=False, zmin=zmin, zmax=zmax, colorscale=color_scale, showscale=show_color_bar)
+        fig.add_heatmap(row=row, col=col, x=x, y=y, z=values, zauto=False, zmin=min_val, zmax=max_val, colorscale=color_scale, showscale=show_color_bar)
         fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
         fig.update_yaxes(constrain='domain')
     elif field.spatial_rank == 2 and isinstance(field, Grid):  # vector field
@@ -89,6 +87,34 @@ def _plot(field: SampledField,
         fig.update_layout(showlegend=False)
         fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
         fig.update_yaxes(constrain='domain')
+    elif field.spatial_rank == 3 and isinstance(field, Grid) and field.shape.channel.volume == 1:  # 3D heatmap
+        values = real_values(field).numpy('z,y,x')
+        x = field.points.vector['x'].numpy('z,y,x')
+        y = field.points.vector['y'].numpy('z,y,x')
+        z = field.points.vector['z'].numpy('z,y,x')
+        min_val, max_val = numpy.nanmin(values), numpy.nanmax(values)
+        min_val, max_val = min_val if numpy.isfinite(min_val) else 0, max_val if numpy.isfinite(max_val) else 0
+        color_scale = get_div_map(min_val, max_val, equal_scale=True, colormap=colormap)
+        fig.add_volume(x=x.flatten(), y=y.flatten(), z=z.flatten(), value=values.flatten(),
+                       showscale=show_color_bar, colorscale=color_scale, cmin=min_val, cmax=max_val, cauto=False,
+                       isomin=0.1, isomax=0.8,
+                       opacity=0.1,  # needs to be small to see through all surfaces
+                       surface_count=17,  # needs to be a large number for good volume rendering
+                       row=row, col=col)
+        fig.update_layout(uirevision=True)
+    elif field.spatial_rank == 3 and isinstance(field, Grid):  # 3D vector field
+        if isinstance(field, StaggeredGrid):
+            field = field.at_centers()
+        u = real_values(field).vector['x'].numpy('z,y,x')
+        v = real_values(field).vector['y'].numpy('z,y,x')
+        w = real_values(field).vector['z'].numpy('z,y,x')
+        x = field.points.vector['x'].numpy('z,y,x')
+        y = field.points.vector['y'].numpy('z,y,x')
+        z = field.points.vector['z'].numpy('z,y,x')
+        fig.add_cone(x=x.flatten(), y=y.flatten(), z=z.flatten(), u=u.flatten(), v=v.flatten(), w=w.flatten(),
+                     colorscale='Blues',
+                     sizemode="absolute", sizeref=1,
+                     row=row, col=col)
     elif field.spatial_rank == 2 and isinstance(field, PointCloud):
         x, y = [d.numpy() for d in field.points.vector.unstack_spatial('x,y')]
         if field.color.shape.instance_rank == 0:
