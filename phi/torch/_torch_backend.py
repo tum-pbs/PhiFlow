@@ -682,57 +682,83 @@ class TorchBackend(Backend):
 
     def functional_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
         # if not get_output and not get_gradient:
+        # @wraps(f)
+        # def eval_hessian(*args):
+        #     batch_size = args[0].shape[0]
+        #     for arg in args:
+        #         assert arg.shape[0] == batch_size, f"All arguments must have a matching batch dimension as their first dimension. Got shapes {[arg.shape for arg in args]}"
+        #
+        #     def f_only_wrt_inputs(*wrt_args_only, reduce_batch=False):
+        #         all_args = list(args)
+        #         for i, arg in zip(wrt, wrt_args_only):
+        #             all_args[i] = arg
+        #         output = f(*all_args)
+        #         loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+        #         if reduce_batch:
+        #             if loss.ndim > 0:
+        #                 loss = loss.sum()
+        #         else:
+        #             assert np.prod(loss.shape) == 1, f"Loss (first output of f) must be scalar but has shape {loss.shape}"
+        #             loss = loss.sum()
+        #         return loss
+        #
+        #     wrt_args = tuple([self.as_tensor(arg, True) for i, arg in enumerate(args) if i in wrt])
+        #     result = ()
+        #     if get_output:
+        #         result += f(*args),
+        #     if get_gradient:
+        #         result += torch.autograd.functional.jacobian(lambda *a: f_only_wrt_inputs(*a, reduce_batch=True), wrt_args),
+        #     if hasattr(torch, 'vmap'):
+        #         # single_hessian_f = lambda *args: torch.autograd.functional.hessian(f_only_wrt_inputs, args)
+        #         # multi_hessian_f = torch.vmap
+        #         raise NotImplementedError()
+        #     else:
+        #         hessian = tuple([tuple([[] for _1 in range(len(wrt))]) for _2 in range(len(wrt))])  # n x n matrix of lists
+        #         for b in range(batch_size):
+        #             h = torch.autograd.functional.hessian(f_only_wrt_inputs, tuple([arg[b:b + 1] for arg in wrt_args]))
+        #             for i in range(len(wrt)):
+        #                 for j in range(len(wrt)):
+        #                     fake_batch_dim = args[i].ndim
+        #                     hessian[i][j].append(torch.squeeze(torch.squeeze(h[i][j], fake_batch_dim), 0))
+        #         hessian = [[torch.stack(hessian[i][j]) for j in range(len(wrt))] for i in range(len(wrt))]
+        #         # hessian = torch.stack([torch.autograd.functional.hessian(f_only_wrt_inputs, tuple([arg[b:b+1] for arg in wrt_args])) for b in range(batch_size)])  # manual batch loop
+        #     result += hessian,
+        #     return result
+        # else:
         @wraps(f)
         def eval_hessian(*args):
-            batch_size = args[0].shape[0]
-            for arg in args:
-                assert arg.shape == batch_size, "All arguments must have a matching batch dimension as their first dimension."
+            args, wrt_args = self._prepare_graph_inputs(args, wrt)
+            output = f(*args)
+            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+            if loss.ndim > 0:
+                loss = loss.sum()
+            grads = torch.autograd.grad(loss, wrt_args, create_graph=True, retain_graph=True)  # grad() cannot be called during jit trace
+            hessian = []
+            for grad in grads:
+                hessian.append([[] for _ in grads])
+                for lin_index in range(int(np.prod(grad.shape[1:]))):
+                    multi_index = np.unravel_index(lin_index, grad.shape[1:])
+                    h = torch.autograd.grad(grad[(slice(None),) + multi_index].sum(), wrt_args, allow_unused=True, retain_graph=True)  # grad of every entry in grad
+                    # Warning: This returns incorrect values for certain inputs. Hessian of x^2 returns 0 at x=0 but is correct everywhere else.
+                    # ToDo torch.autograd.functional.hessian does not seem to have this issue. Wait for torch.vmap(), then conditionally switch.
+                    for i, h_ in enumerate(h):
+                        hessian[-1][i].append(h_)
+            for col in hessian:
+                for i, row in enumerate(col):
+                    col[i] = torch.stack(row, dim=1)
 
-            def f_only_wrt_inputs(*wrt_args_only, reduce_batch=False):
-                all_args = list(args)
-                for i, arg in zip(wrt, wrt_args_only):
-                    all_args[i] = arg
-                output = f(*all_args)
-                loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-                if reduce_batch:
-                    if loss.ndim > 0:
-                        loss = loss.sum()
-                else:
-                    assert loss.ndim == 0, f"Loss (first output of f) may only contain batch dimensions but has shape {loss.shape}"
-                return loss
-
-            wrt_args = tuple([self.as_tensor(arg, True) for i, arg in enumerate(args) if i in wrt])
             result = ()
             if get_output:
-                result += f(*args),
+                loss = loss.detach()
+                if aux is not None:
+                    aux = [aux_.detach() if isinstance(aux_, torch.Tensor) else aux_ for aux_ in aux]
+                    result += (loss, *aux),
+                else:
+                    result += loss,
             if get_gradient:
-                result += torch.autograd.functional.jacobian(lambda *a: f_only_wrt_inputs(*a, reduce_batch=True), wrt_args),
-            result += torch.stack([torch.autograd.functional.hessian(f_only_wrt_inputs, [arg[b:b+1] for arg in wrt_args]) for b in range(batch_size)]),  # manual batch loop
+                result += tuple([g.detach() for g in grads]),
+            result += hessian,
             return result
-        # else:
-        #     @wraps(f)
-        #     def eval_hessian(*args):
-        #         args, wrt_args = self._prepare_graph_inputs(args, wrt)
-        #         output = f(*args)
-        #         loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-        #         if loss.ndim > 0:
-        #             loss = loss.sum()
-        #
-        #         grads = torch.autograd.grad(loss, wrt_args, create_graph=True)  # grad() cannot be called during jit trace
-        #         hessian = tuple([torch.autograd.grad(g, wrt_args, allow_unused=True) for g in grads])  # TODO for each element of g
-        #
-        #         result = ()
-        #         if get_output:
-        #             loss = loss.detach()
-        #             if aux is not None:
-        #                 aux = [aux_.detach() for aux_ in aux]
-        #                 result += (loss, *aux),
-        #             else:
-        #                 result += loss,
-        #         if get_gradient:
-        #             result += tuple([g.detach() for g in grads]),
-        #         result += hessian,
-        #         return result
 
         return eval_hessian
 

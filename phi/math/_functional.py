@@ -94,6 +94,22 @@ def key_from_args(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list]:
     return key, natives
 
 
+def key_from_args_pack_batch(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list, Shape]:
+    nest, tensors = disassemble_tree(args)
+    tracing = not all_available(*tensors)
+    backend = math.choose_backend_t(*tensors)
+    if tracing and cache:
+        cache = False
+        warnings.warn("Cannot cache a tensor while tracing.")
+    batch_shape = merge_shapes(*[t.shape.batch for t in tensors])
+    # tensors = [math.pack_dims(t, batch_shape, batch('batch'), pos=0) for t in tensors]
+    natives = [math.reshaped_native(t, [batch_shape, *t.shape.non_batch], force_expand=True) for t in tensors]
+    # natives, shapes = disassemble_tensors(tensors, expand=cache)
+    shapes = tuple([math.concat_shapes(batch(batch=batch_shape.volume), *t.shape.non_batch) for t in tensors])
+    key = SignatureKey(None, nest, shapes, kwargs, backend, tracing)
+    return key, natives, batch_shape
+
+
 class JitFunction:
 
     def __init__(self, f: Callable):
@@ -441,15 +457,15 @@ class HessianFunction:
         return hessian_generator(f_native, wrt=wrt_natives, get_output=self.get_output, get_gradient=self.get_gradient)
 
     def __call__(self, *args, **kwargs):
-        key, natives = key_from_args(*args, cache=True, **kwargs)
+        key, natives, batch_shape = key_from_args_pack_batch(*args, cache=True, **kwargs)
         if not key.backend.supports(Backend.functional_gradient):
             if math.default_backend().supports(Backend.functional_gradient):
                 warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()")
                 key.backend = math.default_backend()
             else:
                 raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
-        wrt_tensors = self._track_wrt(args)
-        wrt_natives = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
+        wrt_tensors: List[int] = self._track_wrt(args)
+        wrt_natives: List[int] = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
         if key not in self.grads:
             self.grads[key] = self._trace_hessian(key, wrt_natives)
         native_result = self.grads[key](*natives)
@@ -461,15 +477,29 @@ class HessianFunction:
             result += assemble_tree(output_key.tree, output_tensors),
         if self.get_gradient:
             grad_tensors = assemble_tensors(native_result[int(self.get_output)], [key.shapes[i] for i in wrt_tensors])
-            result += assemble_tree([key.tree[i] for i in wrt_tensors], grad_tensors),
+            grad_tensors = [math.unpack_dims(t, 'batch', batch_shape) for t in grad_tensors]
+            grads = assemble_tree([key.tree[i] for i in wrt_tensors], grad_tensors)
+            if len(grads) == 1:
+                grads = grads[0]
+            result += grads,
         if len(wrt_natives) == 1:
             native_hessian = native_result[-1][0][0]
-            hessian_tensor = NativeTensor(native_hessian, key.shapes[0] * 2)  # TODO
-            result += assemble_tree(key.tree[0], [hessian_tensor])
-        for i in range(len(self.wrt)):
-            for j in range(len(self.wrt)):
-                raise NotImplementedError()
+            hessian_tensor = math.reshaped_tensor(native_hessian, [batch_shape, *key.shapes[0].non_batch, *self.dupli_shape(key.shapes[0].non_batch)], check_sizes=True)
+            result += assemble_tree(key.tree[0], [hessian_tensor]),
+        else:
+            assert all([t is None for t in key.tree]), "When computing the Hessian w.r.t. multiple tensors, all inputs must be Tensors."
+            raise NotImplementedError()
+            hessian_tree = [[] for _ in self.wrt]
+            for i in range(len(self.wrt)):
+                for j in range(len(self.wrt)):
+                    native_hessian_ij = native_result[-1][i][j]
+                    hessian_tensor_ij = math.reshaped_tensor(native_hessian_ij, [batch_shape, *key.shapes[i].non_batch, *self.dupli_shape(key.shapes[j].non_batch)], check_sizes=True)
+                    hessian_tree[i].append(hessian_tensor_ij)
+            result += tuple([tuple(col) for col in hessian_tree]),
         return result
+
+    def dupli_shape(self, shape: Shape):
+        return shape._with_names([n+'_' for n in shape.names])
 
     def __repr__(self):
         return f"grad({self.f.__name__})"
