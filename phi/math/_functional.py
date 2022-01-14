@@ -1046,6 +1046,7 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
                  max_iterations: int or Tensor = 1000,
                  x0: X or Any = None,
                  suppress: tuple or list = (),
+                 preprocess_y: Callable = None,
                  gradient_solve: 'Solve[Y, X]' or None = None):
         assert isinstance(method, str)
         self.method: str = method
@@ -1061,6 +1062,9 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         self.x0 = x0
         """ Initial guess for the method, of same type and dimensionality as the solve result.
          This property must be set to a value compatible with the solution `x` before running a method. """
+        self.preprocess_y: Callable = preprocess_y
+        """ Function to be applied to the right-hand-side vector of an equation system before solving the system.
+        This property is propagated to gradient solves by default. """
         assert all(issubclass(err, ConvergenceException) for err in suppress)
         self.suppress: tuple = tuple(suppress)
         """ Error types to suppress; `tuple` of `ConvergenceException` types. For these errors, the solve function will instead return the partial result without raising the error. """
@@ -1076,7 +1080,7 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         In any case, the gradient solve information will be stored in `gradient_solve.result`.
         """
         if self._gradient_solve is None:
-            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress)
+            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y)
         return self._gradient_solve
 
     def __repr__(self):
@@ -1305,6 +1309,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         Diverged: If the optimization failed prematurely.
     """
     assert (solve.relative_tolerance == 0).all, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
+    assert solve.preprocess_y is None, "minimize() does not allow preprocess_y"
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
@@ -1394,15 +1399,17 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     """
     from ._nd import l2_loss
 
+    if solve.preprocess_y is not None:
+        y = solve.preprocess_y(y)
+
     def min_func(x):
         diff = f(x) - y
         l2 = l2_loss(diff)
         return l2
 
-    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y, batch_norm=True)
-    solve.absolute_tolerance = rel_tol_to_abs
-    solve.relative_tolerance = 0
-    return minimize(min_func, solve)
+    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y)
+    min_solve = copy_with(solve, absolute_tolerance=rel_tol_to_abs, relative_tolerance=0, preprocess_y=None)
+    return minimize(min_func, min_solve)
 
 
 def solve_linear(f: Callable[[X], Y],
@@ -1463,6 +1470,8 @@ def solve_linear(f: Callable[[X], Y],
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
                           active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
+    if solve.preprocess_y is not None:
+        y = solve.preprocess_y(y)
     y_nest, (y_tensor,) = disassemble_tree(y)
     x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     batch_dims = (y_tensor.shape & x0_tensor.shape).without(active_dims)
