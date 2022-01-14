@@ -40,8 +40,16 @@ class Extrapolation:
         """Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation."""
         raise NotImplementedError()
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> tuple:
         """ `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. """
+        raise NotImplementedError()
+
+    @property
+    def connects_to_outside(self) -> bool:
+        """
+        True if at any place, this extrapolation allows for dynamic flow out of the valid domain.
+        `BOUNDARY` faces allow this, but constant extrapolations and `PERIODIC` do not.
+        """
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
@@ -143,8 +151,12 @@ class ConstantExtrapolation(Extrapolation):
     def spatial_gradient(self):
         return ZERO
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> tuple:
         return False, False
+
+    @property
+    def connects_to_outside(self) -> bool:
+        return False
 
     def pad(self, value: Tensor, widths: dict):
         """
@@ -399,6 +411,10 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def spatial_gradient(self):
         return ZERO
 
+    @property
+    def connects_to_outside(self) -> bool:
+        return True
+
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
         if upper_edge:
             edge = value[{dimension: slice(-1, None)}]
@@ -473,6 +489,10 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def valid_outer_faces(self, dim):
         return True, False
 
+    @property
+    def connects_to_outside(self) -> bool:
+        return False
+
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         return coordinates % shape.spatial
 
@@ -497,6 +517,10 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
 
     def spatial_gradient(self):
         return -self
+
+    @property
+    def connects_to_outside(self) -> bool:
+        return True
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         coordinates = coordinates % (2 * shape)
@@ -528,6 +552,10 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     def spatial_gradient(self):
         return -self
 
+    @property
+    def connects_to_outside(self) -> bool:
+        return True
+
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
         if upper_edge:
             return value[{dimension: slice(-1-width, -1)}].flip(dimension)
@@ -551,6 +579,10 @@ class _NoExtrapolation(Extrapolation):
 
     def valid_outer_faces(self, dim):
         return True, True
+
+    @property
+    def connects_to_outside(self) -> bool:
+        raise AssertionError(f"connects_to_outside not defined by {self.__class__}")
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
         raise AssertionError("Invalid extrapolation")
@@ -666,6 +698,11 @@ class _MixedExtrapolation(Extrapolation):
     def valid_outer_faces(self, dim):
         e_lower, e_upper = self.ext[dim]
         return e_lower.valid_outer_faces(dim)[0], e_upper.valid_outer_faces(dim)[1]
+
+    @property
+    def connects_to_outside(self) -> bool:
+        result_by_dim = [lo.connects_to_outside or up.connects_to_outside for lo, up in self.ext.values()]
+        return any(result_by_dim)
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
         """
