@@ -12,6 +12,21 @@
 #define TRUE 1
 #define FALSE 0
 
+void *globalBuffer = NULL;
+size_t globalBufferSize = 0;
+cusparseHandle_t globalHandle = NULL;
+cusparseSpMatDescr_t globalSparseMatrixA;
+torch::Tensor dC;
+cusparseDnVecDescr_t dC_cusparse;
+
+void allocateBuffer(size_t newSize) {
+    if(newSize > globalBufferSize) {
+        CHECK_CUDA( cudaFree(globalBuffer) )
+        CHECK_CUDA( cudaMalloc(&globalBuffer, newSize) )
+        globalBufferSize = newSize;
+    }
+}
+
 torch::Tensor cusparse_SpMM(
                         const at::Tensor& dA_csrOffsets,
                         const at::Tensor& dA_columns,
@@ -71,53 +86,34 @@ torch::Tensor cusparse_SpMM(
 }
 
 torch::Tensor cusparse_SpMV(
-                        const at::Tensor& dA_csrOffsets,
-                        const at::Tensor& dA_columns,
-                        const at::Tensor& dA_values,
                         at::Tensor& dB,
                         const int dim_i,
                         const int dim_j)
 {
-    cusparseHandle_t     handle = NULL;
-    cusparseSpMatDescr_t matA;
-    cusparseDnVecDescr_t vecX, vecY;
-    auto A_nnz          = dA_values.size(0);
-    void*                dBuffer    = NULL;
+
+    cusparseDnVecDescr_t vecX;
     size_t               bufferSize = 0;
     float alpha           = 1.0f;
     float beta            = 0.0f;
-
-    auto sizes = dB.sizes();
     dB = dB.view({dim_j});
-    CHECK_CUSPARSE( cusparseCreate(&handle) )
-    // Create sparse matrix A in CSR format
-    CHECK_CUSPARSE( cusparseCreateCsr(&matA, dim_i, dim_j, A_nnz,
-                                      dA_csrOffsets.data_ptr<int>(), dA_columns.data_ptr<int>(),
-                                      dA_values.data_ptr<float>(),
-                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) )
+
     // Create dense vector X
     CHECK_CUSPARSE( cusparseCreateDnVec(&vecX, dim_j, dB.data_ptr<float>(), CUDA_R_32F) )
-    // Create dense vector y
-    torch::Tensor dC = torch::empty({dim_i}, dB.options());
-    CHECK_CUSPARSE( cusparseCreateDnVec(&vecY, dim_i, dC.data_ptr<float>(), CUDA_R_32F) )
+
     // allocate an external buffer if needed
     CHECK_CUSPARSE( cusparseSpMV_bufferSize(
-                                 handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                 &alpha, matA, vecX, &beta, vecY, CUDA_R_32F,
+                                 globalHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 &alpha, globalSparseMatrixA, vecX, &beta, dC_cusparse, CUDA_R_32F,
                                  CUSPARSE_SPMV_CSR_ALG2, &bufferSize) )
-    CHECK_CUDA( cudaMalloc(&dBuffer, bufferSize) )
+    allocateBuffer(bufferSize);
 
-    // execute SpMV
-    CHECK_CUSPARSE( cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                 &alpha, matA, vecX, &beta, vecY, CUDA_R_32F,
-                                 CUSPARSE_SPMV_CSR_ALG2, dBuffer) )
+   // execute SpMV
+    CHECK_CUSPARSE( cusparseSpMV(globalHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 &alpha, globalSparseMatrixA, vecX, &beta, dC_cusparse, CUDA_R_32F,
+                                 CUSPARSE_SPMV_CSR_ALG2, globalBuffer) )
 
     // destroy matrix/vector descriptors
-    CHECK_CUSPARSE( cusparseDestroySpMat(matA) )
     CHECK_CUSPARSE( cusparseDestroyDnVec(vecX) )
-    CHECK_CUSPARSE( cusparseDestroyDnVec(vecY) )
-    CHECK_CUSPARSE( cusparseDestroy(handle) )
     dB = dB.view({1, dim_j});
     dC = dC.view({1, dim_i});
     return dC;
@@ -236,12 +232,25 @@ std::vector<std::vector<torch::Tensor>> conjugate_gradient(torch::Tensor csr_val
         x0 is a matrix that contains columns of vectors (each vector is an independent problem to solve)
         y is a matrix that contains columns of vectors (each vector is an independent problem to solve)
 */
-    std::vector<std::vector<torch::Tensor>> trajectory;
+    // CREATE HANDLE AND CSR MATRIX REPRESENTATION
+    CHECK_CUSPARSE( cusparseCreate(&globalHandle) )
+    // Create sparse matrix A in CSR format
+    CHECK_CUSPARSE( cusparseCreateCsr(&globalSparseMatrixA, csr_dim0, csr_dim1, nnz,
+                                      csr_rows.data_ptr<int>(), csr_cols.data_ptr<int>(),
+                                      csr_values.data_ptr<float>(),
+                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
+                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) )
+
+    dC = torch::empty({csr_dim0}, x.options());
+    CHECK_CUSPARSE( cusparseCreateDnVec(&dC_cusparse, csr_dim0, dC.data_ptr<float>(), CUDA_R_32F) )
+    // CREATE HANDLE AND CSR MATRIX REPRESENTATION
+
+std::vector<std::vector<torch::Tensor>> trajectory;
     int batch_size = x.size(0);
     torch::Tensor sum_y = torch::sum(torch::mul(y,y), -1);
     torch::Tensor atol_sq = create_gpu_tensor(std::vector<float>{atol*atol}, torch::IntArrayRef{1});
     torch::Tensor tolerance_sq = torch::maximum(rtol * rtol * sum_y, atol_sq); // max([ , , ...], [atol*atol])
-    torch::Tensor lin_x = cusparse_SpMM_BA(csr_rows, csr_cols, csr_values, x, csr_dim0, csr_dim1);
+    torch::Tensor lin_x = cusparse_SpMV(x, csr_dim0, csr_dim1);
     auto residual = y - lin_x;
     auto dx = residual;
     int it_counter = 0;
@@ -257,15 +266,14 @@ std::vector<std::vector<torch::Tensor>> conjugate_gradient(torch::Tensor csr_val
     while(!torch::equal(finished, dummy_ones)) {
         it_counter += 1;
         iterations = iterations + not_finished;
-        torch::Tensor dy = cusparse_SpMM_BA(csr_rows, csr_cols, csr_values, dx,
-                                         csr_dim0, csr_dim1);
+        torch::Tensor dy = cusparse_SpMV(dx, csr_dim0, csr_dim1);
         function_evaluations += not_finished;
         auto dx_dy = torch::sum(residual * dy, -1, TRUE);
         auto step_size = nan_division(residual_squared, dx_dy); // Account for nan values
         step_size = torch::mul(step_size, not_finished);
         x += (step_size * dx);
         if(it_counter % 50 == 0) {
-            residual = y - cusparse_SpMM_BA(csr_rows, csr_cols, csr_values, x, csr_dim0, csr_dim1);
+            residual = y - cusparse_SpMV(x, csr_dim0, csr_dim1);
             function_evaluations += 1;
         }
         else {
@@ -287,6 +295,14 @@ std::vector<std::vector<torch::Tensor>> conjugate_gradient(torch::Tensor csr_val
         trajectory.push_back({x, residual, torch::squeeze(iterations, -1), torch::squeeze(function_evaluations, -1), torch::squeeze(converged, -1),
             torch::squeeze(diverged, -1)});
     }
+
+    // CLOSE HANDLE AND CSR MATRIX REPRESENTATION
+    CHECK_CUSPARSE( cusparseDestroySpMat(globalSparseMatrixA) )
+    CHECK_CUSPARSE( cusparseDestroy(globalHandle) )
+    CHECK_CUSPARSE( cusparseDestroy(dC_cusparse) )
+
+    //CHECK_CUDA( cudaFree(globalBuffer) )
+    // CLOSE HANDLE AND CSR MATRIX REPRESENTATION
     return trajectory;
 }
 
