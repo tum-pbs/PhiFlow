@@ -128,7 +128,6 @@ torch::Tensor cusparse_SpMM_BA(
                         const int dim_j,
                         const int dim_k)
 {
-    float elapsedTime = 0;
     /*
     cudaEvent_t startSolver;
     cudaEvent_t stopSolver;
@@ -245,8 +244,7 @@ std::vector<std::vector<torch::Tensor>> conjugate_gradient(torch::Tensor csr_val
     CHECK_CUSPARSE( cusparseCreateDnVec(&dC_cusparse, csr_dim0, dC.data_ptr<float>(), CUDA_R_32F) )
     // CREATE HANDLE AND CSR MATRIX REPRESENTATION
 
-std::vector<std::vector<torch::Tensor>> trajectory;
-    int batch_size = x.size(0);
+    std::vector<std::vector<torch::Tensor>> trajectory;
     torch::Tensor sum_y = torch::sum(torch::mul(y,y), -1);
     torch::Tensor atol_sq = create_gpu_tensor(std::vector<float>{atol*atol}, torch::IntArrayRef{1});
     torch::Tensor tolerance_sq = torch::maximum(rtol * rtol * sum_y, atol_sq); // max([ , , ...], [atol*atol])
@@ -299,7 +297,7 @@ std::vector<std::vector<torch::Tensor>> trajectory;
     // CLOSE HANDLE AND CSR MATRIX REPRESENTATION
     CHECK_CUSPARSE( cusparseDestroySpMat(globalSparseMatrixA) )
     CHECK_CUSPARSE( cusparseDestroy(globalHandle) )
-    CHECK_CUSPARSE( cusparseDestroy(dC_cusparse) )
+    CHECK_CUSPARSE( cusparseDestroyDnVec(dC_cusparse) )
 
     //CHECK_CUDA( cudaFree(globalBuffer) )
     // CLOSE HANDLE AND CSR MATRIX REPRESENTATION
