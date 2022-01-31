@@ -170,6 +170,8 @@ class TFBackend(Backend):
 
     def grid_sample(self, grid, coordinates, extrapolation='constant'):
         if use_cuda(grid):
+            if extrapolation == 'periodic':
+                return NotImplemented  # TODO 'periodic' gives incorrect results, check all
             if self.staticshape(grid)[0] > self.staticshape(coordinates)[0]:
                 assert self.staticshape(coordinates)[0] == 1
                 coordinates = self.tile(coordinates, [self.staticshape(grid)[0], *[1] * (self.ndims(coordinates) - 1)])
