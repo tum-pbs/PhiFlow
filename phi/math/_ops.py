@@ -1557,7 +1557,12 @@ def conjugate(x) -> Tensor:
     return _backend_op1(x, Backend.conj)
 
 
-def sin(x) -> Tensor:
+def degrees(deg):
+    """ Convert degrees to radians. """
+    return deg * (3.1415 / 180.)
+
+
+def sin(x) -> Tensor or TensorLike:
     """ Computes *sin(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.sin)
 
