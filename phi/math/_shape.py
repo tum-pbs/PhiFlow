@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple
+from typing import Tuple, Callable
 
 from phi import math
 
@@ -546,7 +546,7 @@ class Shape:
         else:
             raise ValueError(dims)
 
-    def only(self, dims: str or tuple or list or 'Shape'):
+    def only(self, dims: str or tuple or list or 'Shape' or Callable):
         """
         Builds a new shape from this one that only contains the given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -554,13 +554,14 @@ class Shape:
         The complementary operation is :func:`Shape.without`.
 
         Args:
-          dims: single dimension (str) or instance of dimensions (tuple, list, Shape)
-          dims: str or tuple or list or Shape: 
+          dims: comma-separated dimension names (str) or instance of dimensions (tuple, list, Shape) or filter function.
 
         Returns:
           Shape containing only specified dimensions
 
         """
+        if callable(dims):
+            dims = dims(self)
         if isinstance(dims, str):
             dims = parse_dim_order(dims)
         if isinstance(dims, (tuple, list)):
@@ -739,14 +740,16 @@ class Shape:
             names = list(self.names)
             types = list(self.types)
             for old_name, new_dim in zip(dims, new):
-                names[self.index(old_name)] = new_dim.name
-                types[self.index(old_name)] = new_dim.type
+                if old_name in self:
+                    names[self.index(old_name)] = new_dim.name
+                    types[self.index(old_name)] = new_dim.type
             return Shape(tuple(sizes), tuple(names), tuple(types), self.item_names)
         else:  # replace only names
             new = parse_dim_order(new)
             names = list(self.names)
             for old_name, new_name in zip(dims, new):
-                names[self.index(old_name)] = new_name
+                if old_name in self:
+                    names[self.index(old_name)] = new_name
             return Shape(tuple(sizes), tuple(names), self.types, self.item_names)
 
     def _with_types(self, types: 'Shape'):
