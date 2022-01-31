@@ -50,7 +50,7 @@ from ._ops import (
 )
 from ._nd import (
     shift,
-    vec_abs, vec_squared, vec_normalize, cross_product, rotate_vector,
+    vec_abs, vec_abs as vec_length, vec_squared, vec_normalize, cross_product, rotate_vector,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
