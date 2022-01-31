@@ -2,6 +2,7 @@ import time
 import types
 import uuid
 import warnings
+from functools import wraps
 from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any
 
 import logging
@@ -1599,3 +1600,54 @@ def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
     identity = custom_gradient(lambda x: x, print_grad)
     return identity(value)
 
+
+def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_type: Callable or str) -> Callable:
+    """
+    Wraps a function to change the dimension types of its `Tensor` and `TensorLike` arguments.
+
+    Args:
+        f: Function to wrap.
+        dims: Concrete dimensions or dimension type, such as `spatial` or `batch`.
+            These dimensions will be mapped to `dim_type` for all positional function arguments.
+        dim_type: Dimension type, such as `spatial` or `batch`.
+            `f` will be called with dimensions remapped to this type.
+
+    Returns:
+        Function with signature matching `f`.
+    """
+    def forward_retype(obj, input_types: Shape):
+        tree, tensors = disassemble_tree(obj)
+        retyped = []
+        for t in tensors:
+            for dim in t.shape.only(dims):
+                t = t.dimension(dim).as_type(dim_type)
+                input_types = math.merge_shapes(input_types, dim.with_size(None))
+            retyped.append(t)
+        return assemble_tree(tree, retyped), input_types
+
+    def reverse_retype(obj, input_types: Shape):
+        tree, tensors = disassemble_tree(obj)
+        retyped = []
+        for t in tensors:
+            for dim in t.shape.only(input_types.names):
+                t = t.dimension(dim).as_type(input_types.get_type(dim))
+            retyped.append(t)
+        return assemble_tree(tree, retyped)
+
+    @wraps(f)
+    def retyped_f(*args, **kwargs):
+        input_types = EMPTY_SHAPE
+        retyped_args = []
+        for arg in args:
+            retyped_arg, input_types = forward_retype(arg, input_types)
+            retyped_args.append(retyped_arg)
+        output = f(*retyped_args, **kwargs)
+        restored_output = reverse_retype(output, input_types)
+        return restored_output
+
+    return retyped_f
+
+
+def map_s2b(f: Callable) -> Callable:
+    """ Map spatial dimensions to batch dimensions. Short for `map_types(f, spatial, batch)`. """
+    return map_types(f, spatial, batch)
