@@ -13,6 +13,9 @@ from phi import math as _math
 import os
 import tensorflow as _tf
 
+if _tf.__version__.startswith('1.'):
+    raise ImportError(f"PhiFlow 2.x and newer requires TensorFlow 2 but found TensorFlow {_tf.__version__}")
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # only errors
 if _platform.system().lower() == 'windows':  # prevent Blas GEMM launch failed on Windows
     for i, device in enumerate(_tf.config.list_physical_devices('GPU')):
