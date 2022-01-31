@@ -337,7 +337,8 @@ class GradientFunction:
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
-            result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
+            with functional_derivative_evaluation(order=1):
+                result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
@@ -449,7 +450,8 @@ class HessianFunction:
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
-            result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
+            with functional_derivative_evaluation(order=2):
+                result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)

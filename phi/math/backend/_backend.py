@@ -1395,16 +1395,17 @@ def combined_dim(dim1, dim2, type_str: str = 'batch'):
     return dim1
 
 
-_DERIVATIVE_CONTEXT = [0]
+_SPATIAL_DERIVATIVE_CONTEXT = [0]
+_FUNCTIONAL_DERIVATIVE_CONTEXT = [0]
 
 
 @contextmanager
 def spatial_derivative_evaluation(order=1):
-    _DERIVATIVE_CONTEXT.append(order)
+    _SPATIAL_DERIVATIVE_CONTEXT.append(order)
     try:
         yield None
     finally:
-        assert _DERIVATIVE_CONTEXT.pop(-1) == order
+        assert _SPATIAL_DERIVATIVE_CONTEXT.pop(-1) == order
 
 
 def get_spatial_derivative_order():
@@ -1412,4 +1413,22 @@ def get_spatial_derivative_order():
     Extrapolations may behave differently when extrapolating the derivative of a grid.
     Returns 1 inside a CG loop, and 0 by default.
     """
-    return _DERIVATIVE_CONTEXT[-1]
+    return _SPATIAL_DERIVATIVE_CONTEXT[-1]
+
+
+@contextmanager
+def functional_derivative_evaluation(order=1):
+    _FUNCTIONAL_DERIVATIVE_CONTEXT.append(order)
+    try:
+        yield None
+    finally:
+        assert _FUNCTIONAL_DERIVATIVE_CONTEXT.pop(-1) == order
+
+
+def get_functional_derivative_order():
+    """
+    Operations that do not define a first or higher-order derivative may use slower alternative code paths when the derivative is `>0`.
+    This is set when calling a function created by `math.functional_gradient()` or `math.hessian()`.
+    """
+    return _FUNCTIONAL_DERIVATIVE_CONTEXT[-1]
+

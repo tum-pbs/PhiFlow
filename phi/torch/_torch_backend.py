@@ -278,6 +278,8 @@ class TorchBackend(Backend):
 
     def grid_sample(self, grid, coordinates, extrapolation='constant'):
         assert extrapolation in ('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect'), extrapolation
+        if get_functional_derivative_order() > 1:
+            return NotImplemented  # PyTorch's grid_sample operator does not define higher-order derivatives
         extrapolation = {'undefined': 'zeros', 'zeros': 'zeros', 'boundary': 'border', 'reflect': 'reflection'}.get(extrapolation, None)
         if extrapolation is None:
             return NotImplemented
