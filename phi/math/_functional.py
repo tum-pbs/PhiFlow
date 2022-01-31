@@ -526,7 +526,7 @@ class HessianFunction:
     def _track_wrt_natives(wrt_tensors, values):
         wrt_natives = []
         for i, value in enumerate(values):
-            wrt_natives.extend([i] * len(value._natives()))
+            wrt_natives.extend([i] * len(cached(value)._natives()))
         return [n_i for n_i, t_i in enumerate(wrt_natives) if t_i in wrt_tensors]
 
 
@@ -1535,6 +1535,8 @@ def attach_gradient_solve(forward_solve: Callable):
         grad_solve = solve.gradient_solve
         x0 = grad_solve.x0 if grad_solve.x0 is not None else zeros_like(solve.x0)
         grad_solve_ = copy_with(solve.gradient_solve, x0=x0)
+        if 'is_backprop' in kwargs:
+            del kwargs['is_backprop']
         dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)
         return (dy, None, *([None] * len(matrix)))  # this should hopefully result in implicit gradients for higher orders as well
     solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve)

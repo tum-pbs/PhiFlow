@@ -1037,7 +1037,7 @@ def channel(*args, **dims: int or str):
         raise AssertionError(f"channel() must be called either as a selector channel(Shape) or channel(Tensor) or as a constructor channel(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def batch(*args, **dims: int):
+def batch(*args, **dims: int or str):
     """
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
@@ -1179,6 +1179,8 @@ def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, 
 
 
 def _size_equal(s1, s2):
+    if s1 is None:
+        return s2 is None
     if isinstance(s1, int):
         return isinstance(s2, int) and s2 == s1
     else:

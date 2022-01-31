@@ -11,7 +11,7 @@ import torch.nn.functional as torchf
 
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice
-from phi.math.backend._backend import combined_dim, SolveResult
+from phi.math.backend._backend import combined_dim, SolveResult, get_functional_derivative_order
 
 
 class TorchBackend(Backend):
@@ -378,6 +378,7 @@ class TorchBackend(Backend):
         return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        a, b = self.auto_cast(a, b)
         return torch.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):

@@ -1658,7 +1658,7 @@ def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
             return TensorStack(inners, t.stack_dim)
         else:
             natives = [t.native(order=t.shape.names) for t in inners]
-            native = choose_backend(*natives).concat(natives, axis=t.shape.index(t.stack_dim.name))
+            native = choose_backend(*natives).stack(natives, axis=t.shape.index(t.stack_dim.name))
             return NativeTensor(native, t.shape)
     elif isinstance(t, TensorLike):
         tree, tensors = disassemble_tree(t)
