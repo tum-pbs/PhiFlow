@@ -10,7 +10,7 @@ import numpy as np
 
 from . import extrapolation as e_
 from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, INSTANCE_DIM, Shape, EMPTY_SHAPE,
-                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes)
+                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes, ShapeMismatch)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
     assemble_tensors, disassemble_tree, assemble_tree, value_attributes
@@ -213,7 +213,10 @@ def reshaped_tensor(value: Any,
     """
     assert all(isinstance(g, Shape) for g in groups), "groups must be a sequence of Shapes"
     dims = [batch(f'group{i}') for i, group in enumerate(groups)]
-    value = tensor(value, *dims, convert=convert)
+    try:
+        value = tensor(value, *dims, convert=convert)
+    except ShapeMismatch:
+        raise ShapeMismatch(f"Cannot reshape native tensor with sizes {value.shape} given groups {groups}")
     for i, group in enumerate(groups):
         if value.shape.get_size(f'group{i}') == group.volume:
             value = unpack_dims(value, f'group{i}', group)

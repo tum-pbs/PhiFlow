@@ -1254,3 +1254,10 @@ def vector_add(*shapes: Shape):
     sizes = [sum(sh.get_size(dim) if dim in sh else 0 for sh in shapes) for dim in names]
     return Shape(tuple(sizes), names, types, item_names)
 
+
+class ShapeMismatch(ValueError):
+    """
+    Raised when the shape of a tensors does not match the other arguments.
+    """
+    def __init__(self, *args):
+        super().__init__(self, *args)

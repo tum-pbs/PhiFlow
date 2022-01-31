@@ -1294,7 +1294,8 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         else:
             # fill in sizes or check them
             sizes = backend.staticshape(data)
-            assert len(sizes) == len(shape), f"Rank of given shape {shape} does not match data with sizes {sizes}"
+            if len(sizes) != len(shape):
+                raise ShapeMismatch(f"Rank of given shape {shape} does not match data with sizes {sizes}")
             for size, s in zip(sizes, shape.sizes):
                 if s is not None:
                     assert s == size, f"Given shape {shape} does not match data with sizes {sizes}. Consider leaving the sizes undefined."
