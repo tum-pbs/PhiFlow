@@ -646,6 +646,7 @@ class TorchBackend(Backend):
 
     def _prepare_graph_inputs(self, args: tuple, wrt: tuple or list):
         args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
+        args = [self.to_float(arg) if self.dtype(arg).kind == int else arg for arg in args]
         for i, arg in enumerate(args):
             if self.is_tensor(arg, True) and arg.requires_grad and not arg.is_leaf:
                 arg = torch.clone(arg).detach()
@@ -734,9 +735,8 @@ class TorchBackend(Backend):
             args, wrt_args = self._prepare_graph_inputs(args, wrt)
             output = f(*args)
             loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            if loss.ndim > 0:
-                loss = loss.sum()
-            grads = torch.autograd.grad(loss, wrt_args, create_graph=True, retain_graph=True)  # grad() cannot be called during jit trace
+            scalar_loss = loss.sum() if loss.ndim > 0 else loss
+            grads = torch.autograd.grad(scalar_loss, wrt_args, create_graph=True, retain_graph=True)  # grad() cannot be called during jit trace
             hessian = []
             for grad in grads:
                 hessian.append([[] for _ in grads])
@@ -749,7 +749,12 @@ class TorchBackend(Backend):
                         hessian[-1][i].append(h_)
             for col in hessian:
                 for i, row in enumerate(col):
-                    col[i] = torch.stack(row, dim=1)
+                    if len(row) > 1:
+                        col[i] = torch.stack(row, dim=1)
+                    else:
+                        col[i] = row[0]
+                    h_shape = tuple(grads[i].shape) + tuple(grads[i].shape[1:])
+                    col[i] = torch.reshape(col[i], h_shape)
 
             result = ()
             if get_output:

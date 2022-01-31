@@ -13,7 +13,7 @@ from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
 from ._tensors import Tensor, NativeTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
 from .backend import choose_backend, Backend
-from .backend._backend import SolveResult, get_spatial_derivative_order
+from .backend._backend import SolveResult, get_spatial_derivative_order, functional_derivative_evaluation
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -434,11 +434,13 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True)
 
 class HessianFunction:
 
-    def __init__(self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool, jit=False):
+    def __init__(self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool, dim_suffixes: tuple, jit=False):
+        assert isinstance(dim_suffixes, tuple) and len(dim_suffixes) == 2
         self.f = f
         self.wrt = wrt
         self.get_output = get_output
         self.get_gradient = get_gradient
+        self.dim_suffixes = dim_suffixes
         self.grads: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
         self.jit = jit
@@ -477,6 +479,8 @@ class HessianFunction:
         result = ()
         if self.get_output:
             output_tensors = assemble_tensors(native_result[0], output_key.shapes)
+            output_tensors = [math.unpack_dims(t, 'batch', batch_shape) for t in output_tensors]
+            # output_tensors = [math.reshaped_tensor(n, [batch_shape, *shape.non_batch]) for n, shape in zip(native_result[0], output_key.shapes)]
             result += assemble_tree(output_key.tree, output_tensors),
         if self.get_gradient:
             grad_tensors = assemble_tensors(native_result[int(self.get_output)], [key.shapes[i] for i in wrt_tensors])
@@ -487,7 +491,7 @@ class HessianFunction:
             result += grads,
         if len(wrt_natives) == 1:
             native_hessian = native_result[-1][0][0]
-            hessian_tensor = math.reshaped_tensor(native_hessian, [batch_shape, *key.shapes[0].non_batch, *self.dupli_shape(key.shapes[0].non_batch)], check_sizes=True)
+            hessian_tensor = math.reshaped_tensor(native_hessian, [batch_shape, *self.shape_with_suffixes(key.shapes[0].non_batch, self.dim_suffixes[0]), *self.shape_with_suffixes(key.shapes[0].non_batch, self.dim_suffixes[1])], check_sizes=True)
             result += assemble_tree(key.tree[0], [hessian_tensor]),
         else:
             assert all([t is None for t in key.tree]), "When computing the Hessian w.r.t. multiple tensors, all inputs must be Tensors."
@@ -501,8 +505,8 @@ class HessianFunction:
             result += tuple([tuple(col) for col in hessian_tree]),
         return result
 
-    def dupli_shape(self, shape: Shape):
-        return shape._with_names([n+'_' for n in shape.names])
+    def shape_with_suffixes(self, shape: Shape, suffix: str):
+        return shape._with_names([n+suffix for n in shape.names])
 
     def __repr__(self):
         return f"grad({self.f.__name__})"
@@ -526,7 +530,7 @@ class HessianFunction:
         return [n_i for n_i, t_i in enumerate(wrt_natives) if t_i in wrt_tensors]
 
 
-def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradient=True) -> Callable:
+def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradient=True, dim_suffixes=('', '_')) -> Callable:
     """
     Creates a function which computes the Hessian (second derivative) of `f`.
 
@@ -551,15 +555,20 @@ def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradien
             `f` must return a floating point `Tensor` with rank zero.
             It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
             All arguments for which the gradient is computed must be of dtype float or complex.
-        get_output: Whether the Hessian function should also return the return values of `f`.
-        get_gradient: Whether the Hessian function should also return the gradient of `f`.
         wrt: Arguments of `f` with respect to which the gradient should be computed.
             Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+        get_output: Whether the Hessian function should also return the return values of `f`.
+        get_gradient: Whether the Hessian function should also return the gradient of `f`.
+        dim_suffixes: `tuple` containing two strings.
+            All Non-batch dimensions of the parameters occur twice in the corresponding Hessian.
+            To avoid duplicate names, suffixes are added to non-batch dimensions.
+            The dimensions from the first derivative computation are appended with `dim_suffixes[0]` and the second ones with `dim_suffixes[1]`.
+            This argument has no effect on the dimension names of the gradient if `get_gradient=True`.
 
     Returns:
         Function with the same arguments as `f` that returns `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
     """
-    return HessianFunction(f, wrt, get_output, get_gradient)
+    return HessianFunction(f, wrt, get_output, get_gradient, dim_suffixes)
 
 
 class CustomGradientFunction:
