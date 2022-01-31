@@ -37,7 +37,7 @@ from ._ops import (
     abs_ as abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
-    sqrt, exp, sin, cos, tan, log, log2, log10, sigmoid,
+    sqrt, exp, sin, cos, tan, log, log2, log10, sigmoid, arcsin, arccos,
     to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
     degrees,
     boolean_mask,

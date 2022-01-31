@@ -120,7 +120,9 @@ class TorchBackend(Backend):
     sqrt = torch.sqrt
     exp = torch.exp
     sin = torch.sin
+    arcsin = torch.arcsin
     cos = torch.cos
+    arccos = torch.arccos
     tan = torch.tan
     log = torch.log
     log2 = torch.log2

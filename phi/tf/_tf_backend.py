@@ -403,17 +403,13 @@ class TFBackend(Backend):
         else:
             return tf.cast(x, to_numpy_dtype(dtype))
 
-    def sin(self, x):
-        return tf.math.sin(x)
-
-    def cos(self, x):
-        return tf.math.cos(x)
-
-    def tan(self, x):
-        return tf.math.tan(x)
-
-    def log(self, x):
-        return tf.math.log(x)
+    sin = tf.math.sin
+    arcsin = tf.math.asin
+    cos = tf.math.cos
+    arccos = tf.math.acos
+    tan = tf.math.tan
+    log = tf.math.log
+    sigmoid = tf.math.sigmoid
 
     def log2(self, x):
         return tf.math.log(x) / 0.6931471805599453094  # log(x) / log(2)

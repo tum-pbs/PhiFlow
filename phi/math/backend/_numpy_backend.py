@@ -47,7 +47,9 @@ class NumPyBackend(Backend):
     sqrt = np.sqrt
     exp = np.exp
     sin = np.sin
+    arcsin = np.arcsin
     cos = np.cos
+    arccos = np.arccos
     tan = np.tan
     log = np.log
     log2 = np.log2

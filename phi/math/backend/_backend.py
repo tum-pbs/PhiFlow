@@ -670,7 +670,13 @@ class Backend:
     def sin(self, x):
         raise NotImplementedError(self)
 
+    def arcsin(self, x):
+        raise NotImplementedError(self)
+
     def cos(self, x):
+        raise NotImplementedError(self)
+
+    def arccos(self, x):
         raise NotImplementedError(self)
 
     def tan(self, x):

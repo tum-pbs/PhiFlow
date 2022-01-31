@@ -1570,12 +1570,26 @@ def sin(x) -> Tensor or TensorLike:
     return _backend_op1(x, Backend.sin)
 
 
-def cos(x) -> Tensor:
+def arcsin(x) -> Tensor or TensorLike:
+    """ Computes the inverse of *sin(x)* of the `Tensor` or `TensorLike` `x`.
+    For real arguments, the result lies in the range [-π/2, π/2].
+    """
+    return _backend_op1(x, Backend.arcsin)
+
+
+def cos(x) -> Tensor or TensorLike:
     """ Computes *cos(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.cos)
 
 
-def tan(x) -> Tensor:
+def arccos(x) -> Tensor or TensorLike:
+    """ Computes the inverse of *cos(x)* of the `Tensor` or `TensorLike` `x`.
+    For real arguments, the result lies in the range [0, π].
+    """
+    return _backend_op1(x, Backend.cos)
+
+
+def tan(x) -> Tensor or TensorLike:
     """ Computes *tan(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.tan)
 
