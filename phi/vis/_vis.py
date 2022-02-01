@@ -157,10 +157,12 @@ def control(value, range: tuple = None, description="", **kwargs):
 
     Example:
     ```python
-    dt = control(1.0, (0.1, 10), name="Time increment")
+    dt = control(1.0, (0.1, 10), name="Time increment (dt)")
     ```
 
-    The value o
+    This will cause a control component (slider, checkbox, text field, etc.) to be generated in the user interface.
+    Changes to that component will immediately be reflected in the Python variable assigned to the control.
+    The Python variable will always hold a primitive type, such as `int`, `float´, `bool` or `str`.
 
     Args:
         value: Initial value. Must be either `int`, `float´, `bool` or `str`.
