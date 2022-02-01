@@ -14472,6 +14472,11 @@ a.anchor-link {
   overflow: hidden;
 }
 
+.CodeMirror pre {
+  margin: 0;
+  padding: 0;
+}
+
 /* Using table instead of flexbox so that we can use break-inside property */
 /* CSS rules under this comment should not be required anymore after we move to the JupyterLab 4.0 CSS */
 
@@ -14562,7 +14567,10 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
     <!-- End of mathjax configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
 
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <h1 id="Staggered-grids">Staggered grids<a class="anchor-link" href="#Staggered-grids">&#182;</a></h1><p><a href="https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Staggered_Grids.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Google Collab Book"></a></p>
@@ -14578,6 +14586,7 @@ They have the same properties as <code>CenteredGrid</code> but the <code>values<
 <a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">non-uniform tensor</a>
 to reflect the varying number of x, y and z sample points.</p>
 
+</div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
@@ -14626,7 +14635,10 @@ to reflect the varying number of x, y and z sample points.</p>
 </div>
 
 </div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <p>Here, each component of the values tensor has one more sample point in the direction it is facing.
@@ -14635,7 +14647,11 @@ If the extrapolation was <code>extrapolation.ZERO</code>, it would be one less (
 </div>
 </div>
 </div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <h2 id="Creating-Staggered-Grids">Creating Staggered Grids<a class="anchor-link" href="#Creating-Staggered-Grids">&#182;</a></h2><p>The <a href="phi/field/#phi.field.StaggeredGrid"><code>StaggeredGrid</code> constructor</a> supports two modes:</p>
@@ -14649,6 +14665,7 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 </ul>
 <p>Examples:</p>
 
+</div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
@@ -14675,7 +14692,10 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 </div>
 
 </div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <p>Staggered grids can also be created from other fields using <code>field.at()</code> or <code>@</code> by passing an existing <code>StaggeredGrid</code>.</p>
@@ -14688,7 +14708,11 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 </div>
 </div>
 </div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <h2 id="Values-Tensor">Values Tensor<a class="anchor-link" href="#Values-Tensor">&#182;</a></h2><p>For non-periodic staggered grids, the <code>values</code> tensor is <a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">non-uniform</a>
@@ -14702,12 +14726,17 @@ to reflect the different number of sample points for each component.</p>
 </div>
 </div>
 </div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <h2 id="Slicing">Slicing<a class="anchor-link" href="#Slicing">&#182;</a></h2><p>Like tensors, grids can be sliced using the standard syntax.
 When selecting a vector component, such as <code>x</code> or <code>y</code>, the result is represented as a <code>CenteredGrid</code> with shifted locations.</p>
 
+</div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
@@ -14752,13 +14781,17 @@ When selecting a vector component, such as <code>x</code> or <code>y</code>, the
 </div>
 
 </div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <p>Slicing spatial dimensions on grids is different from slicing the <code>values</code> tensor directly.
 Here, a sub-grid is selected.
 The number of sample points depends on the grid type and extrapolation.</p>
 
+</div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
@@ -14794,22 +14827,25 @@ The number of sample points depends on the grid type and extrapolation.</p>
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
-<span class="ansi-green-fg">/tmp/ipykernel_1874/2483753494.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
-<span class="ansi-green-fg">----&gt; 1</span><span class="ansi-red-fg"> </span>grid<span class="ansi-blue-fg">.</span>x<span class="ansi-blue-fg">[</span><span class="ansi-cyan-fg">3</span><span class="ansi-blue-fg">:</span><span class="ansi-cyan-fg">4</span><span class="ansi-blue-fg">]</span>  <span class="ansi-red-fg"># spatial slice</span>
+Input <span class="ansi-green-fg">In [4]</span>, in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-yellow-bg">grid</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">3</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">4</span><span class="ansi-yellow-bg">]</span>
 
-<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_field.py</span> in <span class="ansi-cyan-fg">__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    389</span>         <span class="ansi-green-fg">if</span> isinstance<span class="ansi-blue-fg">(</span>item<span class="ansi-blue-fg">,</span> str<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
-<span class="ansi-green-intense-fg ansi-bold">    390</span>             item <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>field<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">.</span>spatial<span class="ansi-blue-fg">.</span>index<span class="ansi-blue-fg">(</span>item<span class="ansi-blue-fg">)</span>
-<span class="ansi-green-fg">--&gt; 391</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>field<span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">{</span>self<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">:</span> item<span class="ansi-blue-fg">}</span><span class="ansi-blue-fg">]</span>
-<span class="ansi-green-intense-fg ansi-bold">    392</span> 
-<span class="ansi-green-intense-fg ansi-bold">    393</span>     <span class="ansi-green-fg">def</span> __call__<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">*</span>args<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">**</span>kwargs<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_field.py:391</span>, in <span class="ansi-cyan-fg">_FieldDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    389</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(item, <span style="color: rgb(0,135,0)">str</span>):
+<span class="ansi-green-intense-fg ansi-bold">    390</span>     item <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>field<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>index(item)
+<span class="ansi-green-fg">--&gt; 391</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">field</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">{</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">name</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">item</span><span class="ansi-yellow-bg">}</span><span class="ansi-yellow-bg">]</span>
 
-<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py</span> in <span class="ansi-cyan-fg">__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    342</span>         <span class="ansi-green-fg">for</span> dim<span class="ansi-blue-fg">,</span> sel <span class="ansi-green-fg">in</span> item<span class="ansi-blue-fg">.</span>items<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
-<span class="ansi-green-intense-fg ansi-bold">    343</span>             <span class="ansi-green-fg">if</span> dim <span class="ansi-green-fg">in</span> self<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">.</span>spatial<span class="ansi-blue-fg">:</span>
-<span class="ansi-green-fg">--&gt; 344</span><span class="ansi-red-fg">                 </span><span class="ansi-green-fg">raise</span> AssertionError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;Cannot slice StaggeredGrid along spatial dimensions.&#34;</span><span class="ansi-blue-fg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">    345</span>                 <span class="ansi-red-fg"># sel = slice(sel, sel + 1) if isinstance(sel, int) else sel</span>
-<span class="ansi-green-intense-fg ansi-bold">    346</span>                 <span class="ansi-red-fg"># values = []</span>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py:344</span>, in <span class="ansi-cyan-fg">StaggeredGrid.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    342</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> dim, sel <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> item<span style="color: rgb(98,98,98)">.</span>items():
+<span class="ansi-green-intense-fg ansi-bold">    343</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> dim <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial:
+<span class="ansi-green-fg">--&gt; 344</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">AssertionError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Cannot slice StaggeredGrid along spatial dimensions.</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-intense-fg ansi-bold">    345</span>         <span style="color: rgb(95,135,135)"># sel = slice(sel, sel + 1) if isinstance(sel, int) else sel</span>
+<span class="ansi-green-intense-fg ansi-bold">    346</span>         <span style="color: rgb(95,135,135)"># values = []</span>
+<span class="ansi-green-intense-fg ansi-bold">    347</span>         <span style="color: rgb(95,135,135)"># for vdim, val in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):</span>
+<span class="ansi-green-fg">   (...)</span>
+<span class="ansi-green-intense-fg ansi-bold">    351</span>         <span style="color: rgb(95,135,135)">#         values.append(val[{dim: sel}])</span>
+<span class="ansi-green-intense-fg ansi-bold">    352</span>         <span style="color: rgb(95,135,135)"># values = math.stack(values, channel(&#39;vector&#39;))</span>
+<span class="ansi-green-intense-fg ansi-bold">    353</span> extrapolation <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_extrapolation[item]
 
 <span class="ansi-red-fg">AssertionError</span>: Cannot slice StaggeredGrid along spatial dimensions.</pre>
 </div>
@@ -14852,22 +14888,25 @@ The number of sample points depends on the grid type and extrapolation.</p>
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
-<span class="ansi-green-fg">/tmp/ipykernel_1874/2992262166.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
-<span class="ansi-green-fg">----&gt; 1</span><span class="ansi-red-fg"> </span>grid<span class="ansi-blue-fg">.</span>x<span class="ansi-blue-fg">[</span><span class="ansi-cyan-fg">0</span><span class="ansi-blue-fg">]</span>  <span class="ansi-red-fg"># spatial slice</span>
+Input <span class="ansi-green-fg">In [5]</span>, in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-yellow-bg">grid</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">]</span>
 
-<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_field.py</span> in <span class="ansi-cyan-fg">__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    389</span>         <span class="ansi-green-fg">if</span> isinstance<span class="ansi-blue-fg">(</span>item<span class="ansi-blue-fg">,</span> str<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
-<span class="ansi-green-intense-fg ansi-bold">    390</span>             item <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>field<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">.</span>spatial<span class="ansi-blue-fg">.</span>index<span class="ansi-blue-fg">(</span>item<span class="ansi-blue-fg">)</span>
-<span class="ansi-green-fg">--&gt; 391</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>field<span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">{</span>self<span class="ansi-blue-fg">.</span>name<span class="ansi-blue-fg">:</span> item<span class="ansi-blue-fg">}</span><span class="ansi-blue-fg">]</span>
-<span class="ansi-green-intense-fg ansi-bold">    392</span> 
-<span class="ansi-green-intense-fg ansi-bold">    393</span>     <span class="ansi-green-fg">def</span> __call__<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">*</span>args<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">**</span>kwargs<span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_field.py:391</span>, in <span class="ansi-cyan-fg">_FieldDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    389</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(item, <span style="color: rgb(0,135,0)">str</span>):
+<span class="ansi-green-intense-fg ansi-bold">    390</span>     item <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>field<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>index(item)
+<span class="ansi-green-fg">--&gt; 391</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">field</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">{</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">name</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">item</span><span class="ansi-yellow-bg">}</span><span class="ansi-yellow-bg">]</span>
 
-<span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py</span> in <span class="ansi-cyan-fg">__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    342</span>         <span class="ansi-green-fg">for</span> dim<span class="ansi-blue-fg">,</span> sel <span class="ansi-green-fg">in</span> item<span class="ansi-blue-fg">.</span>items<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
-<span class="ansi-green-intense-fg ansi-bold">    343</span>             <span class="ansi-green-fg">if</span> dim <span class="ansi-green-fg">in</span> self<span class="ansi-blue-fg">.</span>shape<span class="ansi-blue-fg">.</span>spatial<span class="ansi-blue-fg">:</span>
-<span class="ansi-green-fg">--&gt; 344</span><span class="ansi-red-fg">                 </span><span class="ansi-green-fg">raise</span> AssertionError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;Cannot slice StaggeredGrid along spatial dimensions.&#34;</span><span class="ansi-blue-fg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">    345</span>                 <span class="ansi-red-fg"># sel = slice(sel, sel + 1) if isinstance(sel, int) else sel</span>
-<span class="ansi-green-intense-fg ansi-bold">    346</span>                 <span class="ansi-red-fg"># values = []</span>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py:344</span>, in <span class="ansi-cyan-fg">StaggeredGrid.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    342</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> dim, sel <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> item<span style="color: rgb(98,98,98)">.</span>items():
+<span class="ansi-green-intense-fg ansi-bold">    343</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> dim <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial:
+<span class="ansi-green-fg">--&gt; 344</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">AssertionError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Cannot slice StaggeredGrid along spatial dimensions.</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-intense-fg ansi-bold">    345</span>         <span style="color: rgb(95,135,135)"># sel = slice(sel, sel + 1) if isinstance(sel, int) else sel</span>
+<span class="ansi-green-intense-fg ansi-bold">    346</span>         <span style="color: rgb(95,135,135)"># values = []</span>
+<span class="ansi-green-intense-fg ansi-bold">    347</span>         <span style="color: rgb(95,135,135)"># for vdim, val in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):</span>
+<span class="ansi-green-fg">   (...)</span>
+<span class="ansi-green-intense-fg ansi-bold">    351</span>         <span style="color: rgb(95,135,135)">#         values.append(val[{dim: sel}])</span>
+<span class="ansi-green-intense-fg ansi-bold">    352</span>         <span style="color: rgb(95,135,135)"># values = math.stack(values, channel(&#39;vector&#39;))</span>
+<span class="ansi-green-intense-fg ansi-bold">    353</span> extrapolation <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_extrapolation[item]
 
 <span class="ansi-red-fg">AssertionError</span>: Cannot slice StaggeredGrid along spatial dimensions.</pre>
 </div>
@@ -14878,11 +14917,15 @@ The number of sample points depends on the grid type and extrapolation.</p>
 </div>
 
 </div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <p>Slicing along batch dimensions has no special effect, this just slices the <code>values</code>.</p>
 
+</div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
@@ -14927,12 +14970,16 @@ The number of sample points depends on the grid type and extrapolation.</p>
 </div>
 
 </div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <p>Fields can also be sliced using <a href="phi/field/#phi.field.unstack"><code>unstack()</code></a>.
 This returns a <code>tuple</code> of all slices along a dimension.</p>
 
+</div>
 </div>
 </div>
 </div>

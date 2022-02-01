@@ -12,6 +12,7 @@
   Requirements, installation, CUDA compilation
 * [Contributing to Φ<sub>Flow</sub>](https://github.com/tum-pbs/PhiFlow/blob/develop/CONTRIBUTING.md):
   Style guide, docstrings, commit tags
+* [Cookbook](Cookbook.html): Example code snippets for various things
 
 | Module API  | Documentation                                        |
 |-------------|------------------------------------------------------|

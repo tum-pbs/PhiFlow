@@ -170,9 +170,11 @@ __pdoc__ = {
 <dd>
 <div class="desc"><p>Mark a variable as controllable by any GUI created via <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
 <p>Example:</p>
-<pre><code class="language-python">dt = control(1.0, (0.1, 10), name=&quot;Time increment&quot;)
+<pre><code class="language-python">dt = control(1.0, (0.1, 10), name=&quot;Time increment (dt)&quot;)
 </code></pre>
-<p>The value o</p>
+<p>This will cause a control component (slider, checkbox, text field, etc.) to be generated in the user interface.
+Changes to that component will immediately be reflected in the Python variable assigned to the control.
+The Python variable will always hold a primitive type, such as <code>int</code>, <code>float´,</code>bool<code> or </code>str`.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
@@ -197,10 +199,12 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 
     Example:
     ```python
-    dt = control(1.0, (0.1, 10), name=&#34;Time increment&#34;)
+    dt = control(1.0, (0.1, 10), name=&#34;Time increment (dt)&#34;)
     ```
 
-    The value o
+    This will cause a control component (slider, checkbox, text field, etc.) to be generated in the user interface.
+    Changes to that component will immediately be reflected in the Python variable assigned to the control.
+    The Python variable will always hold a primitive type, such as `int`, `float´, `bool` or `str`.
 
     Args:
         value: Initial value. Must be either `int`, `float´, `bool` or `str`.
@@ -305,7 +309,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid='y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default')</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: str = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default')</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -358,7 +362,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                  size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
-                 grid=&#39;y&#39;,
+                 grid: str or dict = &#39;y&#39;,
                  log_scale=&#39;&#39;,
                  legend=&#39;upper right&#39;,
                  x=&#39;steps&#39;,
@@ -427,7 +431,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0
-        if titles:
+        if titles is not None and titles is not False:
             if isinstance(titles, str):
                 axis.set_title(titles)
             elif names_equal:
@@ -457,6 +461,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
                 assert x == &#39;time&#39;, f&#34;x must be &#39;steps&#39; or &#39;time&#39; but got {x}&#34;
                 logging.debug(f&#34;Reading {os.path.join(path, &#39;log_step_time.txt&#39;)}&#34;)
                 _, x_values, *_ = numpy.loadtxt(os.path.join(path, &#34;log_step_time.txt&#34;)).T
+                values = values[:len(x_values)]
                 x_values = np.cumsum(x_values[:len(values)])
             if transform:
                 x_values, values = transform(np.stack([x_values, values]))
@@ -472,8 +477,11 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
             axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
             axis.plot(*smooth_uniform_curve(x_values, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
             if grid:
-                grid_axis = &#39;both&#39; if &#39;x&#39; in grid and &#39;y&#39; in grid else grid
-                axis.grid(which=&#39;both&#39;, axis=grid_axis, linestyle=&#39;--&#39;)
+                if isinstance(grid, dict):
+                    axis.grid(**grid)
+                else:
+                    grid_axis = &#39;both&#39; if &#39;x&#39; in grid and &#39;y&#39; in grid else grid
+                    axis.grid(which=&#39;both&#39;, axis=grid_axis, linestyle=&#39;--&#39;, linewidth=size[1] * 0.3)
             if &#39;x&#39; in log_scale:
                 axis.set_xscale(&#39;log&#39;)
             if &#39;y&#39; in log_scale:
@@ -574,7 +582,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
-<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = False, keep_alive=True, select: str = '', framerate=None, namespace=None, **config) ‑> phi.vis._viewer.Viewer</span>
+<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = False, keep_alive=True, select: str = '', framerate=None, namespace=None, log_performance=True, **config) ‑> phi.vis._viewer.Viewer</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show <code>fields</code> in a graphical user interface.</p>
@@ -611,6 +619,9 @@ Will be generated from the top-level script if not provided.</dd>
 <dd>Dimension names along which one item to show is selected.
 Dimensions may be passed as <code>tuple</code> of <code>str</code> or as comma-separated names in a single <code>str</code>.
 For each <code>select</code> dimension, an associated selection slider will be created.</dd>
+<dt><strong><code>log_performance</code></strong></dt>
+<dd>Whether to measure and log the time each step takes.
+If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step_time.txt</code>.</dd>
 <dt><strong><code>**config</code></strong></dt>
 <dd>Additional GUI configuration arguments.</dd>
 </dl>
@@ -630,6 +641,7 @@ For each <code>select</code> dimension, an associated selection slider will be c
          select: str or tuple or list = &#39;&#39;,
          framerate=None,
          namespace=None,
+         log_performance=True,
          **config) -&gt; Viewer:
     &#34;&#34;&#34;
     Show `fields` in a graphical user interface.
@@ -659,6 +671,8 @@ For each <code>select</code> dimension, an associated selection slider will be c
         select: Dimension names along which one item to show is selected.
             Dimensions may be passed as `tuple` of `str` or as comma-separated names in a single `str`.
             For each `select` dimension, an associated selection slider will be created.
+        log_performance: Whether to measure and log the time each step takes.
+            If `True`, will be logged as `step_time` to `log_step_time.txt`.
         **config: Additional GUI configuration arguments.
 
     Returns:
@@ -681,7 +695,7 @@ For each <code>select</code> dimension, an associated selection slider will be c
     gui = default_gui() if gui is None else get_gui(gui)
     controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if user_namespace.get_variable(c.name) is not None)
     CONTROL_VARS.clear()
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, actions=actions, log_performance=True)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, actions=actions, log_performance=log_performance)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer</code></pre>
 </details>

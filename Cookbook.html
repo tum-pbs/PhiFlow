@@ -3,7 +3,7 @@
 <head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Math_Introduction</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>Cookbook</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 
 
 
@@ -14573,12 +14573,11 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h1 id="Introduction-to-%CE%A6.math">Introduction to <code>&#934;.math</code><a class="anchor-link" href="#Introduction-to-%CE%A6.math">&#182;</a></h1><p><a href="https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Math_Introduction.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Google Collab Book"></a></p>
-
+<h1 id="Import-for-NumPy,-TensorFlow,-PyTorch,-Jax">Import for NumPy, TensorFlow, PyTorch, Jax<a class="anchor-link" href="#Import-for-NumPy,-TensorFlow,-PyTorch,-Jax">&#182;</a></h1>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -14586,15 +14585,40 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="c1"># !pip install --quiet phiflow</span>
-
-<span class="kn">from</span> <span class="nn">phi</span> <span class="kn">import</span> <span class="n">math</span>
-<span class="kn">from</span> <span class="nn">phi.math</span> <span class="kn">import</span> <span class="n">spatial</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">instance</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">wrap</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="kn">from</span> <span class="nn">phi.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">phi.tf.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">phi.torch.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">phi.jax.flow</span> <span class="kn">import</span> <span class="o">*</span>
 </pre></div>
 
      </div>
 </div>
 </div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>2022-02-01 14:07:12.456114: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
+2022-02-01 14:07:12.456152: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+</pre>
+</div>
+</div>
+
+</div>
+
 </div>
 
 </div>
@@ -14604,7 +14628,9 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h2 id="Shapes-and-Dimension-Types">Shapes and Dimension Types<a class="anchor-link" href="#Shapes-and-Dimension-Types">&#182;</a></h2>
+<h1 id="Construct-StaggeredGrid-from-NumPy-Arrays">Construct <code>StaggeredGrid</code> from NumPy Arrays<a class="anchor-link" href="#Construct-StaggeredGrid-from-NumPy-Arrays">&#182;</a></h1><p>Given matching arrays <code>vx</code> and <code>vy</code>, we can construct a <code>StaggeredGrid</code>.
+Note that the shapes of the arrays must match the extrapolation!</p>
+
 </div>
 </div>
 </div>
@@ -14616,7 +14642,17 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[2]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">vx</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">33</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<span class="n">vy</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">33</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;vector&#39;</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">)</span>
+
+<span class="n">vx</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<span class="n">vy</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;vector&#39;</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">PERIODIC</span><span class="p">)</span>
+
+<span class="n">vx</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">31</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<span class="n">vy</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">31</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;vector&#39;</span><span class="p">)),</span> <span class="mi">0</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -14640,29 +14676,13 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>(xˢ=4, yˢ=3)</pre>
+<pre>StaggeredGrid[(xˢ=32, yˢ=32, vectorᶜ=2), size=(32, 32), extrapolation=0]</pre>
 </div>
 
 </div>
 
 </div>
 
-</div>
-
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
-<div class="jp-Cell-inputWrapper">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-     <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
-</pre></div>
-
-     </div>
-</div>
-</div>
 </div>
 
 </div>

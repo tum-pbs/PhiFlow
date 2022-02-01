@@ -53,7 +53,7 @@ from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes
+from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes, ShapeMismatch
 from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict
 from .extrapolation import Extrapolation
 from ._ops import (
@@ -73,8 +73,9 @@ from ._ops import (
     abs_ as abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
-    sqrt, exp, sin, cos, tan, log, log2, log10, sigmoid,
+    sqrt, exp, sin, cos, tan, log, log2, log10, sigmoid, arcsin, arccos,
     to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
+    degrees,
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,
@@ -85,7 +86,7 @@ from ._ops import (
 )
 from ._nd import (
     shift,
-    vec_abs, vec_squared, vec_normalize, cross_product, rotate_vector,
+    vec_abs, vec_abs as vec_length, vec_squared, vec_normalize, cross_product, rotate_vector,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
@@ -95,8 +96,9 @@ from ._nd import (
 )
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
-    functional_gradient, custom_gradient, print_gradient,
+    functional_gradient, functional_gradient as gradient, custom_gradient, print_gradient, hessian,
     solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
+    map_types, map_s2b,
 )
 
 
@@ -173,7 +175,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs_(x) -&gt; Tensor:
+<pre><code class="python">def abs_(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     Computes *||x||&lt;sub&gt;1&lt;/sub&gt;*.
     Complex `x` result in matching precision float values.
@@ -378,6 +380,40 @@ Tracing placeholders are considered not available, even when they hold example v
     return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.any(native, dim))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.arccos"><code class="name flex">
+<span>def <span class="ident">arccos</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the inverse of <em>cos(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> <code>x</code>.
+For real arguments, the result lies in the range [0, π].</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def arccos(x) -&gt; Tensor or TensorLike:
+    &#34;&#34;&#34; Computes the inverse of *cos(x)* of the `Tensor` or `TensorLike` `x`.
+    For real arguments, the result lies in the range [0, π].
+    &#34;&#34;&#34;
+    return _backend_op1(x, Backend.cos)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.arcsin"><code class="name flex">
+<span>def <span class="ident">arcsin</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the inverse of <em>sin(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> <code>x</code>.
+For real arguments, the result lies in the range [-π/2, π/2].</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def arcsin(x) -&gt; Tensor or TensorLike:
+    &#34;&#34;&#34; Computes the inverse of *sin(x)* of the `Tensor` or `TensorLike` `x`.
+    For real arguments, the result lies in the range [-π/2, π/2].
+    &#34;&#34;&#34;
+    return _backend_op1(x, Backend.arcsin)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.assert_close"><code class="name flex">
 <span>def <span class="ident">assert_close</span></span>(<span>*values, rel_tolerance: float = 1e-05, abs_tolerance: float = 0, msg: str = '', verbose: bool = True)</span>
 </code></dt>
@@ -477,7 +513,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def batch(*args, **dims: int):
+<pre><code class="python">def batch(*args, **dims: int or str):
     &#34;&#34;&#34;
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
@@ -649,7 +685,7 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ceil(x) -&gt; Tensor:
+<pre><code class="python">def ceil(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *⌈x⌉* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.ceil)</code></pre>
 </details>
@@ -979,7 +1015,7 @@ The size along <code>dim</code> is determined from <code>values</code> and can b
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate(x) -&gt; Tensor:
+<pre><code class="python">def conjugate(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     See Also:
         `imag()`, `real()`.
@@ -1134,7 +1170,7 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cos(x) -&gt; Tensor:
+<pre><code class="python">def cos(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *cos(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.cos)</code></pre>
 </details>
@@ -1279,8 +1315,22 @@ Make sure to pass tensors without gradients if the gradient is not required, see
     return CustomGradientFunction(f, gradient)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.degrees"><code class="name flex">
+<span>def <span class="ident">degrees</span></span>(<span>deg)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert degrees to radians.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def degrees(deg):
+    &#34;&#34;&#34; Convert degrees to radians. &#34;&#34;&#34;
+    return deg * (3.1415 / 180.)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.divide_no_nan"><code class="name flex">
-<span>def <span class="ident">divide_no_nan</span></span>(<span>x: phi.math._tensors.Tensor, y: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">divide_no_nan</span></span>(<span>x: float, y: float)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>x/y</em> with the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>s <code>x</code> and <code>y</code> but returns 0 where <em>y=0</em>.</p></div>
@@ -1288,7 +1338,7 @@ Make sure to pass tensors without gradients if the gradient is not required, see
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def divide_no_nan(x: Tensor, y: Tensor):
+<pre><code class="python">def divide_no_nan(x: float or Tensor, y: float or Tensor):
     &#34;&#34;&#34; Computes *x/y* with the `Tensor`s `x` and `y` but returns 0 where *y=0*. &#34;&#34;&#34;
     return custom_op2(x, y,
                       l_operator=divide_no_nan,
@@ -1364,6 +1414,7 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
     remaining_shape_y = y.shape.without(y_dims)
     if remaining_shape_y.only(remaining_shape_x).is_empty:  # no shared batch dimensions -&gt; tensordot
         result_native = backend.tensordot(x_native, x.shape.indices(x_dims), y_native, y.shape.indices(y_dims))
+        result_shape = concat_shapes(remaining_shape_x, remaining_shape_y)
     else:  # shared batch dimensions -&gt; einsum
         REDUCE_LETTERS = list(&#39;ijklmn&#39;)
         KEEP_LETTERS = list(&#39;abcdefgh&#39;)
@@ -1375,14 +1426,14 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
             if dim in y_dims:
                 y_letters.append(REDUCE_LETTERS.pop(0))
             else:
-                if dim in x_letter_map:
+                if dim in x.shape and dim not in x_dims:
                     y_letters.append(x_letter_map[dim])
                 else:
                     y_letters.append(KEEP_LETTERS.pop(0))
         keep_letters = list(&#39;abcdefgh&#39;)[:-len(KEEP_LETTERS)]
         subscripts = f&#39;{&#34;&#34;.join(x_letters)},{&#34;&#34;.join(y_letters)}-&gt;{&#34;&#34;.join(keep_letters)}&#39;
         result_native = backend.einsum(subscripts, x_native, y_native)
-    result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))  # don&#39;t check group match
+        result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))  # don&#39;t check group match  ToDo the order might be incorrect here
     return NativeTensor(result_native, result_shape)</code></pre>
 </details>
 </dd>
@@ -1483,7 +1534,7 @@ The grid values at the new points are determined via mean (linear interpolation)
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def exp(x) -&gt; Tensor:
+<pre><code class="python">def exp(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *exp(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
@@ -1782,7 +1833,7 @@ The order of the values in memory is not changed.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def floor(x) -&gt; Tensor:
+<pre><code class="python">def floor(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *⌊x⌋* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.floor)</code></pre>
 </details>
@@ -2157,6 +2208,90 @@ The precision can be set globally using <code><a title="phi.math.set_global_prec
     return _PRECISION[-1]</code></pre>
 </details>
 </dd>
+<dt id="phi.math.gradient"><code class="name flex">
+<span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a function which computes the gradient of <code>f</code>.</p>
+<p>Example:</p>
+<pre><code class="language-python">def loss_function(x, y):
+    prediction = f(x)
+    loss = math.l2_loss(prediction - y)
+    return loss, prediction
+
+dx, = functional_gradient(loss_function, get_output=False)(x, y)
+
+(loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                    wrt=(0, 1), get_output=True)(x, y)
+</code></pre>
+<p>Functional gradients are implemented for the following backends:</p>
+<ul>
+<li>PyTorch: <a href="https://pytorch.org/docs/stable/autograd.html#torch.autograd.grad"><code>torch.autograd.grad</code></a> / <a href="https://pytorch.org/docs/stable/autograd.html#torch.autograd.backward"><code>torch.autograd.backward</code></a></li>
+<li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/GradientTape"><code>tf.GradientTape</code></a></li>
+<li>Jax: <a href="https://jax.readthedocs.io/en/latest/jax.html#jax.grad"><code>jax.grad</code></a></li>
+</ul>
+<p>When the gradient function is invoked, <code>f</code> is called with tensors that track the gradient.
+For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code>f</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function to be differentiated.
+<code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
+It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
+All arguments for which the gradient is computed must be of dtype float or complex.</dd>
+<dt><strong><code>get_output</code></strong></dt>
+<dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
+<dt><strong><code>wrt</code></strong></dt>
+<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
+Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the first argument of <code>f</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
+    &#34;&#34;&#34;
+    Creates a function which computes the gradient of `f`.
+
+    Example:
+    ```python
+    def loss_function(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    dx, = functional_gradient(loss_function, get_output=False)(x, y)
+
+    (loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                        wrt=(0, 1), get_output=True)(x, y)
+    ```
+
+    Functional gradients are implemented for the following backends:
+
+    * PyTorch: [`torch.autograd.grad`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.grad) / [`torch.autograd.backward`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.backward)
+    * TensorFlow: [`tf.GradientTape`](https://www.tensorflow.org/api_docs/python/tf/GradientTape)
+    * Jax: [`jax.grad`](https://jax.readthedocs.io/en/latest/jax.html#jax.grad)
+
+    When the gradient function is invoked, `f` is called with tensors that track the gradient.
+    For PyTorch, `arg.requires_grad = True` for all positional arguments of `f`.
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        get_output: Whether the gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+
+    Returns:
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
+    &#34;&#34;&#34;
+    return GradientFunction(f, wrt, get_output)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.gradients"><code class="name flex">
 <span>def <span class="ident">gradients</span></span>(<span>y: phi.math._tensors.Tensor, *x: phi.math._tensors.Tensor, grad_y: phi.math._tensors.Tensor = None)</span>
 </code></dt>
@@ -2253,6 +2388,92 @@ The size of the <code>vector</code> dimension must match the number of spatial d
     return result</code></pre>
 </details>
 </dd>
+<dt id="phi.math.hessian"><code class="name flex">
+<span>def <span class="ident">hessian</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True, get_gradient=True, dim_suffixes=('', '_')) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a function which computes the Hessian (second derivative) of <code>f</code>.</p>
+<p>Example:</p>
+<pre><code class="language-python">def loss_function(x, y):
+    prediction = f(x)
+    loss = math.l2_loss(prediction - y)
+    return loss, prediction
+
+hess, = functional_gradient(loss_function, get_output=False, get_gradient=False)(x, y)
+
+(loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = functional_gradient(loss_function,
+                                    wrt=(0, 1), get_output=True)(x, y)
+</code></pre>
+<p>When the gradient function is invoked, <code>f</code> is called with tensors that track the gradient.
+For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code>f</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function to be differentiated.
+<code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
+It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
+All arguments for which the gradient is computed must be of dtype float or complex.</dd>
+<dt><strong><code>wrt</code></strong></dt>
+<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
+Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the first argument of <code>f</code>.</dd>
+<dt><strong><code>get_output</code></strong></dt>
+<dd>Whether the Hessian function should also return the return values of <code>f</code>.</dd>
+<dt><strong><code>get_gradient</code></strong></dt>
+<dd>Whether the Hessian function should also return the gradient of <code>f</code>.</dd>
+<dt><strong><code>dim_suffixes</code></strong></dt>
+<dd><code>tuple</code> containing two strings.
+All Non-batch dimensions of the parameters occur twice in the corresponding Hessian.
+To avoid duplicate names, suffixes are added to non-batch dimensions.
+The dimensions from the first derivative computation are appended with <code>dim_suffixes[0]</code> and the second ones with <code>dim_suffixes[1]</code>.
+This argument has no effect on the dimension names of the gradient if <code>get_gradient=True</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Function with the same arguments as <code>f</code> that returns <code>(f(x), g(x), H(x))</code> or less depending on <code>get_output</code> and <code>get_gradient</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradient=True, dim_suffixes=(&#39;&#39;, &#39;_&#39;)) -&gt; Callable:
+    &#34;&#34;&#34;
+    Creates a function which computes the Hessian (second derivative) of `f`.
+
+    Example:
+    ```python
+    def loss_function(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    hess, = functional_gradient(loss_function, get_output=False, get_gradient=False)(x, y)
+
+    (loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = functional_gradient(loss_function,
+                                        wrt=(0, 1), get_output=True)(x, y)
+    ```
+
+    When the gradient function is invoked, `f` is called with tensors that track the gradient.
+    For PyTorch, `arg.requires_grad = True` for all positional arguments of `f`.
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+        get_output: Whether the Hessian function should also return the return values of `f`.
+        get_gradient: Whether the Hessian function should also return the gradient of `f`.
+        dim_suffixes: `tuple` containing two strings.
+            All Non-batch dimensions of the parameters occur twice in the corresponding Hessian.
+            To avoid duplicate names, suffixes are added to non-batch dimensions.
+            The dimensions from the first derivative computation are appended with `dim_suffixes[0]` and the second ones with `dim_suffixes[1]`.
+            This argument has no effect on the dimension names of the gradient if `get_gradient=True`.
+
+    Returns:
+        Function with the same arguments as `f` that returns `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
+    &#34;&#34;&#34;
+    return HessianFunction(f, wrt, get_output, get_gradient, dim_suffixes)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.ifft"><code class="name flex">
 <span>def <span class="ident">ifft</span></span>(<span>k: phi.math._tensors.Tensor, dims: str = None)</span>
 </code></dt>
@@ -2307,7 +2528,7 @@ If <code>None</code>, performs the inverse FFT along all spatial dimensions of <
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(x) -&gt; Tensor:
+<pre><code class="python">def imag(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     See Also:
         `real()`, `conjugate()`.
@@ -2412,7 +2633,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def isfinite(x) -&gt; Tensor:
+<pre><code class="python">def isfinite(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Returns a `Tensor` or `TensorLike` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
@@ -2747,7 +2968,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log(x) -&gt; Tensor:
+<pre><code class="python">def log(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes the natural logarithm of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.log)</code></pre>
 </details>
@@ -2761,7 +2982,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log10(x) -&gt; Tensor:
+<pre><code class="python">def log10(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *log(x)* of the `Tensor` or `TensorLike` `x` with base 10. &#34;&#34;&#34;
     return _backend_op1(x, Backend.log10)</code></pre>
 </details>
@@ -2775,7 +2996,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log2(x) -&gt; Tensor:
+<pre><code class="python">def log2(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *log(x)* of the `Tensor` or `TensorLike` `x` with base 2. &#34;&#34;&#34;
     return _backend_op1(x, Backend.log2)</code></pre>
 </details>
@@ -2820,6 +3041,89 @@ If a vector field is passed, the laplace is computed component-wise.</p>
         assert all(r is None for r in result), f&#34;map function returned None for some elements, {result}&#34;
         return
     return wrap(result).vector.split(shape)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.map_s2b"><code class="name flex">
+<span>def <span class="ident">map_s2b</span></span>(<span>f: Callable) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Map spatial dimensions to batch dimensions. Short for <code><a title="phi.math.map_types" href="#phi.math.map_types">map_types()</a>(f, <a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a>, <a title="phi.math.batch" href="#phi.math.batch">batch()</a>)</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def map_s2b(f: Callable) -&gt; Callable:
+    &#34;&#34;&#34; Map spatial dimensions to batch dimensions. Short for `map_types(f, spatial, batch)`. &#34;&#34;&#34;
+    return map_types(f, spatial, batch)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.map_types"><code class="name flex">
+<span>def <span class="ident">map_types</span></span>(<span>f: Callable, dims: phi.math._shape.Shape, dim_type: Callable) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Wraps a function to change the dimension types of its <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> and <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> arguments.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function to wrap.</dd>
+<dt><strong><code>dims</code></strong></dt>
+<dd>Concrete dimensions or dimension type, such as <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code> or <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>.
+These dimensions will be mapped to <code>dim_type</code> for all positional function arguments.</dd>
+<dt><strong><code>dim_type</code></strong></dt>
+<dd>Dimension type, such as <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code> or <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>.
+<code>f</code> will be called with dimensions remapped to this type.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Function with signature matching <code>f</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_type: Callable or str) -&gt; Callable:
+    &#34;&#34;&#34;
+    Wraps a function to change the dimension types of its `Tensor` and `TensorLike` arguments.
+
+    Args:
+        f: Function to wrap.
+        dims: Concrete dimensions or dimension type, such as `spatial` or `batch`.
+            These dimensions will be mapped to `dim_type` for all positional function arguments.
+        dim_type: Dimension type, such as `spatial` or `batch`.
+            `f` will be called with dimensions remapped to this type.
+
+    Returns:
+        Function with signature matching `f`.
+    &#34;&#34;&#34;
+    def forward_retype(obj, input_types: Shape):
+        tree, tensors = disassemble_tree(obj)
+        retyped = []
+        for t in tensors:
+            for dim in t.shape.only(dims):
+                t = t.dimension(dim).as_type(dim_type)
+                input_types = math.merge_shapes(input_types, dim.with_size(None))
+            retyped.append(t)
+        return assemble_tree(tree, retyped), input_types
+
+    def reverse_retype(obj, input_types: Shape):
+        tree, tensors = disassemble_tree(obj)
+        retyped = []
+        for t in tensors:
+            for dim in t.shape.only(input_types.names):
+                t = t.dimension(dim).as_type(input_types.get_type(dim))
+            retyped.append(t)
+        return assemble_tree(tree, retyped)
+
+    @wraps(f)
+    def retyped_f(*args, **kwargs):
+        input_types = EMPTY_SHAPE
+        retyped_args = []
+        for arg in args:
+            retyped_arg, input_types = forward_retype(arg, input_types)
+            retyped_args.append(retyped_arg)
+        output = f(*retyped_args, **kwargs)
+        restored_output = reverse_retype(output, input_types)
+        return restored_output
+
+    return retyped_f</code></pre>
 </details>
 </dd>
 <dt id="phi.math.max"><code class="name flex">
@@ -3241,6 +3545,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         Diverged: If the optimization failed prematurely.
     &#34;&#34;&#34;
     assert (solve.relative_tolerance == 0).all, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
+    assert solve.preprocess_y is None, &#34;minimize() does not allow preprocess_y&#34;
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
@@ -4230,7 +4535,7 @@ For 1D tensors, this equivalent to <code>arange()</code> with <code>step=1</code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(x) -&gt; Tensor:
+<pre><code class="python">def real(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     See Also:
         `imag()`, `conjugate()`.
@@ -4449,7 +4754,10 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
     &#34;&#34;&#34;
     assert all(isinstance(g, Shape) for g in groups), &#34;groups must be a sequence of Shapes&#34;
     dims = [batch(f&#39;group{i}&#39;) for i, group in enumerate(groups)]
-    value = tensor(value, *dims, convert=convert)
+    try:
+        value = tensor(value, *dims, convert=convert)
+    except ShapeMismatch:
+        raise ShapeMismatch(f&#34;Cannot reshape native tensor with sizes {value.shape} given groups {groups}&#34;)
     for i, group in enumerate(groups):
         if value.shape.get_size(f&#39;group{i}&#39;) == group.volume:
             value = unpack_dims(value, f&#39;group{i}&#39;, group)
@@ -4498,7 +4806,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             x, y = y, x
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
-        return math.stack([rot_y, rot_x], channel(&#39;vector&#39;))
+        return math.stack([rot_x, rot_y], channel(&#39;vector&#39;))
     elif vector.vector.size == 1:
         raise AssertionError(f&#34;Cannot rotate a 1D vector. shape={vector.shape}&#34;)
     else:
@@ -4514,7 +4822,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def round_(x) -&gt; Tensor:
+<pre><code class="python">def round_(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Rounds the `Tensor` or `TensorLike` `x` to the closest integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
@@ -4796,7 +5104,7 @@ The output of math operations has the same precision as its inputs.</p>
 </details>
 </dd>
 <dt id="phi.math.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: tuple = None, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: phi.math._shape.Shape = (shiftᶜ=None)) ‑> list</span>
+<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: str = &lt;function spatial&gt;, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: phi.math._shape.Shape = (shiftᶜ=None)) ‑> list</span>
 </code></dt>
 <dd>
 <div class="desc"><p>shift Tensor by a fixed offset and abiding by extrapolation</p>
@@ -4824,7 +5132,7 @@ The output of math operations has the same precision as its inputs.</p>
 </summary>
 <pre><code class="python">def shift(x: Tensor,
           offsets: tuple,
-          dims: tuple or None = None,
+          dims: str or Shape or tuple or list or Callable or None = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
           stack_dim: Shape or None = channel(&#39;shift&#39;)) -&gt; list:
     &#34;&#34;&#34;
@@ -4841,10 +5149,12 @@ The output of math operations has the same precision as its inputs.</p>
         list: offset_tensor
 
     &#34;&#34;&#34;
+    if dims is None:
+        dims = spatial
+    dims = x.shape.only(dims).names
     if stack_dim is None:
         assert len(dims) == 1
     x = wrap(x)
-    dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
     if padding:
@@ -4871,13 +5181,13 @@ The output of math operations has the same precision as its inputs.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sigmoid(x) -&gt; Tensor:
+<pre><code class="python">def sigmoid(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes the sigmoid function of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sigmoid)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x)</span>
+<span>def <span class="ident">sign</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The sign of positive numbers is 1 and -1 for negative numbers.
@@ -4893,7 +5203,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sign(x):
+<pre><code class="python">def sign(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     The sign of positive numbers is 1 and -1 for negative numbers.
     The sign of 0 is undefined.
@@ -4916,7 +5226,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sin(x) -&gt; Tensor:
+<pre><code class="python">def sin(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *sin(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
@@ -5084,15 +5394,17 @@ The output of <code>f</code> must match <code>y</code>.</dd>
     &#34;&#34;&#34;
     from ._nd import l2_loss
 
+    if solve.preprocess_y is not None:
+        y = solve.preprocess_y(y)
+
     def min_func(x):
         diff = f(x) - y
         l2 = l2_loss(diff)
         return l2
 
-    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y, batch_norm=True)
-    solve.absolute_tolerance = rel_tol_to_abs
-    solve.relative_tolerance = 0
-    return minimize(min_func, solve)</code></pre>
+    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y)
+    min_solve = copy_with(solve, absolute_tolerance=rel_tol_to_abs, relative_tolerance=0, preprocess_y=None)
+    return minimize(min_func, min_solve)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.spatial"><code class="name flex">
@@ -5178,7 +5490,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None, stack_dim: phi.math._shape.Shape = (gradientᶜ=None))</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: str = &lt;function spatial&gt;, stack_dim: phi.math._shape.Shape = (gradientᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -5188,7 +5500,7 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 <dt><strong><code>grid</code></strong></dt>
 <dd>grid values</dd>
 <dt><strong><code>dims</code></strong></dt>
-<dd>optional) sequence of dimension names</dd>
+<dd>(Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names</dd>
 <dt><strong><code>dx</code></strong></dt>
 <dd>physical distance between grid points (default 1)</dd>
 <dt><strong><code>difference</code></strong></dt>
@@ -5208,15 +5520,15 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
                      dx: float or int = 1,
                      difference: str = &#39;central&#39;,
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
-                     dims: tuple or None = None,
-                     stack_dim: Shape = channel(&#39;gradient&#39;)):
+                     dims: str or Shape or tuple or list or Callable or None = spatial,
+                     stack_dim: Shape or None = channel(&#39;gradient&#39;)):
     &#34;&#34;&#34;
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
 
     Args:
       grid: grid values
-      dims: optional) sequence of dimension names
+      dims: (Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names
       dx: physical distance between grid points (default 1)
       difference: type of difference, one of (&#39;forward&#39;, &#39;backward&#39;, &#39;central&#39;) (default &#39;forward&#39;)
       padding: tensor padding mode
@@ -5249,7 +5561,7 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sqrt(x) -&gt; Tensor:
+<pre><code class="python">def sqrt(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *sqrt(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sqrt)</code></pre>
 </details>
@@ -5469,7 +5781,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def tan(x) -&gt; Tensor:
+<pre><code class="python">def tan(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *tan(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.tan)</code></pre>
 </details>
@@ -5616,7 +5928,8 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         else:
             # fill in sizes or check them
             sizes = backend.staticshape(data)
-            assert len(sizes) == len(shape), f&#34;Rank of given shape {shape} does not match data with sizes {sizes}&#34;
+            if len(sizes) != len(shape):
+                raise ShapeMismatch(f&#34;Rank of given shape {shape} does not match data with sizes {sizes}&#34;)
             for size, s in zip(sizes, shape.sizes):
                 if s is not None:
                     assert s == size, f&#34;Given shape {shape} does not match data with sizes {sizes}. Consider leaving the sizes undefined.&#34;
@@ -5648,7 +5961,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_complex(x) -&gt; Tensor:
+<pre><code class="python">def to_complex(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     Converts the given tensor to complex floating point format with the currently specified precision.
 
@@ -5728,7 +6041,7 @@ The result can be written to a JSON file, for example.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_float(x) -&gt; Tensor:
+<pre><code class="python">def to_float(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -5749,7 +6062,7 @@ The result can be written to a JSON file, for example.</p>
 </details>
 </dd>
 <dt id="phi.math.to_int32"><code class="name flex">
-<span>def <span class="ident">to_int32</span></span>(<span>x)</span>
+<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike</a></code> <code>x</code> to 32-bit integer.</p></div>
@@ -5757,7 +6070,7 @@ The result can be written to a JSON file, for example.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int32(x):
+<pre><code class="python">def to_int32(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Converts the `Tensor` or `TensorLike` `x` to 32-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int32)</code></pre>
 </details>
@@ -5771,7 +6084,7 @@ The result can be written to a JSON file, for example.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int64(x) -&gt; Tensor:
+<pre><code class="python">def to_int64(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Converts the `Tensor` or `TensorLike` `x` to 64-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int64)</code></pre>
 </details>
@@ -5982,6 +6295,20 @@ The grid values at the new points are determined via linear interpolation.</p>
 </dd>
 <dt id="phi.math.vec_abs"><code class="name flex">
 <span>def <span class="ident">vec_abs</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the vector length of <code>vec</code>. If <code>vec_dim</code> is None, the combined channel dimensions of <code>vec</code> are interpreted as a vector.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+    &#34;&#34;&#34; Computes the vector length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. &#34;&#34;&#34;
+    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.vec_length"><code class="name flex">
+<span>def <span class="ident">vec_length</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the vector length of <code>vec</code>. If <code>vec_dim</code> is None, the combined channel dimensions of <code>vec</code> are interpreted as a vector.</p></div>
@@ -6245,7 +6572,7 @@ Instead, data types can simply be instantiated as needed.</p>
         else:
             assert isinstance(bits, int)
         self.kind = kind
-        &#34;&#34;&#34; Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex) &#34;&#34;&#34;
+        &#34;&#34;&#34; Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex, str) &#34;&#34;&#34;
         self.bits = bits
         &#34;&#34;&#34; Number of bits used to store a single value of this type. See `DType.itemsize`. &#34;&#34;&#34;
 
@@ -6299,7 +6626,7 @@ def itemsize(self):
 </dd>
 <dt id="phi.math.DType.kind"><code class="name">var <span class="ident">kind</span></code></dt>
 <dd>
-<div class="desc"><p>Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex)</p></div>
+<div class="desc"><p>Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex, str)</p></div>
 </dd>
 <dt id="phi.math.DType.precision"><code class="name">var <span class="ident">precision</span></code></dt>
 <dd>
@@ -6601,8 +6928,16 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         &#34;&#34;&#34;Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation.&#34;&#34;&#34;
         raise NotImplementedError()
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -&gt; tuple:
         &#34;&#34;&#34; `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    @property
+    def connects_to_outside(self) -&gt; bool:
+        &#34;&#34;&#34;
+        True if at any place, this extrapolation allows for dynamic flow out of the valid domain.
+        `BOUNDARY` faces allow this, but constant extrapolations and `PERIODIC` do not.
+        &#34;&#34;&#34;
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -&gt; Tensor:
@@ -6690,6 +7025,23 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.math.Extrapolation.connects_to_outside"><code class="name">var <span class="ident">connects_to_outside</span> : bool</code></dt>
+<dd>
+<div class="desc"><p>True if at any place, this extrapolation allows for dynamic flow out of the valid domain.
+<code>BOUNDARY</code> faces allow this, but constant extrapolations and <code>PERIODIC</code> do not.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def connects_to_outside(self) -&gt; bool:
+    &#34;&#34;&#34;
+    True if at any place, this extrapolation allows for dynamic flow out of the valid domain.
+    `BOUNDARY` faces allow this, but constant extrapolations and `PERIODIC` do not.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.Extrapolation.is_copy_pad"><code class="name">var <span class="ident">is_copy_pad</span></code></dt>
 <dd>
 <div class="desc"><p>:return: True if all pad values are copies of existing values in the tensor to be padded</p></div>
@@ -6895,7 +7247,7 @@ This is the default implementation.</p>
 </details>
 </dd>
 <dt id="phi.math.Extrapolation.valid_outer_faces"><code class="name flex">
-<span>def <span class="ident">valid_outer_faces</span></span>(<span>self, dim)</span>
+<span>def <span class="ident">valid_outer_faces</span></span>(<span>self, dim) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"><p><code>(lower: bool, upper: bool)</code> indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant.</p></div>
@@ -6903,7 +7255,7 @@ This is the default implementation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def valid_outer_faces(self, dim):
+<pre><code class="python">def valid_outer_faces(self, dim) -&gt; tuple:
     &#34;&#34;&#34; `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -7648,7 +8000,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             raise ValueError(dims)
 
-    def only(self, dims: str or tuple or list or &#39;Shape&#39;):
+    def only(self, dims: str or tuple or list or &#39;Shape&#39; or Callable):
         &#34;&#34;&#34;
         Builds a new shape from this one that only contains the given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -7656,13 +8008,14 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         The complementary operation is :func:`Shape.without`.
 
         Args:
-          dims: single dimension (str) or instance of dimensions (tuple, list, Shape)
-          dims: str or tuple or list or Shape: 
+          dims: comma-separated dimension names (str) or instance of dimensions (tuple, list, Shape) or filter function.
 
         Returns:
           Shape containing only specified dimensions
 
         &#34;&#34;&#34;
+        if callable(dims):
+            dims = dims(self)
         if isinstance(dims, str):
             dims = parse_dim_order(dims)
         if isinstance(dims, (tuple, list)):
@@ -7841,14 +8194,16 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             names = list(self.names)
             types = list(self.types)
             for old_name, new_dim in zip(dims, new):
-                names[self.index(old_name)] = new_dim.name
-                types[self.index(old_name)] = new_dim.type
+                if old_name in self:
+                    names[self.index(old_name)] = new_dim.name
+                    types[self.index(old_name)] = new_dim.type
             return Shape(tuple(sizes), tuple(names), tuple(types), self.item_names)
         else:  # replace only names
             new = parse_dim_order(new)
             names = list(self.names)
             for old_name, new_name in zip(dims, new):
-                names[self.index(old_name)] = new_name
+                if old_name in self:
+                    names[self.index(old_name)] = new_name
             return Shape(tuple(sizes), tuple(names), self.types, self.item_names)
 
     def _with_types(self, types: &#39;Shape&#39;):
@@ -8902,9 +9257,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dims</code></strong></dt>
-<dd>single dimension (str) or instance of dimensions (tuple, list, Shape)</dd>
-<dt><strong><code>dims</code></strong></dt>
-<dd>str or tuple or list or Shape: </dd>
+<dd>comma-separated dimension names (str) or instance of dimensions (tuple, list, Shape) or filter function.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Shape containing only specified dimensions</p></div>
@@ -8912,7 +9265,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def only(self, dims: str or tuple or list or &#39;Shape&#39;):
+<pre><code class="python">def only(self, dims: str or tuple or list or &#39;Shape&#39; or Callable):
     &#34;&#34;&#34;
     Builds a new shape from this one that only contains the given dimensions.
     Dimensions in `dims` that are not part of this Shape are ignored.
@@ -8920,13 +9273,14 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     The complementary operation is :func:`Shape.without`.
 
     Args:
-      dims: single dimension (str) or instance of dimensions (tuple, list, Shape)
-      dims: str or tuple or list or Shape: 
+      dims: comma-separated dimension names (str) or instance of dimensions (tuple, list, Shape) or filter function.
 
     Returns:
       Shape containing only specified dimensions
 
     &#34;&#34;&#34;
+    if callable(dims):
+        dims = dims(self)
     if isinstance(dims, str):
         dims = parse_dim_order(dims)
     if isinstance(dims, (tuple, list)):
@@ -9125,9 +9479,33 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 </dl>
 </dd>
+<dt id="phi.math.ShapeMismatch"><code class="flex name class">
+<span>class <span class="ident">ShapeMismatch</span></span>
+<span>(</span><span>*args)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Raised when the shape of a tensors does not match the other arguments.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ShapeMismatch(ValueError):
+    &#34;&#34;&#34;
+    Raised when the shape of a tensors does not match the other arguments.
+    &#34;&#34;&#34;
+    def __init__(self, *args):
+        super().__init__(self, *args)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>builtins.ValueError</li>
+<li>builtins.Exception</li>
+<li>builtins.BaseException</li>
+</ul>
+</dd>
 <dt id="phi.math.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>method: str, relative_tolerance: float, absolute_tolerance: float, max_iterations: int = 1000, x0: ~X = None, suppress: tuple = (), gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X] = None)</span>
+<span>(</span><span>method: str, relative_tolerance: float, absolute_tolerance: float, max_iterations: int = 1000, x0: ~X = None, suppress: tuple = (), preprocess_y: Callable = None, gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specifies parameters and stopping criteria for solving a minimization problem or system of equations.</p></div>
@@ -9147,6 +9525,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
                  max_iterations: int or Tensor = 1000,
                  x0: X or Any = None,
                  suppress: tuple or list = (),
+                 preprocess_y: Callable = None,
                  gradient_solve: &#39;Solve[Y, X]&#39; or None = None):
         assert isinstance(method, str)
         self.method: str = method
@@ -9162,6 +9541,9 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         self.x0 = x0
         &#34;&#34;&#34; Initial guess for the method, of same type and dimensionality as the solve result.
          This property must be set to a value compatible with the solution `x` before running a method. &#34;&#34;&#34;
+        self.preprocess_y: Callable = preprocess_y
+        &#34;&#34;&#34; Function to be applied to the right-hand-side vector of an equation system before solving the system.
+        This property is propagated to gradient solves by default. &#34;&#34;&#34;
         assert all(issubclass(err, ConvergenceException) for err in suppress)
         self.suppress: tuple = tuple(suppress)
         &#34;&#34;&#34; Error types to suppress; `tuple` of `ConvergenceException` types. For these errors, the solve function will instead return the partial result without raising the error. &#34;&#34;&#34;
@@ -9177,7 +9559,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         In any case, the gradient solve information will be stored in `gradient_solve.result`.
         &#34;&#34;&#34;
         if self._gradient_solve is None:
-            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress)
+            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y)
         return self._gradient_solve
 
     def __repr__(self):
@@ -9226,7 +9608,7 @@ def gradient_solve(self) -&gt; &#39;Solve[Y, X]&#39;:
     In any case, the gradient solve information will be stored in `gradient_solve.result`.
     &#34;&#34;&#34;
     if self._gradient_solve is None:
-        self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress)
+        self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y)
     return self._gradient_solve</code></pre>
 </details>
 </dd>
@@ -9237,6 +9619,11 @@ def gradient_solve(self) -&gt; &#39;Solve[Y, X]&#39;:
 <dt id="phi.math.Solve.method"><code class="name">var <span class="ident">method</span></code></dt>
 <dd>
 <div class="desc"><p>Optimization method to use. Available solvers depend on the solve function that is used to perform the solve.</p></div>
+</dd>
+<dt id="phi.math.Solve.preprocess_y"><code class="name">var <span class="ident">preprocess_y</span></code></dt>
+<dd>
+<div class="desc"><p>Function to be applied to the right-hand-side vector of an equation system before solving the system.
+This property is propagated to gradient solves by default.</p></div>
 </dd>
 <dt id="phi.math.Solve.relative_tolerance"><code class="name">var <span class="ident">relative_tolerance</span></code></dt>
 <dd>
@@ -10536,19 +10923,26 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         assert self.exists, f&#34;Dimension {self.name} does not exist for tensor {self.tensor.shape}&#34;
         return self.tensor.shape.get_size(self.name)
 
-    def as_batch(self, name: str or None = None):
+    def as_batch(self, name: str = None):
         &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
         return self._as(BATCH_DIM, name)
 
-    def as_spatial(self, name: str or None = None):
+    def as_spatial(self, name: str = None):
         &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. &#34;&#34;&#34;
         return self._as(SPATIAL_DIM, name)
 
-    def as_channel(self, name: str or None = None):
+    def as_channel(self, name: str = None):
         &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. &#34;&#34;&#34;
         return self._as(CHANNEL_DIM, name)
 
-    def _as(self, dim_type: int, name: str or None):
+    def as_instance(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+        return self._as(INSTANCE_DIM, name)
+
+    def as_type(self, dim_type: Callable or str):
+        return self._as(dim_type(&#39;d&#39;).type if callable(dim_type) else dim_type, None)
+
+    def _as(self, dim_type: str, name: str or None):
         shape = self.tensor.shape
         new_types = list(shape.types)
         new_types[self.index] = dim_type
@@ -10702,7 +11096,7 @@ def size(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def as_batch(self, name: str or None = None):
+<pre><code class="python">def as_batch(self, name: str = None):
     &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
     return self._as(BATCH_DIM, name)</code></pre>
 </details>
@@ -10716,9 +11110,23 @@ def size(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def as_channel(self, name: str or None = None):
+<pre><code class="python">def as_channel(self, name: str = None):
     &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. &#34;&#34;&#34;
     return self._as(CHANNEL_DIM, name)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.as_instance"><code class="name flex">
+<span>def <span class="ident">as_instance</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> where the type of this dimension is <em>instance</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_instance(self, name: str = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+    return self._as(INSTANCE_DIM, name)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.TensorDim.as_spatial"><code class="name flex">
@@ -10730,9 +11138,22 @@ def size(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def as_spatial(self, name: str or None = None):
+<pre><code class="python">def as_spatial(self, name: str = None):
     &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. &#34;&#34;&#34;
     return self._as(SPATIAL_DIM, name)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.as_type"><code class="name flex">
+<span>def <span class="ident">as_type</span></span>(<span>self, dim_type: Callable)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_type(self, dim_type: Callable or str):
+    return self._as(dim_type(&#39;d&#39;).type if callable(dim_type) else dim_type, None)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.TensorDim.flip"><code class="name flex">
@@ -11083,6 +11504,8 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.all" href="#phi.math.all">all</a></code></li>
 <li><code><a title="phi.math.all_available" href="#phi.math.all_available">all_available</a></code></li>
 <li><code><a title="phi.math.any" href="#phi.math.any">any</a></code></li>
+<li><code><a title="phi.math.arccos" href="#phi.math.arccos">arccos</a></code></li>
+<li><code><a title="phi.math.arcsin" href="#phi.math.arcsin">arcsin</a></code></li>
 <li><code><a title="phi.math.assert_close" href="#phi.math.assert_close">assert_close</a></code></li>
 <li><code><a title="phi.math.batch" href="#phi.math.batch">batch</a></code></li>
 <li><code><a title="phi.math.boolean_mask" href="#phi.math.boolean_mask">boolean_mask</a></code></li>
@@ -11103,6 +11526,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.cross_product" href="#phi.math.cross_product">cross_product</a></code></li>
 <li><code><a title="phi.math.cumulative_sum" href="#phi.math.cumulative_sum">cumulative_sum</a></code></li>
 <li><code><a title="phi.math.custom_gradient" href="#phi.math.custom_gradient">custom_gradient</a></code></li>
+<li><code><a title="phi.math.degrees" href="#phi.math.degrees">degrees</a></code></li>
 <li><code><a title="phi.math.divide_no_nan" href="#phi.math.divide_no_nan">divide_no_nan</a></code></li>
 <li><code><a title="phi.math.dot" href="#phi.math.dot">dot</a></code></li>
 <li><code><a title="phi.math.downsample2x" href="#phi.math.downsample2x">downsample2x</a></code></li>
@@ -11121,8 +11545,10 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.math.gather" href="#phi.math.gather">gather</a></code></li>
 <li><code><a title="phi.math.get_precision" href="#phi.math.get_precision">get_precision</a></code></li>
+<li><code><a title="phi.math.gradient" href="#phi.math.gradient">gradient</a></code></li>
 <li><code><a title="phi.math.gradients" href="#phi.math.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.grid_sample" href="#phi.math.grid_sample">grid_sample</a></code></li>
+<li><code><a title="phi.math.hessian" href="#phi.math.hessian">hessian</a></code></li>
 <li><code><a title="phi.math.ifft" href="#phi.math.ifft">ifft</a></code></li>
 <li><code><a title="phi.math.imag" href="#phi.math.imag">imag</a></code></li>
 <li><code><a title="phi.math.instance" href="#phi.math.instance">instance</a></code></li>
@@ -11137,6 +11563,8 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.log10" href="#phi.math.log10">log10</a></code></li>
 <li><code><a title="phi.math.log2" href="#phi.math.log2">log2</a></code></li>
 <li><code><a title="phi.math.map" href="#phi.math.map">map</a></code></li>
+<li><code><a title="phi.math.map_s2b" href="#phi.math.map_s2b">map_s2b</a></code></li>
+<li><code><a title="phi.math.map_types" href="#phi.math.map_types">map_types</a></code></li>
 <li><code><a title="phi.math.max" href="#phi.math.max">max</a></code></li>
 <li><code><a title="phi.math.maximum" href="#phi.math.maximum">maximum</a></code></li>
 <li><code><a title="phi.math.mean" href="#phi.math.mean">mean</a></code></li>
@@ -11200,6 +11628,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.unstack" href="#phi.math.unstack">unstack</a></code></li>
 <li><code><a title="phi.math.upsample2x" href="#phi.math.upsample2x">upsample2x</a></code></li>
 <li><code><a title="phi.math.vec_abs" href="#phi.math.vec_abs">vec_abs</a></code></li>
+<li><code><a title="phi.math.vec_length" href="#phi.math.vec_length">vec_length</a></code></li>
 <li><code><a title="phi.math.vec_normalize" href="#phi.math.vec_normalize">vec_normalize</a></code></li>
 <li><code><a title="phi.math.vec_squared" href="#phi.math.vec_squared">vec_squared</a></code></li>
 <li><code><a title="phi.math.where" href="#phi.math.where">where</a></code></li>
@@ -11237,6 +11666,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li>
 <h4><code><a title="phi.math.Extrapolation" href="#phi.math.Extrapolation">Extrapolation</a></code></h4>
 <ul class="">
+<li><code><a title="phi.math.Extrapolation.connects_to_outside" href="#phi.math.Extrapolation.connects_to_outside">connects_to_outside</a></code></li>
 <li><code><a title="phi.math.Extrapolation.is_copy_pad" href="#phi.math.Extrapolation.is_copy_pad">is_copy_pad</a></code></li>
 <li><code><a title="phi.math.Extrapolation.native_grid_sample_mode" href="#phi.math.Extrapolation.native_grid_sample_mode">native_grid_sample_mode</a></code></li>
 <li><code><a title="phi.math.Extrapolation.pad" href="#phi.math.Extrapolation.pad">pad</a></code></li>
@@ -11305,12 +11735,16 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 </ul>
 </li>
 <li>
+<h4><code><a title="phi.math.ShapeMismatch" href="#phi.math.ShapeMismatch">ShapeMismatch</a></code></h4>
+</li>
+<li>
 <h4><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code></h4>
 <ul class="two-column">
 <li><code><a title="phi.math.Solve.absolute_tolerance" href="#phi.math.Solve.absolute_tolerance">absolute_tolerance</a></code></li>
 <li><code><a title="phi.math.Solve.gradient_solve" href="#phi.math.Solve.gradient_solve">gradient_solve</a></code></li>
 <li><code><a title="phi.math.Solve.max_iterations" href="#phi.math.Solve.max_iterations">max_iterations</a></code></li>
 <li><code><a title="phi.math.Solve.method" href="#phi.math.Solve.method">method</a></code></li>
+<li><code><a title="phi.math.Solve.preprocess_y" href="#phi.math.Solve.preprocess_y">preprocess_y</a></code></li>
 <li><code><a title="phi.math.Solve.relative_tolerance" href="#phi.math.Solve.relative_tolerance">relative_tolerance</a></code></li>
 <li><code><a title="phi.math.Solve.suppress" href="#phi.math.Solve.suppress">suppress</a></code></li>
 <li><code><a title="phi.math.Solve.x0" href="#phi.math.Solve.x0">x0</a></code></li>
@@ -11363,7 +11797,9 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <ul class="two-column">
 <li><code><a title="phi.math.TensorDim.as_batch" href="#phi.math.TensorDim.as_batch">as_batch</a></code></li>
 <li><code><a title="phi.math.TensorDim.as_channel" href="#phi.math.TensorDim.as_channel">as_channel</a></code></li>
+<li><code><a title="phi.math.TensorDim.as_instance" href="#phi.math.TensorDim.as_instance">as_instance</a></code></li>
 <li><code><a title="phi.math.TensorDim.as_spatial" href="#phi.math.TensorDim.as_spatial">as_spatial</a></code></li>
+<li><code><a title="phi.math.TensorDim.as_type" href="#phi.math.TensorDim.as_type">as_type</a></code></li>
 <li><code><a title="phi.math.TensorDim.exists" href="#phi.math.TensorDim.exists">exists</a></code></li>
 <li><code><a title="phi.math.TensorDim.flip" href="#phi.math.TensorDim.flip">flip</a></code></li>
 <li><code><a title="phi.math.TensorDim.index" href="#phi.math.TensorDim.index">index</a></code></li>

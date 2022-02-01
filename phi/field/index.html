@@ -122,7 +122,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs_(x) -&gt; Tensor:
+<pre><code class="python">def abs_(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     Computes *||x||&lt;sub&gt;1&lt;/sub&gt;*.
     Complex `x` result in matching precision float values.
@@ -262,7 +262,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ceil(x) -&gt; Tensor:
+<pre><code class="python">def ceil(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *⌈x⌉* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.ceil)</code></pre>
 </details>
@@ -400,7 +400,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cos(x) -&gt; Tensor:
+<pre><code class="python">def cos(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *cos(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.cos)</code></pre>
 </details>
@@ -417,12 +417,19 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <pre><code class="python">def curl(field: Grid, type: type = CenteredGrid):
     &#34;&#34;&#34; Computes the finite-difference curl of the give 2D `StaggeredGrid`. &#34;&#34;&#34;
     assert field.spatial_rank in (2, 3), &#34;curl is only defined in 2 and 3 spatial dimensions.&#34;
-    if field.spatial_rank == 2 and type == StaggeredGrid:
-        assert isinstance(field, CenteredGrid) and &#39;vector&#39; not in field.shape, f&#34;2D curl requires scalar field but got {field}&#34;
+    if isinstance(field, CenteredGrid) and &#39;vector&#39; not in field.shape and field.spatial_rank == 2 and type == StaggeredGrid:
+        # 2D curl of scalar field
         grad = math.spatial_gradient(field.values, dx=field.dx, difference=&#39;forward&#39;, padding=None, stack_dim=channel(&#39;vector&#39;))
         result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
         bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
         return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
+    if isinstance(field, CenteredGrid) and &#39;vector&#39; in field.shape and field.spatial_rank == 2 and type == CenteredGrid:
+        # 2D curl of vector field
+        x, y = field.shape.spatial.names
+        vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
+        vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
+        c = vy_dx - vx_dy
+        return field.with_values(c)
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -536,7 +543,7 @@ The new values are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def exp(x) -&gt; Tensor:
+<pre><code class="python">def exp(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *exp(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
@@ -606,7 +613,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def floor(x) -&gt; Tensor:
+<pre><code class="python">def floor(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *⌊x⌋* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.floor)</code></pre>
 </details>
@@ -806,7 +813,7 @@ Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(x) -&gt; Tensor:
+<pre><code class="python">def imag(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     See Also:
         `real()`, `conjugate()`.
@@ -868,7 +875,7 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def isfinite(x) -&gt; Tensor:
+<pre><code class="python">def isfinite(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Returns a `Tensor` or `TensorLike` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
@@ -1244,6 +1251,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         Diverged: If the optimization failed prematurely.
     &#34;&#34;&#34;
     assert (solve.relative_tolerance == 0).all, f&#34;relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}&#34;
+    assert solve.preprocess_y is None, &#34;minimize() does not allow preprocess_y&#34;
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
@@ -1521,7 +1529,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(x) -&gt; Tensor:
+<pre><code class="python">def real(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     See Also:
         `imag()`, `conjugate()`.
@@ -1598,7 +1606,7 @@ Currently, <code>geometry</code> may have at most one channel dimension.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def round_(x) -&gt; Tensor:
+<pre><code class="python">def round_(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Rounds the `Tensor` or `TensorLike` `x` to the closest integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
@@ -1693,7 +1701,7 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 </details>
 </dd>
 <dt id="phi.field.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x)</span>
+<span>def <span class="ident">sign</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The sign of positive numbers is 1 and -1 for negative numbers.
@@ -1709,7 +1717,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sign(x):
+<pre><code class="python">def sign(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     The sign of positive numbers is 1 and -1 for negative numbers.
     The sign of 0 is undefined.
@@ -1732,7 +1740,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sin(x) -&gt; Tensor:
+<pre><code class="python">def sin(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *sin(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
@@ -1900,15 +1908,17 @@ The output of <code>f</code> must match <code>y</code>.</dd>
     &#34;&#34;&#34;
     from ._nd import l2_loss
 
+    if solve.preprocess_y is not None:
+        y = solve.preprocess_y(y)
+
     def min_func(x):
         diff = f(x) - y
         l2 = l2_loss(diff)
         return l2
 
-    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y, batch_norm=True)
-    solve.absolute_tolerance = rel_tol_to_abs
-    solve.relative_tolerance = 0
-    return minimize(min_func, solve)</code></pre>
+    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y)
+    min_solve = copy_with(solve, absolute_tolerance=rel_tol_to_abs, relative_tolerance=0, preprocess_y=None)
+    return minimize(min_func, min_solve)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.spatial_gradient"><code class="name flex">
@@ -1980,7 +1990,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sqrt(x) -&gt; Tensor:
+<pre><code class="python">def sqrt(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Computes *sqrt(x)* of the `Tensor` or `TensorLike` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sqrt)</code></pre>
 </details>
@@ -2101,7 +2111,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
         for dim in field.shape.spatial.names:
             lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
             width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
-            width_upper = {dim: (int(lo_valid) - 1, int(lo_valid and up_valid))}
+            width_upper = {dim: (int(lo_valid or up_valid) - 1, int(lo_valid and up_valid))}
             all_lower.append(math.pad(field.values, width_lower, field.extrapolation))
             all_upper.append(math.pad(field.values, width_upper, field.extrapolation))
         all_upper = math.stack(all_upper, channel(&#39;vector&#39;))
@@ -2188,7 +2198,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_float(x) -&gt; Tensor:
+<pre><code class="python">def to_float(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34;
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -2209,7 +2219,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.field.to_int32"><code class="name flex">
-<span>def <span class="ident">to_int32</span></span>(<span>x)</span>
+<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the <code>Tensor</code> or <code>TensorLike</code> <code>x</code> to 32-bit integer.</p></div>
@@ -2217,7 +2227,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int32(x):
+<pre><code class="python">def to_int32(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Converts the `Tensor` or `TensorLike` `x` to 32-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int32)</code></pre>
 </details>
@@ -2231,7 +2241,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int64(x) -&gt; Tensor:
+<pre><code class="python">def to_int64(x) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Converts the `Tensor` or `TensorLike` `x` to 64-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int64)</code></pre>
 </details>
@@ -3493,7 +3503,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
         shape = (self._shape if shape is None else shape) &amp; resolution
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
         with math.NUMPY:
-            k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
+            k = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
             k = math.vec_squared(k)
         lowest_frequency = 0.1
         weight_mask = math.to_float(k &gt; lowest_frequency)
@@ -3555,7 +3565,7 @@ def shape(self):
     shape = (self._shape if shape is None else shape) &amp; resolution
     rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
     with math.NUMPY:
-        k = math.fftfreq(resolution) * resolution / size * self.scale  # in physical units
+        k = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
         k = math.vec_squared(k)
     lowest_frequency = 0.1
     weight_mask = math.to_float(k &gt; lowest_frequency)
@@ -3576,7 +3586,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
 <span>class <span class="ident">PointCloud</span></span>
-<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation=builtins.float, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation: float = 0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A point cloud consists of elements at arbitrary locations.
@@ -3623,7 +3633,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
     def __init__(self,
                  elements: Geometry,
                  values: Any = 1,
-                 extrapolation=float or math.extrapolation.ZERO,
+                 extrapolation: float or math.extrapolation = math.extrapolation.ZERO,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
@@ -5253,7 +5263,7 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: Any, extrapolation: Any = builtins.float, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
+<span>(</span><span>values: Any, extrapolation: float = 0, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -5314,7 +5324,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
 
     def __init__(self,
                  values: Any,
-                 extrapolation: Any = float or math.Extrapolation,
+                 extrapolation: float or math.Extrapolation = 0,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
