@@ -14,7 +14,9 @@ from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve
 
 
-def plot(fields: List[SampledField], title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
+def plot(fields: SampledField or List[SampledField], title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
+    if isinstance(fields, SampledField):
+        fields = [fields]
     fig_shape = math.merge_shapes(*[f.shape.batch for f in fields])
     if fig_shape.volume > 8:
         warnings.warn(f"Plotting {fig_shape.volume} sub-figures for remaining shape {fig_shape} which may be slow. Use 'select' to avoid drawing all examples in one figure.")

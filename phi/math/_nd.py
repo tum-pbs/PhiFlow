@@ -237,7 +237,7 @@ def abs_square(complex_values: Tensor) -> Tensor:
 
 def shift(x: Tensor,
           offsets: tuple,
-          dims: str or Shape or tuple or list or Callable = math.spatial,
+          dims: str or Shape or tuple or list or Callable or None = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
           stack_dim: Shape or None = channel('shift')) -> list:
     """
@@ -254,6 +254,8 @@ def shift(x: Tensor,
         list: offset_tensor
 
     """
+    if dims is None:
+        dims = spatial
     dims = x.shape.only(dims).names
     if stack_dim is None:
         assert len(dims) == 1
@@ -320,7 +322,7 @@ def spatial_gradient(grid: Tensor,
                      dx: float or int = 1,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
-                     dims: str or Shape or tuple or list or Callable = spatial,
+                     dims: str or Shape or tuple or list or Callable or None = spatial,
                      stack_dim: Shape or None = channel('gradient')):
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
