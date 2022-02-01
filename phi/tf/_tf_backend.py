@@ -405,13 +405,13 @@ class TFBackend(Backend):
         else:
             return tf.cast(x, to_numpy_dtype(dtype))
 
-    sin = tf.math.sin
-    arcsin = tf.math.asin
-    cos = tf.math.cos
-    arccos = tf.math.acos
-    tan = tf.math.tan
-    log = tf.math.log
-    sigmoid = tf.math.sigmoid
+    sin = staticmethod(tf.math.sin)
+    arcsin = staticmethod(tf.math.asin)
+    cos = staticmethod(tf.math.cos)
+    arccos = staticmethod(tf.math.acos)
+    tan = staticmethod(tf.math.tan)
+    log = staticmethod(tf.math.log)
+    sigmoid = staticmethod(tf.math.sigmoid)
 
     def log2(self, x):
         return tf.math.log(x) / 0.6931471805599453094  # log(x) / log(2)

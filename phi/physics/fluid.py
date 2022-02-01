@@ -13,7 +13,7 @@ from ..math.extrapolation import combine_sides
 
 def make_incompressible(velocity: Grid,
                         obstacles: tuple or list = (),
-                        solve=math.Solve('auto', 1e-5, 0, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[Grid, CenteredGrid]:
+                        solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[Grid, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -37,6 +37,7 @@ def make_incompressible(velocity: Grid,
     velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity) * active
     if not input_velocity.extrapolation.connects_to_outside:
+        assert solve.preprocess_y is None, "fluid.make_incompressible() does not support custom preprocessing"
         solve = copy_with(solve, preprocess_y=lambda y: _balance_divergence(y, active))
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
