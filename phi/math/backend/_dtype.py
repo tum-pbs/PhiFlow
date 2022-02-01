@@ -30,7 +30,7 @@ class DType:
         else:
             assert isinstance(bits, int)
         self.kind = kind
-        """ Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex) """
+        """ Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex, str) """
         self.bits = bits
         """ Number of bits used to store a single value of this type. See `DType.itemsize`. """
 

@@ -16,25 +16,31 @@ def parameter_count(model: nn.Module):
 def dense_net(in_channels: int,
               out_channels: int,
               layers: tuple or list,
-              batch_norm=False) -> nn.Module:
+              batch_norm=False,
+              activation='ReLU') -> nn.Module:
     if batch_norm:
         raise NotImplementedError("only batch_norm=False currently supported")
     layers = [in_channels, *layers, out_channels]
-    return DenseNet(layers)
+    activation = {'ReLU': torch.relu, 'Sigmoid': torch.sigmoid, 'tanh': torch.tanh}[activation]
+    net = DenseNet(layers, activation=activation)
+    net = net.to(TORCH.get_default_device().ref)
+    return net
 
 
 class DenseNet(nn.Module):
 
     def __init__(self,
-                 layers: list):
+                 layers: list,
+                 activation=F.relu):
         super(DenseNet, self).__init__()
         self._layers = layers
+        self._activation = activation
         for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
             self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
 
     def forward(self, x):
         for i in range(len(self._layers) - 2):
-            x = F.relu(getattr(self, f'linear{i}')(x))
+            x = self._activation(getattr(self, f'linear{i}')(x))
         x = getattr(self, f'linear{len(self._layers) - 2}')(x)
         return x
 

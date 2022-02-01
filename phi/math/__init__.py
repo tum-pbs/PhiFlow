@@ -17,7 +17,7 @@ from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes
+from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes, ShapeMismatch
 from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict
 from .extrapolation import Extrapolation
 from ._ops import (
@@ -37,8 +37,9 @@ from ._ops import (
     abs_ as abs, sign,
     round_ as round, ceil, floor,
     maximum, minimum, clip,
-    sqrt, exp, sin, cos, tan, log, log2, log10, sigmoid,
+    sqrt, exp, sin, cos, tan, log, log2, log10, sigmoid, arcsin, arccos,
     to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
+    degrees,
     boolean_mask,
     isfinite,
     closest_grid_values, grid_sample, scatter, gather,
@@ -49,7 +50,7 @@ from ._ops import (
 )
 from ._nd import (
     shift,
-    vec_abs, vec_squared, vec_normalize, cross_product, rotate_vector,
+    vec_abs, vec_abs as vec_length, vec_squared, vec_normalize, cross_product, rotate_vector,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
@@ -59,8 +60,9 @@ from ._nd import (
 )
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
-    functional_gradient, custom_gradient, print_gradient,
+    functional_gradient, functional_gradient as gradient, custom_gradient, print_gradient, hessian,
     solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
+    map_types, map_s2b,
 )
 
 

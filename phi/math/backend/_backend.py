@@ -173,7 +173,7 @@ class Backend:
     def set_default_device(self, device: ComputeDevice or str):
         if isinstance(device, str):
             devices = self.list_devices(device)
-            assert len(devices) >= 1, f"{self.name}: Cannot select '{device} because no device of this type is available."
+            assert len(devices) >= 1, f"{self.name}: Cannot select '{device}' because no device of this type is available."
             device = devices[0]
         self._default_device = device
 
@@ -272,7 +272,38 @@ class Backend:
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def functional_gradient(self, f: Callable, wrt: tuple or list, get_output: bool):
+        """
+        Args:
+            f: Function to differentiate.
+            wrt: Argument indices for which to compute the gradient.
+            get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
+
+        Returns:
+            A function `g` with the same arguments as `f`.
+            If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
+        """
+        raise NotImplementedError(self)
+
+    def functional_jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
+
+    def functional_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -> tuple:
+        """
+        First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
+        Element-wise Hessians will be computed along the batch dimension.
+        All other dimensions are parameter dimensions and will appear twice in the Hessian matrices.
+
+        Args:
+            f: Function whose first output is a scalar float or complex value.
+            wrt:
+            get_output:
+            get_gradient:
+
+        Returns:
+            Function returning `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
+            The result is always a `tuple` holding at most these three items.
+        """
         raise NotImplementedError(self)
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
@@ -289,6 +320,9 @@ class Backend:
         return NotImplemented
 
     def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError()
+
+    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):
@@ -636,7 +670,13 @@ class Backend:
     def sin(self, x):
         raise NotImplementedError(self)
 
+    def arcsin(self, x):
+        raise NotImplementedError(self)
+
     def cos(self, x):
+        raise NotImplementedError(self)
+
+    def arccos(self, x):
         raise NotImplementedError(self)
 
     def tan(self, x):
@@ -1355,16 +1395,17 @@ def combined_dim(dim1, dim2, type_str: str = 'batch'):
     return dim1
 
 
-_DERIVATIVE_CONTEXT = [0]
+_SPATIAL_DERIVATIVE_CONTEXT = [0]
+_FUNCTIONAL_DERIVATIVE_CONTEXT = [0]
 
 
 @contextmanager
 def spatial_derivative_evaluation(order=1):
-    _DERIVATIVE_CONTEXT.append(order)
+    _SPATIAL_DERIVATIVE_CONTEXT.append(order)
     try:
         yield None
     finally:
-        assert _DERIVATIVE_CONTEXT.pop(-1) == order
+        assert _SPATIAL_DERIVATIVE_CONTEXT.pop(-1) == order
 
 
 def get_spatial_derivative_order():
@@ -1372,4 +1413,22 @@ def get_spatial_derivative_order():
     Extrapolations may behave differently when extrapolating the derivative of a grid.
     Returns 1 inside a CG loop, and 0 by default.
     """
-    return _DERIVATIVE_CONTEXT[-1]
+    return _SPATIAL_DERIVATIVE_CONTEXT[-1]
+
+
+@contextmanager
+def functional_derivative_evaluation(order=1):
+    _FUNCTIONAL_DERIVATIVE_CONTEXT.append(order)
+    try:
+        yield None
+    finally:
+        assert _FUNCTIONAL_DERIVATIVE_CONTEXT.pop(-1) == order
+
+
+def get_functional_derivative_order():
+    """
+    Operations that do not define a first or higher-order derivative may use slower alternative code paths when the derivative is `>0`.
+    This is set when calling a function created by `math.functional_gradient()` or `math.hessian()`.
+    """
+    return _FUNCTIONAL_DERIVATIVE_CONTEXT[-1]
+

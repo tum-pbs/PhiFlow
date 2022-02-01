@@ -68,6 +68,7 @@ def view(*fields: str or SampledField,
          select: str or tuple or list = '',
          framerate=None,
          namespace=None,
+         log_performance=True,
          **config) -> Viewer:
     """
     Show `fields` in a graphical user interface.
@@ -97,6 +98,8 @@ def view(*fields: str or SampledField,
         select: Dimension names along which one item to show is selected.
             Dimensions may be passed as `tuple` of `str` or as comma-separated names in a single `str`.
             For each `select` dimension, an associated selection slider will be created.
+        log_performance: Whether to measure and log the time each step takes.
+            If `True`, will be logged as `step_time` to `log_step_time.txt`.
         **config: Additional GUI configuration arguments.
 
     Returns:
@@ -119,7 +122,7 @@ def view(*fields: str or SampledField,
     gui = default_gui() if gui is None else get_gui(gui)
     controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if user_namespace.get_variable(c.name) is not None)
     CONTROL_VARS.clear()
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, actions=actions, log_performance=True)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, actions=actions, log_performance=log_performance)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer
 
@@ -154,10 +157,12 @@ def control(value, range: tuple = None, description="", **kwargs):
 
     Example:
     ```python
-    dt = control(1.0, (0.1, 10), name="Time increment")
+    dt = control(1.0, (0.1, 10), name="Time increment (dt)")
     ```
 
-    The value o
+    This will cause a control component (slider, checkbox, text field, etc.) to be generated in the user interface.
+    Changes to that component will immediately be reflected in the Python variable assigned to the control.
+    The Python variable will always hold a primitive type, such as `int`, `float´, `bool` or `str`.
 
     Args:
         value: Initial value. Must be either `int`, `float´, `bool` or `str`.

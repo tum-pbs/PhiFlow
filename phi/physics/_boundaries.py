@@ -182,7 +182,7 @@ class Domain:
         else:
             try:
                 value = math.wrap(value, self.resolution)
-            except AssertionError:
+            except math.ShapeMismatch:
                 pass
             value = math.wrap(value)
         result = CenteredGrid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)

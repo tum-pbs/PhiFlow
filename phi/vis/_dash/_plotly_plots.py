@@ -1,7 +1,8 @@
 import warnings
+from typing import List
 
 import numpy
-from plotly import graph_objects
+from plotly import graph_objects, figure_factory
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 from scipy.constants import value
@@ -13,21 +14,23 @@ from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve
 
 
-def plot(field: SampledField, title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
-    fig_shape = field.shape.batch
+def plot(fields: SampledField or List[SampledField], title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
+    if isinstance(fields, SampledField):
+        fields = [fields]
+    fig_shape = math.merge_shapes(*[f.shape.batch for f in fields])
     if fig_shape.volume > 8:
         warnings.warn(f"Plotting {fig_shape.volume} sub-figures for remaining shape {fig_shape} which may be slow. Use 'select' to avoid drawing all examples in one figure.")
     title = titles(title, fig_shape, no_title=None)
     if fig_shape:  # subplots
         fig = make_subplots(rows=1, cols=fig_shape.volume, subplot_titles=title)
         for i, subfig_index in enumerate(fig_shape.meshgrid()):
-            sub_field = field[subfig_index]
-            _plot(sub_field, fig, row=1, col=i + 1,
-                  size=size, colormap=colormap, show_color_bar=show_color_bar)
+            for field in fields:
+                sub_field = field[subfig_index]
+                _plot(sub_field, fig, row=1, col=i + 1, size=size, colormap=colormap, show_color_bar=show_color_bar)
     else:
         fig = graph_objects.Figure()
-        _plot(field, fig,
-              size=size, colormap=colormap, show_color_bar=show_color_bar)
+        for field in fields:
+            _plot(field, fig, size=size, colormap=colormap, show_color_bar=show_color_bar)
     fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
@@ -50,9 +53,9 @@ def _plot(field: SampledField,
         else:
             for channel in channels.meshgrid():
                 y = math.reshaped_native(real_values(field[channel]), [field.shape.spatial], to_numpy=True)
-                fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Test'), row=row, col=col)
+                fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Multi-channel'), row=row, col=col)
             fig.update_layout(showlegend=False)
-    elif field.spatial_rank == 2 and isinstance(field, Grid) and field.shape.channel.volume == 1:  # heatmap
+    elif field.spatial_rank == 2 and isinstance(field, Grid) and 'vector' not in field.shape:  # heatmap
         values = real_values(field).numpy('y,x')
         x = field.points.vector['x'].y[0].numpy()
         y = field.points.vector['y'].x[0].numpy()
@@ -67,24 +70,31 @@ def _plot(field: SampledField,
         if isinstance(field, StaggeredGrid):
             field = field.at_centers()
         x, y = [d.numpy('x,y') for d in field.points.vector.unstack_spatial('x,y')]
-        data_x, data_y = [d.numpy('x,y') for d in real_values(field).vector.unstack_spatial('x,y')]
+        # ToDo Additional channel dims as multiple vectors
+        extra_channels = field.shape.channel.without('vector')
+        values = math.pack_dims(real_values(field), extra_channels, math.channel('channels'))
+        data_x, data_y = [d.numpy('channels,x,y') for d in values.vector.unstack_spatial('x,y')]
         lower_x, lower_y = [float(l) for l in field.bounds.lower.vector.unstack_spatial('x,y')]
         upper_x, upper_y = [float(u) for u in field.bounds.upper.vector.unstack_spatial('x,y')]
         x_range = [lower_x, upper_x]
         y_range = [lower_y, upper_y]
-        # result = figure_factory.create_quiver(x, y, data_x, data_y, scale=1.0)  # 7 points per arrow
-        # result.update_xaxes(range=x_range)
-        # result.update_yaxes(range=y_range)
         y = y.flatten()
         x = x.flatten()
-        data_y = data_y.flatten()
-        data_x = data_x.flatten()
-        lines_y = numpy.stack([y, y + data_y, [None] * len(x)], -1).flatten()  # 3 points per arrow
-        lines_x = numpy.stack([x, x + data_x, [None] * len(x)], -1).flatten()
-        fig.add_scatter(x=lines_x, y=lines_y, mode='lines', row=row, col=col)
+        for ch in range(data_x.shape[0]):
+            # quiver = figure_factory.create_quiver(x, y, data_x[ch], data_y[ch], scale=1.0)  # 7 points per arrow
+            # fig.add_trace(quiver, row=row, col=col)
+            data_y_flat = data_y[ch].flatten()
+            data_x_flat = data_x[ch].flatten()
+            # lines_y = numpy.stack([y, y + data_y_flat, [None] * len(x)], -1).flatten()  # 3 points per arrow
+            # lines_x = numpy.stack([x, x + data_x_flat, [None] * len(x)], -1).flatten()
+            lines_y = numpy.stack([y - data_y_flat / 2, y + data_y_flat / 2, [None] * len(x)], -1).flatten()  # 3 points per arrow
+            lines_x = numpy.stack([x - data_x_flat / 2, x + data_x_flat / 2, [None] * len(x)], -1).flatten()
+            name = extra_channels.get_item_names(0)[ch] if extra_channels.rank == 1 and extra_channels.get_item_names(0) is not None else None
+            fig.add_scatter(x=lines_x, y=lines_y, mode='lines', row=row, col=col, name=name)
+        if data_x.shape[0] == 1:
+            fig.update_layout(showlegend=False)
         fig.update_xaxes(range=x_range)
         fig.update_yaxes(range=y_range)
-        fig.update_layout(showlegend=False)
         fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
         fig.update_yaxes(constrain='domain')
     elif field.spatial_rank == 3 and isinstance(field, Grid) and field.shape.channel.volume == 1:  # 3D heatmap

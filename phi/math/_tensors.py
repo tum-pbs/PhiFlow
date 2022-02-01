@@ -5,7 +5,7 @@ from typing import Tuple, Callable, List, TypeVar
 
 import numpy as np
 
-from phi.math._shape import TYPE_ABBR
+from phi.math._shape import TYPE_ABBR, ShapeMismatch, INSTANCE_DIM
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
@@ -620,19 +620,26 @@ class TensorDim:
         assert self.exists, f"Dimension {self.name} does not exist for tensor {self.tensor.shape}"
         return self.tensor.shape.get_size(self.name)
 
-    def as_batch(self, name: str or None = None):
+    def as_batch(self, name: str = None):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. """
         return self._as(BATCH_DIM, name)
 
-    def as_spatial(self, name: str or None = None):
+    def as_spatial(self, name: str = None):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. """
         return self._as(SPATIAL_DIM, name)
 
-    def as_channel(self, name: str or None = None):
+    def as_channel(self, name: str = None):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. """
         return self._as(CHANNEL_DIM, name)
 
-    def _as(self, dim_type: int, name: str or None):
+    def as_instance(self, name: str = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
+        return self._as(INSTANCE_DIM, name)
+
+    def as_type(self, dim_type: Callable or str):
+        return self._as(dim_type('d').type if callable(dim_type) else dim_type, None)
+
+    def _as(self, dim_type: str, name: str or None):
         shape = self.tensor.shape
         new_types = list(shape.types)
         new_types[self.index] = dim_type
@@ -1287,7 +1294,8 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         else:
             # fill in sizes or check them
             sizes = backend.staticshape(data)
-            assert len(sizes) == len(shape), f"Rank of given shape {shape} does not match data with sizes {sizes}"
+            if len(sizes) != len(shape):
+                raise ShapeMismatch(f"Rank of given shape {shape} does not match data with sizes {sizes}")
             for size, s in zip(sizes, shape.sizes):
                 if s is not None:
                     assert s == size, f"Given shape {shape} does not match data with sizes {sizes}. Consider leaving the sizes undefined."
@@ -1650,7 +1658,7 @@ def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
             return TensorStack(inners, t.stack_dim)
         else:
             natives = [t.native(order=t.shape.names) for t in inners]
-            native = choose_backend(*natives).concat(natives, axis=t.shape.index(t.stack_dim.name))
+            native = choose_backend(*natives).stack(natives, axis=t.shape.index(t.stack_dim.name))
             return NativeTensor(native, t.shape)
     elif isinstance(t, TensorLike):
         tree, tensors = disassemble_tree(t)

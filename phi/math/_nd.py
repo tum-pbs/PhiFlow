@@ -1,7 +1,7 @@
 # Because division is different in Python 2 and 3
 from __future__ import division
 
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 
@@ -85,7 +85,7 @@ def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
             x, y = y, x
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
-        return math.stack([rot_y, rot_x], channel('vector'))
+        return math.stack([rot_x, rot_y], channel('vector'))
     elif vector.vector.size == 1:
         raise AssertionError(f"Cannot rotate a 1D vector. shape={vector.shape}")
     else:
@@ -237,7 +237,7 @@ def abs_square(complex_values: Tensor) -> Tensor:
 
 def shift(x: Tensor,
           offsets: tuple,
-          dims: tuple or None = None,
+          dims: str or Shape or tuple or list or Callable or None = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
           stack_dim: Shape or None = channel('shift')) -> list:
     """
@@ -254,10 +254,12 @@ def shift(x: Tensor,
         list: offset_tensor
 
     """
+    if dims is None:
+        dims = spatial
+    dims = x.shape.only(dims).names
     if stack_dim is None:
         assert len(dims) == 1
     x = wrap(x)
-    dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
     if padding:
@@ -320,15 +322,15 @@ def spatial_gradient(grid: Tensor,
                      dx: float or int = 1,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
-                     dims: tuple or None = None,
-                     stack_dim: Shape = channel('gradient')):
+                     dims: str or Shape or tuple or list or Callable or None = spatial,
+                     stack_dim: Shape or None = channel('gradient')):
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
 
     Args:
       grid: grid values
-      dims: optional) sequence of dimension names
+      dims: (Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names
       dx: physical distance between grid points (default 1)
       difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
       padding: tensor padding mode

@@ -25,7 +25,7 @@ class PointCloud(SampledField):
     def __init__(self,
                  elements: Geometry,
                  values: Any = 1,
-                 extrapolation=float or math.extrapolation.ZERO,
+                 extrapolation: float or math.extrapolation = math.extrapolation.ZERO,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):

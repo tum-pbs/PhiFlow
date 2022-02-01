@@ -284,3 +284,21 @@ class TestFunctional(TestCase):
                 with backend:
                     result = math.minimize(loss, Solve('GD', 0, 1e-5, 20, x0=3))
                     math.assert_close(result, 0, abs_tolerance=1e-5, msg=backend.name)
+
+    def test_map_types(self):
+        def f(x, y):
+            assert x.shape.batch.names == ('batch', 'x', 'y')
+            assert x.shape.channel.names == ('vector',)
+            assert y.shape == x.shape
+            return x, y
+
+        for f_ in [
+            # math.map_types(f, 'x,y', batch),
+            # math.map_types(f, spatial('x,y'), batch),
+            math.map_types(f, spatial, batch),
+        ]:
+            x = math.random_uniform(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
+            x_, y_ = f_(x, x)
+            assert x_.shape == x.shape
+            math.assert_close(x, x_)
+

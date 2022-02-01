@@ -10,7 +10,7 @@ import numpy as np
 
 from . import extrapolation as e_
 from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, INSTANCE_DIM, Shape, EMPTY_SHAPE,
-                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes)
+                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes, ShapeMismatch)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
     assemble_tensors, disassemble_tree, assemble_tree, value_attributes
@@ -213,7 +213,10 @@ def reshaped_tensor(value: Any,
     """
     assert all(isinstance(g, Shape) for g in groups), "groups must be a sequence of Shapes"
     dims = [batch(f'group{i}') for i, group in enumerate(groups)]
-    value = tensor(value, *dims, convert=convert)
+    try:
+        value = tensor(value, *dims, convert=convert)
+    except ShapeMismatch:
+        raise ShapeMismatch(f"Cannot reshape native tensor with sizes {value.shape} given groups {groups}")
     for i, group in enumerate(groups):
         if value.shape.get_size(f'group{i}') == group.volume:
             value = unpack_dims(value, f'group{i}', group)
@@ -1371,6 +1374,7 @@ def dot(x: Tensor,
     remaining_shape_y = y.shape.without(y_dims)
     if remaining_shape_y.only(remaining_shape_x).is_empty:  # no shared batch dimensions -> tensordot
         result_native = backend.tensordot(x_native, x.shape.indices(x_dims), y_native, y.shape.indices(y_dims))
+        result_shape = concat_shapes(remaining_shape_x, remaining_shape_y)
     else:  # shared batch dimensions -> einsum
         REDUCE_LETTERS = list('ijklmn')
         KEEP_LETTERS = list('abcdefgh')
@@ -1382,18 +1386,18 @@ def dot(x: Tensor,
             if dim in y_dims:
                 y_letters.append(REDUCE_LETTERS.pop(0))
             else:
-                if dim in x_letter_map:
+                if dim in x.shape and dim not in x_dims:
                     y_letters.append(x_letter_map[dim])
                 else:
                     y_letters.append(KEEP_LETTERS.pop(0))
         keep_letters = list('abcdefgh')[:-len(KEEP_LETTERS)]
         subscripts = f'{"".join(x_letters)},{"".join(y_letters)}->{"".join(keep_letters)}'
         result_native = backend.einsum(subscripts, x_native, y_native)
-    result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))  # don't check group match
+        result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))  # don't check group match  ToDo the order might be incorrect here
     return NativeTensor(result_native, result_shape)
 
 
-def _backend_op1(x, unbound_method) -> Tensor:
+def _backend_op1(x, unbound_method) -> Tensor or TensorLike:
     if isinstance(x, Tensor):
         return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
     elif isinstance(x, TensorLike):
@@ -1404,7 +1408,7 @@ def _backend_op1(x, unbound_method) -> Tensor:
         return wrap(y)
 
 
-def abs_(x) -> Tensor:
+def abs_(x) -> Tensor or TensorLike:
     """
     Computes *||x||<sub>1</sub>*.
     Complex `x` result in matching precision float values.
@@ -1421,7 +1425,7 @@ def abs_(x) -> Tensor:
     return _backend_op1(x, Backend.abs)
 
 
-def sign(x):
+def sign(x) -> Tensor or TensorLike:
     """
     The sign of positive numbers is 1 and -1 for negative numbers.
     The sign of 0 is undefined.
@@ -1435,32 +1439,32 @@ def sign(x):
     return _backend_op1(x, Backend.sign)
 
 
-def round_(x) -> Tensor:
+def round_(x) -> Tensor or TensorLike:
     """ Rounds the `Tensor` or `TensorLike` `x` to the closest integer. """
     return _backend_op1(x, Backend.round)
 
 
-def ceil(x) -> Tensor:
+def ceil(x) -> Tensor or TensorLike:
     """ Computes *⌈x⌉* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.ceil)
 
 
-def floor(x) -> Tensor:
+def floor(x) -> Tensor or TensorLike:
     """ Computes *⌊x⌋* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.floor)
 
 
-def sqrt(x) -> Tensor:
+def sqrt(x) -> Tensor or TensorLike:
     """ Computes *sqrt(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.sqrt)
 
 
-def exp(x) -> Tensor:
+def exp(x) -> Tensor or TensorLike:
     """ Computes *exp(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.exp)
 
 
-def to_float(x) -> Tensor:
+def to_float(x) -> Tensor or TensorLike:
     """
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -1480,17 +1484,17 @@ def to_float(x) -> Tensor:
     return _backend_op1(x, Backend.to_float)
 
 
-def to_int32(x):
+def to_int32(x) -> Tensor or TensorLike:
     """ Converts the `Tensor` or `TensorLike` `x` to 32-bit integer. """
     return _backend_op1(x, Backend.to_int32)
 
 
-def to_int64(x) -> Tensor:
+def to_int64(x) -> Tensor or TensorLike:
     """ Converts the `Tensor` or `TensorLike` `x` to 64-bit integer. """
     return _backend_op1(x, Backend.to_int64)
 
 
-def to_complex(x) -> Tensor:
+def to_complex(x) -> Tensor or TensorLike:
     """
     Converts the given tensor to complex floating point format with the currently specified precision.
 
@@ -1510,12 +1514,12 @@ def to_complex(x) -> Tensor:
     return _backend_op1(x, Backend.to_complex)
 
 
-def isfinite(x) -> Tensor:
+def isfinite(x) -> Tensor or TensorLike:
     """ Returns a `Tensor` or `TensorLike` matching `x` with values `True` where `x` has a finite value and `False` otherwise. """
     return _backend_op1(x, Backend.isfinite)
 
 
-def real(x) -> Tensor:
+def real(x) -> Tensor or TensorLike:
     """
     See Also:
         `imag()`, `conjugate()`.
@@ -1529,7 +1533,7 @@ def real(x) -> Tensor:
     return _backend_op1(x, Backend.real)
 
 
-def imag(x) -> Tensor:
+def imag(x) -> Tensor or TensorLike:
     """
     See Also:
         `real()`, `conjugate()`.
@@ -1543,7 +1547,7 @@ def imag(x) -> Tensor:
     return _backend_op1(x, Backend.imag)
 
 
-def conjugate(x) -> Tensor:
+def conjugate(x) -> Tensor or TensorLike:
     """
     See Also:
         `imag()`, `real()`.
@@ -1557,37 +1561,56 @@ def conjugate(x) -> Tensor:
     return _backend_op1(x, Backend.conj)
 
 
-def sin(x) -> Tensor:
+def degrees(deg):
+    """ Convert degrees to radians. """
+    return deg * (3.1415 / 180.)
+
+
+def sin(x) -> Tensor or TensorLike:
     """ Computes *sin(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.sin)
 
 
-def cos(x) -> Tensor:
+def arcsin(x) -> Tensor or TensorLike:
+    """ Computes the inverse of *sin(x)* of the `Tensor` or `TensorLike` `x`.
+    For real arguments, the result lies in the range [-π/2, π/2].
+    """
+    return _backend_op1(x, Backend.arcsin)
+
+
+def cos(x) -> Tensor or TensorLike:
     """ Computes *cos(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.cos)
 
 
-def tan(x) -> Tensor:
+def arccos(x) -> Tensor or TensorLike:
+    """ Computes the inverse of *cos(x)* of the `Tensor` or `TensorLike` `x`.
+    For real arguments, the result lies in the range [0, π].
+    """
+    return _backend_op1(x, Backend.cos)
+
+
+def tan(x) -> Tensor or TensorLike:
     """ Computes *tan(x)* of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.tan)
 
 
-def log(x) -> Tensor:
+def log(x) -> Tensor or TensorLike:
     """ Computes the natural logarithm of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.log)
 
 
-def log2(x) -> Tensor:
+def log2(x) -> Tensor or TensorLike:
     """ Computes *log(x)* of the `Tensor` or `TensorLike` `x` with base 2. """
     return _backend_op1(x, Backend.log2)
 
 
-def log10(x) -> Tensor:
+def log10(x) -> Tensor or TensorLike:
     """ Computes *log(x)* of the `Tensor` or `TensorLike` `x` with base 10. """
     return _backend_op1(x, Backend.log10)
 
 
-def sigmoid(x) -> Tensor:
+def sigmoid(x) -> Tensor or TensorLike:
     """ Computes the sigmoid function of the `Tensor` or `TensorLike` `x`. """
     return _backend_op1(x, Backend.sigmoid)
 
@@ -1637,7 +1660,7 @@ def cast_same(*values: Tensor) -> Tuple[Tensor]:
         return values
 
 
-def divide_no_nan(x: Tensor, y: Tensor):
+def divide_no_nan(x: float or Tensor, y: float or Tensor):
     """ Computes *x/y* with the `Tensor`s `x` and `y` but returns 0 where *y=0*. """
     return custom_op2(x, y,
                       l_operator=divide_no_nan,

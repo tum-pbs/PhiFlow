@@ -170,6 +170,8 @@ class TFBackend(Backend):
 
     def grid_sample(self, grid, coordinates, extrapolation='constant'):
         if use_cuda(grid):
+            if extrapolation == 'periodic':
+                return NotImplemented  # TODO 'periodic' gives incorrect results, check all
             if self.staticshape(grid)[0] > self.staticshape(coordinates)[0]:
                 assert self.staticshape(coordinates)[0] == 1
                 coordinates = self.tile(coordinates, [self.staticshape(grid)[0], *[1] * (self.ndims(coordinates) - 1)])
@@ -403,17 +405,13 @@ class TFBackend(Backend):
         else:
             return tf.cast(x, to_numpy_dtype(dtype))
 
-    def sin(self, x):
-        return tf.math.sin(x)
-
-    def cos(self, x):
-        return tf.math.cos(x)
-
-    def tan(self, x):
-        return tf.math.tan(x)
-
-    def log(self, x):
-        return tf.math.log(x)
+    sin = staticmethod(tf.math.sin)
+    arcsin = staticmethod(tf.math.asin)
+    cos = staticmethod(tf.math.cos)
+    arccos = staticmethod(tf.math.acos)
+    tan = staticmethod(tf.math.tan)
+    log = staticmethod(tf.math.log)
+    sigmoid = staticmethod(tf.math.sigmoid)
 
     def log2(self, x):
         return tf.math.log(x) / 0.6931471805599453094  # log(x) / log(2)

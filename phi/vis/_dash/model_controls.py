@@ -58,7 +58,7 @@ def build_model_controls(app: DashApp):
             if is_log_control(control):
                 value = 10.0 ** slider_value
                 if value * 0.99 <= value_range(control)[0]:
-                    value = 0.0
+                    value = value_range(control)[0]
             else:
                 value = slider_value
             app.model.set_control_value(control.name, value)

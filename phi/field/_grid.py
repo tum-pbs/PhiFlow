@@ -238,7 +238,7 @@ class StaggeredGrid(Grid):
 
     def __init__(self,
                  values: Any,
-                 extrapolation: Any = float or math.Extrapolation,
+                 extrapolation: float or math.Extrapolation = 0,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):

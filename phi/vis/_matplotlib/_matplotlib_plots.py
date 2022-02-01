@@ -190,7 +190,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
-                 grid='y',
+                 grid: str or dict = 'y',
                  log_scale='',
                  legend='upper right',
                  x='steps',
@@ -259,7 +259,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0
-        if titles:
+        if titles is not None and titles is not False:
             if isinstance(titles, str):
                 axis.set_title(titles)
             elif names_equal:
@@ -289,6 +289,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
                 logging.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
                 _, x_values, *_ = numpy.loadtxt(os.path.join(path, "log_step_time.txt")).T
+                values = values[:len(x_values)]
                 x_values = np.cumsum(x_values[:len(values)])
             if transform:
                 x_values, values = transform(np.stack([x_values, values]))
@@ -304,8 +305,11 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
             axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
             axis.plot(*smooth_uniform_curve(x_values, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
             if grid:
-                grid_axis = 'both' if 'x' in grid and 'y' in grid else grid
-                axis.grid(which='both', axis=grid_axis, linestyle='--')
+                if isinstance(grid, dict):
+                    axis.grid(**grid)
+                else:
+                    grid_axis = 'both' if 'x' in grid and 'y' in grid else grid
+                    axis.grid(which='both', axis=grid_axis, linestyle='--', linewidth=size[1] * 0.3)
             if 'x' in log_scale:
                 axis.set_xscale('log')
             if 'y' in log_scale:

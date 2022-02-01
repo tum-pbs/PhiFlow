@@ -127,7 +127,7 @@ def stagger(field: CenteredGrid,
         for dim in field.shape.spatial.names:
             lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
             width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
-            width_upper = {dim: (int(lo_valid) - 1, int(lo_valid and up_valid))}
+            width_upper = {dim: (int(lo_valid or up_valid) - 1, int(lo_valid and up_valid))}
             all_lower.append(math.pad(field.values, width_lower, field.extrapolation))
             all_upper.append(math.pad(field.values, width_upper, field.extrapolation))
         all_upper = math.stack(all_upper, channel('vector'))
@@ -180,12 +180,19 @@ def divergence(field: Grid) -> CenteredGrid:
 def curl(field: Grid, type: type = CenteredGrid):
     """ Computes the finite-difference curl of the give 2D `StaggeredGrid`. """
     assert field.spatial_rank in (2, 3), "curl is only defined in 2 and 3 spatial dimensions."
-    if field.spatial_rank == 2 and type == StaggeredGrid:
-        assert isinstance(field, CenteredGrid) and 'vector' not in field.shape, f"2D curl requires scalar field but got {field}"
+    if isinstance(field, CenteredGrid) and 'vector' not in field.shape and field.spatial_rank == 2 and type == StaggeredGrid:
+        # 2D curl of scalar field
         grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
         result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
         bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
         return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
+    if isinstance(field, CenteredGrid) and 'vector' in field.shape and field.spatial_rank == 2 and type == CenteredGrid:
+        # 2D curl of vector field
+        x, y = field.shape.spatial.names
+        vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
+        vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
+        c = vy_dx - vx_dy
+        return field.with_values(c)
     raise NotImplementedError()
 
 

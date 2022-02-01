@@ -2,6 +2,7 @@ import time
 import types
 import uuid
 import warnings
+from functools import wraps
 from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any
 
 import logging
@@ -12,7 +13,7 @@ from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
 from ._tensors import Tensor, NativeTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
 from .backend import choose_backend, Backend
-from .backend._backend import SolveResult, get_spatial_derivative_order
+from .backend._backend import SolveResult, get_spatial_derivative_order, functional_derivative_evaluation
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -92,6 +93,22 @@ def key_from_args(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list]:
     natives, shapes = disassemble_tensors(tensors, expand=cache)
     key = SignatureKey(None, nest, shapes, kwargs, backend, tracing)
     return key, natives
+
+
+def key_from_args_pack_batch(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list, Shape]:
+    nest, tensors = disassemble_tree(args)
+    tracing = not all_available(*tensors)
+    backend = math.choose_backend_t(*tensors)
+    if tracing and cache:
+        cache = False
+        warnings.warn("Cannot cache a tensor while tracing.")
+    batch_shape = merge_shapes(*[t.shape.batch for t in tensors])
+    # tensors = [math.pack_dims(t, batch_shape, batch('batch'), pos=0) for t in tensors]
+    natives = [math.reshaped_native(t, [batch_shape, *t.shape.non_batch], force_expand=True) for t in tensors]
+    # natives, shapes = disassemble_tensors(tensors, expand=cache)
+    shapes = tuple([math.concat_shapes(batch(batch=batch_shape.volume), *t.shape.non_batch) for t in tensors])
+    key = SignatureKey(None, nest, shapes, kwargs, backend, tracing)
+    return key, natives, batch_shape
 
 
 class JitFunction:
@@ -320,7 +337,8 @@ class GradientFunction:
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
-            result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
+            with functional_derivative_evaluation(order=1):
+                result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
@@ -412,6 +430,145 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True)
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     """
     return GradientFunction(f, wrt, get_output)
+
+
+class HessianFunction:
+
+    def __init__(self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool, dim_suffixes: tuple, jit=False):
+        assert isinstance(dim_suffixes, tuple) and len(dim_suffixes) == 2
+        self.f = f
+        self.wrt = wrt
+        self.get_output = get_output
+        self.get_gradient = get_gradient
+        self.dim_suffixes = dim_suffixes
+        self.grads: Dict[SignatureKey, Callable] = {}
+        self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
+        self.jit = jit
+
+    def _trace_hessian(self, in_key: SignatureKey, wrt_natives):
+        def f_native(*natives, **kwargs):
+            logging.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
+            assert not kwargs
+            in_tensors = assemble_tensors(natives, in_key.shapes)
+            values = assemble_tree(in_key.tree, in_tensors)
+            assert isinstance(values, tuple)  # was disassembled from *args
+            with functional_derivative_evaluation(order=2):
+                result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
+            nest, out_tensors = disassemble_tree(result)
+            result_natives, result_shapes = disassemble_tensors(out_tensors)
+            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
+            return result_natives
+        hessian_generator = in_key.backend.jit_compile_hessian if self.jit else in_key.backend.functional_hessian
+        return hessian_generator(f_native, wrt=wrt_natives, get_output=self.get_output, get_gradient=self.get_gradient)
+
+    def __call__(self, *args, **kwargs):
+        key, natives, batch_shape = key_from_args_pack_batch(*args, cache=True, **kwargs)
+        if not key.backend.supports(Backend.functional_gradient):
+            if math.default_backend().supports(Backend.functional_gradient):
+                warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()")
+                key.backend = math.default_backend()
+            else:
+                raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
+        wrt_tensors: List[int] = self._track_wrt(args)
+        wrt_natives: List[int] = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
+        if key not in self.grads:
+            self.grads[key] = self._trace_hessian(key, wrt_natives)
+        native_result = self.grads[key](*natives)
+        assert len(native_result) == 1 + int(self.get_output) + int(self.get_gradient)
+        output_key = match_output_signature(key, self.recorded_mappings)
+        result = ()
+        if self.get_output:
+            output_tensors = assemble_tensors(native_result[0], output_key.shapes)
+            output_tensors = [math.unpack_dims(t, 'batch', batch_shape) for t in output_tensors]
+            # output_tensors = [math.reshaped_tensor(n, [batch_shape, *shape.non_batch]) for n, shape in zip(native_result[0], output_key.shapes)]
+            result += assemble_tree(output_key.tree, output_tensors),
+        if self.get_gradient:
+            grad_tensors = assemble_tensors(native_result[int(self.get_output)], [key.shapes[i] for i in wrt_tensors])
+            grad_tensors = [math.unpack_dims(t, 'batch', batch_shape) for t in grad_tensors]
+            grads = assemble_tree([key.tree[i] for i in wrt_tensors], grad_tensors)
+            if len(grads) == 1:
+                grads = grads[0]
+            result += grads,
+        if len(wrt_natives) == 1:
+            native_hessian = native_result[-1][0][0]
+            hessian_tensor = math.reshaped_tensor(native_hessian, [batch_shape, *self.shape_with_suffixes(key.shapes[0].non_batch, self.dim_suffixes[0]), *self.shape_with_suffixes(key.shapes[0].non_batch, self.dim_suffixes[1])], check_sizes=True)
+            result += assemble_tree(key.tree[0], [hessian_tensor]),
+        else:
+            assert all([t is None for t in key.tree]), "When computing the Hessian w.r.t. multiple tensors, all inputs must be Tensors."
+            raise NotImplementedError()
+            hessian_tree = [[] for _ in self.wrt]
+            for i in range(len(self.wrt)):
+                for j in range(len(self.wrt)):
+                    native_hessian_ij = native_result[-1][i][j]
+                    hessian_tensor_ij = math.reshaped_tensor(native_hessian_ij, [batch_shape, *key.shapes[i].non_batch, *self.dupli_shape(key.shapes[j].non_batch)], check_sizes=True)
+                    hessian_tree[i].append(hessian_tensor_ij)
+            result += tuple([tuple(col) for col in hessian_tree]),
+        return result
+
+    def shape_with_suffixes(self, shape: Shape, suffix: str):
+        return shape._with_names([n+suffix for n in shape.names])
+
+    def __repr__(self):
+        return f"grad({self.f.__name__})"
+
+    @property
+    def __name__(self):
+        return self.f.__name__
+
+    def _track_wrt(self, args):
+        wrt_tensors = []
+        for i, arg in enumerate(args):
+            _, tensors = disassemble_tree(arg)
+            wrt_tensors.extend([i] * len(tensors))
+        return [t_i for t_i, arg_i in enumerate(wrt_tensors) if arg_i in self.wrt]
+
+    @staticmethod
+    def _track_wrt_natives(wrt_tensors, values):
+        wrt_natives = []
+        for i, value in enumerate(values):
+            wrt_natives.extend([i] * len(cached(value)._natives()))
+        return [n_i for n_i, t_i in enumerate(wrt_natives) if t_i in wrt_tensors]
+
+
+def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradient=True, dim_suffixes=('', '_')) -> Callable:
+    """
+    Creates a function which computes the Hessian (second derivative) of `f`.
+
+    Example:
+    ```python
+    def loss_function(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    hess, = functional_gradient(loss_function, get_output=False, get_gradient=False)(x, y)
+
+    (loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = functional_gradient(loss_function,
+                                        wrt=(0, 1), get_output=True)(x, y)
+    ```
+
+    When the gradient function is invoked, `f` is called with tensors that track the gradient.
+    For PyTorch, `arg.requires_grad = True` for all positional arguments of `f`.
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+        get_output: Whether the Hessian function should also return the return values of `f`.
+        get_gradient: Whether the Hessian function should also return the gradient of `f`.
+        dim_suffixes: `tuple` containing two strings.
+            All Non-batch dimensions of the parameters occur twice in the corresponding Hessian.
+            To avoid duplicate names, suffixes are added to non-batch dimensions.
+            The dimensions from the first derivative computation are appended with `dim_suffixes[0]` and the second ones with `dim_suffixes[1]`.
+            This argument has no effect on the dimension names of the gradient if `get_gradient=True`.
+
+    Returns:
+        Function with the same arguments as `f` that returns `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
+    """
+    return HessianFunction(f, wrt, get_output, get_gradient, dim_suffixes)
 
 
 class CustomGradientFunction:
@@ -901,6 +1058,7 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
                  max_iterations: int or Tensor = 1000,
                  x0: X or Any = None,
                  suppress: tuple or list = (),
+                 preprocess_y: Callable = None,
                  gradient_solve: 'Solve[Y, X]' or None = None):
         assert isinstance(method, str)
         self.method: str = method
@@ -916,6 +1074,9 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         self.x0 = x0
         """ Initial guess for the method, of same type and dimensionality as the solve result.
          This property must be set to a value compatible with the solution `x` before running a method. """
+        self.preprocess_y: Callable = preprocess_y
+        """ Function to be applied to the right-hand-side vector of an equation system before solving the system.
+        This property is propagated to gradient solves by default. """
         assert all(issubclass(err, ConvergenceException) for err in suppress)
         self.suppress: tuple = tuple(suppress)
         """ Error types to suppress; `tuple` of `ConvergenceException` types. For these errors, the solve function will instead return the partial result without raising the error. """
@@ -931,7 +1092,7 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         In any case, the gradient solve information will be stored in `gradient_solve.result`.
         """
         if self._gradient_solve is None:
-            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress)
+            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y)
         return self._gradient_solve
 
     def __repr__(self):
@@ -1160,6 +1321,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         Diverged: If the optimization failed prematurely.
     """
     assert (solve.relative_tolerance == 0).all, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
+    assert solve.preprocess_y is None, "minimize() does not allow preprocess_y"
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
     backend = choose_backend_t(*x0_tensors, prefer_default=True)
@@ -1249,15 +1411,17 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     """
     from ._nd import l2_loss
 
+    if solve.preprocess_y is not None:
+        y = solve.preprocess_y(y)
+
     def min_func(x):
         diff = f(x) - y
         l2 = l2_loss(diff)
         return l2
 
-    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y, batch_norm=True)
-    solve.absolute_tolerance = rel_tol_to_abs
-    solve.relative_tolerance = 0
-    return minimize(min_func, solve)
+    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y)
+    min_solve = copy_with(solve, absolute_tolerance=rel_tol_to_abs, relative_tolerance=0, preprocess_y=None)
+    return minimize(min_func, min_solve)
 
 
 def solve_linear(f: Callable[[X], Y],
@@ -1318,6 +1482,8 @@ def solve_linear(f: Callable[[X], Y],
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
                           active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
+    if solve.preprocess_y is not None:
+        y = solve.preprocess_y(y)
     y_nest, (y_tensor,) = disassemble_tree(y)
     x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     batch_dims = (y_tensor.shape & x0_tensor.shape).without(active_dims)
@@ -1369,6 +1535,8 @@ def attach_gradient_solve(forward_solve: Callable):
         grad_solve = solve.gradient_solve
         x0 = grad_solve.x0 if grad_solve.x0 is not None else zeros_like(solve.x0)
         grad_solve_ = copy_with(solve.gradient_solve, x0=x0)
+        if 'is_backprop' in kwargs:
+            del kwargs['is_backprop']
         dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)
         return (dy, None, *([None] * len(matrix)))  # this should hopefully result in implicit gradients for higher orders as well
     solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve)
@@ -1445,3 +1613,54 @@ def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
     identity = custom_gradient(lambda x: x, print_grad)
     return identity(value)
 
+
+def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_type: Callable or str) -> Callable:
+    """
+    Wraps a function to change the dimension types of its `Tensor` and `TensorLike` arguments.
+
+    Args:
+        f: Function to wrap.
+        dims: Concrete dimensions or dimension type, such as `spatial` or `batch`.
+            These dimensions will be mapped to `dim_type` for all positional function arguments.
+        dim_type: Dimension type, such as `spatial` or `batch`.
+            `f` will be called with dimensions remapped to this type.
+
+    Returns:
+        Function with signature matching `f`.
+    """
+    def forward_retype(obj, input_types: Shape):
+        tree, tensors = disassemble_tree(obj)
+        retyped = []
+        for t in tensors:
+            for dim in t.shape.only(dims):
+                t = t.dimension(dim).as_type(dim_type)
+                input_types = math.merge_shapes(input_types, dim.with_size(None))
+            retyped.append(t)
+        return assemble_tree(tree, retyped), input_types
+
+    def reverse_retype(obj, input_types: Shape):
+        tree, tensors = disassemble_tree(obj)
+        retyped = []
+        for t in tensors:
+            for dim in t.shape.only(input_types.names):
+                t = t.dimension(dim).as_type(input_types.get_type(dim))
+            retyped.append(t)
+        return assemble_tree(tree, retyped)
+
+    @wraps(f)
+    def retyped_f(*args, **kwargs):
+        input_types = EMPTY_SHAPE
+        retyped_args = []
+        for arg in args:
+            retyped_arg, input_types = forward_retype(arg, input_types)
+            retyped_args.append(retyped_arg)
+        output = f(*retyped_args, **kwargs)
+        restored_output = reverse_retype(output, input_types)
+        return restored_output
+
+    return retyped_f
+
+
+def map_s2b(f: Callable) -> Callable:
+    """ Map spatial dimensions to batch dimensions. Short for `map_types(f, spatial, batch)`. """
+    return map_types(f, spatial, batch)
