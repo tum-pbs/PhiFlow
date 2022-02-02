@@ -694,17 +694,16 @@ class TorchBackend(Backend):
             raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        global total_elapsed
-
         def check_matrix_sparsity(lin: SparseCSRMatrix):
             return print("Matrix is {}% sparse".format(1.0 - len(lin.values) / (lin.shape[0] * lin.shape[1])))
 
         if isinstance(lin, SparseCSRMatrix):
-            #check_matrix_sparsity(lin)
             if trj == []:
                 trj = False
+
             res = torch_cuda.conjugate_gradient(lin.values, lin.cols, lin.rows, lin.shape[0], lin.shape[1],
-                                                len(lin.values), y, x0, rtol, atol, max_iter, trj)
+                                                    len(lin.values), y, x0, rtol, atol, max_iter, trj)
+
             if trj:
                 last_res = []
                 for inst in res:
