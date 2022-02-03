@@ -160,14 +160,14 @@ def control(value, range: tuple = None, description="", **kwargs):
     dt = control(1.0, (0.1, 10), name="Time increment (dt)")
     ```
 
-    This will cause a control component (slider, checkbox, text field, etc.) to be generated in the user interface.
+    This will cause a control component (slider, checkbox, text field, drop-down, etc.) to be generated in the user interface.
     Changes to that component will immediately be reflected in the Python variable assigned to the control.
     The Python variable will always hold a primitive type, such as `int`, `float´, `bool` or `str`.
 
     Args:
-        value: Initial value. Must be either `int`, `float´, `bool` or `str`.
-        range: (Optional) Specify range of possible values as `(min, max)`. Only for `int` and `float` values.
-        description: Description of what the control does.
+        value: Initial value. Must be either `int`, `float`, `bool` or `str`.
+        range: (Optional) Specify range of possible values as `(min, max)`. Only for `int`, `float` and `str` values.
+        description: Human-readable description.
         **kwargs: Additional arguments to determine the appearance of the GUI component,
             e.g. `rows` for text fields or `log=False` for float sliders.
 
