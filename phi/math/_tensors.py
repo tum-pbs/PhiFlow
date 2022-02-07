@@ -682,7 +682,7 @@ class TensorDim:
                 if item_names is not None and item in item_names:
                     item = item_names.index(item)
                 else:
-                    assert self.size == self.tensor.shape.spatial, f"Cannot access tensor.{self.name}[{item}] because dimension length does not match number of spatial dimensions, {self.tensor.shape.spatial}"
+                    assert self.size == self.tensor.shape.spatial.rank, f"Cannot access tensor.{self.name}[{item}] because dimension length ({self.size}) does not match number of spatial dimensions, {self.tensor.shape.spatial}"
                     item = self.tensor.shape.spatial.index(item)
                 return self.tensor[{self.name: item}]
         if isinstance(item, (tuple, list)):
