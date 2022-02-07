@@ -670,16 +670,31 @@ class TensorDim:
         return self._dim_type == CHANNEL_DIM
 
     def __getitem__(self, item):
+        if isinstance(item, (int, slice, np.ndarray)):
+            return self.tensor[{self.name: item}]
+        if isinstance(item, Shape):
+            item = item.names
         if isinstance(item, str):
-            item_names = self.tensor.shape.get_item_names(self.name)
-            if item_names is not None and item in item_names:
-                item = item_names.index(item)
+            if ',' in item:
+                item = parse_dim_order(item)
             else:
-                item = self.tensor.shape.spatial.index(item)
+                item_names = self.tensor.shape.get_item_names(self.name)
+                if item_names is not None and item in item_names:
+                    item = item_names.index(item)
+                else:
+                    assert self.size == self.tensor.shape.spatial, f"Cannot access tensor.{self.name}[{item}] because dimension length does not match number of spatial dimensions, {self.tensor.shape.spatial}"
+                    item = self.tensor.shape.spatial.index(item)
+                return self.tensor[{self.name: item}]
+        if isinstance(item, (tuple, list)):
+            from ._ops import stack
+            result = [self[i] for i in item]
+            item_names = [str(n) for n in item]
+            return stack({n: r for n, r in zip(item_names, result)}, self.tensor.shape.only(self.name))
         elif isinstance(item, Tensor) and item.dtype == DType(bool):
             from ._ops import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
-        return self.tensor[{self.name: item}]
+        else:
+            raise ValueError(f"Syntax tensor[{type(item)}] not supported")
 
     def flip(self):
         """ Flips the element order along this dimension and returns the result as a `Tensor`. """
