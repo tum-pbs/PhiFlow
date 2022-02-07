@@ -14787,9 +14787,8 @@ When selecting a vector component, such as <code>x</code> or <code>y</code>, the
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Slicing spatial dimensions on grids is different from slicing the <code>values</code> tensor directly.
-Here, a sub-grid is selected.
-The number of sample points depends on the grid type and extrapolation.</p>
+<p>Grids do not support slicing along spatial dimensions because the result would be ambiguous with StaggeredGrids.
+Instead, slice the <code>values</code> directly.</p>
 
 </div>
 </div>
@@ -14802,7 +14801,7 @@ The number of sample points depends on the grid type and extrapolation.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
 </pre></div>
 
      </div>
@@ -14820,35 +14819,15 @@ The number of sample points depends on the grid type and extrapolation.</p>
 <div class="jp-OutputArea-child">
 
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [4]</span>, in <span class="ansi-cyan-fg">&lt;module&gt;</span>
-<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-yellow-bg">grid</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">3</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">4</span><span class="ansi-yellow-bg">]</span>
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_field.py:391</span>, in <span class="ansi-cyan-fg">_FieldDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    389</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(item, <span style="color: rgb(0,135,0)">str</span>):
-<span class="ansi-green-intense-fg ansi-bold">    390</span>     item <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>field<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>index(item)
-<span class="ansi-green-fg">--&gt; 391</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">field</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">{</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">name</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">item</span><span class="ansi-yellow-bg">}</span><span class="ansi-yellow-bg">]</span>
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py:345</span>, in <span class="ansi-cyan-fg">StaggeredGrid.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    343</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> dim, sel <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> item<span style="color: rgb(98,98,98)">.</span>items():
-<span class="ansi-green-intense-fg ansi-bold">    344</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> dim <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial:
-<span class="ansi-green-fg">--&gt; 345</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">AssertionError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Cannot slice StaggeredGrid along spatial dimensions.</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-intense-fg ansi-bold">    346</span>         <span style="color: rgb(95,135,135)"># sel = slice(sel, sel + 1) if isinstance(sel, int) else sel</span>
-<span class="ansi-green-intense-fg ansi-bold">    347</span>         <span style="color: rgb(95,135,135)"># values = []</span>
-<span class="ansi-green-intense-fg ansi-bold">    348</span>         <span style="color: rgb(95,135,135)"># for vdim, val in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):</span>
-<span class="ansi-green-fg">   (...)</span>
-<span class="ansi-green-intense-fg ansi-bold">    352</span>         <span style="color: rgb(95,135,135)">#         values.append(val[{dim: sel}])</span>
-<span class="ansi-green-intense-fg ansi-bold">    353</span>         <span style="color: rgb(95,135,135)"># values = math.stack(values, channel(&#39;vector&#39;))</span>
-<span class="ansi-green-intense-fg ansi-bold">    354</span> extrapolation <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_extrapolation[item]
-
-<span class="ansi-red-fg">AssertionError</span>: Cannot slice StaggeredGrid along spatial dimensions.</pre>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre>(xˢ=1, yˢ=(10, 9), vectorᶜ=2) float32  0.2823781967163086 &lt; ... &lt; 1.0</pre>
 </div>
+
 </div>
 
 </div>
@@ -14863,7 +14842,7 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/pyth
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[5]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
 </pre></div>
 
      </div>
@@ -14881,35 +14860,15 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/pyth
 <div class="jp-OutputArea-child">
 
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[5]:</div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [5]</span>, in <span class="ansi-cyan-fg">&lt;module&gt;</span>
-<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-yellow-bg">grid</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">]</span>
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_field.py:391</span>, in <span class="ansi-cyan-fg">_FieldDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    389</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(item, <span style="color: rgb(0,135,0)">str</span>):
-<span class="ansi-green-intense-fg ansi-bold">    390</span>     item <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>field<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>index(item)
-<span class="ansi-green-fg">--&gt; 391</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">field</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">{</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">name</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">item</span><span class="ansi-yellow-bg">}</span><span class="ansi-yellow-bg">]</span>
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py:345</span>, in <span class="ansi-cyan-fg">StaggeredGrid.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    343</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> dim, sel <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> item<span style="color: rgb(98,98,98)">.</span>items():
-<span class="ansi-green-intense-fg ansi-bold">    344</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> dim <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial:
-<span class="ansi-green-fg">--&gt; 345</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">AssertionError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Cannot slice StaggeredGrid along spatial dimensions.</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-intense-fg ansi-bold">    346</span>         <span style="color: rgb(95,135,135)"># sel = slice(sel, sel + 1) if isinstance(sel, int) else sel</span>
-<span class="ansi-green-intense-fg ansi-bold">    347</span>         <span style="color: rgb(95,135,135)"># values = []</span>
-<span class="ansi-green-intense-fg ansi-bold">    348</span>         <span style="color: rgb(95,135,135)"># for vdim, val in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):</span>
-<span class="ansi-green-fg">   (...)</span>
-<span class="ansi-green-intense-fg ansi-bold">    352</span>         <span style="color: rgb(95,135,135)">#         values.append(val[{dim: sel}])</span>
-<span class="ansi-green-intense-fg ansi-bold">    353</span>         <span style="color: rgb(95,135,135)"># values = math.stack(values, channel(&#39;vector&#39;))</span>
-<span class="ansi-green-intense-fg ansi-bold">    354</span> extrapolation <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_extrapolation[item]
-
-<span class="ansi-red-fg">AssertionError</span>: Cannot slice StaggeredGrid along spatial dimensions.</pre>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre>(yˢ=(10, 9), vectorᶜ=2) float32  0.816439688205719 &lt; ... &lt; 1.0</pre>
 </div>
+
 </div>
 
 </div>
@@ -14954,42 +14913,15 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/pyth
 <div class="jp-OutputArea-child">
 
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[6]:</div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [6]</span>, in <span class="ansi-cyan-fg">&lt;module&gt;</span>
-<span class="ansi-green-fg">----&gt; 1</span> <span class="ansi-yellow-bg">grid</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">batch</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">]</span>
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_field.py:391</span>, in <span class="ansi-cyan-fg">_FieldDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    389</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(item, <span style="color: rgb(0,135,0)">str</span>):
-<span class="ansi-green-intense-fg ansi-bold">    390</span>     item <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>field<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>index(item)
-<span class="ansi-green-fg">--&gt; 391</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">field</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">{</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">name</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">item</span><span class="ansi-yellow-bg">}</span><span class="ansi-yellow-bg">]</span>
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py:363</span>, in <span class="ansi-cyan-fg">StaggeredGrid.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    361</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
-<span class="ansi-green-intense-fg ansi-bold">    362</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(item[<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span>], <span style="color: rgb(0,135,0)">slice</span>) <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> item[<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span>]<span style="color: rgb(98,98,98)">.</span>start <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> item[<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span>]<span style="color: rgb(98,98,98)">.</span>stop
-<span class="ansi-green-fg">--&gt; 363</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg">StaggeredGrid</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">extrapolation</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">extrapolation</span><span class="ansi-yellow-bg">)</span>
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py:270</span>, in <span class="ansi-cyan-fg">StaggeredGrid.__init__</span><span class="ansi-blue-fg">(self, values, extrapolation, bounds, resolution, **resolution_)</span>
-<span class="ansi-green-intense-fg ansi-bold">    268</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(values, Tensor), <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Grid resolution must be specified when </span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">values</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> is not a Tensor.</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    269</span> any_dim <span style="color: rgb(98,98,98)">=</span> values<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>names[<span style="color: rgb(98,98,98)">0</span>]
-<span class="ansi-green-fg">--&gt; 270</span> x <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">vector</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">any_dim</span><span class="ansi-yellow-bg">]</span>
-<span class="ansi-green-intense-fg ansi-bold">    271</span> ext_lower, ext_upper <span style="color: rgb(98,98,98)">=</span> extrapolation<span style="color: rgb(98,98,98)">.</span>valid_outer_faces(any_dim)
-<span class="ansi-green-intense-fg ansi-bold">    272</span> delta <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">int</span>(ext_lower) <span style="color: rgb(98,98,98)">+</span> <span style="color: rgb(0,135,0)">int</span>(ext_upper) <span style="color: rgb(98,98,98)">-</span> <span style="color: rgb(98,98,98)">1</span>
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_tensors.py:685</span>, in <span class="ansi-cyan-fg">TensorDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    683</span>     item <span style="color: rgb(98,98,98)">=</span> item_names<span style="color: rgb(98,98,98)">.</span>index(item)
-<span class="ansi-green-intense-fg ansi-bold">    684</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
-<span class="ansi-green-fg">--&gt; 685</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>size <span style="color: rgb(98,98,98)">==</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tensor<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Cannot access tensor.</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>name<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">[</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>item<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">] because dimension length does not match number of spatial dimensions, </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tensor<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    686</span>     item <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tensor<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>index(item)
-<span class="ansi-green-intense-fg ansi-bold">    687</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tensor[{<span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>name: item}]
-
-<span class="ansi-red-fg">AssertionError</span>: Cannot access tensor.vector[x] because dimension length does not match number of spatial dimensions, (xˢ=(9, 10), yˢ=(10, 9))</pre>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre>StaggeredGrid[(xˢ=10, yˢ=10, vectorᶜ=2), size=(1, 1), extrapolation=0]</pre>
 </div>
+
 </div>
 
 </div>

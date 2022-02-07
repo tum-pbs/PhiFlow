@@ -14610,8 +14610,8 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>2022-02-07 18:19:04.822540: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
-2022-02-07 18:19:04.822584: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+<pre>2022-02-07 18:33:39.339257: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
+2022-02-07 18:33:39.339291: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
 WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
 </pre>
 </div>
@@ -14670,36 +14670,15 @@ Note that the shapes of the arrays must match the extrapolation!</p>
 <div class="jp-OutputArea-child">
 
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[2]:</div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [2]</span>, in <span class="ansi-cyan-fg">&lt;module&gt;</span>
-<span class="ansi-green-intense-fg ansi-bold">      1</span> vx <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>tensor(np<span style="color: rgb(98,98,98)">.</span>zeros([<span style="color: rgb(98,98,98)">33</span>, <span style="color: rgb(98,98,98)">32</span>]), spatial(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">x,y</span><span style="color: rgb(175,0,0)">&#39;</span>))
-<span class="ansi-green-intense-fg ansi-bold">      2</span> vy <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>tensor(np<span style="color: rgb(98,98,98)">.</span>zeros([<span style="color: rgb(98,98,98)">32</span>, <span style="color: rgb(98,98,98)">33</span>]), spatial(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">x,y</span><span style="color: rgb(175,0,0)">&#39;</span>))
-<span class="ansi-green-fg">----&gt; 3</span> <span class="ansi-yellow-bg">StaggeredGrid</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">stack</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">vx</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">vy</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">channel</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">vector</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">extrapolation</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">BOUNDARY</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">      5</span> vx <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>tensor(np<span style="color: rgb(98,98,98)">.</span>zeros([<span style="color: rgb(98,98,98)">32</span>, <span style="color: rgb(98,98,98)">32</span>]), spatial(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">x,y</span><span style="color: rgb(175,0,0)">&#39;</span>))
-<span class="ansi-green-intense-fg ansi-bold">      6</span> vy <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>tensor(np<span style="color: rgb(98,98,98)">.</span>zeros([<span style="color: rgb(98,98,98)">32</span>, <span style="color: rgb(98,98,98)">32</span>]), spatial(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">x,y</span><span style="color: rgb(175,0,0)">&#39;</span>))
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py:270</span>, in <span class="ansi-cyan-fg">StaggeredGrid.__init__</span><span class="ansi-blue-fg">(self, values, extrapolation, bounds, resolution, **resolution_)</span>
-<span class="ansi-green-intense-fg ansi-bold">    268</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(values, Tensor), <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Grid resolution must be specified when </span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">values</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> is not a Tensor.</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    269</span> any_dim <span style="color: rgb(98,98,98)">=</span> values<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>names[<span style="color: rgb(98,98,98)">0</span>]
-<span class="ansi-green-fg">--&gt; 270</span> x <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">vector</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">any_dim</span><span class="ansi-yellow-bg">]</span>
-<span class="ansi-green-intense-fg ansi-bold">    271</span> ext_lower, ext_upper <span style="color: rgb(98,98,98)">=</span> extrapolation<span style="color: rgb(98,98,98)">.</span>valid_outer_faces(any_dim)
-<span class="ansi-green-intense-fg ansi-bold">    272</span> delta <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">int</span>(ext_lower) <span style="color: rgb(98,98,98)">+</span> <span style="color: rgb(0,135,0)">int</span>(ext_upper) <span style="color: rgb(98,98,98)">-</span> <span style="color: rgb(98,98,98)">1</span>
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_tensors.py:685</span>, in <span class="ansi-cyan-fg">TensorDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-intense-fg ansi-bold">    683</span>     item <span style="color: rgb(98,98,98)">=</span> item_names<span style="color: rgb(98,98,98)">.</span>index(item)
-<span class="ansi-green-intense-fg ansi-bold">    684</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
-<span class="ansi-green-fg">--&gt; 685</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>size <span style="color: rgb(98,98,98)">==</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tensor<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Cannot access tensor.</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>name<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">[</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>item<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">] because dimension length does not match number of spatial dimensions, </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tensor<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    686</span>     item <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tensor<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>index(item)
-<span class="ansi-green-intense-fg ansi-bold">    687</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tensor[{<span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>name: item}]
-
-<span class="ansi-red-fg">AssertionError</span>: Cannot access tensor.vector[x] because dimension length does not match number of spatial dimensions, (xˢ=(33, 32), yˢ=(32, 33))</pre>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre>StaggeredGrid[(xˢ=32, yˢ=32, vectorᶜ=2), size=(32, 32), extrapolation=0]</pre>
 </div>
+
 </div>
 
 </div>

@@ -10985,7 +10985,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
                 if item_names is not None and item in item_names:
                     item = item_names.index(item)
                 else:
-                    assert self.size == self.tensor.shape.spatial, f&#34;Cannot access tensor.{self.name}[{item}] because dimension length does not match number of spatial dimensions, {self.tensor.shape.spatial}&#34;
+                    assert self.size == self.tensor.shape.spatial.rank, f&#34;Cannot access tensor.{self.name}[{item}] because dimension length ({self.size}) does not match number of spatial dimensions, {self.tensor.shape.spatial}&#34;
                     item = self.tensor.shape.spatial.index(item)
                 return self.tensor[{self.name: item}]
         if isinstance(item, (tuple, list)):
