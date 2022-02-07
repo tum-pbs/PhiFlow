@@ -5371,7 +5371,8 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
                 values = reduce_sample(values, elements)
             elif callable(values):
                 values = values(elements.center)
-                assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
+                if elements.shape.shape.rank &gt; 1:  # Different number of X and Y faces
+                    assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
                 assert &#39;staggered_direction&#39; in values.shape
                 if &#39;vector&#39; in values.shape:
                     values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(&#39;vector&#39;))
