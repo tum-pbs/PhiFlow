@@ -62,3 +62,7 @@ class TestGeom(TestCase):
     def test_shape_type(self):
         box = Box[0:1, 1:2]
         self.assertEqual(box.rotated(0.1).shape_type, 'rotB')
+
+    def test_box_eq(self):
+        self.assertNotEqual(Box(x=1, y=1), Box(x=1))
+

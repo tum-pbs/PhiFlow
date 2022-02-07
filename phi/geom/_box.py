@@ -215,6 +215,7 @@ class Box(BaseBox, metaclass=BoxType):
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
+               and self.size.shape.get_size('vector') == other.size.shape.get_size('vector')\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
 

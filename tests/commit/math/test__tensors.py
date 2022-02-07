@@ -6,7 +6,7 @@ import phi
 from phi import math
 from phi.math import channel, batch
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
-from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor
+from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached
 from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
@@ -180,6 +180,13 @@ class TestTensors(TestCase):
         self.assertEqual(math.ones(nonuniform).shape, nonuniform)
         self.assertEqual(math.random_normal(nonuniform).shape, nonuniform)
         self.assertEqual(math.random_uniform(nonuniform).shape, nonuniform)
+
+    def test_close_different_shapes(self):
+        a = math.ones(channel(vector='x,y'))
+        b = math.wrap(3)
+        self.assertFalse(math.close(a, b))
+        self.assertFalse(math.close(cached(a), b))
+        math.assert_close(a+2, b)
 
     def test_repr(self):
         print("--- Eager ---")
