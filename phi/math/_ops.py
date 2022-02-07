@@ -588,7 +588,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), **dimensions: int or
     indices_list = backend.meshgrid(*dim_values)
     grid_shape = dim_type(**{dim: size for dim, size in zip(dimensions.keys(), dim_sizes)})
     channels = [NativeTensor(t, grid_shape) for t in indices_list]
-    return stack(channels, stack_dim)
+    return stack({dim: c for dim, c in zip(dimensions.keys(), channels)}, stack_dim)
 
 
 def linspace(start, stop, number: int, dim: Shape = channel('linspace')) -> Tensor:

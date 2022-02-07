@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from phi import math
+from phi import math, geom
 from phi import field
 from phi.field import Noise, CenteredGrid, StaggeredGrid
 from phi.geom import Box, Sphere
@@ -74,3 +74,7 @@ class GridTest(TestCase):
         self.assertEqual(grid.extrapolation, extrapolation.ZERO)
         grid = StaggeredGrid(0, 0, Box[0:1, 0:1], x=50, y=10)
         self.assertEqual(grid.extrapolation, extrapolation.ZERO)
+
+    def test_infinite_cylinder_to_grid(self):
+        cylinder = geom.infinite_cylinder(x=2, y=1.5, radius=.8, inf_dim='z')
+        StaggeredGrid(cylinder, 0, x=4, y=3, z=2)
