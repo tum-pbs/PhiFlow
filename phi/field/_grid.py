@@ -285,7 +285,8 @@ class StaggeredGrid(Grid):
                 values = reduce_sample(values, elements)
             elif callable(values):
                 values = values(elements.center)
-                assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
+                if elements.shape.shape.rank > 1:  # Different number of X and Y faces
+                    assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
                 assert 'staggered_direction' in values.shape
                 if 'vector' in values.shape:
                     values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel('vector'))
