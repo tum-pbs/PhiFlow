@@ -933,6 +933,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
+               and self.size.shape.get_size(&#39;vector&#39;) == other.size.shape.get_size(&#39;vector&#39;)\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
 
