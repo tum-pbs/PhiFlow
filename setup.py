@@ -144,8 +144,7 @@ setup(
               'phi.vis._console',
               'phi.vis._dash',
               'phi.vis._matplotlib',
-              'phi.vis._widgets',
-              'webglviewer'],
+              'phi.vis._widgets'],
     cmdclass={
         'tf_cuda': CudaCommand,
     },
@@ -164,7 +163,7 @@ setup(
         'matplotlib'  # also required by dash for color maps
     ],
     # Optional packages:
-    # - dash + plotly (included in dash) + imageio (for webgl-viewer)
+    # - dash + plotly (included in dash)
     # - torch
     # - tensorflow
     # - jax

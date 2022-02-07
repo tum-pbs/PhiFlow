@@ -127,10 +127,6 @@ def troubleshoot_dash():
     except ImportError:
         return "Plotly not installed. This package is required by dash. To install it, run  $ pip install plotly"
     try:
-        import imageio
-    except ImportError:
-        return "Dash installed but ImageIO not available, 3D view will not work. You can fix this by running  $ pip install imageio"
-    try:
         dash.Dash('Test')
     except BaseException as e:
         return f"Dash runtime error: {e}"
