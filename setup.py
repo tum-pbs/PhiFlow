@@ -159,7 +159,7 @@ setup(
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
     install_requires=[
-        'numpy==1.19.5',  # 1.20 causes TensorFlow tracing errors: NotImplementedError: Cannot convert a symbolic Tensor to a numpy array.
+        'numpy',  # 1.20 causes TensorFlow tracing errors: NotImplementedError: Cannot convert a symbolic Tensor to a numpy array.
         'scipy',
         'matplotlib'  # also required by dash for color maps
     ],
