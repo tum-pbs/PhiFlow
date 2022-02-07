@@ -66,3 +66,14 @@ class TestGeom(TestCase):
     def test_box_eq(self):
         self.assertNotEqual(Box(x=1, y=1), Box(x=1))
 
+    def test_infinite_cylinder(self):
+        cylinder = geom.infinite_cylinder(x=.5, y=.5, radius=.5, inf_dim=math.spatial('z'))
+        self.assertEqual(cylinder.spatial_rank, 3)
+        cylinder = geom.infinite_cylinder(x=.5, y=.5, radius=.5, inf_dim='z')
+        loc = math.wrap([(0, 0, 0), (.5, .5, 0), (1, 1, 0), (0, 0, 100), (.5, .5, 100)], math.instance('points'), math.channel(vector='x,y,z'))
+        inside = math.wrap([False, True, False, False, True], math.instance('points'))
+        math.assert_close(cylinder.lies_inside(loc), inside)
+        loc = math.wrap([(0, 0, 0), (.5, 1, 0), (1, 1, 0), (0, 0, 100), (.5, 1, 100)], math.instance('points'), math.channel(vector='x,y,z'))
+        corner_distance = math.sqrt(2) / 2 - .5
+        distance = math.wrap([corner_distance, 0, corner_distance, corner_distance, 0], math.instance('points'))
+        math.assert_close(cylinder.approximate_signed_distance(loc), distance)

@@ -16,5 +16,6 @@ from ._box import Box, GridCell, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._stack import stack
 from ._geom_math import concat, invert, pack_dims
+from ._transform import embed, infinite_cylinder
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
