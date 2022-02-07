@@ -172,17 +172,17 @@ __pdoc__ = {
 <p>Example:</p>
 <pre><code class="language-python">dt = control(1.0, (0.1, 10), name=&quot;Time increment (dt)&quot;)
 </code></pre>
-<p>This will cause a control component (slider, checkbox, text field, etc.) to be generated in the user interface.
+<p>This will cause a control component (slider, checkbox, text field, drop-down, etc.) to be generated in the user interface.
 Changes to that component will immediately be reflected in the Python variable assigned to the control.
 The Python variable will always hold a primitive type, such as <code>int</code>, <code>float´,</code>bool<code> or </code>str`.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd>Initial value. Must be either <code>int</code>, <code>float´,</code>bool<code> or </code>str`.</dd>
+<dd>Initial value. Must be either <code>int</code>, <code>float</code>, <code>bool</code> or <code>str</code>.</dd>
 <dt><strong><code>range</code></strong></dt>
-<dd>(Optional) Specify range of possible values as <code>(min, max)</code>. Only for <code>int</code> and <code>float</code> values.</dd>
+<dd>(Optional) Specify range of possible values as <code>(min, max)</code>. Only for <code>int</code>, <code>float</code> and <code>str</code> values.</dd>
 <dt><strong><code>description</code></strong></dt>
-<dd>Description of what the control does.</dd>
+<dd>Human-readable description.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional arguments to determine the appearance of the GUI component,
 e.g. <code>rows</code> for text fields or <code>log=False</code> for float sliders.</dd>
@@ -202,14 +202,14 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
     dt = control(1.0, (0.1, 10), name=&#34;Time increment (dt)&#34;)
     ```
 
-    This will cause a control component (slider, checkbox, text field, etc.) to be generated in the user interface.
+    This will cause a control component (slider, checkbox, text field, drop-down, etc.) to be generated in the user interface.
     Changes to that component will immediately be reflected in the Python variable assigned to the control.
     The Python variable will always hold a primitive type, such as `int`, `float´, `bool` or `str`.
 
     Args:
-        value: Initial value. Must be either `int`, `float´, `bool` or `str`.
-        range: (Optional) Specify range of possible values as `(min, max)`. Only for `int` and `float` values.
-        description: Description of what the control does.
+        value: Initial value. Must be either `int`, `float`, `bool` or `str`.
+        range: (Optional) Specify range of possible values as `(min, max)`. Only for `int`, `float` and `str` values.
+        description: Human-readable description.
         **kwargs: Additional arguments to determine the appearance of the GUI component,
             e.g. `rows` for text fields or `log=False` for float sliders.
 

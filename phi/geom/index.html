@@ -52,6 +52,7 @@ from ._box import Box, GridCell, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._stack import stack
 from ._geom_math import concat, invert, pack_dims
+from ._transform import embed, infinite_cylinder
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
 </details>
@@ -125,6 +126,91 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
         return copy_with(geometries[0], **new_attributes)
     else:
         raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.embed"><code class="name flex">
+<span>def <span class="ident">embed</span></span>(<span>geometry: phi.geom._geom.Geometry, projected_dims: phi.math._shape.Shape) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Adds fake spatial dimensions to a geometry.
+The geometry value will be constant along the added dimensions, as if it had infinite length in these directions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>geometry</code></strong></dt>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dd>
+<dt><strong><code>projected_dims</code></strong></dt>
+<dd>Additional dimensions</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with spatial rank <code>geometry.spatial_rank + projected_dims.rank</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def embed(geometry: Geometry, projected_dims: math.Shape) -&gt; Geometry:
+    &#34;&#34;&#34;
+    Adds fake spatial dimensions to a geometry.
+    The geometry value will be constant along the added dimensions, as if it had infinite length in these directions.
+
+    Args:
+        geometry: `Geometry`
+        projected_dims: Additional dimensions
+
+    Returns:
+        `Geometry` with spatial rank `geometry.spatial_rank + projected_dims.rank`.
+    &#34;&#34;&#34;
+    return _EmbeddedGeometry(geometry, projected_dims) if projected_dims.rank &gt; 0 else geometry</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.infinite_cylinder"><code class="name flex">
+<span>def <span class="ident">infinite_cylinder</span></span>(<span>center=None, radius=None, inf_dim: str = None, **center_) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates an infinite cylinder.
+This is equal to embedding an <code>n</code>-dimensional <code><a title="phi.geom.Sphere" href="#phi.geom.Sphere">Sphere</a></code> in <code>n+1</code> dimensions.</p>
+<p>See Also:
+<code><a title="phi.geom.Sphere" href="#phi.geom.Sphere">Sphere</a></code>, <code><a title="phi.geom.embed" href="#phi.geom.embed">embed()</a></code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>center</code></strong></dt>
+<dd>Center coordinates without <code>inf_dim</code>. Alternatively use keyword arguments.</dd>
+<dt><strong><code>radius</code></strong></dt>
+<dd>Cylinder radius.</dd>
+<dt><strong><code>inf_dim</code></strong></dt>
+<dd>Dimension along which the cylinder is infinite.
+Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated">Geometry.rotated()</a></code> if the direction does not align with an axis.</dd>
+<dt><strong><code>**center_</code></strong></dt>
+<dd>Alternatively specify center coordinates without <code>inf_dim</code> as keyword arguments.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def infinite_cylinder(center=None, radius=None, inf_dim: str or Shape = None, **center_) -&gt; Geometry:
+    &#34;&#34;&#34;
+    Creates an infinite cylinder.
+    This is equal to embedding an `n`-dimensional `Sphere` in `n+1` dimensions.
+
+    See Also:
+        `Sphere`, `embed`
+
+    Args:
+        center: Center coordinates without `inf_dim`. Alternatively use keyword arguments.
+        radius: Cylinder radius.
+        inf_dim: Dimension along which the cylinder is infinite.
+            Use `Geometry.rotated()` if the direction does not align with an axis.
+        **center_: Alternatively specify center coordinates without `inf_dim` as keyword arguments.
+
+    Returns:
+        `Geometry`
+    &#34;&#34;&#34;
+    assert inf_dim is not None, &#34;inf_dim must be specified&#34;
+    if isinstance(inf_dim, str):
+        inf_dim = math.spatial(*parse_dim_order(inf_dim))
+    sphere = Sphere(center, radius, **center_)
+    return embed(sphere, inf_dim)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.invert"><code class="name flex">
@@ -1632,6 +1718,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 <li>phi.geom._sphere.Sphere</li>
 <li>phi.geom._stack.GeometryStack</li>
 <li>phi.geom._transform.RotatedGeometry</li>
+<li>phi.geom._transform._EmbeddedGeometry</li>
 <li>phi.geom._union.Union</li>
 </ul>
 <h3>Instance variables</h3>
@@ -3271,6 +3358,8 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <ul class="two-column">
 <li><code><a title="phi.geom.assert_same_rank" href="#phi.geom.assert_same_rank">assert_same_rank</a></code></li>
 <li><code><a title="phi.geom.concat" href="#phi.geom.concat">concat</a></code></li>
+<li><code><a title="phi.geom.embed" href="#phi.geom.embed">embed</a></code></li>
+<li><code><a title="phi.geom.infinite_cylinder" href="#phi.geom.infinite_cylinder">infinite_cylinder</a></code></li>
 <li><code><a title="phi.geom.invert" href="#phi.geom.invert">invert</a></code></li>
 <li><code><a title="phi.geom.pack_dims" href="#phi.geom.pack_dims">pack_dims</a></code></li>
 <li><code><a title="phi.geom.stack" href="#phi.geom.stack">stack</a></code></li>
