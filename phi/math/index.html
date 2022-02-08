@@ -763,7 +763,11 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
     &#34;&#34;&#34;
     from ._tensors import Tensor
     if all(isinstance(arg, str) for arg in args) or dims:
-        return _construct_shape(CHANNEL_DIM, *args, **dims)
+        result = _construct_shape(CHANNEL_DIM, *args, **dims)
+        for s, n, t, item_name in result._dimensions:
+            if item_name is None and s is not None and not n.startswith(&#39;_&#39;):
+                warnings.warn(f&#34;Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}=&#39;x,y,z&#39;) to assign names or use math.stack(dict, dim)&#34;)
+        return result
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
     elif len(args) == 1 and isinstance(args[0], Tensor):
@@ -2392,7 +2396,8 @@ The size of the <code>vector</code> dimension must match the number of spatial d
 <span>def <span class="ident">hessian</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True, get_gradient=True, dim_suffixes=('', '_')) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function which computes the Hessian (second derivative) of <code>f</code>.</p>
+<div class="desc"><p><em>Experimental. This function currently only supports PyTorch and the Hessian can only be computed w.r.t. one argument.</em></p>
+<p>Creates a function which computes the Hessian (second derivative) of <code>f</code>.</p>
 <p>Example:</p>
 <pre><code class="language-python">def loss_function(x, y):
     prediction = f(x)
@@ -2435,6 +2440,8 @@ This argument has no effect on the dimension names of the gradient if <code>get_
 </summary>
 <pre><code class="python">def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradient=True, dim_suffixes=(&#39;&#39;, &#39;_&#39;)) -&gt; Callable:
     &#34;&#34;&#34;
+    *Experimental. This function currently only supports PyTorch and the Hessian can only be computed w.r.t. one argument.*
+
     Creates a function which computes the Hessian (second derivative) of `f`.
 
     Example:
