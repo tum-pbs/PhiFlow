@@ -532,6 +532,8 @@ class HessianFunction:
 
 def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradient=True, dim_suffixes=('', '_')) -> Callable:
     """
+    *Experimental. This function currently only supports PyTorch and the Hessian can only be computed w.r.t. one argument.*
+
     Creates a function which computes the Hessian (second derivative) of `f`.
 
     Example:

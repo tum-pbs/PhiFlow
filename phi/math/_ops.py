@@ -834,12 +834,12 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
             result = reshaped_tensor(result, [grid.shape.batch & coordinates.shape.batch, *coordinates.shape.instance, *coordinates.shape.spatial, grid.shape.channel])
             return result
     # fallback to slower grid sampling
-    neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, 'closest_')
-    binary = meshgrid(**{f'closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, dim_type=channel)
+    neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, '_closest_')
+    binary = meshgrid(**{f'_closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, dim_type=channel)
     right_weights = coordinates % 1
     binary, right_weights = join_spaces(binary, right_weights)
     weights = prod(binary * right_weights + (1 - binary) * (1 - right_weights), 'vector')
-    result = sum_(neighbors * weights, dim=[f"closest_{dim}" for dim in grid.shape.spatial.names])
+    result = sum_(neighbors * weights, dim=[f"_closest_{dim}" for dim in grid.shape.spatial.names])
     return result
 
 

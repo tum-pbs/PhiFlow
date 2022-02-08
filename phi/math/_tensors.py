@@ -5,7 +5,7 @@ from typing import Tuple, Callable, List, TypeVar
 
 import numpy as np
 
-from phi.math._shape import TYPE_ABBR, ShapeMismatch, INSTANCE_DIM
+from phi.math._shape import TYPE_ABBR, ShapeMismatch, INSTANCE_DIM, _construct_shape
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
@@ -737,7 +737,7 @@ class NativeTensor(Tensor):
         for name in order:
             if name not in self.shape:
                 native = backend.expand_dims(native, axis=-1)
-                shape = concat_shapes(shape, channel(**{name: 1}))
+                shape = concat_shapes(shape, _construct_shape('tmp_perm', **{name: 1}))
         # --- Transpose ---
         perm = shape._perm(order)
         native = backend.transpose(native, perm)
