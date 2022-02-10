@@ -14454,6 +14454,11 @@ all of MD as it is not optimized for dense, information rich UIs.
 </style>
 
 <style type="text/css">
+/* Force rendering true colors when outputing to pdf */
+* {
+  -webkit-print-color-adjust: exact;
+}
+
 /* Misc */
 a.anchor-link {
   display: none;
@@ -14515,11 +14520,12 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
   width: 100%;
 }
 
-@media print {
-  .jp-Collapser {
-    display: none;
-  }
+/* Hiding the collapser by default */
+.jp-Collapser {
+  display: none;
+}
 
+@media print {
   .jp-Cell-inputWrapper,
   .jp-Cell-outputWrapper {
     display: block;
@@ -14679,7 +14685,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_shape.py:1034: UserWarning: Item names are highly recommended for channel dimensions. Use the syntax math.channel(vector=&#39;x,y,z&#39;) to assign names or use math.stack(dict, dim)
+<pre>/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_shape.py:1059: UserWarning: Item names are highly recommended for channel dimensions. Use the syntax math.channel(vector=&#39;x,y,z&#39;) to assign names or use math.stack(dict, dim)
   warnings.warn(f&#34;Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}=&#39;x,y,z&#39;) to assign names or use math.stack(dict, dim)&#34;)
 </pre>
 </div>

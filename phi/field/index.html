@@ -72,7 +72,7 @@ from phi.math import (
     l2_loss, l1_loss, frequency_loss,
 )
 from ._field_math import (
-    assert_close,
+    assert_close, tensor_as_field,
     bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
@@ -148,7 +148,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def assert_close(*fields: SampledField or math.Tensor or Number,
+<pre><code class="python">def assert_close(*fields: SampledField or Tensor or Number,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0,
                  msg: str = &#34;&#34;,
@@ -842,12 +842,12 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 <dd>Region to integrate over.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Integral as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
+<p>Integral as <code>phi.Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def integrate(field: Field, region: Geometry) -&gt; math.Tensor:
+<pre><code class="python">def integrate(field: Field, region: Geometry) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes *∫&lt;sub&gt;R&lt;/sub&gt; f(x) dx&lt;sup&gt;d&lt;/sup&gt;* , where *f* denotes the `Field`, *R* the `region` and *d* the number of spatial dimensions (`d=field.shape.spatial_rank`).
     Depending on the `sample` implementation for `field`, the integral may be a rough approximation.
@@ -859,7 +859,7 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
         region: Region to integrate over.
 
     Returns:
-        Integral as `phi.math.Tensor`
+        Integral as `phi.Tensor`
     &#34;&#34;&#34;
     if not isinstance(field, CenteredGrid):
         raise NotImplementedError()
@@ -1024,7 +1024,7 @@ However, passing different values for these will cause <code>f</code> to be re-t
 </details>
 </dd>
 <dt id="phi.field.l1_loss"><code class="name flex">
-<span>def <span class="ident">l1_loss</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l1_loss</span></span>(<span>x, reduce: phi.math._shape.Shape = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub></em>, summing over all non-batch dimensions.</p>
@@ -1033,6 +1033,9 @@ However, passing different values for these will cause <code>f</code> to be re-t
 <dt><strong><code>x</code></strong></dt>
 <dd><code>Tensor</code> or <code>TensorLike</code>.
 For <code>TensorLike</code> objects, only value the sum over all value attributes is computed.</dd>
+<dt><strong><code>reduce</code></strong></dt>
+<dd>Dimensions to reduce. By default all non-batch dimensions are reduced.
+<code>Shape or list or tuple or str or spatial or instance or channel</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1043,27 +1046,29 @@ For <code>TensorLike</code> objects, only value the sum over all value attribute
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l1_loss(x) -&gt; Tensor:
+<pre><code class="python">def l1_loss(x, reduce: Shape or list or tuple or str or Callable = None) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;1&lt;/sub&gt;*, summing over all non-batch dimensions.
 
     Args:
         x: `Tensor` or `TensorLike`.
             For `TensorLike` objects, only value the sum over all value attributes is computed.
+        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
+            `Shape or list or tuple or str or spatial or instance or channel`.
 
     Returns:
         loss: `Tensor`
     &#34;&#34;&#34;
     if isinstance(x, Tensor):
-        return math.sum_(abs(x), x.shape.non_batch)
+        return math.sum_(abs(x), reduce)
     elif isinstance(x, TensorLike):
-        return sum([l1_loss(getattr(x, a)) for a in variable_values(x)])
+        return sum([l1_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>x, reduce: phi.math._shape.Shape = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2</em>, summing over all non-batch dimensions.</p>
@@ -1072,6 +1077,9 @@ For <code>TensorLike</code> objects, only value the sum over all value attribute
 <dt><strong><code>x</code></strong></dt>
 <dd><code>Tensor</code> or <code>TensorLike</code>.
 For <code>TensorLike</code> objects, only value the sum over all value attributes is computed.</dd>
+<dt><strong><code>reduce</code></strong></dt>
+<dd>Dimensions to reduce. By default all non-batch dimensions are reduced.
+<code>Shape or list or tuple or str or spatial or instance or channel</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1082,13 +1090,15 @@ For <code>TensorLike</code> objects, only value the sum over all value attribute
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def l2_loss(x) -&gt; Tensor:
+<pre><code class="python">def l2_loss(x, reduce: Shape or list or tuple or str or Callable = None) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;2&lt;/sub&gt;&lt;sup&gt;2&lt;/sup&gt; / 2*, summing over all non-batch dimensions.
 
     Args:
         x: `Tensor` or `TensorLike`.
             For `TensorLike` objects, only value the sum over all value attributes is computed.
+        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
+            `Shape or list or tuple or str or spatial or instance or channel`.
 
     Returns:
         loss: `Tensor`
@@ -1096,9 +1106,9 @@ For <code>TensorLike</code> objects, only value the sum over all value attribute
     if isinstance(x, Tensor):
         if x.dtype.kind == complex:
             x = abs(x)
-        return math.sum_(x ** 2, x.shape.non_batch) * 0.5
+        return math.sum_(x ** 2, reduce) * 0.5
     elif isinstance(x, TensorLike):
-        return sum([l2_loss(getattr(x, a)) for a in variable_values(x)])
+        return sum([l2_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)</code></pre>
 </details>
@@ -1166,12 +1176,12 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 <dd><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
+<p><code>phi.Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mean(field: SampledField) -&gt; math.Tensor:
+<pre><code class="python">def mean(field: SampledField) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the mean value by reducing all spatial / instance dimensions.
 
@@ -1179,7 +1189,7 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
         field: `SampledField`
 
     Returns:
-        `phi.math.Tensor`
+        `phi.Tensor`
     &#34;&#34;&#34;
     return math.mean(field.values, field.shape.non_channel.non_batch)</code></pre>
 </details>
@@ -1362,7 +1372,7 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 <dd>Function to be called on native tensors of <code>inputs.values</code>.
 The function output must have the same dimension layout as the inputs and the batch size must be identical.</dd>
 <dt><strong><code>*inputs</code></strong></dt>
-<dd><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> or <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> instances.</dd>
+<dd><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> or <code>phi.Tensor</code> instances.</dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>(Optional) Extrapolation of the output field. If <code>None</code>, uses the extrapolation of the first input field.</dd>
 </dl>
@@ -1372,20 +1382,20 @@ The function output must have the same dimension layout as the inputs and the ba
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def native_call(f, *inputs, channels_last=None, channel_dim=&#39;vector&#39;, extrapolation=None) -&gt; SampledField or math.Tensor:
+<pre><code class="python">def native_call(f, *inputs, channels_last=None, channel_dim=&#39;vector&#39;, extrapolation=None) -&gt; SampledField or Tensor:
     &#34;&#34;&#34;
     Similar to `phi.math.native_call()`.
 
     Args:
         f: Function to be called on native tensors of `inputs.values`.
             The function output must have the same dimension layout as the inputs and the batch size must be identical.
-        *inputs: `SampledField` or `phi.math.Tensor` instances.
+        *inputs: `SampledField` or `phi.Tensor` instances.
         extrapolation: (Optional) Extrapolation of the output field. If `None`, uses the extrapolation of the first input field.
 
     Returns:
         `SampledField` matching the first `SampledField` in `inputs`.
     &#34;&#34;&#34;
-    input_tensors = [i.values if isinstance(i, SampledField) else math.tensor(i) for i in inputs]
+    input_tensors = [i.values if isinstance(i, SampledField) else Tensor(i) for i in inputs]
     values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
@@ -2176,6 +2186,46 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
         return assemble_tree(nest, new_values)
     else:
         return wrap(choose_backend(x).stop_gradient(x))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.tensor_as_field"><code class="name flex">
+<span>def <span class="ident">tensor_as_field</span></span>(<span>t: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Interpret a <code>Tensor</code> as a <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a></code> depending on its dimensions.</p>
+<p>Unlike the <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> constructor, this function will have the values sampled at integer points for each spatial dimension.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>t</code></strong></dt>
+<dd><code>Tensor</code> with either <code>spatial</code> or <code>instance</code> dimensions.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tensor_as_field(t: Tensor):
+    &#34;&#34;&#34;
+    Interpret a `Tensor` as a `CenteredGrid` or `PointCloud` depending on its dimensions.
+
+    Unlike the `CenteredGrid` constructor, this function will have the values sampled at integer points for each spatial dimension.
+
+    Args:
+        t: `Tensor` with either `spatial` or `instance` dimensions.
+
+    Returns:
+        `CenteredGrid` or `PointCloud`
+    &#34;&#34;&#34;
+    if spatial(t):
+        assert not instance(t), f&#34;Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}&#34;
+        bounds = Box(-0.5, math.wrap(spatial(t), channel(&#39;vector&#39;)) - 0.5)
+        return CenteredGrid(t, 0, bounds=bounds)
+    if instance(t):
+        assert not spatial(t), f&#34;Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}&#34;
+        assert &#39;vector&#39; in t.shape, f&#34;Cannot interpret tensor as PointCloud because it has not vector dimension.&#34;
+        bounds = data_bounds(t)
+        return PointCloud(Sphere(t, radius=bounds.size / 200), 1, 0)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.to_float"><code class="name flex">
@@ -3633,7 +3683,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
     def __init__(self,
                  elements: Geometry,
                  values: Any = 1,
-                 extrapolation: float or math.extrapolation = math.extrapolation.ZERO,
+                 extrapolation: float or math.extrapolation = 0,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
@@ -5673,6 +5723,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 <li><code><a title="phi.field.stack" href="#phi.field.stack">stack</a></code></li>
 <li><code><a title="phi.field.stagger" href="#phi.field.stagger">stagger</a></code></li>
 <li><code><a title="phi.field.stop_gradient" href="#phi.field.stop_gradient">stop_gradient</a></code></li>
+<li><code><a title="phi.field.tensor_as_field" href="#phi.field.tensor_as_field">tensor_as_field</a></code></li>
 <li><code><a title="phi.field.to_float" href="#phi.field.to_float">to_float</a></code></li>
 <li><code><a title="phi.field.to_int32" href="#phi.field.to_int32">to_int32</a></code></li>
 <li><code><a title="phi.field.to_int64" href="#phi.field.to_int64">to_int64</a></code></li>
