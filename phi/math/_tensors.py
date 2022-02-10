@@ -5,7 +5,7 @@ from typing import Tuple, Callable, List, TypeVar
 
 import numpy as np
 
-from phi.math._shape import TYPE_ABBR, ShapeMismatch, INSTANCE_DIM, _construct_shape
+from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
@@ -1314,7 +1314,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             # fill in sizes or check them
             sizes = backend.staticshape(data)
             if len(sizes) != len(shape):
-                raise ShapeMismatch(f"Rank of given shape {shape} does not match data with sizes {sizes}")
+                raise IncompatibleShapes(f"Rank of given shape {shape} does not match data with sizes {sizes}")
             for size, s in zip(sizes, shape.sizes):
                 if s is not None:
                     assert s == size, f"Given shape {shape} does not match data with sizes {sizes}. Consider leaving the sizes undefined."

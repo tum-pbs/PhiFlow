@@ -10,7 +10,7 @@ import numpy as np
 
 from . import extrapolation as e_
 from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, INSTANCE_DIM, Shape, EMPTY_SHAPE,
-                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes, ShapeMismatch)
+                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes, IncompatibleShapes)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
     assemble_tensors, disassemble_tree, assemble_tree, value_attributes
@@ -215,8 +215,8 @@ def reshaped_tensor(value: Any,
     dims = [batch(f'group{i}') for i, group in enumerate(groups)]
     try:
         value = tensor(value, *dims, convert=convert)
-    except ShapeMismatch:
-        raise ShapeMismatch(f"Cannot reshape native tensor with sizes {value.shape} given groups {groups}")
+    except IncompatibleShapes:
+        raise IncompatibleShapes(f"Cannot reshape native tensor with sizes {value.shape} given groups {groups}")
     for i, group in enumerate(groups):
         if value.shape.get_size(f'group{i}') == group.volume:
             value = unpack_dims(value, f'group{i}', group)
@@ -554,7 +554,7 @@ def fftfreq(resolution: Shape, dx: Tensor or float = 1, dtype: DType = None):
     return to_float(k) if dtype is None else cast(k, dtype)
 
 
-def meshgrid(dim_type=spatial, stack_dim=channel('vector'), **dimensions: int or Tensor) -> Tensor:
+def meshgrid(dim_type=spatial, stack_dim=channel('vector'), assign_item_names=True, **dimensions: int or Tensor) -> Tensor:
     """
     Generate a mesh-grid `Tensor` from keyword dimensions.
 
@@ -563,6 +563,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), **dimensions: int or
             Values may be `int`, 1D `Tensor` or 1D native tensor.
         dim_type: Dimension type of mesh-grid dimensions, one of `spatial`, `channel`, `batch`, `instance`.
         stack_dim: Vector dimension along which grids are stacked.
+        assign_item_names: Whether to use the dimension names from `**dimensions` as item names for `stack_dim`.
 
     Returns:
         Mesh-grid `Tensor`
@@ -588,7 +589,10 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), **dimensions: int or
     indices_list = backend.meshgrid(*dim_values)
     grid_shape = dim_type(**{dim: size for dim, size in zip(dimensions.keys(), dim_sizes)})
     channels = [NativeTensor(t, grid_shape) for t in indices_list]
-    return stack({dim: c for dim, c in zip(dimensions.keys(), channels)}, stack_dim)
+    if assign_item_names:
+        return stack({dim: c for dim, c in zip(dimensions.keys(), channels)}, stack_dim)
+    else:
+        return stack(channels, stack_dim)
 
 
 def linspace(start, stop, number: int, dim: Shape = channel('linspace')) -> Tensor:
@@ -835,7 +839,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
             return result
     # fallback to slower grid sampling
     neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, '_closest_')
-    binary = meshgrid(**{f'_closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, dim_type=channel)
+    binary = meshgrid(**{f'_closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, dim_type=channel, assign_item_names=False)
     right_weights = coordinates % 1
     binary, right_weights = join_spaces(binary, right_weights)
     weights = prod(binary * right_weights + (1 - binary) * (1 - right_weights), 'vector')

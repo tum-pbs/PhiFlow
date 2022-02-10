@@ -17,11 +17,6 @@ class TestShape(TestCase):
 
     def test_combine(self):
         self.assertEqual(batch(batch=10) & spatial(y=4, x=3) & channel(vector=2), batch(batch=10) & channel(vector=2) & spatial(y=4, x=3))
-        try:
-            spatial(y=4) & spatial(x=3)
-            self.fail()
-        except IncompatibleShapes:
-            pass
 
     def test_stack(self):
         stacked = shape_stack(batch('stack'), batch(time=1) & spatial(x=3, y=3), spatial(x=3, y=4), EMPTY_SHAPE)
@@ -69,6 +64,8 @@ class TestShape(TestCase):
         self.assertEqual(shape.get_item_names('dims'), ('x', 'y'))
         shape = math.merge_shapes(batch(b=10), named)
         self.assertEqual(shape.get_item_names('dims'), ('x', 'y'))
+        c = channel(vector='r,g,b')
+        self.assertEqual(('r', 'g', 'b'), c.get_item_names('vector'))
 
     def test_serialize_shape(self):
         s = math.concat_shapes(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
@@ -78,4 +75,12 @@ class TestShape(TestCase):
         self.assertFalse(math.EMPTY_SHAPE)
         self.assertTrue(math.spatial(x=3))
 
-
+    def test_merge_shapes_check_item_names(self):
+        s1 = channel(vector='x,y,z')
+        s2 = channel(vector='r,g,b')
+        try:
+            math.merge_shapes(s1, s2)
+            self.fail('Merging incompatible shapes did not raise an error!')
+        except math.IncompatibleShapes:
+            pass
+        math.merge_shapes(s1, s1)

@@ -271,10 +271,24 @@ class TestTensors(TestCase):
         math.assert_close(t, math.from_dict(math.to_dict(t)))
 
     def test_flip_item_names(self):
-        t = math.zeros(spatial(x=4, y=3), channel(vector=2))
+        t = math.zeros(spatial(x=4, y=3), channel(vector='x,y'))
         self.assertEqual(('x', 'y'), t.vector.item_names)
         t_ = t.vector.flip()
         self.assertEqual(('y', 'x'), t_.vector.item_names)
         t_ = t.vector[::-1]
         self.assertEqual(('y', 'x'), t_.vector.item_names)
 
+    def test_op2_incompatible_item_names(self):
+        t1 = math.random_normal(channel(vector='x,y,z'))
+        t2 = math.random_normal(channel(vector='r,g,b'))
+        self.assertEqual(('r', 'g', 'b'), t2.vector.item_names)
+        try:
+            t1 + t2
+            self.fail("Tensors with incompatible item names cannot be added")
+        except math.IncompatibleShapes:
+            pass
+        t1 + t1
+        t2_ = t2 + math.random_normal(channel(vector=3))
+        self.assertEqual(('r', 'g', 'b'), t2_.vector.item_names)
+        t2_ = math.random_normal(channel(vector=3)) + t2
+        self.assertEqual(('r', 'g', 'b'), t2_.vector.item_names)

@@ -48,6 +48,8 @@ class Shape:
         # Debug asserts
         # assert len(sizes) == len(names) == len(types), f"sizes={sizes} ({len(sizes)}), names={names} ({len(names)}), types={types} ({len(types)})"
         # assert all(isinstance(n, str) for n in names), f"All names must be of type string but got {names}"
+        # assert isinstance(self.item_names, tuple)
+        # assert all([items is None or isinstance(items, tuple) for items in self.item_names])
         # assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
 
     def _to_dict(self, include_sizes=True):
@@ -199,7 +201,7 @@ class Shape:
         else:
             raise ValueError(dims)
 
-    def get_item_names(self, dim: str or 'Shape' or int, fallback_spatial=True) -> tuple or None:
+    def get_item_names(self, dim: str or 'Shape' or int, fallback_spatial=False) -> tuple or None:
         """
         Args:
             fallback_spatial: If `True` and no item names are defined for `dim` and `dim` is a channel dimension, the spatial dimension names are interpreted as item names along `dim` in the order they are listed in this `Shape`.
@@ -510,7 +512,7 @@ class Shape:
         return result
 
     def __and__(self, other):
-        return merge_shapes(self, other, check_exact=[spatial])
+        return merge_shapes(self, other)
 
     def _expand(self, dim: 'Shape', pos=None) -> 'Shape':
         """**Deprecated.** Use `phi.math.merge_shapes()` or `phi.math.concat_shapes()` instead. """
@@ -774,6 +776,11 @@ class Shape:
     def _with_item_names(self, item_names):
         return Shape(self.sizes, self.names, self.types, item_names)
 
+    def _with_item_name(self, dim: str, item_name: tuple):
+        item_names = list(self.item_names)
+        item_names[self.index(dim)] = item_name
+        return Shape(self.sizes, self.names, self.types, tuple(item_names))
+
     def _perm(self, names: Tuple[str]):
         assert len(set(names)) == len(names), f"No duplicates allowed but got {names}"
         assert len(names) >= len(self.names), f"Cannot find permutation for {self} given {names} because names {set(self.names) - set(names)} are missing"
@@ -952,10 +959,10 @@ def _construct_shape(dim_type: str, *args, **dims):
     for name, size in dims.items():
         assert name not in names, f"Duplicate dimension name {name}"
         if isinstance(size, str):
-            items = [i.strip() for i in size.split(',')]
+            items = tuple([i.strip() for i in size.split(',')])
             size = len(items)
         elif isinstance(size, (tuple, list)):
-            items = size
+            items = tuple(size)
             size = len(items)
         else:
             items = None
@@ -1149,7 +1156,7 @@ def instance(*args, **dims: int):
         raise AssertionError(f"instance() must be called either as a selector instance(Shape) or instance(Tensor) or as a constructor instance(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, instance, spatial, channel)):
+def merge_shapes(*shapes: Shape, order=(batch, instance, spatial, channel)):
     """
     Combines `shapes` into a single `Shape`, grouping dimensions by type.
     If dimensions with equal names are present in multiple shapes, their types and sizes must match.
@@ -1175,28 +1182,23 @@ def merge_shapes(*shapes: Shape, check_exact: tuple or list = (), order=(batch, 
         return EMPTY_SHAPE
     merged = []
     for dim_type in order:
-        check_type_exact = dim_type in check_exact
-        group = dim_type(shapes[0])
+        type_group = dim_type(shapes[0])
         for shape in shapes[1:]:
             shape = dim_type(shape)
-            if check_type_exact:
-                if group.rank == 0:
-                    group = shape
-                elif shape.rank > 0:  # check exact match
-                    if shape.rank != group.rank:
-                        raise IncompatibleShapes(f"Failed to combine {shapes} because a different number of {dim_type.__name__} dimensions are present but exact checks are enabled for dimensions of type {dim_type.__name__}. Try declaring all spatial dimensions in one call. Types are {[s.types for s in shapes]}", *shapes)
-                    elif set(shape.names) != set(group.names):
-                        raise IncompatibleShapes(f"Failed to combine {shapes} because {dim_type.__name__} dimensions do not match but exact checks were enabled for dimensions of type {dim_type.__name__}. Try declaring all spatial dimensions in one call. Types are {[s.types for s in shapes]}", *shapes)
-                    elif shape._reorder(group) != group:
-                        raise IncompatibleShapes(f"Failed to combine {shapes} because {dim_type.__name__} dimensions do not match but exact checks were enabled for dimensions of type {dim_type.__name__}. Try declaring all spatial dimensions in one call. Types are {[s.types for s in shapes]}", *shapes)
-            else:
-                for dim in shape:
-                    if dim not in group:
-                        group = group._expand(dim, pos=-1)
-                    else:  # check size match
-                        if not _size_equal(dim.size, group.get_size(dim.name)):
-                            raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
-        merged.append(group)
+            for dim in shape:
+                if dim not in type_group:
+                    type_group = type_group._expand(dim, pos=-1)
+                else:  # check size match
+                    if not _size_equal(dim.size, type_group.get_size(dim.name)):
+                        raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
+                    names1 = type_group.get_item_names(dim)
+                    names2 = shape.get_item_names(dim)
+                    if names1 is not None and names2 is not None:
+                        if names1 != names2:
+                            raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
+                    elif names1 is None and names2 is not None:
+                        type_group = type_group._with_item_name(dim, tuple(names2))
+        merged.append(type_group)
     return concat_shapes(*merged)
 
 
@@ -1280,11 +1282,3 @@ def vector_add(*shapes: Shape):
                 item_names += (shape.get_item_names(name),)
     sizes = [sum(sh.get_size(dim) if dim in sh else 0 for sh in shapes) for dim in names]
     return Shape(tuple(sizes), names, types, item_names)
-
-
-class ShapeMismatch(ValueError):
-    """
-    Raised when the shape of a tensors does not match the other arguments.
-    """
-    def __init__(self, *args):
-        super().__init__(self, *args)
