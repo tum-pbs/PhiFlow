@@ -110,32 +110,36 @@ def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(x) -> Tensor:
+def l1_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
         x: `Tensor` or `TensorLike`.
             For `TensorLike` objects, only value the sum over all value attributes is computed.
+        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
+            `Shape or list or tuple or str or spatial or instance or channel`.
 
     Returns:
         loss: `Tensor`
     """
     if isinstance(x, Tensor):
-        return math.sum_(abs(x), x.shape.non_batch)
+        return math.sum_(abs(x), reduce)
     elif isinstance(x, TensorLike):
-        return sum([l1_loss(getattr(x, a)) for a in variable_values(x)])
+        return sum([l1_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)
 
 
-def l2_loss(x) -> Tensor:
+def l2_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
         x: `Tensor` or `TensorLike`.
             For `TensorLike` objects, only value the sum over all value attributes is computed.
+        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
+            `Shape or list or tuple or str or spatial or instance or channel`.
 
     Returns:
         loss: `Tensor`
@@ -143,9 +147,9 @@ def l2_loss(x) -> Tensor:
     if isinstance(x, Tensor):
         if x.dtype.kind == complex:
             x = abs(x)
-        return math.sum_(x ** 2, x.shape.non_batch) * 0.5
+        return math.sum_(x ** 2, reduce) * 0.5
     elif isinstance(x, TensorLike):
-        return sum([l2_loss(getattr(x, a)) for a in variable_values(x)])
+        return sum([l2_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)
 
