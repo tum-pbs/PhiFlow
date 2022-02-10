@@ -669,6 +669,10 @@ class TensorDim:
         """ Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. """
         return self._dim_type == CHANNEL_DIM
 
+    @property
+    def item_names(self):
+        return self.tensor.shape.get_item_names(self.name)
+
     def __getitem__(self, item):
         if isinstance(item, (int, slice, np.ndarray)):
             return self.tensor[{self.name: item}]
@@ -793,7 +797,7 @@ class NativeTensor(Tensor):
     def flip(self, *dims: str) -> 'Tensor':
         dims = [dim for dim in dims if dim in self._shape]
         native = choose_backend(self._native).flip(self._native, self._shape.indices(dims))
-        return NativeTensor(native, self._shape)
+        return NativeTensor(native, self._shape.flipped(dims))
 
     def unstack(self, dimension):
         dim_index = self.shape.index(dimension)
@@ -948,7 +952,7 @@ class CollapsedTensor(Tensor):  # package-private
         if self.is_cached:
             return self._cached.flip(*dims)
         else:
-            return CollapsedTensor(self._inner.flip(*dims), self._shape)
+            return CollapsedTensor(self._inner.flip(*dims), self._shape.flipped(dims))
 
     def _op1(self, native_function):
         if self.is_cached:

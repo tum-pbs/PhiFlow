@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple, Callable
+from typing import Tuple, Callable, List
 
 from phi import math
 
@@ -199,23 +199,39 @@ class Shape:
         else:
             raise ValueError(dims)
 
-    def get_item_names(self, dim: str or 'Shape' or int) -> tuple or None:
+    def get_item_names(self, dim: str or 'Shape' or int, fallback_spatial=True) -> tuple or None:
         """
         Args:
+            fallback_spatial: If `True` and no item names are defined for `dim` and `dim` is a channel dimension, the spatial dimension names are interpreted as item names along `dim` in the order they are listed in this `Shape`.
             dim: Dimension, either as `int` index, `str` name or single-dimension `Shape`.
 
         Returns:
             Item names as `tuple` or `None` if not defined.
         """
         if isinstance(dim, int):
-            return self.item_names[dim]
-        if isinstance(dim, str):
-            return self.item_names[self.names.index(dim)]
+            result = self.item_names[dim]
+        elif isinstance(dim, str):
+            result = self.item_names[self.names.index(dim)]
         elif isinstance(dim, Shape):
             assert dim.rank == 1, f"Shape.get_type() only accepts single-dimension Shapes but got {dim}"
-            return self.item_names[self.names.index(dim.name)]
+            result = self.item_names[self.names.index(dim.name)]
         else:
             raise ValueError(dim)
+        if result is not None:
+            return result
+        elif fallback_spatial and self.spatial_rank == self.get_size(dim) and self.get_type(dim) == CHANNEL_DIM:
+            return self.spatial.names
+        else:
+            return None
+
+    def flipped(self, dims: List[str] or Tuple[str]):
+        item_names = list(self.item_names)
+        for dim in dims:
+            if dim in self.names:
+                dim_i_n = self.get_item_names(dim)
+                if dim_i_n is not None:
+                    item_names[self.index(dim)] = tuple(reversed(dim_i_n))
+        return Shape(self.sizes, self.names, self.types, tuple(item_names))
 
     def __getitem__(self, selection):
         if isinstance(selection, int):
@@ -813,16 +829,18 @@ class Shape:
                     gathered_sizes = [(s[{name: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
                     result = result.with_sizes(gathered_sizes).without(name)
             elif isinstance(selection, slice):
-                start = selection.start or 0
-                stop = selection.stop or self.get_size(name)
                 step = selection.step or 1
-                if stop < 0:
+                start = selection.start or (0 if step > 0 else self.get_size(name)-1)
+                stop = selection.stop or (self.get_size(name) if step > 0 else -1)
+                if stop < 0 and step > 0:
                     stop += self.get_size(name)
                     assert stop >= 0
                 new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
                 if new_size.rank == 0:
                     new_size = int(new_size)  # NumPy array not allowed because not hashable
                 result = result._replace_single_size(name, new_size)
+                if step < 0:
+                    result = result.flipped([name])
             else:
                 raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allowed.")
         return result

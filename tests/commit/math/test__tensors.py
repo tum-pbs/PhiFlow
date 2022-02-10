@@ -270,3 +270,11 @@ class TestTensors(TestCase):
         t = math.random_normal(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
         math.assert_close(t, math.from_dict(math.to_dict(t)))
 
+    def test_flip_item_names(self):
+        t = math.zeros(spatial(x=4, y=3), channel(vector=2))
+        self.assertEqual(('x', 'y'), t.vector.item_names)
+        t_ = t.vector.flip()
+        self.assertEqual(('y', 'x'), t_.vector.item_names)
+        t_ = t.vector[::-1]
+        self.assertEqual(('y', 'x'), t_.vector.item_names)
+
