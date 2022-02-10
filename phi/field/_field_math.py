@@ -3,7 +3,8 @@ from typing import Callable, List, Tuple
 
 from phi import geom
 from phi import math
-from phi.geom import Box, Geometry
+from phi.math import Tensor, spatial, instance
+from phi.geom import Box, Geometry, Sphere
 from phi.math import extrapolate_valid_values, channel, Shape, batch
 from ._field import Field, SampledField, unstack, SampledFieldType
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
@@ -210,20 +211,20 @@ def fourier_poisson(grid: GridType, times=1) -> GridType:
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
 
 
-def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> SampledField or math.Tensor:
+def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> SampledField or Tensor:
     """
     Similar to `phi.math.native_call()`.
 
     Args:
         f: Function to be called on native tensors of `inputs.values`.
             The function output must have the same dimension layout as the inputs and the batch size must be identical.
-        *inputs: `SampledField` or `phi.math.Tensor` instances.
+        *inputs: `SampledField` or `phi.Tensor` instances.
         extrapolation: (Optional) Extrapolation of the output field. If `None`, uses the extrapolation of the first input field.
 
     Returns:
         `SampledField` matching the first `SampledField` in `inputs`.
     """
-    input_tensors = [i.values if isinstance(i, SampledField) else math.tensor(i) for i in inputs]
+    input_tensors = [i.values if isinstance(i, SampledField) else Tensor(i) for i in inputs]
     values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
@@ -235,14 +236,16 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
         raise AssertionError("At least one input must be a SampledField.")
 
 
-def data_bounds(field: SampledField):
-    data = field.points
-    min_vec = math.min(data, dim=data.shape.spatial.names)
-    max_vec = math.max(data, dim=data.shape.spatial.names)
+def data_bounds(loc: SampledField or Tensor):
+    if isinstance(loc, SampledField):
+        loc = loc.points
+    assert isinstance(loc, Tensor), f"loc must be a Tensor or SampledField but got {type(loc)}"
+    min_vec = math.min(loc, dim=loc.shape.spatial.names)
+    max_vec = math.max(loc, dim=loc.shape.spatial.names)
     return Box(min_vec, max_vec)
 
 
-def mean(field: SampledField) -> math.Tensor:
+def mean(field: SampledField) -> Tensor:
     """
     Computes the mean value by reducing all spatial / instance dimensions.
 
@@ -250,7 +253,7 @@ def mean(field: SampledField) -> math.Tensor:
         field: `SampledField`
 
     Returns:
-        `phi.math.Tensor`
+        `phi.Tensor`
     """
     return math.mean(field.values, field.shape.non_channel.non_batch)
 
@@ -414,7 +417,7 @@ def stack(fields, dim: Shape):
     raise NotImplementedError(type(fields[0]))
 
 
-def assert_close(*fields: SampledField or math.Tensor or Number,
+def assert_close(*fields: SampledField or Tensor or Number,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0,
                  msg: str = "",
@@ -543,7 +546,7 @@ def discretize(grid: Grid, filled_fraction=0.25):
     return grid.with_values(filled_t)
 
 
-def integrate(field: Field, region: Geometry) -> math.Tensor:
+def integrate(field: Field, region: Geometry) -> Tensor:
     """
     Computes *∫<sub>R</sub> f(x) dx<sup>d</sup>* , where *f* denotes the `Field`, *R* the `region` and *d* the number of spatial dimensions (`d=field.shape.spatial_rank`).
     Depending on the `sample` implementation for `field`, the integral may be a rough approximation.
@@ -555,8 +558,31 @@ def integrate(field: Field, region: Geometry) -> math.Tensor:
         region: Region to integrate over.
 
     Returns:
-        Integral as `phi.math.Tensor`
+        Integral as `phi.Tensor`
     """
     if not isinstance(field, CenteredGrid):
         raise NotImplementedError()
     return field._sample(region) * region.volume
+
+
+def tensor_as_field(t: Tensor):
+    """
+    Interpret a `Tensor` as a `CenteredGrid` or `PointCloud` depending on its dimensions.
+
+    Unlike the `CenteredGrid` constructor, this function will have the values sampled at integer points for each spatial dimension.
+
+    Args:
+        t: `Tensor` with either `spatial` or `instance` dimensions.
+
+    Returns:
+        `CenteredGrid` or `PointCloud`
+    """
+    if spatial(t):
+        assert not instance(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
+        bounds = Box(-0.5, math.wrap(spatial(t), channel('vector')) - 0.5)
+        return CenteredGrid(t, 0, bounds=bounds)
+    if instance(t):
+        assert not spatial(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
+        assert 'vector' in t.shape, f"Cannot interpret tensor as PointCloud because it has not vector dimension."
+        bounds = data_bounds(t)
+        return PointCloud(Sphere(t, radius=bounds.size / 200), 1, 0)

@@ -32,7 +32,7 @@ from phi.math import (
     l2_loss, l1_loss, frequency_loss,
 )
 from ._field_math import (
-    assert_close,
+    assert_close, tensor_as_field,
     bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,

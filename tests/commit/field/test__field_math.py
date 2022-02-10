@@ -166,3 +166,13 @@ class TestFieldMath(TestCase):
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y'))
         grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:1, 0:1])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y') / 100)
+
+    def test_tensor_as_field(self):
+        t = math.random_normal(spatial(x=4, y=3), channel(vector='x,y'))
+        grid = field.tensor_as_field(t)
+        self.assertIsInstance(grid, CenteredGrid)
+        math.assert_close(grid.dx, 1)
+        math.assert_close(grid.points.x[0].y[0], 0)
+        t = math.random_normal(instance(points=5), channel(vector='x,y'))
+        points = field.tensor_as_field(t)
+        self.assertIsInstance(points, PointCloud)

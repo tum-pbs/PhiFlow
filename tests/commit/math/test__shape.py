@@ -74,4 +74,8 @@ class TestShape(TestCase):
         s = math.concat_shapes(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
         self.assertEqual(math.from_dict(math.to_dict(s)), s)
 
+    def test_bool(self):
+        self.assertFalse(math.EMPTY_SHAPE)
+        self.assertTrue(math.spatial(x=3))
+
 
