@@ -240,8 +240,8 @@ def data_bounds(loc: SampledField or Tensor):
     if isinstance(loc, SampledField):
         loc = loc.points
     assert isinstance(loc, Tensor), f"loc must be a Tensor or SampledField but got {type(loc)}"
-    min_vec = math.min(loc, dim=loc.shape.spatial.names)
-    max_vec = math.max(loc, dim=loc.shape.spatial.names)
+    min_vec = math.min(loc, dim=loc.shape.non_batch.non_channel)
+    max_vec = math.max(loc, dim=loc.shape.non_batch.non_channel)
     return Box(min_vec, max_vec)
 
 
@@ -584,5 +584,8 @@ def tensor_as_field(t: Tensor):
     if instance(t):
         assert not spatial(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
         assert 'vector' in t.shape, f"Cannot interpret tensor as PointCloud because it has not vector dimension."
+        point_count = instance(t).volume
         bounds = data_bounds(t)
-        return PointCloud(Sphere(t, radius=bounds.size / 200), 1, 0)
+        radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
+        bounds = Box(bounds.lower - radius, bounds.upper + radius)
+        return PointCloud(Sphere(t, radius=radius), bounds=bounds)

@@ -164,7 +164,7 @@ class SampledField(Field):
     def shape(self):
         raise NotImplementedError()
 
-    def __getitem__(self, item: dict) -> 'Field':
+    def __getitem__(self: 'FieldType', item: dict) -> 'FieldType':
         raise NotImplementedError(self)
 
     @property
