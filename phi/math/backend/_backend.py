@@ -1,4 +1,5 @@
 import logging
+import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from threading import Barrier
@@ -159,6 +160,9 @@ class Backend:
         * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
         * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
 
+        See Also:
+            `Backend.set_default_device()`.
+
         Args:
             device_type: (optional) Return only devices of this type, e.g. `'GPU'` or `'CPU'`. See `ComputeDevice.device_type`.
 
@@ -170,12 +174,29 @@ class Backend:
     def get_default_device(self) -> ComputeDevice:
         return self._default_device
 
-    def set_default_device(self, device: ComputeDevice or str):
+    def set_default_device(self, device: ComputeDevice or str) -> bool:
+        """
+        Sets the device new tensors will be allocated on.
+        This function will do nothing if the target device type is not available.
+
+        See Also:
+            `Backend.list_devices()`, `Backend.get_default_device()`.
+
+        Args:
+            device: `ComputeDevice` or device type as `str`, such as `'CPU'` or `'GPU'`.
+
+        Returns:
+            `bool` whether the device was successfully set.
+        """
         if isinstance(device, str):
             devices = self.list_devices(device)
-            assert len(devices) >= 1, f"{self.name}: Cannot select '{device}' because no device of this type is available."
+            if not devices:
+                warnings.warn(f"{self.name}: Cannot select '{device}' because no device of this type is available.")
+                return False
             device = devices[0]
+        assert device.backend is self, f"Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}"
         self._default_device = device
+        return True
 
     def seed(self, seed: int):
         raise NotImplementedError()

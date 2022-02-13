@@ -899,6 +899,9 @@ EMPTY_SHAPE = Shape((), (), (), ())
 
 
 class IncompatibleShapes(ValueError):
+    """
+    Raised when the shape of a tensor does not match the other arguments.
+    """
     def __init__(self, message, *shapes: Shape):
         ValueError.__init__(self, message)
         self.shapes = shapes
