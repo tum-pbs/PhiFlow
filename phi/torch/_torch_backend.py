@@ -683,10 +683,10 @@ class TorchBackend(Backend):
                 return grads
         return eval_grad
 
-    def functional_jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
         pass
 
-    def functional_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
         # if not get_output and not get_gradient:
         # @wraps(f)
         # def eval_hessian(*args):
@@ -778,7 +778,7 @@ class TorchBackend(Backend):
 
     def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
         jit = self.jit_compile(f)
-        return self.functional_hessian(jit, wrt, get_output, get_gradient)
+        return self.hessian(jit, wrt, get_output, get_gradient)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         if self.ndims(y) > 0:

@@ -458,7 +458,7 @@ class HessianFunction:
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
-        hessian_generator = in_key.backend.jit_compile_hessian if self.jit else in_key.backend.functional_hessian
+        hessian_generator = in_key.backend.jit_compile_hessian if self.jit else in_key.backend.hessian
         return hessian_generator(f_native, wrt=wrt_natives, get_output=self.get_output, get_gradient=self.get_gradient)
 
     def __call__(self, *args, **kwargs):
