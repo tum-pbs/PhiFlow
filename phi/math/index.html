@@ -54,7 +54,7 @@ from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes, IncompatibleShapes
-from ._tensors import wrap, tensor, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict
+from ._tensors import wrap, tensor, layout, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
@@ -2929,6 +2929,92 @@ If a vector field is passed, the laplace is computed component-wise.</p>
     result = (left + right - 2 * center) / (dx ** 2)
     result = math.sum_(result, &#39;_laplace&#39;)
     return result</code></pre>
+</details>
+</dd>
+<dt id="phi.math.layout"><code class="name flex">
+<span>def <span class="ident">layout</span></span>(<span>objects, *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Wraps a Python tree in a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, allowing elements to be accessed via dimensions.
+A python tree is a structure of nested <code>tuple</code>, <code>list</code>, <code>dict</code> and <em>leaf</em> objects where leaves can be any Python object.</p>
+<p>All keys of <code>dict</code> containers must be of type <code>str</code>.
+The keys are automatically assigned as item names along that dimension unless conflicting with other elements.</p>
+<p>Strings may also be used as containers.</p>
+<p>Example:</p>
+<pre><code class="language-python">t = layout({'a': 'text', 'b': [0, 1]}, channel('dict,inner'))
+t.inner[1].dict['a'].native()  # returns 'e'
+</code></pre>
+<p>See Also:
+<code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code>, <code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>objects</code></strong></dt>
+<dd>PyTree of <code>list</code> or <code>tuple</code>.</dd>
+<dt><strong><code>*shape</code></strong></dt>
+<dd>Tensor dimensions</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.
+Calling <code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">Tensor.native()</a></code> on the returned tensor will return <code>objects</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def layout(objects, *shape: Shape) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Wraps a Python tree in a `Tensor`, allowing elements to be accessed via dimensions.
+    A python tree is a structure of nested `tuple`, `list`, `dict` and *leaf* objects where leaves can be any Python object.
+
+    All keys of `dict` containers must be of type `str`.
+    The keys are automatically assigned as item names along that dimension unless conflicting with other elements.
+
+    Strings may also be used as containers.
+
+    Example:
+    ```python
+    t = layout({&#39;a&#39;: &#39;text&#39;, &#39;b&#39;: [0, 1]}, channel(&#39;dict,inner&#39;))
+    t.inner[1].dict[&#39;a&#39;].native()  # returns &#39;e&#39;
+    ```
+
+    See Also:
+        `tensor()`, `wrap()`.
+
+    Args:
+        objects: PyTree of `list` or `tuple`.
+        *shape: Tensor dimensions
+
+    Returns:
+        `Tensor`.
+        Calling `Tensor.native()` on the returned tensor will return `objects`.
+    &#34;&#34;&#34;
+    assert all(isinstance(s, Shape) for s in shape), f&#34;shape needs to be one or multiple Shape instances but got {shape}&#34;
+    shape = EMPTY_SHAPE if len(shape) == 0 else concat_shapes(*shape)
+    if not shape.well_defined:
+
+        def recursive_determine_shape(native, shape: Shape):
+            if not shape:
+                return shape
+            if isinstance(native, dict):
+                assert all([isinstance(k, str) for k in native.keys()]), f&#34;All dict keys in PyTrees must be str but got {tuple(native.keys())}&#34;
+                shape = shape._with_item_name(shape.names[0], tuple(native.keys()))
+            if shape.rank == 1:
+                return shape.with_sizes((len(native),))
+            inner_shape = shape[1:]
+            inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native]
+            return shape_stack(shape[0], *inner_shapes)
+
+        shape = recursive_determine_shape(objects, shape)
+
+    return Layout(objects, shape)
+    # if shape.volume == 1:
+    #     objects = np.asarray(objects, dtype=np.object)
+    #
+    # if isinstance(objects, (tuple, list)):
+    #     objects = np.asarray(objects, dtype=np.object)
+    # if isinstance(objects, np.ndarray) and objects.dtype == np.object:
+    #     return Layout(objects, shape)
+    # else:
+    #     assert shape.volume == 1, f&#34;Cannot layout object of type {objects} along {shape}, a tuple, list or object array is required.&#34;</code></pre>
 </details>
 </dd>
 <dt id="phi.math.linspace"><code class="name flex">
@@ -5829,7 +5915,7 @@ If <code>convert=True</code>, converts <code>data</code> to the preferred format
 <li>Jax: <a href="https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html"><code>jax.numpy.array</code></a></li>
 </ul>
 <p>See Also:
-<code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code> which uses <code>convert=False</code>.</p>
+<code><a title="phi.math.wrap" href="#phi.math.wrap">wrap()</a></code> which uses <code>convert=False</code>, <code><a title="phi.math.layout" href="#phi.math.layout">layout()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>data</code></strong></dt>
@@ -5882,7 +5968,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
     * Jax: [`jax.numpy.array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html)
 
     See Also:
-        `phi.math.wrap()` which uses `convert=False`.
+        `phi.math.wrap()` which uses `convert=False`, `layout()`.
 
     Args:
       data: native tensor, scalar, sequence, Shape or Tensor
@@ -6584,9 +6670,11 @@ Instead, data types can simply be instantiated as needed.</p>
             kind: Python type, one of `(bool, int, float, complex, str)`
             bits: number of bits per element, a multiple of 8.
         &#34;&#34;&#34;
-        assert kind in (bool, int, float, complex, str)
+        assert kind in (bool, int, float, complex, str, object)
         if kind is bool:
             assert bits == 8
+        elif kind == object:
+            bits = int(np.round(np.log2(sys.maxsize))) + 1
         else:
             assert isinstance(bits, int)
         self.kind = kind
@@ -10491,6 +10579,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 <ul class="hlist">
 <li>phi.math._functional.ShiftLinTracer</li>
 <li>phi.math._tensors.CollapsedTensor</li>
+<li>phi.math._tensors.Layout</li>
 <li>phi.math._tensors.NativeTensor</li>
 <li>phi.math._tensors.TensorStack</li>
 </ul>
@@ -11060,7 +11149,8 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
                 item = parse_dim_order(item)
             else:
                 item_names = self.tensor.shape.get_item_names(self.name)
-                if item_names is not None and item in item_names:
+                if item_names is not None:
+                    assert item in item_names, f&#34;Accessing tensor.{self.name}[&#39;{item}&#39;] failed. Item names are {item_names}.&#34;
                     item = item_names.index(item)
                 else:
                     assert self.size == self.tensor.shape.spatial.rank, f&#34;Cannot access tensor.{self.name}[{item}] because dimension length ({self.size}) does not match number of spatial dimensions, {self.tensor.shape.spatial}&#34;
@@ -11663,6 +11753,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.l1_loss" href="#phi.math.l1_loss">l1_loss</a></code></li>
 <li><code><a title="phi.math.l2_loss" href="#phi.math.l2_loss">l2_loss</a></code></li>
 <li><code><a title="phi.math.laplace" href="#phi.math.laplace">laplace</a></code></li>
+<li><code><a title="phi.math.layout" href="#phi.math.layout">layout</a></code></li>
 <li><code><a title="phi.math.linspace" href="#phi.math.linspace">linspace</a></code></li>
 <li><code><a title="phi.math.log" href="#phi.math.log">log</a></code></li>
 <li><code><a title="phi.math.log10" href="#phi.math.log10">log10</a></code></li>
