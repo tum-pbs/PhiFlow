@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 
 class DType:
@@ -24,9 +25,11 @@ class DType:
             kind: Python type, one of `(bool, int, float, complex, str)`
             bits: number of bits per element, a multiple of 8.
         """
-        assert kind in (bool, int, float, complex, str)
+        assert kind in (bool, int, float, complex, str, object)
         if kind is bool:
             assert bits == 8
+        elif kind == object:
+            bits = int(np.round(np.log2(sys.maxsize))) + 1
         else:
             assert isinstance(bits, int)
         self.kind = kind
@@ -96,6 +99,7 @@ _TO_NUMPY = {
     DType(int, 32): np.int32,
     DType(int, 64): np.int64,
     DType(bool): np.bool_,
+    DType(object): np.object,
 }
 _FROM_NUMPY = {np: dtype for dtype, np in _TO_NUMPY.items()}
 _FROM_NUMPY[np.bool] = DType(bool)

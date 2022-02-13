@@ -683,7 +683,8 @@ class TensorDim:
                 item = parse_dim_order(item)
             else:
                 item_names = self.tensor.shape.get_item_names(self.name)
-                if item_names is not None and item in item_names:
+                if item_names is not None:
+                    assert item in item_names, f"Accessing tensor.{self.name}['{item}'] failed. Item names are {item_names}."
                     item = item_names.index(item)
                 else:
                     assert self.size == self.tensor.shape.spatial.rank, f"Cannot access tensor.{self.name}[{item}] because dimension length ({self.size}) does not match number of spatial dimensions, {self.tensor.shape.spatial}"
@@ -720,9 +721,54 @@ class TensorDim:
         raise TypeError(f"Method Tensor.{self.name}() does not exist.")
 
 
+class Layout(Tensor):
+
+    def __init__(self, obj, shape: Shape):
+        self._obj = obj
+        self._shape = shape
+
+    @property
+    def shape(self) -> Shape:
+        return self._shape
+
+    @property
+    def dtype(self) -> DType:
+        return DType(object)
+
+    def native(self, order: str or tuple or list or Shape = None):
+        order = parse_dim_order(order)
+        assert order is None or order == self._shape.names, "Layout.native() does not allow for changing the dimension order"
+        return self._obj
+
+    def _getitem(self, selection: dict) -> 'Tensor':
+        selection_list = [selection.get(dim, None) for dim in self._shape.names]
+        native = self._getitem_recursive(self._obj, tuple(selection_list))
+        new_shape = self._shape.after_gather(selection)
+        return Layout(native, new_shape)
+
+    @staticmethod
+    def _getitem_recursive(native, selection: tuple):
+        if not selection:
+            return native
+        if isinstance(native, dict):
+            native = tuple(native.values())
+        if len(selection) == 1:
+            return native if selection[0] is None else native[selection[0]]
+        else:
+            if selection[0] is None:
+                return type(native)([Layout._getitem_recursive(n, selection[1:]) for n in native])
+            if isinstance(selection[0], int):
+                return Layout._getitem_recursive(native[selection[0]], selection[1:])
+            elif isinstance(selection[0], slice):
+                subset = native[selection[0]]
+                return type(subset)([Layout._getitem_recursive(n, selection[1:]) for n in subset])
+            else:
+                raise ValueError(f"Illegal selection: {selection}")
+
+
 class NativeTensor(Tensor):
 
-    def __init__(self, native_tensor, shape):
+    def __init__(self, native_tensor, shape: Shape):
         assert isinstance(shape, Shape), f"Expected Shape but got '{type(shape)}'"
         backend = choose_backend(native_tensor)
         # if backend.is_available(native_tensor):
@@ -1249,7 +1295,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
     * Jax: [`jax.numpy.array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html)
 
     See Also:
-        `phi.math.wrap()` which uses `convert=False`.
+        `phi.math.wrap()` which uses `convert=False`, `layout()`.
 
     Args:
       data: native tensor, scalar, sequence, Shape or Tensor
@@ -1330,6 +1376,63 @@ def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
          *shape: Shape) -> Tensor:
     """ Short for `phi.math.tensor()` with `convert=False`. """
     return tensor(data, *shape, convert=False)  # TODO inline, simplify
+
+
+def layout(objects, *shape: Shape) -> Tensor:
+    """
+    Wraps a Python tree in a `Tensor`, allowing elements to be accessed via dimensions.
+    A python tree is a structure of nested `tuple`, `list`, `dict` and *leaf* objects where leaves can be any Python object.
+
+    All keys of `dict` containers must be of type `str`.
+    The keys are automatically assigned as item names along that dimension unless conflicting with other elements.
+
+    Strings may also be used as containers.
+
+    Example:
+    ```python
+    t = layout({'a': 'text', 'b': [0, 1]}, channel('dict,inner'))
+    t.inner[1].dict['a'].native()  # returns 'e'
+    ```
+
+    See Also:
+        `tensor()`, `wrap()`.
+
+    Args:
+        objects: PyTree of `list` or `tuple`.
+        *shape: Tensor dimensions
+
+    Returns:
+        `Tensor`.
+        Calling `Tensor.native()` on the returned tensor will return `objects`.
+    """
+    assert all(isinstance(s, Shape) for s in shape), f"shape needs to be one or multiple Shape instances but got {shape}"
+    shape = EMPTY_SHAPE if len(shape) == 0 else concat_shapes(*shape)
+    if not shape.well_defined:
+
+        def recursive_determine_shape(native, shape: Shape):
+            if not shape:
+                return shape
+            if isinstance(native, dict):
+                assert all([isinstance(k, str) for k in native.keys()]), f"All dict keys in PyTrees must be str but got {tuple(native.keys())}"
+                shape = shape._with_item_name(shape.names[0], tuple(native.keys()))
+            if shape.rank == 1:
+                return shape.with_sizes((len(native),))
+            inner_shape = shape[1:]
+            inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native]
+            return shape_stack(shape[0], *inner_shapes)
+
+        shape = recursive_determine_shape(objects, shape)
+
+    return Layout(objects, shape)
+    # if shape.volume == 1:
+    #     objects = np.asarray(objects, dtype=np.object)
+    #
+    # if isinstance(objects, (tuple, list)):
+    #     objects = np.asarray(objects, dtype=np.object)
+    # if isinstance(objects, np.ndarray) and objects.dtype == np.object:
+    #     return Layout(objects, shape)
+    # else:
+    #     assert shape.volume == 1, f"Cannot layout object of type {objects} along {shape}, a tuple, list or object array is required."
 
 
 def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), convert=False):

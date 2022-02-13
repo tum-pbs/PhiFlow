@@ -1257,6 +1257,11 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
                 names.insert(index, name)
                 types.insert(index, type)
                 item_names.insert(index, items)
+            else:
+                index = names.index(name)
+                if items != item_names[index]:
+                    warnings.warn(f"Stacking shapes with incompatible item names will result in item names being lost. Got {item_names[index]} and {items}")
+                    item_names[index] = None
     sizes = []
     for name in names:
         dim_sizes = [(shape.get_size(name) if name in shape else 1) for shape in shapes]

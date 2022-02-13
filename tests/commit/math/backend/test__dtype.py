@@ -14,3 +14,7 @@ class TestDType(TestCase):
         self.assertEqual(from_numpy_dtype(np.int32), DType(int, 32))
         self.assertEqual(from_numpy_dtype(np.array(0, np.int32).dtype), DType(int, 32))
         self.assertEqual(from_numpy_dtype(np.array(0, bool).dtype), DType(bool))
+        self.assertEqual(from_numpy_dtype(np.array(0, np.object).dtype), DType(object))
+
+    def test_object_dtype(self):
+        self.assertIn(DType(object).bits, (32, 64))

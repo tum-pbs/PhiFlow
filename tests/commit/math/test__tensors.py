@@ -292,3 +292,50 @@ class TestTensors(TestCase):
         self.assertEqual(('r', 'g', 'b'), t2_.vector.item_names)
         t2_ = math.random_normal(channel(vector=3)) + t2
         self.assertEqual(('r', 'g', 'b'), t2_.vector.item_names)
+
+    def test_layout_single(self):
+        a = object()
+        t = math.layout(a)
+        self.assertEqual(a, t.native())
+
+    def test_layout_list(self):
+        a = ['a', 'b', 'c']
+        t = math.layout(a, channel(letters=a))
+        self.assertEqual(a, t.native())
+        self.assertEqual('a', t.letters['a'].native())
+        self.assertEqual('a', t.letters['b, a'].letters['a'].native())
+
+    def test_layout_tree(self):
+        a = [['a', 'b1'], 'b2', 'c']
+        t = math.layout(a, channel(outer='list,b2,c', inner=None))
+        self.assertEqual(a, t.native())
+        self.assertEqual(['a', 'b1'], t.outer['list'].native())
+        self.assertEqual('a', t.outer['list'].inner[0].native())
+        self.assertEqual(['a', 'b', 'c'], t.inner[0].native())
+        self.assertEqual('a', t.inner[0].outer['list'].native())
+
+    def test_layout_size(self):
+        a = [['a', 'b1'], 'b2', 'c']
+        t = math.layout(a, channel(outer='list,b2,c', inner=None))
+        self.assertEqual(3, t.shape.get_size('outer'))
+        self.assertEqual(2, t.outer['list'].shape.get_size('inner'))
+        self.assertEqual(1, t.outer['c'].shape.get_size('inner'))
+
+    def test_layout_dict(self):
+        a = {'a': 'text', 'b': [0, 1]}
+        t = math.layout(a, channel('dict,inner'))
+        self.assertEqual(a, t.native())
+        self.assertEqual(('a', 'b'), t.shape.get_item_names('dict'))
+        self.assertEqual(a, t.native())
+        self.assertEqual('text', t.dict['a'].native())
+        self.assertEqual('e', t.dict['a'].inner[1].native())
+        self.assertEqual(1, t.dict['b'].inner[1].native())
+        self.assertEqual(('e', 1), t.inner[1].native())
+
+    def test_layout_dict_conflict(self):
+        a = [dict(a=1), dict(b=2)]
+        t = math.layout(a, channel('outer,dict'))
+        self.assertEqual(None, t.shape.get_item_names('dict'))
+        self.assertEqual(a, t.native())
+        self.assertEqual([1, 2], t.dict[0].native())
+        self.assertEqual(2, t.dict[0].outer[1].native())
