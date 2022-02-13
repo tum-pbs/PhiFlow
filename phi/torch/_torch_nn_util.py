@@ -2,15 +2,57 @@ import numpy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
 
 from . import TORCH
 
 
-def parameter_count(model: nn.Module):
+def parameter_count(model: nn.Module) -> int:
+    """
+    Counts the number of parameters in a model.
+
+    Args:
+        model: PyTorch model
+
+    Returns:
+        `int`
+    """
     total = 0
     for parameter in model.parameters():
         total += numpy.prod(parameter.shape)
     return int(total)
+
+
+def save_state(obj: nn.Module or optim.Optimizer, path: str):
+    """
+    Write the state of a module or optimizer to a file.
+
+    See Also:
+        `load_state()`
+
+    Args:
+        obj: `torch.nn.Module or torch.optim.Optimizer`
+        path: File path as `str`.
+    """
+    if not path.endswith('.pth'):
+        path += '.pth'
+    torch.save(obj.state_dict(), path)
+
+
+def load_state(obj: nn.Module or optim.Optimizer, path: str):
+    """
+    Read the state of a module or optimizer from a file.
+
+    See Also:
+        `save_state()`
+
+    Args:
+        obj: `torch.nn.Module or torch.optim.Optimizer`
+        path: File path as `str`.
+    """
+    if not path.endswith('.pth'):
+        path += '.pth'
+    obj.load_state_dict(torch.load(path))
 
 
 def dense_net(in_channels: int,

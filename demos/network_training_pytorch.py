@@ -5,25 +5,26 @@ This script runs for a certain number of steps before saving the trained network
 from phi.torch.flow import *
 
 
-# TORCH.set_default_device('GPU')
+TORCH.set_default_device('GPU')  # returns False if no GPU found
 math.seed(0)  # Make the results reproducible
 net = u_net(2, 2)  # for a fully connected network, use   net = dense_net(2, 2, [64, 64, 64])
 optimizer = optim.Adam(net.parameters(), lr=1e-3)
 
 
 @vis.action  # make this function callable from the user interface
-def save_model(step):
-    path = viewer.scene.subpath(f"net_{step}.pth")
-    torch.save(net.state_dict(), path)
-    torch.save(optimizer.state_dict(), viewer.scene.subpath(f"opt_{type(optimizer).__name__}_{step}.pth"))
-    viewer.info(f"Model saved to {path}.")
+def save_model(i=None):
+    i = i if i is not None else step + 1
+    save_state(net, viewer.scene.subpath(f"net_{i}"))
+    save_state(optimizer, viewer.scene.subpath(f"opt_{type(optimizer).__name__}_{i}"))
+    viewer.info(f"Model at {i} saved to {viewer.scene.path}.")
 
 
 @vis.action
 def reset():
     math.seed(0)
-    net.load_state_dict(torch.load(viewer.scene.subpath('net_0.pth')))
-    optimizer.load_state_dict(torch.load(viewer.scene.subpath(f"opt_{type(optimizer).__name__}_0.pth")))
+    load_state(net, viewer.scene.subpath('net_0'))
+    load_state(optimizer, viewer.scene.subpath(f"opt_{type(optimizer).__name__}_0"))
+    viewer.info(f"Model loaded.")
 
 
 prediction = CenteredGrid((0, 0), extrapolation.BOUNDARY, x=64, y=64)
@@ -48,4 +49,4 @@ for step in viewer.range():
     loss.mean.backward()
     optimizer.step()
     if (step + 1) % 100 == 0:
-        save_model(step + 1)
+        save_model()

@@ -11,18 +11,19 @@ optimizer = keras.optimizers.Adam(1e-3)
 
 
 @vis.action  # make this function callable from the user interface
-def save_model(step):
-    path = viewer.scene.subpath(f"net_{step}.h5")
-    net.save_weights(path)
-    viewer.info(f"Model saved to {path}.")
+def save_model(i=None):
+    i = i if i is not None else step + 1
+    save_state(net, viewer.scene.subpath(f"net_{i}"))
+    save_state(optimizer, viewer.scene.subpath(f"opt_{type(optimizer).__name__}_{i}"))
+    viewer.info(f"Model at {i} saved to {viewer.scene.path}.")
 
 
 @vis.action
 def reset():
     math.seed(0)
-    net.load_weights(viewer.scene.subpath(f"net_0.h5"))
-    global optimizer
-    optimizer = keras.optimizers.Adam(1e-3)
+    load_state(net, viewer.scene.subpath('net_0'))
+    load_state(optimizer, viewer.scene.subpath(f"opt_{type(optimizer).__name__}_0"))
+    viewer.info(f"Model loaded.")
 
 
 prediction = CenteredGrid((0, 0), extrapolation.BOUNDARY, x=64, y=64)
@@ -47,4 +48,4 @@ for step in viewer.range():
     # Compute gradients and update weights
     optimizer.apply_gradients(zip(gradients, net.trainable_variables))
     if (step + 1) % 100 == 0:
-        save_model(step + 1)
+        save_model()

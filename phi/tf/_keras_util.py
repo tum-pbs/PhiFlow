@@ -1,13 +1,73 @@
 import numpy
 from tensorflow import keras
 from tensorflow.keras import layers as kl
+import pickle
 
 
 def parameter_count(model: keras.Model):
+    """
+    Counts the number of parameters in a model.
+
+    Args:
+        model: Keras model
+
+    Returns:
+        `int`
+    """
     total = 0
     for parameter in model.trainable_weights:
         total += numpy.prod(parameter.shape)
     return int(total)
+
+
+def save_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str):
+    """
+    Write the state of a module or optimizer to a file.
+
+    See Also:
+        `load_state()`
+
+    Args:
+        obj: `keras.models.Model or keras.optimizers.Optimizer`
+        path: File path as `str`.
+    """
+    if isinstance(obj, keras.models.Model):
+        if not path.endswith('.h5'):
+            path += '.h5'
+        obj.save_weights(path)
+    elif isinstance(obj, keras.optimizers.Optimizer):
+        if not path.endswith('.pkl'):
+            path += '.pkl'
+        weights = obj.get_weights()
+        with open(path, 'wb') as f:
+            pickle.dump(weights, f)
+    else:
+        raise ValueError("obj must be a Keras model or optimizer")
+
+
+def load_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str):
+    """
+    Read the state of a module or optimizer from a file.
+
+    See Also:
+        `save_state()`
+
+    Args:
+        obj: `keras.models.Model or keras.optimizers.Optimizer`
+        path: File path as `str`.
+    """
+    if isinstance(obj, keras.models.Model):
+        if not path.endswith('.h5'):
+            path += '.h5'
+        obj.load_weights(path)
+    elif isinstance(obj, keras.optimizers.Optimizer):
+        if not path.endswith('.pkl'):
+            path += '.pkl'
+        with open(path, 'rb') as f:
+            weights = pickle.load(f)
+        obj.set_weights(weights)
+    else:
+        raise ValueError("obj must be a Keras model or optimizer")
 
 
 def dense_net(in_channels: int,
