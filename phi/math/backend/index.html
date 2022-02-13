@@ -620,6 +620,9 @@ The output of math operations has the same precision as its inputs.</p>
         * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
         * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
 
+        See Also:
+            `Backend.set_default_device()`.
+
         Args:
             device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;` or `&#39;CPU&#39;`. See `ComputeDevice.device_type`.
 
@@ -631,12 +634,29 @@ The output of math operations has the same precision as its inputs.</p>
     def get_default_device(self) -&gt; ComputeDevice:
         return self._default_device
 
-    def set_default_device(self, device: ComputeDevice or str):
+    def set_default_device(self, device: ComputeDevice or str) -&gt; bool:
+        &#34;&#34;&#34;
+        Sets the device new tensors will be allocated on.
+        This function will do nothing if the target device type is not available.
+
+        See Also:
+            `Backend.list_devices()`, `Backend.get_default_device()`.
+
+        Args:
+            device: `ComputeDevice` or device type as `str`, such as `&#39;CPU&#39;` or `&#39;GPU&#39;`.
+
+        Returns:
+            `bool` whether the device was successfully set.
+        &#34;&#34;&#34;
         if isinstance(device, str):
             devices = self.list_devices(device)
-            assert len(devices) &gt;= 1, f&#34;{self.name}: Cannot select &#39;{device}&#39; because no device of this type is available.&#34;
+            if not devices:
+                warnings.warn(f&#34;{self.name}: Cannot select &#39;{device}&#39; because no device of this type is available.&#34;)
+                return False
             device = devices[0]
+        assert device.backend is self, f&#34;Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}&#34;
         self._default_device = device
+        return True
 
     def seed(self, seed: int):
         raise NotImplementedError()
@@ -746,10 +766,10 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def functional_jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
 
-    def functional_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -&gt; tuple:
+    def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -&gt; tuple:
         &#34;&#34;&#34;
         First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
         Element-wise Hessians will be computed along the batch dimension.
@@ -2687,60 +2707,6 @@ If <code>get_output=True</code>, <code>g</code> returns a <code>tuple</code>cont
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.functional_hessian"><code class="name flex">
-<span>def <span class="ident">functional_hessian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>First dimension of all inputs/outputs of <code>f</code> is assumed to be a batch dimension.
-Element-wise Hessians will be computed along the batch dimension.
-All other dimensions are parameter dimensions and will appear twice in the Hessian matrices.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong></dt>
-<dd>Function whose first output is a scalar float or complex value.</dd>
-</dl>
-<p>wrt:
-get_output:
-get_gradient:</p>
-<h2 id="returns">Returns</h2>
-<p>Function returning <code>(f(x), g(x), H(x))</code> or less depending on <code>get_output</code> and <code>get_gradient</code>.
-The result is always a <code>tuple</code> holding at most these three items.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def functional_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -&gt; tuple:
-    &#34;&#34;&#34;
-    First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
-    Element-wise Hessians will be computed along the batch dimension.
-    All other dimensions are parameter dimensions and will appear twice in the Hessian matrices.
-
-    Args:
-        f: Function whose first output is a scalar float or complex value.
-        wrt:
-        get_output:
-        get_gradient:
-
-    Returns:
-        Function returning `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
-        The result is always a `tuple` holding at most these three items.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.functional_jacobian"><code class="name flex">
-<span>def <span class="ident">functional_jacobian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def functional_jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.backend.Backend.get_default_device"><code class="name flex">
 <span>def <span class="ident">get_default_device</span></span>(<span>self) ‑> phi.math.backend._backend.ComputeDevice</span>
 </code></dt>
@@ -2834,6 +2800,47 @@ One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflec
         sampled values with linear interpolation
     &#34;&#34;&#34;
     return NotImplemented</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.hessian"><code class="name flex">
+<span>def <span class="ident">hessian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>First dimension of all inputs/outputs of <code>f</code> is assumed to be a batch dimension.
+Element-wise Hessians will be computed along the batch dimension.
+All other dimensions are parameter dimensions and will appear twice in the Hessian matrices.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function whose first output is a scalar float or complex value.</dd>
+</dl>
+<p>wrt:
+get_output:
+get_gradient:</p>
+<h2 id="returns">Returns</h2>
+<p>Function returning <code>(f(x), g(x), H(x))</code> or less depending on <code>get_output</code> and <code>get_gradient</code>.
+The result is always a <code>tuple</code> holding at most these three items.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -&gt; tuple:
+    &#34;&#34;&#34;
+    First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
+    Element-wise Hessians will be computed along the batch dimension.
+    All other dimensions are parameter dimensions and will appear twice in the Hessian matrices.
+
+    Args:
+        f: Function whose first output is a scalar float or complex value.
+        wrt:
+        get_output:
+        get_gradient:
+
+    Returns:
+        Function returning `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
+        The result is always a `tuple` holding at most these three items.
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.ifft"><code class="name flex">
@@ -2964,6 +2971,19 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def isfinite(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.jacobian"><code class="name flex">
+<span>def <span class="ident">jacobian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3122,6 +3142,8 @@ This method need not provide a gradient for the operation.</p>
 <li>TensorFlow: <code>tensorflow.python.client.device_lib.list_local_devices</code></li>
 <li>Jax: <a href="https://jax.readthedocs.io/en/latest/jax.html#jax.devices"><code>jax.devices</code></a></li>
 </ul>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.set_default_device" href="#phi.math.backend.Backend.set_default_device">Backend.set_default_device()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>device_type</code></strong></dt>
@@ -3143,6 +3165,9 @@ This method need not provide a gradient for the operation.</p>
     * PyTorch: [`torch.cuda.get_device_properties`](https://pytorch.org/docs/stable/cuda.html#torch.cuda.get_device_properties)
     * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
     * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
+
+    See Also:
+        `Backend.set_default_device()`.
 
     Args:
         device_type: (optional) Return only devices of this type, e.g. `&#39;GPU&#39;` or `&#39;CPU&#39;`. See `ComputeDevice.device_type`.
@@ -3833,20 +3858,47 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.set_default_device"><code class="name flex">
-<span>def <span class="ident">set_default_device</span></span>(<span>self, device: phi.math.backend._backend.ComputeDevice)</span>
+<span>def <span class="ident">set_default_device</span></span>(<span>self, device: phi.math.backend._backend.ComputeDevice) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Sets the device new tensors will be allocated on.
+This function will do nothing if the target device type is not available.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.list_devices" href="#phi.math.backend.Backend.list_devices">Backend.list_devices()</a></code>, <code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">Backend.get_default_device()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>device</code></strong></dt>
+<dd><code><a title="phi.math.backend.ComputeDevice" href="#phi.math.backend.ComputeDevice">ComputeDevice</a></code> or device type as <code>str</code>, such as <code>'CPU'</code> or <code>'GPU'</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>bool</code> whether the device was successfully set.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def set_default_device(self, device: ComputeDevice or str):
+<pre><code class="python">def set_default_device(self, device: ComputeDevice or str) -&gt; bool:
+    &#34;&#34;&#34;
+    Sets the device new tensors will be allocated on.
+    This function will do nothing if the target device type is not available.
+
+    See Also:
+        `Backend.list_devices()`, `Backend.get_default_device()`.
+
+    Args:
+        device: `ComputeDevice` or device type as `str`, such as `&#39;CPU&#39;` or `&#39;GPU&#39;`.
+
+    Returns:
+        `bool` whether the device was successfully set.
+    &#34;&#34;&#34;
     if isinstance(device, str):
         devices = self.list_devices(device)
-        assert len(devices) &gt;= 1, f&#34;{self.name}: Cannot select &#39;{device}&#39; because no device of this type is available.&#34;
+        if not devices:
+            warnings.warn(f&#34;{self.name}: Cannot select &#39;{device}&#39; because no device of this type is available.&#34;)
+            return False
         device = devices[0]
-    self._default_device = device</code></pre>
+    assert device.backend is self, f&#34;Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}&#34;
+    self._default_device = device
+    return True</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.shape"><code class="name flex">
@@ -4985,18 +5037,18 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.floordiv" href="#phi.math.backend.Backend.floordiv">floordiv</a></code></li>
 <li><code><a title="phi.math.backend.Backend.from_dlpack" href="#phi.math.backend.Backend.from_dlpack">from_dlpack</a></code></li>
 <li><code><a title="phi.math.backend.Backend.functional_gradient" href="#phi.math.backend.Backend.functional_gradient">functional_gradient</a></code></li>
-<li><code><a title="phi.math.backend.Backend.functional_hessian" href="#phi.math.backend.Backend.functional_hessian">functional_hessian</a></code></li>
-<li><code><a title="phi.math.backend.Backend.functional_jacobian" href="#phi.math.backend.Backend.functional_jacobian">functional_jacobian</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_or_equal" href="#phi.math.backend.Backend.greater_or_equal">greater_or_equal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_than" href="#phi.math.backend.Backend.greater_than">greater_than</a></code></li>
 <li><code><a title="phi.math.backend.Backend.grid_sample" href="#phi.math.backend.Backend.grid_sample">grid_sample</a></code></li>
+<li><code><a title="phi.math.backend.Backend.hessian" href="#phi.math.backend.Backend.hessian">hessian</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ifft" href="#phi.math.backend.Backend.ifft">ifft</a></code></li>
 <li><code><a title="phi.math.backend.Backend.imag" href="#phi.math.backend.Backend.imag">imag</a></code></li>
 <li><code><a title="phi.math.backend.Backend.is_available" href="#phi.math.backend.Backend.is_available">is_available</a></code></li>
 <li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.isfinite" href="#phi.math.backend.Backend.isfinite">isfinite</a></code></li>
+<li><code><a title="phi.math.backend.Backend.jacobian" href="#phi.math.backend.Backend.jacobian">jacobian</a></code></li>
 <li><code><a title="phi.math.backend.Backend.jit_compile" href="#phi.math.backend.Backend.jit_compile">jit_compile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.jit_compile_grad" href="#phi.math.backend.Backend.jit_compile_grad">jit_compile_grad</a></code></li>
 <li><code><a title="phi.math.backend.Backend.jit_compile_hessian" href="#phi.math.backend.Backend.jit_compile_hessian">jit_compile_hessian</a></code></li>

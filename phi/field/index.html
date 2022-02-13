@@ -2224,8 +2224,11 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     if instance(t):
         assert not spatial(t), f&#34;Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}&#34;
         assert &#39;vector&#39; in t.shape, f&#34;Cannot interpret tensor as PointCloud because it has not vector dimension.&#34;
+        point_count = instance(t).volume
         bounds = data_bounds(t)
-        return PointCloud(Sphere(t, radius=bounds.size / 200), 1, 0)</code></pre>
+        radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
+        bounds = Box(bounds.lower - radius, bounds.upper + radius)
+        return PointCloud(Sphere(t, radius=radius), bounds=bounds)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.to_float"><code class="name flex">
@@ -3971,7 +3974,7 @@ def spatial_rank(self) -&gt; int:
     def shape(self):
         raise NotImplementedError()
 
-    def __getitem__(self, item: dict) -&gt; &#39;Field&#39;:
+    def __getitem__(self: &#39;FieldType&#39;, item: dict) -&gt; &#39;FieldType&#39;:
         raise NotImplementedError(self)
 
     @property

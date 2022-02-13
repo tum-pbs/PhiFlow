@@ -7285,12 +7285,15 @@ This is the default implementation.</p>
 <span>(</span><span>message, *shapes: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Inappropriate argument value (of correct type).</p></div>
+<div class="desc"><p>Raised when the shape of a tensor does not match the other arguments.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class IncompatibleShapes(ValueError):
+    &#34;&#34;&#34;
+    Raised when the shape of a tensor does not match the other arguments.
+    &#34;&#34;&#34;
     def __init__(self, message, *shapes: Shape):
         ValueError.__init__(self, message)
         self.shapes = shapes</code></pre>
