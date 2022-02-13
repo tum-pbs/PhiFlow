@@ -98,3 +98,6 @@ class TestDemos(TestCase):
 
     def test_moving_obstacle(self):
         demo_run('moving_obstacle')
+
+    def test_taylor_green(self):
+        demo_run('taylor_green')
