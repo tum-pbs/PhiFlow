@@ -1125,7 +1125,7 @@ class Backend:
     def stop_gradient(self, value):
         raise NotImplementedError(self)
 
-    def grid_sample(self, grid, coordinates, extrapolation='constant'):
+    def grid_sample(self, grid, coordinates, extrapolation: str):
         """
         Interpolates a regular grid at the specified coordinates.
 

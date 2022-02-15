@@ -63,29 +63,20 @@ def use_cuda(inputs):
     return True
 
 
-def resample_cuda(inputs, sample_coords, boundary):
-    ZERO = 0
-    REPLICATE = 1
-    CIRCULAR = 2
-    SYMMETRIC = 3
-    REFLECT = 4
+EXT_ID = {'undefined': 0, 'zeros': 0, 'boundary': 1, 'periodic': 2, 'symmetric': 3, 'reflect': 4}
+
+
+def resample_cuda(inputs, sample_coords, extrapolation):
     shape = inputs.shape
     dims = len(shape) - 2
     boundary_array = np.zeros((dims, 2), np.uint32)
     for i in range(dims):
         for j in range(2):
-            current_boundary = collapsed_gather_nd(boundary, [i, j]).lower()
-            if current_boundary == "zero" or current_boundary == "constant":
-                boundary_array[i, j] = ZERO
-            elif current_boundary == "replicate":
-                boundary_array[i, j] = REPLICATE
-            elif current_boundary == "circular" or current_boundary == "wrap":
-                boundary_array[i, j] = CIRCULAR
-            elif current_boundary == "symmetric":
-                boundary_array[i, j] = SYMMETRIC
-            elif current_boundary == "reflect":
-                boundary_array[i, j] = REFLECT
-
+            current_extrapolation = collapsed_gather_nd(extrapolation, [i, j]).lower()
+            if current_extrapolation in EXT_ID:
+                boundary_array[i, j] = EXT_ID[current_extrapolation]
+            else:
+                return NotImplemented
     return resample_op.resample(inputs, sample_coords, boundary_array)
 
 

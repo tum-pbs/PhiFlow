@@ -168,10 +168,9 @@ class TFBackend(Backend):
                 axis = list(axis)
         return tf.reduce_mean(value, axis, keepdims=keepdims)
 
-    def grid_sample(self, grid, coordinates, extrapolation='constant'):
+    def grid_sample(self, grid, coordinates, extrapolation: str):
+        assert extrapolation in ('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect'), extrapolation
         if use_cuda(grid):
-            if extrapolation == 'periodic':
-                return NotImplemented  # TODO 'periodic' gives incorrect results, check all
             if self.staticshape(grid)[0] > self.staticshape(coordinates)[0]:
                 assert self.staticshape(coordinates)[0] == 1
                 coordinates = self.tile(coordinates, [self.staticshape(grid)[0], *[1] * (self.ndims(coordinates) - 1)])
