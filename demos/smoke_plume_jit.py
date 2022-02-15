@@ -3,8 +3,9 @@ Hot smoke is emitted from a circular region at the bottom.
 The simulation computes the resulting air flow in a closed box.
 """
 
-from phi.flow import *
-
+from phi.torch.flow import *
+math.set_global_precision(64)
+TORCH.set_default_device('GPU')
 
 DOMAIN = dict(x=64, y=64, bounds=Box[0:100, 0:100])
 velocity = StaggeredGrid((0, 0), extrapolation.ZERO, **DOMAIN)  # or use CenteredGrid
