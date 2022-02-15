@@ -702,7 +702,7 @@ class TorchBackend(Backend):
                 trj = False
 
             res = torch_cuda.conjugate_gradient(lin.values, lin.cols, lin.rows, lin.shape[0], lin.shape[1],
-                                                    len(lin.values), y, x0, rtol, atol, max_iter, trj)
+                                                    lin.values.shape[0], y, x0, rtol, atol, max_iter, trj)
 
             if trj:
                 last_res = []
@@ -713,6 +713,7 @@ class TorchBackend(Backend):
                 return last_res
             else:
                 x, residual, iterations, function_evaluations, converged, diverged = res[0]
+
                 return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})",
                                                 x, residual, iterations, function_evaluations, converged, diverged, "")
         if callable(lin) or trj:
