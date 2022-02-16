@@ -1585,7 +1585,7 @@ The output of math operations has the same precision as its inputs.</p>
     def stop_gradient(self, value):
         raise NotImplementedError(self)
 
-    def grid_sample(self, grid, coordinates, extrapolation=&#39;constant&#39;):
+    def grid_sample(self, grid, coordinates, extrapolation: str):
         &#34;&#34;&#34;
         Interpolates a regular grid at the specified coordinates.
 
@@ -2762,7 +2762,7 @@ If <code>get_output=True</code>, <code>g</code> returns a <code>tuple</code>cont
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.grid_sample"><code class="name flex">
-<span>def <span class="ident">grid_sample</span></span>(<span>self, grid, coordinates, extrapolation='constant')</span>
+<span>def <span class="ident">grid_sample</span></span>(<span>self, grid, coordinates, extrapolation: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Interpolates a regular grid at the specified coordinates.</p>
@@ -2784,7 +2784,7 @@ One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflec
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def grid_sample(self, grid, coordinates, extrapolation=&#39;constant&#39;):
+<pre><code class="python">def grid_sample(self, grid, coordinates, extrapolation: str):
     &#34;&#34;&#34;
     Interpolates a regular grid at the specified coordinates.
 
