@@ -9,11 +9,12 @@ from typing import Tuple, Callable, Any
 import numpy as np
 
 from . import extrapolation as e_
-from ._shape import (BATCH_DIM, CHANNEL_DIM, SPATIAL_DIM, INSTANCE_DIM, Shape, EMPTY_SHAPE,
-                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes, IncompatibleShapes)
+from ._shape import (Shape, EMPTY_SHAPE,
+                     spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
+                     IncompatibleShapes)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
-    custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tensors, \
-    assemble_tensors, disassemble_tree, assemble_tree, value_attributes
+    custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
+    value_attributes, Layout, layout
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
 from .backend._dtype import DType, combine_types
 
@@ -1006,6 +1007,8 @@ def flatten(value: Tensor, flat_dim: Shape = instance('flat')) -> Tensor:
         `Tensor`
     """
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
+    if isinstance(value, Layout):
+        return layout(value._as_list(), flat_dim)
     return pack_dims(value, value.shape, flat_dim)
 
 

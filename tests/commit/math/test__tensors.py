@@ -339,3 +339,38 @@ class TestTensors(TestCase):
         self.assertEqual(a, t.native())
         self.assertEqual([1, 2], t.dict[0].native())
         self.assertEqual(2, t.dict[0].outer[1].native())
+
+    def test_layout_None(self):
+        none = math.layout(None)
+        self.assertEqual(None, none.native())
+        l = math.layout([None, None], channel('v'))
+        self.assertEqual(None, none.v[0].native())
+
+    def test_iterate_0d(self):
+        total = 0.
+        for value in math.ones():
+            total += value
+        self.assertIsInstance(total, float)
+        self.assertEqual(total, 1)
+
+    def test_iterate_1d(self):
+        total = 0.
+        for value in math.ones(channel(vector=3)):
+            total += value
+        self.assertIsInstance(total, float)
+        self.assertEqual(total, 3)
+
+    def test_iterate_2d(self):
+        total = 0.
+        for value in math.ones(channel(v1=2, v2=2)):
+            total += value
+        self.assertIsInstance(total, float)
+        self.assertEqual(total, 4)
+
+    def test_iterate_layout(self):
+        a = [dict(a=1), dict(b=2)]
+        t = math.layout(a, channel('outer,dict'))
+        total = []
+        for d in t:
+            total.append(d)
+        self.assertEqual(total, [1, 2])

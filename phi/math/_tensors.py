@@ -459,8 +459,13 @@ class Tensor:
         return self[::-1]
 
     def __iter__(self):
-        assert self.rank == 1, f"Can only iterate over 1D tensors but got {self.shape}"
-        return iter(self.native())
+        if self.rank == 1:
+            return iter(self.native())
+        elif self.rank == 0:
+            return iter([self.native()])
+        else:
+            from ._ops import flatten
+            return iter(flatten(self))
 
     def _tensor(self, other):
         if isinstance(other, Tensor):
@@ -746,6 +751,9 @@ class Layout(Tensor):
         new_shape = self._shape.after_gather(selection)
         return Layout(native, new_shape)
 
+    def __repr__(self):
+        return repr(self._obj)
+
     @staticmethod
     def _getitem_recursive(native, selection: tuple):
         if not selection:
@@ -764,6 +772,20 @@ class Layout(Tensor):
                 return type(subset)([Layout._getitem_recursive(n, selection[1:]) for n in subset])
             else:
                 raise ValueError(f"Illegal selection: {selection}")
+
+    def _as_list(self):
+        return self._as_list_recursive(self._obj, self._shape.rank, [])
+
+    @staticmethod
+    def _as_list_recursive(native, dims: int, result: list):
+        if dims == 0:
+            result.append(native)
+        else:
+            if isinstance(native, dict):
+                native = tuple(native.values())
+            for n in native:
+                Layout._as_list_recursive(n, dims - 1, result)
+        return result
 
 
 class NativeTensor(Tensor):
@@ -1407,6 +1429,10 @@ def layout(objects, *shape: Shape) -> Tensor:
     """
     assert all(isinstance(s, Shape) for s in shape), f"shape needs to be one or multiple Shape instances but got {shape}"
     shape = EMPTY_SHAPE if len(shape) == 0 else concat_shapes(*shape)
+    if isinstance(objects, Layout):
+        assert objects.shape == shape
+        return objects
+
     if not shape.well_defined:
 
         def recursive_determine_shape(native, shape: Shape):
