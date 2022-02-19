@@ -775,12 +775,19 @@ class Layout(Tensor):
     def __repr__(self):
         return repr(self._obj)
 
+    def unstack(self, dimension: str):
+        if dimension == self._shape.names[0]:
+            native = tuple(self._obj.values()) if isinstance(self._obj, dict) else self._obj
+            inner_shape = self._shape[1:]
+            return tuple([Layout(n, inner_shape) for n in native])
+        else:
+            raise NotImplementedError()
+
     @staticmethod
     def _getitem_recursive(native, selection: tuple):
         if not selection:
             return native
-        if isinstance(native, dict):
-            native = tuple(native.values())
+        native = tuple(native.values()) if isinstance(native, dict) else native
         if len(selection) == 1:
             return native if selection[0] is None else native[selection[0]]
         else:
@@ -802,8 +809,7 @@ class Layout(Tensor):
         if dims == 0:
             result.append(native)
         else:
-            if isinstance(native, dict):
-                native = tuple(native.values())
+            native = tuple(native.values()) if isinstance(native, dict) else native
             for n in native:
                 Layout._as_list_recursive(n, dims - 1, result)
         return result
