@@ -589,3 +589,27 @@ def tensor_as_field(t: Tensor):
         radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
         bounds = Box(bounds.lower - radius, bounds.upper + radius)
         return PointCloud(Sphere(t, radius=radius), bounds=bounds)
+
+
+def pack_dims(field: SampledFieldType,
+              dims: Shape or tuple or list or str,
+              packed_dim: Shape,
+              pos: int or None = None) -> SampledFieldType:
+    """
+    Currently only supports grids and non-spatial dimensions.
+
+    See Also:
+        `phi.math.pack_dims()`.
+
+    Args:
+        field: `SampledField`
+
+    Returns:
+        `SampledField` of same type as `field`.
+    """
+    if isinstance(field, Grid):
+        if spatial(field.shape.only(dims)):
+            raise NotImplementedError("Packing spatial dimensions not supported for grids")
+        return field.with_values(math.pack_dims(field.values, dims, packed_dim, pos))
+    else:
+        raise NotImplementedError()
