@@ -761,6 +761,10 @@ class Layout(Tensor):
     def dtype(self) -> DType:
         return DType(object)
 
+    @property
+    def default_backend(self):
+        return None
+
     def native(self, order: str or tuple or list or Shape = None):
         order = parse_dim_order(order)
         assert order is None or order == self._shape.names, "Layout.native() does not allow for changing the dimension order"

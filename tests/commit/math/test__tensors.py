@@ -374,3 +374,6 @@ class TestTensors(TestCase):
         for d in t:
             total.append(d)
         self.assertEqual(total, [1, 2])
+
+    def test_default_backend_layout(self):
+        self.assertIsNone(math.layout(None).default_backend)
