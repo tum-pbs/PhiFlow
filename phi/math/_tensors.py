@@ -520,6 +520,27 @@ class Tensor:
         return self
 
 
+def shape(arg: Tensor or Shape) -> Shape:
+    """
+    If `arg` is a `Tensor` or has a compatible `shape` property, returns its shape.
+
+    If `arg` is a `Shape`, returns `arg`.
+    This function can be passed as a `dim` argument to an operation to specify that it should act upon all dimensions.
+
+    Args:
+        arg: `Tensor` or `Shape`
+
+    Returns:
+        `Shape`
+    """
+    if hasattr(arg, 'shape') and isinstance(arg.shape, Shape):
+        return arg.shape
+    elif isinstance(arg, Shape):
+        return arg
+    else:
+        raise ValueError(f'shape() requires Tensor of Shape argument but got {arg}')
+
+
 class TensorDim:
     """
     Reference to a specific dimension of a `Tensor`.
