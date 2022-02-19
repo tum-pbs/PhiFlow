@@ -40,8 +40,8 @@ Use `plot()` to plot fields using Matplotlib.
 See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 &#34;&#34;&#34;
 from ._viewer import Viewer
-from ._matplotlib import plot, animate, plot_scalars, savefig
-from ._vis import view, control, show, action
+from ._matplotlib import animate, plot_scalars, savefig
+from ._vis import view, control, show, action, plot, overlay
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 
@@ -229,83 +229,113 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
     return value</code></pre>
 </details>
 </dd>
-<dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>field: phi.field._field.SampledField, title=False, size=(12, 5), show_color_bar=True, same_scale=True, existing_figure: matplotlib.figure.Figure = None, **plt_args)</span>
+<dt id="phi.vis.overlay"><code class="name flex">
+<span>def <span class="ident">overlay</span></span>(<span>*fields: phi.field._field.SampledField) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a Matplotlib figure to display a single field or batch of fields.</p>
-<p>Use <a href="https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.show.html"><code>matplotlib.pyplot.show()</code></a> or
-<a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html"><code>matplotlib.pyplot.savefig()</code></a> to view the figure.</p>
+<div class="desc"><p>Specify that multiple fields should be drawn on top of one another in the same figure.
+The fields will be plotted in the order they are given, i.e. the last field on top.</p>
+<pre><code class="language-python">vis.plot(vis.overlay(heatmap, points, velocity))
+</code></pre>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>field</code></strong></dt>
-<dd><code>SampledField</code>, may contain batch dimensions which will create sub-figures.</dd>
-<dt><strong><code>title</code></strong></dt>
-<dd>Figure/sub-figure title. If <code>str</code> or <code>tuple</code>/<code>list</code> of <code>str</code>. <code>True</code> to generate a title automatically.</dd>
-<dt><strong><code>show_color_bar</code></strong></dt>
-<dd>Whether to show a colorbar for heatmap plots.</dd>
-<dt><strong><code>size</code></strong></dt>
-<dd>Figure (width, height) in inches.</dd>
-<dt><strong><code>same_scale</code></strong></dt>
-<dd>Whether to use the same value scale for all subplots.</dd>
-<dt><strong><code>existing_figure</code></strong></dt>
-<dd>Existing Matplotlib figure to add this plot to. Figure will not be cleared before plotting.</dd>
-<dt><strong><code>**plt_args</code></strong></dt>
-<dd>Additional plotting arguments passed to Matplotlib.</dd>
+<dt><strong><code>*fields</code></strong></dt>
+<dd><code>SampledField</code> or <code>Tensor</code> instances</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><a href="https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure">Matplotlib figure</a>.</p></div>
+<p>Plottable object</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(field: SampledField or tuple or list,
-         title=False,
-         size=(12, 5),
-         show_color_bar=True,
-         same_scale=True,
-         existing_figure: plt.Figure or None = None,
-         **plt_args):
+<pre><code class="python">def overlay(*fields: SampledField or Tensor) -&gt; Tensor:
     &#34;&#34;&#34;
-    Creates a Matplotlib figure to display a single field or batch of fields.
+    Specify that multiple fields should be drawn on top of one another in the same figure.
+    The fields will be plotted in the order they are given, i.e. the last field on top.
 
-    Use [`matplotlib.pyplot.show()`](https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.show.html) or
-    [`matplotlib.pyplot.savefig()`](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html) to view the figure.
+    ```python
+    vis.plot(vis.overlay(heatmap, points, velocity))
+    ```
 
     Args:
-        field: `SampledField`, may contain batch dimensions which will create sub-figures.
-        title: Figure/sub-figure title. If `str` or `tuple`/`list` of `str`. `True` to generate a title automatically.
-        show_color_bar: Whether to show a colorbar for heatmap plots.
-        size: Figure (width, height) in inches.
-        same_scale: Whether to use the same value scale for all subplots.
-        existing_figure: Existing Matplotlib figure to add this plot to. Figure will not be cleared before plotting.
-        **plt_args: Additional plotting arguments passed to Matplotlib.
+        *fields: `SampledField` or `Tensor` instances
 
     Returns:
-        [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
+        Plottable object
     &#34;&#34;&#34;
-    fig, fields = _subplots(field, size, existing_figure=existing_figure)
-    if title:
-        for b in range(len(fig.axes)):
-            if isinstance(title, str):
-                sub_title = title
-            elif title is True:
-                sub_title = f&#34;{b} of {field.shape.batch}&#34;
-            elif isinstance(title, (tuple, list)):
-                sub_title = title[b]
-            else:
-                sub_title = None
-            if sub_title is not None:
-                fig.axes[b].set_title(sub_title)
-    if same_scale and any(isinstance(f, Grid) for f in fields):
-        min_val = min([float(f.values.min) for f in fields if isinstance(f, Grid)])
-        max_val = min([float(f.values.max) for f in fields if isinstance(f, Grid)])
+    return math.layout(fields, math.channel(&#39;overlay&#39;))</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, down: str = '', title: phi.math._tensors.Tensor = None, size=(12, 5), same_scale=True, show_color_bar=True, **plt_args)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plots the given fields.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>fields</code></strong></dt>
+<dd>Fields or Tensors to plot.</dd>
+<dt><strong><code>lib</code></strong></dt>
+<dd>Plotting library name or reference. Valid names are <code>'matplotlib'</code>, <code>'plotly'</code> and <code>'console'</code>.</dd>
+<dt><strong><code>down</code></strong></dt>
+<dd>Batch dimensions along which sub-figures should be laid out vertically.
+<code>Shape</code> or comma-separated names as <code>str</code>.</dd>
+<dt><strong><code>title</code></strong></dt>
+<dd><code>bool or str or Tensor</code></dd>
+<dt><strong><code>size</code></strong></dt>
+<dd><code>tuple</code> <code>(width, height)</code> Canvas size in millimeters or lines, depending on <code>lib</code>.</dd>
+</dl>
+<p>same_scale:
+show_color_bar:</p>
+<h2 id="returns">Returns</h2>
+<p>Figure created for <code>data</code>, not yet shown.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(*fields: SampledField or Tensor or Layout,
+         lib: str or PlottingLibrary = None,
+         down: str or Shape = &#39;&#39;,
+         title: Tensor or str or tuple or list = None,
+         size=(12, 5),
+         same_scale=True,
+         show_color_bar=True,
+         **plt_args):
+    &#34;&#34;&#34;
+    Plots the given fields.
+
+    Args:
+        fields: Fields or Tensors to plot.
+        lib: Plotting library name or reference. Valid names are `&#39;matplotlib&#39;`, `&#39;plotly&#39;` and `&#39;console&#39;`.
+        down: Batch dimensions along which sub-figures should be laid out vertically.
+            `Shape` or comma-separated names as `str`.
+        title: `bool or str or Tensor`
+        size: `tuple` `(width, height)` Canvas size in millimeters or lines, depending on `lib`.
+        same_scale:
+        show_color_bar:
+
+    Returns:
+        Figure created for `data`, not yet shown.
+    &#34;&#34;&#34;
+    down = parse_dim_order(down)
+    positioning = {}
+    rows, cols = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), down, 0, 0, positioning)
+    plots = default_plots() if lib is None else get_plots(lib)
+    if same_scale:
+        min_val = float(min([f.values.min for l in positioning.values() for f in l]))
+        max_val = float(max([f.values.max for l in positioning.values() for f in l]))
     else:
-        min_val, max_val = None, None
-    for axis, field in zip(fig.axes, fields):
-        _plot(axis, field, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
-    plt.tight_layout()
-    return fig</code></pre>
+        min_val = max_val = None
+    subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
+    figure, axes = plots.create_figure(size, rows, cols, subplots, titles=layout(None))
+    for pos, fields in positioning.items():
+        for f in fields:
+            plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+    # for i in axes.shape.meshgrid():
+    #     for f in data[i].shape.meshgrid():
+    #         sampled_field = data[f].native()
+    #         plots.plot(sampled_field, figure, axes[i].native(), min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+    return figure</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
@@ -519,17 +549,25 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
-<span>def <span class="ident">show</span></span>(<span>model: phi.vis._vis_base.VisModel = None, play=True, gui: phi.vis._vis_base.Gui = None, keep_alive=True, **config)</span>
+<span>def <span class="ident">show</span></span>(<span>*model: phi.vis._vis_base.VisModel, play=True, gui: phi.vis._vis_base.Gui = None, keep_alive=True, **config)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Launch the registered user interface (web interface by default).</p>
-<p>This method may block until the GUI is closed.</p>
-<p>This method prepares the vis before showing it. No more fields should be added to the vis after this method is invoked.</p>
+<div class="desc"><p>If <code>model</code> is a user interface model, launches the registered user interface.
+This will typically be the widgets interface for Jupyter or Colab notebooks, the Dash web interface for scripts or the console interface if the above are not available.
+This method prepares the <code>model</code> before showing it. No more fields should be added to the vis after this method is invoked.</p>
+<p>See Also:
+<code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
+<p>If <code>model</code> is plottable, e.g. a <code>SampledField</code> or <code>Tensor</code>, a figure is created and shown.
+If <code>model</code> is a figure, it is simply shown.</p>
+<p>See Also:
+<code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.</p>
+<p>This method may block until the GUI or plot window is closed.</p>
 <p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>model</code></strong></dt>
-<dd>(Optional) <code>VisModel</code>, the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.</dd>
+<dd>(Optional) <code>VisModel</code>, the application or plottable object to display.
+If unspecified, shows the most recently plotted figure.</dd>
 <dt><strong><code>play</code></strong></dt>
 <dd>If true, invokes <code>App.play()</code>. The default value is False unless "autorun" is passed as a command line argument.</dd>
 <dt><strong><code>gui</code></strong></dt>
@@ -544,41 +582,60 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show(model: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
+<pre><code class="python">def show(*model: VisModel or SampledField or tuple or list or Tensor,
+         play=True,
+         gui: Gui or str = None,
+         keep_alive=True,
+         **config):
     &#34;&#34;&#34;
-    Launch the registered user interface (web interface by default).
+    If `model` is a user interface model, launches the registered user interface.
+    This will typically be the widgets interface for Jupyter or Colab notebooks, the Dash web interface for scripts or the console interface if the above are not available.
+    This method prepares the `model` before showing it. No more fields should be added to the vis after this method is invoked.
 
-    This method may block until the GUI is closed.
+    See Also:
+        `view()`.
 
-    This method prepares the vis before showing it. No more fields should be added to the vis after this method is invoked.
+    If `model` is plottable, e.g. a `SampledField` or `Tensor`, a figure is created and shown.
+    If `model` is a figure, it is simply shown.
+
+    See Also:
+        `plot()`.
+
+    This method may block until the GUI or plot window is closed.
 
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 
     Args:
-      model: (Optional) `VisModel`, the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
+      model: (Optional) `VisModel`, the application or plottable object to display.
+        If unspecified, shows the most recently plotted figure.
       play: If true, invokes `App.play()`. The default value is False unless &#34;autorun&#34; is passed as a command line argument.
       gui: (optional) class of GUI to use
       keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     &#34;&#34;&#34;
-    if model is None:
-        import pylab
-        pylab.show()
-        return
-    assert isinstance(model, VisModel), f&#34;show() first argument must be an App instance but got {model}&#34;
-    model.prepare()
-    # --- Setup Gui ---
-    gui = default_gui() if gui is None else get_gui(gui)
-    gui.configure(config)
-    gui.setup(model)
-    if play:  # this needs to be done even if model cannot progress right now
-        gui.auto_play()
-    if gui.asynchronous:
-        display_thread = Thread(target=lambda: gui.show(True), name=&#34;AsyncGui&#34;, daemon=not keep_alive)
-        display_thread.start()
+    if len(model) == 1 and isinstance(model[0], VisModel):
+        model[0].prepare()
+        # --- Setup Gui ---
+        gui = default_gui() if gui is None else get_gui(gui)
+        gui.configure(config)
+        gui.setup(model[0])
+        if play:  # this needs to be done even if model cannot progress right now
+            gui.auto_play()
+        if gui.asynchronous:
+            display_thread = Thread(target=lambda: gui.show(True), name=&#34;AsyncGui&#34;, daemon=not keep_alive)
+            display_thread.start()
+        else:
+            gui.show(True)  # may be blocking call
+    elif len(model) == 0:
+        plots = default_plots() if gui is None else get_plots(gui)
+        plots.show()
+    elif all([isinstance(m, (SampledField, Tensor, tuple, list)) for m in model]):
+        plots = default_plots() if gui is None else get_plots(gui)
+        fig = plot(*model, lib=plots, **config)
+        plots.show(fig)
     else:
-        gui.show(True)  # may be blocking call</code></pre>
+        raise ValueError(f&#34;show() requires an App, plottable or None but got {model}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
@@ -679,7 +736,10 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
         `Viewer`
     &#34;&#34;&#34;
     default_namespace = get_user_namespace(1)
-    user_namespace = default_namespace if namespace is None else DictNamespace(namespace, title=default_namespace.get_title(), description=default_namespace.get_description(), reference=default_namespace.get_reference())
+    user_namespace = default_namespace if namespace is None else DictNamespace(namespace,
+                                                                               title=default_namespace.get_title(),
+                                                                               description=default_namespace.get_description(),
+                                                                               reference=default_namespace.get_reference())
     variables = _default_field_variables(user_namespace, fields)
     actions = dict(ACTIONS)
     ACTIONS.clear()
@@ -693,9 +753,11 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
     name = name or user_namespace.get_title()
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
-    controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if user_namespace.get_variable(c.name) is not None)
+    controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if
+                     user_namespace.get_variable(c.name) is not None)
     CONTROL_VARS.clear()
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, actions=actions, log_performance=log_performance)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous,
+                           controls=controls, actions=actions, log_performance=log_performance)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer</code></pre>
 </details>
@@ -1090,6 +1152,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><code><a title="phi.vis.action" href="#phi.vis.action">action</a></code></li>
 <li><code><a title="phi.vis.animate" href="#phi.vis.animate">animate</a></code></li>
 <li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
+<li><code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay</a></code></li>
 <li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>
 <li><code><a title="phi.vis.plot_scalars" href="#phi.vis.plot_scalars">plot_scalars</a></code></li>
 <li><code><a title="phi.vis.savefig" href="#phi.vis.savefig">savefig</a></code></li>

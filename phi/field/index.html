@@ -84,6 +84,7 @@ from ._field_math import (
     extrapolate_valid,
     native_call,
     integrate,
+    pack_dims,
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -1420,6 +1421,48 @@ The function output must have the same dimension layout as the inputs and the ba
     &#34;&#34;&#34; Multiplies the values of `field` so that its sum matches the source. &#34;&#34;&#34;
     data = math.normalize_to(field.values, norm.values, epsilon)
     return field.with_values(data)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.pack_dims"><code class="name flex">
+<span>def <span class="ident">pack_dims</span></span>(<span>field: ~SampledFieldType, dims: phi.math._shape.Shape, packed_dim: phi.math._shape.Shape, pos: int = None) ‑> ~SampledFieldType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Currently only supports grids and non-spatial dimensions.</p>
+<p>See Also:
+<code><a title="phi.math.pack_dims" href="../math/index.html#phi.math.pack_dims">pack_dims()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>field</code></strong></dt>
+<dd><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> of same type as <code>field</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pack_dims(field: SampledFieldType,
+              dims: Shape or tuple or list or str,
+              packed_dim: Shape,
+              pos: int or None = None) -&gt; SampledFieldType:
+    &#34;&#34;&#34;
+    Currently only supports grids and non-spatial dimensions.
+
+    See Also:
+        `phi.math.pack_dims()`.
+
+    Args:
+        field: `SampledField`
+
+    Returns:
+        `SampledField` of same type as `field`.
+    &#34;&#34;&#34;
+    if isinstance(field, Grid):
+        if spatial(field.shape.only(dims)):
+            raise NotImplementedError(&#34;Packing spatial dimensions not supported for grids&#34;)
+        return field.with_values(math.pack_dims(field.values, dims, packed_dim, pos))
+    else:
+        raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.field.pad"><code class="name flex">
@@ -5710,6 +5753,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 <li><code><a title="phi.field.minimum" href="#phi.field.minimum">minimum</a></code></li>
 <li><code><a title="phi.field.native_call" href="#phi.field.native_call">native_call</a></code></li>
 <li><code><a title="phi.field.normalize" href="#phi.field.normalize">normalize</a></code></li>
+<li><code><a title="phi.field.pack_dims" href="#phi.field.pack_dims">pack_dims</a></code></li>
 <li><code><a title="phi.field.pad" href="#phi.field.pad">pad</a></code></li>
 <li><code><a title="phi.field.read" href="#phi.field.read">read</a></code></li>
 <li><code><a title="phi.field.real" href="#phi.field.real">real</a></code></li>

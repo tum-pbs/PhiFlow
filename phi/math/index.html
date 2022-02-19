@@ -54,7 +54,7 @@ from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes, IncompatibleShapes
-from ._tensors import wrap, tensor, layout, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict
+from ._tensors import wrap, tensor, layout, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict, shape
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
@@ -552,7 +552,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
         return _construct_shape(BATCH_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].batch
-    elif len(args) == 1 and isinstance(args[0], Tensor):
+    elif len(args) == 1 and hasattr(args[0], &#39;shape&#39;) and isinstance(args[0].shape, Shape):
         return args[0].shape.batch
     else:
         raise AssertionError(f&#34;batch() must be called either as a selector batch(Shape) or batch(Tensor) or as a constructor batch(*names, **dims). Got *args={args}, **dims={dims}&#34;)</code></pre>
@@ -770,7 +770,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
         return result
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
-    elif len(args) == 1 and isinstance(args[0], Tensor):
+    elif len(args) == 1 and hasattr(args[0], &#39;shape&#39;) and isinstance(args[0].shape, Shape):
         return args[0].shape.channel
     else:
         raise AssertionError(f&#34;channel() must be called either as a selector channel(Shape) or channel(Tensor) or as a constructor channel(*names, **dims). Got *args={args}, **dims={dims}&#34;)</code></pre>
@@ -1825,6 +1825,8 @@ The order of the values in memory is not changed.</p>
         `Tensor`
     &#34;&#34;&#34;
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
+    if isinstance(value, Layout):
+        return layout(value._as_list(), flat_dim)
     return pack_dims(value, value.shape, flat_dim)</code></pre>
 </details>
 </dd>
@@ -2625,7 +2627,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
         return _construct_shape(INSTANCE_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].instance
-    elif len(args) == 1 and isinstance(args[0], Tensor):
+    elif len(args) == 1 and hasattr(args[0], &#39;shape&#39;) and isinstance(args[0].shape, Shape):
         return args[0].shape.instance
     else:
         raise AssertionError(f&#34;instance() must be called either as a selector instance(Shape) or instance(Tensor) or as a constructor instance(*names, **dims). Got *args={args}, **dims={dims}&#34;)</code></pre>
@@ -2989,6 +2991,10 @@ Calling <code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">T
     &#34;&#34;&#34;
     assert all(isinstance(s, Shape) for s in shape), f&#34;shape needs to be one or multiple Shape instances but got {shape}&#34;
     shape = EMPTY_SHAPE if len(shape) == 0 else concat_shapes(*shape)
+    if isinstance(objects, Layout):
+        assert objects.shape == shape
+        return objects
+
     if not shape.well_defined:
 
         def recursive_determine_shape(native, shape: Shape):
@@ -4589,7 +4595,7 @@ If only one limit is given, <code>0</code> is used for the start.</p>
 <span>def <span class="ident">range_tensor</span></span>(<span>shape: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with given <code>shape</code> containing the linear indices of each element.
+<div class="desc"><p>Returns a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with given <code><a title="phi.math.shape" href="#phi.math.shape">shape()</a></code> containing the linear indices of each element.
 For 1D tensors, this equivalent to <code>arange()</code> with <code>step=1</code>.</p>
 <p>See Also:
 <code>arange()</code>, <code><a title="phi.math.meshgrid" href="#phi.math.meshgrid">meshgrid()</a></code>.</p>
@@ -5207,6 +5213,45 @@ The output of math operations has the same precision as its inputs.</p>
     _PRECISION[0] = floating_point_bits</code></pre>
 </details>
 </dd>
+<dt id="phi.math.shape"><code class="name flex">
+<span>def <span class="ident">shape</span></span>(<span>arg: phi.math._tensors.Tensor) ‑> phi.math._shape.Shape</span>
+</code></dt>
+<dd>
+<div class="desc"><p>If <code>arg</code> is a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or has a compatible <code><a title="phi.math.shape" href="#phi.math.shape">shape()</a></code> property, returns its shape.</p>
+<p>If <code>arg</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, returns <code>arg</code>.
+This function can be passed as a <code>dim</code> argument to an operation to specify that it should act upon all dimensions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>arg</code></strong></dt>
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shape(arg: Tensor or Shape) -&gt; Shape:
+    &#34;&#34;&#34;
+    If `arg` is a `Tensor` or has a compatible `shape` property, returns its shape.
+
+    If `arg` is a `Shape`, returns `arg`.
+    This function can be passed as a `dim` argument to an operation to specify that it should act upon all dimensions.
+
+    Args:
+        arg: `Tensor` or `Shape`
+
+    Returns:
+        `Shape`
+    &#34;&#34;&#34;
+    if hasattr(arg, &#39;shape&#39;) and isinstance(arg.shape, Shape):
+        return arg.shape
+    elif isinstance(arg, Shape):
+        return arg
+    else:
+        raise ValueError(f&#39;shape() requires Tensor of Shape argument but got {arg}&#39;)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.shift"><code class="name flex">
 <span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: str = &lt;function spatial&gt;, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: phi.math._shape.Shape = (shiftᶜ=None)) ‑> list</span>
 </code></dt>
@@ -5587,7 +5632,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
         return _construct_shape(SPATIAL_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].spatial
-    elif len(args) == 1 and isinstance(args[0], Tensor):
+    elif len(args) == 1 and hasattr(args[0], &#39;shape&#39;) and isinstance(args[0].shape, Shape):
         return args[0].shape.spatial
     else:
         raise AssertionError(f&#34;spatial() must be called either as a selector spatial(Shape) or spatial(Tensor) or as a constructor spatial(*names, **dims). Got *args={args}, **dims={dims}&#34;)</code></pre>
@@ -8818,7 +8863,7 @@ def non_spatial(self) -&gt; &#39;Shape&#39;:
 <dt id="phi.math.Shape.rank"><code class="name">var <span class="ident">rank</span> : int</code></dt>
 <dd>
 <div class="desc"><p>Returns the number of dimensions.
-Equal to <code>len(shape)</code>.</p>
+Equal to <code>len(<a title="phi.math.shape" href="#phi.math.shape">shape()</a>)</code>.</p>
 <p>See <code><a title="phi.math.Shape.is_empty" href="#phi.math.Shape.is_empty">Shape.is_empty</a></code>, <code><a title="phi.math.Shape.batch_rank" href="#phi.math.Shape.batch_rank">Shape.batch_rank</a></code>, <code><a title="phi.math.Shape.spatial_rank" href="#phi.math.Shape.spatial_rank">Shape.spatial_rank</a></code>, <code><a title="phi.math.Shape.channel_rank" href="#phi.math.Shape.channel_rank">Shape.channel_rank</a></code>.</p></div>
 <details class="source">
 <summary>
@@ -10520,8 +10565,13 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self[::-1]
 
     def __iter__(self):
-        assert self.rank == 1, f&#34;Can only iterate over 1D tensors but got {self.shape}&#34;
-        return iter(self.native())
+        if self.rank == 1:
+            return iter(self.native())
+        elif self.rank == 0:
+            return iter([self.native()])
+        else:
+            from ._ops import flatten
+            return iter(flatten(self))
 
     def _tensor(self, other):
         if isinstance(other, Tensor):
@@ -11799,6 +11849,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.scatter" href="#phi.math.scatter">scatter</a></code></li>
 <li><code><a title="phi.math.seed" href="#phi.math.seed">seed</a></code></li>
 <li><code><a title="phi.math.set_global_precision" href="#phi.math.set_global_precision">set_global_precision</a></code></li>
+<li><code><a title="phi.math.shape" href="#phi.math.shape">shape</a></code></li>
 <li><code><a title="phi.math.shift" href="#phi.math.shift">shift</a></code></li>
 <li><code><a title="phi.math.sigmoid" href="#phi.math.sigmoid">sigmoid</a></code></li>
 <li><code><a title="phi.math.sign" href="#phi.math.sign">sign</a></code></li>
