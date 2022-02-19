@@ -1014,7 +1014,7 @@ def spatial(*args, **dims: int):
         return _construct_shape(SPATIAL_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].spatial
-    elif len(args) == 1 and isinstance(args[0], Tensor):
+    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
         return args[0].shape.spatial
     else:
         raise AssertionError(f"spatial() must be called either as a selector spatial(Shape) or spatial(Tensor) or as a constructor spatial(*names, **dims). Got *args={args}, **dims={dims}")
@@ -1063,7 +1063,7 @@ def channel(*args, **dims: int or str):
         return result
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
-    elif len(args) == 1 and isinstance(args[0], Tensor):
+    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
         return args[0].shape.channel
     else:
         raise AssertionError(f"channel() must be called either as a selector channel(Shape) or channel(Tensor) or as a constructor channel(*names, **dims). Got *args={args}, **dims={dims}")
@@ -1108,7 +1108,7 @@ def batch(*args, **dims: int or str):
         return _construct_shape(BATCH_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].batch
-    elif len(args) == 1 and isinstance(args[0], Tensor):
+    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
         return args[0].shape.batch
     else:
         raise AssertionError(f"batch() must be called either as a selector batch(Shape) or batch(Tensor) or as a constructor batch(*names, **dims). Got *args={args}, **dims={dims}")
@@ -1153,7 +1153,7 @@ def instance(*args, **dims: int):
         return _construct_shape(INSTANCE_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].instance
-    elif len(args) == 1 and isinstance(args[0], Tensor):
+    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
         return args[0].shape.instance
     else:
         raise AssertionError(f"instance() must be called either as a selector instance(Shape) or instance(Tensor) or as a constructor instance(*names, **dims). Got *args={args}, **dims={dims}")
