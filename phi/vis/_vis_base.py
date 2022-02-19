@@ -5,12 +5,12 @@ import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from math import log10
-from threading import Thread, Lock
-from typing import Tuple
+from threading import Lock
+from typing import Tuple, Any, Optional, Dict
 
 from phi import field
 from phi.field import SampledField, Scene
-from phi.math import Shape, EMPTY_SHAPE
+from phi.math import Shape, EMPTY_SHAPE, Tensor
 
 Control = namedtuple('Control', [
     'name',
@@ -265,7 +265,7 @@ class Gui:
         Creates a display for the given vis and initializes the configuration.
         This method does not set up the display. It only sets up the Gui object and returns as quickly as possible.
         """
-        self.app: VisModel = None
+        self.app: Optional[VisModel] = None
         self.asynchronous = asynchronous
         self.config = {}
 
@@ -321,6 +321,30 @@ class Gui:
         raise NotImplementedError(self)
 
 
+class PlottingLibrary:
+
+    def create_figure(self,
+                      size: tuple,
+                      rows: int,
+                      cols: int,
+                      subplots: Dict[Tuple[int, int], int],
+                      titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+        raise NotImplementedError()
+
+    def plot(self,
+             data: SampledField,
+             figure,
+             subplot,
+             min_val: float = None,
+             max_val: float = None,
+             show_color_bar: bool = True,
+             **plt_args):
+        raise NotImplementedError()
+
+    def show(self, figure=None):
+        raise NotImplementedError()
+
+
 def default_gui() -> Gui:
     if GUI_OVERRIDES:
         return GUI_OVERRIDES[-1]
@@ -363,6 +387,35 @@ def get_gui(gui: str or Gui) -> Gui:
 GUI_OVERRIDES = []
 
 
+def default_plots() -> PlottingLibrary:
+    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+        options = ['matplotlib']
+    else:
+        options = ['matplotlib', 'plotly', 'ascii']
+    for option in options:
+        try:
+            return get_plots(option)
+        except ImportError as import_error:
+            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
+    raise RuntimeError("No user interface available.")
+
+
+def get_plots(lib: str or PlottingLibrary) -> PlottingLibrary:
+    if isinstance(lib, PlottingLibrary):
+        return lib
+    if lib == 'matplotlib':
+        from ._matplotlib._matplotlib_plots import MATPLOTLIB
+        return MATPLOTLIB
+    elif lib == 'plotly':
+        from ._dash._plotly_plots import PLOTLY
+        return PLOTLY
+    elif lib == 'ascii':
+        from ._console._console_plot import CONSOLE
+        return CONSOLE
+    else:
+        raise NotImplementedError(f"No plotting library available with name {lib}")
+
+
 @contextmanager
 def force_use_gui(gui: Gui):
     GUI_OVERRIDES.append(gui)
@@ -401,12 +454,5 @@ def select_channel(value: SampledField, channel: str or None):
     elif channel == 'abs':
         if value.vector.exists:
             return field.vec_abs(value)
-        else:
-            return value
-    else:  # x, y, z
-        if channel in value.shape.spatial and 'vector' in value.shape:
-            return value.vector[channel]
-        elif 'vector' in value.shape:
-            raise ValueError(f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
         else:
             return value

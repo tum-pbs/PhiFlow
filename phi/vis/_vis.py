@@ -1,49 +1,74 @@
 import inspect
 import os
 from threading import Thread
+from typing import Tuple, List, Dict
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import get_gui, default_gui, Control, display_name, value_range, Action, VisModel, Gui
+from ._vis_base import get_gui, default_gui, default_plots, get_plots, Control, value_range, Action, VisModel, Gui, \
+    PlottingLibrary
+from .. import math, field
 from ..field import SampledField, Scene
 from ..field._scene import _slugify_filename
+from ..math import Tensor, layout, batch, Shape
+from ..math._shape import parse_dim_names, parse_dim_order
+from ..math._tensors import Layout
 
 
-def show(model: VisModel or None = None, play=True, gui: Gui or str = None, keep_alive=True, **config):
+def show(*model: VisModel or SampledField or tuple or list or Tensor,
+         play=True,
+         gui: Gui or str = None,
+         keep_alive=True,
+         **config):
     """
-    Launch the registered user interface (web interface by default).
+    If `model` is a user interface model, launches the registered user interface.
+    This will typically be the widgets interface for Jupyter or Colab notebooks, the Dash web interface for scripts or the console interface if the above are not available.
+    This method prepares the `model` before showing it. No more fields should be added to the vis after this method is invoked.
 
-    This method may block until the GUI is closed.
+    See Also:
+        `view()`.
 
-    This method prepares the vis before showing it. No more fields should be added to the vis after this method is invoked.
+    If `model` is plottable, e.g. a `SampledField` or `Tensor`, a figure is created and shown.
+    If `model` is a figure, it is simply shown.
+
+    See Also:
+        `plot()`.
+
+    This method may block until the GUI or plot window is closed.
 
     Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 
     Args:
-      model: (Optional) `VisModel`, the application to display. If unspecified, searches the calling script for a subclass of App and instantiates it.
+      model: (Optional) `VisModel`, the application or plottable object to display.
+        If unspecified, shows the most recently plotted figure.
       play: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
       gui: (optional) class of GUI to use
       keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     """
-    if model is None:
-        import pylab
-        pylab.show()
-        return
-    assert isinstance(model, VisModel), f"show() first argument must be an App instance but got {model}"
-    model.prepare()
-    # --- Setup Gui ---
-    gui = default_gui() if gui is None else get_gui(gui)
-    gui.configure(config)
-    gui.setup(model)
-    if play:  # this needs to be done even if model cannot progress right now
-        gui.auto_play()
-    if gui.asynchronous:
-        display_thread = Thread(target=lambda: gui.show(True), name="AsyncGui", daemon=not keep_alive)
-        display_thread.start()
+    if len(model) == 1 and isinstance(model[0], VisModel):
+        model[0].prepare()
+        # --- Setup Gui ---
+        gui = default_gui() if gui is None else get_gui(gui)
+        gui.configure(config)
+        gui.setup(model[0])
+        if play:  # this needs to be done even if model cannot progress right now
+            gui.auto_play()
+        if gui.asynchronous:
+            display_thread = Thread(target=lambda: gui.show(True), name="AsyncGui", daemon=not keep_alive)
+            display_thread.start()
+        else:
+            gui.show(True)  # may be blocking call
+    elif len(model) == 0:
+        plots = default_plots() if gui is None else get_plots(gui)
+        plots.show()
+    elif all([isinstance(m, (SampledField, Tensor, tuple, list)) for m in model]):
+        plots = default_plots() if gui is None else get_plots(gui)
+        fig = plot(*model, lib=plots, **config)
+        plots.show(fig)
     else:
-        gui.show(True)  # may be blocking call
+        raise ValueError(f"show() requires an App, plottable or None but got {model}")
 
 
 RECORDINGS = {}
@@ -52,7 +77,8 @@ RECORDINGS = {}
 def record(*fields: str or SampledField) -> Viewer:
     user_namespace = get_user_namespace(1)
     variables = _default_field_variables(user_namespace, fields)
-    viewer = create_viewer(user_namespace, variables, "record", "", scene=None, asynchronous=False, controls=(), actions={}, log_performance=False)
+    viewer = create_viewer(user_namespace, variables, "record", "", scene=None, asynchronous=False, controls=(),
+                           actions={}, log_performance=False)
     viewer.post_step.append(lambda viewer: print(viewer.steps, end=" "))
     viewer.progress_unavailable.append(lambda viewer: print())
     return viewer
@@ -106,7 +132,10 @@ def view(*fields: str or SampledField,
         `Viewer`
     """
     default_namespace = get_user_namespace(1)
-    user_namespace = default_namespace if namespace is None else DictNamespace(namespace, title=default_namespace.get_title(), description=default_namespace.get_description(), reference=default_namespace.get_reference())
+    user_namespace = default_namespace if namespace is None else DictNamespace(namespace,
+                                                                               title=default_namespace.get_title(),
+                                                                               description=default_namespace.get_description(),
+                                                                               reference=default_namespace.get_reference())
     variables = _default_field_variables(user_namespace, fields)
     actions = dict(ACTIONS)
     ACTIONS.clear()
@@ -120,9 +149,11 @@ def view(*fields: str or SampledField,
     name = name or user_namespace.get_title()
     description = description or user_namespace.get_description()
     gui = default_gui() if gui is None else get_gui(gui)
-    controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if user_namespace.get_variable(c.name) is not None)
+    controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if
+                     user_namespace.get_variable(c.name) is not None)
     CONTROL_VARS.clear()
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous, controls=controls, actions=actions, log_performance=log_performance)
+    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous,
+                           controls=controls, actions=actions, log_performance=log_performance)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer
 
@@ -197,3 +228,122 @@ def action(fun):
 
 
 ACTIONS = {}
+
+
+def plot(*fields: SampledField or Tensor or Layout,
+         lib: str or PlottingLibrary = None,
+         down: str or Shape = '',
+         title: Tensor or str or tuple or list = None,
+         size=(12, 5),
+         same_scale=True,
+         show_color_bar=True,
+         **plt_args):
+    """
+    Plots the given fields.
+
+    Args:
+        fields: Fields or Tensors to plot.
+        lib: Plotting library name or reference. Valid names are `'matplotlib'`, `'plotly'` and `'console'`.
+        down: Batch dimensions along which sub-figures should be laid out vertically.
+            `Shape` or comma-separated names as `str`.
+        title: `bool or str or Tensor`
+        size: `tuple` `(width, height)` Canvas size in millimeters or lines, depending on `lib`.
+        same_scale:
+        show_color_bar:
+
+    Returns:
+        Figure created for `data`, not yet shown.
+    """
+    down = parse_dim_order(down)
+    positioning = {}
+    rows, cols = layout_sub_figures(math.layout(fields, batch('args')), down, 0, 0, positioning)
+    plots = default_plots() if lib is None else get_plots(lib)
+    if same_scale:
+        min_val = float(min([f.values.min for l in positioning.values() for f in l]))
+        max_val = float(max([f.values.max for l in positioning.values() for f in l]))
+    else:
+        min_val = max_val = None
+    subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
+    figure, axes = plots.create_figure(size, rows, cols, subplots, titles=layout(None))
+    for pos, fields in positioning.items():
+        for f in fields:
+            plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+    # for i in axes.shape.meshgrid():
+    #     for f in data[i].shape.meshgrid():
+    #         sampled_field = data[f].native()
+    #         plots.plot(sampled_field, figure, axes[i].native(), min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+    return figure
+
+
+def layout_sub_figures(data: Tensor or Layout or SampledField,
+                       down: Tuple[str],
+                       offset_row: int,
+                       offset_col: int,
+                       positioning: Dict[Tuple[int, int], List]):  # rows, cols
+    if isinstance(data, list):
+        data = math.layout(data, batch('list'))
+    elif isinstance(data, tuple):
+        data = math.layout(data, batch('tuple'))
+    if isinstance(data, Layout):
+        rows, cols = 0, 0
+        if not batch(data):
+            for d in data:
+                e_rows, e_cols = layout_sub_figures(d, down, offset_row, offset_col, positioning)
+                rows = max(rows, e_rows)
+                cols = max(cols, e_cols)
+        else:
+            dim0 = data.shape[0]
+            elements = data.unstack(dim0.name)
+            for e in elements:
+                if dim0.name in down:
+                    e_rows, e_cols = layout_sub_figures(e.native(), down, offset_row + rows, offset_col, positioning)
+                    rows += e_rows
+                    cols = max(cols, e_cols)
+                else:
+                    e_rows, e_cols = layout_sub_figures(e.native(), down, offset_row, offset_col + cols, positioning)
+                    cols += e_cols
+                    rows = max(rows, e_rows)
+        return rows, cols
+    else:
+        if isinstance(data, Tensor):
+            data = field.tensor_as_field(data)
+        assert isinstance(data, SampledField)
+        rows = batch(data).only(down)
+        cols = batch(data).without(down)
+        for ri, r in enumerate(rows.meshgrid()):
+            for ci, c in enumerate(cols.meshgrid()):
+                sub_data = data[r][c]
+                positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
+        return rows.volume, cols.volume
+
+
+    # if len(plottable) > 1:
+    #     plottable
+    #
+    # return math.layout([], math.channel('cols, rows, overlay'))
+    # else:  # x, y, z
+    #     if channel in value.shape.spatial and 'vector' in value.shape:
+    #         return value.vector[channel]
+    #     elif 'vector' in value.shape:
+    #         raise ValueError(
+    #             f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
+    #     else:
+    #         return value
+
+
+def overlay(*fields: SampledField or Tensor) -> Tensor:
+    """
+    Specify that multiple fields should be drawn on top of one another in the same figure.
+    The fields will be plotted in the order they are given, i.e. the last field on top.
+
+    ```python
+    vis.plot(vis.overlay(heatmap, points, velocity))
+    ```
+
+    Args:
+        *fields: `SampledField` or `Tensor` instances
+
+    Returns:
+        Plottable object
+    """
+    return math.layout(fields, math.channel('overlay'))

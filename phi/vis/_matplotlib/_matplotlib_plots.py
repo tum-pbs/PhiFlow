@@ -1,8 +1,9 @@
 import logging
 import os
 from numbers import Number
-from typing import Callable
+from typing import Callable, Tuple, Any, Dict
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy
 import numpy as np
@@ -10,14 +11,59 @@ from matplotlib import animation
 
 from phi import math
 from phi.geom import Sphere, BaseBox
-from phi.math import channel, batch
+from phi.math import Tensor, batch, channel
 from phi.vis._plot_util import smooth_uniform_curve
-from phi.vis._vis_base import display_name
+from phi.vis._vis_base import display_name, PlottingLibrary
 from phi.field import Grid, StaggeredGrid, PointCloud, Scene, unstack, SampledField
 from phi.field._scene import _str
 
 
-def plot(field: SampledField or tuple or list,
+class MatplotlibPlots(PlottingLibrary):
+
+    def create_figure(self,
+                      size: tuple,
+                      rows: int,
+                      cols: int,
+                      subplots: Dict[Tuple[int, int], int],
+                      titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+        figure, axes = plt.subplots(rows, cols, figsize=size)
+        axes = np.reshape(axes, (rows, cols))
+        axes_by_pos = {}
+        for row in range(rows):
+            for col in range(cols):
+                axes[row, col].set_title(titles.rows[row].cols[col].native())
+                if (row, col) not in subplots:
+                    axes[row, col].remove()
+                else:
+                    if subplots[(row, col)] == 3:
+                        axes[row, col].remove()
+                        axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
+                    axes_by_pos[(row, col)] = axes[row, col]
+        return figure, axes_by_pos
+
+    def plot(self,
+             data: SampledField,
+             figure,
+             subplot,
+             min_val: float = None,
+             max_val: float = None,
+             show_color_bar: bool = True,
+             **plt_args):
+        _plot(subplot, data, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
+        plt.tight_layout()
+        return figure
+
+    def show(self, figure=None):
+        if figure is not None:
+            figure.show()
+        else:
+            plt.show()
+
+
+MATPLOTLIB = MatplotlibPlots()
+
+
+def plot(field: SampledField or Tensor or tuple or list,
          title=False,
          size=(12, 5),
          show_color_bar=True,
@@ -110,14 +156,14 @@ def animate(fields: SampledField,
 
 
 def _plot(axis, field, show_color_bar, vmin, vmax, **plt_args):
-    if isinstance(field, Grid) and field.shape.channel.volume == 1:
+    if isinstance(field, Grid) and channel(field).volume == 1 and field.spatial_rank == 2:
         left, bottom = field.bounds.lower.vector.unstack_spatial('x,y')
         right, top = field.bounds.upper.vector.unstack_spatial('x,y')
         extent = (float(left), float(right), float(bottom), float(top))
         im = axis.imshow(field.values.numpy('y,x'), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
         if show_color_bar:
             plt.colorbar(im, ax=axis)
-    elif isinstance(field, Grid):  # vector field
+    elif isinstance(field, Grid) and field.spatial_rank == 2:  # vector field
         if isinstance(field, StaggeredGrid):
             field = field.at_centers()
         x, y = [d.numpy('x,y') for d in field.points.vector.unstack_spatial('x,y')]
@@ -125,6 +171,20 @@ def _plot(axis, field, show_color_bar, vmin, vmax, **plt_args):
         color = axis.xaxis.label.get_color()
         axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
         axis.set_aspect('equal', adjustable='box')
+    elif isinstance(field, Grid) and channel(field).volume > 1 and field.spatial_rank == 3:
+        x, y, z = [d.numpy('x,y,z') for d in field.points.vector.unstack_spatial('x,y,z')]
+        u, v, w = [d.numpy('x,y,z') for d in field.values.vector.unstack_spatial('x,y,z')]
+        axis.quiver(x, y, z, u, v, w)
+        axis.set_xlabel('x')
+        axis.set_ylabel('y')
+        axis.set_zlabel('z')
+    elif isinstance(field, Grid) and channel(field).volume == 1 and field.spatial_rank == 3:
+        x, y, z = [d.numpy('x,y,z') for d in field.points.vector.unstack_spatial('x,y,z')]
+        values = field.values.numpy('x,y,z')
+        cmap = plt.get_cmap('viridis')
+        norm = matplotlib.colors.Normalize(vmin=np.min(values), vmax=np.max(values))
+        colors = cmap(norm(values))
+        axis.voxels(values, facecolors=colors, edgecolor='k')
     elif isinstance(field, PointCloud):
         points = field.points
         x, y = [d.numpy() for d in points.vector.unstack_spatial('x,y')]
@@ -137,7 +197,7 @@ def _plot(axis, field, show_color_bar, vmin, vmax, **plt_args):
             upper_x, upper_y = [np.max(x), np.max(y)]
         if isinstance(field.elements, Sphere):
             shape = 'o'
-            size = float(field.elements.bounding_radius())
+            size = float(field.elements.bounding_radius()) / 2
         elif isinstance(field.elements, BaseBox):
             shape = 's'
             size = float(field.elements.bounding_half_extent())

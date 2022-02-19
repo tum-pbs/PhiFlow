@@ -1,22 +1,55 @@
 import warnings
-from typing import List
+from typing import List, Tuple, Any, Dict, Optional
 
 import numpy
-from plotly import graph_objects, figure_factory
+import plotly.graph_objs
+from plotly import graph_objects
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
-from scipy.constants import value
 
 from phi import math
-from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
-from phi.math import instance
+from phi.field import SampledField, PointCloud, Grid, StaggeredGrid, tensor_as_field
+from phi.math import instance, Tensor
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve
+from phi.vis._vis_base import PlottingLibrary
 
 
-def plot(fields: SampledField or List[SampledField], title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
-    if isinstance(fields, SampledField):
+class PlotlyPlots(PlottingLibrary):
+
+    def __init__(self):
+        self.last_fig: Optional[plotly.graph_objs.Figure] = None
+
+    def create_figure(self,
+                      size: tuple,
+                      rows: int,
+                      cols: int,
+                      subplots: Dict[Tuple[int, int], int],
+                      titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+        titles = [titles.rows[r].cols[c].native() for r in range(rows) for c in range(cols)]
+        specs = [[{'type': 'xy' if subplots.get((row, col), 0) < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
+        fig = self.last_fig = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=specs)
+        return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
+
+    def plot(self, data: SampledField, figure, subplot, min_val: float = None, max_val: float = None,
+             show_color_bar: bool = True, **plt_args):
+        _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar)
+
+    def show(self, figure=None):
+        if figure is None:
+            figure = self.last_fig
+        if figure is not None:
+            figure.show()
+
+
+PLOTLY = PlotlyPlots()
+
+
+def plot(fields: SampledField or Tensor or List[SampledField or Tensor],
+         title=False, show_color_bar=True, size=(800, 600), same_scale=True, colormap: str = None):
+    if not isinstance(fields, (tuple, list)):
         fields = [fields]
+    fields = [f if isinstance(f, SampledField) else tensor_as_field(f) for f in fields]
     fig_shape = math.merge_shapes(*[f.shape.batch for f in fields])
     if fig_shape.volume > 8:
         warnings.warn(f"Plotting {fig_shape.volume} sub-figures for remaining shape {fig_shape} which may be slow. Use 'select' to avoid drawing all examples in one figure.")
@@ -38,10 +71,12 @@ def plot(fields: SampledField or List[SampledField], title=False, show_color_bar
 def _plot(field: SampledField,
           fig: graph_objects.Figure,
           size: tuple,
-          colormap: str,
+          colormap: str or None,
           show_color_bar: bool,
           row: int = None, col: int = None,
           ):
+    subplot = fig.get_subplot(row, col)
+    subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1]
     if field.spatial_rank == 1 and isinstance(field, Grid):
         x = field.points.vector[0].numpy().flatten()
         channels = field.values.shape.channel
@@ -64,8 +99,8 @@ def _plot(field: SampledField,
         color_scale = get_div_map(min_val, max_val, equal_scale=True, colormap=colormap)
         # color_bar = graph_objects.heatmap.ColorBar(x=1.15)   , colorbar=color_bar
         fig.add_heatmap(row=row, col=col, x=x, y=y, z=values, zauto=False, zmin=min_val, zmax=max_val, colorscale=color_scale, showscale=show_color_bar)
-        fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
-        fig.update_yaxes(constrain='domain')
+        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
+        subplot.yaxis.update(constrain='domain')
     elif field.spatial_rank == 2 and isinstance(field, Grid):  # vector field
         if isinstance(field, StaggeredGrid):
             field = field.at_centers()
@@ -95,8 +130,8 @@ def _plot(field: SampledField,
             fig.update_layout(showlegend=False)
         fig.update_xaxes(range=x_range)
         fig.update_yaxes(range=y_range)
-        fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
-        fig.update_yaxes(constrain='domain')
+        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
+        subplot.yaxis.update(constrain='domain')
     elif field.spatial_rank == 3 and isinstance(field, Grid) and field.shape.channel.volume == 1:  # 3D heatmap
         values = real_values(field).numpy('z,y,x')
         x = field.points.vector['x'].numpy('z,y,x')
@@ -137,9 +172,9 @@ def _plot(field: SampledField,
         else:
             lower_x, lower_y = [numpy.min(x), numpy.min(y)]
             upper_x, upper_y = [numpy.max(x), numpy.max(y)]
-        radius = field.elements.bounding_radius() * size[1] / (upper_y - lower_y)
+        radius = field.elements.bounding_radius() * subplot_height / (upper_y - lower_y)
         radius = math.maximum(radius, 2)
-        marker_size = 1.4142 * float(radius) if radius.rank == 0 else (1.4142 * radius).numpy()
+        marker_size = 1.4142 * 2 * (float(radius) if radius.rank == 0 else radius.numpy())
         symbol = field.elements.shape_type.numpy()
         symbol = numpy.where(symbol == '?', 'asterisk', symbol)
         symbol = numpy.where(symbol == 'B', 'square', symbol)
@@ -150,8 +185,8 @@ def _plot(field: SampledField,
         fig.update_xaxes(range=[lower_x, upper_x])
         fig.update_yaxes(range=[lower_y, upper_y])
         fig.update_layout(showlegend=False)
-        fig.update_xaxes(scaleanchor='y', scaleratio=1, constrain='domain')
-        fig.update_yaxes(constrain='domain')
+        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
+        subplot.yaxis.update(constrain='domain')
     else:
         raise NotImplementedError(f"No figure recipe for {field}")
 
