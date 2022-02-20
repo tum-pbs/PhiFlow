@@ -68,7 +68,8 @@ class Geometry:
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         """
-        raise NotImplementedError()
+        attrs = {a: getattr(self, a) for a in variable_attributes(self)}
+        return tuple([copy_with(self, **{a: v[{dimension: i}] for a, v in attrs.items() if dimension in v.shape}) for i in range(self.shape.get_size(dimension))])
 
     @property
     def spatial_rank(self) -> int:

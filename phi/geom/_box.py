@@ -15,9 +15,6 @@ class BaseBox(Geometry):  # not a Subwoofer
     Abstract base type for box-like geometries.
     """
 
-    def unstack(self, dimension):
-        raise NotImplementedError()
-
     def __eq__(self, other):
         raise NotImplementedError()
 
@@ -273,9 +270,6 @@ class Cuboid(BaseBox):
             self._half_size = wrap(half_size)
         else:
             self._half_size = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys()))) * 0.5
-
-    def unstack(self, dimension):
-        raise NotImplementedError()
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\

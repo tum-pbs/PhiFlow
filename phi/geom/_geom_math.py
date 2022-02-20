@@ -1,11 +1,13 @@
 from phi import math
+from . import GridCell
 from ._geom import Geometry
 from ..math import Shape
+from ..math._shape import parse_dim_names, parse_dim_order
 from ..math._tensors import variable_attributes, copy_with
 
 
 def pack_dims(value: Geometry,
-              dims: Shape or tuple or list,
+              dims: Shape or tuple or list or str,
               packed_dim: Shape,
               pos: int or None = None) -> Geometry:
     """
@@ -23,6 +25,9 @@ def pack_dims(value: Geometry,
     Returns:
         `Geometry` with `packed_dim` instead of `dims`.
     """
+    if isinstance(value, GridCell):
+        value = value.corner_representation()
+    dims = parse_dim_order(dims)
     new_attrs = {}
     for a in variable_attributes(value):
         v = getattr(value, a)
