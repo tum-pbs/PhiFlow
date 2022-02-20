@@ -5,11 +5,11 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from plotly import graph_objects
 
-from ._plotly_plots import plot
 from .dash_app import DashApp
 from .model_controls import all_controls
 from .player_controls import STEP_COMPLETE, all_actions, REFRESH_INTERVAL
 from .viewsettings import parse_view_settings, all_view_settings
+from .. import plot
 from .._vis_base import select_channel
 from ...field import SampledField
 
@@ -54,7 +54,7 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
                 fig.update_layout(title_text=str(err.args[0]), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 return fig
             try:
-                return plot(value, size=(height, height), same_scale=False, colormap=app.config.get('colormap', None))
+                return plot(value, lib='plotly', size=(height, height), same_scale=False, colormap=app.config.get('colormap', None))
             except BaseException as err:
                 traceback.print_exc()
                 fig = graph_objects.Figure()

@@ -307,7 +307,7 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
     else:
         if isinstance(data, Tensor):
             data = field.tensor_as_field(data)
-        assert isinstance(data, SampledField)
+        assert isinstance(data, SampledField), data
         rows = batch(data).only(down)
         cols = batch(data).without(down)
         for ri, r in enumerate(rows.meshgrid()):

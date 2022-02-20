@@ -2,7 +2,8 @@ from unittest import TestCase
 
 import plotly
 
-from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise
+from phi import geom, field
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, SoftGeometryMask
 from phi.geom import Sphere, Box
 from phi.math import extrapolation, wrap, instance, channel, batch
 from phi.vis import show, overlay, plot
@@ -40,8 +41,10 @@ class TestMatplotlibPlots(TestCase):
         self._test_plot(StaggeredGrid(Noise(), extrapolation.ZERO, x=16, y=10, bounds=Box(0, [1, 1])) * 0.1)
 
     def test_plot_point_cloud_2d(self):
-        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
-        self._test_plot(PointCloud(Sphere(points, radius=.1)))
+        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector')), radius=.1))
+        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[.4:.6, .2:.4]).elements, 'x,y', instance('points')))
+        cloud = field.stack([spheres, cells], instance('stack'))
+        self._test_plot(cloud)
 
     def test_plot_point_cloud_bounded(self):
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
@@ -59,3 +62,13 @@ class TestMatplotlibPlots(TestCase):
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         cloud = PointCloud(Sphere(points, radius=.1))
         self._test_plot(overlay(grid, grid * (0.1, 0.02), cloud))
+
+    def test_plot_density_3d_batched(self):
+        sphere = CenteredGrid(SoftGeometryMask(Sphere(x=.5, y=.5, z=.5, radius=.4)), x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1))
+        cylinder = CenteredGrid(geom.infinite_cylinder(x=16, y=16, inf_dim='z', radius=10), x=32, y=32, z=32)
+        self._test_plot(sphere, cylinder)
+
+    def test_plot_vector_3d_batched(self):
+        sphere = CenteredGrid(SoftGeometryMask(Sphere(x=.5, y=.5, z=.5, radius=.4)), x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1)) * (.1, 0, 0)
+        cylinder = CenteredGrid(geom.infinite_cylinder(x=16, y=16, inf_dim='z', radius=10), x=32, y=32, z=32) * (0, 0, .1)
+        self._test_plot(sphere, cylinder)
