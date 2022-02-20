@@ -14,7 +14,7 @@ from ._shape import (Shape, EMPTY_SHAPE,
                      IncompatibleShapes)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
-    value_attributes, Layout, layout
+    value_attributes, Layout, layout, cached
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
 from .backend._dtype import DType, combine_types
 
@@ -706,10 +706,12 @@ def concat(values: tuple or list, dim: Shape) -> Tensor:
     """
     assert len(values) > 0, "concat() got empty sequence"
     assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got '{dim}' of type {type(dim)}"
-    broadcast_shape = values[0].shape
+    broadcast_shape = merge_shapes(*[t.shape._with_item_name(dim, None).with_sizes([None] * t.shape.rank) for t in values])
     natives = [v.native(order=broadcast_shape.names) for v in values]
     backend = choose_backend(*natives)
     concatenated = backend.concat(natives, broadcast_shape.index(dim))
+    if all([v.shape.get_item_names(dim) is not None for v in values]):
+        broadcast_shape = broadcast_shape._with_item_name(dim, sum([v.shape.get_item_names(dim) for v in values], ()))
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
 
 
@@ -964,12 +966,20 @@ def pack_dims(value: Tensor,
     if len(dims) == 1:
         return rename_dims(value, dims, packed_dim)
     order = value.shape._order_group(dims)
-    native = value.native(order)
-    if pos is None:
-        pos = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims)._expand(packed_dim.with_sizes([value.shape.only(dims).volume]), pos)
-    native = choose_backend(native).reshape(native, new_shape.sizes)
-    return NativeTensor(native, new_shape)
+    if value.shape.is_uniform:
+        native = value.native(order)
+        if pos is None:
+            pos = min(value.shape.indices(dims))
+        new_shape = value.shape.without(dims)._expand(packed_dim.with_sizes([value.shape.only(dims).volume]), pos)
+        native = choose_backend(native).reshape(native, new_shape.sizes)
+        return NativeTensor(native, new_shape)
+    else:
+        value = cached(value)
+        assert isinstance(value, TensorStack)
+        assert value.stack_dim.name in dims
+        concat_dim = value.shape.without(value.stack_dim)[0]
+        c = concat(value.tensors, concat_dim)
+        return pack_dims(c, [d for d in dims if d != value.stack_dim.name], packed_dim, pos=pos)
 
 
 def rename_dims(value: Tensor or Shape, dims: str or tuple or list or Shape, names: str or tuple or list or Shape):

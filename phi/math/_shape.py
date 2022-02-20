@@ -1252,6 +1252,8 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
                     index = len(names)
                 elif type == SPATIAL_DIM:
                     index = min([len(names), *[i for i in range(len(names)) if types[i] == CHANNEL_DIM]])
+                elif type == INSTANCE_DIM:
+                    index = min([len(names), *[i for i in range(len(names)) if types[i] == INSTANCE_DIM]])
                 else:
                     raise ValueError(type)
                 names.insert(index, name)
@@ -1260,8 +1262,11 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
             else:
                 index = names.index(name)
                 if items != item_names[index]:
-                    warnings.warn(f"Stacking shapes with incompatible item names will result in item names being lost. Got {item_names[index]} and {items}")
-                    item_names[index] = None
+                    if item_names[index] is None:
+                        item_names[index] = items
+                    else:
+                        warnings.warn(f"Stacking shapes with incompatible item names will result in item names being lost. Got {item_names[index]} and {items}")
+                        item_names[index] = None
     sizes = []
     for name in names:
         dim_sizes = [(shape.get_size(name) if name in shape else 1) for shape in shapes]
