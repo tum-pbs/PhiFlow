@@ -54,6 +54,8 @@ class PointCloud(SampledField):
         return self._elements.spatial_rank
 
     def __getitem__(self, item: dict):
+        if not item:
+            return self
         elements = self.elements[item]
         values = self._values[item]
         color = self._color[item]
@@ -83,7 +85,13 @@ class PointCloud(SampledField):
 
     @property
     def bounds(self) -> Box:
-        return self._bounds
+        if self._bounds is not None:
+            return self._bounds
+        else:
+            from phi.field._field_math import data_bounds
+            bounds = data_bounds(self.elements.center)
+            radius = math.max(self.elements.bounding_radius())
+            return Box(bounds.lower - radius, bounds.upper + radius)
 
     @property
     def color(self) -> Tensor:

@@ -1,6 +1,6 @@
 from typing import TypeVar, Any
 
-from phi import math
+from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
 from . import HardGeometryMask
 from ._field import SampledField, Field, sample, reduce_sample
@@ -406,7 +406,7 @@ def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extra
     for dim in resolution.names:
         lower, upper = extrapolation.valid_outer_faces(dim)
         grids.append(cells.stagger(dim, lower, upper))
-    return GeometryStack(grids, channel('staggered_direction'))
+    return geom.stack(grids, channel('staggered_direction'))
 
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extrapolation):

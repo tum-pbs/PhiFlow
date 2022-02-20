@@ -236,7 +236,7 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
         raise AssertionError("At least one input must be a SampledField.")
 
 
-def data_bounds(loc: SampledField or Tensor):
+def data_bounds(loc: SampledField or Tensor) -> Box:
     if isinstance(loc, SampledField):
         loc = loc.points
     assert isinstance(loc, Tensor), f"loc must be a Tensor or SampledField but got {type(loc)}"
@@ -384,7 +384,7 @@ def concat(fields: List[SampledFieldType], dim: Shape) -> SampledFieldType:
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
         colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
-        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))
 
 
@@ -410,10 +410,10 @@ def stack(fields, dim: Shape):
         values = math.stack([f.values for f in fields], dim)
         return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
-        elements = geom.stack(*[f.elements for f in fields], dim=dim)
+        elements = geom.stack([f.elements for f in fields], dim=dim)
         values = math.stack([f.values for f in fields], dim=dim)
         colors = math.stack([f.color for f in fields], dim=dim)
-        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))
 
 
@@ -587,8 +587,7 @@ def tensor_as_field(t: Tensor):
         point_count = instance(t).volume
         bounds = data_bounds(t)
         radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
-        bounds = Box(bounds.lower - radius, bounds.upper + radius)
-        return PointCloud(Sphere(t, radius=radius), bounds=bounds)
+        return PointCloud(Sphere(t, radius=radius))
 
 
 def pack_dims(field: SampledFieldType,

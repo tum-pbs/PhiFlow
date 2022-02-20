@@ -330,7 +330,7 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
         return field.values
     if geometry.shape.channel:  # Reduce this dimension
         assert geometry.shape.channel.rank == 1, "Only single-dimension reduction supported."
-        if field.shape.channel:
+        if field.shape.channel.volume > 1:
             assert field.shape.channel.volume == geometry.shape.channel.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
             components = unstack(field, field.shape.channel.name)
             sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
