@@ -40,7 +40,7 @@ Use `plot()` to plot fields using Matplotlib.
 See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 &#34;&#34;&#34;
 from ._viewer import Viewer
-from ._matplotlib import animate, plot_scalars, savefig
+from ._matplotlib import plot_scalars, savefig
 from ._vis import view, control, show, action, plot, overlay
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
@@ -86,82 +86,6 @@ __pdoc__ = {
     doc = inspect.getdoc(fun)
     ACTIONS[Action(fun.__name__, doc)] = fun
     return fun</code></pre>
-</details>
-</dd>
-<dt id="phi.vis.animate"><code class="name flex">
-<span>def <span class="ident">animate</span></span>(<span>fields: phi.field._field.SampledField, dim='frames', repeat=True, interval=200, title=False, size=(8, 6), show_color_bar=False, same_scale=True, **plt_args) ‑> matplotlib.animation.Animation</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates a Matplotlib animation from <code>fields</code>.
-<code>fields</code> may be a sequence of frames or a single <code>SampledField</code> instances with a <code>frames</code> dimension.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>fields</code></strong></dt>
-<dd><code>SampledField</code> with <code>frames</code> dimension or <code>tuple</code> or <code>list</code> of <code>SampledField</code>.</dd>
-<dt><strong><code>dim</code></strong></dt>
-<dd>Time dimension to animate (default=<code>'frames'</code>).</dd>
-<dt><strong><code>repeat</code></strong></dt>
-<dd>Whether the video should loop.</dd>
-<dt><strong><code>interval</code></strong></dt>
-<dd>Frame time in milliseconds.</dd>
-<dt><strong><code>title</code></strong></dt>
-<dd>Figure/sub-figure title. If <code>str</code> or <code>tuple</code>/<code>list</code> of <code>str</code>. <code>True</code> to generate a title automatically.</dd>
-<dt><strong><code>size</code></strong></dt>
-<dd>Figure size</dd>
-<dt><strong><code>show_color_bar</code></strong></dt>
-<dd>Whether to show a color bar</dd>
-<dt><strong><code>same_scale</code></strong></dt>
-<dd>Whether to use the same scale, both temporally and for all sub-figures.</dd>
-<dt><strong><code>**plt_args</code></strong></dt>
-<dd>Further plotting arguments, see <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Matplotlib <code>Animation</code></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def animate(fields: SampledField,
-            dim=&#39;frames&#39;,
-            repeat=True,
-            interval=200,
-            title=False,
-            size=(8, 6),
-            show_color_bar=False,
-            same_scale=True,
-            **plt_args) -&gt; animation.Animation:
-    &#34;&#34;&#34;
-    Creates a Matplotlib animation from `fields`.
-    `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
-
-    Args:
-        fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
-        dim: Time dimension to animate (default=`&#39;frames&#39;`).
-        repeat: Whether the video should loop.
-        interval: Frame time in milliseconds.
-        title: Figure/sub-figure title. If `str` or `tuple`/`list` of `str`. `True` to generate a title automatically.
-        size: Figure size
-        show_color_bar: Whether to show a color bar
-        same_scale: Whether to use the same scale, both temporally and for all sub-figures.
-        **plt_args: Further plotting arguments, see `plot()`.
-
-    Returns:
-        Matplotlib `Animation`
-    &#34;&#34;&#34;
-    assert isinstance(fields, SampledField)
-    assert dim in fields.shape, f&#34;Animation dimension {dim} not present in data.&#34;
-    fields = list(fields.unstack(dim))
-    fig, _ = _subplots(fields[0], size, None)
-
-    def func(frame: int):
-        field = fields[frame]
-        for axis in fig.axes:
-            axis.clear()
-        plot(field, existing_figure=fig, title=title, show_color_bar=show_color_bar, same_scale=same_scale, **plt_args)
-
-    ani = animation.FuncAnimation(fig, func, init_func=lambda: fig.axes, repeat=repeat, frames=len(fields), interval=interval)
-    plt.close(fig)
-    return ani</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.control"><code class="name flex">
@@ -1150,7 +1074,6 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="phi.vis.action" href="#phi.vis.action">action</a></code></li>
-<li><code><a title="phi.vis.animate" href="#phi.vis.animate">animate</a></code></li>
 <li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
 <li><code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay</a></code></li>
 <li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>

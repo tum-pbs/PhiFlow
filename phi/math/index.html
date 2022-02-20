@@ -955,10 +955,12 @@ The size along <code>dim</code> is determined from <code>values</code> and can b
     &#34;&#34;&#34;
     assert len(values) &gt; 0, &#34;concat() got empty sequence&#34;
     assert isinstance(dim, Shape) and dim.rank == 1, f&#34;dim must be a single-dimension Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
-    broadcast_shape = values[0].shape
+    broadcast_shape = merge_shapes(*[t.shape._with_item_name(dim, None).with_sizes([None] * t.shape.rank) for t in values])
     natives = [v.native(order=broadcast_shape.names) for v in values]
     backend = choose_backend(*natives)
     concatenated = backend.concat(natives, broadcast_shape.index(dim))
+    if all([v.shape.get_item_names(dim) is not None for v in values]):
+        broadcast_shape = broadcast_shape._with_item_name(dim, sum([v.shape.get_item_names(dim) for v in values], ()))
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))</code></pre>
 </details>
 </dd>
@@ -4115,12 +4117,20 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
     if len(dims) == 1:
         return rename_dims(value, dims, packed_dim)
     order = value.shape._order_group(dims)
-    native = value.native(order)
-    if pos is None:
-        pos = min(value.shape.indices(dims))
-    new_shape = value.shape.without(dims)._expand(packed_dim.with_sizes([value.shape.only(dims).volume]), pos)
-    native = choose_backend(native).reshape(native, new_shape.sizes)
-    return NativeTensor(native, new_shape)</code></pre>
+    if value.shape.is_uniform:
+        native = value.native(order)
+        if pos is None:
+            pos = min(value.shape.indices(dims))
+        new_shape = value.shape.without(dims)._expand(packed_dim.with_sizes([value.shape.only(dims).volume]), pos)
+        native = choose_backend(native).reshape(native, new_shape.sizes)
+        return NativeTensor(native, new_shape)
+    else:
+        value = cached(value)
+        assert isinstance(value, TensorStack)
+        assert value.stack_dim.name in dims
+        concat_dim = value.shape.without(value.stack_dim)[0]
+        c = concat(value.tensors, concat_dim)
+        return pack_dims(c, [d for d in dims if d != value.stack_dim.name], packed_dim, pos=pos)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.pad"><code class="name flex">

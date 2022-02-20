@@ -267,7 +267,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def pack_dims(value: Geometry,
-              dims: Shape or tuple or list,
+              dims: Shape or tuple or list or str,
               packed_dim: Shape,
               pos: int or None = None) -&gt; Geometry:
     &#34;&#34;&#34;
@@ -285,6 +285,9 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
     Returns:
         `Geometry` with `packed_dim` instead of `dims`.
     &#34;&#34;&#34;
+    if isinstance(value, GridCell):
+        value = value.corner_representation()
+    dims = parse_dim_order(dims)
     new_attrs = {}
     for a in variable_attributes(value):
         v = getattr(value, a)
@@ -306,11 +309,11 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 </summary>
 <pre><code class="python">def stack(geometries: List[Geometry], dim: Shape):
     &#34;&#34;&#34; Stacks `geometries` along `dim`. The size of `dim` is ignored. &#34;&#34;&#34;
-    if all(type(g) == type(geometries[0]) for g in geometries):
+    if all(type(g) == type(geometries[0]) and not isinstance(g, GridCell) for g in geometries):
         attrs = variable_attributes(geometries[0])
         new_attributes = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
         return copy_with(geometries[0], **new_attributes)
-    return GeometryStack(geometries, dim)</code></pre>
+    return GeometryStack(math.layout(geometries, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.union"><code class="name flex">
@@ -380,9 +383,6 @@ A point lies inside the union if it lies within at least one of the geometries.<
     &#34;&#34;&#34;
     Abstract base type for box-like geometries.
     &#34;&#34;&#34;
-
-    def unstack(self, dimension):
-        raise NotImplementedError()
 
     def __eq__(self, other):
         raise NotImplementedError()
@@ -923,30 +923,6 @@ Returns:</p></div>
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.BaseBox.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstacks this Geometry along the given dimension.
-The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>dimension along which to unstack</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>geometries</code></dt>
-<dd>tuple of length equal to <code>geometry.shape.get_size(dimension)</code></dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension):
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 </dl>
 </dd>
 <dt id="phi.geom.Box"><code class="flex name class">
@@ -1223,9 +1199,6 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         else:
             self._half_size = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys()))) * 0.5
 
-    def unstack(self, dimension):
-        raise NotImplementedError()
-
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
@@ -1372,30 +1345,6 @@ def upper(self):
     return Cuboid(self._center + delta, self._half_size)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Cuboid.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstacks this Geometry along the given dimension.
-The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>dimension along which to unstack</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>geometries</code></dt>
-<dd>tuple of length equal to <code>geometry.shape.get_size(dimension)</code></dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension):
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 </dl>
 </dd>
 <dt id="phi.geom.Geometry"><code class="flex name class">
@@ -1475,7 +1424,8 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         &#34;&#34;&#34;
-        raise NotImplementedError()
+        attrs = {a: getattr(self, a) for a in variable_attributes(self)}
+        return tuple([copy_with(self, **{a: v[{dimension: i}] for a, v in attrs.items() if dimension in v.shape}) for i in range(self.shape.get_size(dimension))])
 
     @property
     def spatial_rank(self) -&gt; int:
@@ -2236,7 +2186,8 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     Returns:
         geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
     &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
+    attrs = {a: getattr(self, a) for a in variable_attributes(self)}
+    return tuple([copy_with(self, **{a: v[{dimension: i}] for a, v in attrs.items() if dimension in v.shape}) for i in range(self.shape.get_size(dimension))])</code></pre>
 </details>
 </dd>
 </dl>
@@ -3392,7 +3343,6 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.BaseBox.shape_type" href="#phi.geom.BaseBox.shape_type">shape_type</a></code></li>
 <li><code><a title="phi.geom.BaseBox.shifted" href="#phi.geom.BaseBox.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.BaseBox.size" href="#phi.geom.BaseBox.size">size</a></code></li>
-<li><code><a title="phi.geom.BaseBox.unstack" href="#phi.geom.BaseBox.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.BaseBox.upper" href="#phi.geom.BaseBox.upper">upper</a></code></li>
 <li><code><a title="phi.geom.BaseBox.volume" href="#phi.geom.BaseBox.volume">volume</a></code></li>
 </ul>
@@ -3419,7 +3369,6 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.Cuboid.shape" href="#phi.geom.Cuboid.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Cuboid.shifted" href="#phi.geom.Cuboid.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.Cuboid.size" href="#phi.geom.Cuboid.size">size</a></code></li>
-<li><code><a title="phi.geom.Cuboid.unstack" href="#phi.geom.Cuboid.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.Cuboid.upper" href="#phi.geom.Cuboid.upper">upper</a></code></li>
 </ul>
 </li>

@@ -343,7 +343,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
         colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
-        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
 </dd>
@@ -1639,7 +1639,7 @@ Currently, <code>geometry</code> may have at most one channel dimension.</p>
         return field.values
     if geometry.shape.channel:  # Reduce this dimension
         assert geometry.shape.channel.rank == 1, &#34;Only single-dimension reduction supported.&#34;
-        if field.shape.channel:
+        if field.shape.channel.volume &gt; 1:
             assert field.shape.channel.volume == geometry.shape.channel.volume, f&#34;Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}.&#34;
             components = unstack(field, field.shape.channel.name)
             sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
@@ -2090,10 +2090,10 @@ The <code>field</code> must not have a dimension of the same name.</dd>
         values = math.stack([f.values for f in fields], dim)
         return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
-        elements = geom.stack(*[f.elements for f in fields], dim=dim)
+        elements = geom.stack([f.elements for f in fields], dim=dim)
         values = math.stack([f.values for f in fields], dim=dim)
         colors = math.stack([f.color for f in fields], dim=dim)
-        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
 </dd>
@@ -2270,8 +2270,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
         point_count = instance(t).volume
         bounds = data_bounds(t)
         radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
-        bounds = Box(bounds.lower - radius, bounds.upper + radius)
-        return PointCloud(Sphere(t, radius=radius), bounds=bounds)</code></pre>
+        return PointCloud(Sphere(t, radius=radius))</code></pre>
 </details>
 </dd>
 <dt id="phi.field.to_float"><code class="name flex">
@@ -3758,6 +3757,8 @@ When sampling this field on a grid, scatter functions may be used.</p>
         return self._elements.spatial_rank
 
     def __getitem__(self, item: dict):
+        if not item:
+            return self
         elements = self.elements[item]
         values = self._values[item]
         color = self._color[item]
@@ -3787,7 +3788,13 @@ When sampling this field on a grid, scatter functions may be used.</p>
 
     @property
     def bounds(self) -&gt; Box:
-        return self._bounds
+        if self._bounds is not None:
+            return self._bounds
+        else:
+            from phi.field._field_math import data_bounds
+            bounds = data_bounds(self.elements.center)
+            radius = math.max(self.elements.bounding_radius())
+            return Box(bounds.lower - radius, bounds.upper + radius)
 
     @property
     def color(self) -&gt; Tensor:
@@ -3850,7 +3857,13 @@ When sampling this field on a grid, scatter functions may be used.</p>
 </summary>
 <pre><code class="python">@property
 def bounds(self) -&gt; Box:
-    return self._bounds</code></pre>
+    if self._bounds is not None:
+        return self._bounds
+    else:
+        from phi.field._field_math import data_bounds
+        bounds = data_bounds(self.elements.center)
+        radius = math.max(self.elements.bounding_radius())
+        return Box(bounds.lower - radius, bounds.upper + radius)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.PointCloud.color"><code class="name">var <span class="ident">color</span> : phi.math._tensors.Tensor</code></dt>
