@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import plotly
 
-from phi import geom, field
+from phi import geom, field, math
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, SoftGeometryMask
 from phi.geom import Sphere, Box
 from phi.math import extrapolation, wrap, instance, channel, batch
@@ -20,6 +20,12 @@ class TestMatplotlibPlots(TestCase):
         if show_:
             show(gui='matplotlib')
             show(gui='plotly')
+
+    def test_plot_1d(self):
+        self._test_plot(CenteredGrid(lambda x: math.sin(x), x=100, bounds=Box(x=2 * math.pi)))
+
+    def test_plot_multi_1d(self):
+        self._test_plot(CenteredGrid(lambda x: math.stack({'sin': math.sin(x), 'cos': math.cos(x)}, channel('curves')), x=100, bounds=Box(x=2 * math.pi)))
 
     def test_plot_scalar_grid_2d(self):
         self._test_plot(CenteredGrid(Noise(), 0, x=64, y=8, bounds=Box(0, [1, 1])))
@@ -46,7 +52,7 @@ class TestMatplotlibPlots(TestCase):
         cloud = field.stack([spheres, cells], instance('stack'))
         self._test_plot(cloud)
 
-    def test_plot_point_cloud_bounded(self):
+    def test_plot_point_cloud_2d_bounded(self):
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         self._test_plot(PointCloud(Sphere(points, radius=0.1), bounds=Box(0, [1, 1])))
 
@@ -72,3 +78,8 @@ class TestMatplotlibPlots(TestCase):
         sphere = CenteredGrid(SoftGeometryMask(Sphere(x=.5, y=.5, z=.5, radius=.4)), x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1)) * (.1, 0, 0)
         cylinder = CenteredGrid(geom.infinite_cylinder(x=16, y=16, inf_dim='z', radius=10), x=32, y=32, z=32) * (0, 0, .1)
         self._test_plot(sphere, cylinder)
+
+    def test_plot_point_cloud_3d(self):
+        points = math.random_uniform(instance(points=50), channel(vector=3))
+        cloud = PointCloud(Sphere(points, radius=.1), bounds=Box(x=2, y=1, z=1))
+        self._test_plot(cloud)

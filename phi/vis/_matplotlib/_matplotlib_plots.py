@@ -112,7 +112,12 @@ MATPLOTLIB = MatplotlibPlots()
 
 
 def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
-    if isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
+    if isinstance(data, Grid) and data.spatial_rank == 1:
+        x = data.points.vector[0].numpy()
+        for c in channel(data).meshgrid():
+            values = data.values[c].numpy()
+            axis.plot(x, values)
+    elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
         left, bottom = data.bounds.lower.vector.unstack_spatial('x,y')
         right, top = data.bounds.upper.vector.unstack_spatial('x,y')
         extent = (float(left), float(right), float(bottom), float(top))
@@ -141,7 +146,7 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         norm = matplotlib.colors.Normalize(vmin=np.min(values), vmax=np.max(values))
         colors = cmap(norm(values))
         axis.voxels(values, facecolors=colors, edgecolor='k')
-    elif isinstance(data, PointCloud):
+    elif isinstance(data, PointCloud) and data.spatial_rank == 2:
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
@@ -166,6 +171,31 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         upper_x, upper_y = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y')]
         axis.set_xlim((lower_x, upper_x))
         axis.set_ylim((lower_y, upper_y))
+    elif isinstance(data, PointCloud) and data.spatial_rank == 3:
+        if data.points.shape.non_channel.rank > 1:
+            data_list = field.unstack(data, data.points.shape.non_channel[0].name)
+            for d in data_list:
+                _plot(axis, d, show_color_bar, vmin, vmax, **plt_args)
+        else:
+            x, y, z = [d.numpy() for d in data.points.vector.unstack_spatial('x,y,z')]
+            color = [str(d) for d in data.color.points.unstack(len(x))]
+            if isinstance(data.elements, Sphere):
+                symbol = 'o'
+                size = float(data.elements.bounding_radius()) * 0.4
+            elif isinstance(data.elements, BaseBox):
+                symbol = 's'
+                size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 0.35
+            else:
+                symbol = 'X'
+                size = data.elements.bounding_radius().numpy()
+            M = axis.transData.get_matrix()
+            x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
+            axis.scatter(x, y, z, marker=symbol, color=color, s=(size * 0.5 * (x_scale+y_scale+z_scale)/3) ** 2)
+        lower_x, lower_y, lower_z = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y,z')]
+        upper_x, upper_y, upper_z = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y,z')]
+        axis.set_xlim((lower_x, upper_x))
+        axis.set_ylim((lower_y, upper_y))
+        axis.set_zlim((lower_z, upper_z))
     else:
         raise NotImplementedError(f"No figure recipe for {data}")
 

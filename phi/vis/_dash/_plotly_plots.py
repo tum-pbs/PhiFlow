@@ -136,7 +136,7 @@ def _plot(data: SampledField,
                      colorscale='Blues',
                      sizemode="absolute", sizeref=1,
                      row=row, col=col)
-    elif data.spatial_rank == 2 and isinstance(data, PointCloud):
+    elif isinstance(data, PointCloud) and data.spatial_rank == 2:
         lower_x, lower_y = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y')]
         upper_x, upper_y = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y')]
         if data.points.shape.non_channel.rank > 1:
@@ -152,21 +152,51 @@ def _plot(data: SampledField,
             subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1]
             if isinstance(data.elements, Sphere):
                 symbol = 'circle'
-                size = float(data.elements.bounding_radius()) * 1.9
+                marker_size = float(data.elements.bounding_radius()) * 1.9
             elif isinstance(data.elements, BaseBox):
                 symbol = 'square'
-                size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
+                marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
             else:
                 symbol = 'asterisk'
-                size = data.elements.bounding_radius().numpy()
-            size *= subplot_height / (upper_y - lower_y)
-            marker = graph_objects.scatter.Marker(size=size, color=color, sizemode='diameter', symbol=symbol)
+                marker_size = data.elements.bounding_radius().numpy()
+            marker_size *= subplot_height / (upper_y - lower_y)
+            marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
             fig.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         fig.update_xaxes(range=[lower_x, upper_x])
         fig.update_yaxes(range=[lower_y, upper_y])
         fig.update_layout(showlegend=False)
         subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
         subplot.yaxis.update(constrain='domain')
+    elif isinstance(data, PointCloud) and data.spatial_rank == 3:
+        lower_x, lower_y, lower_z = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y,z')]
+        upper_x, upper_y, upper_z = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y,z')]
+        if data.points.shape.non_channel.rank > 1:
+            data_list = field.unstack(data, data.points.shape.non_channel[0].name)
+            for d in data_list:
+                _plot(d, fig, size, colormap, show_color_bar, row, col)
+        else:
+            x, y, z = [d.numpy() for d in data.points.vector.unstack_spatial('x,y,z')]
+            if data.color.shape.instance_rank == 0:
+                color = str(data.color)
+            else:
+                color = [str(d) for d in math.unstack(data.color, instance)]
+            domain_y = fig.layout[subplot.plotly_name].domain.y
+            if isinstance(data.elements, Sphere):
+                symbol = 'circle'
+                marker_size = float(data.elements.bounding_radius()) * 1.9
+            elif isinstance(data.elements, BaseBox):
+                symbol = 'square'
+                marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
+            else:
+                symbol = 'asterisk'
+                marker_size = data.elements.bounding_radius().numpy()
+            marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (upper_y - lower_y) * 0.5
+            marker = graph_objects.scatter3d.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
+            fig.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
+        subplot.xaxis.update(range=[lower_x, upper_x])
+        subplot.yaxis.update(range=[lower_y, upper_y])
+        subplot.zaxis.update(range=[lower_z, upper_z])
+        fig.update_layout(showlegend=False)
     else:
         raise NotImplementedError(f"No figure recipe for {data}")
 
