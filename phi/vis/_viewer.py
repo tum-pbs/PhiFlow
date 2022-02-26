@@ -11,7 +11,7 @@ from ._user_namespace import UserNamespace
 from ._vis_base import VisModel, Control, Action
 from .. import field
 from ..field import Scene, SampledField
-from ..math import batch
+from ..math import batch, Tensor
 
 
 def create_viewer(namespace: UserNamespace,
@@ -103,7 +103,9 @@ class Viewer(VisModel):
             value = self._rec[name]
         else:
             value = self.namespace.get_variable(name)
-        if isinstance(value, SampledField):
+        if callable(value):
+            value = value()
+        if isinstance(value, (SampledField, Tensor)):
             value = value[dim_selection]
         return value
 
