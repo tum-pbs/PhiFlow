@@ -19,7 +19,8 @@ class TorchBackend(Backend):
     def __init__(self):
         cpu = NUMPY.cpu
         self.cpu = ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')
-        Backend.__init__(self, 'PyTorch', default_device=self.cpu)
+        gpus = self.list_devices('GPU')
+        Backend.__init__(self, 'PyTorch', default_device=gpus[0] if gpus else cpu)
 
     def prefers_channels_last(self) -> bool:
         return False
