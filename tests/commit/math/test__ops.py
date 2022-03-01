@@ -570,3 +570,16 @@ class TestMathFunctions(TestCase):
         self.assertEqual(math.rename_dims(t, 'x', 'z').shape.get_type('z'), 'spatial')
         self.assertEqual(math.rename_dims(t, ['x'], ['z']).shape.get_type('z'), 'spatial')
         self.assertEqual(math.rename_dims(t, ['x'], channel('z')).shape.get_type('z'), 'channel')
+
+    def test_divide_no_nan(self):
+        for backend in BACKENDS:
+            with backend:
+                one = math.ones()
+                zero = math.zeros()
+                nan = zero / zero
+                # inf = one / zero
+                math.assert_close(math.divide_no_nan(zero, one), zero)
+                math.assert_close(math.divide_no_nan(one, zero), zero)
+                math.assert_close(math.divide_no_nan(zero, zero), zero)
+                math.assert_close(math.divide_no_nan(zero, nan), nan)
+                math.assert_close(math.divide_no_nan(nan, one), nan)

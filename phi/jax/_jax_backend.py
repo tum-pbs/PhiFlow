@@ -204,7 +204,8 @@ class JaxBackend(Backend):
         return jax_fun
 
     def divide_no_nan(self, x, y):
-        return jnp.nan_to_num(x / y, copy=True, nan=0)
+        return jnp.where(y == 0, 0, x / y)
+        # jnp.nan_to_num(x / y, copy=True, nan=0) covers up NaNs from before
 
     def random_uniform(self, shape):
         self._check_float64()
