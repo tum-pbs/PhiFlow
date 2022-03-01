@@ -662,6 +662,10 @@ class TensorDim:
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
         return self._as(INSTANCE_DIM, name)
 
+    def rename(self, name: str):
+        """ Returns a shallow copy of the `Tensor` where this dimension has the specified name. """
+        return self._as(self._dim_type, name)
+
     def as_type(self, dim_type: Callable or str):
         return self._as(dim_type('d').type if callable(dim_type) else dim_type, None)
 
@@ -970,8 +974,7 @@ class CollapsedTensor(Tensor):  # package-private
             if self.shape.is_uniform:
                 native = self._inner.native(order=self.shape.names)
                 multiples = [1 if name in self._inner.shape else size for size, name, *_ in self.shape._dimensions]
-                backend = choose_backend(native)
-                tiled = backend.tile(native, multiples)
+                tiled = choose_backend(native).tile(native, multiples)
                 self._cached = NativeTensor(tiled, self.shape)
                 self._inner = None
             else:
