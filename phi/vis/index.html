@@ -778,7 +778,9 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
             value = self._rec[name]
         else:
             value = self.namespace.get_variable(name)
-        if isinstance(value, SampledField):
+        if callable(value):
+            value = value()
+        if isinstance(value, (SampledField, Tensor)):
             value = value[dim_selection]
         return value
 
