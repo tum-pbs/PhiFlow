@@ -44,7 +44,7 @@ class ComputeDevice:
         descr = self.description.replace('\n', '  ')
         if len(descr) > 30:
             descr = descr[:28] + "..."
-        return f"{self.name} ({self.device_type}{ref}) | {mem} | {pro} | {descr}"
+        return f"{self.backend} device '{self.name}' ({self.device_type}{ref}) | {mem} | {pro} | {descr}"
 
 
 class Backend:

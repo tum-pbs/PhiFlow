@@ -22,7 +22,9 @@ from phi.math.backend._backend import combined_dim, SolveResult
 class JaxBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, "Jax", default_device=None)
+        gpus = self.list_devices('GPU')
+        cpus = self.list_devices('CPU')
+        Backend.__init__(self, "Jax", default_device=gpus[0] if gpus else cpus[0])
         try:
             self.rnd_key = jax.random.PRNGKey(seed=0)
         except RuntimeError as err:
@@ -33,21 +35,22 @@ class JaxBackend(Backend):
         return True
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+        types = ['cpu', 'gpu', 'tpu'] if device_type is None else [device_type.lower()]
         devices = []
-        for jax_dev in jax.devices():
-            jax_dev_type = jax_dev.platform.upper()
-            if device_type is None or device_type == jax_dev_type:
-                description = f"id={jax_dev.id}"
-                devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev_type, -1, -1, description, jax_dev))
+        for device_type in types:
+            try:
+                for jax_dev in jax.devices(device_type):
+                    devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev.platform.upper(), -1, -1, f"id={jax_dev.id}", jax_dev))
+            except RuntimeError as err:
+                if "No visible" in err.args[0]:
+                    pass  # this is just Jax not finding anything
+                else:
+                    raise err
         return devices
 
     # def set_default_device(self, device: ComputeDevice or str):
-    #     if device == 'CPU':
-    #         jax.config.update('jax_platform_name', 'cpu')
-    #     elif device == 'GPU':
-    #         jax.config.update('jax_platform_name', 'gpu')
-    #     else:
-    #         raise NotImplementedError()
+    #     Backend.set_default_device(self, device)
+    #     jax.config.update('jax_platform_name', self._default_device.device_type.lower())  # this does not work
 
     def _check_float64(self):
         if self.precision == 64:
@@ -132,8 +135,6 @@ class JaxBackend(Backend):
     tile = staticmethod(jnp.tile)
     stack = staticmethod(jnp.stack)
     concat = staticmethod(jnp.concatenate)
-    zeros_like = staticmethod(jnp.zeros_like)
-    ones_like = staticmethod(jnp.ones_like)
     maximum = staticmethod(jnp.maximum)
     minimum = staticmethod(jnp.minimum)
     clip = staticmethod(jnp.clip)
@@ -151,7 +152,7 @@ class JaxBackend(Backend):
             return self.as_registered.call(jit_f, *args, name=f"run jit-compiled '{f.__name__}'")
 
         run_jit_f.__name__ = f"Jax-Jit({f.__name__})"
-        jit_f = jax.jit(f)
+        jit_f = jax.jit(f, device=self._default_device.ref)
         return run_jit_f
 
     def block_until_ready(self, values):
@@ -210,12 +211,12 @@ class JaxBackend(Backend):
     def random_uniform(self, shape):
         self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
-        return random.uniform(subkey, shape, dtype=to_numpy_dtype(self.float_type))
+        return jax.device_put(random.uniform(subkey, shape, dtype=to_numpy_dtype(self.float_type)), self._default_device.ref)
 
     def random_normal(self, shape):
         self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
-        return random.normal(subkey, shape, dtype=to_numpy_dtype(self.float_type))
+        return jax.device_put(random.normal(subkey, shape, dtype=to_numpy_dtype(self.float_type)), self._default_device.ref)
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         if limit is None:
@@ -255,20 +256,26 @@ class JaxBackend(Backend):
 
     def zeros(self, shape, dtype: DType = None):
         self._check_float64()
-        return jnp.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
+        return jax.device_put(jnp.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type)), self._default_device.ref)
+
+    def zeros_like(self, tensor):
+        return jax.device_put(jnp.zeros_like(tensor), self._default_device.ref)
 
     def ones(self, shape, dtype: DType = None):
         self._check_float64()
-        return jnp.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
+        return jax.device_put(jnp.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type)), self._default_device.ref)
+
+    def ones_like(self, tensor):
+        return jax.device_put(jnp.ones_like(tensor), self._default_device.ref)
 
     def meshgrid(self, *coordinates):
         self._check_float64()
         coordinates = [self.as_tensor(c) for c in coordinates]
-        return jnp.meshgrid(*coordinates, indexing='ij')
+        return [jax.device_put(c, self._default_device.ref) for c in jnp.meshgrid(*coordinates, indexing='ij')]
 
     def linspace(self, start, stop, number):
         self._check_float64()
-        return jnp.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type))
+        return jax.device_put(jnp.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type)), self._default_device.ref)
 
     def mean(self, value, axis=None, keepdims=False):
         return jnp.mean(value, axis, keepdims=keepdims)
