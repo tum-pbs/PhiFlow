@@ -354,8 +354,11 @@ class TFBackend(Backend):
             return a
 
     def shape(self, tensor):
-        with tf.device(tensor.device):
-            return tf.shape(tensor)
+        if isinstance(tensor, np.ndarray):
+            return tensor.shape
+        else:
+            with tf.device(tensor.device):
+                return tf.shape(tensor)
 
     def staticshape(self, tensor):
         if self.is_tensor(tensor, only_native=True):
