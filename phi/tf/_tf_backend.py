@@ -39,8 +39,10 @@ class TFBackend(Backend):
         return devices
 
     def _device_for(self, *values):
-        devices = set(v.device for v in values)
-        if len(devices) == 1:
+        devices = set(v.device for v in values if hasattr(v, 'device'))
+        if len(devices) == 0:
+            return self._default_device.ref
+        elif len(devices) == 1:
             return tf.device(next(iter(devices)))
         else:
             return self._default_device.ref
