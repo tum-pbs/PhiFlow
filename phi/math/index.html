@@ -11162,6 +11162,10 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
         return self._as(INSTANCE_DIM, name)
 
+    def rename(self, name: str):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where this dimension has the specified name. &#34;&#34;&#34;
+        return self._as(self._dim_type, name)
+
     def as_type(self, dim_type: Callable or str):
         return self._as(dim_type(&#39;d&#39;).type if callable(dim_type) else dim_type, None)
 
@@ -11449,6 +11453,20 @@ Otherwise returns the original <code><a title="phi.math.Tensor" href="#phi.math.
         return self.unstack()
     else:
         return self.tensor</code></pre>
+</details>
+</dd>
+<dt id="phi.math.TensorDim.rename"><code class="name flex">
+<span>def <span class="ident">rename</span></span>(<span>self, name: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> where this dimension has the specified name.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rename(self, name: str):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where this dimension has the specified name. &#34;&#34;&#34;
+    return self._as(self._dim_type, name)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.TensorDim.split"><code class="name flex">
@@ -12066,6 +12084,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.TensorDim.is_spatial" href="#phi.math.TensorDim.is_spatial">is_spatial</a></code></li>
 <li><code><a title="phi.math.TensorDim.item_names" href="#phi.math.TensorDim.item_names">item_names</a></code></li>
 <li><code><a title="phi.math.TensorDim.optional_unstack" href="#phi.math.TensorDim.optional_unstack">optional_unstack</a></code></li>
+<li><code><a title="phi.math.TensorDim.rename" href="#phi.math.TensorDim.rename">rename</a></code></li>
 <li><code><a title="phi.math.TensorDim.size" href="#phi.math.TensorDim.size">size</a></code></li>
 <li><code><a title="phi.math.TensorDim.split" href="#phi.math.TensorDim.split">split</a></code></li>
 <li><code><a title="phi.math.TensorDim.unstack" href="#phi.math.TensorDim.unstack">unstack</a></code></li>
