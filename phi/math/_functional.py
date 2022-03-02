@@ -1539,8 +1539,8 @@ def attach_gradient_solve(forward_solve: Callable):
         grad_solve_ = copy_with(solve.gradient_solve, x0=x0)
         if 'is_backprop' in kwargs:
             del kwargs['is_backprop']
-        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)
-        return (dy, None, *([None] * len(matrix)))  # this should hopefully result in implicit gradients for higher orders as well
+        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)  # this should hopefully result in implicit gradients for higher orders as well
+        return (dy, None, *([None] * len(matrix)))  # return grad w.r.t all variable args: (y, x0, Optional[matrix])
     solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve)
     return solve_with_grad
 

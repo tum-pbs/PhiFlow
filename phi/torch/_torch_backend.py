@@ -141,7 +141,7 @@ class TorchBackend(Backend):
     einsum = staticmethod(torch.einsum)
 
     def jit_compile(self, f: Callable) -> Callable:
-        return JITFunction(f)
+        return JITFunction(self, f)
 
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         TRACED_F = {}
@@ -190,9 +190,15 @@ class TorchBackend(Backend):
                         # jit-functions cannot return None, so we have to filter out non-required gradients
                         needs_input_grad = ctx.needs_input_grad
                         with ctx.jit_f:
+                            none_indices = []  # jit function cannot return None but gradient returns None to indicate there is no gradient
+
                             def filter_required_grads(*args):
                                 grads = gradient(*args)
                                 filtered = [g for g, need in zip(grads, needs_input_grad) if need]
+                                none_indices.clear()
+                                none_indices.extend([i for i, g in enumerate(filtered) if g is None])
+                                filtered = [g for g in filtered if g is not None]
+                                assert all([isinstance(g, torch.Tensor) for g in filtered]), [type(g) for g in grads]
                                 return filtered
 
                             needed_g = torch.jit.trace(filter_required_grads, tuple([x, y, grad_args]), check_trace=False)
@@ -203,6 +209,8 @@ class TorchBackend(Backend):
                                 assert not jit_f.post_trace
                                 assert isinstance(needed, (tuple, list))
                                 needed = list(needed)
+                                for i in none_indices:
+                                    needed.insert(i, None)
                                 result = [(needed.pop(0) if need else None) for need in needs_input_grad]
                                 return result
 
@@ -676,7 +684,7 @@ class TorchBackend(Backend):
             if get_output:
                 loss = loss.detach()
                 if aux is not None:
-                    aux = [aux_.detach() for aux_ in aux]
+                    aux = [aux_.detach() if isinstance(aux_, torch.Tensor) else aux_ for aux_ in aux]
                     return (loss, *aux, *grads)
                 else:
                     return (loss, *grads)
@@ -815,7 +823,8 @@ def channels_last(x):
 
 class JITFunction:
 
-    def __init__(self, f):
+    def __init__(self, backend: TorchBackend, f):
+        self.backend = backend
         self.f = f
         self.traced = None
         self.post_trace = []
@@ -824,6 +833,7 @@ class JITFunction:
         if kwargs:
             raise NotImplementedError("kwargs not supported for traced function")
         if self.traced is None:
+            args = [self.backend.as_tensor(arg) for arg in args]
             with self:
                 self.traced = torch.jit.trace(self.f, example_inputs=args, check_trace=False)
         with self:
