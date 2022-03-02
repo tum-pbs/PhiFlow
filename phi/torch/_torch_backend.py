@@ -13,8 +13,7 @@ import torch.nn.functional as torchf
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice
 from phi.math.backend._backend import combined_dim, SolveResult
-
-import torch_cuda
+torch.ops.load_library('../venv/lib/python3.8/site-packages/torch_cuda-0.0.0-py3.8-linux-x86_64.egg/torch_cuda.cpython-38-x86_64-linux-gnu.so')
 
 class SparseCSRMatrix:
     def __init__(self, values, row_ptr, col_index, shape):
@@ -381,12 +380,19 @@ class TorchBackend(Backend):
     def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
         return torch.tensordot(a, b, (a_axes, b_axes))
 
+    def _convert_to_int64(self, tensor):
+        if isinstance(tensor, torch.Tensor) and tensor.dtype.is_integer:
+                tensor = tensor.to(torch.int64)
+
     def matmul(self, A, b):
         if isinstance(A, SparseCSRMatrix):
             b_rows = b.size(0)
             b_cols = 1 if len(b.shape) == 1 else b.size(1)
             time = 0
-            C = torch_cuda.cusparse_SpMM_BA(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
+            A.rows.type(torch.int64)
+            A.cols.type(torch.int64)
+            A.shape.type(torch.int64)
+            C = torch.ops.torch_cuda.cusparse_SpMM_BA(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
             return C
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
@@ -701,7 +707,11 @@ class TorchBackend(Backend):
             if trj == []:
                 trj = False
 
-            res = torch_cuda.conjugate_gradient(lin.values, lin.cols, lin.rows, lin.shape[0], lin.shape[1],
+            # Convert type to int64
+            lin.cols = lin.cols.type(torch.int64)
+            lin.rows = lin.rows.type(torch.int64)
+            lin.shape = lin.shape.astype(np.int64)
+            res = torch.ops.torch_cuda.conjugate_gradient(lin.values, lin.cols, lin.rows, lin.shape[0], lin.shape[1],
                                                     lin.values.shape[0], y, x0, rtol, atol, max_iter, trj)
 
             if trj:
@@ -712,7 +722,7 @@ class TorchBackend(Backend):
                                                 x, residual, iterations, function_evaluations, converged, diverged, ""))
                 return last_res
             else:
-                x, residual, iterations, function_evaluations, converged, diverged = res[0]
+                x, residual, iterations, function_evaluations, converged, diverged = res
 
                 return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})",
                                                 x, residual, iterations, function_evaluations, converged, diverged, "")
