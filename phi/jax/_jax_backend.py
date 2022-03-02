@@ -42,7 +42,7 @@ class JaxBackend(Backend):
                 for jax_dev in jax.devices(device_type):
                     devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev.platform.upper(), -1, -1, f"id={jax_dev.id}", jax_dev))
             except RuntimeError as err:
-                if "No visible" in err.args[0]:
+                if "No visible" in err.args[0] or "Unknown backend" in err.args[0]:
                     pass  # this is just Jax not finding anything
                 else:
                     raise err
@@ -148,6 +148,7 @@ class JaxBackend(Backend):
 
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):
+            # print(jax.make_jaxpr(f)(*args))
             logging.debug(f"JaxBackend: running jit-compiled '{f.__name__}' with shapes {[arg.shape for arg in args]} and dtypes {[arg.dtype.name for arg in args]}")
             return self.as_registered.call(jit_f, *args, name=f"run jit-compiled '{f.__name__}'")
 
