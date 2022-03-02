@@ -42,10 +42,7 @@ class JaxBackend(Backend):
                 for jax_dev in jax.devices(device_type):
                     devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev.platform.upper(), -1, -1, f"id={jax_dev.id}", jax_dev))
             except RuntimeError as err:
-                if "No visible" in err.args[0] or "Unknown backend" in err.args[0]:
-                    pass  # this is just Jax not finding anything
-                else:
-                    raise err
+                pass  # this is just Jax not finding anything. jaxlib.xla_client._get_local_backends() could help but isn't currently available on GitHub actions
         return devices
 
     # def set_default_device(self, device: ComputeDevice or str):
