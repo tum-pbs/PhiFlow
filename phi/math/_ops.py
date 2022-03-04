@@ -1826,6 +1826,8 @@ def gather(values: Tensor, indices: Tensor, dims: str or Shape or tuple or list 
     if dims is None:
         assert values.shape.instance.is_empty or values.shape.spatial.is_empty, f"Specify gather dimensions for values with both instance and spatial dimensions. Got {values.shape}"
         dims = values.shape.instance if values.shape.spatial.is_empty else values.shape.spatial
+    if indices.dtype.kind == bool:
+        indices = to_int32(indices)
     dims = parse_dim_order(dims)
     batch = (values.shape.batch & indices.shape.batch).without(dims)
     channel = values.shape.channel.without(dims)
