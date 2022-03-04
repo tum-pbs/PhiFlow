@@ -6,14 +6,15 @@ from typing import Tuple
 from phi import math, field
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
 from phi.geom import union
+from ..field._grid import GridType
 from ..math import extrapolation
 from ..math._tensors import copy_with
 from ..math.extrapolation import combine_sides
 
 
-def make_incompressible(velocity: Grid,
+def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
-                        solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[Grid, CenteredGrid]:
+                        solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[GridType, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
