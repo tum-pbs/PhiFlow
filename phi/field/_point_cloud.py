@@ -24,7 +24,7 @@ class PointCloud(SampledField):
 
     def __init__(self,
                  elements: Geometry,
-                 values: Any = 1,
+                 values: Any = 1.,
                  extrapolation: float or math.extrapolation = 0,
                  add_overlapping=False,
                  bounds: Box = None,
@@ -82,6 +82,27 @@ class PointCloud(SampledField):
 
     def __variable_attrs__(self):
         return '_values', '_elements'
+
+    def __eq__(self, other):
+        if not type(self) == type(other):
+            return False
+        # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
+        if type(self.elements) is not type(other.elements):
+            return False
+        if self.extrapolation != other.extrapolation:
+            return False
+        if self._add_overlapping != other._add_overlapping:
+            return False
+        if self.values is None:
+            return other.values is None
+        if other.values is None:
+            return False
+        if not math.all_available(self.values) or not math.all_available(other.values):  # tracers involved
+            if math.all_available(self.values) != math.all_available(other.values):
+                return False
+            else:  # both tracers
+                return self.values.shape == other.values.shape
+        return bool((self.values == other.values).all)
 
     @property
     def bounds(self) -> Box:
