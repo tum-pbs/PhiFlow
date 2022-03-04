@@ -206,6 +206,9 @@ class Geometry:
         """
         Returns a translated version of this geometry.
 
+        See Also:
+            `Geometry.at()`.
+
         Args:
           delta: direction vector
           delta: Tensor:
@@ -215,6 +218,25 @@ class Geometry:
 
         """
         raise NotImplementedError(self.__class__)
+
+    def at(self, center: Tensor):
+        """
+        Returns a copy of this `Geometry` with the center at `center`.
+        This is equal to calling `self @ center`.
+
+        See Also:
+            `Geometry.shifted()`.
+
+        Args:
+            center: New center as `Tensor`.
+
+        Returns:
+            `Geometry`.
+        """
+        return self.shifted(center - self.center)
+
+    def __matmul__(self, other):
+        return self.at(other)
 
     def rotated(self, angle: float or Tensor) -> 'Geometry':
         """
