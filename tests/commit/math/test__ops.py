@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import extrapolation, spatial, channel, instance, batch
+from phi.math import extrapolation, spatial, channel, instance, batch, DType
 from phi.math.backend import Backend
 
 
@@ -583,3 +583,24 @@ class TestMathFunctions(TestCase):
                 math.assert_close(math.divide_no_nan(zero, zero), zero)
                 math.assert_close(math.divide_no_nan(zero, nan), nan)
                 math.assert_close(math.divide_no_nan(nan, one), nan)
+
+    def test_random_int(self):
+        for backend in BACKENDS:
+            with backend:
+                # 32 bits
+                a = math.random_uniform(instance(values=1000), low=-1, high=1, dtype=(int, 32))
+                self.assertEqual(a.dtype, DType(int, 32), msg=backend.name)
+                self.assertEqual(a.min, -1, msg=backend.name)
+                self.assertEqual(a.max, 0, msg=backend.name)
+                # 64 bits
+                a = math.random_uniform(instance(values=1000), low=-1, high=1, dtype=(int, 64))
+                self.assertEqual(a.dtype.kind, int, msg=backend.name)  # Jax may downcast 64-bit to 32
+                self.assertEqual(a.min, -1, msg=backend.name)
+                self.assertEqual(a.max, 0, msg=backend.name)
+
+    def test_random_complex(self):
+        for backend in BACKENDS:
+            with backend:
+                a = math.random_uniform(instance(values=4), low=-1, high=0, dtype=(complex, 64))
+                self.assertEqual(a.dtype, DType(complex, 64), msg=backend.name)
+                math.assert_close(a.imag, 0, msg=backend.name)

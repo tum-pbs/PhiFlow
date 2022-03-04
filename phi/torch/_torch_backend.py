@@ -230,8 +230,18 @@ class TorchBackend(Backend):
         x, y = self.auto_cast(x, y)
         return x == y
 
-    def random_uniform(self, shape):
-        return torch.rand(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+    def random_uniform(self, shape, low, high, dtype: DType or None):
+        dtype = dtype or self.float_type
+        if dtype.kind == float:
+            return low + (high - low) * torch.rand(size=shape, dtype=to_torch_dtype(dtype), device=self.get_default_device().ref)
+        elif dtype.kind == complex:
+            real = low.real + (high.real - low.real) * torch.rand(size=shape, dtype=to_torch_dtype(DType(float, dtype.precision)), device=self.get_default_device().ref)
+            imag = low.imag + (high.imag - low.imag) * torch.rand(size=shape, dtype=to_torch_dtype(DType(float, dtype.precision)), device=self.get_default_device().ref)
+            return real + 1j * imag
+        elif dtype.kind == int:
+            return torch.randint(low, high, shape, dtype=to_torch_dtype(dtype))
+        else:
+            raise ValueError(dtype)
 
     def random_normal(self, shape):
         return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)

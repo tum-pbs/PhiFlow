@@ -123,9 +123,15 @@ class TFBackend(Backend):
             x, y = self.auto_cast(x, y)
             return tf.math.divide_no_nan(x, y)
 
-    def random_uniform(self, shape):
+    def random_uniform(self, shape, low, high, dtype: DType or None):
+        tdt = to_numpy_dtype(dtype or self.float_type)
         with self._default_device.ref:
-            return tf.random.uniform(shape, dtype=to_numpy_dtype(self.float_type))
+            if dtype.kind != complex:
+                return tf.random.uniform(shape, low, high, dtype=tdt)
+            else:
+                real = tf.cast(tf.random.uniform(shape, low.real, high.real, dtype=to_numpy_dtype(DType(float, dtype.precision))), tdt)
+                imag = tf.cast(tf.random.uniform(shape, low.imag, high.imag, dtype=to_numpy_dtype(DType(float, dtype.precision))), tdt)
+                return real + 1j * imag
 
     def random_normal(self, shape):
         with self._default_device.ref:

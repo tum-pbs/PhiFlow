@@ -206,10 +206,24 @@ class JaxBackend(Backend):
         return jnp.where(y == 0, 0, x / y)
         # jnp.nan_to_num(x / y, copy=True, nan=0) covers up NaNs from before
 
-    def random_uniform(self, shape):
+    def random_uniform(self, shape, low, high, dtype: DType or None):
         self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
-        return jax.device_put(random.uniform(subkey, shape, dtype=to_numpy_dtype(self.float_type)), self._default_device.ref)
+
+        jdt = to_numpy_dtype(dtype or self.float_type)
+        if dtype.kind == float:
+            tensor = random.uniform(subkey, shape, minval=low, maxval=high, dtype=jdt)
+        elif dtype.kind == complex:
+            real = random.uniform(subkey, shape, minval=low.real, maxval=high.real, dtype=to_numpy_dtype(DType(float, dtype.precision)))
+            imag = random.uniform(subkey, shape, minval=low.imag, maxval=high.imag, dtype=to_numpy_dtype(DType(float, dtype.precision)))
+            return real + 1j * imag
+        elif dtype.kind == int:
+            tensor = random.randint(subkey, shape, low, high, dtype=jdt)
+            if tensor.dtype != dtype:
+                warnings.warn(f"Jax failed to sample random integers with dtype '{dtype}', returned {tensor.dtype} instead.")
+        else:
+            raise ValueError(dtype)
+        return jax.device_put(tensor, self._default_device.ref)
 
     def random_normal(self, shape):
         self._check_float64()
