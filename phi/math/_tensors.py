@@ -181,6 +181,16 @@ class Tensor:
         from ._ops import max_
         return max_(self, dim=self.shape).native()
 
+    @property
+    def real(self):
+        from ._ops import real
+        return real(self)
+
+    @property
+    def imag(self):
+        from ._ops import imag
+        return imag(self)
+
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
 
@@ -664,12 +674,16 @@ class TensorDim:
 
     def rename(self, name: str):
         """ Returns a shallow copy of the `Tensor` where this dimension has the specified name. """
+        if not self.exists:
+            return self.tensor
         return self._as(self._dim_type, name)
 
     def as_type(self, dim_type: Callable or str):
         return self._as(dim_type('d').type if callable(dim_type) else dim_type, None)
 
     def _as(self, dim_type: str, name: str or None):
+        if not self.exists:
+            return self.tensor
         shape = self.tensor.shape
         new_types = list(shape.types)
         new_types[self.index] = dim_type
@@ -749,6 +763,14 @@ class TensorDim:
 
     def __call__(self, *args, **kwargs):
         raise TypeError(f"Method Tensor.{self.name}() does not exist.")
+
+    def sum(self):
+        from ._ops import sum_
+        return sum_(self.tensor, self.name)
+
+    def prod(self):
+        from ._ops import prod
+        return prod(self.tensor, self.name)
 
 
 class Layout(Tensor):
