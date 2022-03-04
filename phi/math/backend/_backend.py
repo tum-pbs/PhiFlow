@@ -349,7 +349,7 @@ class Backend:
     def transpose(self, tensor, axes):
         raise NotImplementedError()
 
-    def random_uniform(self, shape):
+    def random_uniform(self, shape, low, high, dtype: DType or None):
         """ Float tensor of selected precision containing random values in the range [0, 1) """
         raise NotImplementedError(self)
 

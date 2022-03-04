@@ -65,6 +65,13 @@ class DType:
     def __repr__(self):
         return f"{self.kind.__name__}{self.bits}"
 
+    @staticmethod
+    def as_dtype(value: 'DType' or tuple):
+        if isinstance(value, DType):
+            return value
+        else:
+            return DType(*value)
+
 
 # --- NumPy Conversion ---
 

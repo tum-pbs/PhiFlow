@@ -379,15 +379,15 @@ def map_(function, *values) -> Tensor:
     return wrap(result).vector.split(shape)
 
 
-def _initialize(uniform_initializer, shapes: tuple, dtype=None) -> Tensor:
+def _initialize(uniform_initializer, shapes: tuple) -> Tensor:
     shape = concat_shapes(*shapes)
     if shape.is_non_uniform:
         stack_dim = shape.shape.without('dims')[0:1]
         shapes = shape.unstack(stack_dim.name)
-        tensors = [_initialize(uniform_initializer, s, dtype) for s in shapes]
+        tensors = [_initialize(uniform_initializer, s) for s in shapes]
         return stack(tensors, stack_dim)
     else:
-        return uniform_initializer(shape, dtype)
+        return uniform_initializer(shape)
 
 
 def zeros(*shape: Shape, dtype: DType = None) -> Tensor:
@@ -406,7 +406,7 @@ def zeros(*shape: Shape, dtype: DType = None) -> Tensor:
     Returns:
         `Tensor`
     """
-    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype)
+    return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape)
 
 
 def zeros_like(obj) -> Tensor:
@@ -432,7 +432,7 @@ def ones(*shape: Shape, dtype: DType = None) -> Tensor:
     Returns:
         `Tensor`
     """
-    return _initialize(lambda shape, dtype: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape, dtype)
+    return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape)
 
 
 def ones_like(tensor: Tensor) -> Tensor:
@@ -459,32 +459,36 @@ def random_normal(*shape: Shape, dtype: DType = None) -> Tensor:
         `Tensor`
     """
 
-    def uniform_random_normal(shape, dtype):
+    def uniform_random_normal(shape):
         native = choose_backend(*shape.sizes, prefer_default=True).random_normal(shape.sizes)
         native = native if dtype is None else native.astype(dtype)
         return NativeTensor(native, shape)
 
-    return _initialize(uniform_random_normal, shape, dtype)
+    return _initialize(uniform_random_normal, shape)
 
 
-def random_uniform(*shape: Shape, dtype: DType = None) -> Tensor:
+def random_uniform(*shape: Shape,
+                   low: Tensor or float = 0,
+                   high: Tensor or float = 1,
+                   dtype: DType or tuple = None) -> Tensor:
     """
     Creates a `Tensor` with the specified shape, filled with random values sampled from a uniform distribution.
 
     Args:
         *shape: This (possibly empty) sequence of `Shape`s is concatenated, preserving the order.
-        dtype: (optional) floating point `DType`. If `None`, a float tensor with the current default precision is created, see `get_precision()`.
-
+        dtype: (optional) `DType` or `(kind, bits)`.
+            The dtype kind must be one of `float`, `int`, `complex`.
+            If not specified, a `float` tensor with the current default precision is created, see `get_precision()`.
+        low: Minimum value, included.
+        high: Maximum value, excluded.
     Returns:
         `Tensor`
     """
-
-    def uniform_random_uniform(shape, dtype):
-        native = choose_backend(*shape.sizes, prefer_default=True).random_uniform(shape.sizes)
-        native = native if dtype is None else native.astype(dtype)
+    def uniform_random_uniform(shape):
+        native = choose_backend(low, high, *shape.sizes, prefer_default=True).random_uniform(shape.sizes, low, high, DType.as_dtype(dtype))
         return NativeTensor(native, shape)
 
-    return _initialize(uniform_random_uniform, shape, dtype)
+    return _initialize(uniform_random_uniform, shape)
 
 
 def transpose(x, axes):
