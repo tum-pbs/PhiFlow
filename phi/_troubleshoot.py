@@ -42,23 +42,23 @@ def troubleshoot_tensorflow():
     try:
         import tensorflow_probability
     except ImportError:
-        return "Module 'tensorflow_probability' missing. Some functions may be unavailable, such as math.median() and math.quantile(). To install it, run  $ pip install tensorflow-probability"
+        return f"Installed ({tensorflow.__version__}) but module 'tensorflow_probability' missing. Some functions may be unavailable, such as math.median() and math.quantile(). To install it, run  $ pip install tensorflow-probability"
     try:
         from phi import tf
     except BaseException as err:
-        return f"Installed but not available due to internal error: {err}"
+        return f"Installed ({tensorflow.__version__}) but not available due to internal error: {err}"
     try:
         gpu_count = len(tf.TENSORFLOW.list_devices('GPU'))
     except BaseException as err:
-        return f"Installed but device initialization failed with error: {err}"
+        return f"Installed ({tensorflow.__version__}) but device initialization failed with error: {err}"
     with tf.TENSORFLOW:
         try:
             math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
             # TODO cuDNN math.convolve(math.ones(batch=8, x=64), math.ones(x=4))
         except BaseException as err:
-            return f"Installed but tests failed with error: {err}"
+            return f"Installed ({tensorflow.__version__}) but tests failed with error: {err}"
     if gpu_count == 0:
-        return f"Installed, {gpu_count} GPUs available."
+        return f"Installed ({tensorflow.__version__}), {gpu_count} GPUs available."
     else:
         from phi.tf._tf_cuda_resample import librariesLoaded
         if librariesLoaded:
@@ -69,7 +69,7 @@ def troubleshoot_tensorflow():
                 cuda_str = f"CUDA kernels not available and compilation not recommended on {platform.system()}."
             else:
                 cuda_str = f"CUDA kernels not available. Clone the phiflow source from GitHub and run 'python setup.py tf_cuda' to compile them."
-        return f"Installed, {gpu_count} GPUs available. {cuda_str}"
+        return f"Installed ({tensorflow.__version__}), {gpu_count} GPUs available. {cuda_str}"
 
 
 def troubleshoot_torch():
@@ -79,19 +79,23 @@ def troubleshoot_torch():
     except ImportError:
         return "Not installed."
     try:
-        from phi import torch
+        from phi import torch as phi_torch
     except BaseException as err:
-        return f"Installed but not available due to internal error: {err}"
+        return f"Installed ({torch.__version__}) but not available due to internal error: {err}"
     try:
-        gpu_count = len(torch.TORCH.list_devices('GPU'))
+        gpu_count = len(phi_torch.TORCH.list_devices('GPU'))
     except BaseException as err:
-        return f"Installed but device initialization failed with error: {err}"
-    with torch.TORCH:
+        return f"Installed ({torch.__version__}) but device initialization failed with error: {err}"
+    with phi_torch.TORCH:
         try:
             math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
         except BaseException as err:
-            return f"Installed but tests failed with error: {err}"
-    return f"Installed, {gpu_count} GPUs available."
+            return f"Installed ({torch.__version__}) but tests failed with error: {err}"
+    if torch.__version__.startswith('1.10.'):
+        return f"Installed ({torch.__version__}), {gpu_count} GPUs available. This version has known bugs with JIT compilation. Recommended: 1.8.2 LTS"
+    if torch.__version__.startswith('1.9.'):
+        return f"Installed ({torch.__version__}), {gpu_count} GPUs available. You may encounter problems importing torch.fft. Recommended: 1.8.2 LTS"
+    return f"Installed ({torch.__version__}), {gpu_count} GPUs available."
 
 
 def troubleshoot_jax():
@@ -102,19 +106,19 @@ def troubleshoot_jax():
     except ImportError:
         return "Not installed."
     try:
-        from phi import jax
+        from phi import jax as phi_jax
     except BaseException as err:
-        return f"Installed but not available due to internal error: {err}"
+        return f"Installed ({jax.__version__}) but not available due to internal error: {err}"
     try:
-        gpu_count = len(jax.JAX.list_devices('GPU'))
+        gpu_count = len(phi_jax.JAX.list_devices('GPU'))
     except BaseException as err:
-        return f"Installed but device initialization failed with error: {err}"
-    with jax.JAX:
+        return f"Installed ({jax.__version__}) but device initialization failed with error: {err}"
+    with phi_jax.JAX:
         try:
             math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
         except BaseException as err:
-            return f"Installed but tests failed with error: {err}"
-    return f"Installed, {gpu_count} GPUs available."
+            return f"Installed ({jax.__version__}) but tests failed with error: {err}"
+    return f"Installed ({jax.__version__}), {gpu_count} GPUs available."
 
 
 def troubleshoot_dash():
@@ -129,8 +133,8 @@ def troubleshoot_dash():
     try:
         dash.Dash('Test')
     except BaseException as e:
-        return f"Dash runtime error: {e}"
-    return 'OK'
+        return f"Dash ({dash.__version__}) runtime error: {e}"
+    return f"OK (dash {dash.__version__})"
 
 
 @contextmanager
