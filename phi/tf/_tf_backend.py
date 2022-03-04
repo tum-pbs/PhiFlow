@@ -116,6 +116,7 @@ class TFBackend(Backend):
 
     def equal(self, x, y):
         with self._device_for(x, y):
+            x, y = self.auto_cast(x, y)
             return tf.equal(x, y)
 
     def divide_no_nan(self, x, y):
@@ -193,6 +194,7 @@ class TFBackend(Backend):
 
     def where(self, condition, x=None, y=None):
         with self._device_for(condition, x, y):
+            x, y = self.auto_cast(x, y)
             c = self.cast(condition, self.dtype(x))
             return c * x + (1 - c) * y
         # return tf.where(condition, x, y)  # TF1 has an inconsistent broadcasting rule for where
