@@ -51,7 +51,16 @@ class Sphere(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        return 4 / 3 * math.PI * self._radius ** 3
+        if self.spatial_rank == 1:
+            return 2 * self._radius
+        elif self.spatial_rank == 2:
+            return math.PI * self._radius ** 2
+        elif self.spatial_rank == 3:
+            return 4 / 3 * math.PI * self._radius ** 3
+        else:
+            raise NotImplementedError()
+            # n = self.spatial_rank
+            # return math.pi ** (n // 2) / math.faculty(math.ceil(n / 2)) * self._radius ** n
 
     @property
     def shape_type(self) -> Tensor:
