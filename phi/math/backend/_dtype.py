@@ -66,9 +66,11 @@ class DType:
         return f"{self.kind.__name__}{self.bits}"
 
     @staticmethod
-    def as_dtype(value: 'DType' or tuple):
+    def as_dtype(value: 'DType' or tuple or None) -> 'DType' or None:
         if isinstance(value, DType):
             return value
+        elif value is None:
+            return None
         else:
             return DType(*value)
 
