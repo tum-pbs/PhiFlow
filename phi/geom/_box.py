@@ -224,6 +224,8 @@ class Box(BaseBox, metaclass=BoxType):
 
     @property
     def shape(self):
+        if self._lower is None or self._upper is None:
+            return None
         return (self._lower.shape & self._upper.shape).non_channel
 
     @property
@@ -293,6 +295,8 @@ class Cuboid(BaseBox):
 
     @property
     def shape(self):
+        if self._center is None or self._half_size is None:
+            return None
         return (self._center.shape & self._half_size.shape).without('vector')
 
     @property
