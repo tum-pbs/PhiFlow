@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial
+from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial, instance, channel
 
 import numpy as np
 import os
@@ -287,3 +287,10 @@ class TestMathNDNumpy(TestCase):
                 #     print(ref)
                 #     print(control)
                 #     raise AssertionError(e, params, variation_str)
+
+    def test_vector_length(self):
+        v = tensor([(0, 0), (1, 1), (-1, 0)], instance('values'), channel('vector'))
+        le = math.vec_length(v)
+        math.assert_close(le, [0, 1.41421356237, 1])
+        le = math.vec_length(v, eps=0.01)
+        math.assert_close(le, [1e-1, 1.41421356237, 1])

@@ -15,9 +15,18 @@ from ._tensors import wrap
 from .extrapolation import Extrapolation
 
 
-def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
-    """ Computes the vector length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
-    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim))
+def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None, eps: float or Tensor = None):
+    """
+    Computes the vector length of `vec`.
+    If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector.
+
+    Args:
+        eps: Minimum vector length. Use to avoid `inf` gradients for zero-length vectors.
+    """
+    squared = vec_squared(vec, vec_dim)
+    if eps is not None:
+        squared = math.maximum(squared, eps)
+    return math.sqrt(squared)
 
 
 def vec_squared(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
