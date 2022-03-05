@@ -39,6 +39,8 @@ class Sphere(Geometry):
 
     @property
     def shape(self):
+        if self._center is None or self._radius is None:
+            return None
         return (self._center.shape & self._radius.shape).without('vector')
 
     @property
