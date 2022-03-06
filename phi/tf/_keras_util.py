@@ -1,7 +1,10 @@
 import numpy
+import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers as kl
 import pickle
+
+from typing import Callable
 
 
 def parameter_count(model: keras.Model):
@@ -68,6 +71,37 @@ def load_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str)
         obj.set_weights(weights)
     else:
         raise ValueError("obj must be a Keras model or optimizer")
+
+
+def update_weights(net: keras.Model, optimizer: keras.optimizers.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs):
+    """
+    Computes the gradients of `loss_function` w.r.t. the parameters of `net` and updates its weights using `optimizer`.
+
+    This is the TensorFlow/Keras version. Analogue functions exist for other learning frameworks.
+
+    Args:
+        net: Learning model.
+        optimizer: Optimizer.
+        loss_function: Loss function, called as `loss_function(*loss_args, **loss_kwargs)`.
+        *loss_args: Arguments given to `loss_function`.
+        **loss_kwargs: Keyword arguments given to `loss_function`.
+
+    Returns:
+        Output of `loss_function`.
+    """
+    with tf.GradientTape() as tape:
+        loss, *aux = loss_function(*loss_args, **loss_kwargs)
+        gradients = tape.gradient(loss.sum, net.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, net.trainable_variables))
+    return (loss,) + aux
+
+
+def adam(net: keras.Model, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
+    """
+    Creates an Adam optimizer for `net`, alias for [`keras.optimizers.Adam`](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam).
+    Analogue functions exist for other learning frameworks.
+    """
+    return keras.optimizers.Adam(learning_rate, betas[0], betas[1], epsilon)
 
 
 def dense_net(in_channels: int,
