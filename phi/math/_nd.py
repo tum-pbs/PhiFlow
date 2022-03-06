@@ -336,7 +336,7 @@ def spatial_gradient(grid: Tensor,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: str or Shape or tuple or list or Callable or None = spatial,
-                     stack_dim: Shape or None = channel('gradient')):
+                     stack_dim: Shape = channel('gradient')):
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
@@ -354,6 +354,9 @@ def spatial_gradient(grid: Tensor,
 
     """
     grid = wrap(grid)
+    if stack_dim in grid.shape:
+        assert grid.shape.only(stack_dim).size == 1, f"spatial_gradient() cannot list components along {stack_dim.name} because that dimension already exists on grid {grid}"
+        grid = grid[{stack_dim.name: 0}]
     if difference.lower() == 'central':
         left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / (dx * 2)
