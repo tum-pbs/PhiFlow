@@ -251,6 +251,16 @@ class Box(BaseBox, metaclass=BoxType):
     def shifted(self, delta, **delta_by_dim):
         return Box(self.lower + delta, self.upper + delta)
 
+    def __mul__(self, other):
+        if not isinstance(other, Box):
+            return NotImplemented
+        lower = self._lower.vector.unstack(self.spatial_rank) + other._lower.vector.unstack(self.spatial_rank)
+        upper = self._upper.vector.unstack(self.spatial_rank) + other._upper.vector.unstack(self.spatial_rank)
+        names = self._upper.vector.item_names + other._upper.vector.item_names
+        lower = math.stack(lower, math.channel(vector=names))
+        upper = math.stack(upper, math.channel(vector=names))
+        return Box(lower, upper)
+
     def __repr__(self):
         if self.shape.non_channel.volume == 1:
             return 'Box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
