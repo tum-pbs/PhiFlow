@@ -41,6 +41,10 @@ class TestMathNDNumpy(TestCase):
             ref_shape = (4, 3) if case_dict['padding'] is not None else ((2, 1) if case_dict['difference'] == 'central' else (3, 2))
             self.assertEqual((grad.shape.get_size('x'), grad.shape.get_size('y')), ref_shape)
 
+    def test_gradient_1d_vector(self):
+        a = tensor([(0,), (1,), (2,)], spatial('x'), channel('vector'))
+        math.assert_close(tensor([0.5, 1, 0.5], spatial('x')), math.spatial_gradient(a))
+
     def test_vector_laplace(self):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1))
         cases = dict(padding=(extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
