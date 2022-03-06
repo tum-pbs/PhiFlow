@@ -251,6 +251,10 @@ class Shape:
         raise AssertionError("Can only access shape elements as shape[int] or shape[slice]")
 
     @property
+    def reversed(self):
+        return Shape(tuple(reversed(self.sizes)), tuple(reversed(self.names)), tuple(reversed(self.types)), tuple(reversed(self.item_names)))
+
+    @property
     def batch(self) -> 'Shape':
         """
         Filters this shape, returning only the batch dimensions as a new `Shape` object.
@@ -975,7 +979,7 @@ def _construct_shape(dim_type: str, *args, **dims):
     return math.Shape(sizes, names, (dim_type,) * len(sizes), item_names)
 
 
-def spatial(*args, **dims: int):
+def spatial(*args, **dims: int) -> Shape:
     """
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.
 
@@ -1020,7 +1024,7 @@ def spatial(*args, **dims: int):
         raise AssertionError(f"spatial() must be called either as a selector spatial(Shape) or spatial(Tensor) or as a constructor spatial(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def channel(*args, **dims: int or str):
+def channel(*args, **dims: int or str) -> Shape:
     """
     Returns the channel dimensions of an existing `Shape` or creates a new `Shape` with only channel dimensions.
 
@@ -1069,7 +1073,7 @@ def channel(*args, **dims: int or str):
         raise AssertionError(f"channel() must be called either as a selector channel(Shape) or channel(Tensor) or as a constructor channel(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def batch(*args, **dims: int or str):
+def batch(*args, **dims: int or str) -> Shape:
     """
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
@@ -1114,7 +1118,7 @@ def batch(*args, **dims: int or str):
         raise AssertionError(f"batch() must be called either as a selector batch(Shape) or batch(Tensor) or as a constructor batch(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def instance(*args, **dims: int):
+def instance(*args, **dims: int) -> Shape:
     """
     Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
 
