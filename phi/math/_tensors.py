@@ -614,7 +614,7 @@ class TensorDim:
         else:
             return self.tensor
 
-    def unstack_spatial(self, components: str or tuple or list) -> tuple:
+    def unstack_spatial(self, components: str or tuple or list or Shape) -> tuple:
         """
         Slices the tensor along this dimension, returning only the selected components in the specified order.
 
@@ -624,7 +624,7 @@ class TensorDim:
         Returns:
             selected components
         """
-        if isinstance(components, str):
+        if isinstance(components, (Shape, str)):
             components = parse_dim_order(components)
         if self.exists:
             spatial = self.tensor.shape.spatial
@@ -726,6 +726,8 @@ class TensorDim:
             if ',' in item:
                 item = parse_dim_order(item)
             else:
+                if not self.exists:
+                    return self.tensor
                 item_names = self.tensor.shape.get_item_names(self.name)
                 if item_names is not None:
                     assert item in item_names, f"Accessing tensor.{self.name}['{item}'] failed. Item names are {item_names}."
@@ -738,7 +740,8 @@ class TensorDim:
             from ._ops import stack
             result = [self[i] for i in item]
             item_names = [str(n) for n in item]
-            return stack({n: r for n, r in zip(item_names, result)}, self.tensor.shape.only(self.name))
+            stack_dim = self.tensor.shape.only(self.name) if self.exists else channel(self.name)
+            return stack({n: r for n, r in zip(item_names, result)}, stack_dim)
         elif isinstance(item, Tensor) and item.dtype == DType(bool):
             from ._ops import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
