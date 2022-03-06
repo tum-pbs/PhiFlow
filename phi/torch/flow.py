@@ -14,7 +14,7 @@ See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
 
 from phi.flow import *
 from . import TORCH
-from ._torch_nn_util import parameter_count, save_state, load_state, dense_net, u_net
+from ._torch_nn_util import parameter_count, save_state, load_state, dense_net, u_net, update_weights, adam
 
 import torch
 import torch.nn.functional as torchf

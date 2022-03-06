@@ -1,13 +1,21 @@
-""" TensorFlow Network Training Demo
-Trains a simple CNN to make velocity fields incompressible.
-This script runs for a certain number of steps before saving the trained network and halting.
+""" Neural Network Training Demo
+Trains a U-Net to make velocity fields incompressible.
+This script can be run with TensorFlow and PyTorch depending on the import statement.
 """
-from phi.tf.flow import *
+from phi.torch.flow import *
 
 
 math.seed(0)  # Make the results reproducible
 net = u_net(2, 2)  # for a fully connected network, use   net = dense_net(2, 2, [64, 64, 64])
-optimizer = keras.optimizers.Adam(1e-3)
+optimizer = adam(net, 1e-3)
+
+
+def eval_loss(x):
+    y = field.native_call(net, x)
+    div = field.divergence(y)
+    divergence_loss = field.l2_loss(div)
+    similarity_loss = field.l2_loss(y - x)
+    return divergence_loss + similarity_loss, divergence_loss, similarity_loss, y, div
 
 
 @vis.action  # make this function callable from the user interface
@@ -32,20 +40,11 @@ viewer = view(scene=True, namespace=globals(), select='batch')
 save_model(0)
 reset()  # Ensure that the first run will be identical to every time reset() is called
 
+
 for step in viewer.range():
-    # Load or generate training data
     data = CenteredGrid(Noise(batch(batch=8), channel(vector=2)), extrapolation.BOUNDARY, x=64, y=64)
-    with tf.GradientTape() as tape:
-        # Prediction
-        prediction = field.native_call(net, data)  # calls net with shape (BATCH_SIZE, channels, spatial...)
-        # Simulation
-        prediction_div = field.divergence(prediction)
-        # Define loss and compute gradients
-        loss = field.l2_loss(prediction_div) + field.l2_loss(prediction - data)
-        gradients = tape.gradient(loss.mean, net.trainable_variables)
-    # Show curves in user interface
-    viewer.log_scalars(loss=loss, div=field.mean(abs(prediction_div)), distance=math.vec_abs(field.mean(abs(prediction - data))))
-    # Compute gradients and update weights
-    optimizer.apply_gradients(zip(gradients, net.trainable_variables))
+    loss, div_loss, sim_loss, prediction, divergence = update_weights(net, optimizer, eval_loss, data)
+    viewer.log_scalars(loss=loss, divergence_loss=div_loss, similarity_loss=sim_loss)
+    optimizer.step()
     if (step + 1) % 100 == 0:
         save_model()

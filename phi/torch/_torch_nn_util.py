@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
+from typing import Callable
 
 from . import TORCH
 
@@ -53,6 +54,37 @@ def load_state(obj: nn.Module or optim.Optimizer, path: str):
     if not path.endswith('.pth'):
         path += '.pth'
     obj.load_state_dict(torch.load(path))
+
+
+def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs):
+    """
+    Computes the gradients of `loss_function` w.r.t. the parameters of `net` and updates its weights using `optimizer`.
+
+    This is the PyTorch version. Analogue functions exist for other learning frameworks.
+
+    Args:
+        net: Learning model.
+        optimizer: Optimizer.
+        loss_function: Loss function, called as `loss_function(*loss_args, **loss_kwargs)`.
+        *loss_args: Arguments given to `loss_function`.
+        **loss_kwargs: Keyword arguments given to `loss_function`.
+
+    Returns:
+        Output of `loss_function`.
+    """
+    optimizer.zero_grad()
+    loss, *aux = loss_function(*loss_args, **loss_kwargs)
+    loss.sum.backward()
+    optimizer.step()
+    return (loss,) + aux
+
+
+def adam(net: nn.Module, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
+    """
+    Creates an Adam optimizer for `net`, alias for [`torch.optim.Adam`](https://pytorch.org/docs/stable/generated/torch.optim.Adam.html).
+    Analogue functions exist for other learning frameworks.
+    """
+    return optim.Adam(net.parameters(), learning_rate, betas, epsilon)
 
 
 def dense_net(in_channels: int,
