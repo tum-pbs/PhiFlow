@@ -388,7 +388,7 @@ def concat(fields: List[SampledFieldType], dim: Shape) -> SampledFieldType:
     raise NotImplementedError(type(fields[0]))
 
 
-def stack(fields, dim: Shape):
+def stack(fields, dim: Shape, dim_bounds: Box = None):
     """
     Stacks the given `SampledField`s along `dim`.
 
@@ -408,7 +408,12 @@ def stack(fields, dim: Shape):
         raise NotImplementedError("Concatenating extrapolations not supported")
     if isinstance(fields[0], Grid):
         values = math.stack([f.values for f in fields], dim)
-        return fields[0].with_values(values)
+        if spatial(dim):
+            if dim_bounds is None:
+                dim_bounds = Box(**{dim.name: len(fields)})
+            return type(fields[0])(values, extrapolation=fields[0].extrapolation, bounds=fields[0].bounds * dim_bounds)
+        else:
+            return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
         elements = geom.stack([f.elements for f in fields], dim=dim)
         values = math.stack([f.values for f in fields], dim=dim)
