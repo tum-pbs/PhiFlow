@@ -77,3 +77,11 @@ class TestGeom(TestCase):
         corner_distance = math.sqrt(2) / 2 - .5
         distance = math.wrap([corner_distance, 0, corner_distance, corner_distance, 0], math.instance('points'))
         math.assert_close(cylinder.approximate_signed_distance(loc), distance)
+
+    def test_box_product(self):
+        a = Box(x=4)
+        b = Box(y=3).shifted(math.wrap(1))
+        ab = a * b
+        self.assertEqual(2, ab.spatial_rank)
+        math.assert_close(ab.size, (4, 3))
+        math.assert_close(ab.lower, (0, 1))
