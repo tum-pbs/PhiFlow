@@ -781,6 +781,8 @@ class Shape:
         return Shape(self.sizes, self.names, self.types, item_names)
 
     def _with_item_name(self, dim: str, item_name: tuple):
+        if dim not in self:
+            return self
         item_names = list(self.item_names)
         item_names[self.index(dim)] = item_name
         return Shape(self.sizes, self.names, self.types, tuple(item_names))
