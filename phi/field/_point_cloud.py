@@ -38,10 +38,8 @@ class PointCloud(SampledField):
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
           color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         """
-        SampledField.__init__(self, elements, math.wrap(values), extrapolation)
+        SampledField.__init__(self, elements, math.wrap(values), extrapolation, bounds)
         self._add_overlapping = add_overlapping
-        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
-        self._bounds = bounds
         color = '#0060ff' if color is None else color
         self._color = math.wrap(color, instance('points')) if isinstance(color, (tuple, list)) else math.wrap(color)
 

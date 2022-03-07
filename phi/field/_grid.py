@@ -16,11 +16,10 @@ class Grid(SampledField):
     """
 
     def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, resolution: Shape, bounds: Box):
-        SampledField.__init__(self, elements, values, extrapolation)
+        SampledField.__init__(self, elements, values, extrapolation, bounds)
         assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
-        self._bounds = bounds
         self._resolution = resolution
 
     def closest_values(self, points: Geometry):
