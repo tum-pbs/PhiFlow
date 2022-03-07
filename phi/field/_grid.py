@@ -129,7 +129,7 @@ class CenteredGrid(Grid):
                  values: Any,
                  extrapolation: Any = 0.,
                  bounds: Box = None,
-                 resolution: Shape = None,
+                 resolution: int or Shape = None,
                  **resolution_: int or Tensor):
         """
         Args:
@@ -155,6 +155,9 @@ class CenteredGrid(Grid):
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = GridCell(resolution, bounds)
         else:
+            if isinstance(resolution, int):
+                assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
+                resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
             resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = GridCell(resolution, bounds)
@@ -274,6 +277,9 @@ class StaggeredGrid(Grid):
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
+            if isinstance(resolution, int):
+                assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
+                resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
             resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
