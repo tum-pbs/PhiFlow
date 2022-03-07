@@ -210,8 +210,8 @@ class ConstantExtrapolation(Extrapolation):
             raise NotImplementedError()
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
-        raise NotImplementedError()
-        # return math.zeros()
+        shape = value.shape.after_gather({dimension: slice(0, width)})
+        return math.expand(self.value, shape)
 
     def __eq__(self, other):
         return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
