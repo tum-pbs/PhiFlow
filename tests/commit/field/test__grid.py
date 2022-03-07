@@ -9,6 +9,12 @@ from phi.math import extrapolation, spatial, channel, batch
 
 class GridTest(TestCase):
 
+    def test_create_grid_int_resolution(self):
+        g = CenteredGrid(0, 0, Box(x=4, y=3), resolution=10)
+        self.assertEqual(g.shape, spatial(x=10, y=10))
+        g = StaggeredGrid(0, 0, Box(x=4, y=3), resolution=10)
+        self.assertEqual(spatial(g), spatial(x=10, y=10))
+
     def test_staggered_grid_sizes_by_extrapolation(self):
         s = spatial(x=20, y=10)
         for initializer in [0, Noise(vector=2), (0, 1), Sphere((0, 0), 1)]:
