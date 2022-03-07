@@ -1,7 +1,7 @@
 from typing import TypeVar, Callable
 
 from phi import math
-from phi.geom import Geometry
+from phi.geom import Geometry, Box
 from phi.math import Shape, Tensor, Extrapolation
 from phi.math._shape import SPATIAL_DIM, BATCH_DIM, CHANNEL_DIM, channel
 
@@ -19,6 +19,15 @@ class Field:
     
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
+
+    def __init__(self, bounds: Box or None):
+        """
+        Args:
+            bounds: Bounds inside which the values of this `Field` are valid.
+                The bounds will also be used as axis limits for plots.
+        """
+        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
+        self._bounds = bounds
 
     @property
     def shape(self) -> Shape:
@@ -38,6 +47,16 @@ class Field:
         This is equal to the spatial rank of the `data`.
         """
         return self.shape.spatial.rank
+
+    @property
+    def bounds(self) -> Box:
+        """
+        The bounds represent the area inside which the values of this `Field` are valid.
+        The bounds will also be used as axis limits for plots.
+
+        The bounds can be set manually in the constructor, otherwise default bounds will be generated.
+        """
+        raise NotImplementedError()
 
     def _sample(self, geometry: Geometry) -> math.Tensor:
         """ For internal use only. Use `sample()` instead. """
@@ -136,13 +155,14 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, bounds: Box or None):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
         """
+        super().__init__(bounds)
         if not isinstance(extrapolation, math.Extrapolation):
             extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         assert isinstance(extrapolation, Extrapolation), f"Not a valid extrapolation: {extrapolation}"
