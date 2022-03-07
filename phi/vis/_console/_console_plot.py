@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy
 
 from phi.field import Grid, CenteredGrid
@@ -23,8 +25,12 @@ class ConsolePlots(PlottingLibrary):
     #     else:
     #         plt_lines = heatmap(v, plt_width, plt_height, name)
 
-    def show(self, figure=None):
-        print(figure or self.last_figure)
+    def show(self, figure: List[str]):
+        print(figure)
+
+    def save(self, figure: List[str], path: str):
+        with open(path, 'w') as file:
+            file.writelines(figure)
 
 
 CONSOLE = ConsolePlots()

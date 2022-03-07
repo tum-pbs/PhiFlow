@@ -1,17 +1,20 @@
 import inspect
 import os
+import sys
+import warnings
+from contextlib import contextmanager
 from threading import Thread
 from typing import Tuple, List, Dict
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import get_gui, default_gui, default_plots, get_plots, Control, value_range, Action, VisModel, Gui, \
+from ._vis_base import Control, value_range, Action, VisModel, Gui, \
     PlottingLibrary
 from .. import math, field
-from ..field import SampledField, Scene
+from ..field import SampledField, Scene, StitchedGrid, Field
 from ..field._scene import _slugify_filename
 from ..math import Tensor, layout, batch, Shape
-from ..math._shape import parse_dim_names, parse_dim_order
+from ..math._shape import parse_dim_order
 from ..math._tensors import Layout
 
 
@@ -62,8 +65,8 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor,
             gui.show(True)  # may be blocking call
     elif len(model) == 0:
         plots = default_plots() if gui is None else get_plots(gui)
-        plots.show()
-    elif all([isinstance(m, (SampledField, Tensor, tuple, list)) for m in model]):
+        plots.show(plots.current_figure)
+    elif all([isinstance(m, (Field, Tensor, tuple, list)) for m in model]):
         plots = default_plots() if gui is None else get_plots(gui)
         fig = plot(*model, lib=plots, **config)
         plots.show(fig)
@@ -182,6 +185,9 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
     return {n: v for n, v in zip(names, values)}
 
 
+CONTROL_VARS = {}
+
+
 def control(value, range: tuple = None, description="", **kwargs):
     """
     Mark a variable as controllable by any GUI created via `view()`.
@@ -218,7 +224,7 @@ def control(value, range: tuple = None, description="", **kwargs):
     return value
 
 
-CONTROL_VARS = {}
+ACTIONS = {}
 
 
 def action(fun):
@@ -227,7 +233,7 @@ def action(fun):
     return fun
 
 
-ACTIONS = {}
+LAST_FIGURE = [None]
 
 
 def plot(*fields: SampledField or Tensor or Layout,
@@ -247,9 +253,9 @@ def plot(*fields: SampledField or Tensor or Layout,
         down: Batch dimensions along which sub-figures should be laid out vertically.
             `Shape` or comma-separated names as `str`.
         title: `bool or str or Tensor`
-        size: `tuple` `(width, height)` Canvas size in millimeters or lines, depending on `lib`.
-        same_scale:
-        show_color_bar:
+        size: Figure size in inches, `(width, height)`.
+        same_scale: Whether to use the same axis limits for all sub-figures.
+        show_color_bar: Whether to display color bars for heat maps.
 
     Returns:
         Figure created for `data`, not yet shown.
@@ -265,6 +271,7 @@ def plot(*fields: SampledField or Tensor or Layout,
         min_val = max_val = None
     subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
     figure, axes = plots.create_figure(size, rows, cols, subplots, titles=layout(None))
+    LAST_FIGURE[0] = figure
     for pos, fields in positioning.items():
         for f in fields:
             plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
@@ -307,7 +314,7 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
     else:
         if isinstance(data, Tensor):
             data = field.tensor_as_field(data)
-        assert isinstance(data, SampledField), data
+        assert isinstance(data, Field), data
         rows = batch(data).only(down)
         cols = batch(data).without(down)
         for ri, r in enumerate(rows.meshgrid()):
@@ -347,3 +354,115 @@ def overlay(*fields: SampledField or Tensor) -> Tensor:
         Plottable object
     """
     return math.layout(fields, math.channel('overlay'))
+
+
+def write_image(path: str, figure=None, dpi=120.):
+    """
+    Save a figure to an image file.
+
+    Args:
+        figure: Matplotlib or Plotly figure or text.
+        path: File path.
+        dpi: Pixels per inch.
+    """
+    figure = figure or LAST_FIGURE[0]
+    lib = get_plots_by_figure(figure)
+    lib.save(figure, path, dpi)
+
+
+def default_gui() -> Gui:
+    if GUI_OVERRIDES:
+        return GUI_OVERRIDES[-1]
+    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+        options = ['widgets']
+    else:
+        options = ['dash', 'console']
+    for option in options:
+        try:
+            return get_gui(option)
+        except ImportError as import_error:
+            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
+    raise RuntimeError("No user interface available.")
+
+
+def get_gui(gui: str or Gui) -> Gui:
+    if GUI_OVERRIDES:
+        return GUI_OVERRIDES[-1]
+    if isinstance(gui, str):
+        if gui == 'dash':
+            from ._dash.dash_gui import DashGui
+            return DashGui()
+        elif gui == 'console':
+            from ._console import ConsoleGui
+            return ConsoleGui()
+        # elif gui == 'matplotlib':
+        #     from ._matplotlib.matplotlib_gui import MatplotlibGui
+        #     return MatplotlibGui()
+        elif gui == 'widgets':
+            from ._widgets import WidgetsGui
+            return WidgetsGui()
+        else:
+            raise NotImplementedError(f"No display available with name {gui}")
+    elif isinstance(gui, Gui):
+        return gui
+    else:
+        raise ValueError(gui)
+
+
+GUI_OVERRIDES = []
+
+
+@contextmanager
+def force_use_gui(gui: Gui):
+    GUI_OVERRIDES.append(gui)
+    try:
+        yield None
+    finally:
+        assert GUI_OVERRIDES.pop(-1) is gui
+
+
+_LOADED_PLOTTING_LIBRARIES: List[PlottingLibrary] = []
+
+
+def default_plots() -> PlottingLibrary:
+    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+        options = ['matplotlib']
+    else:
+        options = ['matplotlib', 'plotly', 'ascii']
+    for option in options:
+        try:
+            return get_plots(option)
+        except ImportError as import_error:
+            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
+    raise RuntimeError("No user interface available.")
+
+
+def get_plots(lib: str or PlottingLibrary) -> PlottingLibrary:
+    if isinstance(lib, PlottingLibrary):
+        return lib
+    for loaded_lib in _LOADED_PLOTTING_LIBRARIES:
+        if loaded_lib.name == lib:
+            return loaded_lib
+    if lib == 'matplotlib':
+        from ._matplotlib._matplotlib_plots import MATPLOTLIB
+        _LOADED_PLOTTING_LIBRARIES.append(MATPLOTLIB)
+        return MATPLOTLIB
+    elif lib == 'plotly':
+        from ._dash._plotly_plots import PLOTLY
+        _LOADED_PLOTTING_LIBRARIES.append(PLOTLY)
+        return PLOTLY
+    elif lib == 'ascii':
+        from ._console._console_plot import CONSOLE
+        _LOADED_PLOTTING_LIBRARIES.append(CONSOLE)
+        return CONSOLE
+    else:
+        raise NotImplementedError(f"No plotting library available with name {lib}")
+
+
+def get_plots_by_figure(figure):
+    for loaded_lib in _LOADED_PLOTTING_LIBRARIES:
+        if loaded_lib.is_figure(figure):
+            return loaded_lib
+    else:
+        raise ValueError(f"No library found matching figure {figure} from list {_LOADED_PLOTTING_LIBRARIES}")
+

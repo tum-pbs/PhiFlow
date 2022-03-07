@@ -1,9 +1,6 @@
-import sys
 import threading
 import time
-import warnings
 from collections import namedtuple
-from contextlib import contextmanager
 from math import log10
 from threading import Lock
 from typing import Tuple, Any, Optional, Dict
@@ -323,12 +320,35 @@ class Gui:
 
 class PlottingLibrary:
 
+    def __init__(self, name: str, figure_classes: tuple or list):
+        self.name = name
+        self.figure_classes = tuple(figure_classes)
+        self.current_figure = None
+
+    def __repr__(self):
+        return self.name
+
+    def is_figure(self, obj):
+        return isinstance(obj, self.figure_classes)
+
     def create_figure(self,
                       size: tuple,
                       rows: int,
                       cols: int,
                       subplots: Dict[Tuple[int, int], int],
                       titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+        """
+        Args:
+            size: Figure size in inches.
+            rows: Number of sub-figures laid out vertically.
+            cols: Number of sub-figures laid out horizontally.
+            subplots: Dimensionality per plot: `(x,y) -> d`. Only subplot locations contained as keys will be plotted.
+            titles: Subplot titles.
+
+        Returns:
+            figure: Native figure object
+            subfigures: Native sub-figures by subplot location.
+        """
         raise NotImplementedError()
 
     def plot(self,
@@ -341,88 +361,11 @@ class PlottingLibrary:
              **plt_args):
         raise NotImplementedError()
 
-    def show(self, figure=None):
+    def show(self, figure):
         raise NotImplementedError()
 
-
-def default_gui() -> Gui:
-    if GUI_OVERRIDES:
-        return GUI_OVERRIDES[-1]
-    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
-        options = ['widgets']
-    else:
-        options = ['dash', 'console']
-    for option in options:
-        try:
-            return get_gui(option)
-        except ImportError as import_error:
-            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
-    raise RuntimeError("No user interface available.")
-
-
-def get_gui(gui: str or Gui) -> Gui:
-    if GUI_OVERRIDES:
-        return GUI_OVERRIDES[-1]
-    if isinstance(gui, str):
-        if gui == 'dash':
-            from ._dash.dash_gui import DashGui
-            return DashGui()
-        elif gui == 'console':
-            from ._console import ConsoleGui
-            return ConsoleGui()
-        # elif gui == 'matplotlib':
-        #     from ._matplotlib.matplotlib_gui import MatplotlibGui
-        #     return MatplotlibGui()
-        elif gui == 'widgets':
-            from ._widgets import WidgetsGui
-            return WidgetsGui()
-        else:
-            raise NotImplementedError(f"No display available with name {gui}")
-    elif isinstance(gui, Gui):
-        return gui
-    else:
-        raise ValueError(gui)
-
-
-GUI_OVERRIDES = []
-
-
-def default_plots() -> PlottingLibrary:
-    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
-        options = ['matplotlib']
-    else:
-        options = ['matplotlib', 'plotly', 'ascii']
-    for option in options:
-        try:
-            return get_plots(option)
-        except ImportError as import_error:
-            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
-    raise RuntimeError("No user interface available.")
-
-
-def get_plots(lib: str or PlottingLibrary) -> PlottingLibrary:
-    if isinstance(lib, PlottingLibrary):
-        return lib
-    if lib == 'matplotlib':
-        from ._matplotlib._matplotlib_plots import MATPLOTLIB
-        return MATPLOTLIB
-    elif lib == 'plotly':
-        from ._dash._plotly_plots import PLOTLY
-        return PLOTLY
-    elif lib == 'ascii':
-        from ._console._console_plot import CONSOLE
-        return CONSOLE
-    else:
-        raise NotImplementedError(f"No plotting library available with name {lib}")
-
-
-@contextmanager
-def force_use_gui(gui: Gui):
-    GUI_OVERRIDES.append(gui)
-    try:
-        yield None
-    finally:
-        assert GUI_OVERRIDES.pop(-1) is gui
+    def save(self, figure, path: str, dpi: float):
+        raise NotImplementedError()
 
 
 class GuiInterrupt(KeyboardInterrupt):

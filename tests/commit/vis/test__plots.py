@@ -19,7 +19,7 @@ class TestMatplotlibPlots(TestCase):
         self.assertIsInstance(fig, plotly.graph_objs.Figure)
         if show_:
             show(gui='matplotlib')
-            show(gui='plotly')
+            # show(gui='plotly')
 
     def test_plot_1d(self):
         self._test_plot(CenteredGrid(lambda x: math.sin(x), x=100, bounds=Box(x=2 * math.pi)))
@@ -47,8 +47,14 @@ class TestMatplotlibPlots(TestCase):
         self._test_plot(StaggeredGrid(Noise(), extrapolation.ZERO, x=16, y=10, bounds=Box(0, [1, 1])) * 0.1)
 
     def test_plot_point_cloud_2d(self):
-        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector')), radius=.1))
+        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel('vector')), radius=.1))
         cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[.4:.6, .2:.4]).elements, 'x,y', instance('points')))
+        cloud = field.stack([spheres, cells], instance('stack'))
+        self._test_plot(cloud)
+
+    def test_plot_point_cloud_2d_large(self):
+        spheres = PointCloud(Sphere(wrap([(2, 4), (9, 8), (7, 8)], instance('points'), channel('vector')), radius=1))
+        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[4:6, 2:4]).elements, 'x,y', instance('points')))
         cloud = field.stack([spheres, cells], instance('stack'))
         self._test_plot(cloud)
 

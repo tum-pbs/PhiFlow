@@ -18,7 +18,7 @@ from phi.vis._vis_base import PlottingLibrary
 class PlotlyPlots(PlottingLibrary):
 
     def __init__(self):
-        self.last_fig: Optional[plotly.graph_objs.Figure] = None
+        super().__init__('plotly', [graph_objects.Figure])
 
     def create_figure(self,
                       size: tuple,
@@ -28,18 +28,23 @@ class PlotlyPlots(PlottingLibrary):
                       titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         titles = [titles.rows[r].cols[c].native() for r in range(rows) for c in range(cols)]
         specs = [[{'type': 'xy' if subplots.get((row, col), 0) < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
-        fig = self.last_fig = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=specs)
+        fig = self.current_figure = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=specs)
+        fig._phi_size = size
         return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
 
-    def plot(self, data: SampledField, figure, subplot, min_val: float = None, max_val: float = None,
+    def plot(self, data: SampledField, figure: graph_objects.Figure, subplot, min_val: float = None, max_val: float = None,
              show_color_bar: bool = True, **plt_args):
         _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar)
 
-    def show(self, figure=None):
-        if figure is None:
-            figure = self.last_fig
-        if figure is not None:
-            figure.show()
+    def show(self, figure: graph_objects.Figure):
+        figure.show()
+
+    def save(self, figure: graph_objects.Figure, path: str, dpi: float):
+        width, height = figure._phi_size
+        figure.layout.update(margin=dict(l=0, r=0, b=0, t=0))
+        scale = dpi/90.
+        figure.write_image(path, width=width * dpi / scale, height=height * dpi / scale, scale=scale)
+
 
 
 PLOTLY = PlotlyPlots()
@@ -152,7 +157,7 @@ def _plot(data: SampledField,
             subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1]
             if isinstance(data.elements, Sphere):
                 symbol = 'circle'
-                marker_size = float(data.elements.bounding_radius()) * 1.9
+                marker_size = data.elements.bounding_radius().numpy() * 1.9
             elif isinstance(data.elements, BaseBox):
                 symbol = 'square'
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
@@ -183,7 +188,7 @@ def _plot(data: SampledField,
             domain_y = fig.layout[subplot.plotly_name].domain.y
             if isinstance(data.elements, Sphere):
                 symbol = 'circle'
-                marker_size = float(data.elements.bounding_radius()) * 1.9
+                marker_size = data.elements.bounding_radius().numpy() * 2
             elif isinstance(data.elements, BaseBox):
                 symbol = 'square'
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1

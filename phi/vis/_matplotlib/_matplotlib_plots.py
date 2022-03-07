@@ -11,14 +11,17 @@ from matplotlib import animation
 
 from phi import math, field
 from phi.geom import Sphere, BaseBox
-from phi.math import Tensor, batch, channel, instance
+from phi.math import Tensor, batch, channel, instance, spatial
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name, PlottingLibrary
-from phi.field import Grid, StaggeredGrid, PointCloud, Scene, unstack, SampledField
+from phi.field import Grid, StaggeredGrid, PointCloud, Scene, unstack, SampledField, StitchedGrid
 from phi.field._scene import _str
 
 
 class MatplotlibPlots(PlottingLibrary):
+
+    def __init__(self):
+        super().__init__('matplotlib', [plt.Figure])
 
     def create_figure(self,
                       size: tuple,
@@ -27,6 +30,7 @@ class MatplotlibPlots(PlottingLibrary):
                       subplots: Dict[Tuple[int, int], int],
                       titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         figure, axes = plt.subplots(rows, cols, figsize=size)
+        self.current_figure = figure
         axes = np.reshape(axes, (rows, cols))
         axes_by_pos = {}
         for row in range(rows):
@@ -53,15 +57,15 @@ class MatplotlibPlots(PlottingLibrary):
         Returns:
             [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
         """
-        _plot(subplot, data, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
         plt.tight_layout()
+        _plot(subplot, data, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
         return figure
 
-    def show(self, figure=None):
-        if figure is not None:
-            figure.show()
-        else:
-            plt.show()
+    def show(self, figure: plt.Figure):
+        figure.show()
+
+    def save(self, figure: plt.Figure, path: str, dpi: float):
+        figure.savefig(path, dpi=dpi)
 
 
 MATPLOTLIB = MatplotlibPlots()
@@ -118,12 +122,15 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
             values = data.values[c].numpy()
             axis.plot(x, values)
     elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
-        left, bottom = data.bounds.lower.vector.unstack_spatial('x,y')
-        right, top = data.bounds.upper.vector.unstack_spatial('x,y')
+        dims = spatial(data)
+        left, bottom = data.bounds.lower.vector[dims]
+        right, top = data.bounds.upper.vector[dims]
         extent = (float(left), float(right), float(bottom), float(top))
-        im = axis.imshow(data.values.numpy('y,x'), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
+        im = axis.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
         if show_color_bar:
             plt.colorbar(im, ax=axis)
+        axis.set_xlabel(dims.names[0])
+        axis.set_ylabel(dims.names[1])
     elif isinstance(data, Grid) and data.spatial_rank == 2:  # vector field
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
@@ -147,30 +154,17 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         colors = cmap(norm(values))
         axis.voxels(values, facecolors=colors, edgecolor='k')
     elif isinstance(data, PointCloud) and data.spatial_rank == 2:
-        if data.points.shape.non_channel.rank > 1:
-            data_list = field.unstack(data, data.points.shape.non_channel[0].name)
-            for d in data_list:
-                _plot(axis, d, show_color_bar, vmin, vmax, **plt_args)
-        else:
-            x, y = [d.numpy() for d in data.points.vector.unstack_spatial('x,y')]
-            color = [str(d) for d in data.color.points.unstack(len(x))]
-            if isinstance(data.elements, Sphere):
-                symbol = 'o'
-                size = float(data.elements.bounding_radius()) * 0.4
-            elif isinstance(data.elements, BaseBox):
-                symbol = 's'
-                size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 0.35
-            else:
-                symbol = 'X'
-                size = data.elements.bounding_radius().numpy()
-            M = axis.transData.get_matrix()
-            x_scale, y_scale = M[0, 0], M[1, 1]
-            axis.scatter(x, y, marker=symbol, color=color, s=(size * 2 * x_scale) ** 2)
         axis.set_aspect('equal', adjustable='box')
         lower_x, lower_y = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y')]
         upper_x, upper_y = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y')]
         axis.set_xlim((lower_x, upper_x))
         axis.set_ylim((lower_y, upper_y))
+        if data.points.shape.non_channel.rank > 1:
+            data_list = field.unstack(data, data.points.shape.non_channel[0].name)
+            for d in data_list:
+                _plot_points(axis, d, **plt_args)
+        else:
+            _plot_points(axis, data, **plt_args)
     elif isinstance(data, PointCloud) and data.spatial_rank == 3:
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
@@ -196,8 +190,53 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         axis.set_xlim((lower_x, upper_x))
         axis.set_ylim((lower_y, upper_y))
         axis.set_zlim((lower_z, upper_z))
+    elif isinstance(data, StitchedGrid):
+        dims = spatial(data)
+        axis.set_xlabel(dims.names[0])
+        axis.set_ylabel(dims.names[1])
+        left, bottom = data.bounds.lower.vector[dims]
+        right, top = data.bounds.upper.vector[dims]
+        axis.set_xlim((left, right))
+        axis.set_ylim((bottom, top))
+        for block in data.resolution.meshgrid():
+            sub_grid = data[block]
+            left, bottom = sub_grid.bounds.lower.vector[dims]
+            right, top = sub_grid.bounds.upper.vector[dims]
+            extent = (float(left), float(right), float(bottom), float(top))
+            im = axis.imshow(sub_grid.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
+        if show_color_bar:
+            plt.colorbar(im, ax=axis)
     else:
         raise NotImplementedError(f"No figure recipe for {data}")
+
+
+def _plot_points(axis, data, **plt_args):
+    x, y = [d.numpy() for d in data.points.vector.unstack_spatial('x,y')]
+    color = [str(d) for d in data.color.points.unstack(len(x))]
+    if isinstance(data.elements, Sphere):
+        symbol = 'o'
+        size = data.elements.bounding_radius().numpy() * 1.41
+    elif isinstance(data.elements, BaseBox):
+        symbol = 's'
+        size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy()
+    else:
+        symbol = 'X'
+        size = data.elements.bounding_radius().numpy()
+    size_px = size * _get_pixels_per_unit(axis.figure, axis)
+    axis.scatter(x, y, marker=symbol, color=color, s=size_px ** 2, alpha=0.8)
+
+
+def _get_pixels_per_unit(fig: plt.Figure, axis: plt.Axes, dpi=90):
+    M = axis.transData.get_matrix()
+    x_scale, y_scale = M[0, 0], M[1, 1]  # fig_size_px/unit
+    # subplot_width = axis.figbox.width * axis.figure.bbox_inches.width
+    # subplot_height = axis.figbox.height * axis.figure.bbox_inches.height
+    # units_x = axis.get_xlim()[1] - axis.get_xlim()[0]
+    # units_y = axis.get_ylim()[1] - axis.get_ylim()[0]
+    # result_x = subplot_width * dpi / units_x
+    # result_y = subplot_height * dpi / units_y
+    return min(x_scale, y_scale)
+
 
 
 def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
