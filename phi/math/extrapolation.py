@@ -125,6 +125,21 @@ class Extrapolation:
     def native_grid_sample_mode(self) -> Union[str, None]:
         return None
 
+    def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
+        """
+        Computes the shortest distance between two points.
+        Both points are assumed to lie within the domain
+
+        Args:
+            start: Start position.
+            end: End position.
+            domain_size: Domain side lengths as vector.
+
+        Returns:
+            Shortest distance from `start` to `end`.
+        """
+        return end - start
+
     def __getitem__(self, item):
         return self
 
@@ -507,6 +522,10 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
             raise NotImplementedError("Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor." % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
         return value.shift(lower, value.shape.after_pad(widths), lambda v: self.pad(v, widths), lambda b: ZERO.pad(b, widths))
+
+    def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
+        dx = end - start
+        return (dx + domain_size / 2) % domain_size - domain_size / 2
 
 
 class _SymmetricExtrapolation(_CopyExtrapolation):
