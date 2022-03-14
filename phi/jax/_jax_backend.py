@@ -210,7 +210,8 @@ class JaxBackend(Backend):
         self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
 
-        jdt = to_numpy_dtype(dtype or self.float_type)
+        dtype = dtype or self.float_type
+        jdt = to_numpy_dtype(dtype)
         if dtype.kind == float:
             tensor = random.uniform(subkey, shape, minval=low, maxval=high, dtype=jdt)
         elif dtype.kind == complex:
