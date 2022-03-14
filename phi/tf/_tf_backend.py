@@ -125,7 +125,8 @@ class TFBackend(Backend):
             return tf.math.divide_no_nan(x, y)
 
     def random_uniform(self, shape, low, high, dtype: DType or None):
-        tdt = to_numpy_dtype(dtype or self.float_type)
+        dtype = dtype or self.float_type
+        tdt = to_numpy_dtype(dtype)
         with self._default_device.ref:
             if dtype.kind != complex:
                 return tf.random.uniform(shape, low, high, dtype=tdt)
