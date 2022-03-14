@@ -1,8 +1,10 @@
 """ Neural Network Training Demo
 Trains a U-Net to make velocity fields incompressible.
-This script can be run with TensorFlow and PyTorch depending on the import statement.
+This script can be run with PyTorch (phi.torch.flow), TensorFlow (phi.tf.flow) and Jax (phi.jax.stax.flow) by adjusting the import statement.
 """
-from phi.torch.flow import *
+from phi.tf.flow import *
+# from phi.torch.flow import *
+# from phi.jax.stax.flow import *
 
 
 math.seed(0)  # Make the results reproducible
@@ -35,8 +37,7 @@ def reset():
 
 
 prediction = CenteredGrid((0, 0), extrapolation.BOUNDARY, x=64, y=64)
-prediction_div = CenteredGrid(0, 0, x=64, y=64)
-viewer = view(scene=True, namespace=globals(), select='batch')
+viewer = view('divergence', scene=True, namespace=globals(), select='batch')
 save_model(0)
 reset()  # Ensure that the first run will be identical to every time reset() is called
 
@@ -45,6 +46,5 @@ for step in viewer.range():
     data = CenteredGrid(Noise(batch(batch=8), channel(vector=2)), extrapolation.BOUNDARY, x=64, y=64)
     loss, div_loss, sim_loss, prediction, divergence = update_weights(net, optimizer, eval_loss, data)
     viewer.log_scalars(loss=loss, divergence_loss=div_loss, similarity_loss=sim_loss)
-    optimizer.step()
     if (step + 1) % 100 == 0:
         save_model()

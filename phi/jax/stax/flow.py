@@ -1,6 +1,6 @@
 # pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
 """
-Standard import for Jax mode without neural network support.
+Standard import for Jax + Stax mode.
 
 Extends the import `from phi.flow import *` by Jax-related functions and modules.
 
@@ -11,15 +11,5 @@ New tensors created via `phi.math` functions will be backed by Jax tensors.
 
 See `phi.flow`, `phi.torch.flow`, `phi.tf.flow`.
 """
-
-from phi.flow import *
-from . import JAX
-import jax
-import jax.numpy as jnp
-import jax.scipy as jsp
-
-if not backend.context_backend():
-    backend.set_global_default_backend(JAX)
-else:
-    import warnings
-    warnings.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")
+from ..flow import *
+from ._stax import parameter_count, save_state, load_state, dense_net, u_net, update_weights, adam
