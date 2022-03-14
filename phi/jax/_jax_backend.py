@@ -220,8 +220,8 @@ class JaxBackend(Backend):
             return real + 1j * imag
         elif dtype.kind == int:
             tensor = random.randint(subkey, shape, low, high, dtype=jdt)
-            if tensor.dtype != dtype:
-                warnings.warn(f"Jax failed to sample random integers with dtype '{dtype}', returned {tensor.dtype} instead.")
+            if tensor.dtype != jdt:
+                warnings.warn(f"Jax failed to sample random integers with dtype {dtype}, returned {tensor.dtype} instead.")
         else:
             raise ValueError(dtype)
         return jax.device_put(tensor, self._default_device.ref)
