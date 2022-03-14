@@ -6,6 +6,7 @@ import phi
 import phi.vis._vis_base as display
 from phi.field import Field
 from phi.math.backend import Backend
+from phi.vis._vis import force_use_gui
 
 DEMOS_DIR = join(dirname(dirname(dirname(abspath(__file__)))), 'demos')
 BACKENDS = list(phi.detect_backends())
@@ -42,7 +43,7 @@ def demo_run(name, backends=BACKENDS):
     if DEMOS_DIR not in sys.path:
         print(f"Registering Python source directory {DEMOS_DIR}")
         sys.path.append(DEMOS_DIR)
-    with display.force_use_gui(PerformModelTests()):
+    with force_use_gui(PerformModelTests()):
         for backend_ in backends:
             with backend_:
                 print(f"Testing demo {name}.py with {backend_}")
