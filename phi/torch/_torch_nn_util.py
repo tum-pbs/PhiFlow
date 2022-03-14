@@ -76,7 +76,7 @@ def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Ca
     loss, *aux = loss_function(*loss_args, **loss_kwargs)
     loss.sum.backward()
     optimizer.step()
-    return (loss,) + aux
+    return (loss,) + tuple(aux)
 
 
 def adam(net: nn.Module, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
