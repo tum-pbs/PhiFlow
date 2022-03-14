@@ -35,14 +35,15 @@ from typing import Tuple
 from phi import math, field
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
 from phi.geom import union
+from ..field._grid import GridType
 from ..math import extrapolation
 from ..math._tensors import copy_with
 from ..math.extrapolation import combine_sides
 
 
-def make_incompressible(velocity: Grid,
+def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
-                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[Grid, CenteredGrid]:
+                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[GridType, CenteredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -192,7 +193,7 @@ Cells outside far away will be unaffected.</p>
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._grid.Grid, obstacles: tuple = (), solve=auto with tolerance 9.999999747378752e-06 (rel), 9.999999747378752e-06 (abs), max_iterations=1000) ‑> Tuple[phi.field._grid.Grid, phi.field._grid.CenteredGrid]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: tuple = (), solve=auto with tolerance 9.999999747378752e-06 (rel), 9.999999747378752e-06 (abs), max_iterations=1000) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -217,9 +218,9 @@ Cells outside far away will be unaffected.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def make_incompressible(velocity: Grid,
+<pre><code class="python">def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
-                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[Grid, CenteredGrid]:
+                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[GridType, CenteredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     

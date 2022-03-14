@@ -809,7 +809,7 @@ The output of math operations has the same precision as its inputs.</p>
     def transpose(self, tensor, axes):
         raise NotImplementedError()
 
-    def random_uniform(self, shape):
+    def random_uniform(self, shape, low, high, dtype: DType or None):
         &#34;&#34;&#34; Float tensor of selected precision containing random values in the range [0, 1) &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -3728,7 +3728,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.random_uniform"><code class="name flex">
-<span>def <span class="ident">random_uniform</span></span>(<span>self, shape)</span>
+<span>def <span class="ident">random_uniform</span></span>(<span>self, shape, low, high, dtype: phi.math.backend._dtype.DType)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Float tensor of selected precision containing random values in the range [0, 1)</p></div>
@@ -3736,7 +3736,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def random_uniform(self, shape):
+<pre><code class="python">def random_uniform(self, shape, low, high, dtype: DType or None):
     &#34;&#34;&#34; Float tensor of selected precision containing random values in the range [0, 1) &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>

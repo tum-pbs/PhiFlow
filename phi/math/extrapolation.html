@@ -158,6 +158,21 @@ class Extrapolation:
     def native_grid_sample_mode(self) -&gt; Union[str, None]:
         return None
 
+    def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
+        &#34;&#34;&#34;
+        Computes the shortest distance between two points.
+        Both points are assumed to lie within the domain
+
+        Args:
+            start: Start position.
+            end: End position.
+            domain_size: Domain side lengths as vector.
+
+        Returns:
+            Shortest distance from `start` to `end`.
+        &#34;&#34;&#34;
+        return end - start
+
     def __getitem__(self, item):
         return self
 
@@ -243,8 +258,8 @@ class ConstantExtrapolation(Extrapolation):
             raise NotImplementedError()
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
-        raise NotImplementedError()
-        # return math.zeros()
+        shape = value.shape.after_gather({dimension: slice(0, width)})
+        return math.expand(self.value, shape)
 
     def __eq__(self, other):
         return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
@@ -540,6 +555,10 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
             raise NotImplementedError(&#34;Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor.&#34; % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
         return value.shift(lower, value.shape.after_pad(widths), lambda v: self.pad(v, widths), lambda b: ZERO.pad(b, widths))
+
+    def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
+        dx = end - start
+        return (dx + domain_size / 2) % domain_size - domain_size / 2
 
 
 class _SymmetricExtrapolation(_CopyExtrapolation):
@@ -1130,8 +1149,8 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
             raise NotImplementedError()
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -&gt; Tensor:
-        raise NotImplementedError()
-        # return math.zeros()
+        shape = value.shape.after_gather({dimension: slice(0, width)})
+        return math.expand(self.value, shape)
 
     def __eq__(self, other):
         return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
@@ -1347,6 +1366,7 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
 <li><code><a title="phi.math.extrapolation.Extrapolation.connects_to_outside" href="#phi.math.extrapolation.Extrapolation.connects_to_outside">connects_to_outside</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.is_copy_pad" href="#phi.math.extrapolation.Extrapolation.is_copy_pad">is_copy_pad</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.pad_values" href="#phi.math.extrapolation.Extrapolation.pad_values">pad_values</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.shortest_distance" href="#phi.math.extrapolation.Extrapolation.shortest_distance">shortest_distance</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.spatial_gradient" href="#phi.math.extrapolation.Extrapolation.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.to_dict" href="#phi.math.extrapolation.Extrapolation.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.transform_coordinates" href="#phi.math.extrapolation.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>
@@ -1483,11 +1503,27 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
     def native_grid_sample_mode(self) -&gt; Union[str, None]:
         return None
 
+    def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
+        &#34;&#34;&#34;
+        Computes the shortest distance between two points.
+        Both points are assumed to lie within the domain
+
+        Args:
+            start: Start position.
+            end: End position.
+            domain_size: Domain side lengths as vector.
+
+        Returns:
+            Shortest distance from `start` to `end`.
+        &#34;&#34;&#34;
+        return end - start
+
     def __getitem__(self, item):
         return self</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li>phi.field._stitched.Stitch</li>
 <li><a title="phi.math.extrapolation.ConstantExtrapolation" href="#phi.math.extrapolation.ConstantExtrapolation">ConstantExtrapolation</a></li>
 <li>phi.math.extrapolation._CopyExtrapolation</li>
 <li>phi.math.extrapolation._MixedExtrapolation</li>
@@ -1637,6 +1673,43 @@ def native_grid_sample_mode(self) -&gt; Union[str, None]:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.math.extrapolation.Extrapolation.shortest_distance"><code class="name flex">
+<span>def <span class="ident">shortest_distance</span></span>(<span>self, start: phi.math._tensors.Tensor, end: phi.math._tensors.Tensor, domain_size: phi.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the shortest distance between two points.
+Both points are assumed to lie within the domain</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>start</code></strong></dt>
+<dd>Start position.</dd>
+<dt><strong><code>end</code></strong></dt>
+<dd>End position.</dd>
+<dt><strong><code>domain_size</code></strong></dt>
+<dd>Domain side lengths as vector.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Shortest distance from <code>start</code> to <code>end</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
+    &#34;&#34;&#34;
+    Computes the shortest distance between two points.
+    Both points are assumed to lie within the domain
+
+    Args:
+        start: Start position.
+        end: End position.
+        domain_size: Domain side lengths as vector.
+
+    Returns:
+        Shortest distance from `start` to `end`.
+    &#34;&#34;&#34;
+    return end - start</code></pre>
+</details>
+</dd>
 <dt id="phi.math.extrapolation.Extrapolation.spatial_gradient"><code class="name flex">
 <span>def <span class="ident">spatial_gradient</span></span>(<span>self) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
 </code></dt>
@@ -1784,6 +1857,7 @@ This is the default implementation.</p>
 <li><code><a title="phi.math.extrapolation.Extrapolation.native_grid_sample_mode" href="#phi.math.extrapolation.Extrapolation.native_grid_sample_mode">native_grid_sample_mode</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.pad" href="#phi.math.extrapolation.Extrapolation.pad">pad</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.pad_values" href="#phi.math.extrapolation.Extrapolation.pad_values">pad_values</a></code></li>
+<li><code><a title="phi.math.extrapolation.Extrapolation.shortest_distance" href="#phi.math.extrapolation.Extrapolation.shortest_distance">shortest_distance</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.spatial_gradient" href="#phi.math.extrapolation.Extrapolation.spatial_gradient">spatial_gradient</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.to_dict" href="#phi.math.extrapolation.Extrapolation.to_dict">to_dict</a></code></li>
 <li><code><a title="phi.math.extrapolation.Extrapolation.transform_coordinates" href="#phi.math.extrapolation.Extrapolation.transform_coordinates">transform_coordinates</a></code></li>

@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>phi.torch.flow API documentation</title>
-<meta name="description" content="Standard import for PyTorch mode …" />
+<title>phi.jax.stax.flow API documentation</title>
+<meta name="description" content="Standard import for Jax + Stax mode …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -19,47 +19,34 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>phi.torch.flow</code></h1>
+<h1 class="title">Module <code>phi.jax.stax.flow</code></h1>
 </header>
 <section id="section-intro">
-<p>Standard import for PyTorch mode.</p>
-<p>Extends the import <code>from phi.flow import *</code> by PyTorch-related functions and modules.</p>
-<p>The following PyTorch modules are included: <code>torch</code>, <em>torch.nn.functional</em> as <code>torchf</code>, <code>optim</code>.</p>
-<p>Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
-New tensors created via <code><a title="phi.math" href="../math/index.html">phi.math</a></code> functions will be backed by PyTorch tensors.</p>
-<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.tf.flow" href="../tf/flow.html">phi.tf.flow</a></code>, <code><a title="phi.jax.flow" href="../jax/flow.html">phi.jax.flow</a></code>.</p>
+<p>Standard import for Jax + Stax mode.</p>
+<p>Extends the import <code>from phi.flow import *</code> by Jax-related functions and modules.</p>
+<p>The following Jax modules are included: <code>jax</code>, <code>jax.numpy</code> as <code>jnp</code>, <code>jax.scipy</code> as <code>jsp</code>.</p>
+<p>Importing this module registers the Jax backend as the default backend unless called within a backend context.
+New tensors created via <code><a title="phi.math" href="../../math/index.html">phi.math</a></code> functions will be backed by Jax tensors.</p>
+<p>See <code><a title="phi.flow" href="../../flow.html">phi.flow</a></code>, <code><a title="phi.torch.flow" href="../../torch/flow.html">phi.torch.flow</a></code>, <code><a title="phi.tf.flow" href="../../tf/flow.html">phi.tf.flow</a></code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python"># pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
 &#34;&#34;&#34;
-Standard import for PyTorch mode.
+Standard import for Jax + Stax mode.
 
-Extends the import `from phi.flow import *` by PyTorch-related functions and modules.
+Extends the import `from phi.flow import *` by Jax-related functions and modules.
 
-The following PyTorch modules are included: `torch`, *torch.nn.functional* as `torchf`, `optim`.
+The following Jax modules are included: `jax`, `jax.numpy` as `jnp`, `jax.scipy` as `jsp`.
 
-Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
-New tensors created via `phi.math` functions will be backed by PyTorch tensors.
+Importing this module registers the Jax backend as the default backend unless called within a backend context.
+New tensors created via `phi.math` functions will be backed by Jax tensors.
 
-See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
+See `phi.flow`, `phi.torch.flow`, `phi.tf.flow`.
 &#34;&#34;&#34;
-
-from phi.flow import *
-from . import TORCH
-from ._torch_nn_util import parameter_count, save_state, load_state, dense_net, u_net, update_weights, adam
-
-import torch
-import torch.nn.functional as torchf
-import torch.optim as optim
-
-
-if not backend.context_backend():
-    backend.set_global_default_backend(TORCH)
-else:
-    import warnings
-    warnings.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>
+from ..flow import *
+from ._stax import parameter_count, save_state, load_state, dense_net, u_net, update_weights, adam</code></pre>
 </details>
 </section>
 <section>
@@ -79,7 +66,7 @@ else:
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="phi.torch" href="index.html">phi.torch</a></code></li>
+<li><code><a title="phi.jax.stax" href="index.html">phi.jax.stax</a></code></li>
 </ul>
 </li>
 </ul>

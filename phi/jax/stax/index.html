@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>phi.torch.flow API documentation</title>
-<meta name="description" content="Standard import for PyTorch mode …" />
+<title>phi.jax.stax API documentation</title>
+<meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -19,50 +19,18 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>phi.torch.flow</code></h1>
+<h1 class="title">Module <code>phi.jax.stax</code></h1>
 </header>
 <section id="section-intro">
-<p>Standard import for PyTorch mode.</p>
-<p>Extends the import <code>from phi.flow import *</code> by PyTorch-related functions and modules.</p>
-<p>The following PyTorch modules are included: <code>torch</code>, <em>torch.nn.functional</em> as <code>torchf</code>, <code>optim</code>.</p>
-<p>Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
-New tensors created via <code><a title="phi.math" href="../math/index.html">phi.math</a></code> functions will be backed by PyTorch tensors.</p>
-<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.tf.flow" href="../tf/flow.html">phi.tf.flow</a></code>, <code><a title="phi.jax.flow" href="../jax/flow.html">phi.jax.flow</a></code>.</p>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python"># pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
-&#34;&#34;&#34;
-Standard import for PyTorch mode.
-
-Extends the import `from phi.flow import *` by PyTorch-related functions and modules.
-
-The following PyTorch modules are included: `torch`, *torch.nn.functional* as `torchf`, `optim`.
-
-Importing this module registers the PyTorch backend as the default backend unless called within a backend context.
-New tensors created via `phi.math` functions will be backed by PyTorch tensors.
-
-See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
-&#34;&#34;&#34;
-
-from phi.flow import *
-from . import TORCH
-from ._torch_nn_util import parameter_count, save_state, load_state, dense_net, u_net, update_weights, adam
-
-import torch
-import torch.nn.functional as torchf
-import torch.optim as optim
-
-
-if not backend.context_backend():
-    backend.set_global_default_backend(TORCH)
-else:
-    import warnings
-    warnings.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>
-</details>
 </section>
 <section>
+<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+<dl>
+<dt><code class="name"><a title="phi.jax.stax.flow" href="flow.html">phi.jax.stax.flow</a></code></dt>
+<dd>
+<div class="desc"><p>Standard import for Jax + Stax mode …</p></div>
+</dd>
+</dl>
 </section>
 <section>
 </section>
@@ -79,7 +47,12 @@ else:
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="phi.torch" href="index.html">phi.torch</a></code></li>
+<li><code><a title="phi.jax" href="../index.html">phi.jax</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<ul>
+<li><code><a title="phi.jax.stax.flow" href="flow.html">phi.jax.stax.flow</a></code></li>
 </ul>
 </li>
 </ul>

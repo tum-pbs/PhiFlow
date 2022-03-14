@@ -61,6 +61,7 @@ from ._field import Field, SampledField, unstack, sample, reduce_sample
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import Grid, CenteredGrid, StaggeredGrid
+from ._stitched import StitchedGrid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
@@ -2049,7 +2050,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 </details>
 </dd>
 <dt id="phi.field.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>fields, dim: phi.math._shape.Shape)</span>
+<span>def <span class="ident">stack</span></span>(<span>fields, dim: phi.math._shape.Shape, dim_bounds: phi.geom._box.Box = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stacks the given <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>s along <code>dim</code>.</p>
@@ -2068,7 +2069,7 @@ The <code>field</code> must not have a dimension of the same name.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(fields, dim: Shape):
+<pre><code class="python">def stack(fields, dim: Shape, dim_bounds: Box = None):
     &#34;&#34;&#34;
     Stacks the given `SampledField`s along `dim`.
 
@@ -2088,7 +2089,12 @@ The <code>field</code> must not have a dimension of the same name.</dd>
         raise NotImplementedError(&#34;Concatenating extrapolations not supported&#34;)
     if isinstance(fields[0], Grid):
         values = math.stack([f.values for f in fields], dim)
-        return fields[0].with_values(values)
+        if spatial(dim):
+            if dim_bounds is None:
+                dim_bounds = Box(**{dim.name: len(fields)})
+            return type(fields[0])(values, extrapolation=fields[0].extrapolation, bounds=fields[0].bounds * dim_bounds)
+        else:
+            return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
         elements = geom.stack([f.elements for f in fields], dim=dim)
         values = math.stack([f.values for f in fields], dim=dim)
@@ -2564,7 +2570,13 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 <div class="desc"><p>Model of a single vortex or set of vortices.
 The falloff of the velocity magnitude can be controlled.</p>
 <p>Without a specified falloff, the velocity increases linearly with the distance from the vortex center.
-This is the case with rotating rigid bodies, for example.</p></div>
+This is the case with rotating rigid bodies, for example.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2644,7 +2656,7 @@ def shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values: Any, extrapolation: Any = 0.0, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
+<span>(</span><span>values: Any, extrapolation: Any = 0.0, bounds: phi.geom._box.Box = None, resolution: int = None, **resolution_: int)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
@@ -2704,7 +2716,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
                  values: Any,
                  extrapolation: Any = 0.,
                  bounds: Box = None,
-                 resolution: Shape = None,
+                 resolution: int or Shape = None,
                  **resolution_: int or Tensor):
         &#34;&#34;&#34;
         Args:
@@ -2730,6 +2742,9 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
             bounds = bounds or Box(0, math.wrap(resolution, channel(&#39;vector&#39;)))
             elements = GridCell(resolution, bounds)
         else:
+            if isinstance(resolution, int):
+                assert not resolution_, &#34;Cannot specify keyword resolution and integer resolution at the same time.&#34;
+                resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names(&#39;vector&#39;)})
             resolution = (resolution or math.EMPTY_SHAPE) &amp; spatial(**resolution_)
             bounds = bounds or Box(0, math.wrap(resolution, channel(&#39;vector&#39;)))
             elements = GridCell(resolution, bounds)
@@ -2836,7 +2851,13 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 <span>(</span><span>value=1.0)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Deprecated.</p></div>
+<div class="desc"><p>Deprecated.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2917,6 +2938,7 @@ def shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.field.Field"><code class="flex name class">
 <span>class <span class="ident">Field</span></span>
+<span>(</span><span>bounds: phi.geom._box.Box)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -2927,7 +2949,13 @@ def shape(self) -&gt; Shape:
 <li>PointCloud</li>
 <li>Noise</li>
 </ul>
-<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p></div>
+<p>See the <code><a title="phi.field" href="#phi.field">phi.field</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2945,6 +2973,15 @@ def shape(self) -&gt; Shape:
     
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     &#34;&#34;&#34;
+
+    def __init__(self, bounds: Box or None):
+        &#34;&#34;&#34;
+        Args:
+            bounds: Bounds inside which the values of this `Field` are valid.
+                The bounds will also be used as axis limits for plots.
+        &#34;&#34;&#34;
+        assert bounds is None or isinstance(bounds, Box), &#39;Invalid bounds.&#39;
+        self._bounds = bounds
 
     @property
     def shape(self) -&gt; Shape:
@@ -2964,6 +3001,16 @@ def shape(self) -&gt; Shape:
         This is equal to the spatial rank of the `data`.
         &#34;&#34;&#34;
         return self.shape.spatial.rank
+
+    @property
+    def bounds(self) -&gt; Box:
+        &#34;&#34;&#34;
+        The bounds represent the area inside which the values of this `Field` are valid.
+        The bounds will also be used as axis limits for plots.
+
+        The bounds can be set manually in the constructor, otherwise default bounds will be generated.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
 
     def _sample(self, geometry: Geometry) -&gt; math.Tensor:
         &#34;&#34;&#34; For internal use only. Use `sample()` instead. &#34;&#34;&#34;
@@ -3063,9 +3110,30 @@ def shape(self) -&gt; Shape:
 <li>phi.field._field.SampledField</li>
 <li>phi.field._mask.HardGeometryMask</li>
 <li>phi.field._noise.Noise</li>
+<li>phi.field._stitched.StitchedGrid</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.field.Field.bounds"><code class="name">var <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
+<dd>
+<div class="desc"><p>The bounds represent the area inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</p>
+<p>The bounds can be set manually in the constructor, otherwise default bounds will be generated.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def bounds(self) -&gt; Box:
+    &#34;&#34;&#34;
+    The bounds represent the area inside which the values of this `Field` are valid.
+    The bounds will also be used as axis limits for plots.
+
+    The bounds can be set manually in the constructor, otherwise default bounds will be generated.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.field.Field.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Returns a shape with the following properties</p>
@@ -3229,11 +3297,10 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
     &#34;&#34;&#34;
 
     def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, resolution: Shape, bounds: Box):
-        SampledField.__init__(self, elements, values, extrapolation)
+        SampledField.__init__(self, elements, values, extrapolation, bounds)
         assert values.shape.spatial_rank == elements.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
         assert values.shape.spatial_rank == bounds.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
         assert values.shape.instance_rank == 0, f&#34;Instance dimensions not supported for grids. Got values with shape {values.shape}&#34;
-        self._bounds = bounds
         self._resolution = resolution
 
     def closest_values(self, points: Geometry):
@@ -3333,7 +3400,9 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <dl>
 <dt id="phi.field.Grid.bounds"><code class="name">var <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The bounds represent the area inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</p>
+<p>The bounds can be set manually in the constructor, otherwise default bounds will be generated.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3488,7 +3557,13 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 </code></dt>
 <dd>
 <div class="desc"><p>Field that takes the value 1 inside a Geometry object and 0 outside.
-For volume sampling, performs sampling at the center points.</p></div>
+For volume sampling, performs sampling at the center points.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3681,7 +3756,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
 <span>class <span class="ident">PointCloud</span></span>
-<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1, extrapolation: float = 0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: Any = 1.0, extrapolation: float = 0, add_overlapping=False, bounds: phi.geom._box.Box = None, color: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A point cloud consists of elements at arbitrary locations.
@@ -3727,7 +3802,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
 
     def __init__(self,
                  elements: Geometry,
-                 values: Any = 1,
+                 values: Any = 1.,
                  extrapolation: float or math.extrapolation = 0,
                  add_overlapping=False,
                  bounds: Box = None,
@@ -3741,10 +3816,8 @@ When sampling this field on a grid, scatter functions may be used.</p>
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
           color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         &#34;&#34;&#34;
-        SampledField.__init__(self, elements, math.wrap(values), extrapolation)
+        SampledField.__init__(self, elements, math.wrap(values), extrapolation, bounds)
         self._add_overlapping = add_overlapping
-        assert bounds is None or isinstance(bounds, Box), &#39;Invalid bounds.&#39;
-        self._bounds = bounds
         color = &#39;#0060ff&#39; if color is None else color
         self._color = math.wrap(color, instance(&#39;points&#39;)) if isinstance(color, (tuple, list)) else math.wrap(color)
 
@@ -3785,6 +3858,27 @@ When sampling this field on a grid, scatter functions may be used.</p>
 
     def __variable_attrs__(self):
         return &#39;_values&#39;, &#39;_elements&#39;
+
+    def __eq__(self, other):
+        if not type(self) == type(other):
+            return False
+        # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
+        if type(self.elements) is not type(other.elements):
+            return False
+        if self.extrapolation != other.extrapolation:
+            return False
+        if self._add_overlapping != other._add_overlapping:
+            return False
+        if self.values is None:
+            return other.values is None
+        if other.values is None:
+            return False
+        if not math.all_available(self.values) or not math.all_available(other.values):  # tracers involved
+            if math.all_available(self.values) != math.all_available(other.values):
+                return False
+            else:  # both tracers
+                return self.values.shape == other.values.shape
+        return bool((self.values == other.values).all)
 
     @property
     def bounds(self) -&gt; Box:
@@ -3850,7 +3944,9 @@ When sampling this field on a grid, scatter functions may be used.</p>
 <dl>
 <dt id="phi.field.PointCloud.bounds"><code class="name">var <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>The bounds represent the area inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</p>
+<p>The bounds can be set manually in the constructor, otherwise default bounds will be generated.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3980,7 +4076,7 @@ def spatial_rank(self) -&gt; int:
 </dd>
 <dt id="phi.field.SampledField"><code class="flex name class">
 <span>class <span class="ident">SampledField</span></span>
-<span>(</span><span>elements: phi.geom._geom.Geometry, values: phi.math._tensors.Tensor, extrapolation: float)</span>
+<span>(</span><span>elements: phi.geom._geom.Geometry, values: phi.math._tensors.Tensor, extrapolation: float, bounds: phi.geom._box.Box)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
@@ -4002,13 +4098,14 @@ def spatial_rank(self) -&gt; int:
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     &#34;&#34;&#34;
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, bounds: Box or None):
         &#34;&#34;&#34;
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
         &#34;&#34;&#34;
+        super().__init__(bounds)
         if not isinstance(extrapolation, math.Extrapolation):
             extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         assert isinstance(extrapolation, Extrapolation), f&#34;Not a valid extrapolation: {extrapolation}&#34;
@@ -5315,7 +5412,13 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 <span>(</span><span>geometry: phi.geom._geom.Geometry, balance: phi.math._tensors.Tensor = 0.5)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.</p></div>
+<div class="desc"><p>When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5345,7 +5448,13 @@ One NumPy file will be created for each <code><a title="phi.field.Field" href="#
 <span>(</span><span>geometry: phi.geom._geom.Geometry, balance: phi.math._tensors.Tensor = 0.5)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.</p></div>
+<div class="desc"><p>When sampled given another geometry, the approximate overlap between the geometries is computed, allowing for fractional values between 0 and 1.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5469,6 +5578,9 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
             bounds = bounds or Box(0, math.wrap(resolution, channel(&#39;vector&#39;)))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
+            if isinstance(resolution, int):
+                assert not resolution_, &#34;Cannot specify keyword resolution and integer resolution at the same time.&#34;
+                resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names(&#39;vector&#39;)})
             resolution = (resolution or math.EMPTY_SHAPE) &amp; spatial(**resolution_)
             bounds = bounds or Box(0, math.wrap(resolution, channel(&#39;vector&#39;)))
             elements = staggered_elements(resolution, bounds, extrapolation)
@@ -5717,6 +5829,196 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 </dd>
 </dl>
 </dd>
+<dt id="phi.field.StitchedGrid"><code class="flex name class">
+<span>class <span class="ident">StitchedGrid</span></span>
+<span>(</span><span>values: Any, extrapolation: Any = 0.0, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, block_res: int = 32, **resolution_: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Blocks laid out in a grid.
+Each block is a grid whose resolution can be changed at runtime.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>Initial values, see <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> constructor.</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>Extrapolation for the outer edges.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds of the total grid.</dd>
+<dt><strong><code>resolution</code></strong></dt>
+<dd>Optional resolution as <code>Shape</code>, otherwise uses resolution keyword arguments.</dd>
+<dt><strong><code>block_res</code></strong></dt>
+<dd><code>int</code> or <code>Shape</code></dd>
+<dt><strong><code>**resolution_</code></strong></dt>
+<dd>Number of blocks along each spatial dimension.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class StitchedGrid(Field):
+    &#34;&#34;&#34;
+    Blocks laid out in a grid.
+    Each block is a grid whose resolution can be changed at runtime.
+    &#34;&#34;&#34;
+
+    def __init__(self,
+                 values: Any,
+                 extrapolation: Any = 0.,
+                 bounds: Box = None,
+                 resolution: Shape = None,
+                 block_res: int or Shape = 32,
+                 **resolution_: int or Tensor):
+        &#34;&#34;&#34;
+        Args:
+            values: Initial values, see `CenteredGrid` constructor.
+            extrapolation: Extrapolation for the outer edges.
+            bounds: Bounds of the total grid.
+            resolution: Optional resolution as `Shape`, otherwise uses resolution keyword arguments.
+            block_res: `int` or `Shape`
+            **resolution_: Number of blocks along each spatial dimension.
+        &#34;&#34;&#34;
+        resolution = (resolution or math.EMPTY_SHAPE) &amp; spatial(**resolution_)
+        bounds = bounds or Box(0, math.wrap(resolution, channel(&#39;vector&#39;)))
+        self._blocks = GridCell(resolution, bounds)
+        self._grids = {}
+        for block_index in resolution.meshgrid():
+            sub_bounds = self._blocks[block_index].bounds
+            stitch = Stitch(self, block_index)
+            sub_grid = CenteredGrid(values, stitch, sub_bounds, resolution=block_res)
+            self._grids[spatial(**block_index)] = sub_grid
+        self._resolution = resolution
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
+        self._extrapolation = extrapolation
+        super().__init__(bounds)
+
+    @property
+    def shape(self) -&gt; Shape:
+        return self._resolution # &amp; math.merge_shapes(grid.shape for grid in self.grids)
+
+    @property
+    def bounds(self) -&gt; Box:
+        return self._bounds
+
+    @property
+    def resolution(self) -&gt; Shape:
+        return self._resolution
+
+    @property
+    def extrapolation(self) -&gt; Extrapolation:
+        return self._extrapolation
+
+    def _sample(self, geometry: Geometry) -&gt; math.Tensor:
+        raise NotImplementedError()
+
+    def __getitem__(self, block_index: dict or Shape) -&gt; &#39;Field&#39;:
+        if not block_index:
+            return self
+        block_index = (block_index if isinstance(block_index, Shape) else spatial(**block_index))._reorder(self._resolution.names)
+        return self._grids[block_index]
+
+    @property
+    def values(self):
+        return math.stack([g.values for g in self._grids.values()], dim=batch(&#39;blocks&#39;))
+
+    def resample_block(self, block_index: dict or Shape, block_res: int or Shape):
+        block_index = (block_index if isinstance(block_index, Shape) else spatial(**block_index))._reorder(self._resolution.names)
+        old_grid = self[block_index]
+        self._grids[block_index] = CenteredGrid(old_grid, old_grid.extrapolation, old_grid.bounds, resolution=block_res)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.field._field.Field</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.field.StitchedGrid.bounds"><code class="name">var <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
+<dd>
+<div class="desc"><p>The bounds represent the area inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
+The bounds will also be used as axis limits for plots.</p>
+<p>The bounds can be set manually in the constructor, otherwise default bounds will be generated.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def bounds(self) -&gt; Box:
+    return self._bounds</code></pre>
+</details>
+</dd>
+<dt id="phi.field.StitchedGrid.extrapolation"><code class="name">var <span class="ident">extrapolation</span> : <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def extrapolation(self) -&gt; Extrapolation:
+    return self._extrapolation</code></pre>
+</details>
+</dd>
+<dt id="phi.field.StitchedGrid.resolution"><code class="name">var <span class="ident">resolution</span> : phi.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def resolution(self) -&gt; Shape:
+    return self._resolution</code></pre>
+</details>
+</dd>
+<dt id="phi.field.StitchedGrid.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"><p>Returns a shape with the following properties</p>
+<ul>
+<li>The spatial dimension names match the dimensions of this Field</li>
+<li>The batch dimensions match the batch dimensions of this Field</li>
+<li>The channel dimensions match the channels of this Field</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape(self) -&gt; Shape:
+    return self._resolution # &amp; math.merge_shapes(grid.shape for grid in self.grids)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.StitchedGrid.values"><code class="name">var <span class="ident">values</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def values(self):
+    return math.stack([g.values for g in self._grids.values()], dim=batch(&#39;blocks&#39;))</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.field.StitchedGrid.resample_block"><code class="name flex">
+<span>def <span class="ident">resample_block</span></span>(<span>self, block_index: dict, block_res: int)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def resample_block(self, block_index: dict or Shape, block_res: int or Shape):
+    block_index = (block_index if isinstance(block_index, Shape) else spatial(**block_index))._reorder(self._resolution.names)
+    old_grid = self[block_index]
+    self._grids[block_index] = CenteredGrid(old_grid, old_grid.extrapolation, old_grid.bounds, resolution=block_res)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 </dl>
 </section>
 </article>
@@ -5820,6 +6122,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 <h4><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></h4>
 <ul class="">
 <li><code><a title="phi.field.Field.at" href="#phi.field.Field.at">at</a></code></li>
+<li><code><a title="phi.field.Field.bounds" href="#phi.field.Field.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.Field.dimension" href="#phi.field.Field.dimension">dimension</a></code></li>
 <li><code><a title="phi.field.Field.shape" href="#phi.field.Field.shape">shape</a></code></li>
 <li><code><a title="phi.field.Field.spatial_rank" href="#phi.field.Field.spatial_rank">spatial_rank</a></code></li>
@@ -5924,6 +6227,17 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 <li><code><a title="phi.field.StaggeredGrid.closest_values" href="#phi.field.StaggeredGrid.closest_values">closest_values</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.staggered_tensor" href="#phi.field.StaggeredGrid.staggered_tensor">staggered_tensor</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.with_extrapolation" href="#phi.field.StaggeredGrid.with_extrapolation">with_extrapolation</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.field.StitchedGrid" href="#phi.field.StitchedGrid">StitchedGrid</a></code></h4>
+<ul class="two-column">
+<li><code><a title="phi.field.StitchedGrid.bounds" href="#phi.field.StitchedGrid.bounds">bounds</a></code></li>
+<li><code><a title="phi.field.StitchedGrid.extrapolation" href="#phi.field.StitchedGrid.extrapolation">extrapolation</a></code></li>
+<li><code><a title="phi.field.StitchedGrid.resample_block" href="#phi.field.StitchedGrid.resample_block">resample_block</a></code></li>
+<li><code><a title="phi.field.StitchedGrid.resolution" href="#phi.field.StitchedGrid.resolution">resolution</a></code></li>
+<li><code><a title="phi.field.StitchedGrid.shape" href="#phi.field.StitchedGrid.shape">shape</a></code></li>
+<li><code><a title="phi.field.StitchedGrid.values" href="#phi.field.StitchedGrid.values">values</a></code></li>
 </ul>
 </li>
 </ul>

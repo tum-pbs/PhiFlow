@@ -40,8 +40,8 @@ Use `plot()` to plot fields using Matplotlib.
 See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 &#34;&#34;&#34;
 from ._viewer import Viewer
-from ._matplotlib import plot_scalars, savefig
-from ._vis import view, control, show, action, plot, overlay
+from ._matplotlib import plot_scalars
+from ._vis import view, control, show, action, plot, overlay, write_image, write_image as savefig
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 
@@ -207,10 +207,12 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <dt><strong><code>title</code></strong></dt>
 <dd><code>bool or str or Tensor</code></dd>
 <dt><strong><code>size</code></strong></dt>
-<dd><code>tuple</code> <code>(width, height)</code> Canvas size in millimeters or lines, depending on <code>lib</code>.</dd>
+<dd>Figure size in inches, <code>(width, height)</code>.</dd>
+<dt><strong><code>same_scale</code></strong></dt>
+<dd>Whether to use the same axis limits for all sub-figures.</dd>
+<dt><strong><code>show_color_bar</code></strong></dt>
+<dd>Whether to display color bars for heat maps.</dd>
 </dl>
-<p>same_scale:
-show_color_bar:</p>
 <h2 id="returns">Returns</h2>
 <p>Figure created for <code>data</code>, not yet shown.</p></div>
 <details class="source">
@@ -234,9 +236,9 @@ show_color_bar:</p>
         down: Batch dimensions along which sub-figures should be laid out vertically.
             `Shape` or comma-separated names as `str`.
         title: `bool or str or Tensor`
-        size: `tuple` `(width, height)` Canvas size in millimeters or lines, depending on `lib`.
-        same_scale:
-        show_color_bar:
+        size: Figure size in inches, `(width, height)`.
+        same_scale: Whether to use the same axis limits for all sub-figures.
+        show_color_bar: Whether to display color bars for heat maps.
 
     Returns:
         Figure created for `data`, not yet shown.
@@ -252,6 +254,7 @@ show_color_bar:</p>
         min_val = max_val = None
     subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
     figure, axes = plots.create_figure(size, rows, cols, subplots, titles=layout(None))
+    LAST_FIGURE[0] = figure
     for pos, fields in positioning.items():
         for f in fields:
             plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
@@ -460,16 +463,35 @@ show_color_bar:</p>
 </details>
 </dd>
 <dt id="phi.vis.savefig"><code class="name flex">
-<span>def <span class="ident">savefig</span></span>(<span>filename: str, transparent=True)</span>
+<span>def <span class="ident">savefig</span></span>(<span>path: str, figure=None, dpi=120.0)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Save a figure to an image file.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>figure</code></strong></dt>
+<dd>Matplotlib or Plotly figure or text.</dd>
+<dt><strong><code>path</code></strong></dt>
+<dd>File path.</dd>
+<dt><strong><code>dpi</code></strong></dt>
+<dd>Pixels per inch.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def savefig(filename: str, transparent=True):
-    plt.savefig(filename, transparent=transparent)</code></pre>
+<pre><code class="python">def write_image(path: str, figure=None, dpi=120.):
+    &#34;&#34;&#34;
+    Save a figure to an image file.
+
+    Args:
+        figure: Matplotlib or Plotly figure or text.
+        path: File path.
+        dpi: Pixels per inch.
+    &#34;&#34;&#34;
+    figure = figure or LAST_FIGURE[0]
+    lib = get_plots_by_figure(figure)
+    lib.save(figure, path, dpi)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
@@ -553,8 +575,8 @@ For a full list of parameters, see the respective GUI documentation at <a href="
             gui.show(True)  # may be blocking call
     elif len(model) == 0:
         plots = default_plots() if gui is None else get_plots(gui)
-        plots.show()
-    elif all([isinstance(m, (SampledField, Tensor, tuple, list)) for m in model]):
+        plots.show(plots.current_figure)
+    elif all([isinstance(m, (Field, Tensor, tuple, list)) for m in model]):
         plots = default_plots() if gui is None else get_plots(gui)
         fig = plot(*model, lib=plots, **config)
         plots.show(fig)
@@ -684,6 +706,38 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
                            controls=controls, actions=actions, log_performance=log_performance)
     show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
     return viewer</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.write_image"><code class="name flex">
+<span>def <span class="ident">write_image</span></span>(<span>path: str, figure=None, dpi=120.0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Save a figure to an image file.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>figure</code></strong></dt>
+<dd>Matplotlib or Plotly figure or text.</dd>
+<dt><strong><code>path</code></strong></dt>
+<dd>File path.</dd>
+<dt><strong><code>dpi</code></strong></dt>
+<dd>Pixels per inch.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write_image(path: str, figure=None, dpi=120.):
+    &#34;&#34;&#34;
+    Save a figure to an image file.
+
+    Args:
+        figure: Matplotlib or Plotly figure or text.
+        path: File path.
+        dpi: Pixels per inch.
+    &#34;&#34;&#34;
+    figure = figure or LAST_FIGURE[0]
+    lib = get_plots_by_figure(figure)
+    lib.save(figure, path, dpi)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1083,6 +1137,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><code><a title="phi.vis.savefig" href="#phi.vis.savefig">savefig</a></code></li>
 <li><code><a title="phi.vis.show" href="#phi.vis.show">show</a></code></li>
 <li><code><a title="phi.vis.view" href="#phi.vis.view">view</a></code></li>
+<li><code><a title="phi.vis.write_image" href="#phi.vis.write_image">write_image</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
