@@ -123,8 +123,13 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
             axis.plot(x, values)
     elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
         dims = spatial(data)
-        left, bottom = data.bounds.lower.vector[dims]
-        right, top = data.bounds.upper.vector[dims]
+        if data.bounds.upper.vector.item_names is not None:
+            left, bottom = data.bounds.lower.vector[dims]
+            right, top = data.bounds.upper.vector[dims]
+        else:
+            dim_indices = data.resolution.indices(dims)
+            left, bottom = data.bounds.lower.vector[dim_indices]
+            right, top = data.bounds.upper.vector[dim_indices]
         extent = (float(left), float(right), float(bottom), float(top))
         im = axis.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
         if show_color_bar:
