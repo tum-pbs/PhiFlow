@@ -4,22 +4,22 @@ from phi.flow import *
 
 
 def taylor_green_pressure(x):
-    return math.sum(math.cos(2 * x * Q), 'vector') / 4 * math.exp(-4 * Q**2 * t / RE)
+    return math.sum(math.cos(2 * x * VORTEX_COUNT), 'vector') / 4 * math.exp(-4 * VORTEX_COUNT ** 2 * t / RE)
 
 
 def taylor_green_velocity(x):
-    sin = math.sin(Q*x)
-    cos = math.cos(Q*x)
-    return math.exp(-2*Q**2*t/RE) * math.stack({
+    sin = math.sin(VORTEX_COUNT * x)
+    cos = math.cos(VORTEX_COUNT * x)
+    return math.exp(-2 * VORTEX_COUNT ** 2 * t / RE) * math.stack({
         'x': -cos.vector['x'] * sin.vector['y'],
         'y': sin.vector['x'] * cos.vector['y']},
         dim=channel('vector'))
 
 
 DOMAIN = dict(x=64, y=64, bounds=Box(x=2*math.pi, y=2*math.pi), extrapolation=extrapolation.PERIODIC)
-RE = vis.control(1.)
-Q = vis.control(1.)
-dt = vis.control(0.01)
+VORTEX_COUNT = 1
+RE = vis.control(60.)  # Reynolds number for analytic function
+dt = vis.control(0.1)
 t = 0.
 
 analytic_pressure = sim_pressure = CenteredGrid(taylor_green_pressure, **DOMAIN)
