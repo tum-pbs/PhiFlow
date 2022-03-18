@@ -5,6 +5,7 @@ from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
+from phi.field.numerical import Scheme
 from phi.math import copy_with
 
 
@@ -61,6 +62,33 @@ def implicit(field: FieldType,
     if not solve.x0:
         solve = copy_with(solve, x0=field)
     return solve_linear(sharpen, y=field, solve=solve)
+
+
+def finite_difference(grid: Grid,
+                      diffusivity: float or math.Tensor or Field,
+                      dt: float or math.Tensor,
+                      scheme: Scheme = Scheme(2)) -> FieldType:
+
+    """
+    Diffusion by using a finite difference scheme.
+
+
+    Args:
+        grid: CenteredGrid or StaggeredGrid
+        diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+        dt: Time interval. `diffusion_amount = diffusivity * dt`
+        scheme: finite difference `Scheme` used for differentiation
+
+    Returns:
+        Diffused grid of same type as `grid`.
+    """
+
+    amount = diffusivity * dt
+    if isinstance(amount, Field):
+        amount = amount.at(grid)
+
+    grid += amount * laplace(grid, scheme=scheme).with_extrapolation(grid.extrapolation)
+    return grid
 
 
 def fourier(field: GridType,

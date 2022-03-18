@@ -11,6 +11,7 @@ from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spati
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType
+from ..field.numerical import Scheme
 from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
 from ..math._magic_ops import copy_with
 from ..math.extrapolation import combine_sides, Extrapolation
@@ -53,7 +54,8 @@ class Obstacle:
 def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
                         solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5)),
-                        active: CenteredGrid = None) -> Tuple[GridType, CenteredGrid]:
+                        active: CenteredGrid = None,
+                        scheme: Scheme = Scheme(2)) -> Tuple[GridType, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -66,12 +68,15 @@ def make_incompressible(velocity: GridType,
         active: (Optional) Mask for which cells the pressure should be solved.
             If given, the velocity may take `NaN` values where it does not contribute to the pressure.
             Also, the total divergence will never be subtracted if active is given, even if all values are 1.
+        scheme: finite difference `Scheme` used for differentiation
+
 
     Returns:
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     """
     assert isinstance(obstacles, (tuple, list)), f"obstacles must be a tuple or list but got {type(obstacles)}"
+    assert (scheme.order == 2 and not scheme.is_implicit) or obstacles == (), f"obstacles are not supported with higher order schemes"
     obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
     for obstacle in obstacles:
         assert obstacle.geometry.vector.item_names == velocity.vector.item_names, f"Obstacles must live in the same physical space as the velocity field {velocity.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}"
@@ -88,7 +93,7 @@ def make_incompressible(velocity: GridType,
         active *= accessible  # no pressure inside obstacles
     # --- Linear solve ---
     velocity = apply_boundary_conditions(velocity, obstacles)
-    div = divergence(velocity) * active
+    div = divergence(velocity, scheme=scheme) * active
     if not all_active:  # NaN in velocity allowed
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
@@ -99,15 +104,15 @@ def make_incompressible(velocity: GridType,
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
     if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
-    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
+    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active],  f_kwargs={"scheme": scheme}, y=div, solve=solve)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity), scheme=scheme) * hard_bcs
     velocity = velocity - grad_pressure
     return velocity, pressure
 
 
 @math.jit_compile_linear  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
-def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid) -> CenteredGrid:
+def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid, scheme: Scheme) -> CenteredGrid:
     """
     Computes the laplace of `pressure` in the presence of obstacles.
 
@@ -123,10 +128,15 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid)
     Returns:
         `CenteredGrid`
     """
-    grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
-    valid_grad = grad * hard_bcs
-    div = divergence(valid_grad)
-    laplace = where(active, div, pressure)
+
+    if scheme.order == 2 and not scheme.is_implicit:
+        grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
+        valid_grad = grad * hard_bcs
+        div = divergence(valid_grad)
+        laplace = where(active, div, pressure)
+    else:
+        laplace = field.laplace(pressure, scheme=scheme)
+
     return laplace
 
 

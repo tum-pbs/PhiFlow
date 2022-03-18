@@ -607,6 +607,15 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
         else:
             return value[{dim: slice(0, width)}].flip(dim)
 
+class _AntiSymmetricExtrapolation(_SymmetricExtrapolation):
+    """Like _SymmetricExtrapolation but symmetric counterparts are negated for padding"""
+
+    def __repr__(self):
+        return 'antisymmetric'
+
+    def pad_values(self, *args, **kwargs) -> Tensor:
+        return -super().pad_values(*args, **kwargs)
+
 
 class _ReflectExtrapolation(_CopyExtrapolation):
     """Mirror of inner elements. The boundary value is not duplicated."""
@@ -630,6 +639,13 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
         coordinates = coordinates % (2 * shape - 2)
         return (shape - 1) - math.abs_((shape - 1) - coordinates)
+
+
+class _AntiReflectExtrapolation(_ReflectExtrapolation):
+    """Like _ReflectExtrapolation but symmetric counterparts are negated for padding"""
+
+    def pad_values(self, *args, **kwargs) -> Tensor:
+        return -super().pad_values(*args, **kwargs)
 
 
 class _NoExtrapolation(Extrapolation):  # singleton
@@ -763,8 +779,11 @@ BOUNDARY = _BoundaryExtrapolation(2)
 """ Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). """
 SYMMETRIC = _SymmetricExtrapolation(3)
 """ Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. """
+ANTISYMMETRIC = _AntiSymmetricExtrapolation(3)
 REFLECT = _ReflectExtrapolation(4)
 """ Like SYMMETRIC but the edge values are not copied and only occur once per seam. """
+ANTIREFLECT = _AntiReflectExtrapolation(4)
+
 NONE = _NoExtrapolation(-1)
 """ Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. """
 
@@ -1067,8 +1086,12 @@ def from_dict(dictionary: dict) -> Extrapolation:
         return BOUNDARY
     elif etype == 'symmetric':
         return SYMMETRIC
+    elif etype == 'antisymmetric':
+        return ANTISYMMETRIC
     elif etype == 'reflect':
         return REFLECT
+    elif etype == 'antireflect':
+        return ANTISYMMETRIC
     elif etype == 'mixed':
         dims: Dict[str, tuple] = dictionary['dims']
         extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
