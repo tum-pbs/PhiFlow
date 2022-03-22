@@ -14,6 +14,7 @@
 #define FALSE 0
 
 namespace torch_cuda {
+
     // GLOBAL VARIABLES
     void *globalBuffer = NULL;
     size_t globalBufferSize = 0;
@@ -220,11 +221,8 @@ namespace torch_cuda {
         if(trj) {
             std::cout << "Trajectory tracing not supported. Return only final values" << std::endl;
         }
-        std::clock_t begin = std::clock();
-        // CREATE HANDLE AND CSR MATRIX REPRESENTATION
 
         CHECK_CUSPARSE( cusparseCreate(&globalHandle) )
-        // Create sparse matrix A in CSR format
         dC = torch::empty({csr_dim0}, x.options());
         if(csr_values.dtype() == torch::kFloat32) {
             CHECK_CUSPARSE( cusparseCreateCsr(&globalSparseMatrixA, csr_dim0, csr_dim1, nnz,
@@ -253,7 +251,6 @@ namespace torch_cuda {
                                             CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) )
         }
 
-        // CREATE HANDLE AND CSR MATRIX REPRESENTATION
         torch::Tensor sum_y = torch::sum(torch::mul(y,y), -1);
         torch::Tensor atol_sq = atol * atol;
         torch::Tensor tolerance_sq = torch::maximum(rtol * rtol * sum_y, atol_sq); // max([ , , ...], [atol*atol])
@@ -303,11 +300,7 @@ namespace torch_cuda {
         CHECK_CUSPARSE( cusparseDestroyDnVec(dC_cusparse) )
 
         CHECK_CUDA( cudaFree(globalBuffer) )
-        // CLOSE HANDLE AND CSR MATRIX REPRESENTATION
-        std::clock_t end = std::clock();
-        std::cout << double(end - begin) / CLOCKS_PER_SEC << std::endl;
 
-        // Create result tensor with the following variables: x, residual, iterations, function_evaluations, converged, diverged}
         return {x, residual, torch::squeeze(iterations, -1), torch::squeeze(function_evaluations, -1),
         torch::squeeze(converged, -1), torch::squeeze(diverged, -1)};
     }

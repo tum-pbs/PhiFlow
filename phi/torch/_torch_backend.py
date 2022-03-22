@@ -24,7 +24,6 @@ class SparseCSRMatrix:
 
 
 class TorchBackend(Backend):
-
     def __init__(self):
         cpu = NUMPY.cpu
         self.cpu = ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')
@@ -700,12 +699,9 @@ class TorchBackend(Backend):
             raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        def check_matrix_sparsity(lin: SparseCSRMatrix):
-            return print("Matrix is {}% sparse".format(1.0 - len(lin.values) / (lin.shape[0] * lin.shape[1])))
-
         if isinstance(lin, SparseCSRMatrix):
-            if trj == []:
-                trj = False
+            #
+            assert not trj, 'trj is not supported for the custom C++ CG solver.'
 
             # Convert type to int64
             lin.cols = lin.cols.type(torch.int64)
@@ -714,18 +710,11 @@ class TorchBackend(Backend):
             res = torch.ops.torch_cuda.conjugate_gradient(lin.values, lin.cols, lin.rows, lin.shape[0], lin.shape[1],
                                                     lin.values.shape[0], y, x0, rtol, atol, max_iter, trj)
 
-            if trj:
-                last_res = []
-                for inst in res:
-                    x, residual, iterations, function_evaluations, converged, diverged = inst
-                    last_res.append(SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})",
-                                                x, residual, iterations, function_evaluations, converged, diverged, ""))
-                return last_res
-            else:
-                x, residual, iterations, function_evaluations, converged, diverged = res
+            x, residual, iterations, function_evaluations, converged, diverged = res
 
-                return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})",
-                                                x, residual, iterations, function_evaluations, converged, diverged, "")
+            return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})",
+                                            x, residual, iterations, function_evaluations, converged, diverged, "")
+
         if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
             return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
