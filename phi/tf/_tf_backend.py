@@ -155,6 +155,7 @@ class TFBackend(Backend):
 
     def concat(self, values, axis):
         with self._device_for(*values):
+            values = self.auto_cast(*values)
             return tf.concat(values, axis)
 
     def pad(self, value, pad_width, mode='constant', constant_values=0):

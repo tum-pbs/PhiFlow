@@ -884,6 +884,8 @@ class NativeTensor(Tensor):
         return self._shape
 
     def _with_shape_replaced(self, new_shape):
+        if new_shape.rank != self._shape.rank:
+            raise IncompatibleShapes(f"Tensor {self} is not compatible with shape {new_shape}", self._shape, new_shape)
         new_shape = Shape(self._shape.sizes, new_shape.names, new_shape.types, new_shape.item_names)
         return NativeTensor(self._native, new_shape)
 
