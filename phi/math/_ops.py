@@ -621,7 +621,7 @@ def linspace(start, stop, number: int, dim: Shape = channel('linspace')) -> Tens
     return NativeTensor(native, dim.with_sizes([number]))
 
 
-def arange(dim: Shape, start_or_stop: int, stop: int or None = None, step=1):
+def arange(dim: Shape, start_or_stop: int or None = None, stop: int or None = None, step=1):
     """
     Returns evenly spaced values between `start` and `stop`.
     If only one limit is given, `0` is used for the start.
@@ -630,15 +630,20 @@ def arange(dim: Shape, start_or_stop: int, stop: int or None = None, step=1):
         `range_tensor()`, `linspace()`, `meshgrid()`.
 
     Args:
-        dim: Dimension name and type as `Shape` object. The `size` of `dim` is ignored.
-        start_or_stop: Start if two limits are given, stop otherwise. `int`
-        stop: (Optional) `stop`
+        dim: Dimension name and type as `Shape` object.
+            The `size` of `dim` is interpreted as `stop` unless `start_or_stop` is specified.
+        start_or_stop: (Optional) `int`. Interpreted as `start` if `stop` is specified as well. Otherwise this is `stop`.
+        stop: (Optional) `int`. `stop` value.
         step: Distance between values.
 
     Returns:
         `Tensor`
     """
-    if stop is None:
+    if start_or_stop is None:
+        assert stop is None, "start_or_stop must be specified when stop is given."
+        assert isinstance(dim.size, int), "When start_or_stop is not specified, dim.size must be an integer."
+        start, stop = 0, dim.size
+    elif stop is None:
         start, stop = 0, start_or_stop
     else:
         start = start_or_stop
