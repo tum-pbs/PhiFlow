@@ -59,6 +59,7 @@ class MatplotlibPlots(PlottingLibrary):
         """
         plt.tight_layout()
         _plot(subplot, data, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
+        plt.tight_layout()
         return figure
 
     def show(self, figure: plt.Figure):
@@ -120,7 +121,12 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         x = data.points.vector[0].numpy()
         for c in channel(data).meshgrid():
             values = data.values[c].numpy()
-            axis.plot(x, values)
+            if values.dtype in (np.complex64, np.complex128):
+                axis.plot(x, values.real, label='real')
+                axis.plot(x, values.imag, label='imag')
+                axis.legend()
+            else:
+                axis.plot(x, values)
     elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
         dims = spatial(data)
         if data.bounds.upper.vector.item_names is not None:
