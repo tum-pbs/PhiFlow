@@ -381,13 +381,13 @@ class TorchBackend(Backend):
         return torch.zeros(shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def zeros_like(self, tensor):
-        return torch.zeros_like(tensor, device=self.get_default_device().ref)
+        return torch.zeros_like(self.as_tensor(tensor), device=self.get_default_device().ref)
 
     def ones(self, shape, dtype: DType = None):
         return torch.ones(shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def ones_like(self, tensor):
-        return torch.ones_like(tensor, device=self.get_default_device().ref)
+        return torch.ones_like(self.as_tensor(tensor), device=self.get_default_device().ref)
 
     def meshgrid(self, *coordinates):
         coordinates = [self.as_tensor(c) for c in coordinates]

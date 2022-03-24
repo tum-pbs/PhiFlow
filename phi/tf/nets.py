@@ -109,8 +109,7 @@ def dense_net(in_channels: int,
               layers: tuple or list,
               activation='ReLU') -> keras.Model:
     if isinstance(activation, str):
-        activation = {'tanh': keras.activations.tanh,
-                      'ReLU': keras.activations.relu}[activation]
+        activation = [activation]
     dense_layers = [kl.Dense(l, activation=activation) for l in layers]
     return keras.models.Sequential([kl.InputLayer(input_shape=(in_channels,)), *dense_layers, kl.Dense(out_channels, activation='linear')])
 
@@ -119,66 +118,49 @@ def u_net(in_channels: int,
           out_channels: int,
           levels: int = 4,
           filters: int or tuple or list = 16,
-          batch_norm=True,
-          in_spatial: tuple = None) -> keras.Model:
-    if not batch_norm:
-        raise NotImplementedError("only batch_norm=True currently supported")
-    if in_spatial is None:
-        in_spatial = (None, None)
+          batch_norm: bool = True,
+          activation: str or Callable = 'ReLU',
+          in_spatial: tuple or int = 2) -> keras.Model:
+    if isinstance(in_spatial, int):
+        d = in_spatial
+        in_spatial = (None,) * d
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
         filters = (filters,) * levels
+    # --- Construct the U-Net ---
+    x = inputs = keras.Input(shape=in_spatial + (in_channels,))
+    x = double_conv(x, d, filters[0], filters[0], batch_norm, activation)
+    xs = [x]
+    for i in range(1, levels):
+        x = MAX_POOL[d](2, padding="same")(x)
+        x = double_conv(x, d, filters[i], filters[i], batch_norm, activation)
+        xs.insert(0, x)
+    for i in range(1, levels):
+        x = UPSAMPLE[d](2)(x)
+        x = kl.Concatenate()([x, xs[i]])
+        x = double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
+    x = CONV[d](out_channels, 1)(x)
+    return keras.Model(inputs, x)
 
-    inputs = keras.Input(shape=in_spatial + (in_channels,))
 
-    ### [First half of the network: downsampling inputs] ###
+CONV = [None, kl.Conv1D, kl.Conv2D, kl.Conv3D]
+MAX_POOL = [None, kl.MaxPool1D, kl.MaxPool2D, kl.MaxPool3D]
+UPSAMPLE = [None, kl.UpSampling1D, kl.UpSampling2D, kl.UpSampling3D]
+ACTIVATIONS = {'tanh': keras.activations.tanh, 'ReLU': keras.activations.relu, 'Sigmoid': keras.activations.sigmoid}
 
-    # Entry block
-    x = kl.Conv2D(32, 3, strides=2, padding="same")(inputs)
-    x = kl.BatchNormalization()(x)
-    x = kl.Activation("relu")(x)
 
-    previous_block_activation = x  # Set aside residual
-
-    # Blocks 1, 2, 3 are identical apart from the feature depth.
-    for filter_count in filters:  # [64, 128, 256]:
-        x = kl.Activation("relu")(x)
-        x = kl.SeparableConv2D(filter_count, 3, padding="same")(x)
+def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
+    x = CONV[d](mid_channels, 3, padding='same')(x)
+    if batch_norm:
         x = kl.BatchNormalization()(x)
-
-        x = kl.Activation("relu")(x)
-        x = kl.SeparableConv2D(filter_count, 3, padding="same")(x)
+    x = activation(x)
+    x = CONV[d](out_channels, 3, padding='same')(x)
+    if batch_norm:
         x = kl.BatchNormalization()(x)
-
-        x = kl.MaxPooling2D(3, strides=2, padding="same")(x)
-
-        # Project residual
-        residual = kl.Conv2D(filter_count, 1, strides=2, padding="same")(
-            previous_block_activation
-        )
-        x = kl.add([x, residual])  # Add back residual
-        previous_block_activation = x  # Set aside next residual
-
-    ### [Second half of the network: upsampling inputs] ###
-
-    for filter_count in tuple(reversed(filters)) + (filters[-1],):  # [256, 128, 64, 32]:
-        x = kl.Activation("relu")(x)
-        x = kl.Conv2DTranspose(filter_count, 3, padding="same")(x)
-        x = kl.BatchNormalization()(x)
-
-        x = kl.Activation("relu")(x)
-        x = kl.Conv2DTranspose(filter_count, 3, padding="same")(x)
-        x = kl.BatchNormalization()(x)
-
-        x = kl.UpSampling2D(2)(x)
-
-        # Project residual
-        residual = kl.UpSampling2D(2)(previous_block_activation)
-        residual = kl.Conv2D(filter_count, 1, padding="same")(residual)
-        x = kl.add([x, residual])  # Add back residual
-        previous_block_activation = x  # Set aside next residual
-
-    # Add a per-pixel classification layer
-    outputs = kl.Conv2D(out_channels, 3, activation=None, padding="same")(x)
-    return keras.Model(inputs, outputs)
+    x = activation(x)
+    return x

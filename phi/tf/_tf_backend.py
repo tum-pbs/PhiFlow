@@ -162,6 +162,7 @@ class TFBackend(Backend):
             mode = 'symmetric'
         if mode in ('constant', 'symmetric', 'reflect'):
             with tf.device(value.device):
+                constant_values = tf.cast(constant_values, value.dtype)
                 return tf.pad(value, pad_width, mode.upper(), constant_values=constant_values)
         else:
             return NotImplemented

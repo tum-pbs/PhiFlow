@@ -125,9 +125,9 @@ class Shape:
             Indices as `tuple[int]`.
         """
         if isinstance(dims, (list, tuple)):
-            return tuple(self.index(n) for n in dims)
+            return tuple([self.index(n) for n in dims])
         elif isinstance(dims, Shape):
-            return tuple(self.index(n) for n in dims.names)
+            return tuple([self.index(n) for n in dims.names])
         else:
             raise ValueError(f"indices() requires a sequence of dimensions but got {dims}")
 

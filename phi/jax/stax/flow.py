@@ -12,4 +12,4 @@ New tensors created via `phi.math` functions will be backed by Jax tensors.
 See `phi.flow`, `phi.torch.flow`, `phi.tf.flow`.
 """
 from ..flow import *
-from ._stax import parameter_count, save_state, load_state, dense_net, u_net, update_weights, adam
+from .nets import parameter_count, save_state, load_state, dense_net, u_net, update_weights, adam
