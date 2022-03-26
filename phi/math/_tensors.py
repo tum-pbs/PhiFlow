@@ -653,7 +653,7 @@ class TensorDim:
     @property
     def size(self):
         """ Length of this tensor dimension as listed in the `Shape`, otherwise `1`. """
-        assert self.exists, f"Dimension {self.name} does not exist for tensor {self.tensor.shape}"
+        assert self.exists, f"Dimension '{self.name}' does not exist for tensor {self.tensor.shape}"
         return self.tensor.shape.get_size(self.name)
 
     def as_batch(self, name: str = None):
@@ -962,6 +962,7 @@ class NativeTensor(Tensor):
                        unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
+        dims = [dim for dim in dims if dim in self.shape]
         backend = choose_backend(self._native)
         result = native_function(backend, self._native, dim=self._shape.indices(dims))
         return NativeTensor(result, self._shape.without(dims))
