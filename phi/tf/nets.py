@@ -90,10 +90,11 @@ def update_weights(net: keras.Model, optimizer: keras.optimizers.Optimizer, loss
         Output of `loss_function`.
     """
     with tf.GradientTape() as tape:
-        loss, *aux = loss_function(*loss_args, **loss_kwargs)
+        output = loss_function(*loss_args, **loss_kwargs)
+        loss = output[0] if isinstance(output, tuple) else output
         gradients = tape.gradient(loss.sum, net.trainable_variables)
     optimizer.apply_gradients(zip(gradients, net.trainable_variables))
-    return (loss,) + tuple(aux)
+    return output
 
 
 def adam(net: keras.Model, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
