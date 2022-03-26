@@ -5,7 +5,7 @@ from math import log10
 from threading import Lock
 from typing import Tuple, Any, Optional, Dict
 
-from phi import field
+from phi import field, math
 from phi.field import SampledField, Scene
 from phi.math import Shape, EMPTY_SHAPE, Tensor
 
@@ -134,7 +134,7 @@ class VisModel:
 
     def get_field_shape(self, name: str) -> Shape:
         value = self.get_field(name, {})
-        if isinstance(value, SampledField):
+        if isinstance(value, (Tensor, SampledField)):
             return value.shape
         else:
             return EMPTY_SHAPE
@@ -391,12 +391,14 @@ def display_name(python_name):
         return text
 
 
-def select_channel(value: SampledField, channel: str or None):
+def select_channel(value: SampledField or Tensor or tuple or list, channel: str or None):
+    if isinstance(value, (tuple, list)):
+        return [select_channel(v, channel) for v in value]
     if channel is None:
         return value
     elif channel == 'abs':
         if value.vector.exists:
-            return field.vec_abs(value)
+            return field.vec_abs(value) if isinstance(value, SampledField) else math.vec_length(value)
         else:
             return value
     else:  # x, y, z

@@ -9,7 +9,7 @@ from plotly.tools import DEFAULT_PLOTLY_COLORS
 from phi import math, field
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
 from phi.geom import Sphere, BaseBox
-from phi.math import instance, Tensor
+from phi.math import instance, Tensor, spatial
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import PlottingLibrary
@@ -72,16 +72,17 @@ def _plot(data: SampledField,
                 fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Multi-channel'), row=row, col=col)
             fig.update_layout(showlegend=False)
     elif data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape:  # heatmap
-        values = real_values(data).numpy('y,x')
-        x = data.points.vector['x'].y[0].numpy()
-        y = data.points.vector['y'].x[0].numpy()
+        dims = spatial(data)
+        values = real_values(data).numpy(dims.reversed)
+        x = data.points.vector[dims[0].name].dimension(dims[1].name)[0].numpy()
+        y = data.points.vector[dims[1].name].dimension(dims[0].name)[0].numpy()
         min_val, max_val = numpy.nanmin(values), numpy.nanmax(values)
         min_val, max_val = min_val if numpy.isfinite(min_val) else 0, max_val if numpy.isfinite(max_val) else 0
         color_scale = get_div_map(min_val, max_val, equal_scale=True, colormap=colormap)
         # color_bar = graph_objects.heatmap.ColorBar(x=1.15)   , colorbar=color_bar
         fig.add_heatmap(row=row, col=col, x=x, y=y, z=values, zauto=False, zmin=min_val, zmax=max_val, colorscale=color_scale, showscale=show_color_bar)
-        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
-        subplot.yaxis.update(constrain='domain')
+        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain', title=dims.names[0])
+        subplot.yaxis.update(constrain='domain', title=dims.names[1])
     elif data.spatial_rank == 2 and isinstance(data, Grid):  # vector field
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()

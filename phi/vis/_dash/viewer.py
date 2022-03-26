@@ -44,25 +44,12 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
             return fig
         selection = parse_view_settings(app, *settings)
         value = app.model.get_field(field, selection['select'])
-        if isinstance(value, SampledField):
-            value = [value]
-        if isinstance(value, (tuple, list)) and all([isinstance(v, SampledField) for v in value]):
-            try:
-                value = [select_channel(v, selection.get('component', None)) for v in value]
-            except ValueError as err:
-                fig = graph_objects.Figure()
-                fig.update_layout(title_text=str(err.args[0]), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                return fig
-            try:
-                return plot(value, lib='plotly', size=(height, height), same_scale=False, colormap=app.config.get('colormap', None))
-            except BaseException as err:
-                traceback.print_exc()
-                fig = graph_objects.Figure()
-                fig.update_layout(title_text=repr(err), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                return fig
-        else:
+        try:
+            value = select_channel(value, selection.get('component', None))
+            return plot(value, lib='plotly', size=(height, height), same_scale=False, colormap=app.config.get('colormap', None))
+        except ValueError as err:
             fig = graph_objects.Figure()
-            fig.update_layout(title_text=f"{field} = {value}", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig.update_layout(title_text=str(err.args[0]), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             return fig
 
     return layout
