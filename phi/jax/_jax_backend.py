@@ -329,10 +329,10 @@ class JaxBackend(Backend):
         assert value.ndim + 1 == kernel.ndim
         # AutoDiff may require jax.lax.conv_general_dilated
         if zero_padding:
-            result = np.zeros((value.shape[0], kernel.shape[1], *value.shape[2:]), dtype=to_numpy_dtype(self.float_type))
+            result = jnp.zeros((value.shape[0], kernel.shape[1], *value.shape[2:]), dtype=to_numpy_dtype(self.float_type))
         else:
             valid = [value.shape[i + 2] - kernel.shape[i + 3] + 1 for i in range(value.ndim - 2)]
-            result = np.zeros([value.shape[0], kernel.shape[1], *valid], dtype=to_numpy_dtype(self.float_type))
+            result = jnp.zeros([value.shape[0], kernel.shape[1], *valid], dtype=to_numpy_dtype(self.float_type))
         mode = 'same' if zero_padding else 'valid'
         for b in range(value.shape[0]):
             b_kernel = kernel[min(b, kernel.shape[0] - 1)]
@@ -403,21 +403,21 @@ class JaxBackend(Backend):
         if not axes:
             return x
         if len(axes) == 1:
-            return np.fft.fft(x, axis=axes[0]).astype(x.dtype)
+            return jnp.fft.fft(x, axis=axes[0]).astype(x.dtype)
         elif len(axes) == 2:
-            return np.fft.fft2(x, axes=axes).astype(x.dtype)
+            return jnp.fft.fft2(x, axes=axes).astype(x.dtype)
         else:
-            return np.fft.fftn(x, axes=axes).astype(x.dtype)
+            return jnp.fft.fftn(x, axes=axes).astype(x.dtype)
 
     def ifft(self, k, axes: tuple or list):
         if not axes:
             return k
         if len(axes) == 1:
-            return np.fft.ifft(k, axis=axes[0]).astype(k.dtype)
+            return jnp.fft.ifft(k, axis=axes[0]).astype(k.dtype)
         elif len(axes) == 2:
-            return np.fft.ifft2(k, axes=axes).astype(k.dtype)
+            return jnp.fft.ifft2(k, axes=axes).astype(k.dtype)
         else:
-            return np.fft.ifftn(k, axes=axes).astype(k.dtype)
+            return jnp.fft.ifftn(k, axes=axes).astype(k.dtype)
 
     def dtype(self, array) -> DType:
         if isinstance(array, int):
