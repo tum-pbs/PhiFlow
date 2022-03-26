@@ -495,7 +495,7 @@ def _auto_resample(*fields: Field):
     raise AssertionError(f"At least one argument must be a SampledField but got {fields}")
 
 
-def vec_abs(field: SampledField):
+def vec_length(field: SampledField):
     """ See `phi.math.vec_abs()` """
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
