@@ -280,13 +280,16 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
         groups = (batch, *i.shape.spatial.names, i.shape.channel) if channels_last else (batch, i.shape.channel, *i.shape.spatial.names)
         natives.append(reshaped_native(i, groups))
     output = f(*natives)
+    if isinstance(channel_dim, str):
+        channel_dim = channel(channel_dim)
+    assert isinstance(channel_dim, Shape), "channel_dim must be a Shape or str"
     if isinstance(output, (tuple, list)):
         raise NotImplementedError()
     else:
-        groups = (batch, *spatial, channel(channel_dim)) if channels_last else (batch, channel(channel_dim), *spatial)
+        groups = (batch, *spatial, channel_dim) if channels_last else (batch, channel_dim, *spatial)
         result = reshaped_tensor(output, groups)
-        if result.shape.get_size(channel_dim) == 1:
-            result = result.dimension(channel_dim)[0]  # remove vector dim if not required
+        if result.shape.get_size(channel_dim.name) == 1:
+            result = result.dimension(channel_dim.name)[0]  # remove vector dim if not required
         return result
 
 
