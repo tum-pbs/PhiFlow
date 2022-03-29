@@ -14,7 +14,7 @@ from ._shape import (Shape, EMPTY_SHAPE,
                      IncompatibleShapes)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
-    value_attributes, Layout, layout, cached
+    value_attributes, Layout, layout, cached, Sliceable
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
 from .backend._dtype import DType, combine_types
 
@@ -415,8 +415,12 @@ def zeros(*shape: Shape, dtype: DType = None) -> Tensor:
 def zeros_like(obj) -> Tensor:
     """ Create a `Tensor` containing only `0.0` / `0` / `False` with the same shape and dtype as `obj`. """
     nest, values = disassemble_tree(obj)
-    values0 = [zeros(t.shape, dtype=t.dtype) for t in values]
-    return assemble_tree(nest, values0)
+    zeros_ = []
+    for val in obj:
+        val = wrap(val)
+        with val.default_backend:
+            zeros_.append(zeros(val.shape, dtype=val.dtype))
+    return assemble_tree(nest, zeros_)
 
 
 def ones(*shape: Shape, dtype: DType = None) -> Tensor:
@@ -440,7 +444,7 @@ def ones(*shape: Shape, dtype: DType = None) -> Tensor:
 
 def ones_like(tensor: Tensor) -> Tensor:
     """ Create a `Tensor` containing only `1.0` / `1` / `True` with the same shape and dtype as `obj`. """
-    return zeros(tensor.shape, dtype=tensor.dtype) + 1
+    return zeros_like(tensor) + 1
 
 
 def random_normal(*shape: Shape, dtype: DType = None) -> Tensor:
@@ -1754,7 +1758,7 @@ def convolve(value: Tensor,
     return result
 
 
-def unstack(value: Tensor, dim: str or Shape or Callable):
+def unstack(value: Tensor or Sliceable, dim: str or Shape or Callable):
     """
     Unstacks a `Tensor` along one or multiple dimensions.
 
@@ -1770,10 +1774,15 @@ def unstack(value: Tensor, dim: str or Shape or Callable):
     dims = parse_dim_order(dim)
     assert len(dims) > 0, "unstack() requires at least one dimension"
     if len(dims) > 1:
+        assert isinstance(value, Tensor), "Multi-dimensional unstacking only supported for Tensors"
         packed_dim = batch('_unstack')
         value = pack_dims(value, dims, packed_dim)
-        dims = [packed_dim]
-    return value.unstack(dims[0])
+        dims = [packed_dim.name]
+    if isinstance(value, Tensor):
+        return value.unstack(dims[0])
+    else:
+        size = value.shape.get_size(dim)
+        return tuple([value[{dim: i}] for i in range(size)])
 
 
 def boolean_mask(x: Tensor, dim: str, mask: Tensor):

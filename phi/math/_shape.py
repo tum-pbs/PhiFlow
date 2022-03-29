@@ -974,6 +974,7 @@ def _construct_shape(dim_type: str, *args, **dims):
             items = tuple(size)
             size = len(items)
         else:
+            assert size is None or isinstance(size, int), f"Invalid size: {size}"
             items = None
         names += (name,)
         sizes += (size,)
@@ -1220,7 +1221,7 @@ def _size_equal(s1, s2):
         return math.close(s1, s2)
 
 
-def concat_shapes(*shapes: Shape):
+def concat_shapes(*shapes: Shape) -> Shape:
     """
     Creates a `Shape` listing the dimensions of all `shapes` in the given order.
 
