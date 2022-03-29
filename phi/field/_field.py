@@ -2,11 +2,11 @@ from typing import TypeVar, Callable
 
 from phi import math
 from phi.geom import Geometry, Box
-from phi.math import Shape, Tensor, Extrapolation
-from phi.math._shape import SPATIAL_DIM, BATCH_DIM, CHANNEL_DIM, channel
+from phi.math import Shape, Tensor, Extrapolation, channel
+from phi.math._tensors import Sliceable, BoundDim
 
 
-class Field:
+class Field(Sliceable):
     """
     Base class for all fields.
     
@@ -137,14 +137,7 @@ class Field:
             dimension reference
 
         """
-        return _FieldDim(self, name)
-
-    def __getattr__(self, name: str) -> '_FieldDim':
-        if name.startswith('_'):
-            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
-        if hasattr(self.__class__, name):
-            raise RuntimeError(f"Failed to get attribute '{name}' of {self.__class__}")
-        return _FieldDim(self, name)
+        return BoundDim(self, name)
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.shape}"
@@ -359,59 +352,6 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
         return field._sample(geometry)
-
-
-class _FieldDim:
-
-    def __init__(self, field: Field, name: str):
-        self.field = field
-        self.name = name
-
-    @property
-    def exists(self):
-        return self.name in self.field.shape
-
-    def __str__(self):
-        return self.name
-
-    def unstack(self, size: int or None = None):
-        if size is None:
-            return unstack(self.field, self.name)
-        else:
-            if self.exists:
-                unstacked = unstack(self.field, self.name)
-                assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
-                return unstacked
-            else:
-                return (self.field,) * size
-
-    @property
-    def size(self):
-        return self.field.shape.get_size(self.name)
-
-    @property
-    def dim_type(self):
-        return self.field.shape.get_type(self.name)
-
-    @property
-    def is_spatial(self):
-        return self.dim_type == SPATIAL_DIM
-
-    @property
-    def is_batch(self):
-        return self.dim_type == BATCH_DIM
-
-    @property
-    def is_channel(self):
-        return self.dim_type == CHANNEL_DIM
-
-    def __getitem__(self, item):
-        if isinstance(item, str):
-            item = self.field.shape.spatial.index(item)
-        return self.field[{self.name: item}]
-
-    def __call__(self, *args, **kwargs):
-        raise TypeError(f"Method {type(self.field).__name__}.{self.name}() does not exist.")
 
 
 FieldType = TypeVar('FieldType', bound=Field)

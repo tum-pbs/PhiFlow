@@ -15,7 +15,93 @@ from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, de
 from .backend._dtype import DType
 
 
-class Tensor:
+class Sliceable:
+
+    @property
+    def shape(self) -> Shape:
+        """
+        Returns the shape of this object.
+
+        Returns:
+            `Shape`
+        """
+        raise NotImplementedError(self.__class__)
+
+    def __getitem__(self, item: dict) -> 'Sliceable':
+        raise NotImplementedError(self.__class__)
+
+    def __getattr__(self, name: str) -> 'BoundDim':
+        if name.startswith('_'):
+            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
+        if hasattr(self.__class__, name):
+            raise RuntimeError(f"Failed to get attribute '{name}' of {self.__class__}")
+        return BoundDim(self, name)
+
+
+class BoundDim:
+    """
+    Represents a dimension of a sliceable object.
+    Any instance of `BoundDim` is bound to the sliceable object and is immutable.
+    All operations upon the dim affect return a copy of the sliceable object.
+    """
+
+    def __init__(self, obj: Sliceable, name: str):
+        self.obj = obj
+        self.name = name
+
+    @property
+    def exists(self):
+        return self.name in self.obj.shape
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def size(self):
+        return self.obj.shape.get_size(self.name)
+
+    @property
+    def dim_type(self):
+        return self.obj.shape.get_type(self.name)
+
+    @property
+    def is_spatial(self):
+        return self.dim_type == SPATIAL_DIM
+
+    @property
+    def is_batch(self):
+        return self.dim_type == BATCH_DIM
+
+    @property
+    def is_channel(self):
+        return self.dim_type == CHANNEL_DIM
+
+    @property
+    def is_instance(self):
+        return self.dim_type == INSTANCE_DIM
+
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            item = self.obj.shape.spatial.index(item)
+        return self.obj[{self.name: item}]
+
+    def unstack(self, size: int or None = None):
+        from ._ops import unstack
+        if size is None:
+            return unstack(self.obj, self.name)
+        else:
+            if self.exists:
+                unstacked = unstack(self.obj, self.name)
+                assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
+                return unstacked
+            else:
+                return (self.obj,) * size
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError(f"Method {type(self.obj).__name__}.{self.name}() does not exist.")
+
+
+class Tensor(Sliceable):
     """
     Abstract base class to represent structured data of one data type.
     This class replaces the native tensor classes `numpy.ndarray`, `torch.Tensor`, `tensorflow.Tensor` or `jax.numpy.ndarray` as the main data container in Φ<sub>Flow</sub>.

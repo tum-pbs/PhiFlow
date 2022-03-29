@@ -12,6 +12,7 @@ from phi import struct, math, __version__ as phi_version
 from ._field import Field, SampledField
 from ._field_io import read, write
 from ..math import Shape, batch
+from ..math._tensors import Sliceable
 
 
 def read_sim_frame(directory: math.Tensor,
@@ -96,7 +97,7 @@ def get_frames(path: str, field_name: str = None, mode=set.intersection) -> tupl
         return tuple(sorted(frames))
 
 
-class Scene(object):
+class Scene(Sliceable):
     """
     Provides methods for reading and writing simulation data.
 
@@ -113,6 +114,9 @@ class Scene(object):
     def __init__(self, paths: str or math.Tensor):
         self._paths = math.wrap(paths)
         self._properties: dict or None = None
+
+    def __getitem__(self, item: dict):
+        return Scene(self._paths[item])
 
     @property
     def shape(self):
