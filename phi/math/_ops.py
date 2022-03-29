@@ -412,11 +412,11 @@ def zeros(*shape: Shape, dtype: DType = None) -> Tensor:
     return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape)
 
 
-def zeros_like(obj) -> Tensor:
+def zeros_like(obj: Tensor or TensorLike) -> Tensor or TensorLike:
     """ Create a `Tensor` containing only `0.0` / `0` / `False` with the same shape and dtype as `obj`. """
     nest, values = disassemble_tree(obj)
     zeros_ = []
-    for val in obj:
+    for val in values:
         val = wrap(val)
         with val.default_backend:
             zeros_.append(zeros(val.shape, dtype=val.dtype))

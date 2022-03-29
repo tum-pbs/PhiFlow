@@ -328,18 +328,17 @@ class JaxBackend(Backend):
         assert value.shape[1] == kernel.shape[2], f"value has {value.shape[1]} channels but kernel has {kernel.shape[2]}"
         assert value.ndim + 1 == kernel.ndim
         # AutoDiff may require jax.lax.conv_general_dilated
-        if zero_padding:
-            result = jnp.zeros((value.shape[0], kernel.shape[1], *value.shape[2:]), dtype=to_numpy_dtype(self.float_type))
-        else:
-            valid = [value.shape[i + 2] - kernel.shape[i + 3] + 1 for i in range(value.ndim - 2)]
-            result = jnp.zeros([value.shape[0], kernel.shape[1], *valid], dtype=to_numpy_dtype(self.float_type))
-        mode = 'same' if zero_padding else 'valid'
+        result = []
         for b in range(value.shape[0]):
             b_kernel = kernel[min(b, kernel.shape[0] - 1)]
+            result_b = []
             for o in range(kernel.shape[1]):
+                result_b.append(0)
                 for i in range(value.shape[1]):
-                    result[b, o, ...] += scipy.signal.correlate(value[b, i, ...], b_kernel[o, i, ...], mode=mode)
-        return result
+                    # result.at[b, o, ...].set(scipy.signal.correlate(value[b, i, ...], b_kernel[o, i, ...], mode='same' if zero_padding else 'valid'))
+                    result_b[-1] += scipy.signal.correlate(value[b, i, ...], b_kernel[o, i, ...], mode='same' if zero_padding else 'valid')
+            result.append(jnp.stack(result_b, 0))
+        return jnp.stack(result, 0)
 
     def expand_dims(self, a, axis=0, number=1):
         for _i in range(number):
