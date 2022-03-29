@@ -6670,7 +6670,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </details>
 </dd>
 <dt id="phi.math.zeros_like"><code class="name flex">
-<span>def <span class="ident">zeros_like</span></span>(<span>obj) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">zeros_like</span></span>(<span>obj: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> containing only <code>0.0</code> / <code>0</code> / <code>False</code> with the same shape and dtype as <code>obj</code>.</p></div>
@@ -6678,11 +6678,11 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def zeros_like(obj) -&gt; Tensor:
+<pre><code class="python">def zeros_like(obj: Tensor or TensorLike) -&gt; Tensor or TensorLike:
     &#34;&#34;&#34; Create a `Tensor` containing only `0.0` / `0` / `False` with the same shape and dtype as `obj`. &#34;&#34;&#34;
     nest, values = disassemble_tree(obj)
     zeros_ = []
-    for val in obj:
+    for val in values:
         val = wrap(val)
         with val.default_backend:
             zeros_.append(zeros(val.shape, dtype=val.dtype))
