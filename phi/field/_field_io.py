@@ -46,8 +46,9 @@ def write_single_field(field: SampledField, file: str):
         data = field.values.numpy(field.values.shape.names)
     dim_names = field.values.shape.names
     if isinstance(field, Grid):
-        lower = field.box.lower.numpy()
-        upper = field.box.upper.numpy()
+        lower = field.bounds.lower.numpy()
+        upper = field.bounds.upper.numpy()
+        bounds_item_names = field.bounds.size.vector.item_names
         extrap = field.extrapolation.to_dict()
         np.savez_compressed(file,
                             dim_names=dim_names,
@@ -56,6 +57,7 @@ def write_single_field(field: SampledField, file: str):
                             field_type=type(field).__name__,
                             lower=lower,
                             upper=upper,
+                            bounds_item_names=bounds_item_names,
                             extrapolation=extrap,
                             data=data)
     else:
@@ -101,8 +103,9 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
         data = NativeTensor(data, math.Shape(data.shape, tuple(stored['dim_names']), tuple(stored['dim_types']), tuple(dim_item_names)))
         if convert_to_backend:
             data = math.tensor(data, convert=convert_to_backend)
-        lower = math.wrap(stored['lower'])
-        upper = math.wrap(stored['upper'])
+        bounds_item_names = stored.get('bounds_item_names', (None,) * len(stored['lower'] + stored['upper']))
+        lower = math.wrap(stored['lower'], math.channel(vector=tuple(bounds_item_names))) if stored['lower'].ndim > 0 else math.wrap(stored['lower'])
+        upper = math.wrap(stored['upper'], math.channel(vector=tuple(bounds_item_names)))
         extrapolation = math.extrapolation.from_dict(stored['extrapolation'][()])
         if ftype == 'CenteredGrid':
             return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extrapolation)

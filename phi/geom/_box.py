@@ -115,7 +115,9 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
-        assert self.size.vector.item_names is not None, "Cannot project a Box if item names not available"
+        if self.size.vector.item_names is None:
+            assert len(dimensions) == self.spatial_rank, "Cannot project a Box if item names not available"
+            return self
         lower = self.lower.vector[dimensions]
         upper = self.upper.vector[dimensions]
         return Box(lower, upper)
