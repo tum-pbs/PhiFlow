@@ -26,9 +26,9 @@ def troubleshoot():
     import phi
     return f"PhiFlow version {phi.__version__}\n"\
            f"Web interface: {troubleshoot_dash()}\n"\
-           f"TensorFlow: {troubleshoot_tensorflow()}\n"\
            f"PyTorch: {troubleshoot_torch()}\n"\
-           f"Jax: {troubleshoot_jax()}"
+           f"Jax: {troubleshoot_jax()}\n"\
+           f"TensorFlow: {troubleshoot_tensorflow()}\n"  # TF last so avoid VRAM issues
 
 
 def troubleshoot_tensorflow():
@@ -92,9 +92,9 @@ def troubleshoot_torch():
         except BaseException as err:
             return f"Installed ({torch.__version__}) but tests failed with error: {err}"
     if torch.__version__.startswith('1.10.'):
-        return f"Installed ({torch.__version__}), {gpu_count} GPUs available. This version has known bugs with JIT compilation. Recommended: 1.8.2 LTS"
+        return f"Installed ({torch.__version__}), {gpu_count} GPUs available. This version has known bugs with JIT compilation. Recommended: 1.11+ or 1.8.2 LTS"
     if torch.__version__.startswith('1.9.'):
-        return f"Installed ({torch.__version__}), {gpu_count} GPUs available. You may encounter problems importing torch.fft. Recommended: 1.8.2 LTS"
+        return f"Installed ({torch.__version__}), {gpu_count} GPUs available. You may encounter problems importing torch.fft. Recommended: 1.11+ or 1.8.2 LTS"
     return f"Installed ({torch.__version__}), {gpu_count} GPUs available."
 
 
