@@ -44,7 +44,8 @@ class Grid(SampledField):
 
     def with_values(self, values):
         if isinstance(values, math.Tensor):
-            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+            bounds = self.bounds.project(*values.shape.spatial.names)
+            return type(self)(values, extrapolation=self.extrapolation, bounds=bounds)
         else:
             return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
