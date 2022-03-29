@@ -1,3 +1,4 @@
+import warnings
 from typing import Dict, Tuple
 
 import numpy as np
@@ -114,8 +115,10 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
-        indices = self.shape.spatial.index(dimensions)
-        return Box(self.lower[indices], self.upper[indices])
+        assert self.size.vector.item_names is not None, "Cannot project a Box if item names not available"
+        lower = self.lower.vector[dimensions]
+        upper = self.upper.vector[dimensions]
+        return Box(lower, upper)
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
@@ -202,6 +205,8 @@ class Box(BaseBox, metaclass=BoxType):
             self._upper = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys())))
             if lower is None:
                 self._lower = math.zeros_like(self._upper)
+        if self.size.vector.item_names is None:
+            warnings.warn("Creating a Box without item names prevents certain operations like project()")
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
