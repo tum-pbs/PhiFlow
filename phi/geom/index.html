@@ -483,8 +483,12 @@ A point lies inside the union if it lies within at least one of the geometries.<
 
     def project(self, *dimensions: str):
         &#34;&#34;&#34; Project this box into a lower-dimensional space. &#34;&#34;&#34;
-        indices = self.shape.spatial.index(dimensions)
-        return Box(self.lower[indices], self.upper[indices])
+        if self.size.vector.item_names is None:
+            assert len(dimensions) == self.spatial_rank, &#34;Cannot project a Box if item names not available&#34;
+            return self
+        lower = self.lower.vector[dimensions]
+        upper = self.upper.vector[dimensions]
+        return Box(lower, upper)
 
     def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
         uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
@@ -802,8 +806,12 @@ The sphere is centered at the center of this geometry.</p>
 </summary>
 <pre><code class="python">def project(self, *dimensions: str):
     &#34;&#34;&#34; Project this box into a lower-dimensional space. &#34;&#34;&#34;
-    indices = self.shape.spatial.index(dimensions)
-    return Box(self.lower[indices], self.upper[indices])</code></pre>
+    if self.size.vector.item_names is None:
+        assert len(dimensions) == self.spatial_rank, &#34;Cannot project a Box if item names not available&#34;
+        return self
+    lower = self.lower.vector[dimensions]
+    upper = self.upper.vector[dimensions]
+    return Box(lower, upper)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.push"><code class="name flex">
@@ -987,6 +995,8 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
             self._upper = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys())))
             if lower is None:
                 self._lower = math.zeros_like(self._upper)
+        if self.size.vector.item_names is None:
+            warnings.warn(&#34;Creating a Box without item names prevents certain operations like project()&#34;)
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))

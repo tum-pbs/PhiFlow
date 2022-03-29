@@ -1,0 +1,1028 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>phi.torch.nets API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>phi.torch.nets</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import numpy
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import optim
+from typing import Callable
+
+from . import TORCH
+
+
+def parameter_count(model: nn.Module) -&gt; int:
+    &#34;&#34;&#34;
+    Counts the number of parameters in a model.
+
+    Args:
+        model: PyTorch model
+
+    Returns:
+        `int`
+    &#34;&#34;&#34;
+    total = 0
+    for parameter in model.parameters():
+        total += numpy.prod(parameter.shape)
+    return int(total)
+
+
+def save_state(obj: nn.Module or optim.Optimizer, path: str):
+    &#34;&#34;&#34;
+    Write the state of a module or optimizer to a file.
+
+    See Also:
+        `load_state()`
+
+    Args:
+        obj: `torch.nn.Module or torch.optim.Optimizer`
+        path: File path as `str`.
+    &#34;&#34;&#34;
+    if not path.endswith(&#39;.pth&#39;):
+        path += &#39;.pth&#39;
+    torch.save(obj.state_dict(), path)
+
+
+def load_state(obj: nn.Module or optim.Optimizer, path: str):
+    &#34;&#34;&#34;
+    Read the state of a module or optimizer from a file.
+
+    See Also:
+        `save_state()`
+
+    Args:
+        obj: `torch.nn.Module or torch.optim.Optimizer`
+        path: File path as `str`.
+    &#34;&#34;&#34;
+    if not path.endswith(&#39;.pth&#39;):
+        path += &#39;.pth&#39;
+    obj.load_state_dict(torch.load(path))
+
+
+def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs):
+    &#34;&#34;&#34;
+    Computes the gradients of `loss_function` w.r.t. the parameters of `net` and updates its weights using `optimizer`.
+
+    This is the PyTorch version. Analogue functions exist for other learning frameworks.
+
+    Args:
+        net: Learning model.
+        optimizer: Optimizer.
+        loss_function: Loss function, called as `loss_function(*loss_args, **loss_kwargs)`.
+        *loss_args: Arguments given to `loss_function`.
+        **loss_kwargs: Keyword arguments given to `loss_function`.
+
+    Returns:
+        Output of `loss_function`.
+    &#34;&#34;&#34;
+    optimizer.zero_grad()
+    output = loss_function(*loss_args, **loss_kwargs)
+    loss = output[0] if isinstance(output, tuple) else output
+    loss.sum.backward()
+    optimizer.step()
+    return output
+
+
+def adam(net: nn.Module, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
+    &#34;&#34;&#34;
+    Creates an Adam optimizer for `net`, alias for [`torch.optim.Adam`](https://pytorch.org/docs/stable/generated/torch.optim.Adam.html).
+    Analogue functions exist for other learning frameworks.
+    &#34;&#34;&#34;
+    return optim.Adam(net.parameters(), learning_rate, betas, epsilon)
+
+
+def dense_net(in_channels: int,
+              out_channels: int,
+              layers: tuple or list,
+              batch_norm=False,
+              activation: str or Callable = &#39;ReLU&#39;) -&gt; nn.Module:
+    if batch_norm:
+        raise NotImplementedError(&#34;only batch_norm=False currently supported&#34;)
+    layers = [in_channels, *layers, out_channels]
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    net = DenseNet(layers, activation=activation)
+    net = net.to(TORCH.get_default_device().ref)
+    return net
+
+
+class DenseNet(nn.Module):
+
+    def __init__(self,
+                 layers: list,
+                 activation=F.relu):
+        super(DenseNet, self).__init__()
+        self._layers = layers
+        self._activation = activation
+        for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
+            self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
+
+    def forward(self, x):
+        for i in range(len(self._layers) - 2):
+            x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
+        x = getattr(self, f&#39;linear{len(self._layers) - 2}&#39;)(x)
+        return x
+
+
+def u_net(in_channels: int,
+          out_channels: int,
+          levels: int = 4,
+          filters: int or tuple or list = 16,
+          batch_norm: bool = True,
+          activation: str or type = &#39;ReLU&#39;,
+          in_spatial: tuple or int = 2) -&gt; nn.Module:
+    if isinstance(filters, (tuple, list)):
+        assert len(filters) == levels, f&#34;List of filters has length {len(filters)} but u-net has {levels} levels.&#34;
+    else:
+        filters = (filters,) * levels
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    if isinstance(in_spatial, int):
+        d = in_spatial
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
+    net = UNet(d, in_channels, out_channels, filters, batch_norm, activation)
+    net = net.to(TORCH.get_default_device().ref)
+    return net
+
+
+class UNet(nn.Module):
+
+    def __init__(self, d: int, in_channels: int, out_channels: int, filters: tuple, batch_norm: bool, activation: type):
+        super(UNet, self).__init__()
+        self._levels = len(filters)
+        self._spatial_rank = d
+        self.inc = DoubleConv(d, in_channels, filters[0], filters[0], batch_norm, activation)
+        for i in range(1, self._levels):
+            self.add_module(f&#39;down{i}&#39;, Down(d, filters[i - 1], filters[i], batch_norm, activation))
+            self.add_module(f&#39;up{i}&#39;, Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation))
+        self.outc = CONV[d](filters[0], out_channels, kernel_size=1)
+
+    def forward(self, x):
+        x = self.inc(x)
+        xs = [x]
+        for i in range(1, self._levels):
+            x = getattr(self, f&#39;down{i}&#39;)(x)
+            xs.insert(0, x)
+        for i in range(1, self._levels):
+            x = getattr(self, f&#39;up{i}&#39;)(x, xs[i])
+        x = self.outc(x)
+        return x
+
+
+# class ConvDenseNet(nn.Module):
+#
+#     def __init__(self,
+#                  in_channels: int,
+#                  in_spatial: tuple,
+#                  filters: tuple,
+#                  dense_layers: list,
+#                  d=2):
+#         super(ConvDenseNet, self).__init__()
+#         # Conv
+#         self._levels = len(filters)
+#         self.inc = DoubleConv(in_channels, filters[0], d=d)
+#         for i in range(1, self._levels):
+#             self.add_module(f&#39;conv{i}&#39;, Down(filters[i - 1], filters[i], d=d))
+#         # Dense
+#         in_neurons = int(numpy.prod(in_spatial) * filters[-1] / 2 ** (d * (len(filters) - 1)))
+#         self._dense_layers = (in_neurons, *dense_layers)
+#         for i, (s1, s2) in enumerate(zip(self._dense_layers[:-1], self._dense_layers[1:])):
+#             self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
+#
+#     def forward(self, x):
+#         x = self.inc(x)
+#         for i in range(1, self._levels):
+#             x = getattr(self, f&#39;conv{i}&#39;)(x)
+#         x = torch.reshape(x, (x.shape[0], -1))
+#         for i in range(len(self._dense_layers) - 2):
+#             x = F.relu(getattr(self, f&#39;linear{i}&#39;)(x))
+#         x = getattr(self, f&#39;linear{len(self._dense_layers) - 2}&#39;)(x)
+#         return x
+
+
+CONV = [None, nn.Conv1d, nn.Conv2d, nn.Conv3d]
+NORM = [None, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]
+ACTIVATIONS = {&#39;ReLU&#39;: nn.ReLU, &#39;Sigmoid&#39;: nn.Sigmoid, &#39;tanh&#39;: nn.Tanh}
+
+
+class DoubleConv(nn.Module):
+    &#34;&#34;&#34;(convolution =&gt; [BN] =&gt; ReLU) * 2&#34;&#34;&#34;
+
+    def __init__(self, d: int, in_channels: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: type):
+        super().__init__()
+        self.double_conv = nn.Sequential(
+            CONV[d](in_channels, mid_channels, kernel_size=3, padding=1),
+            NORM[d](mid_channels) if batch_norm else nn.Identity(),
+            activation(),
+            CONV[d](mid_channels, out_channels, kernel_size=3, padding=1),
+            NORM[d](out_channels) if batch_norm else nn.Identity(),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.double_conv(x)
+
+
+MAX_POOL = [None, nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]
+
+
+class Down(nn.Module):
+    &#34;&#34;&#34;Downscaling with maxpool then double conv&#34;&#34;&#34;
+
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type):
+        super().__init__()
+        self.maxpool = MAX_POOL[d](2)
+        self.conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
+
+    def forward(self, x):
+        x = self.maxpool(x)
+        return self.conv(x)
+
+
+class Up(nn.Module):
+    &#34;&#34;&#34;Upscaling then double conv&#34;&#34;&#34;
+
+    _MODES = [None, &#39;linear&#39;, &#39;bilinear&#39;, &#39;trilinear&#39;]
+
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, linear=True):
+        super().__init__()
+        if linear:
+            # if bilinear, use the normal convolutions to reduce the number of channels
+            self.up = nn.Upsample(scale_factor=2, mode=Up._MODES[d])
+            self.conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation)
+        else:
+            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            self.conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        # input is CHW
+        # diff = [x2.size()[i] - x1.size()[i] for i in range(2, len(x1.shape))]
+        # x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+        #                 diffY // 2, diffY - diffY // 2])
+        # if you have padding issues, see
+        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
+        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
+        x = torch.cat([x2, x1], dim=1)
+        return self.conv(x)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="phi.torch.nets.adam"><code class="name flex">
+<span>def <span class="ident">adam</span></span>(<span>net: torch.nn.modules.module.Module, learning_rate: float = 0.001, betas=(0.9, 0.999), epsilon=1e-07)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates an Adam optimizer for <code>net</code>, alias for <a href="https://pytorch.org/docs/stable/generated/torch.optim.Adam.html"><code>torch.optim.Adam</code></a>.
+Analogue functions exist for other learning frameworks.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def adam(net: nn.Module, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
+    &#34;&#34;&#34;
+    Creates an Adam optimizer for `net`, alias for [`torch.optim.Adam`](https://pytorch.org/docs/stable/generated/torch.optim.Adam.html).
+    Analogue functions exist for other learning frameworks.
+    &#34;&#34;&#34;
+    return optim.Adam(net.parameters(), learning_rate, betas, epsilon)</code></pre>
+</details>
+</dd>
+<dt id="phi.torch.nets.dense_net"><code class="name flex">
+<span>def <span class="ident">dense_net</span></span>(<span>in_channels: int, out_channels: int, layers: tuple, batch_norm=False, activation: str = 'ReLU') ‑> torch.nn.modules.module.Module</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dense_net(in_channels: int,
+              out_channels: int,
+              layers: tuple or list,
+              batch_norm=False,
+              activation: str or Callable = &#39;ReLU&#39;) -&gt; nn.Module:
+    if batch_norm:
+        raise NotImplementedError(&#34;only batch_norm=False currently supported&#34;)
+    layers = [in_channels, *layers, out_channels]
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    net = DenseNet(layers, activation=activation)
+    net = net.to(TORCH.get_default_device().ref)
+    return net</code></pre>
+</details>
+</dd>
+<dt id="phi.torch.nets.load_state"><code class="name flex">
+<span>def <span class="ident">load_state</span></span>(<span>obj: torch.nn.modules.module.Module, path: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Read the state of a module or optimizer from a file.</p>
+<p>See Also:
+<code><a title="phi.torch.nets.save_state" href="#phi.torch.nets.save_state">save_state()</a></code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd><code>torch.nn.Module or torch.optim.Optimizer</code></dd>
+<dt><strong><code>path</code></strong></dt>
+<dd>File path as <code>str</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_state(obj: nn.Module or optim.Optimizer, path: str):
+    &#34;&#34;&#34;
+    Read the state of a module or optimizer from a file.
+
+    See Also:
+        `save_state()`
+
+    Args:
+        obj: `torch.nn.Module or torch.optim.Optimizer`
+        path: File path as `str`.
+    &#34;&#34;&#34;
+    if not path.endswith(&#39;.pth&#39;):
+        path += &#39;.pth&#39;
+    obj.load_state_dict(torch.load(path))</code></pre>
+</details>
+</dd>
+<dt id="phi.torch.nets.parameter_count"><code class="name flex">
+<span>def <span class="ident">parameter_count</span></span>(<span>model: torch.nn.modules.module.Module) ‑> int</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Counts the number of parameters in a model.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>model</code></strong></dt>
+<dd>PyTorch model</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>int</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parameter_count(model: nn.Module) -&gt; int:
+    &#34;&#34;&#34;
+    Counts the number of parameters in a model.
+
+    Args:
+        model: PyTorch model
+
+    Returns:
+        `int`
+    &#34;&#34;&#34;
+    total = 0
+    for parameter in model.parameters():
+        total += numpy.prod(parameter.shape)
+    return int(total)</code></pre>
+</details>
+</dd>
+<dt id="phi.torch.nets.save_state"><code class="name flex">
+<span>def <span class="ident">save_state</span></span>(<span>obj: torch.nn.modules.module.Module, path: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Write the state of a module or optimizer to a file.</p>
+<p>See Also:
+<code><a title="phi.torch.nets.load_state" href="#phi.torch.nets.load_state">load_state()</a></code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd><code>torch.nn.Module or torch.optim.Optimizer</code></dd>
+<dt><strong><code>path</code></strong></dt>
+<dd>File path as <code>str</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def save_state(obj: nn.Module or optim.Optimizer, path: str):
+    &#34;&#34;&#34;
+    Write the state of a module or optimizer to a file.
+
+    See Also:
+        `load_state()`
+
+    Args:
+        obj: `torch.nn.Module or torch.optim.Optimizer`
+        path: File path as `str`.
+    &#34;&#34;&#34;
+    if not path.endswith(&#39;.pth&#39;):
+        path += &#39;.pth&#39;
+    torch.save(obj.state_dict(), path)</code></pre>
+</details>
+</dd>
+<dt id="phi.torch.nets.u_net"><code class="name flex">
+<span>def <span class="ident">u_net</span></span>(<span>in_channels: int, out_channels: int, levels: int = 4, filters: int = 16, batch_norm: bool = True, activation: str = 'ReLU', in_spatial: tuple = 2) ‑> torch.nn.modules.module.Module</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def u_net(in_channels: int,
+          out_channels: int,
+          levels: int = 4,
+          filters: int or tuple or list = 16,
+          batch_norm: bool = True,
+          activation: str or type = &#39;ReLU&#39;,
+          in_spatial: tuple or int = 2) -&gt; nn.Module:
+    if isinstance(filters, (tuple, list)):
+        assert len(filters) == levels, f&#34;List of filters has length {len(filters)} but u-net has {levels} levels.&#34;
+    else:
+        filters = (filters,) * levels
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    if isinstance(in_spatial, int):
+        d = in_spatial
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
+    net = UNet(d, in_channels, out_channels, filters, batch_norm, activation)
+    net = net.to(TORCH.get_default_device().ref)
+    return net</code></pre>
+</details>
+</dd>
+<dt id="phi.torch.nets.update_weights"><code class="name flex">
+<span>def <span class="ident">update_weights</span></span>(<span>net: torch.nn.modules.module.Module, optimizer: torch.optim.optimizer.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the gradients of <code>loss_function</code> w.r.t. the parameters of <code>net</code> and updates its weights using <code>optimizer</code>.</p>
+<p>This is the PyTorch version. Analogue functions exist for other learning frameworks.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>net</code></strong></dt>
+<dd>Learning model.</dd>
+<dt><strong><code>optimizer</code></strong></dt>
+<dd>Optimizer.</dd>
+<dt><strong><code>loss_function</code></strong></dt>
+<dd>Loss function, called as <code>loss_function(*loss_args, **loss_kwargs)</code>.</dd>
+<dt><strong><code>*loss_args</code></strong></dt>
+<dd>Arguments given to <code>loss_function</code>.</dd>
+<dt><strong><code>**loss_kwargs</code></strong></dt>
+<dd>Keyword arguments given to <code>loss_function</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Output of <code>loss_function</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs):
+    &#34;&#34;&#34;
+    Computes the gradients of `loss_function` w.r.t. the parameters of `net` and updates its weights using `optimizer`.
+
+    This is the PyTorch version. Analogue functions exist for other learning frameworks.
+
+    Args:
+        net: Learning model.
+        optimizer: Optimizer.
+        loss_function: Loss function, called as `loss_function(*loss_args, **loss_kwargs)`.
+        *loss_args: Arguments given to `loss_function`.
+        **loss_kwargs: Keyword arguments given to `loss_function`.
+
+    Returns:
+        Output of `loss_function`.
+    &#34;&#34;&#34;
+    optimizer.zero_grad()
+    output = loss_function(*loss_args, **loss_kwargs)
+    loss = output[0] if isinstance(output, tuple) else output
+    loss.sum.backward()
+    optimizer.step()
+    return output</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="phi.torch.nets.DenseNet"><code class="flex name class">
+<span>class <span class="ident">DenseNet</span></span>
+<span>(</span><span>layers: list, activation=&lt;function relu&gt;)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base class for all neural network modules.</p>
+<p>Your models should also subclass this class.</p>
+<p>Modules can also contain other Modules, allowing to nest them in
+a tree structure. You can assign the submodules as regular attributes::</p>
+<pre><code>import torch.nn as nn
+import torch.nn.functional as F
+
+class Model(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5)
+        self.conv2 = nn.Conv2d(20, 20, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))
+</code></pre>
+<p>Submodules assigned in this way will be registered, and will have their
+parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As per the example above, an <code>__init__()</code> call to the parent class
+must be made before assignment on the child.</p>
+</div>
+<p>:ivar training: Boolean represents whether this module is in training or
+evaluation mode.
+:vartype training: bool</p>
+<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DenseNet(nn.Module):
+
+    def __init__(self,
+                 layers: list,
+                 activation=F.relu):
+        super(DenseNet, self).__init__()
+        self._layers = layers
+        self._activation = activation
+        for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
+            self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
+
+    def forward(self, x):
+        for i in range(len(self._layers) - 2):
+            x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
+        x = getattr(self, f&#39;linear{len(self._layers) - 2}&#39;)(x)
+        return x</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="phi.torch.nets.DenseNet.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.torch.nets.DenseNet.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.torch.nets.DenseNet.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, x) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, x):
+    for i in range(len(self._layers) - 2):
+        x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
+    x = getattr(self, f&#39;linear{len(self._layers) - 2}&#39;)(x)
+    return x</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.torch.nets.DoubleConv"><code class="flex name class">
+<span>class <span class="ident">DoubleConv</span></span>
+<span>(</span><span>d: int, in_channels: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: type)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>(convolution =&gt; [BN] =&gt; ReLU) * 2</p>
+<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DoubleConv(nn.Module):
+    &#34;&#34;&#34;(convolution =&gt; [BN] =&gt; ReLU) * 2&#34;&#34;&#34;
+
+    def __init__(self, d: int, in_channels: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: type):
+        super().__init__()
+        self.double_conv = nn.Sequential(
+            CONV[d](in_channels, mid_channels, kernel_size=3, padding=1),
+            NORM[d](mid_channels) if batch_norm else nn.Identity(),
+            activation(),
+            CONV[d](mid_channels, out_channels, kernel_size=3, padding=1),
+            NORM[d](out_channels) if batch_norm else nn.Identity(),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.double_conv(x)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="phi.torch.nets.DoubleConv.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.torch.nets.DoubleConv.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.torch.nets.DoubleConv.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, x) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, x):
+    return self.double_conv(x)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.torch.nets.Down"><code class="flex name class">
+<span>class <span class="ident">Down</span></span>
+<span>(</span><span>d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Downscaling with maxpool then double conv</p>
+<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Down(nn.Module):
+    &#34;&#34;&#34;Downscaling with maxpool then double conv&#34;&#34;&#34;
+
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type):
+        super().__init__()
+        self.maxpool = MAX_POOL[d](2)
+        self.conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
+
+    def forward(self, x):
+        x = self.maxpool(x)
+        return self.conv(x)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="phi.torch.nets.Down.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.torch.nets.Down.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.torch.nets.Down.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, x) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, x):
+    x = self.maxpool(x)
+    return self.conv(x)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.torch.nets.UNet"><code class="flex name class">
+<span>class <span class="ident">UNet</span></span>
+<span>(</span><span>d: int, in_channels: int, out_channels: int, filters: tuple, batch_norm: bool, activation: type)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base class for all neural network modules.</p>
+<p>Your models should also subclass this class.</p>
+<p>Modules can also contain other Modules, allowing to nest them in
+a tree structure. You can assign the submodules as regular attributes::</p>
+<pre><code>import torch.nn as nn
+import torch.nn.functional as F
+
+class Model(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5)
+        self.conv2 = nn.Conv2d(20, 20, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))
+</code></pre>
+<p>Submodules assigned in this way will be registered, and will have their
+parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As per the example above, an <code>__init__()</code> call to the parent class
+must be made before assignment on the child.</p>
+</div>
+<p>:ivar training: Boolean represents whether this module is in training or
+evaluation mode.
+:vartype training: bool</p>
+<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class UNet(nn.Module):
+
+    def __init__(self, d: int, in_channels: int, out_channels: int, filters: tuple, batch_norm: bool, activation: type):
+        super(UNet, self).__init__()
+        self._levels = len(filters)
+        self._spatial_rank = d
+        self.inc = DoubleConv(d, in_channels, filters[0], filters[0], batch_norm, activation)
+        for i in range(1, self._levels):
+            self.add_module(f&#39;down{i}&#39;, Down(d, filters[i - 1], filters[i], batch_norm, activation))
+            self.add_module(f&#39;up{i}&#39;, Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation))
+        self.outc = CONV[d](filters[0], out_channels, kernel_size=1)
+
+    def forward(self, x):
+        x = self.inc(x)
+        xs = [x]
+        for i in range(1, self._levels):
+            x = getattr(self, f&#39;down{i}&#39;)(x)
+            xs.insert(0, x)
+        for i in range(1, self._levels):
+            x = getattr(self, f&#39;up{i}&#39;)(x, xs[i])
+        x = self.outc(x)
+        return x</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="phi.torch.nets.UNet.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.torch.nets.UNet.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.torch.nets.UNet.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, x) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, x):
+    x = self.inc(x)
+    xs = [x]
+    for i in range(1, self._levels):
+        x = getattr(self, f&#39;down{i}&#39;)(x)
+        xs.insert(0, x)
+    for i in range(1, self._levels):
+        x = getattr(self, f&#39;up{i}&#39;)(x, xs[i])
+    x = self.outc(x)
+    return x</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.torch.nets.Up"><code class="flex name class">
+<span>class <span class="ident">Up</span></span>
+<span>(</span><span>d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, linear=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Upscaling then double conv</p>
+<p>Initializes internal Module state, shared by both nn.Module and ScriptModule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Up(nn.Module):
+    &#34;&#34;&#34;Upscaling then double conv&#34;&#34;&#34;
+
+    _MODES = [None, &#39;linear&#39;, &#39;bilinear&#39;, &#39;trilinear&#39;]
+
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, linear=True):
+        super().__init__()
+        if linear:
+            # if bilinear, use the normal convolutions to reduce the number of channels
+            self.up = nn.Upsample(scale_factor=2, mode=Up._MODES[d])
+            self.conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation)
+        else:
+            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            self.conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        # input is CHW
+        # diff = [x2.size()[i] - x1.size()[i] for i in range(2, len(x1.shape))]
+        # x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+        #                 diffY // 2, diffY - diffY // 2])
+        # if you have padding issues, see
+        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
+        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
+        x = torch.cat([x2, x1], dim=1)
+        return self.conv(x)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.nn.modules.module.Module</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="phi.torch.nets.Up.dump_patches"><code class="name">var <span class="ident">dump_patches</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.torch.nets.Up.training"><code class="name">var <span class="ident">training</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.torch.nets.Up.forward"><code class="name flex">
+<span>def <span class="ident">forward</span></span>(<span>self, x1, x2) ‑> Callable[..., Any]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the :class:<code>Module</code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def forward(self, x1, x2):
+    x1 = self.up(x1)
+    # input is CHW
+    # diff = [x2.size()[i] - x1.size()[i] for i in range(2, len(x1.shape))]
+    # x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+    #                 diffY // 2, diffY - diffY // 2])
+    # if you have padding issues, see
+    # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
+    # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
+    x = torch.cat([x2, x1], dim=1)
+    return self.conv(x)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="phi.torch" href="index.html">phi.torch</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="phi.torch.nets.adam" href="#phi.torch.nets.adam">adam</a></code></li>
+<li><code><a title="phi.torch.nets.dense_net" href="#phi.torch.nets.dense_net">dense_net</a></code></li>
+<li><code><a title="phi.torch.nets.load_state" href="#phi.torch.nets.load_state">load_state</a></code></li>
+<li><code><a title="phi.torch.nets.parameter_count" href="#phi.torch.nets.parameter_count">parameter_count</a></code></li>
+<li><code><a title="phi.torch.nets.save_state" href="#phi.torch.nets.save_state">save_state</a></code></li>
+<li><code><a title="phi.torch.nets.u_net" href="#phi.torch.nets.u_net">u_net</a></code></li>
+<li><code><a title="phi.torch.nets.update_weights" href="#phi.torch.nets.update_weights">update_weights</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="phi.torch.nets.DenseNet" href="#phi.torch.nets.DenseNet">DenseNet</a></code></h4>
+<ul class="">
+<li><code><a title="phi.torch.nets.DenseNet.dump_patches" href="#phi.torch.nets.DenseNet.dump_patches">dump_patches</a></code></li>
+<li><code><a title="phi.torch.nets.DenseNet.forward" href="#phi.torch.nets.DenseNet.forward">forward</a></code></li>
+<li><code><a title="phi.torch.nets.DenseNet.training" href="#phi.torch.nets.DenseNet.training">training</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.torch.nets.DoubleConv" href="#phi.torch.nets.DoubleConv">DoubleConv</a></code></h4>
+<ul class="">
+<li><code><a title="phi.torch.nets.DoubleConv.dump_patches" href="#phi.torch.nets.DoubleConv.dump_patches">dump_patches</a></code></li>
+<li><code><a title="phi.torch.nets.DoubleConv.forward" href="#phi.torch.nets.DoubleConv.forward">forward</a></code></li>
+<li><code><a title="phi.torch.nets.DoubleConv.training" href="#phi.torch.nets.DoubleConv.training">training</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.torch.nets.Down" href="#phi.torch.nets.Down">Down</a></code></h4>
+<ul class="">
+<li><code><a title="phi.torch.nets.Down.dump_patches" href="#phi.torch.nets.Down.dump_patches">dump_patches</a></code></li>
+<li><code><a title="phi.torch.nets.Down.forward" href="#phi.torch.nets.Down.forward">forward</a></code></li>
+<li><code><a title="phi.torch.nets.Down.training" href="#phi.torch.nets.Down.training">training</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.torch.nets.UNet" href="#phi.torch.nets.UNet">UNet</a></code></h4>
+<ul class="">
+<li><code><a title="phi.torch.nets.UNet.dump_patches" href="#phi.torch.nets.UNet.dump_patches">dump_patches</a></code></li>
+<li><code><a title="phi.torch.nets.UNet.forward" href="#phi.torch.nets.UNet.forward">forward</a></code></li>
+<li><code><a title="phi.torch.nets.UNet.training" href="#phi.torch.nets.UNet.training">training</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.torch.nets.Up" href="#phi.torch.nets.Up">Up</a></code></h4>
+<ul class="">
+<li><code><a title="phi.torch.nets.Up.dump_patches" href="#phi.torch.nets.Up.dump_patches">dump_patches</a></code></li>
+<li><code><a title="phi.torch.nets.Up.forward" href="#phi.torch.nets.Up.forward">forward</a></code></li>
+<li><code><a title="phi.torch.nets.Up.training" href="#phi.torch.nets.Up.training">training</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

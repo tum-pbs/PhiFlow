@@ -80,7 +80,7 @@ from ._field_math import (
     mean, pad, shift, normalize, center_of_mass,
     concat, stack,
     where, maximum, minimum,
-    vec_squared, vec_abs,
+    vec_squared, vec_length as vec_abs, vec_length,
     downsample2x, upsample2x,
     extrapolate_valid,
     native_call,
@@ -2435,7 +2435,23 @@ The new values are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec_abs(field: SampledField):
+<pre><code class="python">def vec_length(field: SampledField):
+    &#34;&#34;&#34; See `phi.math.vec_abs()` &#34;&#34;&#34;
+    if isinstance(field, StaggeredGrid):
+        field = field.at_centers()
+    return field.with_values(math.vec_abs(field.values))</code></pre>
+</details>
+</dd>
+<dt id="phi.field.vec_length"><code class="name flex">
+<span>def <span class="ident">vec_length</span></span>(<span>field: phi.field._field.SampledField)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See <code><a title="phi.math.vec_abs" href="../math/index.html#phi.math.vec_abs">vec_abs()</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def vec_length(field: SampledField):
     &#34;&#34;&#34; See `phi.math.vec_abs()` &#34;&#34;&#34;
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
@@ -2632,6 +2648,7 @@ The bounds will also be used as axis limits for plots.</dd>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -2814,6 +2831,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
 <li>phi.field._grid.Grid</li>
 <li>phi.field._field.SampledField</li>
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -2897,6 +2915,7 @@ The bounds will also be used as axis limits for plots.</dd>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -2960,7 +2979,7 @@ The bounds will also be used as axis limits for plots.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Field:
+<pre><code class="python">class Field(Sliceable):
     &#34;&#34;&#34;
     Base class for all fields.
     
@@ -3091,18 +3110,15 @@ The bounds will also be used as axis limits for plots.</dd>
             dimension reference
 
         &#34;&#34;&#34;
-        return _FieldDim(self, name)
-
-    def __getattr__(self, name: str) -&gt; &#39;_FieldDim&#39;:
-        if name.startswith(&#39;_&#39;):
-            raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
-        if hasattr(self.__class__, name):
-            raise RuntimeError(f&#34;Failed to get attribute &#39;{name}&#39; of {self.__class__}&#34;)
-        return _FieldDim(self, name)
+        return BoundDim(self, name)
 
     def __repr__(self):
         return f&#34;{self.__class__.__name__} {self.shape}&#34;</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.math._tensors.Sliceable</li>
+</ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li>phi.field._angular_velocity.AngularVelocity</li>
@@ -3268,7 +3284,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
         dimension reference
 
     &#34;&#34;&#34;
-    return _FieldDim(self, name)</code></pre>
+    return BoundDim(self, name)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3325,7 +3341,8 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 
     def with_values(self, values):
         if isinstance(values, math.Tensor):
-            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+            bounds = self.bounds.project(*values.shape.spatial.names)
+            return type(self)(values, extrapolation=self.extrapolation, bounds=bounds)
         else:
             return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
@@ -3390,6 +3407,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <ul class="hlist">
 <li>phi.field._field.SampledField</li>
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -3544,7 +3562,8 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 </summary>
 <pre><code class="python">def with_values(self, values):
     if isinstance(values, math.Tensor):
-        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+        bounds = self.bounds.project(*values.shape.spatial.names)
+        return type(self)(values, extrapolation=self.extrapolation, bounds=bounds)
     else:
         return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)</code></pre>
 </details>
@@ -3591,6 +3610,7 @@ The bounds will also be used as axis limits for plots.</dd>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -3699,6 +3719,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -3939,6 +3960,7 @@ When sampling this field on a grid, scatter functions may be used.</p>
 <ul class="hlist">
 <li>phi.field._field.SampledField</li>
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -4227,6 +4249,7 @@ def spatial_rank(self) -&gt; int:
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -4371,7 +4394,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Scene(object):
+<pre><code class="python">class Scene(Sliceable):
     &#34;&#34;&#34;
     Provides methods for reading and writing simulation data.
 
@@ -4388,6 +4411,9 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
     def __init__(self, paths: str or math.Tensor):
         self._paths = math.wrap(paths)
         self._properties: dict or None = None
+
+    def __getitem__(self, item: dict):
+        return Scene(self._paths[item])
 
     @property
     def shape(self):
@@ -4743,6 +4769,10 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             if isdir(p):
                 shutil.rmtree(p)</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.math._tensors.Sliceable</li>
+</ul>
 <h3>Static methods</h3>
 <dl>
 <dt id="phi.field.Scene.at"><code class="name flex">
@@ -5047,7 +5077,9 @@ def properties(self):
 </dd>
 <dt id="phi.field.Scene.shape"><code class="name">var <span class="ident">shape</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns the shape of this object.</p>
+<h2 id="returns">Returns</h2>
+<p><code>Shape</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5441,6 +5473,7 @@ The bounds will also be used as axis limits for plots.</dd>
 <ul class="hlist">
 <li>phi.field._mask.HardGeometryMask</li>
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
@@ -5477,6 +5510,7 @@ The bounds will also be used as axis limits for plots.</dd>
 <ul class="hlist">
 <li>phi.field._mask.HardGeometryMask</li>
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
@@ -5701,6 +5735,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
 <li>phi.field._grid.Grid</li>
 <li>phi.field._field.SampledField</li>
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -5929,6 +5964,7 @@ Each block is a grid whose resolution can be changed at runtime.</p>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._field.Field</li>
+<li>phi.math._tensors.Sliceable</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -6092,6 +6128,7 @@ def values(self):
 <li><code><a title="phi.field.unstack" href="#phi.field.unstack">unstack</a></code></li>
 <li><code><a title="phi.field.upsample2x" href="#phi.field.upsample2x">upsample2x</a></code></li>
 <li><code><a title="phi.field.vec_abs" href="#phi.field.vec_abs">vec_abs</a></code></li>
+<li><code><a title="phi.field.vec_length" href="#phi.field.vec_length">vec_length</a></code></li>
 <li><code><a title="phi.field.vec_squared" href="#phi.field.vec_squared">vec_squared</a></code></li>
 <li><code><a title="phi.field.where" href="#phi.field.where">where</a></code></li>
 <li><code><a title="phi.field.write" href="#phi.field.write">write</a></code></li>

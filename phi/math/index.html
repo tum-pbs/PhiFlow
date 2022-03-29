@@ -965,7 +965,7 @@ The size along <code>dim</code> is determined from <code>values</code> and can b
 </details>
 </dd>
 <dt id="phi.math.concat_shapes"><code class="name flex">
-<span>def <span class="ident">concat_shapes</span></span>(<span>*shapes: phi.math._shape.Shape)</span>
+<span>def <span class="ident">concat_shapes</span></span>(<span>*shapes: phi.math._shape.Shape) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> listing the dimensions of all <code>shapes</code> in the given order.</p>
@@ -982,7 +982,7 @@ The size along <code>dim</code> is determined from <code>values</code> and can b
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat_shapes(*shapes: Shape):
+<pre><code class="python">def concat_shapes(*shapes: Shape) -&gt; Shape:
     &#34;&#34;&#34;
     Creates a `Shape` listing the dimensions of all `shapes` in the given order.
 
@@ -3847,13 +3847,16 @@ see <code><a title="phi.math.backend.Backend.prefers_channels_last" href="backen
         groups = (batch, *i.shape.spatial.names, i.shape.channel) if channels_last else (batch, i.shape.channel, *i.shape.spatial.names)
         natives.append(reshaped_native(i, groups))
     output = f(*natives)
+    if isinstance(channel_dim, str):
+        channel_dim = channel(channel_dim)
+    assert isinstance(channel_dim, Shape), &#34;channel_dim must be a Shape or str&#34;
     if isinstance(output, (tuple, list)):
         raise NotImplementedError()
     else:
-        groups = (batch, *spatial, channel(channel_dim)) if channels_last else (batch, channel(channel_dim), *spatial)
+        groups = (batch, *spatial, channel_dim) if channels_last else (batch, channel_dim, *spatial)
         result = reshaped_tensor(output, groups)
-        if result.shape.get_size(channel_dim) == 1:
-            result = result.dimension(channel_dim)[0]  # remove vector dim if not required
+        if result.shape.get_size(channel_dim.name) == 1:
+            result = result.dimension(channel_dim.name)[0]  # remove vector dim if not required
         return result</code></pre>
 </details>
 </dd>
@@ -4056,7 +4059,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 </summary>
 <pre><code class="python">def ones_like(tensor: Tensor) -&gt; Tensor:
     &#34;&#34;&#34; Create a `Tensor` containing only `1.0` / `1` / `True` with the same shape and dtype as `obj`. &#34;&#34;&#34;
-    return zeros(tensor.shape, dtype=tensor.dtype) + 1</code></pre>
+    return zeros_like(tensor) + 1</code></pre>
 </details>
 </dd>
 <dt id="phi.math.pack_dims"><code class="name flex">
@@ -4564,7 +4567,7 @@ If not specified, a <code>float</code> tensor with the current default precision
 </details>
 </dd>
 <dt id="phi.math.range"><code class="name flex">
-<span>def <span class="ident">range</span></span>(<span>dim: phi.math._shape.Shape, start_or_stop: int, stop: int = None, step=1)</span>
+<span>def <span class="ident">range</span></span>(<span>dim: phi.math._shape.Shape, start_or_stop: int = None, stop: int = None, step=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns evenly spaced values between <code>start</code> and <code>stop</code>.
@@ -4574,11 +4577,12 @@ If only one limit is given, <code>0</code> is used for the start.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>dim</code></strong></dt>
-<dd>Dimension name and type as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object. The <code>size</code> of <code>dim</code> is ignored.</dd>
+<dd>Dimension name and type as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.
+The <code>size</code> of <code>dim</code> is interpreted as <code>stop</code> unless <code>start_or_stop</code> is specified.</dd>
 <dt><strong><code>start_or_stop</code></strong></dt>
-<dd>Start if two limits are given, stop otherwise. <code>int</code></dd>
+<dd>(Optional) <code>int</code>. Interpreted as <code>start</code> if <code>stop</code> is specified as well. Otherwise this is <code>stop</code>.</dd>
 <dt><strong><code>stop</code></strong></dt>
-<dd>(Optional) <code>stop</code></dd>
+<dd>(Optional) <code>int</code>. <code>stop</code> value.</dd>
 <dt><strong><code>step</code></strong></dt>
 <dd>Distance between values.</dd>
 </dl>
@@ -4588,7 +4592,7 @@ If only one limit is given, <code>0</code> is used for the start.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def arange(dim: Shape, start_or_stop: int, stop: int or None = None, step=1):
+<pre><code class="python">def arange(dim: Shape, start_or_stop: int or None = None, stop: int or None = None, step=1):
     &#34;&#34;&#34;
     Returns evenly spaced values between `start` and `stop`.
     If only one limit is given, `0` is used for the start.
@@ -4597,15 +4601,20 @@ If only one limit is given, <code>0</code> is used for the start.</p>
         `range_tensor()`, `linspace()`, `meshgrid()`.
 
     Args:
-        dim: Dimension name and type as `Shape` object. The `size` of `dim` is ignored.
-        start_or_stop: Start if two limits are given, stop otherwise. `int`
-        stop: (Optional) `stop`
+        dim: Dimension name and type as `Shape` object.
+            The `size` of `dim` is interpreted as `stop` unless `start_or_stop` is specified.
+        start_or_stop: (Optional) `int`. Interpreted as `start` if `stop` is specified as well. Otherwise this is `stop`.
+        stop: (Optional) `int`. `stop` value.
         step: Distance between values.
 
     Returns:
         `Tensor`
     &#34;&#34;&#34;
-    if stop is None:
+    if start_or_stop is None:
+        assert stop is None, &#34;start_or_stop must be specified when stop is given.&#34;
+        assert isinstance(dim.size, int), &#34;When start_or_stop is not specified, dim.size must be an integer.&#34;
+        start, stop = 0, dim.size
+    elif stop is None:
         start, stop = 0, start_or_stop
     else:
         start = start_or_stop
@@ -6388,7 +6397,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(value: Tensor, dim: str or Shape or Callable):
+<pre><code class="python">def unstack(value: Tensor or Sliceable, dim: str or Shape or Callable):
     &#34;&#34;&#34;
     Unstacks a `Tensor` along one or multiple dimensions.
 
@@ -6404,10 +6413,15 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
     dims = parse_dim_order(dim)
     assert len(dims) &gt; 0, &#34;unstack() requires at least one dimension&#34;
     if len(dims) &gt; 1:
+        assert isinstance(value, Tensor), &#34;Multi-dimensional unstacking only supported for Tensors&#34;
         packed_dim = batch(&#39;_unstack&#39;)
         value = pack_dims(value, dims, packed_dim)
-        dims = [packed_dim]
-    return value.unstack(dims[0])</code></pre>
+        dims = [packed_dim.name]
+    if isinstance(value, Tensor):
+        return value.unstack(dims[0])
+    else:
+        size = value.shape.get_size(dim)
+        return tuple([value[{dim: i}] for i in range(size)])</code></pre>
 </details>
 </dd>
 <dt id="phi.math.upsample2x"><code class="name flex">
@@ -6667,8 +6681,12 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <pre><code class="python">def zeros_like(obj) -&gt; Tensor:
     &#34;&#34;&#34; Create a `Tensor` containing only `0.0` / `0` / `False` with the same shape and dtype as `obj`. &#34;&#34;&#34;
     nest, values = disassemble_tree(obj)
-    values0 = [zeros(t.shape, dtype=t.dtype) for t in values]
-    return assemble_tree(nest, values0)</code></pre>
+    zeros_ = []
+    for val in obj:
+        val = wrap(val)
+        with val.default_backend:
+            zeros_.append(zeros(val.shape, dtype=val.dtype))
+    return assemble_tree(nest, zeros_)</code></pre>
 </details>
 </dd>
 </dl>
@@ -7894,9 +7912,9 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             Indices as `tuple[int]`.
         &#34;&#34;&#34;
         if isinstance(dims, (list, tuple)):
-            return tuple(self.index(n) for n in dims)
+            return tuple([self.index(n) for n in dims])
         elif isinstance(dims, Shape):
-            return tuple(self.index(n) for n in dims.names)
+            return tuple([self.index(n) for n in dims.names])
         else:
             raise ValueError(f&#34;indices() requires a sequence of dimensions but got {dims}&#34;)
 
@@ -9566,9 +9584,9 @@ def well_defined(self):
         Indices as `tuple[int]`.
     &#34;&#34;&#34;
     if isinstance(dims, (list, tuple)):
-        return tuple(self.index(n) for n in dims)
+        return tuple([self.index(n) for n in dims])
     elif isinstance(dims, Shape):
-        return tuple(self.index(n) for n in dims.names)
+        return tuple([self.index(n) for n in dims.names])
     else:
         raise ValueError(f&#34;indices() requires a sequence of dimensions but got {dims}&#34;)</code></pre>
 </details>
@@ -10278,7 +10296,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Tensor:
+<pre><code class="python">class Tensor(Sliceable):
     &#34;&#34;&#34;
     Abstract base class to represent structured data of one data type.
     This class replaces the native tensor classes `numpy.ndarray`, `torch.Tensor`, `tensorflow.Tensor` or `jax.numpy.ndarray` as the main data container in Φ&lt;sub&gt;Flow&lt;/sub&gt;.
@@ -10792,6 +10810,10 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     def _simplify(self):
         return self</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.math._tensors.Sliceable</li>
+</ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li>phi.math._functional.ShiftLinTracer</li>
@@ -11326,7 +11348,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
     @property
     def size(self):
         &#34;&#34;&#34; Length of this tensor dimension as listed in the `Shape`, otherwise `1`. &#34;&#34;&#34;
-        assert self.exists, f&#34;Dimension {self.name} does not exist for tensor {self.tensor.shape}&#34;
+        assert self.exists, f&#34;Dimension &#39;{self.name}&#39; does not exist for tensor {self.tensor.shape}&#34;
         return self.tensor.shape.get_size(self.name)
 
     def as_batch(self, name: str = None):
@@ -11537,7 +11559,7 @@ def item_names(self):
 <pre><code class="python">@property
 def size(self):
     &#34;&#34;&#34; Length of this tensor dimension as listed in the `Shape`, otherwise `1`. &#34;&#34;&#34;
-    assert self.exists, f&#34;Dimension {self.name} does not exist for tensor {self.tensor.shape}&#34;
+    assert self.exists, f&#34;Dimension &#39;{self.name}&#39; does not exist for tensor {self.tensor.shape}&#34;
     return self.tensor.shape.get_size(self.name)</code></pre>
 </details>
 </dd>

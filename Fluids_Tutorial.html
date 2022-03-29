@@ -14617,7 +14617,7 @@ We sample the smoke field at the cell centers and the velocity in <a href="https
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -14632,6 +14632,30 @@ We sample the smoke field at the cell centers and the velocity in <a href="https
      </div>
 </div>
 </div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/geom/_box.py:211: UserWarning: Creating a Box without item names prevents certain operations like project()
+  warnings.warn(&#34;Creating a Box without item names prevents certain operations like project()&#34;)
+</pre>
+</div>
+</div>
+
+</div>
+
 </div>
 
 </div>
@@ -15031,7 +15055,9 @@ These operations can make use of a GPU through CUDA if your configuration suppor
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/torch/functional.py:568: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at  ../aten/src/ATen/native/TensorShape.cpp:2228.)
+<pre>/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/geom/_box.py:211: UserWarning: Creating a Box without item names prevents certain operations like project()
+  warnings.warn(&#34;Creating a Box without item names prevents certain operations like project()&#34;)
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/torch/functional.py:568: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at  ../aten/src/ATen/native/TensorShape.cpp:2228.)
   return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
 </pre>
 </div>
@@ -15250,24 +15276,73 @@ Say we want to optimize the initial velocities so that all simulations arrive at
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">AttributeError</span>                            Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [14]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 3&gt;</span><span class="ansi-blue-fg">()</span>
-<span class="ansi-green-intense-fg ansi-bold">      1</span> velocity_grad, <span style="color: rgb(98,98,98)">=</span> sim_grad(initial_smoke, initial_velocity)
-<span class="ansi-green-fg">----&gt; 3</span> <span class="ansi-yellow-bg">view</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">velocity_grad</span><span class="ansi-yellow-bg">)</span>
+Input <span class="ansi-green-fg">In [14]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 1&gt;</span><span class="ansi-blue-fg">()</span>
+<span class="ansi-green-fg">----&gt; 1</span> velocity_grad, <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">sim_grad</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">initial_smoke</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">initial_velocity</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      3</span> view(velocity_grad)
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/vis/_vis.py:153</span>, in <span class="ansi-cyan-fg">view</span><span class="ansi-blue-fg">(play, gui, name, description, scene, keep_alive, select, framerate, namespace, log_performance, *fields, **config)</span>
-<span class="ansi-green-intense-fg ansi-bold">    151</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(scene, Scene)
-<span class="ansi-green-intense-fg ansi-bold">    152</span> name <span style="color: rgb(98,98,98)">=</span> name <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> user_namespace<span style="color: rgb(98,98,98)">.</span>get_title()
-<span class="ansi-green-fg">--&gt; 153</span> description <span style="color: rgb(98,98,98)">=</span> description <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span class="ansi-yellow-bg">user_namespace</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">get_description</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">    154</span> gui <span style="color: rgb(98,98,98)">=</span> default_gui() <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> gui <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> get_gui(gui)
-<span class="ansi-green-intense-fg ansi-bold">    155</span> controls <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">tuple</span>(c <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> c <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">sorted</span>(CONTROL_VARS<span style="color: rgb(98,98,98)">.</span>values(), key<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">lambda</span> c: c<span style="color: rgb(98,98,98)">.</span>name) <span class="ansi-bold" style="color: rgb(0,135,0)">if</span>
-<span class="ansi-green-intense-fg ansi-bold">    156</span>                  user_namespace<span style="color: rgb(98,98,98)">.</span>get_variable(c<span style="color: rgb(98,98,98)">.</span>name) <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>)
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:361</span>, in <span class="ansi-cyan-fg">GradientFunction.__call__</span><span class="ansi-blue-fg">(self, *args, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">    359</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> key <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>grads:
+<span class="ansi-green-intense-fg ansi-bold">    360</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>grads[key] <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_trace_grad(key, wrt_natives)
+<span class="ansi-green-fg">--&gt; 361</span> native_result <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">grads</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">key</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">natives</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    362</span> output_key <span style="color: rgb(98,98,98)">=</span> match_output_signature(key, <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>recorded_mappings)
+<span class="ansi-green-intense-fg ansi-bold">    363</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>get_output:
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/vis/_user_namespace.py:175</span>, in <span class="ansi-cyan-fg">LocalNamespace.get_description</span><span class="ansi-blue-fg">(self)</span>
-<span class="ansi-green-intense-fg ansi-bold">    173</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>function<span style="color: rgb(98,98,98)">.</span><span style="color: rgb(0,0,135)">__doc__</span>
-<span class="ansi-green-intense-fg ansi-bold">    174</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
-<span class="ansi-green-fg">--&gt; 175</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Function `</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>function_name<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">()` in </span><span style="color: rgb(175,0,0)">&#39;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>module<span style="color: rgb(98,98,98)">.</span><span style="color: rgb(0,0,135)">__file__</span><span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">&#34;</span>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/torch/_torch_backend.py:693</span>, in <span class="ansi-cyan-fg">TorchBackend.functional_gradient.&lt;locals&gt;.eval_grad</span><span class="ansi-blue-fg">(*args)</span>
+<span class="ansi-green-intense-fg ansi-bold">    691</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> loss<span style="color: rgb(98,98,98)">.</span>ndim <span style="color: rgb(98,98,98)">&gt;</span> <span style="color: rgb(98,98,98)">0</span>:
+<span class="ansi-green-intense-fg ansi-bold">    692</span>     loss <span style="color: rgb(98,98,98)">=</span> loss<span style="color: rgb(98,98,98)">.</span>sum()
+<span class="ansi-green-fg">--&gt; 693</span> grads <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">torch</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">autograd</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">grad</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">loss</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">wrt_args</span><span class="ansi-yellow-bg">)</span>  <span style="color: rgb(95,135,135)"># grad() cannot be called during jit trace</span>
+<span class="ansi-green-intense-fg ansi-bold">    694</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> get_output:
+<span class="ansi-green-intense-fg ansi-bold">    695</span>     loss <span style="color: rgb(98,98,98)">=</span> loss<span style="color: rgb(98,98,98)">.</span>detach()
 
-<span class="ansi-red-fg">AttributeError</span>: &#39;NoneType&#39; object has no attribute &#39;__file__&#39;</pre>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/torch/autograd/__init__.py:275</span>, in <span class="ansi-cyan-fg">grad</span><span class="ansi-blue-fg">(outputs, inputs, grad_outputs, retain_graph, create_graph, only_inputs, allow_unused, is_grads_batched)</span>
+<span class="ansi-green-intense-fg ansi-bold">    273</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> _vmap_internals<span style="color: rgb(98,98,98)">.</span>_vmap(vjp, <span style="color: rgb(98,98,98)">0</span>, <span style="color: rgb(98,98,98)">0</span>, allow_none_pass_through<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">True</span>)(grad_outputs)
+<span class="ansi-green-intense-fg ansi-bold">    274</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-fg">--&gt; 275</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg">Variable</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">_execution_engine</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">run_backward</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">  </span><span class="ansi-yellow-bg" style="color: rgb(95,135,135)"># Calls into the C++ engine to run the backward pass</span>
+<span class="ansi-green-intense-fg ansi-bold">    276</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">outputs</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">grad_outputs_</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">retain_graph</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">create_graph</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">inputs</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">    277</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">allow_unused</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">accumulate_grad</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg ansi-bold" style="color: rgb(0,135,0)">False</span><span class="ansi-yellow-bg">)</span>
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/torch/autograd/function.py:253</span>, in <span class="ansi-cyan-fg">BackwardCFunction.apply</span><span class="ansi-blue-fg">(self, *args)</span>
+<span class="ansi-green-intense-fg ansi-bold">    249</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">RuntimeError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Implementing both </span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">backward</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> and </span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vjp</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> for a custom </span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    250</span>                        <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Function is not allowed. You should only implement one </span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    251</span>                        <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">of them.</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-intense-fg ansi-bold">    252</span> user_fn <span style="color: rgb(98,98,98)">=</span> vjp_fn <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> vjp_fn <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> Function<span style="color: rgb(98,98,98)">.</span>vjp <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> backward_fn
+<span class="ansi-green-fg">--&gt; 253</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg">user_fn</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">args</span><span class="ansi-yellow-bg">)</span>
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/torch/_torch_backend.py:220</span>, in <span class="ansi-cyan-fg">TorchBackend.custom_gradient.&lt;locals&gt;.TorchFunction.backward</span><span class="ansi-blue-fg">(ctx, *grad_args)</span>
+<span class="ansi-green-intense-fg ansi-bold">    218</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-intense-fg ansi-bold">    219</span>     g_ <span style="color: rgb(98,98,98)">=</span> gradient
+<span class="ansi-green-fg">--&gt; 220</span> output <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">g_</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">grad_args</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    221</span> result <span style="color: rgb(98,98,98)">=</span> output[<span style="color: rgb(98,98,98)">0</span>] <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">len</span>(output) <span style="color: rgb(98,98,98)">==</span> <span style="color: rgb(98,98,98)">1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> (<span style="color: rgb(98,98,98)">*</span>output, )
+<span class="ansi-green-intense-fg ansi-bold">    222</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> result
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:606</span>, in <span class="ansi-cyan-fg">CustomGradientFunction._trace.&lt;locals&gt;.backward_native</span><span class="ansi-blue-fg">(x_natives, y_natives, dy_natives)</span>
+<span class="ansi-green-intense-fg ansi-bold">    604</span> y <span style="color: rgb(98,98,98)">=</span> assemble_tree(out_key<span style="color: rgb(98,98,98)">.</span>tree, y_tensors)
+<span class="ansi-green-intense-fg ansi-bold">    605</span> dy <span style="color: rgb(98,98,98)">=</span> assemble_tree(out_key<span style="color: rgb(98,98,98)">.</span>tree, dy_tensors)
+<span class="ansi-green-fg">--&gt; 606</span> result <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">gradient</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">dy</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">in_key</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">kwargs</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    607</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(result, (<span style="color: rgb(0,135,0)">tuple</span>, <span style="color: rgb(0,135,0)">list</span>)), <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Gradient function must return tuple or list</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    608</span> result_natives <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>incomplete_tree_to_natives(result, in_key<span style="color: rgb(98,98,98)">.</span>tree, <span style="color: rgb(0,135,0)">list</span>(in_key<span style="color: rgb(98,98,98)">.</span>shapes))
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1538</span>, in <span class="ansi-cyan-fg">attach_gradient_solve.&lt;locals&gt;.implicit_gradient_solve</span><span class="ansi-blue-fg">(*args, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1536</span> y, solve, <span style="color: rgb(98,98,98)">*</span>matrix, x, dx <span style="color: rgb(98,98,98)">=</span> args
+<span class="ansi-green-intense-fg ansi-bold">   1537</span> grad_solve <span style="color: rgb(98,98,98)">=</span> solve<span style="color: rgb(98,98,98)">.</span>gradient_solve
+<span class="ansi-green-fg">-&gt; 1538</span> x0 <span style="color: rgb(98,98,98)">=</span> grad_solve<span style="color: rgb(98,98,98)">.</span>x0 <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> grad_solve<span style="color: rgb(98,98,98)">.</span>x0 <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> <span class="ansi-yellow-bg">zeros_like</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">solve</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">x0</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1539</span> grad_solve_ <span style="color: rgb(98,98,98)">=</span> copy_with(solve<span style="color: rgb(98,98,98)">.</span>gradient_solve, x0<span style="color: rgb(98,98,98)">=</span>x0)
+<span class="ansi-green-intense-fg ansi-bold">   1540</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">is_backprop</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> kwargs:
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_ops.py:419</span>, in <span class="ansi-cyan-fg">zeros_like</span><span class="ansi-blue-fg">(obj)</span>
+<span class="ansi-green-intense-fg ansi-bold">    417</span> nest, values <span style="color: rgb(98,98,98)">=</span> disassemble_tree(obj)
+<span class="ansi-green-intense-fg ansi-bold">    418</span> zeros_ <span style="color: rgb(98,98,98)">=</span> []
+<span class="ansi-green-fg">--&gt; 419</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> val <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> obj:
+<span class="ansi-green-intense-fg ansi-bold">    420</span>     val <span style="color: rgb(98,98,98)">=</span> wrap(val)
+<span class="ansi-green-intense-fg ansi-bold">    421</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">with</span> val<span style="color: rgb(98,98,98)">.</span>default_backend:
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/field/_grid.py:181</span>, in <span class="ansi-cyan-fg">CenteredGrid.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    180</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__getitem__</span>(<span style="color: rgb(0,135,0)">self</span>, item: <span style="color: rgb(0,135,0)">dict</span>):
+<span class="ansi-green-fg">--&gt; 181</span>     values <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_values[{dim: <span style="color: rgb(0,135,0)">slice</span>(sel, sel <span style="color: rgb(98,98,98)">+</span> <span style="color: rgb(98,98,98)">1</span>) <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(sel, <span style="color: rgb(0,135,0)">int</span>) <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> dim <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> sel <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> dim, sel <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span class="ansi-yellow-bg">item</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">items</span>()}]
+<span class="ansi-green-intense-fg ansi-bold">    182</span>     extrapolation <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_extrapolation[item]
+<span class="ansi-green-intense-fg ansi-bold">    183</span>     bounds <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>elements[item]<span style="color: rgb(98,98,98)">.</span>bounds
+
+<span class="ansi-red-fg">AttributeError</span>: &#39;int&#39; object has no attribute &#39;items&#39;</pre>
 </div>
 </div>
 
@@ -15321,8 +15396,26 @@ For more advanced optimization techniques and neural network training, see the <
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
 <pre>Initial loss: (268.389, 214.37184, 136.68129, 0.0) along inflow_locᵇ
-Next loss: (243.85736, 206.6886, 125.862724, 0.0) along inflow_locᵇ
 </pre>
+</div>
+</div>
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
+Input <span class="ansi-green-fg">In [15]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 2&gt;</span><span class="ansi-blue-fg">()</span>
+<span class="ansi-green-intense-fg ansi-bold">      1</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Initial loss: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>simulate(initial_smoke, initial_velocity)[<span style="color: rgb(98,98,98)">0</span>]<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-fg">----&gt; 2</span> initial_velocity <span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(98,98,98)">0.001</span> <span style="color: rgb(98,98,98)">*</span> <span class="ansi-yellow-bg">velocity_grad</span>
+<span class="ansi-green-intense-fg ansi-bold">      3</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Next loss: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>simulate(initial_smoke, initial_velocity)[<span style="color: rgb(98,98,98)">0</span>]<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
+
+<span class="ansi-red-fg">NameError</span>: name &#39;velocity_grad&#39; is not defined</pre>
 </div>
 </div>
 
