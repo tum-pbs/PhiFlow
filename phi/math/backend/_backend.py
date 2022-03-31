@@ -5,8 +5,8 @@ from contextlib import contextmanager
 from threading import Barrier
 from typing import List, Callable
 
+import logging
 import numpy
-import scipy.optimize
 
 from ._dtype import DType, combine_types
 
@@ -1453,3 +1453,9 @@ def get_functional_derivative_order():
     """
     return _FUNCTIONAL_DERIVATIVE_CONTEXT[-1]
 
+
+PHI_LOGGER = logging.getLogger('Φ')  # used for warnings and debug messages by all internal PhiFlow functions
+_LOG_CONSOLE_HANDLER = logging.StreamHandler(sys.stdout)
+_LOG_CONSOLE_HANDLER.setFormatter(logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n"))
+_LOG_CONSOLE_HANDLER.setLevel(logging.NOTSET)
+PHI_LOGGER.addHandler(_LOG_CONSOLE_HANDLER)
