@@ -1,4 +1,4 @@
-import logging
+import sys
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
@@ -815,8 +815,11 @@ class Backend:
         from threading import Thread
 
         assert self.supports(Backend.functional_gradient)
-        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
-        batch_size = self.staticshape(x0)[0]
+        x0 = self.numpy(x0)
+        assert x0.ndim == 2  # (batch, parameters)
+        atol = self.numpy(atol)
+        max_iter = self.numpy(max_iter)
+        batch_size = x0.shape[0]
         fg = self.functional_gradient(f, [0], get_output=True)
         method_description = f"SciPy {method} with {self.name}"
 
@@ -944,20 +947,20 @@ class Backend:
                     predicted_loss_decrease = - self.sum(grad * dx, -1)  # >= 0
                     _, next_loss, next_grad = fg(next_x); function_evaluations += continue_1
                     converged = converged | (self.sum(next_grad ** 2, axis=-1) < atol ** 2)
-                    logging.debug(f"Gradient: {self.numpy(next_grad)} with step_size={self.numpy(step_size)}")
+                    PHI_LOGGER.debug(f"Gradient: {self.numpy(next_grad)} with step_size={self.numpy(step_size)}")
                     actual_loss_decrease = loss - next_loss  # we want > 0
                     # we want actual_loss_decrease to be at least half of predicted_loss_decrease
                     act_pred = self.divide_no_nan(actual_loss_decrease, predicted_loss_decrease)
-                    logging.debug(f"Actual/Predicted: {self.numpy(act_pred)}")
+                    PHI_LOGGER.debug(f"Actual/Predicted: {self.numpy(act_pred)}")
                     step_size_fac = self.clip(self.log(1 + 1.71828182845 * self.exp((act_pred - 0.5) * 2.)), 0.1, 10)
-                    logging.debug(f"step_size *= {self.numpy(step_size_fac)}")
+                    PHI_LOGGER.debug(f"step_size *= {self.numpy(step_size_fac)}")
                     step_size *= step_size_fac
                     if self.all((act_pred > 0.4) & (act_pred < 0.9) | converged | diverged):
-                        logging.debug(f"Finished step_size adjustment at step {i + 1}\n")
+                        PHI_LOGGER.debug(f"GD minimization: Finished step_size adjustment after {i + 1} tries\n")
                         break
                 else:
                     converged = converged | (abs(actual_loss_decrease) < predicted_loss_decrease)
-                    logging.debug("Backend._minimize_gradient_descent(): No step size found!\n")
+                    PHI_LOGGER.debug("Backend._minimize_gradient_descent(): No step size found!\n")
                 diverged = diverged | (next_loss > loss)
                 x, loss, grad = next_x, next_loss, next_grad
             else:
