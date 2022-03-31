@@ -3926,26 +3926,24 @@ When sampling this field on a grid, scatter functions may be used.</p>
         else:
             raise NotImplementedError()
 
-    def _grid_scatter(self, box: Box, resolution: math.Shape):
+    def _grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling=&#39;discard&#39;):
         &#34;&#34;&#34;
         Approximately samples this field on a regular grid using math.scatter().
 
         Args:
-          box: physical dimensions of the grid
+          bounds: physical dimensions of the grid
           resolution: grid resolution
-          box: Box: 
-          resolution: math.Shape: 
 
         Returns:
           CenteredGrid
 
         &#34;&#34;&#34;
-        closest_index = box.global_to_local(self.points) * resolution - 0.5
+        closest_index = bounds.global_to_local(self.points) * resolution - 0.5
         mode = &#39;add&#39; if self._add_overlapping else &#39;mean&#39;
         base = math.zeros(resolution)
         if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
             base += self.extrapolation.value
-        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=&#39;discard&#39;)
+        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=outside_handling)
         return scattered
 
     def __repr__(self):

@@ -100,7 +100,18 @@ def detect_backends() -&gt; tuple:
     except ImportError:
         pass
     from .math.backend import BACKENDS
-    return tuple(BACKENDS)</code></pre>
+    return tuple(BACKENDS)
+
+
+def set_logging_level(level=&#39;debug&#39;):
+    &#34;&#34;&#34;
+    Sets the logging level for PhiFlow functions.
+
+    Args:
+        level: Logging level, one of `&#39;critical&#39;, &#39;fatal&#39;, &#39;error&#39;, &#39;warning&#39;, &#39;info&#39;, &#39;debug&#39;`
+    &#34;&#34;&#34;
+    from phi.math.backend import PHI_LOGGER
+    PHI_LOGGER.setLevel(level.upper())</code></pre>
 </details>
 </section>
 <section>
@@ -195,6 +206,31 @@ This includes only backends for which the minimal requirements are fulfilled.</p
     return tuple(BACKENDS)</code></pre>
 </details>
 </dd>
+<dt id="phi.set_logging_level"><code class="name flex">
+<span>def <span class="ident">set_logging_level</span></span>(<span>level='debug')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sets the logging level for PhiFlow functions.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>level</code></strong></dt>
+<dd>Logging level, one of <code>'critical', 'fatal', 'error', 'warning', 'info', 'debug'</code></dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_logging_level(level=&#39;debug&#39;):
+    &#34;&#34;&#34;
+    Sets the logging level for PhiFlow functions.
+
+    Args:
+        level: Logging level, one of `&#39;critical&#39;, &#39;fatal&#39;, &#39;error&#39;, &#39;warning&#39;, &#39;info&#39;, &#39;debug&#39;`
+    &#34;&#34;&#34;
+    from phi.math.backend import PHI_LOGGER
+    PHI_LOGGER.setLevel(level.upper())</code></pre>
+</details>
+</dd>
 <dt id="phi.verify"><code class="name flex">
 <span>def <span class="ident">verify</span></span>(<span>)</span>
 </code></dt>
@@ -250,6 +286,7 @@ This includes only backends for which the minimal requirements are fulfilled.</p
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.detect_backends" href="#phi.detect_backends">detect_backends</a></code></li>
+<li><code><a title="phi.set_logging_level" href="#phi.set_logging_level">set_logging_level</a></code></li>
 <li><code><a title="phi.verify" href="#phi.verify">verify</a></code></li>
 </ul>
 </li>

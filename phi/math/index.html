@@ -4049,7 +4049,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 </details>
 </dd>
 <dt id="phi.math.ones_like"><code class="name flex">
-<span>def <span class="ident">ones_like</span></span>(<span>tensor: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">ones_like</span></span>(<span>value: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> containing only <code>1.0</code> / <code>1</code> / <code>True</code> with the same shape and dtype as <code>obj</code>.</p></div>
@@ -4057,9 +4057,9 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ones_like(tensor: Tensor) -&gt; Tensor:
+<pre><code class="python">def ones_like(value: Tensor) -&gt; Tensor:
     &#34;&#34;&#34; Create a `Tensor` containing only `1.0` / `1` / `True` with the same shape and dtype as `obj`. &#34;&#34;&#34;
-    return zeros_like(tensor) + 1</code></pre>
+    return zeros_like(value) + 1</code></pre>
 </details>
 </dd>
 <dt id="phi.math.pack_dims"><code class="name flex">
@@ -7654,7 +7654,7 @@ This is the default implementation.</p>
         if not backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;)
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
-                logging.debug(f&#34;Φ-lin: Running &#39;{self.f.__name__}&#39; as-is with {backend} because it is being traced.&#34;)
+                PHI_LOGGER.debug(f&#34;Φ-lin: Running &#39;{self.f.__name__}&#39; as-is with {backend} because it is being traced.&#34;)
                 return self.f(*args, **kwargs)
             else:
                 return self.nl_jit(*args, **kwargs)
