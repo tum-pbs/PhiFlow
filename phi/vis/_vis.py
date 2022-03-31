@@ -11,7 +11,7 @@ from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, \
     PlottingLibrary
 from .. import math, field
-from ..field import SampledField, Scene, StitchedGrid, Field
+from ..field import SampledField, Scene, Field
 from ..field._scene import _slugify_filename
 from ..math import Tensor, layout, batch, Shape
 from ..math._shape import parse_dim_order

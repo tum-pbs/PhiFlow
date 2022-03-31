@@ -127,26 +127,24 @@ class PointCloud(SampledField):
         else:
             raise NotImplementedError()
 
-    def _grid_scatter(self, box: Box, resolution: math.Shape):
+    def _grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling='discard'):
         """
         Approximately samples this field on a regular grid using math.scatter().
 
         Args:
-          box: physical dimensions of the grid
+          bounds: physical dimensions of the grid
           resolution: grid resolution
-          box: Box: 
-          resolution: math.Shape: 
 
         Returns:
           CenteredGrid
 
         """
-        closest_index = box.global_to_local(self.points) * resolution - 0.5
+        closest_index = bounds.global_to_local(self.points) * resolution - 0.5
         mode = 'add' if self._add_overlapping else 'mean'
         base = math.zeros(resolution)
         if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
             base += self.extrapolation.value
-        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling='discard')
+        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=outside_handling)
         return scattered
 
     def __repr__(self):

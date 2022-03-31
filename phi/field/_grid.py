@@ -416,7 +416,7 @@ def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extra
 
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extrapolation):
-    cells = GridCell(resolution, Box(0, [1] * resolution.rank))
+    cells = GridCell(resolution, Box(0, math.wrap((1,) * resolution.rank, channel(vector=resolution.names))))
     components = values.vector.unstack(resolution.spatial_rank)
     tensors = []
     for dim, component in zip(resolution.spatial.names, components):
