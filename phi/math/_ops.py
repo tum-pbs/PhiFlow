@@ -442,9 +442,9 @@ def ones(*shape: Shape, dtype: DType = None) -> Tensor:
     return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape)
 
 
-def ones_like(tensor: Tensor) -> Tensor:
+def ones_like(value: Tensor) -> Tensor:
     """ Create a `Tensor` containing only `1.0` / `1` / `True` with the same shape and dtype as `obj`. """
-    return zeros_like(tensor) + 1
+    return zeros_like(value) + 1
 
 
 def random_normal(*shape: Shape, dtype: DType = None) -> Tensor:

@@ -5,7 +5,6 @@ import warnings
 from functools import wraps
 from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any
 
-import logging
 import numpy as np
 
 from . import _ops as math
@@ -13,7 +12,7 @@ from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
 from ._tensors import Tensor, NativeTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
 from .backend import choose_backend, Backend
-from .backend._backend import SolveResult, get_spatial_derivative_order, functional_derivative_evaluation
+from .backend._backend import SolveResult, get_spatial_derivative_order, functional_derivative_evaluation, PHI_LOGGER
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -87,9 +86,9 @@ def key_from_args(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list]:
     nest, tensors = disassemble_tree(args)
     tracing = not all_available(*tensors)
     backend = math.choose_backend_t(*tensors)
-    if tracing and cache:
-        cache = False
-        warnings.warn("Cannot cache a tensor while tracing.")
+    # if tracing and cache:
+    #     cache = False
+    #     warnings.warn("Cannot cache a tensor while tracing.")
     natives, shapes = disassemble_tensors(tensors, expand=cache)
     key = SignatureKey(None, nest, shapes, kwargs, backend, tracing)
     return key, natives
@@ -120,10 +119,10 @@ class JitFunction:
         self.grad_jit = GradientFunction(f.f, f.wrt, f.get_output, jit=True) if isinstance(f, GradientFunction) else None
 
     def _jit_compile(self, in_key: SignatureKey):
-        logging.debug(f"Φ-jit: {self.f.__name__} called with new key. shapes={[s.volume for s in in_key.shapes]}, kwargs={list(in_key.kwargs)}.")
+        PHI_LOGGER.debug(f"Φ-jit: '{self.f.__name__}' called with new key. shapes={[s.volume for s in in_key.shapes]}, kwargs={list(in_key.kwargs)}.")
 
         def jit_f_native(*natives, **kwargs):
-            logging.debug(f"Φ-jit: Tracing '{self.f.__name__}'")
+            PHI_LOGGER.debug(f"Φ-jit: Tracing '{self.f.__name__}'")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.tree, in_tensors)
@@ -133,6 +132,7 @@ class JitFunction:
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(jit_f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
+
         jit_f_native.__name__ = f"native({self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)})"
         return in_key.backend.jit_compile(jit_f_native)
 
@@ -251,7 +251,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         if not backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
-                logging.debug(f"Φ-lin: Running '{self.f.__name__}' as-is with {backend} because it is being traced.")
+                PHI_LOGGER.debug(f"Φ-lin: Running '{self.f.__name__}' as-is with {backend} because it is being traced.")
                 return self.f(*args, **kwargs)
             else:
                 return self.nl_jit(*args, **kwargs)
@@ -332,7 +332,7 @@ class GradientFunction:
 
     def _trace_grad(self, in_key: SignatureKey, wrt_natives):
         def f_native(*natives, **kwargs):
-            logging.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
+            PHI_LOGGER.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.tree, in_tensors)
@@ -447,7 +447,7 @@ class HessianFunction:
 
     def _trace_hessian(self, in_key: SignatureKey, wrt_natives):
         def f_native(*natives, **kwargs):
-            logging.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
+            PHI_LOGGER.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
             assert not kwargs
             in_tensors = assemble_tensors(natives, in_key.shapes)
             values = assemble_tree(in_key.tree, in_tensors)
@@ -1484,6 +1484,7 @@ def solve_linear(f: Callable[[X], Y],
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
                           active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
+    print(f"Tracing linear solve {solve} with backend {backend}")
     if solve.preprocess_y is not None:
         y = solve.preprocess_y(y)
     y_nest, (y_tensor,) = disassemble_tree(y)

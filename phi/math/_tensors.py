@@ -1213,9 +1213,9 @@ class CollapsedTensor(Tensor):  # package-private
 
     def _expand(self):
         self._cache()
-        from phi.math import all_available
-        if not all_available(self._cached):
-            raise AssertionError("Cannot cache a Tensor while it is being traced.")
+        # from phi.math import all_available
+        # if not all_available(self._cached):
+        #     raise AssertionError("Cannot cache a Tensor while it is being traced.")
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
@@ -1896,8 +1896,8 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
         sizes = backend.staticshape(obj)
         shape = Shape(sizes, tuple([f"dim{i}" for i in range(len(sizes))]), (None,) * len(sizes), (None,) * len(sizes))
         shape.is_native_shape = True
-        if backend.ndims(obj) != 0:
-            warnings.warn(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")
+        # if backend.ndims(obj) != 0:
+        #     warnings.warn(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")
         return None, [NativeTensor(obj, shape)]
 
 
