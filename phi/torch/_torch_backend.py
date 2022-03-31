@@ -10,7 +10,7 @@ import torch.fft
 import torch.nn.functional as torchf
 
 from phi.math import DType
-from phi.math.backend import Backend, NUMPY, ComputeDevice
+from phi.math.backend import Backend, NUMPY, ComputeDevice, PHI_LOGGER
 from phi.math.backend._backend import combined_dim, SolveResult, get_functional_derivative_order
 
 
@@ -42,7 +42,7 @@ class TorchBackend(Backend):
         return devices
 
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, (torch.Tensor, JITFunction)):
+        if isinstance(x, (torch.Tensor, JITFunction, torch.nn.Module)):
             return True
         if only_native:
             return False
@@ -55,6 +55,8 @@ class TorchBackend(Backend):
         return False
 
     def as_tensor(self, x, convert_external=True):
+        if isinstance(x, torch.nn.Module):
+            return x
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
@@ -157,7 +159,8 @@ class TorchBackend(Backend):
                     f_ = f
 
                     def trace_later():
-                        TRACED_F[current_jit] = torch.jit.trace(f, args)  # nested traces not allowed in PyTorch
+                        PHI_LOGGER.debug(f"Tracing forward pass of '{f.__name__}' which uses a custom gradient")
+                        TRACED_F[current_jit] = torch.jit.trace(f, args, strict=False, check_trace=False)  # nested traces not allowed in PyTorch
                     current_jit.post_trace.append(trace_later)
                 elif CURRENT_JIT_CALLS:
                     jit_f = TRACED_F[CURRENT_JIT_CALLS[-1]]
@@ -180,7 +183,7 @@ class TorchBackend(Backend):
                     # g_ = gradient
                     #
                     # def trace_later():
-                    #     TRACED_F[current_jit] = torch.jit.trace(f, args)  # nested traces not allowed in PyTorch
+                    #     TRACED_F[current_jit] = torch.jit.trace(f, args, check_trace=False)  # nested traces not allowed in PyTorch
                 elif ctx.jit_f:
                     jit_f = ctx.jit_f
                     if ctx.jit_f in TRACED_B:
@@ -202,6 +205,7 @@ class TorchBackend(Backend):
                                 return filtered
 
                             needed_g = torch.jit.trace(filter_required_grads, tuple([x, y, grad_args]), check_trace=False)
+                            PHI_LOGGER.debug(f"Tracing backward pass of '{f.__name__}' which uses a custom gradient")
 
                             def g_(*args):
                                 with jit_f:
@@ -420,7 +424,7 @@ class TorchBackend(Backend):
                 warnings.warn("Tracing a PyTorch while loop requires an additional tracing pass. You can avoid this by passing a torch.ScriptFunction.")
                 raise NotImplementedError()
                 # def trace_later():
-                #     jit_loop = torch.jit.trace(loop)
+                #     jit_loop = torch.jit.trace(loop, check_trace=False)
                 #     @torch.jit.script
                 #     def loop_script(values: Tuple[torch.Tensor], loop_script: Callable):
                 #         while torch.any(values[0]):
@@ -509,6 +513,8 @@ class TorchBackend(Backend):
             return NUMPY.shape(tensor)
 
     def staticshape(self, tensor):
+        if isinstance(tensor, torch.nn.Module):
+            return ()
         if self.is_tensor(tensor, only_native=True):
             return tuple([int(s) for s in tensor.shape])
         else:
@@ -842,10 +848,25 @@ class JITFunction:
     def __call__(self, *args, **kwargs):
         if kwargs:
             raise NotImplementedError("kwargs not supported for traced function")
+        args = [self.backend.as_tensor(arg) for arg in args]
         if self.traced is None:
-            args = [self.backend.as_tensor(arg) for arg in args]
+            native_f = self.f
+
+            class JitModule(torch.nn.Module):
+
+                def __init__(self):
+                    super().__init__()
+                    for submodule in JIT_REGISTERED_MODULES:
+                        self.add_module(str(f"{type(submodule).__name__}_{id(submodule)}"), submodule)
+
+                def forward(self, *args):
+                    PHI_LOGGER.debug(f"Tracing Pytorch jit module for {native_f.__name__}")
+                    return native_f(*args)
+
+            module = JitModule()
             with self:
-                self.traced = torch.jit.trace(self.f, example_inputs=args, check_trace=False)
+                self.traced = torch.jit.trace(module, tuple(args), check_trace=False, strict=False)
+                # self.traced = torch.jit.trace(self.f, tuple(args), check_trace=False, strict=False)
         with self:
             from phi.math.backend import choose_backend
             return choose_backend(self).call(self.traced, *args, name=f"run jit-compiled '{self.f.__name__}'")
@@ -865,6 +886,7 @@ class JITFunction:
 
 
 CURRENT_JIT_CALLS: List[JITFunction] = []
+JIT_REGISTERED_MODULES = []  # Add Networks and other modules to this list before using them in a JIT function!
 
 
 def to_torch_dtype(dtype: DType):

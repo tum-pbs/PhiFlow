@@ -1,11 +1,13 @@
+from typing import Callable
+
 import numpy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
-from typing import Callable
 
 from . import TORCH
+from ._torch_backend import JIT_REGISTERED_MODULES
 
 
 def parameter_count(model: nn.Module) -> int:
@@ -73,7 +75,9 @@ def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Ca
         Output of `loss_function`.
     """
     optimizer.zero_grad()
+    JIT_REGISTERED_MODULES.append(net)
     output = loss_function(*loss_args, **loss_kwargs)
+    JIT_REGISTERED_MODULES.remove(net)
     loss = output[0] if isinstance(output, tuple) else output
     loss.sum.backward()
     optimizer.step()
@@ -139,6 +143,7 @@ def u_net(in_channels: int,
         d = len(in_spatial)
     net = UNet(d, in_channels, out_channels, filters, batch_norm, activation)
     net = net.to(TORCH.get_default_device().ref)
+    # net = torch.jit.trace_module(net, {'forward': torch.zeros((1, in_channels) + (32,) * d, device=TORCH.get_default_device().ref)})
     return net
 
 
@@ -148,11 +153,11 @@ class UNet(nn.Module):
         super(UNet, self).__init__()
         self._levels = len(filters)
         self._spatial_rank = d
-        self.inc = DoubleConv(d, in_channels, filters[0], filters[0], batch_norm, activation)
+        self.add_module('inc', DoubleConv(d, in_channels, filters[0], filters[0], batch_norm, activation))
         for i in range(1, self._levels):
             self.add_module(f'down{i}', Down(d, filters[i - 1], filters[i], batch_norm, activation))
             self.add_module(f'up{i}', Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation))
-        self.outc = CONV[d](filters[0], out_channels, kernel_size=1)
+        self.add_module('outc', CONV[d](filters[0], out_channels, kernel_size=1))
 
     def forward(self, x):
         x = self.inc(x)
@@ -207,14 +212,14 @@ class DoubleConv(nn.Module):
 
     def __init__(self, d: int, in_channels: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: type):
         super().__init__()
-        self.double_conv = nn.Sequential(
+        self.add_module('double_conv', nn.Sequential(
             CONV[d](in_channels, mid_channels, kernel_size=3, padding=1),
             NORM[d](mid_channels) if batch_norm else nn.Identity(),
             activation(),
             CONV[d](mid_channels, out_channels, kernel_size=3, padding=1),
             NORM[d](out_channels) if batch_norm else nn.Identity(),
             nn.ReLU(inplace=True)
-        )
+        ))
 
     def forward(self, x):
         return self.double_conv(x)
@@ -228,8 +233,8 @@ class Down(nn.Module):
 
     def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type):
         super().__init__()
-        self.maxpool = MAX_POOL[d](2)
-        self.conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
+        self.add_module('maxpool', MAX_POOL[d](2))
+        self.add_module('conv', DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation))
 
     def forward(self, x):
         x = self.maxpool(x)
@@ -245,11 +250,13 @@ class Up(nn.Module):
         super().__init__()
         if linear:
             # if bilinear, use the normal convolutions to reduce the number of channels
-            self.up = nn.Upsample(scale_factor=2, mode=Up._MODES[d])
-            self.conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation)
+            up = nn.Upsample(scale_factor=2, mode=Up._MODES[d])
+            conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation)
         else:
-            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            self.conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
+            up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
+        self.add_module('up', up)
+        self.add_module('conv', conv)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)

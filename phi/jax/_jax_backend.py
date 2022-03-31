@@ -1,22 +1,20 @@
 import numbers
 import warnings
-from functools import wraps, partial
+from functools import wraps
 from typing import List, Callable
 
-import logging
-import numpy as np
 import jax
 import jax.numpy as jnp
 import jax.scipy as scipy
+import numpy as np
+from jax import random
 from jax.core import Tracer
 from jax.interpreters.xla import DeviceArray
-from jax.scipy.sparse.linalg import cg
-from jax import random
 
-from phi.math import SolveInfo, Solve, DType
-from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
+from phi.math import DType
 from phi.math.backend import Backend, ComputeDevice
-from phi.math.backend._backend import combined_dim, SolveResult
+from phi.math.backend._backend import combined_dim, SolveResult, PHI_LOGGER
+from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
 
 
 class JaxBackend(Backend):
@@ -146,7 +144,7 @@ class JaxBackend(Backend):
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):
             # print(jax.make_jaxpr(f)(*args))
-            logging.debug(f"JaxBackend: running jit-compiled '{f.__name__}' with shapes {[arg.shape for arg in args]} and dtypes {[arg.dtype.name for arg in args]}")
+            PHI_LOGGER.debug(f"JaxBackend: running jit-compiled '{f.__name__}' with shapes {[self.shape(arg) for arg in args]} and dtypes {[self.dtype(arg) for arg in args]}")
             return self.as_registered.call(jit_f, *args, name=f"run jit-compiled '{f.__name__}'")
 
         run_jit_f.__name__ = f"Jax-Jit({f.__name__})"

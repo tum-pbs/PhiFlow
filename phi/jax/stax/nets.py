@@ -1,4 +1,5 @@
 import functools
+from copy import copy
 
 import numpy
 import jax
@@ -8,8 +9,11 @@ from jax.experimental import stax  # from jax.example_libraries import stax
 from jax.experimental import optimizers as optim
 from typing import Callable
 
+from jax.experimental.optimizers import OptimizerState
+
 from phi import math
 from .. import JAX
+from ...math._functional import JitFunction
 
 
 class StaxNet:
@@ -39,29 +43,42 @@ class JaxOptimizer:
         self._initialize, self._update, self._get_params = initialize, update, get_params  # Stax functions
         self._state = None
         self._step_i = 0
-        self._loss_function_cache = {}
+        self._update_function_cache = {}
 
     def initialize(self, net: tuple):
         self._state = self._initialize(net)
 
-    def update(self, grads: tuple):
+    def update_step(self, grads: tuple):
         self._state = self._update(self._step_i, grads, self._state)
         self._step_i += 1
 
     def get_network_parameters(self):
         return self._get_params(self._state)
 
-    def eval_grad(self, net: StaxNet, loss_function, wrt, loss_args, loss_kwargs):
-        if loss_function not in self._loss_function_cache:
-            def loss_depending_on_net(params_tracer: tuple, *args, **kwargs):
-                net._tracers = params_tracer
-                result = loss_function(*args, **kwargs)
-                net._tracers = None
-                return result
-            self._loss_function_cache[loss_function] = math.functional_gradient(loss_depending_on_net)
-        # Run gradient function
-        value, (grad,) = self._loss_function_cache[loss_function](wrt, *loss_args, **loss_kwargs)
-        return value, grad
+    def update(self, net: StaxNet, loss_function, wrt, loss_args, loss_kwargs):
+        if loss_function not in self._update_function_cache:
+            def update(packed_current_state, *loss_args, **loss_kwargs):
+                def loss_depending_on_net(params_tracer: tuple, *args, **kwargs):
+                    net._tracers = params_tracer
+                    loss_function_non_jit = loss_function.f if isinstance(loss_function, JitFunction) else loss_function
+                    result = loss_function_non_jit(*args, **kwargs)
+                    net._tracers = None
+                    return result
+
+                gradient_function = math.functional_gradient(loss_depending_on_net)
+                current_state = OptimizerState(packed_current_state, self._state.tree_def, self._state.subtree_defs)
+                current_params = self._get_params(current_state)
+                value, grads = gradient_function(current_params, *loss_args, **loss_kwargs)
+                next_state = self._update(self._step_i, grads[0], self._state)
+                return next_state.packed_state, value
+
+            if isinstance(loss_function, JitFunction):
+                update = math.jit_compile(update)
+            self._update_function_cache[loss_function] = update
+
+        next_packed_state, loss_output = self._update_function_cache[loss_function](self._state.packed_state, *loss_args, **loss_kwargs)
+        self._state = OptimizerState(next_packed_state, self._state.tree_def, self._state.subtree_defs)
+        return loss_output
 
 
 
@@ -142,10 +159,9 @@ def update_weights(net: StaxNet, optimizer: JaxOptimizer, loss_function: Callabl
     Returns:
         Output of `loss_function`.
     """
-    value, grad = optimizer.eval_grad(net, loss_function, net.parameters, loss_args, loss_kwargs)
-    optimizer.update(grad)
+    loss_output = optimizer.update(net, loss_function, net.parameters, loss_args, loss_kwargs)
     net.parameters = optimizer.get_network_parameters()
-    return value
+    return loss_output
 
 
 def adam(net: StaxNet, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
