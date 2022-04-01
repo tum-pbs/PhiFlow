@@ -49,7 +49,7 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
             return plot(value, lib='plotly', size=(height, height), same_scale=False, colormap=app.config.get('colormap', None))
         except ValueError as err:
             fig = graph_objects.Figure()
-            fig.update_layout(title_text=str(err.args[0]), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig.update_layout(title_text=str(value), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             return fig
 
     return layout
