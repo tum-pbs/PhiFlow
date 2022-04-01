@@ -662,10 +662,28 @@ The output of math operations has the same precision as its inputs.</p>
     def seed(self, seed: int):
         raise NotImplementedError()
 
+    def is_module(self, obj) -&gt; bool:
+        &#34;&#34;&#34;
+        Tests if `obj` is of a type that is specific to this backend, e.g. a neural network.
+        If `True`, this backend will be chosen for operations involving `obj`.
+
+        See Also:
+            `Backend.is_tensor()`.
+
+        Args:
+            obj: Object to test.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
+
     def is_tensor(self, x, only_native=False):
         &#34;&#34;&#34;
         An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
         An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.
+
+        If `True`, this backend will be chosen for operations involving `x`.
+
+        See Also:
+            `Backend.is_module()`.
 
         Args:
           x: object to check
@@ -2927,12 +2945,46 @@ If true, <code>numpy(tensor)</code> must return a valid NumPy representation of 
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.is_module"><code class="name flex">
+<span>def <span class="ident">is_module</span></span>(<span>self, obj) ‑> bool</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Tests if <code>obj</code> is of a type that is specific to this backend, e.g. a neural network.
+If <code>True</code>, this backend will be chosen for operations involving <code>obj</code>.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">Backend.is_tensor()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd>Object to test.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_module(self, obj) -&gt; bool:
+    &#34;&#34;&#34;
+    Tests if `obj` is of a type that is specific to this backend, e.g. a neural network.
+    If `True`, this backend will be chosen for operations involving `obj`.
+
+    See Also:
+        `Backend.is_tensor()`.
+
+    Args:
+        obj: Object to test.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.is_tensor"><code class="name flex">
 <span>def <span class="ident">is_tensor</span></span>(<span>self, x, only_native=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
 An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.</p>
+<p>If <code>True</code>, this backend will be chosen for operations involving <code>x</code>.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.is_module" href="#phi.math.backend.Backend.is_module">Backend.is_module()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
@@ -2953,6 +3005,11 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
     &#34;&#34;&#34;
     An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
     An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.
+
+    If `True`, this backend will be chosen for operations involving `x`.
+
+    See Also:
+        `Backend.is_module()`.
 
     Args:
       x: object to check
@@ -5053,6 +5110,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.ifft" href="#phi.math.backend.Backend.ifft">ifft</a></code></li>
 <li><code><a title="phi.math.backend.Backend.imag" href="#phi.math.backend.Backend.imag">imag</a></code></li>
 <li><code><a title="phi.math.backend.Backend.is_available" href="#phi.math.backend.Backend.is_available">is_available</a></code></li>
+<li><code><a title="phi.math.backend.Backend.is_module" href="#phi.math.backend.Backend.is_module">is_module</a></code></li>
 <li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.isfinite" href="#phi.math.backend.Backend.isfinite">isfinite</a></code></li>
 <li><code><a title="phi.math.backend.Backend.jacobian" href="#phi.math.backend.Backend.jacobian">jacobian</a></code></li>

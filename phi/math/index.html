@@ -3838,7 +3838,10 @@ see <code><a title="phi.math.backend.Backend.prefers_channels_last" href="backen
         `Tensor` with batch and spatial dimensions of `inputs` and single channel dimension `channel_dim`.
     &#34;&#34;&#34;
     if channels_last is None:
-        backend = choose_backend_t(*inputs, prefer_default=True)
+        try:
+            backend = choose_backend(f)
+        except NoBackendFound:
+            backend = choose_backend_t(*inputs, prefer_default=True)
         channels_last = backend.prefers_channels_last()
     batch = merge_shapes(*[i.shape.batch for i in inputs])
     spatial = merge_shapes(*[i.shape.spatial for i in inputs])
@@ -3854,7 +3857,7 @@ see <code><a title="phi.math.backend.Backend.prefers_channels_last" href="backen
         raise NotImplementedError()
     else:
         groups = (batch, *spatial, channel_dim) if channels_last else (batch, channel_dim, *spatial)
-        result = reshaped_tensor(output, groups)
+        result = reshaped_tensor(output, groups, convert=False)
         if result.shape.get_size(channel_dim.name) == 1:
             result = result.dimension(channel_dim.name)[0]  # remove vector dim if not required
         return result</code></pre>
