@@ -12,6 +12,7 @@ from ._vis_base import VisModel, Control, Action
 from .. import field
 from ..field import Scene, SampledField
 from ..math import batch, Tensor
+from ..math.backend import PHI_LOGGER
 
 
 def create_viewer(namespace: UserNamespace,
@@ -288,7 +289,7 @@ class Record:
         for name, val in variables.items():
             self.history[name].append(val)
             if val is None and warn_missing:
-                warnings.warn(f"None value encountered for variable '{name}' at step {self.viewer.steps}. This value will not show up in the recording.")
+                PHI_LOGGER.warning(f"None value encountered for variable '{name}' at step {self.viewer.steps}. This value will not show up in the recording.")
 
     @property
     def recorded_fields(self):

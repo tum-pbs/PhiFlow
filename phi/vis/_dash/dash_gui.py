@@ -14,6 +14,7 @@ from .info import build_app_details, build_description, build_phiflow_info, buil
 from .viewer import build_viewers, REFRESH_INTERVAL
 from .player_controls import build_status_bar, build_player_controls, PLAYING, STEP_COMPLETE
 from .._vis_base import Gui, VisModel
+from ...math.backend import PHI_LOGGER
 
 
 class DashGui(Gui):
@@ -164,7 +165,7 @@ class DashGui(Gui):
                     import waitress
                     use_waitress = True
                 except ImportError:
-                    warnings.warn('waitress is not installed, falling back to dash development server. To enable it, run  $ pip install waitress')
+                    PHI_LOGGER.warning('waitress is not installed, falling back to dash development server. To enable it, run  $ pip install waitress')
             print('Starting Dash server on http://localhost:%d/' % port)
             if use_waitress:
                 import waitress

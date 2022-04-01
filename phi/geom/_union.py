@@ -6,6 +6,7 @@ from ._transform import rotate
 from ._box import bounding_box, Box
 from ..math._shape import merge_shapes
 from ..math._tensors import variable_attributes, copy_with
+from ..math.backend import PHI_LOGGER
 
 
 class Union(Geometry):
@@ -41,7 +42,7 @@ class Union(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.")
+        PHI_LOGGER.warning("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.")
         return math.sum([g.volume for g in self.geometries], dim='0')
 
     @property

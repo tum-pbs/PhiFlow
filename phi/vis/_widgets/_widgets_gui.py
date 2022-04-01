@@ -17,6 +17,7 @@ from phi.math._shape import parse_dim_order
 from phi.field import SampledField
 from .._vis import plot
 from .._vis_base import Gui, VisModel, display_name, GuiInterrupt, select_channel, value_range, is_log_control, Action
+from ...math.backend import PHI_LOGGER
 
 
 class WidgetsGui(Gui):
@@ -277,7 +278,7 @@ class WidgetsGui(Gui):
         if loop.is_running():
             loop.call_soon(lambda: _replay_events(self.shell, self.events))
         else:
-            warnings.warn("Automatic execution of scheduled cells only works with asyncio based ipython")
+            PHI_LOGGER.warning("Automatic execution of scheduled cells only works with asyncio based ipython")
 
 
 def _replay_events(shell, events):

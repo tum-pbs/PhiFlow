@@ -26,7 +26,7 @@ class JaxBackend(Backend):
         try:
             self.rnd_key = jax.random.PRNGKey(seed=0)
         except RuntimeError as err:
-            warnings.warn(f"{err}")
+            PHI_LOGGER.warning(f"{err}")
             self.rnd_key = None
 
     def prefers_channels_last(self) -> bool:
@@ -222,7 +222,7 @@ class JaxBackend(Backend):
         elif dtype.kind == int:
             tensor = random.randint(subkey, shape, low, high, dtype=jdt)
             if tensor.dtype != jdt:
-                warnings.warn(f"Jax failed to sample random integers with dtype {dtype}, returned {tensor.dtype} instead.")
+                PHI_LOGGER.warning(f"Jax failed to sample random integers with dtype {dtype}, returned {tensor.dtype} instead.")
         else:
             raise ValueError(dtype)
         return jax.device_put(tensor, self._default_device.ref)

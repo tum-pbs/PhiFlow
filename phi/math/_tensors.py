@@ -11,7 +11,7 @@ from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
-    Backend
+    Backend, PHI_LOGGER
 from .backend._dtype import DType
 
 
@@ -350,7 +350,7 @@ class Tensor(Sliceable):
             elif len(item) == self.shape.channel.rank:
                 item = {name: selection for name, selection in zip(self.shape.channel.names, item)}
             elif len(item) == self.shape.rank:  # legacy indexing
-                warnings.warn("Slicing with sequence should only be used for channel dimensions.")
+                PHI_LOGGER.warning("Slicing with sequence should only be used for channel dimensions.")
                 item = {name: selection for name, selection in zip(self.shape.names, item)}
         assert isinstance(item, dict)  # dict mapping name -> slice/int
         return self._getitem(item)
@@ -733,7 +733,7 @@ class TensorDim:
         return self.index
 
     def __len__(self):
-        warnings.warn("Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.")
+        PHI_LOGGER.warning("Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.")
         return self.size
 
     @property
@@ -1897,7 +1897,7 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
         shape = Shape(sizes, tuple([f"dim{i}" for i in range(len(sizes))]), (None,) * len(sizes), (None,) * len(sizes))
         shape.is_native_shape = True
         # if backend.ndims(obj) != 0:
-        #     warnings.warn(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")
+        #     PHI_LOGGER.warning(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")
         return None, [NativeTensor(obj, shape)]
 
 

@@ -16,6 +16,7 @@ from ..field._scene import _slugify_filename
 from ..math import Tensor, layout, batch, Shape
 from ..math._shape import parse_dim_order
 from ..math._tensors import Layout
+from ..math.backend import PHI_LOGGER
 
 
 def show(*model: VisModel or SampledField or tuple or list or Tensor,
@@ -287,6 +288,8 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
                        offset_row: int,
                        offset_col: int,
                        positioning: Dict[Tuple[int, int], List]):  # rows, cols
+    if data is None:
+        raise ValueError(f"Cannot layout figure for '{data}'")
     if isinstance(data, list):
         data = math.layout(data, batch('list'))
     elif isinstance(data, tuple):
@@ -381,7 +384,7 @@ def default_gui() -> Gui:
         try:
             return get_gui(option)
         except ImportError as import_error:
-            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
+            PHI_LOGGER.warning(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
     raise RuntimeError("No user interface available.")
 
 
@@ -433,7 +436,7 @@ def default_plots() -> PlottingLibrary:
         try:
             return get_plots(option)
         except ImportError as import_error:
-            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
+            PHI_LOGGER.warning(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
     raise RuntimeError("No user interface available.")
 
 

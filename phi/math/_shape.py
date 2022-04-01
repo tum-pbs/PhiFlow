@@ -2,7 +2,7 @@ import warnings
 from typing import Tuple, Callable, List
 
 from phi import math
-
+from phi.math.backend import PHI_LOGGER
 
 BATCH_DIM = 'batch'
 SPATIAL_DIM = 'spatial'
@@ -1066,7 +1066,7 @@ def channel(*args, **dims: int or str) -> Shape:
         result = _construct_shape(CHANNEL_DIM, *args, **dims)
         for s, n, t, item_name in result._dimensions:
             if item_name is None and s is not None and not n.startswith('_'):
-                warnings.warn(f"Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}='x,y,z') to assign names or use math.stack(dict, dim)")
+                PHI_LOGGER.warning(f"Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}='x,y,z') to assign names or use math.stack(dict, dim)")
         return result
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
@@ -1272,7 +1272,7 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
                     if item_names[index] is None:
                         item_names[index] = items
                     else:
-                        warnings.warn(f"Stacking shapes with incompatible item names will result in item names being lost. Got {item_names[index]} and {items}")
+                        PHI_LOGGER.warning(f"Stacking shapes with incompatible item names will result in item names being lost. Got {item_names[index]} and {items}")
                         item_names[index] = None
     sizes = []
     for name in names:

@@ -16,7 +16,7 @@ from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, Native
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
     value_attributes, Layout, layout, cached, Sliceable
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
-    NoBackendFound
+    NoBackendFound, PHI_LOGGER
 from .backend._dtype import DType, combine_types
 
 
@@ -240,7 +240,7 @@ def copy(value: Tensor):
         Copy of `value`.
     """
     if value._is_tracer:
-        warnings.warn("Tracing tensors cannot be copied.")
+        PHI_LOGGER.warning("Tracing tensors cannot be copied.")
         return value
     return value._op1(lambda native: choose_backend(native).copy(native))
 
@@ -2162,7 +2162,7 @@ def _native_wrapper(tensor_function: Callable, create_native_function: Callable,
     backend = default_backend()
     traced = create_native_function(native_function, backend)
     if traced is NotImplemented:
-        warnings.warn(f"Backend '{backend}' not supported. Returning original function.")
+        PHI_LOGGER.warning(f"Backend '{backend}' not supported. Returning original function.")
         return tensor_function, None, INPUT_TENSORS, OUTPUT_TENSORS
 
     def wrapper(*values: Tensor):

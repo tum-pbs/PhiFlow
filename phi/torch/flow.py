@@ -24,5 +24,5 @@ import torch.optim as optim
 if not backend.context_backend():
     backend.set_global_default_backend(TORCH)
 else:
-    import warnings
-    warnings.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")
+    from ..math.backend import PHI_LOGGER as _LOGGER
+    _LOGGER.warning(f"Importing '{__name__}' within a backend context will not set the default backend.")

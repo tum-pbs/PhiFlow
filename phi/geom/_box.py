@@ -8,7 +8,7 @@ from ._geom import Geometry
 from ._transform import rotate
 from ..math import wrap
 from ..math._tensors import Tensor, copy_with
-from ..math.backend._backend import combined_dim
+from ..math.backend._backend import combined_dim, PHI_LOGGER
 
 
 class BaseBox(Geometry):  # not a Subwoofer
@@ -208,7 +208,7 @@ class Box(BaseBox, metaclass=BoxType):
             if lower is None:
                 self._lower = math.zeros_like(self._upper)
         if self.size.vector.item_names is None:
-            warnings.warn("Creating a Box without item names prevents certain operations like project()")
+            PHI_LOGGER.warning("Creating a Box without item names prevents certain operations like project()")
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))

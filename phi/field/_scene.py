@@ -13,6 +13,7 @@ from ._field import Field, SampledField
 from ._field_io import read, write
 from ..math import Shape, batch
 from ..math._tensors import Sliceable
+from ..math.backend import PHI_LOGGER
 
 
 def read_sim_frame(directory: math.Tensor,
@@ -51,7 +52,7 @@ def write_sim_frame(directory: math.Tensor,
     if names is None:
         names = struct.names(fields)
     if frame > 1000000:
-        warnings.warn(f"frame too large: {frame}. Data will be saved but filename might cause trouble in the future.")
+        PHI_LOGGER.warning(f"frame too large: {frame}. Data will be saved but filename might cause trouble in the future.")
 
     def single_write(f, name):
         name = _slugify_filename(name)
@@ -183,7 +184,7 @@ class Scene(Sliceable):
             try:
                 scene.copy_calling_script()
             except IOError as err:
-                warnings.warn(f"Failed to copy calling script to scene during Scene.create(): {err}")
+                PHI_LOGGER.warning(f"Failed to copy calling script to scene during Scene.create(): {err}")
         return scene
 
     @staticmethod
