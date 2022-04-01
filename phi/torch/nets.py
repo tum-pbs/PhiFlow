@@ -118,6 +118,7 @@ class DenseNet(nn.Module):
             self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
 
     def forward(self, x):
+        x = TORCH.as_tensor(x)
         for i in range(len(self._layers) - 2):
             x = self._activation(getattr(self, f'linear{i}')(x))
         x = getattr(self, f'linear{len(self._layers) - 2}')(x)
@@ -160,6 +161,7 @@ class UNet(nn.Module):
         self.add_module('outc', CONV[d](filters[0], out_channels, kernel_size=1))
 
     def forward(self, x):
+        x = TORCH.as_tensor(x)
         x = self.inc(x)
         xs = [x]
         for i in range(1, self._levels):

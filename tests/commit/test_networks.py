@@ -32,7 +32,7 @@ class TestNetworks(TestCase):
             optimizer = lib.adam(net, 1e-3)
 
             def loss_function(x):
-                print("Tracing loss_function")
+                print("Running loss_function")
                 assert isinstance(x, math.Tensor)
                 pred = math.native_call(net, x)
                 return math.l2_loss(pred)

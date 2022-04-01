@@ -15,7 +15,8 @@ from ._shape import (Shape, EMPTY_SHAPE,
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
     value_attributes, Layout, layout, cached, Sliceable
-from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS
+from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
+    NoBackendFound
 from .backend._dtype import DType, combine_types
 
 
@@ -271,7 +272,10 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
         `Tensor` with batch and spatial dimensions of `inputs` and single channel dimension `channel_dim`.
     """
     if channels_last is None:
-        backend = choose_backend_t(*inputs, prefer_default=True)
+        try:
+            backend = choose_backend(f)
+        except NoBackendFound:
+            backend = choose_backend_t(*inputs, prefer_default=True)
         channels_last = backend.prefers_channels_last()
     batch = merge_shapes(*[i.shape.batch for i in inputs])
     spatial = merge_shapes(*[i.shape.spatial for i in inputs])
@@ -287,7 +291,7 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
         raise NotImplementedError()
     else:
         groups = (batch, *spatial, channel_dim) if channels_last else (batch, channel_dim, *spatial)
-        result = reshaped_tensor(output, groups)
+        result = reshaped_tensor(output, groups, convert=False)
         if result.shape.get_size(channel_dim.name) == 1:
             result = result.dimension(channel_dim.name)[0]  # remove vector dim if not required
         return result
