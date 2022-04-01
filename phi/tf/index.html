@@ -45,6 +45,8 @@ from phi import math as _math
 import os
 import tensorflow as _tf
 
+from ..math.backend import PHI_LOGGER as _LOGGER
+
 if _tf.__version__.startswith(&#39;1.&#39;):
     raise ImportError(f&#34;PhiFlow 2.x and newer requires TensorFlow 2 but found TensorFlow {_tf.__version__}&#34;)
 
@@ -52,7 +54,7 @@ os.environ[&#39;TF_CPP_MIN_LOG_LEVEL&#39;] = &#39;2&#39;  # only errors
 if _platform.system().lower() == &#39;windows&#39;:  # prevent Blas GEMM launch failed on Windows
     for i, device in enumerate(_tf.config.list_physical_devices(&#39;GPU&#39;)):
         _tf.config.experimental.set_memory_growth(device, True)
-        _warnings.warn(f&#34;phi.tf: Setting memory_growth on GPU {i} to True to prevent Blas errors&#34;)
+        _LOGGER.warning(f&#34;phi.tf: Setting memory_growth on GPU {i} to True to prevent Blas errors&#34;)
 
 from ._compile_cuda import compile_cuda_ops
 

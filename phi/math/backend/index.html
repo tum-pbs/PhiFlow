@@ -652,7 +652,7 @@ The output of math operations has the same precision as its inputs.</p>
         if isinstance(device, str):
             devices = self.list_devices(device)
             if not devices:
-                warnings.warn(f&#34;{self.name}: Cannot select &#39;{device}&#39; because no device of this type is available.&#34;)
+                PHI_LOGGER.warning(f&#34;{self.name}: Cannot select &#39;{device}&#39; because no device of this type is available.&#34;)
                 return False
             device = devices[0]
         assert device.backend is self, f&#34;Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}&#34;
@@ -3957,7 +3957,7 @@ This function will do nothing if the target device type is not available.</p>
     if isinstance(device, str):
         devices = self.list_devices(device)
         if not devices:
-            warnings.warn(f&#34;{self.name}: Cannot select &#39;{device}&#39; because no device of this type is available.&#34;)
+            PHI_LOGGER.warning(f&#34;{self.name}: Cannot select &#39;{device}&#39; because no device of this type is available.&#34;)
             return False
         device = devices[0]
     assert device.backend is self, f&#34;Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}&#34;

@@ -4478,7 +4478,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             try:
                 scene.copy_calling_script()
             except IOError as err:
-                warnings.warn(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;)
+                PHI_LOGGER.warning(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;)
         return scene
 
     @staticmethod
@@ -4893,7 +4893,7 @@ def create(parent_directory: str,
         try:
             scene.copy_calling_script()
         except IOError as err:
-            warnings.warn(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;)
+            PHI_LOGGER.warning(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;)
     return scene</code></pre>
 </details>
 </dd>

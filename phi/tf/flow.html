@@ -53,13 +53,14 @@ import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers
 
+from ..math.backend import PHI_LOGGER as _LOGGER
+
 tf = tensorflow
 
 if not backend.context_backend():
     backend.set_global_default_backend(TENSORFLOW)
 else:
-    import warnings
-    warnings.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>
+    _LOGGER.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>
 </details>
 </section>
 <section>

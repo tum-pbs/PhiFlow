@@ -996,7 +996,7 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
             if lower is None:
                 self._lower = math.zeros_like(self._upper)
         if self.size.vector.item_names is None:
-            warnings.warn(&#34;Creating a Box without item names prevents certain operations like project()&#34;)
+            PHI_LOGGER.warning(&#34;Creating a Box without item names prevents certain operations like project()&#34;)
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
@@ -3005,7 +3005,7 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         &#34;&#34;&#34;
         if center is not None:
             if not isinstance(center, Tensor):
-                warnings.warn(f&#34;constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.&#34;, DeprecationWarning)
+                PHI_LOGGER.warning(f&#34;constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.&#34;)
                 self._center = wrap(center)
             else:
                 self._center = center
