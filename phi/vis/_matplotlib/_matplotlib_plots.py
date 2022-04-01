@@ -14,7 +14,7 @@ from phi.geom import Sphere, BaseBox
 from phi.math import Tensor, batch, channel, instance, spatial
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name, PlottingLibrary
-from phi.field import Grid, StaggeredGrid, PointCloud, Scene, unstack, SampledField, StitchedGrid
+from phi.field import Grid, StaggeredGrid, PointCloud, Scene, unstack, SampledField
 from phi.field._scene import _str
 
 
@@ -201,22 +201,6 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         axis.set_xlim((lower_x, upper_x))
         axis.set_ylim((lower_y, upper_y))
         axis.set_zlim((lower_z, upper_z))
-    elif isinstance(data, StitchedGrid):
-        dims = spatial(data)
-        axis.set_xlabel(dims.names[0])
-        axis.set_ylabel(dims.names[1])
-        left, bottom = data.bounds.lower.vector[dims]
-        right, top = data.bounds.upper.vector[dims]
-        axis.set_xlim((left, right))
-        axis.set_ylim((bottom, top))
-        for block in data.resolution.meshgrid():
-            sub_grid = data[block]
-            left, bottom = sub_grid.bounds.lower.vector[dims]
-            right, top = sub_grid.bounds.upper.vector[dims]
-            extent = (float(left), float(right), float(bottom), float(top))
-            im = axis.imshow(sub_grid.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
-        if show_color_bar:
-            plt.colorbar(im, ax=axis)
     else:
         raise NotImplementedError(f"No figure recipe for {data}")
 
