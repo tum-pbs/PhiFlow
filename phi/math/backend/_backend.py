@@ -201,10 +201,28 @@ class Backend:
     def seed(self, seed: int):
         raise NotImplementedError()
 
+    def is_module(self, obj) -> bool:
+        """
+        Tests if `obj` is of a type that is specific to this backend, e.g. a neural network.
+        If `True`, this backend will be chosen for operations involving `obj`.
+
+        See Also:
+            `Backend.is_tensor()`.
+
+        Args:
+            obj: Object to test.
+        """
+        raise NotImplementedError()
+
     def is_tensor(self, x, only_native=False):
         """
         An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
         An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.
+
+        If `True`, this backend will be chosen for operations involving `x`.
+
+        See Also:
+            `Backend.is_module()`.
 
         Args:
           x: object to check
@@ -1394,14 +1412,14 @@ def convert(tensor, backend: Backend = None, use_dlpack=True):
 
 def _is_applicable(backend, values):
     for value in values:
-        if not backend.is_tensor(value, only_native=False):
+        if not (backend.is_tensor(value, only_native=False) or backend.is_module(value)):
             return False
     return True
 
 
-def _is_specific(backend, values):
+def _is_specific(backend: Backend, values):
     for value in values:
-        if backend.is_tensor(value, only_native=True):
+        if backend.is_tensor(value, only_native=True) or backend.is_module(value):
             return True
     return False
 

@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from functools import wraps, partial
 from typing import List, Callable
 
+import keras
 import numpy as np
 import os
 import tensorflow as tf
@@ -49,6 +50,9 @@ class TFBackend(Backend):
 
     def seed(self, seed: int):
         tf.random.set_seed(seed)
+
+    def is_module(self, obj):
+        return isinstance(obj, keras.Model)
 
     def is_tensor(self, x, only_native=False):
         is_tf_tensor = tf.is_tensor(x) is True  # tf.is_tensor() can return non-bool values which indicates not a Tensor

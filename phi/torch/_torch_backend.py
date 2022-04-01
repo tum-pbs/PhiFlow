@@ -41,8 +41,11 @@ class TorchBackend(Backend):
                                              ref=f'cuda:{index}'))
         return devices
 
+    def is_module(self, obj):
+        return isinstance(obj, (JITFunction, torch.nn.Module))
+
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, (torch.Tensor, JITFunction, torch.nn.Module)):
+        if isinstance(x, torch.Tensor):
             return True
         if only_native:
             return False

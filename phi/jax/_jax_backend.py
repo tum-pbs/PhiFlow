@@ -70,6 +70,9 @@ class JaxBackend(Backend):
                 array = self.to_complex(array)
         return array
 
+    def is_module(self, obj):
+        return False
+
     def is_tensor(self, x, only_native=False):
         if isinstance(x, jnp.ndarray) and not isinstance(x, np.ndarray):  # NumPy arrays inherit from Jax arrays
             return True
