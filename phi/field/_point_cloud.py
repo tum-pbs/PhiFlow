@@ -116,22 +116,23 @@ class PointCloud(SampledField):
     def color(self) -> Tensor:
         return self._color
 
-    def _sample(self, geometry: Geometry) -> Tensor:
+    def _sample(self, geometry: Geometry, outside_handling='discard') -> Tensor:
         if geometry == self.elements:
             return self.values
         elif isinstance(geometry, GridCell):
-            return self._grid_scatter(geometry.bounds, geometry.resolution)
+            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
         elif isinstance(geometry, GeometryStack):
             sampled = [self._sample(g) for g in geometry.geometries]
-            return math.stack(sampled, geometry.stack_dim)
+            return math.stack(sampled, geometry.geometries.shape)
         else:
             raise NotImplementedError()
 
-    def _grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling='discard'):
+    def grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling: str):
         """
         Approximately samples this field on a regular grid using math.scatter().
 
         Args:
+          outside_handling: `str` passed to `phi.math.scatter()`.
           bounds: physical dimensions of the grid
           resolution: grid resolution
 
