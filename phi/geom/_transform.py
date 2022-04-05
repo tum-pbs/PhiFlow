@@ -171,7 +171,7 @@ class _EmbeddedGeometry(Geometry):
         return hash(self.geometry) + hash(self.projected_dims)
 
 
-def embed(geometry: Geometry, projected_dims: math.Shape) -> Geometry:
+def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list) -> Geometry:
     """
     Adds fake spatial dimensions to a geometry.
     The geometry value will be constant along the added dimensions, as if it had infinite length in these directions.
@@ -183,10 +183,14 @@ def embed(geometry: Geometry, projected_dims: math.Shape) -> Geometry:
     Returns:
         `Geometry` with spatial rank `geometry.spatial_rank + projected_dims.rank`.
     """
+    if projected_dims is None:
+        return geometry
+    if not isinstance(projected_dims, Shape):
+        projected_dims = math.spatial(*parse_dim_order(projected_dims))
     return _EmbeddedGeometry(geometry, projected_dims) if projected_dims.rank > 0 else geometry
 
 
-def infinite_cylinder(center=None, radius=None, inf_dim: str or Shape = None, **center_) -> Geometry:
+def infinite_cylinder(center=None, radius=None, inf_dim: str or Shape or tuple or list = None, **center_) -> Geometry:
     """
     Creates an infinite cylinder.
     This is equal to embedding an `n`-dimensional `Sphere` in `n+1` dimensions.
@@ -204,8 +208,5 @@ def infinite_cylinder(center=None, radius=None, inf_dim: str or Shape = None, **
     Returns:
         `Geometry`
     """
-    assert inf_dim is not None, "inf_dim must be specified"
-    if isinstance(inf_dim, str):
-        inf_dim = math.spatial(*parse_dim_order(inf_dim))
     sphere = Sphere(center, radius, **center_)
     return embed(sphere, inf_dim)
