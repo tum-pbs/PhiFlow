@@ -208,7 +208,7 @@ class Box(BaseBox, metaclass=BoxType):
             if lower is None:
                 self._lower = math.zeros_like(self._upper)
         if self.size.vector.item_names is None:
-            PHI_LOGGER.warning("Creating a Box without item names prevents certain operations like project()")
+            warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))

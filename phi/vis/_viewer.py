@@ -289,7 +289,7 @@ class Record:
         for name, val in variables.items():
             self.history[name].append(val)
             if val is None and warn_missing:
-                PHI_LOGGER.warning(f"None value encountered for variable '{name}' at step {self.viewer.steps}. This value will not show up in the recording.")
+                warnings.warn(f"None value encountered for variable '{name}' at step {self.viewer.steps}. This value will not show up in the recording.", RuntimeWarning)
 
     @property
     def recorded_fields(self):

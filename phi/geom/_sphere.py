@@ -27,7 +27,7 @@ class Sphere(Geometry):
         """
         if center is not None:
             if not isinstance(center, Tensor):
-                PHI_LOGGER.warning(f"constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.")
+                warnings.warn(f"constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.", DeprecationWarning)
                 self._center = wrap(center)
             else:
                 self._center = center

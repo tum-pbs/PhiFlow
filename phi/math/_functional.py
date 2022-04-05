@@ -88,7 +88,7 @@ def key_from_args(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list]:
     backend = math.choose_backend_t(*tensors)
     # if tracing and cache:
     #     cache = False
-    #     PHI_LOGGER.warning("Cannot cache a tensor while tracing.")
+    #     warnings.warn("Cannot cache a tensor while tracing.", RuntimeWarning)
     natives, shapes = disassemble_tensors(tensors, expand=cache)
     key = SignatureKey(None, nest, shapes, kwargs, backend, tracing)
     return key, natives
@@ -98,9 +98,9 @@ def key_from_args_pack_batch(*args, cache=False, **kwargs) -> Tuple[SignatureKey
     nest, tensors = disassemble_tree(args)
     tracing = not all_available(*tensors)
     backend = math.choose_backend_t(*tensors)
-    if tracing and cache:
-        cache = False
-        PHI_LOGGER.warning("Cannot cache a tensor while tracing.")
+    # if tracing and cache:
+    #     cache = False
+    #     warnings.warn("Cannot cache a tensor while tracing.", RuntimeWarning)
     batch_shape = merge_shapes(*[t.shape.batch for t in tensors])
     # tensors = [math.pack_dims(t, batch_shape, batch('batch'), pos=0) for t in tensors]
     natives = [math.reshaped_native(t, [batch_shape, *t.shape.non_batch], force_expand=True) for t in tensors]
@@ -141,7 +141,7 @@ class JitFunction:
         if isinstance(self.f, GradientFunction) and key.backend.supports(Backend.jit_compile_grad):
             return self.grad_jit(*args, **kwargs)
         if not key.backend.supports(Backend.jit_compile):
-            PHI_LOGGER.warning(f"jit_copmile() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.")
+            warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.", RuntimeWarning)
             return self.f(*args, **kwargs)
         if key not in self.traces:
             self.traces[key] = self._jit_compile(key)
@@ -238,7 +238,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             if not key.tracing:
                 self.tracers[key] = tracer
                 if len(self.tracers) >= 4:
-                    PHI_LOGGER.warning(f"Φ-lin: The compiled linear function '{self.f.__name__}' was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().")
+                    warnings.warn(f"Φ-lin: The compiled linear function '{self.f.__name__}' was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().", RuntimeWarning)
             return tracer
 
     def __call__(self, *args: X, **kwargs) -> Y:
@@ -249,7 +249,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             return self.f(*args, **kwargs)
         backend = math.choose_backend_t(*tensors)
         if not backend.supports(Backend.sparse_coo_tensor):
-            # PHI_LOGGER.warning(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.")
+            # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.", RuntimeWarning)
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
                 PHI_LOGGER.debug(f"Φ-lin: Running '{self.f.__name__}' as-is with {backend} because it is being traced.")
                 return self.f(*args, **kwargs)
@@ -350,7 +350,7 @@ class GradientFunction:
         key, natives = key_from_args(*args, cache=True, **kwargs)
         if not key.backend.supports(Backend.functional_gradient):
             if math.default_backend().supports(Backend.functional_gradient):
-                PHI_LOGGER.warning(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()")
+                warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()", RuntimeWarning)
                 key.backend = math.default_backend()
             else:
                 raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
@@ -465,7 +465,7 @@ class HessianFunction:
         key, natives, batch_shape = key_from_args_pack_batch(*args, cache=True, **kwargs)
         if not key.backend.supports(Backend.functional_gradient):
             if math.default_backend().supports(Backend.functional_gradient):
-                PHI_LOGGER.warning(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()")
+                warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()", RuntimeWarning)
                 key.backend = math.default_backend()
             else:
                 raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
@@ -618,10 +618,12 @@ class CustomGradientFunction:
         if not key.backend.supports(Backend.functional_gradient) and not key.backend.supports(Backend.gradients):
             return self.f(*args, **kwargs)  # no need to use custom gradient if gradients aren't supported anyway
         elif not key.backend.supports(Backend.custom_gradient):
-            PHI_LOGGER.warning(f"custom_gradient() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.")
+            warnings.warn(f"custom_gradient() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.", RuntimeWarning)
             return self.f(*args, **kwargs)
         if key not in self.traces:
             self.traces[key] = self._trace(key)
+            if len(self.traces) >= 8:
+                warnings.warn(f"{self.__name__} has been traced {len(self.traces)} times. To avoid memory leaks, call {self.f.__name__}.traces.clear(), {self.f.__name__}.recorded_mappings.clear()", RuntimeWarning, stacklevel=2)
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
@@ -808,7 +810,7 @@ class ShiftLinTracer(Tensor):
         col_indices = scipy_csr.indices
         row_ptr = scipy_csr.indptr
         if coo.values.nnz.size != len(scipy_csr.data):
-            PHI_LOGGER.warning("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.")
+            warnings.warn("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.", RuntimeWarning)
             return coo
         values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
         self._sparse_csr = SparseMatrixContainer('csr', coo.shape, coo.indices_key, coo.src_shape, values, row_ptr, col_indices)
@@ -828,7 +830,7 @@ class ShiftLinTracer(Tensor):
         row_indices = scipy_csr.indices
         col_ptr = scipy_csr.indptr
         if coo.values.nnz.size != len(scipy_csr.data):
-            PHI_LOGGER.warning("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.")
+            warnings.warn("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.", RuntimeWarning)
             return coo
         values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
         self._sparse_csc = SparseMatrixContainer('csc', coo.shape, coo.indices_key, coo.src_shape, values, row_indices, col_ptr)
@@ -1174,13 +1176,13 @@ class SolveInfo(Generic[X, Y]):
         if self.diverged.any:
             if Diverged not in self.solve.suppress:
                 if only_warn:
-                    PHI_LOGGER.warning(self.msg)
+                    warnings.warn(self.msg, ConvergenceWarning)
                 else:
                     raise Diverged(self)
         if not self.converged.trajectory[-1].all:
             if NotConverged not in self.solve.suppress:
                 if only_warn:
-                    PHI_LOGGER.warning(self.msg)
+                    warnings.warn(self.msg, ConvergenceWarning)
                 else:
                     raise NotConverged(self)
 
@@ -1197,6 +1199,10 @@ class ConvergenceException(RuntimeError):
         RuntimeError.__init__(self, result.msg)
         self.result: SolveInfo = result
         """ `SolveInfo` holding information about the solve. """
+
+
+class ConvergenceWarning(RuntimeWarning):
+    pass
 
 
 class NotConverged(ConvergenceException):
@@ -1263,7 +1269,7 @@ class SolveTape:
 
     def _add(self, solve: Solve, trj: bool, result: SolveInfo):
         if any(s.solve.id == solve.id for s in self.solves):
-            PHI_LOGGER.warning("SolveTape contains two results for the same solve settings. SolveTape[solve] will return the first solve result.")
+            warnings.warn("SolveTape contains two results for the same solve settings. SolveTape[solve] will return the first solve result.", RuntimeWarning)
         if self.record_trajectories:
             assert trj, "Solve did not record a trajectory."
             self.solves.append(result)
@@ -1484,7 +1490,7 @@ def solve_linear(f: Callable[[X], Y],
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
                           active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
-    print(f"Tracing linear solve {solve} with backend {backend}")
+    PHI_LOGGER.debug(f"Performing linear solve {solve} with backend {backend}")
     if solve.preprocess_y is not None:
         y = solve.preprocess_y(y)
     y_nest, (y_tensor,) = disassemble_tree(y)

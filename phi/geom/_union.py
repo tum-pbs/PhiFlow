@@ -42,7 +42,7 @@ class Union(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        PHI_LOGGER.warning("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.")
+        warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.", RuntimeWarning)
         return math.sum([g.volume for g in self.geometries], dim='0')
 
     @property

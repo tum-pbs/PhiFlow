@@ -297,7 +297,7 @@ class TorchBackend(Backend):
         try:
             result = torchf.pad(reordered, pad_width_spatial, mode, value=constant_values)  # supports 3D to 5D (2 + 1D to 3D)
         except RuntimeError as err:
-            PHI_LOGGER.warning(f"PyTorch error {err}")
+            warnings.warn(f"PyTorch error {err}", RuntimeWarning)
             return NotImplemented
         result = undo_transform(result)
         return result
@@ -424,7 +424,7 @@ class TorchBackend(Backend):
                     values = jit_loop(*values)
                 return values
             else:
-                PHI_LOGGER.warning("Tracing a PyTorch while loop requires an additional tracing pass. You can avoid this by passing a torch.ScriptFunction.")
+                warnings.warn("Tracing a PyTorch while loop requires an additional tracing pass. You can avoid this by passing a torch.ScriptFunction.", RuntimeWarning)
                 raise NotImplementedError()
                 # def trace_later():
                 #     jit_loop = torch.jit.trace(loop, check_trace=False)

@@ -240,7 +240,7 @@ def copy(value: Tensor):
         Copy of `value`.
     """
     if value._is_tracer:
-        PHI_LOGGER.warning("Tracing tensors cannot be copied.")
+        warnings.warn("Tracing tensors cannot be copied.", RuntimeWarning)
         return value
     return value._op1(lambda native: choose_backend(native).copy(native))
 
@@ -2162,7 +2162,7 @@ def _native_wrapper(tensor_function: Callable, create_native_function: Callable,
     backend = default_backend()
     traced = create_native_function(native_function, backend)
     if traced is NotImplemented:
-        PHI_LOGGER.warning(f"Backend '{backend}' not supported. Returning original function.")
+        warnings.warn(f"Backend '{backend}' not supported. Returning original function.", RuntimeWarning)
         return tensor_function, None, INPUT_TENSORS, OUTPUT_TENSORS
 
     def wrapper(*values: Tensor):

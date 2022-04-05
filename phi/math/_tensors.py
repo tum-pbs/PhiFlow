@@ -350,7 +350,7 @@ class Tensor(Sliceable):
             elif len(item) == self.shape.channel.rank:
                 item = {name: selection for name, selection in zip(self.shape.channel.names, item)}
             elif len(item) == self.shape.rank:  # legacy indexing
-                PHI_LOGGER.warning("Slicing with sequence should only be used for channel dimensions.")
+                warnings.warn("Slicing a Tensor with a tuple or list should only be used for channel dimensions. Use a dict or the special slicing syntax tensor.dim[slice] instead", SyntaxWarning, stacklevel=2)
                 item = {name: selection for name, selection in zip(self.shape.names, item)}
         assert isinstance(item, dict)  # dict mapping name -> slice/int
         return self._getitem(item)
@@ -733,7 +733,7 @@ class TensorDim:
         return self.index
 
     def __len__(self):
-        PHI_LOGGER.warning("Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.")
+        warnings.warn("Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.", DeprecationWarning)
         return self.size
 
     @property
@@ -1897,7 +1897,7 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
         shape = Shape(sizes, tuple([f"dim{i}" for i in range(len(sizes))]), (None,) * len(sizes), (None,) * len(sizes))
         shape.is_native_shape = True
         # if backend.ndims(obj) != 0:
-        #     PHI_LOGGER.warning(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")
+        #     warnings.warn(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")
         return None, [NativeTensor(obj, shape)]
 
 

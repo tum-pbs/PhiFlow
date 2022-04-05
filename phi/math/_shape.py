@@ -1066,7 +1066,7 @@ def channel(*args, **dims: int or str) -> Shape:
         result = _construct_shape(CHANNEL_DIM, *args, **dims)
         for s, n, t, item_name in result._dimensions:
             if item_name is None and s is not None and not n.startswith('_'):
-                PHI_LOGGER.warning(f"Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}='x,y,z') to assign names or use math.stack(dict, dim)")
+                warnings.warn(f"Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}='x,y,z') to assign names or use math.stack(dict, dim)", SyntaxWarning, stacklevel=2)
         return result
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
@@ -1272,7 +1272,7 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
                     if item_names[index] is None:
                         item_names[index] = items
                     else:
-                        PHI_LOGGER.warning(f"Stacking shapes with incompatible item names will result in item names being lost. Got {item_names[index]} and {items}")
+                        warnings.warn(f"Stacking shapes with incompatible item names will result in item names being lost. Got {item_names[index]} and {items}", RuntimeWarning)
                         item_names[index] = None
     sizes = []
     for name in names:

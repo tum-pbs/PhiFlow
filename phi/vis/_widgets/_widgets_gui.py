@@ -278,7 +278,7 @@ class WidgetsGui(Gui):
         if loop.is_running():
             loop.call_soon(lambda: _replay_events(self.shell, self.events))
         else:
-            PHI_LOGGER.warning("Automatic execution of scheduled cells only works with asyncio based ipython")
+            warnings.warn("Automatic execution of scheduled cells only works with asyncio based ipython", RuntimeWarning)
 
 
 def _replay_events(shell, events):

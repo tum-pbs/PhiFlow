@@ -101,4 +101,4 @@ try:
             cols = np.array(colormap.colors) * 255
             COLORMAPS[name] = np.concatenate([pos, cols], axis=-1)
 except ImportError:
-    PHI_LOGGER.warning('matplotlib is not installed. Corresponding colormaps are not available.')
+    warnings.warn('matplotlib is not installed. Corresponding colormaps are not available.', ImportWarning)

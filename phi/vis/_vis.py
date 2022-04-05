@@ -384,7 +384,7 @@ def default_gui() -> Gui:
         try:
             return get_gui(option)
         except ImportError as import_error:
-            PHI_LOGGER.warning(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
+            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.", ImportWarning)
     raise RuntimeError("No user interface available.")
 
 
@@ -436,7 +436,7 @@ def default_plots() -> PlottingLibrary:
         try:
             return get_plots(option)
         except ImportError as import_error:
-            PHI_LOGGER.warning(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
+            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.", ImportWarning)
     raise RuntimeError("No user interface available.")
 
 

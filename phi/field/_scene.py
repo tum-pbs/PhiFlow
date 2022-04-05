@@ -52,7 +52,7 @@ def write_sim_frame(directory: math.Tensor,
     if names is None:
         names = struct.names(fields)
     if frame > 1000000:
-        PHI_LOGGER.warning(f"frame too large: {frame}. Data will be saved but filename might cause trouble in the future.")
+        warnings.warn(f"frame too large: {frame}. Data will be saved but filename might cause trouble in the future.", RuntimeWarning)
 
     def single_write(f, name):
         name = _slugify_filename(name)
@@ -184,7 +184,7 @@ class Scene(Sliceable):
             try:
                 scene.copy_calling_script()
             except IOError as err:
-                PHI_LOGGER.warning(f"Failed to copy calling script to scene during Scene.create(): {err}")
+                warnings.warn(f"Failed to copy calling script to scene during Scene.create(): {err}", RuntimeWarning)
         return scene
 
     @staticmethod

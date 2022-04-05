@@ -191,7 +191,7 @@ class Backend:
         if isinstance(device, str):
             devices = self.list_devices(device)
             if not devices:
-                PHI_LOGGER.warning(f"{self.name}: Cannot select '{device}' because no device of this type is available.")
+                warnings.warn(f"{self.name}: Cannot select '{device}' because no device of this type is available.", RuntimeWarning)
                 return False
             device = devices[0]
         assert device.backend is self, f"Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}"

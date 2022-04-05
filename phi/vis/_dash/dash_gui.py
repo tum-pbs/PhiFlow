@@ -165,7 +165,7 @@ class DashGui(Gui):
                     import waitress
                     use_waitress = True
                 except ImportError:
-                    PHI_LOGGER.warning('waitress is not installed, falling back to dash development server. To enable it, run  $ pip install waitress')
+                    warnings.warn('waitress is not installed, falling back to dash development server. To enable it, run  $ pip install waitress', ImportWarning)
             print('Starting Dash server on http://localhost:%d/' % port)
             if use_waitress:
                 import waitress
