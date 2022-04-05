@@ -104,7 +104,16 @@ from ._functional import (
 
 PI = 3.14159265358979323846
 &#34;&#34;&#34;Value of π to double precision &#34;&#34;&#34;
-pi = PI
+pi = PI  # intentionally undocumented, use PI instead. Exists only as an anlog to numpy.pi
+
+INF = float(&#34;inf&#34;)
+&#34;&#34;&#34; Floating-point representation of positive infinity. &#34;&#34;&#34;
+inf = INF  # intentionally undocumented, use INF instead. Exists only as an anlog to numpy.inf
+
+
+NAN = float(&#34;nan&#34;)
+&#34;&#34;&#34; Floating-point representation of NaN (not a number). &#34;&#34;&#34;
+nan = NAN  # intentionally undocumented, use NAN instead. Exists only as an anlog to numpy.nan
 
 NUMPY = NUMPY  # to show up in pdoc
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
@@ -143,6 +152,14 @@ Standard extrapolations are listed as global …</p></div>
 <section>
 <h2 class="section-title" id="header-variables">Global variables</h2>
 <dl>
+<dt id="phi.math.INF"><code class="name">var <span class="ident">INF</span></code></dt>
+<dd>
+<div class="desc"><p>Floating-point representation of positive infinity.</p></div>
+</dd>
+<dt id="phi.math.NAN"><code class="name">var <span class="ident">NAN</span></code></dt>
+<dd>
+<div class="desc"><p>Floating-point representation of NaN (not a number).</p></div>
+</dd>
 <dt id="phi.math.NUMPY"><code class="name">var <span class="ident">NUMPY</span></code></dt>
 <dd>
 <div class="desc"><p>Default backend for NumPy arrays and SciPy objects.</p></div>
@@ -766,7 +783,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
         result = _construct_shape(CHANNEL_DIM, *args, **dims)
         for s, n, t, item_name in result._dimensions:
             if item_name is None and s is not None and not n.startswith(&#39;_&#39;):
-                PHI_LOGGER.warning(f&#34;Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}=&#39;x,y,z&#39;) to assign names or use math.stack(dict, dim)&#34;)
+                warnings.warn(f&#34;Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}=&#39;x,y,z&#39;) to assign names or use math.stack(dict, dim)&#34;, SyntaxWarning, stacklevel=2)
         return result
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
@@ -1162,7 +1179,7 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
         Copy of `value`.
     &#34;&#34;&#34;
     if value._is_tracer:
-        PHI_LOGGER.warning(&#34;Tracing tensors cannot be copied.&#34;)
+        warnings.warn(&#34;Tracing tensors cannot be copied.&#34;, RuntimeWarning)
         return value
     return value._op1(lambda native: choose_backend(native).copy(native))</code></pre>
 </details>
@@ -7291,7 +7308,6 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li>phi.field._stitched.Stitch</li>
 <li><a title="phi.math.extrapolation.ConstantExtrapolation" href="extrapolation.html#phi.math.extrapolation.ConstantExtrapolation">ConstantExtrapolation</a></li>
 <li>phi.math.extrapolation._CopyExtrapolation</li>
 <li>phi.math.extrapolation._MixedExtrapolation</li>
@@ -7644,7 +7660,7 @@ This is the default implementation.</p>
             if not key.tracing:
                 self.tracers[key] = tracer
                 if len(self.tracers) &gt;= 4:
-                    PHI_LOGGER.warning(f&#34;Φ-lin: The compiled linear function &#39;{self.f.__name__}&#39; was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().&#34;)
+                    warnings.warn(f&#34;Φ-lin: The compiled linear function &#39;{self.f.__name__}&#39; was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().&#34;, RuntimeWarning)
             return tracer
 
     def __call__(self, *args: X, **kwargs) -&gt; Y:
@@ -7655,7 +7671,7 @@ This is the default implementation.</p>
             return self.f(*args, **kwargs)
         backend = math.choose_backend_t(*tensors)
         if not backend.supports(Backend.sparse_coo_tensor):
-            # PHI_LOGGER.warning(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;)
+            # warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;, RuntimeWarning)
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
                 PHI_LOGGER.debug(f&#34;Φ-lin: Running &#39;{self.f.__name__}&#39; as-is with {backend} because it is being traced.&#34;)
                 return self.f(*args, **kwargs)
@@ -10095,13 +10111,13 @@ This property must be set to a value compatible with the solution <code>x</code>
         if self.diverged.any:
             if Diverged not in self.solve.suppress:
                 if only_warn:
-                    PHI_LOGGER.warning(self.msg)
+                    warnings.warn(self.msg, ConvergenceWarning)
                 else:
                     raise Diverged(self)
         if not self.converged.trajectory[-1].all:
             if NotConverged not in self.solve.suppress:
                 if only_warn:
-                    PHI_LOGGER.warning(self.msg)
+                    warnings.warn(self.msg, ConvergenceWarning)
                 else:
                     raise NotConverged(self)</code></pre>
 </details>
@@ -10169,13 +10185,13 @@ This property must be set to a value compatible with the solution <code>x</code>
     if self.diverged.any:
         if Diverged not in self.solve.suppress:
             if only_warn:
-                PHI_LOGGER.warning(self.msg)
+                warnings.warn(self.msg, ConvergenceWarning)
             else:
                 raise Diverged(self)
     if not self.converged.trajectory[-1].all:
         if NotConverged not in self.solve.suppress:
             if only_warn:
-                PHI_LOGGER.warning(self.msg)
+                warnings.warn(self.msg, ConvergenceWarning)
             else:
                 raise NotConverged(self)</code></pre>
 </details>
@@ -10251,7 +10267,7 @@ result: SolveInfo = solves[0]  # get by index
 
     def _add(self, solve: Solve, trj: bool, result: SolveInfo):
         if any(s.solve.id == solve.id for s in self.solves):
-            PHI_LOGGER.warning(&#34;SolveTape contains two results for the same solve settings. SolveTape[solve] will return the first solve result.&#34;)
+            warnings.warn(&#34;SolveTape contains two results for the same solve settings. SolveTape[solve] will return the first solve result.&#34;, RuntimeWarning)
         if self.record_trajectories:
             assert trj, &#34;Solve did not record a trajectory.&#34;
             self.solves.append(result)
@@ -10548,7 +10564,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
             elif len(item) == self.shape.channel.rank:
                 item = {name: selection for name, selection in zip(self.shape.channel.names, item)}
             elif len(item) == self.shape.rank:  # legacy indexing
-                PHI_LOGGER.warning(&#34;Slicing with sequence should only be used for channel dimensions.&#34;)
+                warnings.warn(&#34;Slicing a Tensor with a tuple or list should only be used for channel dimensions. Use a dict or the special slicing syntax tensor.dim[slice] instead&#34;, SyntaxWarning, stacklevel=2)
                 item = {name: selection for name, selection in zip(self.shape.names, item)}
         assert isinstance(item, dict)  # dict mapping name -&gt; slice/int
         return self._getitem(item)
@@ -11345,7 +11361,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         return self.index
 
     def __len__(self):
-        PHI_LOGGER.warning(&#34;Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.&#34;)
+        warnings.warn(&#34;Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.&#34;, DeprecationWarning)
         return self.size
 
     @property
@@ -12019,6 +12035,8 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="">
+<li><code><a title="phi.math.INF" href="#phi.math.INF">INF</a></code></li>
+<li><code><a title="phi.math.NAN" href="#phi.math.NAN">NAN</a></code></li>
 <li><code><a title="phi.math.NUMPY" href="#phi.math.NUMPY">NUMPY</a></code></li>
 <li><code><a title="phi.math.PI" href="#phi.math.PI">PI</a></code></li>
 </ul>

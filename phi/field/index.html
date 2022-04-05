@@ -61,7 +61,6 @@ from ._field import Field, SampledField, unstack, sample, reduce_sample
 from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import Grid, CenteredGrid, StaggeredGrid
-from ._stitched import StitchedGrid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
@@ -3126,7 +3125,6 @@ The bounds will also be used as axis limits for plots.</dd>
 <li>phi.field._field.SampledField</li>
 <li>phi.field._mask.HardGeometryMask</li>
 <li>phi.field._noise.Noise</li>
-<li>phi.field._stitched.StitchedGrid</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -3915,22 +3913,23 @@ When sampling this field on a grid, scatter functions may be used.</p>
     def color(self) -&gt; Tensor:
         return self._color
 
-    def _sample(self, geometry: Geometry) -&gt; Tensor:
+    def _sample(self, geometry: Geometry, outside_handling=&#39;discard&#39;) -&gt; Tensor:
         if geometry == self.elements:
             return self.values
         elif isinstance(geometry, GridCell):
-            return self._grid_scatter(geometry.bounds, geometry.resolution)
+            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
         elif isinstance(geometry, GeometryStack):
             sampled = [self._sample(g) for g in geometry.geometries]
-            return math.stack(sampled, geometry.stack_dim)
+            return math.stack(sampled, geometry.geometries.shape)
         else:
             raise NotImplementedError()
 
-    def _grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling=&#39;discard&#39;):
+    def grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling: str):
         &#34;&#34;&#34;
         Approximately samples this field on a regular grid using math.scatter().
 
         Args:
+          outside_handling: `str` passed to `phi.math.scatter()`.
           bounds: physical dimensions of the grid
           resolution: grid resolution
 
@@ -4027,6 +4026,48 @@ def spatial_rank(self) -&gt; int:
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="phi.field.PointCloud.grid_scatter"><code class="name flex">
+<span>def <span class="ident">grid_scatter</span></span>(<span>self, bounds: phi.geom._box.Box, resolution: phi.math._shape.Shape, outside_handling: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Approximately samples this field on a regular grid using math.scatter().</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>outside_handling</code></strong></dt>
+<dd><code>str</code> passed to <code><a title="phi.math.scatter" href="../math/index.html#phi.math.scatter">scatter()</a></code>.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>physical dimensions of the grid</dd>
+<dt><strong><code>resolution</code></strong></dt>
+<dd>grid resolution</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>CenteredGrid</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling: str):
+    &#34;&#34;&#34;
+    Approximately samples this field on a regular grid using math.scatter().
+
+    Args:
+      outside_handling: `str` passed to `phi.math.scatter()`.
+      bounds: physical dimensions of the grid
+      resolution: grid resolution
+
+    Returns:
+      CenteredGrid
+
+    &#34;&#34;&#34;
+    closest_index = bounds.global_to_local(self.points) * resolution - 0.5
+    mode = &#39;add&#39; if self._add_overlapping else &#39;mean&#39;
+    base = math.zeros(resolution)
+    if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
+        base += self.extrapolation.value
+    scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=outside_handling)
+    return scattered</code></pre>
+</details>
+</dd>
 <dt id="phi.field.PointCloud.with_bounds"><code class="name flex">
 <span>def <span class="ident">with_bounds</span></span>(<span>self, bounds: phi.geom._box.Box)</span>
 </code></dt>
@@ -4478,7 +4519,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             try:
                 scene.copy_calling_script()
             except IOError as err:
-                PHI_LOGGER.warning(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;)
+                warnings.warn(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;, RuntimeWarning)
         return scene
 
     @staticmethod
@@ -4893,7 +4934,7 @@ def create(parent_directory: str,
         try:
             scene.copy_calling_script()
         except IOError as err:
-            PHI_LOGGER.warning(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;)
+            warnings.warn(f&#34;Failed to copy calling script to scene during Scene.create(): {err}&#34;, RuntimeWarning)
     return scene</code></pre>
 </details>
 </dd>
@@ -5862,197 +5903,6 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 </dd>
 </dl>
 </dd>
-<dt id="phi.field.StitchedGrid"><code class="flex name class">
-<span>class <span class="ident">StitchedGrid</span></span>
-<span>(</span><span>values: Any, extrapolation: Any = 0.0, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, block_res: int = 32, **resolution_: int)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Blocks laid out in a grid.
-Each block is a grid whose resolution can be changed at runtime.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>values</code></strong></dt>
-<dd>Initial values, see <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> constructor.</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
-<dd>Extrapolation for the outer edges.</dd>
-<dt><strong><code>bounds</code></strong></dt>
-<dd>Bounds of the total grid.</dd>
-<dt><strong><code>resolution</code></strong></dt>
-<dd>Optional resolution as <code>Shape</code>, otherwise uses resolution keyword arguments.</dd>
-<dt><strong><code>block_res</code></strong></dt>
-<dd><code>int</code> or <code>Shape</code></dd>
-<dt><strong><code>**resolution_</code></strong></dt>
-<dd>Number of blocks along each spatial dimension.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class StitchedGrid(Field):
-    &#34;&#34;&#34;
-    Blocks laid out in a grid.
-    Each block is a grid whose resolution can be changed at runtime.
-    &#34;&#34;&#34;
-
-    def __init__(self,
-                 values: Any,
-                 extrapolation: Any = 0.,
-                 bounds: Box = None,
-                 resolution: Shape = None,
-                 block_res: int or Shape = 32,
-                 **resolution_: int or Tensor):
-        &#34;&#34;&#34;
-        Args:
-            values: Initial values, see `CenteredGrid` constructor.
-            extrapolation: Extrapolation for the outer edges.
-            bounds: Bounds of the total grid.
-            resolution: Optional resolution as `Shape`, otherwise uses resolution keyword arguments.
-            block_res: `int` or `Shape`
-            **resolution_: Number of blocks along each spatial dimension.
-        &#34;&#34;&#34;
-        resolution = (resolution or math.EMPTY_SHAPE) &amp; spatial(**resolution_)
-        bounds = bounds or Box(0, math.wrap(resolution, channel(&#39;vector&#39;)))
-        self._blocks = GridCell(resolution, bounds)
-        self._grids = {}
-        for block_index in resolution.meshgrid():
-            sub_bounds = self._blocks[block_index].bounds
-            stitch = Stitch(self, block_index)
-            sub_grid = CenteredGrid(values, stitch, sub_bounds, resolution=block_res)
-            self._grids[spatial(**block_index)] = sub_grid
-        self._resolution = resolution
-        if not isinstance(extrapolation, math.Extrapolation):
-            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
-        self._extrapolation = extrapolation
-        super().__init__(bounds)
-
-    @property
-    def shape(self) -&gt; Shape:
-        return self._resolution # &amp; math.merge_shapes(grid.shape for grid in self.grids)
-
-    @property
-    def bounds(self) -&gt; Box:
-        return self._bounds
-
-    @property
-    def resolution(self) -&gt; Shape:
-        return self._resolution
-
-    @property
-    def extrapolation(self) -&gt; Extrapolation:
-        return self._extrapolation
-
-    def _sample(self, geometry: Geometry) -&gt; math.Tensor:
-        raise NotImplementedError()
-
-    def __getitem__(self, block_index: dict or Shape) -&gt; &#39;Field&#39;:
-        if not block_index:
-            return self
-        block_index = (block_index if isinstance(block_index, Shape) else spatial(**block_index))._reorder(self._resolution.names)
-        return self._grids[block_index]
-
-    @property
-    def values(self):
-        return math.stack([g.values for g in self._grids.values()], dim=batch(&#39;blocks&#39;))
-
-    def resample_block(self, block_index: dict or Shape, block_res: int or Shape):
-        block_index = (block_index if isinstance(block_index, Shape) else spatial(**block_index))._reorder(self._resolution.names)
-        old_grid = self[block_index]
-        self._grids[block_index] = CenteredGrid(old_grid, old_grid.extrapolation, old_grid.bounds, resolution=block_res)</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>phi.field._field.Field</li>
-<li>phi.math._tensors.Sliceable</li>
-</ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="phi.field.StitchedGrid.bounds"><code class="name">var <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
-<dd>
-<div class="desc"><p>The bounds represent the area inside which the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> are valid.
-The bounds will also be used as axis limits for plots.</p>
-<p>The bounds can be set manually in the constructor, otherwise default bounds will be generated.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def bounds(self) -&gt; Box:
-    return self._bounds</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StitchedGrid.extrapolation"><code class="name">var <span class="ident">extrapolation</span> : <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def extrapolation(self) -&gt; Extrapolation:
-    return self._extrapolation</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StitchedGrid.resolution"><code class="name">var <span class="ident">resolution</span> : phi.math._shape.Shape</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def resolution(self) -&gt; Shape:
-    return self._resolution</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StitchedGrid.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
-<dd>
-<div class="desc"><p>Returns a shape with the following properties</p>
-<ul>
-<li>The spatial dimension names match the dimensions of this Field</li>
-<li>The batch dimensions match the batch dimensions of this Field</li>
-<li>The channel dimensions match the channels of this Field</li>
-</ul></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def shape(self) -&gt; Shape:
-    return self._resolution # &amp; math.merge_shapes(grid.shape for grid in self.grids)</code></pre>
-</details>
-</dd>
-<dt id="phi.field.StitchedGrid.values"><code class="name">var <span class="ident">values</span></code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def values(self):
-    return math.stack([g.values for g in self._grids.values()], dim=batch(&#39;blocks&#39;))</code></pre>
-</details>
-</dd>
-</dl>
-<h3>Methods</h3>
-<dl>
-<dt id="phi.field.StitchedGrid.resample_block"><code class="name flex">
-<span>def <span class="ident">resample_block</span></span>(<span>self, block_index: dict, block_res: int)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def resample_block(self, block_index: dict or Shape, block_res: int or Shape):
-    block_index = (block_index if isinstance(block_index, Shape) else spatial(**block_index))._reorder(self._resolution.names)
-    old_grid = self[block_index]
-    self._grids[block_index] = CenteredGrid(old_grid, old_grid.extrapolation, old_grid.bounds, resolution=block_res)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
 </dl>
 </section>
 </article>
@@ -6195,6 +6045,7 @@ def values(self):
 <ul class="two-column">
 <li><code><a title="phi.field.PointCloud.bounds" href="#phi.field.PointCloud.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.PointCloud.color" href="#phi.field.PointCloud.color">color</a></code></li>
+<li><code><a title="phi.field.PointCloud.grid_scatter" href="#phi.field.PointCloud.grid_scatter">grid_scatter</a></code></li>
 <li><code><a title="phi.field.PointCloud.shape" href="#phi.field.PointCloud.shape">shape</a></code></li>
 <li><code><a title="phi.field.PointCloud.spatial_rank" href="#phi.field.PointCloud.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.field.PointCloud.with_bounds" href="#phi.field.PointCloud.with_bounds">with_bounds</a></code></li>
@@ -6262,17 +6113,6 @@ def values(self):
 <li><code><a title="phi.field.StaggeredGrid.closest_values" href="#phi.field.StaggeredGrid.closest_values">closest_values</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.staggered_tensor" href="#phi.field.StaggeredGrid.staggered_tensor">staggered_tensor</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.with_extrapolation" href="#phi.field.StaggeredGrid.with_extrapolation">with_extrapolation</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="phi.field.StitchedGrid" href="#phi.field.StitchedGrid">StitchedGrid</a></code></h4>
-<ul class="two-column">
-<li><code><a title="phi.field.StitchedGrid.bounds" href="#phi.field.StitchedGrid.bounds">bounds</a></code></li>
-<li><code><a title="phi.field.StitchedGrid.extrapolation" href="#phi.field.StitchedGrid.extrapolation">extrapolation</a></code></li>
-<li><code><a title="phi.field.StitchedGrid.resample_block" href="#phi.field.StitchedGrid.resample_block">resample_block</a></code></li>
-<li><code><a title="phi.field.StitchedGrid.resolution" href="#phi.field.StitchedGrid.resolution">resolution</a></code></li>
-<li><code><a title="phi.field.StitchedGrid.shape" href="#phi.field.StitchedGrid.shape">shape</a></code></li>
-<li><code><a title="phi.field.StitchedGrid.values" href="#phi.field.StitchedGrid.values">values</a></code></li>
 </ul>
 </li>
 </ul>

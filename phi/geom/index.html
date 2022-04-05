@@ -147,7 +147,7 @@ The geometry value will be constant along the added dimensions, as if it had inf
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def embed(geometry: Geometry, projected_dims: math.Shape) -&gt; Geometry:
+<pre><code class="python">def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list) -&gt; Geometry:
     &#34;&#34;&#34;
     Adds fake spatial dimensions to a geometry.
     The geometry value will be constant along the added dimensions, as if it had infinite length in these directions.
@@ -159,6 +159,10 @@ The geometry value will be constant along the added dimensions, as if it had inf
     Returns:
         `Geometry` with spatial rank `geometry.spatial_rank + projected_dims.rank`.
     &#34;&#34;&#34;
+    if projected_dims is None:
+        return geometry
+    if not isinstance(projected_dims, Shape):
+        projected_dims = math.spatial(*parse_dim_order(projected_dims))
     return _EmbeddedGeometry(geometry, projected_dims) if projected_dims.rank &gt; 0 else geometry</code></pre>
 </details>
 </dd>
@@ -188,7 +192,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def infinite_cylinder(center=None, radius=None, inf_dim: str or Shape = None, **center_) -&gt; Geometry:
+<pre><code class="python">def infinite_cylinder(center=None, radius=None, inf_dim: str or Shape or tuple or list = None, **center_) -&gt; Geometry:
     &#34;&#34;&#34;
     Creates an infinite cylinder.
     This is equal to embedding an `n`-dimensional `Sphere` in `n+1` dimensions.
@@ -206,9 +210,6 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
     Returns:
         `Geometry`
     &#34;&#34;&#34;
-    assert inf_dim is not None, &#34;inf_dim must be specified&#34;
-    if isinstance(inf_dim, str):
-        inf_dim = math.spatial(*parse_dim_order(inf_dim))
     sphere = Sphere(center, radius, **center_)
     return embed(sphere, inf_dim)</code></pre>
 </details>
@@ -941,14 +942,13 @@ Returns:</p></div>
 </code></dt>
 <dd>
 <div class="desc"><p>Simple cuboid defined by location of lower and upper corner in physical space.</p>
-<p>In addition to the regular constructor Box(lower, upper), <code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a></code> supports construction from dimension names and via slicing, <code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a>[slice1, slice2,&hellip;]</code>
-Each slice marks the lower and upper edge of the box along one dimension.
-Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
-The parameter slice.step has no effect.</p>
-<p><strong>Examples</strong>:</p>
-<pre><code>Box[0:1, 0:1]  # creates a two-dimensional unit box.
-Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
-</code></pre>
+<p>Boxes can be constructed either from two positional vector arguments <code>(lower, upper)</code> or by specifying the limits by dimension name as <code>kwargs</code>.</p>
+<p><strong>Examples</strong>:
+<code>python
+Box(x=1, y=1)
+# creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+Box(x=(None, 1), y=(0, None)
+# creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.</code></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>lower</code></strong></dt>
@@ -966,15 +966,13 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
     &#34;&#34;&#34;
     Simple cuboid defined by location of lower and upper corner in physical space.
 
-    In addition to the regular constructor Box(lower, upper), `Box` supports construction from dimension names and via slicing, `Box[slice1, slice2,...]`
-    Each slice marks the lower and upper edge of the box along one dimension.
-    Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
-    The parameter slice.step has no effect.
+    Boxes can be constructed either from two positional vector arguments `(lower, upper)` or by specifying the limits by dimension name as `kwargs`.
 
     **Examples**:
-
-        Box[0:1, 0:1]  # creates a two-dimensional unit box.
-        Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
+        ```python
+        Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+        Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
+        ```
     &#34;&#34;&#34;
 
     def __init__(self,
@@ -992,11 +990,26 @@ Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
         if upper is not None:
             self._upper = wrap(upper)
         else:
-            self._upper = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys())))
-            if lower is None:
-                self._lower = math.zeros_like(self._upper)
+            lower = []
+            upper = []
+            for item in size.values():
+                if isinstance(item, (tuple, list)):
+                    assert len(item) == 2, f&#34;Box kwargs must be either dim=upper or dim=(lower,upper) but got {item}&#34;
+                    lo, up = item
+                    lower.append(lo)
+                    upper.append(up)
+                elif item is None:
+                    lower.append(-INF)
+                    upper.append(INF)
+                else:
+                    lower.append(0)
+                    upper.append(item)
+            lower = [-INF if l is None else l for l in lower]
+            upper = [INF if u is None else u for u in upper]
+            self._upper = math.wrap(upper, math.channel(vector=tuple(size.keys())))
+            self._lower = math.wrap(lower, math.channel(vector=tuple(size.keys())))
         if self.size.vector.item_names is None:
-            PHI_LOGGER.warning(&#34;Creating a Box without item names prevents certain operations like project()&#34;)
+            warnings.warn(&#34;Creating a Box without item names prevents certain operations like project()&#34;, DeprecationWarning, stacklevel=2)
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
@@ -3005,7 +3018,7 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         &#34;&#34;&#34;
         if center is not None:
             if not isinstance(center, Tensor):
-                PHI_LOGGER.warning(f&#34;constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.&#34;)
+                warnings.warn(f&#34;constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.&#34;, DeprecationWarning)
                 self._center = wrap(center)
             else:
                 self._center = center
