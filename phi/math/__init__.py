@@ -68,7 +68,16 @@ from ._functional import (
 
 PI = 3.14159265358979323846
 """Value of π to double precision """
-pi = PI
+pi = PI  # intentionally undocumented, use PI instead. Exists only as an anlog to numpy.pi
+
+INF = float("inf")
+""" Floating-point representation of positive infinity. """
+inf = INF  # intentionally undocumented, use INF instead. Exists only as an anlog to numpy.inf
+
+
+NAN = float("nan")
+""" Floating-point representation of NaN (not a number). """
+nan = NAN  # intentionally undocumented, use NAN instead. Exists only as an anlog to numpy.nan
 
 NUMPY = NUMPY  # to show up in pdoc
 """Default backend for NumPy arrays and SciPy objects."""

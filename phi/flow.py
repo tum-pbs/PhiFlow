@@ -25,7 +25,7 @@ from .vis import view, Viewer, control
 from .physics._boundaries import Obstacle
 
 # Constants
-from .math import PI
+from .math import PI, INF, NAN
 
 # Functions
 from .math import wrap, tensor, spatial, channel, batch, instance
