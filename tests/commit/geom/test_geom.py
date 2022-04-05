@@ -36,6 +36,12 @@ class TestGeom(TestCase):
         b = Box(x=3.5, y=4)
         math.assert_close(b.lower, 0)
         math.assert_close(b.upper, (3.5, 4))
+        b = Box(x=(1, 2), y=None)
+        math.assert_close(b.lower, (1, -math.INF))
+        math.assert_close(b.upper, (2, math.INF))
+        b = Box(x=(None, None))
+        math.assert_close(b.lower, -math.INF)
+        math.assert_close(b.upper, math.INF)
 
     def test_cuboid_constructor_kwargs(self):
         c = Cuboid(x=2., y=1.)

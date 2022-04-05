@@ -6,7 +6,7 @@ import numpy as np
 from phi import math
 from ._geom import Geometry
 from ._transform import rotate
-from ..math import wrap
+from ..math import wrap, INF
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
 
@@ -178,15 +178,13 @@ class Box(BaseBox, metaclass=BoxType):
     """
     Simple cuboid defined by location of lower and upper corner in physical space.
 
-    In addition to the regular constructor Box(lower, upper), `Box` supports construction from dimension names and via slicing, `Box[slice1, slice2,...]`
-    Each slice marks the lower and upper edge of the box along one dimension.
-    Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
-    The parameter slice.step has no effect.
+    Boxes can be constructed either from two positional vector arguments `(lower, upper)` or by specifying the limits by dimension name as `kwargs`.
 
     **Examples**:
-
-        Box[0:1, 0:1]  # creates a two-dimensional unit box.
-        Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
+        ```python
+        Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+        Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
+        ```
     """
 
     def __init__(self,
@@ -204,9 +202,24 @@ class Box(BaseBox, metaclass=BoxType):
         if upper is not None:
             self._upper = wrap(upper)
         else:
-            self._upper = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys())))
-            if lower is None:
-                self._lower = math.zeros_like(self._upper)
+            lower = []
+            upper = []
+            for item in size.values():
+                if isinstance(item, (tuple, list)):
+                    assert len(item) == 2, f"Box kwargs must be either dim=upper or dim=(lower,upper) but got {item}"
+                    lo, up = item
+                    lower.append(lo)
+                    upper.append(up)
+                elif item is None:
+                    lower.append(-INF)
+                    upper.append(INF)
+                else:
+                    lower.append(0)
+                    upper.append(item)
+            lower = [-INF if l is None else l for l in lower]
+            upper = [INF if u is None else u for u in upper]
+            self._upper = math.wrap(upper, math.channel(vector=tuple(size.keys())))
+            self._lower = math.wrap(lower, math.channel(vector=tuple(size.keys())))
         if self.size.vector.item_names is None:
             warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
