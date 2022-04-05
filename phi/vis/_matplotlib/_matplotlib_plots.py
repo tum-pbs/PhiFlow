@@ -186,7 +186,7 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
             color = [str(d) for d in data.color.points.unstack(len(x))]
             if isinstance(data.elements, Sphere):
                 symbol = 'o'
-                size = float(data.elements.bounding_radius()) * 0.4
+                size = data.elements.bounding_radius().numpy() * 0.4
             elif isinstance(data.elements, BaseBox):
                 symbol = 's'
                 size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 0.35
