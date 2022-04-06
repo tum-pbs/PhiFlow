@@ -191,21 +191,25 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, down: str = '', title: phi.math._tensors.Tensor = None, size=(12, 5), same_scale=True, show_color_bar=True, **plt_args)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: str = None, col_dims: str = &lt;function batch&gt;, title: phi.math._tensors.Tensor = None, size=(12, 5), same_scale=True, show_color_bar=True, **plt_args)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Plots the given fields.</p>
+<div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
+<p>To show the figures, use <code><a title="phi.vis.show" href="#phi.vis.show">show()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>fields</code></strong></dt>
 <dd>Fields or Tensors to plot.</dd>
 <dt><strong><code>lib</code></strong></dt>
 <dd>Plotting library name or reference. Valid names are <code>'matplotlib'</code>, <code>'plotly'</code> and <code>'console'</code>.</dd>
-<dt><strong><code>down</code></strong></dt>
+<dt><strong><code>row_dims</code></strong></dt>
 <dd>Batch dimensions along which sub-figures should be laid out vertically.
-<code>Shape</code> or comma-separated names as <code>str</code>.</dd>
+<code>Shape</code> or comma-separated names as <code>str</code>, <code>tuple</code> or <code>list</code>.</dd>
+<dt><strong><code>col_dims</code></strong></dt>
+<dd>Batch dimensions along which sub-figures should be laid out horizontally.
+<code>Shape</code> or comma-separated names as <code>str</code>, <code>tuple</code> or <code>list</code>.</dd>
 <dt><strong><code>title</code></strong></dt>
-<dd><code>bool or str or Tensor</code></dd>
+<dd>String <code>Tensor</code> with dimensions <code>rows</code> and <code>cols</code>.</dd>
 <dt><strong><code>size</code></strong></dt>
 <dd>Figure size in inches, <code>(width, height)</code>.</dd>
 <dt><strong><code>same_scale</code></strong></dt>
@@ -214,38 +218,44 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <dd>Whether to display color bars for heat maps.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Figure created for <code>data</code>, not yet shown.</p></div>
+<p>If all batch dimensions are reduced by <code>rows</code> and <code>cols</code>, returns a single figure created for <code>data</code>.
+Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def plot(*fields: SampledField or Tensor or Layout,
          lib: str or PlottingLibrary = None,
-         down: str or Shape = &#39;&#39;,
-         title: Tensor or str or tuple or list = None,
+         row_dims: str or Shape or tuple or list or Callable = None,
+         col_dims: str or Shape or tuple or list or Callable = batch,
+         title: Tensor = None,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
          **plt_args):
     &#34;&#34;&#34;
-    Plots the given fields.
+    Creates one or multiple figures and sub-figures and plots the given fields.
+
+    To show the figures, use `show()`.
 
     Args:
         fields: Fields or Tensors to plot.
         lib: Plotting library name or reference. Valid names are `&#39;matplotlib&#39;`, `&#39;plotly&#39;` and `&#39;console&#39;`.
-        down: Batch dimensions along which sub-figures should be laid out vertically.
-            `Shape` or comma-separated names as `str`.
-        title: `bool or str or Tensor`
+        row_dims: Batch dimensions along which sub-figures should be laid out vertically.
+            `Shape` or comma-separated names as `str`, `tuple` or `list`.
+        col_dims: Batch dimensions along which sub-figures should be laid out horizontally.
+            `Shape` or comma-separated names as `str`, `tuple` or `list`.
+        title: String `Tensor` with dimensions `rows` and `cols`.
         size: Figure size in inches, `(width, height)`.
         same_scale: Whether to use the same axis limits for all sub-figures.
         show_color_bar: Whether to display color bars for heat maps.
 
     Returns:
-        Figure created for `data`, not yet shown.
+        If all batch dimensions are reduced by `rows` and `cols`, returns a single figure created for `data`.
+        Otherwise returns a `Tensor` of figures (not yet supported).
     &#34;&#34;&#34;
-    down = parse_dim_order(down)
     positioning = {}
-    rows, cols = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), down, 0, 0, positioning)
+    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, 0, 0, positioning)
     plots = default_plots() if lib is None else get_plots(lib)
     if same_scale:
         min_val = float(min([f.values.min for l in positioning.values() for f in l]))
@@ -253,16 +263,15 @@ The fields will be plotted in the order they are given, i.e. the last field on t
     else:
         min_val = max_val = None
     subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
-    figure, axes = plots.create_figure(size, rows, cols, subplots, titles=layout(None))
-    LAST_FIGURE[0] = figure
-    for pos, fields in positioning.items():
-        for f in fields:
-            plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
-    # for i in axes.shape.meshgrid():
-    #     for f in data[i].shape.meshgrid():
-    #         sampled_field = data[f].native()
-    #         plots.plot(sampled_field, figure, axes[i].native(), min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
-    return figure</code></pre>
+    if fig_shape.volume == 1:
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, titles=title or layout(None))
+        LAST_FIGURE[0] = figure
+        for pos, fields in positioning.items():
+            for f in fields:
+                plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+        return figure
+    else:
+        raise NotImplementedError(f&#34;Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">

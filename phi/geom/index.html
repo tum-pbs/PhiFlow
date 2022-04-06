@@ -1071,9 +1071,13 @@ Box(x=(None, 1), y=(0, None)
 
     def __repr__(self):
         if self.shape.non_channel.volume == 1:
-            return &#39;Box[%s at %s]&#39; % (&#39;x&#39;.join([str(x) for x in self.size.numpy().flatten()]), &#39;,&#39;.join([str(x) for x in self.lower.numpy().flatten()]))
+            item_names = self.size.vector.item_names
+            if item_names:
+                return f&#34;Box({&#39;, &#39;.join([f&#39;{dim}=({lo}, {up})&#39; for dim, lo, up in zip(item_names, self._lower, self._upper)])})&#34;
+            else:  # deprecated
+                return &#39;Box[%s at %s]&#39; % (&#39;x&#39;.join([str(x) for x in self.size.numpy().flatten()]), &#39;,&#39;.join([str(x) for x in self.lower.numpy().flatten()]))
         else:
-            return &#39;Box[shape=%s]&#39; % self._shape</code></pre>
+            return &#39;Box[shape=%s]&#39; % self.shape</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">

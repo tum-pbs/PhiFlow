@@ -46,6 +46,7 @@ import warnings
 
 from phi import math
 from phi.field import SampledField, ConstantField, Field, PointCloud, extrapolate_valid, Grid, sample, reduce_sample
+from phi.field._field import FieldType
 from phi.field._field_math import GridType
 from phi.geom import Geometry
 
@@ -71,7 +72,7 @@ def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) 
 def advect(field: SampledField,
            velocity: Field,
            dt: float or math.Tensor,
-           integrator=euler) -&gt; Field:
+           integrator=euler) -&gt; FieldType:
     &#34;&#34;&#34;
     Advect `field` along the `velocity` vectors using the specified integrator.
 
@@ -247,7 +248,7 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.advect.advect"><code class="name flex">
-<span>def <span class="ident">advect</span></span>(<span>field: phi.field._field.SampledField, velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;) ‑> phi.field._field.Field</span>
+<span>def <span class="ident">advect</span></span>(<span>field: phi.field._field.SampledField, velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Advect <code>field</code> along the <code>velocity</code> vectors using the specified integrator.</p>
@@ -276,7 +277,7 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
 <pre><code class="python">def advect(field: SampledField,
            velocity: Field,
            dt: float or math.Tensor,
-           integrator=euler) -&gt; Field:
+           integrator=euler) -&gt; FieldType:
     &#34;&#34;&#34;
     Advect `field` along the `velocity` vectors using the specified integrator.
 

@@ -14,7 +14,7 @@ The following script runs 100 steps of an inviscid fluid simulation.
 ```python
 from phi.flow import *
 
-DOMAIN = Domain(x=64, y=80, boundaries=CLOSED, bounds=Box[0:100, 0:100])
+DOMAIN = Domain(x=64, y=80, boundaries=CLOSED, bounds=Box(x=100, y=100))
 velocity = DOMAIN.staggered_grid(Noise())
 pressure = DOMAIN.scalar_grid(0)
 for _ in range(100):
