@@ -70,6 +70,7 @@ class TorchBackend(Backend):
             tensor = tensor.to(self.get_default_device().ref)
         elif isinstance(x, (tuple, list)):
             try:
+                x = np.stack(x)
                 tensor = torch.tensor(x, device=self.get_default_device().ref)
             except ValueError:  # there may be Tensors inside the list
                 components = [self.as_tensor(c) for c in x]
@@ -398,7 +399,7 @@ class TorchBackend(Backend):
 
     def meshgrid(self, *coordinates):
         coordinates = [self.as_tensor(c) for c in coordinates]
-        return torch.meshgrid(coordinates)
+        return torch.meshgrid(*coordinates, indexing='ij')
 
     def linspace(self, start, stop, number):
         return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
