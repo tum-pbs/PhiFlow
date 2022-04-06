@@ -565,8 +565,8 @@ class Shape:
             return self[[i for i in range(self.rank) if self.names[i] not in dims]]
         elif isinstance(dims, Shape):
             return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
-        elif dims is None:  # subtract all
-            return EMPTY_SHAPE
+        elif dims is None:  # subtract none
+            return self
         else:
             raise ValueError(dims)
 
@@ -592,8 +592,8 @@ class Shape:
             return self[[i for i in range(self.rank) if self.names[i] in dims]]
         elif isinstance(dims, Shape):
             return self[[i for i in range(self.rank) if self.names[i] in dims.names]]
-        elif dims is None:  # keep all
-            return self
+        elif dims is None:  # keep none
+            return EMPTY_SHAPE
         else:
             raise ValueError(dims)
 

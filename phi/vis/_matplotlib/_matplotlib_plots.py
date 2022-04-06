@@ -118,7 +118,7 @@ MATPLOTLIB = MatplotlibPlots()
 
 def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
     if isinstance(data, Grid) and data.spatial_rank == 1:
-        x = data.points.vector[0].numpy()
+        x = data.points.staggered_direction[0].vector[0].numpy()
         for c in channel(data).meshgrid():
             values = data.values[c].numpy()
             if values.dtype in (np.complex64, np.complex128):
