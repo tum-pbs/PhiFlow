@@ -12,14 +12,14 @@ import matplotlib.pyplot as plt
 
 class TestMatplotlibPlots(TestCase):
 
-    def _test_plot(self, *plottable, show_=True, down=''):
-        fig = plot(*plottable, lib='matplotlib', down=down)
+    def _test_plot(self, *plottable, show_=True, **kwargs):
+        fig = plot(*plottable, lib='matplotlib', **kwargs)
         self.assertIsInstance(fig, plt.Figure)
-        fig = plot(*plottable, lib='plotly', down=down)
+        fig = plot(*plottable, lib='plotly', **kwargs)
         self.assertIsInstance(fig, plotly.graph_objs.Figure)
         if show_:
             show(gui='matplotlib')
-            # show(gui='plotly')
+            show(gui='plotly')
 
     def test_plot_1d(self):
         self._test_plot(CenteredGrid(lambda x: math.sin(x), x=100, bounds=Box(x=2 * math.pi)))
@@ -35,7 +35,7 @@ class TestMatplotlibPlots(TestCase):
 
     def test_plot_scalar_2d_batch(self):
         self._test_plot(CenteredGrid(Noise(batch(b=2)), 0, x=64, y=8, bounds=Box(0, [1, 1])))
-        self._test_plot(CenteredGrid(Noise(batch(b=2)), 0, x=64, y=8, bounds=Box(0, [1, 1])), down='b')
+        self._test_plot(CenteredGrid(Noise(batch(b=2)), 0, x=64, y=8, bounds=Box(0, [1, 1])), row_dims='b', size=(2, 4))
 
     def test_plot_vector_grid_2d(self):
         self._test_plot(CenteredGrid(Noise(vector=2), extrapolation.ZERO, x=64, y=8, bounds=Box(0, [1, 1])) * 0.1)
@@ -67,7 +67,7 @@ class TestMatplotlibPlots(TestCase):
         grid2 = CenteredGrid(grid, 0, Box[0:2, 0:1], x=20, y=50)
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         cloud = PointCloud(Sphere(points, radius=0.1), bounds=Box(0, [1, 1]))
-        self._test_plot(grid, grid2, cloud, down='b')
+        self._test_plot(grid, grid2, cloud, row_dims='b')
 
     def test_overlay(self):
         grid = CenteredGrid(Noise(), extrapolation.ZERO, x=64, y=8, bounds=Box(0, [1, 1]))

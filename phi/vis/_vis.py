@@ -4,7 +4,7 @@ import sys
 import warnings
 from contextlib import contextmanager
 from threading import Thread
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Callable
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
@@ -239,31 +239,36 @@ LAST_FIGURE = [None]
 
 def plot(*fields: SampledField or Tensor or Layout,
          lib: str or PlottingLibrary = None,
-         down: str or Shape = '',
-         title: Tensor or str or tuple or list = None,
+         row_dims: str or Shape or tuple or list or Callable = None,
+         col_dims: str or Shape or tuple or list or Callable = batch,
+         title: Tensor = None,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
          **plt_args):
     """
-    Plots the given fields.
+    Creates one or multiple figures and sub-figures and plots the given fields.
+
+    To show the figures, use `show()`.
 
     Args:
         fields: Fields or Tensors to plot.
         lib: Plotting library name or reference. Valid names are `'matplotlib'`, `'plotly'` and `'console'`.
-        down: Batch dimensions along which sub-figures should be laid out vertically.
-            `Shape` or comma-separated names as `str`.
-        title: `bool or str or Tensor`
+        row_dims: Batch dimensions along which sub-figures should be laid out vertically.
+            `Shape` or comma-separated names as `str`, `tuple` or `list`.
+        col_dims: Batch dimensions along which sub-figures should be laid out horizontally.
+            `Shape` or comma-separated names as `str`, `tuple` or `list`.
+        title: String `Tensor` with dimensions `rows` and `cols`.
         size: Figure size in inches, `(width, height)`.
         same_scale: Whether to use the same axis limits for all sub-figures.
         show_color_bar: Whether to display color bars for heat maps.
 
     Returns:
-        Figure created for `data`, not yet shown.
+        If all batch dimensions are reduced by `rows` and `cols`, returns a single figure created for `data`.
+        Otherwise returns a `Tensor` of figures (not yet supported).
     """
-    down = parse_dim_order(down)
     positioning = {}
-    rows, cols = layout_sub_figures(math.layout(fields, batch('args')), down, 0, 0, positioning)
+    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, 0, 0, positioning)
     plots = default_plots() if lib is None else get_plots(lib)
     if same_scale:
         min_val = float(min([f.values.min for l in positioning.values() for f in l]))
@@ -271,23 +276,23 @@ def plot(*fields: SampledField or Tensor or Layout,
     else:
         min_val = max_val = None
     subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
-    figure, axes = plots.create_figure(size, rows, cols, subplots, titles=layout(None))
-    LAST_FIGURE[0] = figure
-    for pos, fields in positioning.items():
-        for f in fields:
-            plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
-    # for i in axes.shape.meshgrid():
-    #     for f in data[i].shape.meshgrid():
-    #         sampled_field = data[f].native()
-    #         plots.plot(sampled_field, figure, axes[i].native(), min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
-    return figure
+    if fig_shape.volume == 1:
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, titles=title or layout(None))
+        LAST_FIGURE[0] = figure
+        for pos, fields in positioning.items():
+            for f in fields:
+                plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+        return figure
+    else:
+        raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
 
 
 def layout_sub_figures(data: Tensor or Layout or SampledField,
-                       down: Tuple[str],
+                       row_dims: str or Shape or tuple or list or Callable,
+                       col_dims: str or Shape or tuple or list or Callable,
                        offset_row: int,
                        offset_col: int,
-                       positioning: Dict[Tuple[int, int], List]):  # rows, cols
+                       positioning: Dict[Tuple[int, int], List]) -> Tuple[int, int, Shape]:  # rows, cols
     if data is None:
         raise ValueError(f"Cannot layout figure for '{data}'")
     if isinstance(data, list):
@@ -296,35 +301,42 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         data = math.layout(data, batch('tuple'))
     if isinstance(data, Layout):
         rows, cols = 0, 0
+        non_reduced = math.EMPTY_SHAPE
         if not batch(data):
-            for d in data:
-                e_rows, e_cols = layout_sub_figures(d, down, offset_row, offset_col, positioning)
+            for d in data:  # overlay these fields
+                e_rows, e_cols, _ = layout_sub_figures(d, row_dims, col_dims, offset_row, offset_col, positioning)
                 rows = max(rows, e_rows)
                 cols = max(cols, e_cols)
         else:
             dim0 = data.shape[0]
             elements = data.unstack(dim0.name)
             for e in elements:
-                if dim0.name in down:
-                    e_rows, e_cols = layout_sub_figures(e.native(), down, offset_row + rows, offset_col, positioning)
+                if dim0.only(row_dims):
+                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, offset_row + rows, offset_col, positioning)
                     rows += e_rows
                     cols = max(cols, e_cols)
-                else:
-                    e_rows, e_cols = layout_sub_figures(e.native(), down, offset_row, offset_col + cols, positioning)
+                elif dim0.only(col_dims):
+                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, offset_row, offset_col + cols, positioning)
                     cols += e_cols
                     rows = max(rows, e_rows)
-        return rows, cols
+                else:
+                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, offset_row, offset_col, positioning)
+                    cols = max(cols, e_cols)
+                    rows = max(rows, e_rows)
+                non_reduced &= e_non_reduced
+        return rows, cols, non_reduced
     else:
         if isinstance(data, Tensor):
             data = field.tensor_as_field(data)
         assert isinstance(data, Field), data
-        rows = batch(data).only(down)
-        cols = batch(data).without(down)
-        for ri, r in enumerate(rows.meshgrid()):
-            for ci, c in enumerate(cols.meshgrid()):
+        row_shape: Shape = batch(data).only(row_dims)
+        col_shape: Shape = batch(data).only(col_dims).without(row_dims)
+        non_reduced: Shape = batch(data).without(row_dims).without(col_dims)
+        for ri, r in enumerate(row_shape.meshgrid()):
+            for ci, c in enumerate(col_shape.meshgrid()):
                 sub_data = data[r][c]
                 positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
-        return rows.volume, cols.volume
+        return row_shape.volume, col_shape.volume, non_reduced
 
 
     # if len(plottable) > 1:

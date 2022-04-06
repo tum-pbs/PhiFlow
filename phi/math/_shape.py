@@ -557,14 +557,16 @@ class Shape:
         Returns:
           Shape without specified dimensions
         """
+        if callable(dims):
+            dims = dims(self)
         if isinstance(dims, str):
-            return self[[i for i in range(self.rank) if self.names[i] != dims]]
+            dims = parse_dim_order(dims)
         if isinstance(dims, (tuple, list)):
             return self[[i for i in range(self.rank) if self.names[i] not in dims]]
         elif isinstance(dims, Shape):
             return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
-        # elif dims is None:  # subtract all
-        #     return EMPTY_SHAPE
+        elif dims is None:  # subtract all
+            return EMPTY_SHAPE
         else:
             raise ValueError(dims)
 
