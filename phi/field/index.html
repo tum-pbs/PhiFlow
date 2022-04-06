@@ -2774,6 +2774,8 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
                 values = values(elements.center)
                 assert isinstance(values, math.Tensor), f&#34;values function must return a Tensor but returned {type(values)}&#34;
             else:
+                if isinstance(values, (tuple, list)) and len(values) == resolution.rank:
+                    values = math.tensor(values, channel(vector=resolution.names))
                 values = math.expand(math.tensor(values), resolution)
         if values.dtype.kind not in (float, complex):
             values = math.to_float(values)
@@ -5669,7 +5671,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
                     assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
                 assert &#39;staggered_direction&#39; in values.shape
                 if &#39;vector&#39; in values.shape:
-                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(&#39;vector&#39;))
+                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(vector=resolution.names))
                 else:
                     values = values.staggered_direction.as_channel(&#39;vector&#39;)
             else:

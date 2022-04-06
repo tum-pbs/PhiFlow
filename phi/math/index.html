@@ -8371,8 +8371,8 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             return self[[i for i in range(self.rank) if self.names[i] not in dims]]
         elif isinstance(dims, Shape):
             return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
-        elif dims is None:  # subtract all
-            return EMPTY_SHAPE
+        elif dims is None:  # subtract none
+            return self
         else:
             raise ValueError(dims)
 
@@ -8398,8 +8398,8 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             return self[[i for i in range(self.rank) if self.names[i] in dims]]
         elif isinstance(dims, Shape):
             return self[[i for i in range(self.rank) if self.names[i] in dims.names]]
-        elif dims is None:  # keep all
-            return self
+        elif dims is None:  # keep none
+            return EMPTY_SHAPE
         else:
             raise ValueError(dims)
 
@@ -9714,8 +9714,8 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         return self[[i for i in range(self.rank) if self.names[i] in dims]]
     elif isinstance(dims, Shape):
         return self[[i for i in range(self.rank) if self.names[i] in dims.names]]
-    elif dims is None:  # keep all
-        return self
+    elif dims is None:  # keep none
+        return EMPTY_SHAPE
     else:
         raise ValueError(dims)</code></pre>
 </details>
@@ -9900,8 +9900,8 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         return self[[i for i in range(self.rank) if self.names[i] not in dims]]
     elif isinstance(dims, Shape):
         return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
-    elif dims is None:  # subtract all
-        return EMPTY_SHAPE
+    elif dims is None:  # subtract none
+        return self
     else:
         raise ValueError(dims)</code></pre>
 </details>
