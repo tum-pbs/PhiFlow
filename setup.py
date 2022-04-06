@@ -134,6 +134,7 @@ setup(
               'phi.field',
               'phi.geom',
               'phi.jax',
+              'phi.jax.stax',
               'phi.math',
               'phi.math.backend',
               'phi.physics',
