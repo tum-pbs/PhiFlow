@@ -171,6 +171,8 @@ class CenteredGrid(Grid):
                 values = values(elements.center)
                 assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
             else:
+                if isinstance(values, (tuple, list)) and len(values) == resolution.rank:
+                    values = math.tensor(values, channel(vector=resolution.names))
                 values = math.expand(math.tensor(values), resolution)
         if values.dtype.kind not in (float, complex):
             values = math.to_float(values)
@@ -295,7 +297,7 @@ class StaggeredGrid(Grid):
                     assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
                 assert 'staggered_direction' in values.shape
                 if 'vector' in values.shape:
-                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel('vector'))
+                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(vector=resolution.names))
                 else:
                     values = values.staggered_direction.as_channel('vector')
             else:
@@ -422,4 +424,4 @@ def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extr
     for dim, component in zip(resolution.spatial.names, components):
         comp_cells = cells.stagger(dim, *extrapolation.valid_outer_faces(dim))
         tensors.append(math.expand(component, comp_cells.resolution))
-    return math.stack(tensors, channel('vector'))
+    return math.stack(tensors, channel(vector=resolution.names))

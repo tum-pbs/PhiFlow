@@ -84,3 +84,13 @@ class GridTest(TestCase):
     def test_infinite_cylinder_to_grid(self):
         cylinder = geom.infinite_cylinder(x=2, y=1.5, radius=.8, inf_dim='z')
         StaggeredGrid(cylinder, 0, x=4, y=3, z=2)
+
+    def test_zero_vector_grid(self):
+        grid = CenteredGrid((0, 0), 0, x=4, y=3)
+        self.assertEqual(('x', 'y'), grid.values.vector.item_names)
+        self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
+
+    def test_zero_staggered_grid(self):
+        grid = StaggeredGrid((0, 0), 0, x=4, y=3)
+        self.assertEqual(('x', 'y'), grid.values.vector.item_names)
+        self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
