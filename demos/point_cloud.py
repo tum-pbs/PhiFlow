@@ -6,7 +6,7 @@ from phi.physics._boundaries import Domain, STICKY as CLOSED
 from phi.flow import *
 
 
-DOMAIN = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box(0, (100, 100)))
+DOMAIN = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box(x=100, y=100))
 # points = DOMAIN.points([(1, 1), (20, 20)], color=['#ba0a04', '#344feb'])
 
 points1 = DOMAIN.points((1, 1), color='#ba0a04')

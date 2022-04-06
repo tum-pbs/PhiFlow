@@ -90,7 +90,7 @@ This is suited for settings such as air flow or a filled tank of water.
 ```python
 from phi.flow import *
 
-DOMAIN = Domain(x=64, y=80, boundaries=CLOSED, bounds=Box[0:100, 0:100])
+DOMAIN = Domain(x=64, y=80, boundaries=CLOSED, bounds=Box(x=100, y=100))
 velocity = DOMAIN.staggered_grid(Noise())
 pressure = DOMAIN.grid(0)
 for _ in range(100):

@@ -144,22 +144,7 @@ class BaseBox(Geometry):  # not a Subwoofer
 
 
 class BoxType(type):
-    """
-    Convenience function for creating N-dimensional boxes / cuboids.
-    
-    Examples to create a box from (0, 0) to (10, 20):
-    
-    * box[0:10, 0:20]
-    * box((0, 0), (10, 20))
-    * box((5, 10), size=(10, 20))
-    * box(center=(5, 10), size=(10, 20))
-    * box((10, 20))
-
-    Args:
-
-    Returns:
-
-    """
+    """ Deprecated. Does not support item names. """
 
     def __getitem__(self, item):
         if not isinstance(item, (tuple, list)):
@@ -283,9 +268,13 @@ class Box(BaseBox, metaclass=BoxType):
 
     def __repr__(self):
         if self.shape.non_channel.volume == 1:
-            return 'Box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
+            item_names = self.size.vector.item_names
+            if item_names:
+                return f"Box({', '.join([f'{dim}=({lo}, {up})' for dim, lo, up in zip(item_names, self._lower, self._upper)])})"
+            else:  # deprecated
+                return 'Box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
         else:
-            return 'Box[shape=%s]' % self._shape
+            return 'Box[shape=%s]' % self.shape
 
 
 class Cuboid(BaseBox):

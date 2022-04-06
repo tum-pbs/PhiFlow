@@ -10,7 +10,7 @@ from phi.flow import *
 # from phi.jax.flow import *
 
 
-DOMAIN = Domain(x=128, y=128, boundaries=CLOSED, bounds=Box[0:100, 0:100])
+DOMAIN = Domain(x=128, y=128, boundaries=CLOSED, bounds=Box(x=100, y=100))
 velocity = DOMAIN.staggered_grid(Noise(vector=2))
 pressure = DOMAIN.scalar_grid(0)
 
