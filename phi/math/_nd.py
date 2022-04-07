@@ -375,7 +375,7 @@ def spatial_gradient(grid: Tensor,
 def laplace(x: Tensor,
             dx: Tensor or float = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
-            dims: tuple or None = None):
+            dims: str or tuple or list or Shape or Callable = spatial):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -388,7 +388,6 @@ def laplace(x: Tensor,
 
     Returns:
         `phi.math.Tensor` of same shape as `x`
-
     """
     if isinstance(dx, (tuple, list)):
         dx = wrap(dx, batch('_laplace'))
@@ -458,7 +457,7 @@ def fourier_poisson(grid: Tensor,
 
 def downsample2x(grid: Tensor,
                  padding: Extrapolation = extrapolation.BOUNDARY,
-                 dims: tuple or None = None) -> Tensor:
+                 dims: str or tuple or list or Shape or Callable = spatial) -> Tensor:
     """
     Resamples a regular grid to half the number of spatial sample points per dimension.
     The grid values at the new points are determined via mean (linear interpolation).
@@ -475,7 +474,7 @@ def downsample2x(grid: Tensor,
       half-size grid
 
     """
-    dims = grid.shape.spatial.only(dims).names
+    dims = grid.shape.only(dims).names
     odd_dimensions = [dim for dim in dims if grid.shape.get_size(dim) % 2 != 0]
     grid = math.pad(grid, {dim: (0, 1) for dim in odd_dimensions}, padding)
     for dim in dims:
@@ -485,7 +484,7 @@ def downsample2x(grid: Tensor,
 
 def upsample2x(grid: Tensor,
                padding: Extrapolation = extrapolation.BOUNDARY,
-               dims: tuple or None = None) -> Tensor:
+               dims: str or tuple or list or Shape or Callable = spatial) -> Tensor:
     """
     Resamples a regular grid to double the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
@@ -502,7 +501,7 @@ def upsample2x(grid: Tensor,
       double-size grid
 
     """
-    for i, dim in enumerate(grid.shape.spatial.only(dims)):
+    for i, dim in enumerate(grid.shape.only(dims)):
         left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
