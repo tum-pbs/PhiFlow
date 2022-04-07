@@ -1461,7 +1461,7 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
 </details>
 </dd>
 <dt id="phi.math.downsample2x"><code class="name flex">
-<span>def <span class="ident">downsample2x</span></span>(<span>grid: phi.math._tensors.Tensor, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">downsample2x</span></span>(<span>grid: phi.math._tensors.Tensor, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: str = &lt;function spatial&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Resamples a regular grid to half the number of spatial sample points per dimension.
@@ -1491,7 +1491,7 @@ The grid values at the new points are determined via mean (linear interpolation)
 </summary>
 <pre><code class="python">def downsample2x(grid: Tensor,
                  padding: Extrapolation = extrapolation.BOUNDARY,
-                 dims: tuple or None = None) -&gt; Tensor:
+                 dims: str or tuple or list or Shape or Callable = spatial) -&gt; Tensor:
     &#34;&#34;&#34;
     Resamples a regular grid to half the number of spatial sample points per dimension.
     The grid values at the new points are determined via mean (linear interpolation).
@@ -1508,7 +1508,7 @@ The grid values at the new points are determined via mean (linear interpolation)
       half-size grid
 
     &#34;&#34;&#34;
-    dims = grid.shape.spatial.only(dims).names
+    dims = grid.shape.only(dims).names
     odd_dimensions = [dim for dim in dims if grid.shape.get_size(dim) % 2 != 0]
     grid = math.pad(grid, {dim: (0, 1) for dim in odd_dimensions}, padding)
     for dim in dims:
@@ -2902,7 +2902,7 @@ For <code><a title="phi.math.TensorLike" href="#phi.math.TensorLike">TensorLike<
 </details>
 </dd>
 <dt id="phi.math.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>x: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor = 1, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None)</span>
+<span>def <span class="ident">laplace</span></span>(<span>x: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor = 1, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: str = &lt;function spatial&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spatial Laplace operator as defined for scalar fields.
@@ -2927,7 +2927,7 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <pre><code class="python">def laplace(x: Tensor,
             dx: Tensor or float = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
-            dims: tuple or None = None):
+            dims: str or tuple or list or Shape or Callable = spatial):
     &#34;&#34;&#34;
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -2940,7 +2940,6 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 
     Returns:
         `phi.math.Tensor` of same shape as `x`
-
     &#34;&#34;&#34;
     if isinstance(dx, (tuple, list)):
         dx = wrap(dx, batch(&#39;_laplace&#39;))
@@ -6445,7 +6444,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 </details>
 </dd>
 <dt id="phi.math.upsample2x"><code class="name flex">
-<span>def <span class="ident">upsample2x</span></span>(<span>grid: phi.math._tensors.Tensor, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: tuple = None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">upsample2x</span></span>(<span>grid: phi.math._tensors.Tensor, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: str = &lt;function spatial&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Resamples a regular grid to double the number of spatial sample points per dimension.
@@ -6475,7 +6474,7 @@ The grid values at the new points are determined via linear interpolation.</p>
 </summary>
 <pre><code class="python">def upsample2x(grid: Tensor,
                padding: Extrapolation = extrapolation.BOUNDARY,
-               dims: tuple or None = None) -&gt; Tensor:
+               dims: str or tuple or list or Shape or Callable = spatial) -&gt; Tensor:
     &#34;&#34;&#34;
     Resamples a regular grid to double the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
@@ -6492,7 +6491,7 @@ The grid values at the new points are determined via linear interpolation.</p>
       double-size grid
 
     &#34;&#34;&#34;
-    for i, dim in enumerate(grid.shape.spatial.only(dims)):
+    for i, dim in enumerate(grid.shape.only(dims)):
         left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
