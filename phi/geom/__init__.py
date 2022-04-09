@@ -12,9 +12,10 @@ See the `phi.geom` module documentation at https://tum-pbs.github.io/PhiFlow/Geo
 
 from ._geom import Geometry, Point, assert_same_rank
 from ._union import union
-from ._box import Box, GridCell, BaseBox
+from ._box import Box, GridCell, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._stack import stack
-from ._geom_math import concat, invert
+from ._geom_math import concat, invert, pack_dims
+from ._transform import embed, infinite_cylinder
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]

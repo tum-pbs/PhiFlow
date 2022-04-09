@@ -8,8 +8,8 @@ Use `plot()` to plot fields using Matplotlib.
 See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 """
 from ._viewer import Viewer
-from ._matplotlib import plot, animate, plot_scalars, savefig
-from ._vis import view, control, show, action
+from ._matplotlib import plot_scalars
+from ._vis import view, control, show, action, plot, overlay, write_image, write_image as savefig
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
 

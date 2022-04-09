@@ -7,6 +7,7 @@ See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapola
 """
 from typing import Union, Dict
 
+from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
 from ._shape import Shape, channel
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
@@ -39,8 +40,16 @@ class Extrapolation:
         """Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation."""
         raise NotImplementedError()
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> tuple:
         """ `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. """
+        raise NotImplementedError()
+
+    @property
+    def connects_to_outside(self) -> bool:
+        """
+        True if at any place, this extrapolation allows for dynamic flow out of the valid domain.
+        `BOUNDARY` faces allow this, but constant extrapolations and `PERIODIC` do not.
+        """
         raise NotImplementedError()
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
@@ -116,6 +125,21 @@ class Extrapolation:
     def native_grid_sample_mode(self) -> Union[str, None]:
         return None
 
+    def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
+        """
+        Computes the shortest distance between two points.
+        Both points are assumed to lie within the domain
+
+        Args:
+            start: Start position.
+            end: End position.
+            domain_size: Domain side lengths as vector.
+
+        Returns:
+            Shortest distance from `start` to `end`.
+        """
+        return end - start
+
     def __getitem__(self, item):
         return self
 
@@ -142,8 +166,12 @@ class ConstantExtrapolation(Extrapolation):
     def spatial_gradient(self):
         return ZERO
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> tuple:
         return False, False
+
+    @property
+    def connects_to_outside(self) -> bool:
+        return False
 
     def pad(self, value: Tensor, widths: dict):
         """
@@ -158,21 +186,23 @@ class ConstantExtrapolation(Extrapolation):
         Returns:
 
         """
+        derivative = get_spatial_derivative_order()
+        pad_value = self.value if derivative == 0 else math.zeros()
         value = value._simplify()
         from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             backend = choose_backend(native)
-            result_tensor = backend.pad(native, ordered_pad_widths, 'constant', self.value.native())
+            result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
-            if value._inner.shape.volume > 1 or not math.all_available(self.value, value) or not math.close(self.value, value._inner):  # .inner should be safe after _simplify
+            if value._inner.shape.volume > 1 or not math.all_available(pad_value, value) or not math.close(pad_value, value._inner):  # .inner should be safe after _simplify
                 return self.pad(value._cache(), widths)
             else:  # Stays constant value, only extend shape
                 new_sizes = []
-                for size, dim, dim_type in value.shape._dimensions:
+                for size, dim, *_ in value.shape._dimensions:
                     if dim not in widths:
                         new_sizes.append(size)
                     else:
@@ -189,15 +219,14 @@ class ConstantExtrapolation(Extrapolation):
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim)
         elif is_tracer(value):
-            assert self.is_zero()
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
-            return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
+            return value.shift(lower, value.shape.after_pad(widths), lambda v: ZERO.pad(v, widths), lambda b: self.pad(b, widths))
         else:
             raise NotImplementedError()
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
-        raise NotImplementedError()
-        # return math.zeros()
+        shape = value.shape.after_gather({dimension: slice(0, width)})
+        return math.expand(self.value, shape)
 
     def __eq__(self, other):
         return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
@@ -314,7 +343,7 @@ class _CopyExtrapolation(Extrapolation):
             if len(inner_widths) > 0:
                 inner = self.pad(inner, widths)
             new_sizes = []
-            for size, dim, dim_type in value.shape._dimensions:
+            for size, dim, *_ in value.shape._dimensions:
                 if dim not in widths:
                     new_sizes.append(size)
                 else:
@@ -397,6 +426,10 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def spatial_gradient(self):
         return ZERO
 
+    @property
+    def connects_to_outside(self) -> bool:
+        return True
+
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
         if upper_edge:
             edge = value[{dimension: slice(-1, None)}]
@@ -419,18 +452,18 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
 
         """
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
-        result = value.shift(lower, lambda v: ZERO.pad(v, widths), value.shape.after_pad(widths))  # inner values  ~half the computation time
+        result = value.shift(lower, value.shape.after_pad(widths), lambda v: ZERO.pad(v, widths), lambda b: ZERO.pad(b, widths))  # inner values  ~half the computation time
         for bound_dim, (bound_lo, bound_hi) in widths.items():
             for i in range(bound_lo):  # i=0 means outer
                 # this sets corners to 0
                 lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
                 mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
-                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)
+                boundary = value.shift(lower, result.shape, lambda v: self.pad(v, widths) * mask, lambda b: ZERO.pad(b, widths))
                 result += boundary
             for i in range(bound_hi):
                 lower = {dim: i - lo - hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
                 mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
-                boundary = value.shift(lower, lambda v: self.pad(v, widths) * mask, result.shape)  # ~ half the computation time
+                boundary = value.shift(lower, result.shape, lambda v: self.pad(v, widths) * mask, lambda b: ZERO.pad(b, widths))  # ~ half the computation time
                 result += boundary  # this does basically nothing if value is the identity
         return result
 
@@ -471,6 +504,10 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def valid_outer_faces(self, dim):
         return True, False
 
+    @property
+    def connects_to_outside(self) -> bool:
+        return False
+
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         return coordinates % shape.spatial
 
@@ -484,7 +521,11 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
         if value.shape.get_sizes(tuple(widths.keys())) != value.source.shape.get_sizes(tuple(widths.keys())):
             raise NotImplementedError("Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor." % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
-        return value.shift(lower, lambda v: self.pad(v, widths), value.shape.after_pad(widths))
+        return value.shift(lower, value.shape.after_pad(widths), lambda v: self.pad(v, widths), lambda b: ZERO.pad(b, widths))
+
+    def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
+        dx = end - start
+        return (dx + domain_size / 2) % domain_size - domain_size / 2
 
 
 class _SymmetricExtrapolation(_CopyExtrapolation):
@@ -495,6 +536,10 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
 
     def spatial_gradient(self):
         return -self
+
+    @property
+    def connects_to_outside(self) -> bool:
+        return True
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape) -> Tensor:
         coordinates = coordinates % (2 * shape)
@@ -526,6 +571,10 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     def spatial_gradient(self):
         return -self
 
+    @property
+    def connects_to_outside(self) -> bool:
+        return True
+
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
         if upper_edge:
             return value[{dimension: slice(-1-width, -1)}].flip(dimension)
@@ -549,6 +598,10 @@ class _NoExtrapolation(Extrapolation):
 
     def valid_outer_faces(self, dim):
         return True, True
+
+    @property
+    def connects_to_outside(self) -> bool:
+        raise AssertionError(f"connects_to_outside not defined by {self.__class__}")
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
         raise AssertionError("Invalid extrapolation")
@@ -582,13 +635,13 @@ class _NoExtrapolation(Extrapolation):
 
 
 ZERO = ConstantExtrapolation(0)
-""" Extrapolates with the constant value 0 """
+""" Extrapolates with the constant value 0 (Dirichlet boundary condition). """
 ONE = ConstantExtrapolation(1)
-""" Extrapolates with the constant value 1 """
+""" Extrapolates with the constant value 1 (Dirichlet boundary condition). """
 PERIODIC = _PeriodicExtrapolation(1)
-""" Extends a grid by tiling it """
+""" Extends a grid by tiling it (Periodic boundary condition). """
 BOUNDARY = _BoundaryExtrapolation(2)
-""" Extends a grid with its edge values. The value of a point lying outside the grid is determined by the closest grid value(s). """
+""" Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). """
 SYMMETRIC = _SymmetricExtrapolation(3)
 """ Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. """
 REFLECT = _ReflectExtrapolation(4)
@@ -664,6 +717,11 @@ class _MixedExtrapolation(Extrapolation):
     def valid_outer_faces(self, dim):
         e_lower, e_upper = self.ext[dim]
         return e_lower.valid_outer_faces(dim)[0], e_upper.valid_outer_faces(dim)[1]
+
+    @property
+    def connects_to_outside(self) -> bool:
+        result_by_dim = [lo.connects_to_outside or up.connects_to_outside for lo, up in self.ext.values()]
+        return any(result_by_dim)
 
     def pad(self, value: Tensor, widths: dict) -> Tensor:
         """

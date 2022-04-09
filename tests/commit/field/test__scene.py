@@ -4,10 +4,8 @@ from os.path import dirname, abspath, join, basename
 
 from phi import math
 from phi import field
-from phi.field import Scene
-from phi.math import batch
-from phi.physics._boundaries import Domain, STICKY as CLOSED
-
+from phi.field import Scene, CenteredGrid, StaggeredGrid
+from phi.math import batch, extrapolation
 
 DIR = join(dirname(dirname(dirname(dirname(abspath(__file__))))), 'test_data')
 
@@ -62,9 +60,8 @@ class TestScene(TestCase):
         scene.remove()
 
     def test_write_read(self):
-        DOMAIN = Domain(x=32, y=32, boundaries=CLOSED)
-        smoke = DOMAIN.scalar_grid(1)
-        vel = DOMAIN.staggered_grid(2)
+        smoke = CenteredGrid(1, extrapolation.BOUNDARY, x=32, y=32)
+        vel = StaggeredGrid(2, 0, x=32, y=32)
         # write
         scene = Scene.create(DIR)
         scene.write(smoke=smoke, vel=vel)
@@ -88,9 +85,8 @@ class TestScene(TestCase):
         scene.remove()
 
     def test_write_read_batch_matching(self):
-        DOMAIN = Domain(x=32, y=32, boundaries=CLOSED)
-        smoke = DOMAIN.scalar_grid(1) * math.random_uniform(batch(count=2))
-        vel = DOMAIN.staggered_grid(2) * math.random_uniform(batch(count=2))
+        smoke = CenteredGrid(1, extrapolation.BOUNDARY, x=32, y=32) * math.random_uniform(batch(count=2))
+        vel = StaggeredGrid(2, 0, x=32, y=32) * math.random_uniform(batch(count=2))
         # write
         scene = Scene.create(DIR, count=2)
         scene.write({'smoke': smoke, 'vel': vel})
@@ -102,9 +98,8 @@ class TestScene(TestCase):
         scene.remove()
 
     def test_write_read_batch_batched_files(self):
-        DOMAIN = Domain(x=32, y=32, boundaries=CLOSED)
-        smoke = DOMAIN.scalar_grid(1) * math.random_uniform(batch(count=2, config=3))
-        vel = DOMAIN.staggered_grid(2) * math.random_uniform(batch(count=2, vel=2))
+        smoke = CenteredGrid(1, extrapolation.BOUNDARY, x=32, y=32) * math.random_uniform(batch(count=2, config=3))
+        vel = StaggeredGrid(2, 0, x=32, y=32) * math.random_uniform(batch(count=2, vel=2))
         # write
         scene = Scene.create(DIR, count=2)
         scene.write({'smoke': smoke, 'vel': vel})
@@ -116,9 +111,8 @@ class TestScene(TestCase):
         scene.remove()
 
     def test_write_read_batch_duplicate(self):
-        DOMAIN = Domain(x=32, y=32, boundaries=CLOSED)
-        smoke = DOMAIN.scalar_grid(1) * math.random_uniform(batch(count=2))
-        vel = DOMAIN.staggered_grid(2) * math.random_uniform(batch(count=2))
+        smoke = CenteredGrid(1, extrapolation.BOUNDARY, x=32, y=32) * math.random_uniform(batch(count=2))
+        vel = StaggeredGrid(2, 0, x=32, y=32) * math.random_uniform(batch(count=2))
         # write
         scene = Scene.create(DIR,  more=2)
         scene.write({'smoke': smoke, 'vel': vel})

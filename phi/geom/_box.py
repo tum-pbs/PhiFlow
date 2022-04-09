@@ -1,22 +1,20 @@
-from typing import Dict
+import warnings
+from typing import Dict, Tuple
 
 import numpy as np
 
-from phi import struct, math
-from ._geom import Geometry, _fill_spatial_with_singleton
+from phi import math
+from ._geom import Geometry
 from ._transform import rotate
-from ..math import wrap
-from ..math._tensors import Tensor
-from ..math.backend._backend import combined_dim
+from ..math import wrap, INF
+from ..math._tensors import Tensor, copy_with
+from ..math.backend._backend import combined_dim, PHI_LOGGER
 
 
 class BaseBox(Geometry):  # not a Subwoofer
     """
     Abstract base type for box-like geometries.
     """
-
-    def unstack(self, dimension):
-        raise NotImplementedError()
 
     def __eq__(self, other):
         raise NotImplementedError()
@@ -35,7 +33,7 @@ class BaseBox(Geometry):  # not a Subwoofer
     def center(self) -> Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta) -> 'BaseBox':
+    def shifted(self, delta, **delta_by_dim) -> 'BaseBox':
         raise NotImplementedError()
 
     @property
@@ -57,6 +55,10 @@ class BaseBox(Geometry):  # not a Subwoofer
     @property
     def volume(self) -> Tensor:
         return math.prod(self.size, 'vector')
+
+    @property
+    def shape_type(self) -> Tensor:
+        return math.tensor('B')
 
     def bounding_radius(self):
         return math.max(self.size, 'vector') * 1.414214
@@ -113,8 +115,16 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
-        indices = self.shape.spatial.index(dimensions)
-        return Box(self.lower[indices], self.upper[indices])
+        if self.size.vector.item_names is None:
+            assert len(dimensions) == self.spatial_rank, "Cannot project a Box if item names not available"
+            return self
+        lower = self.lower.vector[dimensions]
+        upper = self.upper.vector[dimensions]
+        return Box(lower, upper)
+
+    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+        uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
+        return self.lower + uniform * self.size
 
     def corner_representation(self) -> 'Box':
         return Box(self.lower, self.upper)
@@ -126,27 +136,15 @@ class BaseBox(Geometry):  # not a Subwoofer
         """ Tests if the other box lies fully inside this box. """
         return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
-    def rotated(self, angle):
+    def rotated(self, angle) -> Geometry:
         return rotate(self, angle)
+
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        return Cuboid(self.center, self.half_size * factor)
 
 
 class BoxType(type):
-    """
-    Convenience function for creating N-dimensional boxes / cuboids.
-    
-    Examples to create a box from (0, 0) to (10, 20):
-    
-    * box[0:10, 0:20]
-    * box((0, 0), (10, 20))
-    * box((5, 10), size=(10, 20))
-    * box(center=(5, 10), size=(10, 20))
-    * box((10, 20))
-
-    Args:
-
-    Returns:
-
-    """
+    """ Deprecated. Does not support item names. """
 
     def __getitem__(self, item):
         if not isinstance(item, (tuple, list)):
@@ -165,25 +163,50 @@ class Box(BaseBox, metaclass=BoxType):
     """
     Simple cuboid defined by location of lower and upper corner in physical space.
 
-    In addition to the regular constructor Box(lower, upper), Box supports construction via slicing, `Box[slice1, slice2,...]`
-    Each slice marks the lower and upper edge of the box along one dimension.
-    Start and end can be left blank (None) to set the corner point to infinity (upper=None) or -infinity (lower=None).
-    The parameter slice.step has no effect.
+    Boxes can be constructed either from two positional vector arguments `(lower, upper)` or by specifying the limits by dimension name as `kwargs`.
 
     **Examples**:
-
-        Box[0:1, 0:1]  # creates a two-dimensional unit box.
-        Box[:, 0:1]  # creates an infinite-height Box from x=0 to x=1.
+        ```python
+        Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+        Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
+        ```
     """
 
-    def __init__(self, lower: Tensor or float or int, upper: Tensor or float or int):
+    def __init__(self,
+                 lower: Tensor or float or int = None,
+                 upper: Tensor or float or int = None,
+                 **size: int or Tensor):
         """
         Args:
           lower: physical location of lower corner
           upper: physical location of upper corner
+          **size: Upper l
         """
-        self._lower = wrap(lower)
-        self._upper = wrap(upper)
+        if lower is not None:
+            self._lower = wrap(lower)
+        if upper is not None:
+            self._upper = wrap(upper)
+        else:
+            lower = []
+            upper = []
+            for item in size.values():
+                if isinstance(item, (tuple, list)):
+                    assert len(item) == 2, f"Box kwargs must be either dim=upper or dim=(lower,upper) but got {item}"
+                    lo, up = item
+                    lower.append(lo)
+                    upper.append(up)
+                elif item is None:
+                    lower.append(-INF)
+                    upper.append(INF)
+                else:
+                    lower.append(0)
+                    upper.append(item)
+            lower = [-INF if l is None else l for l in lower]
+            upper = [INF if u is None else u for u in upper]
+            self._upper = math.wrap(upper, math.channel(vector=tuple(size.keys())))
+            self._lower = math.wrap(lower, math.channel(vector=tuple(size.keys())))
+        if self.size.vector.item_names is None:
+            warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
     def unstack(self, dimension):
         size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
@@ -194,6 +217,7 @@ class Box(BaseBox, metaclass=BoxType):
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
+               and self.size.shape.get_size('vector') == other.size.shape.get_size('vector')\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
 
@@ -205,7 +229,9 @@ class Box(BaseBox, metaclass=BoxType):
 
     @property
     def shape(self):
-        return _fill_spatial_with_singleton(self._lower.shape & self._upper.shape).non_channel
+        if self._lower is None or self._upper is None:
+            return None
+        return (self._lower.shape & self._upper.shape).non_channel
 
     @property
     def lower(self):
@@ -219,32 +245,52 @@ class Box(BaseBox, metaclass=BoxType):
     def size(self):
         return self.upper - self.lower
 
-    @struct.derived()
+    @property
     def center(self):
         return 0.5 * (self.lower + self.upper)
 
-    @struct.derived()
+    @property
     def half_size(self):
         return self.size * 0.5
 
-    def shifted(self, delta):
+    def shifted(self, delta, **delta_by_dim):
         return Box(self.lower + delta, self.upper + delta)
+
+    def __mul__(self, other):
+        if not isinstance(other, Box):
+            return NotImplemented
+        lower = self._lower.vector.unstack(self.spatial_rank) + other._lower.vector.unstack(self.spatial_rank)
+        upper = self._upper.vector.unstack(self.spatial_rank) + other._upper.vector.unstack(self.spatial_rank)
+        names = self._upper.vector.item_names + other._upper.vector.item_names
+        lower = math.stack(lower, math.channel(vector=names))
+        upper = math.stack(upper, math.channel(vector=names))
+        return Box(lower, upper)
 
     def __repr__(self):
         if self.shape.non_channel.volume == 1:
-            return 'Box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
+            item_names = self.size.vector.item_names
+            if item_names:
+                return f"Box({', '.join([f'{dim}=({lo}, {up})' for dim, lo, up in zip(item_names, self._lower, self._upper)])})"
+            else:  # deprecated
+                return 'Box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
         else:
-            return 'Box[shape=%s]' % self._shape
+            return 'Box[shape=%s]' % self.shape
 
 
 class Cuboid(BaseBox):
+    """
+    Box specified by center position and half size.
+    """
 
-    def __init__(self, center, half_size):
+    def __init__(self,
+                 center: Tensor = 0,
+                 half_size: float or Tensor = None,
+                 **size: float or Tensor):
         self._center = wrap(center)
-        self._half_size = wrap(half_size)
-
-    def unstack(self, dimension):
-        raise NotImplementedError()
+        if half_size is not None:
+            self._half_size = wrap(half_size)
+        else:
+            self._half_size = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys()))) * 0.5
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
@@ -268,7 +314,9 @@ class Cuboid(BaseBox):
 
     @property
     def shape(self):
-        return _fill_spatial_with_singleton(self._center.shape & self._half_size.shape).without('vector')
+        if self._center is None or self._half_size is None:
+            return None
+        return (self._center.shape & self._half_size.shape).without('vector')
 
     @property
     def size(self):
@@ -282,7 +330,7 @@ class Cuboid(BaseBox):
     def upper(self):
         return self.center + self.half_size
 
-    def shifted(self, delta):
+    def shifted(self, delta, **delta_by_dim) -> 'Cuboid':
         return Cuboid(self._center + delta, self._half_size)
 
 
@@ -298,7 +346,8 @@ class GridCell(BaseBox):
     """
 
     def __init__(self, resolution: math.Shape, bounds: BaseBox):
-        assert resolution.spatial_rank == resolution.rank, 'resolution must be purely spatial but got %s' % (resolution,)
+        assert resolution.spatial_rank == resolution.rank, f"resolution must be purely spatial but got {resolution}"
+        assert resolution.spatial_rank == bounds.spatial_rank, f"bounds must match dimensions of resolution but got {bounds} for resolution {resolution}"
         self._resolution = resolution
         self._bounds = bounds
         self._shape = resolution & bounds.shape.non_spatial
@@ -310,6 +359,10 @@ class GridCell(BaseBox):
     @property
     def bounds(self):
         return self._bounds
+
+    @property
+    def spatial_rank(self) -> int:
+        return self._resolution.spatial_rank
 
     @property
     def center(self):
@@ -340,6 +393,7 @@ class GridCell(BaseBox):
     def __getitem__(self, item: dict):
         bounds = self._bounds
         dx = self.size
+        gather_dict = {}
         for dim, selection in item.items():
             if dim in self._resolution:
                 if isinstance(selection, int):
@@ -357,7 +411,8 @@ class GridCell(BaseBox):
                 lower = bounds.lower + start * dim_mask * dx
                 upper = bounds.upper + (stop - self.resolution.get_size(dim)) * dim_mask * dx
                 bounds = Box(lower, upper)
-        resolution = self._resolution.after_gather(item)
+                gather_dict[dim] = slice(start, stop)
+        resolution = self._resolution.after_gather(gather_dict)
         return GridCell(resolution, bounds)
 
     def list_cells(self, dim_name):
@@ -379,7 +434,8 @@ class GridCell(BaseBox):
     def shape(self):
         return self._shape
 
-    def shifted(self, delta: Tensor) -> BaseBox:
+    def shifted(self, delta: Tensor, **delta_by_dim) -> BaseBox:
+        # delta += math.padded_stack()
         if delta.shape.spatial_rank == 0:
             return GridCell(self.resolution, self.bounds.shifted(delta))
         else:
@@ -403,3 +459,17 @@ class GridCell(BaseBox):
 
     def __repr__(self):
         return f"{self._resolution}, bounds={self._bounds}"
+
+    def __variable_attrs__(self):
+        return '_center', '_half_size'
+
+    def __with_attrs__(self, **attrs):
+        return copy_with(self.center_representation(), **attrs)
+
+    @property
+    def _center(self):
+        return self.center
+
+    @property
+    def _half_size(self):
+        return self.half_size

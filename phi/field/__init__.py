@@ -32,18 +32,19 @@ from phi.math import (
     l2_loss, l1_loss, frequency_loss,
 )
 from ._field_math import (
-    assert_close,
+    assert_close, tensor_as_field,
     bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
     mean, pad, shift, normalize, center_of_mass,
     concat, stack,
-    where,
-    vec_squared, vec_abs,
+    where, maximum, minimum,
+    vec_squared, vec_length as vec_abs, vec_length,
     downsample2x, upsample2x,
     extrapolate_valid,
     native_call,
     integrate,
+    pack_dims,
 )
 from ._field_io import write, read
 from ._scene import Scene

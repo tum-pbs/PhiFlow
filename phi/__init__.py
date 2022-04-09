@@ -60,3 +60,14 @@ def detect_backends() -> tuple:
         pass
     from .math.backend import BACKENDS
     return tuple(BACKENDS)
+
+
+def set_logging_level(level='debug'):
+    """
+    Sets the logging level for PhiFlow functions.
+
+    Args:
+        level: Logging level, one of `'critical', 'fatal', 'error', 'warning', 'info', 'debug'`
+    """
+    from phi.math.backend import PHI_LOGGER
+    PHI_LOGGER.setLevel(level.upper())

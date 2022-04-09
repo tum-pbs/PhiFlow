@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial
+from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial, instance, channel
 
 import numpy as np
 import os
@@ -40,6 +40,10 @@ class TestMathNDNumpy(TestCase):
             self.assertEqual(grad.shape.get_size('gradient'), 2)
             ref_shape = (4, 3) if case_dict['padding'] is not None else ((2, 1) if case_dict['difference'] == 'central' else (3, 2))
             self.assertEqual((grad.shape.get_size('x'), grad.shape.get_size('y')), ref_shape)
+
+    def test_gradient_1d_vector(self):
+        a = tensor([(0,), (1,), (2,)], spatial('x'), channel('vector'))
+        math.assert_close(tensor([0.5, 1, 0.5], spatial('x')), math.spatial_gradient(a))
 
     def test_vector_laplace(self):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1))
@@ -287,3 +291,10 @@ class TestMathNDNumpy(TestCase):
                 #     print(ref)
                 #     print(control)
                 #     raise AssertionError(e, params, variation_str)
+
+    def test_vector_length(self):
+        v = tensor([(0, 0), (1, 1), (-1, 0)], instance('values'), channel('vector'))
+        le = math.vec_length(v)
+        math.assert_close(le, [0, 1.41421356237, 1])
+        le = math.vec_length(v, eps=0.01)
+        math.assert_close(le, [1e-1, 1.41421356237, 1])

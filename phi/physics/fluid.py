@@ -6,14 +6,15 @@ from typing import Tuple
 from phi import math, field
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
 from phi.geom import union
+from ..field._grid import GridType
 from ..math import extrapolation
 from ..math._tensors import copy_with
 from ..math.extrapolation import combine_sides
 
 
-def make_incompressible(velocity: Grid,
+def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
-                        solve=math.Solve('auto', 1e-5, 0, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[Grid, CenteredGrid]:
+                        solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[GridType, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -36,21 +37,13 @@ def make_incompressible(velocity: Grid,
     hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
     velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity) * active
-    if input_velocity.extrapolation in (math.extrapolation.ZERO, math.extrapolation.PERIODIC):
-        div = _balance_divergence(div, active)
+    if not input_velocity.extrapolation.connects_to_outside:
+        assert solve.preprocess_y is None, "fluid.make_incompressible() does not support custom preprocessing"
+        solve = copy_with(solve, preprocess_y=lambda y: _balance_divergence(y, active))
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
         solve = copy_with(solve, x0=CenteredGrid(0, resolution=div.resolution, bounds=div.bounds, extrapolation=pressure_extrapolation))
-
     pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
-
-    # if input_velocity.extrapolation in (math.extrapolation.ZERO, math.extrapolation.PERIODIC):
-    #     def pressure_backward(_p, _p_, dp: CenteredGrid):
-    #         # re-generate active mask because value might not be accessible from forward pass (e.g. Jax jit)
-    #         active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=dp.resolution, bounds=dp.bounds, extrapolation=extrapolation.NONE)
-    #         return _balance_divergence(dp, active),
-    #     pressure = math.custom_gradient(lambda p: p, pressure_backward)(pressure)
-
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
     velocity = velocity - grad_pressure
     return velocity, pressure

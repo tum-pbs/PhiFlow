@@ -6,7 +6,7 @@ import phi
 from phi import math
 from phi.math import channel, batch
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
-from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor
+from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached
 from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
@@ -80,6 +80,12 @@ class TestTensors(TestCase):
         self.assertEqual((1, 4, 3, 2), v.shape.sizes)
         v = math.tensor(np.ones([10, 4, 3, 2]), batch('batch'), spatial('x,y'), channel('vector'))
         self.assertEqual((10, 4, 3, 2), v.shape.sizes)
+
+    def test_tensor_from_shape(self):
+        s = spatial(x=4, y=3)
+        t = math.tensor(s)
+        math.assert_close(t, [4, 3])
+        self.assertEqual(t.shape.get_item_names('dims'), ('x', 'y'))
 
     def test_native_constant_ops(self):
         v = math.tensor(np.ones([1, 4, 3, 2]), batch('batch'), spatial('x,y'), channel('vector'))
@@ -175,6 +181,13 @@ class TestTensors(TestCase):
         self.assertEqual(math.random_normal(nonuniform).shape, nonuniform)
         self.assertEqual(math.random_uniform(nonuniform).shape, nonuniform)
 
+    def test_close_different_shapes(self):
+        a = math.ones(channel(vector='x,y'))
+        b = math.wrap(3)
+        self.assertFalse(math.close(a, b))
+        self.assertFalse(math.close(cached(a), b))
+        math.assert_close(a+2, b)
+
     def test_repr(self):
         print("--- Eager ---")
         print(repr(math.zeros(batch(b=10))))
@@ -244,3 +257,123 @@ class TestTensors(TestCase):
         non_uniform = math.stack([math.zeros(spatial(a=2)), math.ones(spatial(a=3))], batch('b'))
         e = math.expand(non_uniform, channel('vector'))
         assert e.shape.without('vector') == non_uniform.shape
+
+    def test_slice_by_item_name(self):
+        t = math.tensor(spatial(x=4, y=3))
+        math.assert_close(t.dims['x'], 4)
+        math.assert_close(t.dims['y'], 3)
+        math.assert_close(t.dims['y,x'], (3, 4))
+        math.assert_close(t.dims[('y', 'x')], (3, 4))
+        math.assert_close(t.dims[spatial('x,y')], (4, 3))
+
+    def test_serialize_tensor(self):
+        t = math.random_normal(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
+        math.assert_close(t, math.from_dict(math.to_dict(t)))
+
+    def test_flip_item_names(self):
+        t = math.zeros(spatial(x=4, y=3), channel(vector='x,y'))
+        self.assertEqual(('x', 'y'), t.vector.item_names)
+        t_ = t.vector.flip()
+        self.assertEqual(('y', 'x'), t_.vector.item_names)
+        t_ = t.vector[::-1]
+        self.assertEqual(('y', 'x'), t_.vector.item_names)
+
+    def test_op2_incompatible_item_names(self):
+        t1 = math.random_normal(channel(vector='x,y,z'))
+        t2 = math.random_normal(channel(vector='r,g,b'))
+        self.assertEqual(('r', 'g', 'b'), t2.vector.item_names)
+        try:
+            t1 + t2
+            self.fail("Tensors with incompatible item names cannot be added")
+        except math.IncompatibleShapes:
+            pass
+        t1 + t1
+        t2_ = t2 + math.random_normal(channel(vector=3))
+        self.assertEqual(('r', 'g', 'b'), t2_.vector.item_names)
+        t2_ = math.random_normal(channel(vector=3)) + t2
+        self.assertEqual(('r', 'g', 'b'), t2_.vector.item_names)
+
+    def test_layout_single(self):
+        a = object()
+        t = math.layout(a)
+        self.assertEqual(a, t.native())
+
+    def test_layout_list(self):
+        a = ['a', 'b', 'c']
+        t = math.layout(a, channel(letters=a))
+        self.assertEqual(a, t.native())
+        self.assertEqual('a', t.letters['a'].native())
+        self.assertEqual('a', t.letters['b, a'].letters['a'].native())
+
+    def test_layout_tree(self):
+        a = [['a', 'b1'], 'b2', 'c']
+        t = math.layout(a, channel(outer='list,b2,c', inner=None))
+        self.assertEqual(a, t.native())
+        self.assertEqual(['a', 'b1'], t.outer['list'].native())
+        self.assertEqual('a', t.outer['list'].inner[0].native())
+        self.assertEqual(['a', 'b', 'c'], t.inner[0].native())
+        self.assertEqual('a', t.inner[0].outer['list'].native())
+
+    def test_layout_size(self):
+        a = [['a', 'b1'], 'b2', 'c']
+        t = math.layout(a, channel(outer='list,b2,c', inner=None))
+        self.assertEqual(3, t.shape.get_size('outer'))
+        self.assertEqual(2, t.outer['list'].shape.get_size('inner'))
+        self.assertEqual(1, t.outer['c'].shape.get_size('inner'))
+
+    def test_layout_dict(self):
+        a = {'a': 'text', 'b': [0, 1]}
+        t = math.layout(a, channel('dict,inner'))
+        self.assertEqual(a, t.native())
+        self.assertEqual(('a', 'b'), t.shape.get_item_names('dict'))
+        self.assertEqual(a, t.native())
+        self.assertEqual('text', t.dict['a'].native())
+        self.assertEqual('e', t.dict['a'].inner[1].native())
+        self.assertEqual(1, t.dict['b'].inner[1].native())
+        self.assertEqual(('e', 1), t.inner[1].native())
+
+    def test_layout_dict_conflict(self):
+        a = [dict(a=1), dict(b=2)]
+        t = math.layout(a, channel('outer,dict'))
+        self.assertEqual(None, t.shape.get_item_names('dict'))
+        self.assertEqual(a, t.native())
+        self.assertEqual([1, 2], t.dict[0].native())
+        self.assertEqual(2, t.dict[0].outer[1].native())
+
+    def test_layout_None(self):
+        none = math.layout(None)
+        self.assertEqual(None, none.native())
+        l = math.layout([None, None], channel('v'))
+        self.assertEqual(None, none.v[0].native())
+
+    def test_iterate_0d(self):
+        total = 0.
+        for value in math.ones():
+            total += value
+        self.assertIsInstance(total, float)
+        self.assertEqual(total, 1)
+
+    def test_iterate_1d(self):
+        total = 0.
+        for value in math.ones(channel(vector=3)):
+            total += value
+        self.assertIsInstance(total, float)
+        self.assertEqual(total, 3)
+
+    def test_iterate_2d(self):
+        total = 0.
+        for value in math.ones(channel(v1=2, v2=2)):
+            total += value
+        self.assertIsInstance(total, float)
+        self.assertEqual(total, 4)
+
+    def test_iterate_layout(self):
+        a = [dict(a=1), dict(b=2)]
+        t = math.layout(a, channel('outer,dict'))
+        total = []
+        for d in t:
+            total.append(d)
+        self.assertEqual(total, [1, 2])
+
+    def test_default_backend_layout(self):
+        self.assertIsNone(math.layout(None).default_backend)

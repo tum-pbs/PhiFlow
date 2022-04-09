@@ -58,7 +58,7 @@ class SceneLog:
         """
         for name, value in values.items():
             assert isinstance(name, str)
-            value = float(math.mean(value))
+            value = float(math.mean(value).mean)
             if name not in self._scalars:
                 self._scalars[name] = []
                 if self.scene is not None:

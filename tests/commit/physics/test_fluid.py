@@ -6,6 +6,7 @@ from phi.geom import Box, Sphere
 from phi.field import StaggeredGrid, CenteredGrid, divergence, Noise
 from phi.math import batch
 from phi.math.backend import Backend
+from phi.math.extrapolation import BOUNDARY, ZERO, PERIODIC, combine_sides
 from phi.physics import fluid
 
 
@@ -30,23 +31,28 @@ class FluidTest(TestCase):
                     field.assert_close(result, abs_tolerance=1e-5, msg=f"Simulation with {backend} does not match {BACKENDS[:i]}")
 
     def test_make_incompressible_centered(self):
-        self._test_make_incompressible(CenteredGrid, math.extrapolation.ZERO)
-        self._test_make_incompressible(CenteredGrid, math.extrapolation.BOUNDARY, batch3=3, batch2=2)
+        self._test_make_incompressible(CenteredGrid, ZERO)
+        self._test_make_incompressible(CenteredGrid, BOUNDARY, batch3=3, batch2=2)
 
     def test_make_incompressible_staggered_closed(self):
-        self._test_make_incompressible(StaggeredGrid, math.extrapolation.ZERO)
-        self._test_make_incompressible(StaggeredGrid, math.extrapolation.ZERO, batch3=3, batch2=2)
+        self._test_make_incompressible(StaggeredGrid, ZERO)
+        self._test_make_incompressible(StaggeredGrid, ZERO, batch3=3, batch2=2)
 
     def test_make_incompressible_staggered_open(self):
-        self._test_make_incompressible(StaggeredGrid, math.extrapolation.BOUNDARY)
-        self._test_make_incompressible(StaggeredGrid, math.extrapolation.BOUNDARY, batch3=3, batch2=2)
+        self._test_make_incompressible(StaggeredGrid, BOUNDARY)
+        self._test_make_incompressible(StaggeredGrid, BOUNDARY, batch3=3, batch2=2)
 
     def test_make_incompressible_staggered_periodic(self):
-        self._test_make_incompressible(StaggeredGrid, math.extrapolation.PERIODIC)
-        self._test_make_incompressible(StaggeredGrid, math.extrapolation.PERIODIC, batch3=3, batch2=2)
+        self._test_make_incompressible(StaggeredGrid, PERIODIC)
+        self._test_make_incompressible(StaggeredGrid, PERIODIC, batch3=3, batch2=2)
+        
+    def test_make_incompressible_staggered(self):
+        ext = combine_sides(x=BOUNDARY, y=(ZERO, BOUNDARY))
+        self._test_make_incompressible(StaggeredGrid, ext)
+        self._test_make_incompressible(StaggeredGrid, ext, batch3=3, batch2=2)
 
     def test_make_incompressible_gradients_equal_tf_torch(self):
-        velocity0 = StaggeredGrid(Noise(), math.extrapolation.ZERO, x=16, y=16, bounds=Box[0:100, 0:100])
+        velocity0 = StaggeredGrid(Noise(), ZERO, x=16, y=16, bounds=Box[0:100, 0:100])
         grads = []
         for backend in BACKENDS:
             if backend.supports(Backend.record_gradients):

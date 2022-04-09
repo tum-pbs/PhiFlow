@@ -33,3 +33,6 @@ class AxisOrder:
 
 
 GLOBAL_AXIS_ORDER = AxisOrder()
+
+
+# AUTO_REVERSE_ORDER = False

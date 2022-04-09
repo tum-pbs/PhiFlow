@@ -16,5 +16,5 @@ making it easy to build end-to-end differentiable functions involving both learn
 See the [installation Instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html).
 To install the latest stable version of PhiFlow:
 ```bash
-$ pip install phiflow dash plotly imageio
+$ pip install phiflow dash
 ```

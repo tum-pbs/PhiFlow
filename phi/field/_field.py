@@ -1,12 +1,12 @@
 from typing import TypeVar, Callable
 
 from phi import math
-from phi.geom import Geometry
-from phi.math import Shape, Tensor, Extrapolation
-from phi.math._shape import SPATIAL_DIM, BATCH_DIM, CHANNEL_DIM, channel
+from phi.geom import Geometry, Box
+from phi.math import Shape, Tensor, Extrapolation, channel
+from phi.math._tensors import Sliceable, BoundDim
 
 
-class Field:
+class Field(Sliceable):
     """
     Base class for all fields.
     
@@ -19,6 +19,15 @@ class Field:
     
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
+
+    def __init__(self, bounds: Box or None):
+        """
+        Args:
+            bounds: Bounds inside which the values of this `Field` are valid.
+                The bounds will also be used as axis limits for plots.
+        """
+        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
+        self._bounds = bounds
 
     @property
     def shape(self) -> Shape:
@@ -38,6 +47,16 @@ class Field:
         This is equal to the spatial rank of the `data`.
         """
         return self.shape.spatial.rank
+
+    @property
+    def bounds(self) -> Box:
+        """
+        The bounds represent the area inside which the values of this `Field` are valid.
+        The bounds will also be used as axis limits for plots.
+
+        The bounds can be set manually in the constructor, otherwise default bounds will be generated.
+        """
+        raise NotImplementedError()
 
     def _sample(self, geometry: Geometry) -> math.Tensor:
         """ For internal use only. Use `sample()` instead. """
@@ -84,7 +103,7 @@ class Field:
     def __rmatmul__(self, other):  # values @ representation
         if not isinstance(self, SampledField):
             return NotImplemented
-        if isinstance(other, Geometry):
+        if isinstance(other, (Geometry, float, int, complex, tuple, list)):
             return self.with_values(other)
         return NotImplemented
 
@@ -118,14 +137,7 @@ class Field:
             dimension reference
 
         """
-        return _FieldDim(self, name)
-
-    def __getattr__(self, name: str) -> '_FieldDim':
-        if name.startswith('_'):
-            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
-        if hasattr(self.__class__, name):
-            raise RuntimeError(f"Failed to get attribute '{name}' of {self.__class__}")
-        return _FieldDim(self, name)
+        return BoundDim(self, name)
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.shape}"
@@ -136,13 +148,16 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: math.Extrapolation):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, bounds: Box or None):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
         """
+        super().__init__(bounds)
+        if not isinstance(extrapolation, math.Extrapolation):
+            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         assert isinstance(extrapolation, Extrapolation), f"Not a valid extrapolation: {extrapolation}"
         assert isinstance(elements, Geometry), elements
         assert isinstance(values, Tensor), f"Values must be a Tensor but got {values}."
@@ -162,7 +177,7 @@ class SampledField(Field):
     def shape(self):
         raise NotImplementedError()
 
-    def __getitem__(self, item: dict) -> 'Field':
+    def __getitem__(self: 'FieldType', item: dict) -> 'FieldType':
         raise NotImplementedError(self)
 
     @property
@@ -275,7 +290,7 @@ def unstack(field: Field, dim: str) -> tuple:
     size = field.shape.get_size(dim)
     if isinstance(size, Tensor):
         size = math.min(size)  # unstack StaggeredGrid along x or y
-    return tuple(field[{dim: i}] for i in range(size))
+    return tuple([field[{dim: i}] for i in range(size)])
 
 
 def sample(field: Field, geometry: Geometry) -> math.Tensor:
@@ -328,7 +343,7 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
         return field.values
     if geometry.shape.channel:  # Reduce this dimension
         assert geometry.shape.channel.rank == 1, "Only single-dimension reduction supported."
-        if field.shape.channel:
+        if field.shape.channel.volume > 1:
             assert field.shape.channel.volume == geometry.shape.channel.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
             components = unstack(field, field.shape.channel.name)
             sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
@@ -337,59 +352,6 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
         return field._sample(geometry)
-
-
-class _FieldDim:
-
-    def __init__(self, field: Field, name: str):
-        self.field = field
-        self.name = name
-
-    @property
-    def exists(self):
-        return self.name in self.field.shape
-
-    def __str__(self):
-        return self.name
-
-    def unstack(self, size: int or None = None):
-        if size is None:
-            return unstack(self.field, self.name)
-        else:
-            if self.exists:
-                unstacked = unstack(self.field, self.name)
-                assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
-                return unstacked
-            else:
-                return (self.field,) * size
-
-    @property
-    def size(self):
-        return self.field.shape.get_size(self.name)
-
-    @property
-    def dim_type(self):
-        return self.field.shape.get_type(self.name)
-
-    @property
-    def is_spatial(self):
-        return self.dim_type == SPATIAL_DIM
-
-    @property
-    def is_batch(self):
-        return self.dim_type == BATCH_DIM
-
-    @property
-    def is_channel(self):
-        return self.dim_type == CHANNEL_DIM
-
-    def __getitem__(self, item):
-        if isinstance(item, str):
-            item = self.field.shape.spatial.index(item)
-        return self.field[{self.name: item}]
-
-    def __call__(self, *args, **kwargs):
-        raise TypeError(f"Method {type(self.field).__name__}.{self.name}() does not exist.")
 
 
 FieldType = TypeVar('FieldType', bound=Field)

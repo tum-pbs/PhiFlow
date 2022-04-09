@@ -1,9 +1,10 @@
 from numbers import Number
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 from phi import geom
 from phi import math
-from phi.geom import Box, Geometry
+from phi.math import Tensor, spatial, instance
+from phi.geom import Box, Geometry, Sphere
 from phi.math import extrapolate_valid_values, channel, Shape, batch
 from ._field import Field, SampledField, unstack, SampledFieldType
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
@@ -127,7 +128,7 @@ def stagger(field: CenteredGrid,
         for dim in field.shape.spatial.names:
             lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
             width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
-            width_upper = {dim: (int(lo_valid) - 1, int(lo_valid and up_valid))}
+            width_upper = {dim: (int(lo_valid or up_valid) - 1, int(lo_valid and up_valid))}
             all_lower.append(math.pad(field.values, width_lower, field.extrapolation))
             all_upper.append(math.pad(field.values, width_upper, field.extrapolation))
         all_upper = math.stack(all_upper, channel('vector'))
@@ -180,12 +181,19 @@ def divergence(field: Grid) -> CenteredGrid:
 def curl(field: Grid, type: type = CenteredGrid):
     """ Computes the finite-difference curl of the give 2D `StaggeredGrid`. """
     assert field.spatial_rank in (2, 3), "curl is only defined in 2 and 3 spatial dimensions."
-    if field.spatial_rank == 2 and type == StaggeredGrid:
-        assert isinstance(field, CenteredGrid) and 'vector' not in field.shape, f"2D curl requires scalar field but got {field}"
+    if isinstance(field, CenteredGrid) and 'vector' not in field.shape and field.spatial_rank == 2 and type == StaggeredGrid:
+        # 2D curl of scalar field
         grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
         result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
         bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
         return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
+    if isinstance(field, CenteredGrid) and 'vector' in field.shape and field.spatial_rank == 2 and type == CenteredGrid:
+        # 2D curl of vector field
+        x, y = field.shape.spatial.names
+        vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
+        vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
+        c = vy_dx - vx_dy
+        return field.with_values(c)
     raise NotImplementedError()
 
 
@@ -203,20 +211,20 @@ def fourier_poisson(grid: GridType, times=1) -> GridType:
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
 
 
-def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> SampledField or math.Tensor:
+def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> SampledField or Tensor:
     """
     Similar to `phi.math.native_call()`.
 
     Args:
         f: Function to be called on native tensors of `inputs.values`.
             The function output must have the same dimension layout as the inputs and the batch size must be identical.
-        *inputs: `SampledField` or `phi.math.Tensor` instances.
+        *inputs: `SampledField` or `phi.Tensor` instances.
         extrapolation: (Optional) Extrapolation of the output field. If `None`, uses the extrapolation of the first input field.
 
     Returns:
         `SampledField` matching the first `SampledField` in `inputs`.
     """
-    input_tensors = [i.values if isinstance(i, SampledField) else math.tensor(i) for i in inputs]
+    input_tensors = [i.values if isinstance(i, SampledField) else Tensor(i) for i in inputs]
     values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
@@ -228,14 +236,16 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
         raise AssertionError("At least one input must be a SampledField.")
 
 
-def data_bounds(field: SampledField):
-    data = field.points
-    min_vec = math.min(data, dim=data.shape.spatial.names)
-    max_vec = math.max(data, dim=data.shape.spatial.names)
+def data_bounds(loc: SampledField or Tensor) -> Box:
+    if isinstance(loc, SampledField):
+        loc = loc.points
+    assert isinstance(loc, Tensor), f"loc must be a Tensor or SampledField but got {type(loc)}"
+    min_vec = math.min(loc, dim=loc.shape.non_batch.non_channel)
+    max_vec = math.max(loc, dim=loc.shape.non_batch.non_channel)
     return Box(min_vec, max_vec)
 
 
-def mean(field: SampledField) -> math.Tensor:
+def mean(field: SampledField) -> Tensor:
     """
     Computes the mean value by reducing all spatial / instance dimensions.
 
@@ -243,7 +253,7 @@ def mean(field: SampledField) -> math.Tensor:
         field: `SampledField`
 
     Returns:
-        `phi.math.Tensor`
+        `phi.Tensor`
     """
     return math.mean(field.values, field.shape.non_channel.non_batch)
 
@@ -374,11 +384,11 @@ def concat(fields: List[SampledFieldType], dim: Shape) -> SampledFieldType:
         elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
         colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
-        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))
 
 
-def stack(fields, dim: Shape):
+def stack(fields, dim: Shape, dim_bounds: Box = None):
     """
     Stacks the given `SampledField`s along `dim`.
 
@@ -398,16 +408,21 @@ def stack(fields, dim: Shape):
         raise NotImplementedError("Concatenating extrapolations not supported")
     if isinstance(fields[0], Grid):
         values = math.stack([f.values for f in fields], dim)
-        return fields[0].with_values(values)
+        if spatial(dim):
+            if dim_bounds is None:
+                dim_bounds = Box(**{dim.name: len(fields)})
+            return type(fields[0])(values, extrapolation=fields[0].extrapolation, bounds=fields[0].bounds * dim_bounds)
+        else:
+            return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
-        elements = geom.stack(*[f.elements for f in fields], dim=dim)
+        elements = geom.stack([f.elements for f in fields], dim=dim)
         values = math.stack([f.values for f in fields], dim=dim)
         colors = math.stack([f.color for f in fields], dim=dim)
-        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0].bounds)
+        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))
 
 
-def assert_close(*fields: SampledField or math.Tensor or Number,
+def assert_close(*fields: SampledField or Tensor or Number,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0,
                  msg: str = "",
@@ -418,7 +433,7 @@ def assert_close(*fields: SampledField or math.Tensor or Number,
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
 
 
-def where(mask: Field or Geometry, field_true: Field, field_false: Field) -> SampledField:
+def where(mask: Field or Geometry or float, field_true: Field or float, field_false: Field or float) -> SampledFieldType:
     """
     Element-wise where operation.
     Picks the value of `field_true` where `mask=1 / True` and the value of `field_false` where `mask=0 / False`.
@@ -434,25 +449,53 @@ def where(mask: Field or Geometry, field_true: Field, field_false: Field) -> Sam
     Returns:
         `SampledField`
     """
-    if isinstance(mask, Geometry):
-        mask = HardGeometryMask(mask)
-    elif isinstance(mask, SampledField):
-        field_true = field_true.at(mask)
-        field_false = field_false.at(mask)
-    elif isinstance(field_true, SampledField):
-        mask = mask.at(field_true)
-        field_false = field_false.at(field_true)
-    elif isinstance(field_false, SampledField):
-        mask = mask.at(field_true)
-        field_true = field_true.at(mask)
-    else:
-        raise NotImplementedError('At least one argument must be a SampledField')
+    mask, field_true, field_false = _auto_resample(mask, field_true, field_false)
     values = mask.values * field_true.values + (1 - mask.values) * field_false.values
-    # values = math.where(mask.values, field_true.values, field_false.values)
     return field_true.with_values(values)
 
 
-def vec_abs(field: SampledField):
+def maximum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+    """
+    Element-wise maximum.
+    One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
+    If both are `SampledFields` but have different points, `f1` takes priority.
+
+    Args:
+        f1: `Field` or `Geometry` or constant.
+        f2: `Field` or `Geometry` or constant.
+
+    Returns:
+        `SampledField`
+    """
+    f1, f2 = _auto_resample(f1, f2)
+    return f1.with_values(math.maximum(f1.values, f2.values))
+
+
+def minimum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+    """
+    Element-wise minimum.
+    One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
+    If both are `SampledFields` but have different points, `f1` takes priority.
+
+    Args:
+        f1: `Field` or `Geometry` or constant.
+        f2: `Field` or `Geometry` or constant.
+
+    Returns:
+        `SampledField`
+    """
+    f1, f2 = _auto_resample(f1, f2)
+    return f1.with_values(math.minimum(f1.values, f2.values))
+
+
+def _auto_resample(*fields: Field):
+    for sampled_field in fields:
+        if isinstance(sampled_field, SampledField):
+            return [f @ sampled_field for f in fields]
+    raise AssertionError(f"At least one argument must be a SampledField but got {fields}")
+
+
+def vec_length(field: SampledField):
     """ See `phi.math.vec_abs()` """
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
@@ -508,7 +551,7 @@ def discretize(grid: Grid, filled_fraction=0.25):
     return grid.with_values(filled_t)
 
 
-def integrate(field: Field, region: Geometry) -> math.Tensor:
+def integrate(field: Field, region: Geometry) -> Tensor:
     """
     Computes *∫<sub>R</sub> f(x) dx<sup>d</sup>* , where *f* denotes the `Field`, *R* the `region` and *d* the number of spatial dimensions (`d=field.shape.spatial_rank`).
     Depending on the `sample` implementation for `field`, the integral may be a rough approximation.
@@ -520,8 +563,57 @@ def integrate(field: Field, region: Geometry) -> math.Tensor:
         region: Region to integrate over.
 
     Returns:
-        Integral as `phi.math.Tensor`
+        Integral as `phi.Tensor`
     """
     if not isinstance(field, CenteredGrid):
         raise NotImplementedError()
     return field._sample(region) * region.volume
+
+
+def tensor_as_field(t: Tensor):
+    """
+    Interpret a `Tensor` as a `CenteredGrid` or `PointCloud` depending on its dimensions.
+
+    Unlike the `CenteredGrid` constructor, this function will have the values sampled at integer points for each spatial dimension.
+
+    Args:
+        t: `Tensor` with either `spatial` or `instance` dimensions.
+
+    Returns:
+        `CenteredGrid` or `PointCloud`
+    """
+    if spatial(t):
+        assert not instance(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
+        bounds = Box(-0.5, math.wrap(spatial(t), channel('vector')) - 0.5)
+        return CenteredGrid(t, 0, bounds=bounds)
+    if instance(t):
+        assert not spatial(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
+        assert 'vector' in t.shape, f"Cannot interpret tensor as PointCloud because it has not vector dimension."
+        point_count = instance(t).volume
+        bounds = data_bounds(t)
+        radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
+        return PointCloud(Sphere(t, radius=radius))
+
+
+def pack_dims(field: SampledFieldType,
+              dims: Shape or tuple or list or str,
+              packed_dim: Shape,
+              pos: int or None = None) -> SampledFieldType:
+    """
+    Currently only supports grids and non-spatial dimensions.
+
+    See Also:
+        `phi.math.pack_dims()`.
+
+    Args:
+        field: `SampledField`
+
+    Returns:
+        `SampledField` of same type as `field`.
+    """
+    if isinstance(field, Grid):
+        if spatial(field.shape.only(dims)):
+            raise NotImplementedError("Packing spatial dimensions not supported for grids")
+        return field.with_values(math.pack_dims(field.values, dims, packed_dim, pos))
+    else:
+        raise NotImplementedError()

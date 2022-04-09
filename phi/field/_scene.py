@@ -12,6 +12,8 @@ from phi import struct, math, __version__ as phi_version
 from ._field import Field, SampledField
 from ._field_io import read, write
 from ..math import Shape, batch
+from ..math._tensors import Sliceable
+from ..math.backend import PHI_LOGGER
 
 
 def read_sim_frame(directory: math.Tensor,
@@ -50,7 +52,7 @@ def write_sim_frame(directory: math.Tensor,
     if names is None:
         names = struct.names(fields)
     if frame > 1000000:
-        warnings.warn(f"frame too large: {frame}. Data will be saved but filename might cause trouble in the future.")
+        warnings.warn(f"frame too large: {frame}. Data will be saved but filename might cause trouble in the future.", RuntimeWarning)
 
     def single_write(f, name):
         name = _slugify_filename(name)
@@ -96,7 +98,7 @@ def get_frames(path: str, field_name: str = None, mode=set.intersection) -> tupl
         return tuple(sorted(frames))
 
 
-class Scene(object):
+class Scene(Sliceable):
     """
     Provides methods for reading and writing simulation data.
 
@@ -113,6 +115,9 @@ class Scene(object):
     def __init__(self, paths: str or math.Tensor):
         self._paths = math.wrap(paths)
         self._properties: dict or None = None
+
+    def __getitem__(self, item: dict):
+        return Scene(self._paths[item])
 
     @property
     def shape(self):
@@ -142,6 +147,7 @@ class Scene(object):
     @staticmethod
     def create(parent_directory: str,
                shape: math.Shape = math.EMPTY_SHAPE,
+               name='sim',
                copy_calling_script=True,
                **dimensions) -> 'Scene':
         """
@@ -153,6 +159,7 @@ class Scene(object):
         Args:
             parent_directory: Directory to hold the new `Scene`. If it doesn't exist, it will be created.
             shape: Determines number of scenes to create. Multiple scenes will be represented by a `Scene` with `is_batch=True`.
+            name: Name of the directory (excluding index). Default is `'sim'`.
             copy_calling_script: Whether to copy the Python file that invoked this method into the `src` folder of all created scenes.
                 See `Scene.copy_calling_script()`.
             dimensions: Additional batch dimensions
@@ -167,21 +174,22 @@ class Scene(object):
             os.makedirs(abs_dir)
             next_id = 0
         else:
-            indices = [int(name[4:]) for name in os.listdir(abs_dir) if name.startswith("sim_")]
+            indices = [int(f[len(name)+1:]) for f in os.listdir(abs_dir) if f.startswith(f"{name}_")]
             next_id = max([-1] + indices) + 1
         ids = math.wrap(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
-        paths = math.map(lambda id_: join(parent_directory, f"sim_{id_:06d}"), ids)
+        paths = math.map(lambda id_: join(parent_directory, f"{name}_{id_:06d}"), ids)
         scene = Scene(paths)
         scene.mkdir()
         if copy_calling_script:
             try:
                 scene.copy_calling_script()
             except IOError as err:
-                warnings.warn(f"Failed to copy calling script to scene during Scene.create(): {err}")
+                warnings.warn(f"Failed to copy calling script to scene during Scene.create(): {err}", RuntimeWarning)
         return scene
 
     @staticmethod
     def list(parent_directory: str,
+             name='sim',
              include_other: bool = False,
              dim: Shape or None = None) -> 'Scene' or tuple:
         """
@@ -192,6 +200,7 @@ class Scene(object):
 
         Args:
             parent_directory: Directory that contains scene folders.
+            name: Name of the directory (excluding index). Default is `'sim'`.
             include_other: Whether folders that do not match the scene format should also be treated as scenes.
             dim: Stack dimension. If None, returns tuple of `Scene` objects. Otherwise, returns a scene batch with this dimension.
 
@@ -202,11 +211,11 @@ class Scene(object):
         abs_dir = abspath(parent_directory)
         if not isdir(abs_dir):
             return ()
-        names = [sim for sim in os.listdir(abs_dir) if sim.startswith("sim_") or (include_other and isdir(join(abs_dir, sim)))]
+        names = [sim for sim in os.listdir(abs_dir) if sim.startswith(f"{name}_") or (include_other and isdir(join(abs_dir, sim)))]
         if dim is None:
-            return tuple(Scene(join(parent_directory, name)) for name in names)
+            return tuple(Scene(join(parent_directory, n)) for n in names)
         else:
-            paths = math.wrap([join(parent_directory, name) for name in names], dim)
+            paths = math.wrap([join(parent_directory, n) for n in names], dim)
             return Scene(paths)
 
     @staticmethod
@@ -272,6 +281,9 @@ class Scene(object):
         if isfile(json_file):
             with open(json_file) as stream:
                 self._properties = json.load(stream)
+            if '__tensors__' in self._properties:
+                for key in self._properties['__tensors__']:
+                    self._properties[key] = math.from_dict(self._properties[key])
         else:
             self._properties = {}
 
@@ -323,10 +335,19 @@ class Scene(object):
         self._properties.update(kw_updates)
         self._write_properties()
 
+    def _get_properties(self, index: dict):
+        tensor_names = {key for key, value in self._properties.items() if isinstance(value, math.Tensor)}
+        result = {key: math.to_dict(value[index]) if isinstance(value, math.Tensor) else value for key, value in self._properties.items()}
+        if tensor_names:
+            result['__tensors__'] = tuple(tensor_names)
+        return result
+
     def _write_properties(self):
-        for path in math.flatten(self.paths):
+        for instance in self.paths.shape.meshgrid():
+            path = str(self.paths[instance])
+            instance_properties = self._get_properties(instance)
             with open(join(path, "description.json"), "w") as out:
-                json.dump(self._properties, out, indent=2)
+                json.dump(instance_properties, out, indent=2)
 
     def write_sim_frame(self, arrays, fieldnames, frame):
         write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
