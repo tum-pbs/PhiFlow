@@ -334,7 +334,11 @@ class TorchBackend(Backend):
 
     def meshgrid(self, *coordinates):
         coordinates = [self.as_tensor(c) for c in coordinates]
-        return torch.meshgrid(*coordinates, indexing='ij')
+        from packaging import version
+        if version.parse(torch.__version__) >= version.parse('1.10'):
+            return torch.meshgrid(*coordinates, indexing='ij')
+        else:
+            return torch.meshgrid(*coordinates)
 
     def linspace(self, start, stop, number):
         return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
