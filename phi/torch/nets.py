@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch import optim
 
 from . import TORCH
-from ._torch_backend import JIT_REGISTERED_MODULES
+from ._torch_backend import register_module_call
 
 
 def parameter_count(model: nn.Module) -> int:
@@ -75,9 +75,7 @@ def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Ca
         Output of `loss_function`.
     """
     optimizer.zero_grad()
-    JIT_REGISTERED_MODULES.append(net)
     output = loss_function(*loss_args, **loss_kwargs)
-    JIT_REGISTERED_MODULES.remove(net)
     loss = output[0] if isinstance(output, tuple) else output
     loss.sum.backward()
     optimizer.step()
@@ -118,6 +116,7 @@ class DenseNet(nn.Module):
             self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
 
     def forward(self, x):
+        register_module_call(self)
         x = TORCH.as_tensor(x)
         for i in range(len(self._layers) - 2):
             x = self._activation(getattr(self, f'linear{i}')(x))
@@ -161,6 +160,7 @@ class UNet(nn.Module):
         self.add_module('outc', CONV[d](filters[0], out_channels, kernel_size=1))
 
     def forward(self, x):
+        register_module_call(self)
         x = TORCH.as_tensor(x)
         x = self.inc(x)
         xs = [x]
