@@ -5825,6 +5825,7 @@ The size along <code>dim</code> is determined from <code>len(values)</code> and 
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the standard deviation over <code>values</code> along the specified dimensions.</p>
+<p><em>Warning</em>: The standard deviation of non-uniform tensors along the stack dimension is undefined.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
@@ -5852,6 +5853,8 @@ The size along <code>dim</code> is determined from <code>len(values)</code> and 
     &#34;&#34;&#34;
     Computes the standard deviation over `values` along the specified dimensions.
 
+    *Warning*: The standard deviation of non-uniform tensors along the stack dimension is undefined.
+
     Args:
         value: `Tensor` or `list` / `tuple` of Tensors.
         dim: Dimension or dimensions to be reduced. One of
@@ -5866,7 +5869,7 @@ The size along <code>dim</code> is determined from <code>len(values)</code> and 
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(value, dim,
+    return _reduce(cached(value), dim,
                    native_function=lambda backend, native, dim: backend.std(native, dim),
                    collapsed_function=lambda inner, red_shape: inner,
                    unaffected_function=lambda value: value * 0)</code></pre>
@@ -10467,6 +10470,12 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return mean(self, dim=self.shape).native()
 
     @property
+    def std(self):
+        &#34;&#34;&#34; Standard deviation of this `Tensor` as a native scalar. &#34;&#34;&#34;
+        from ._ops import std
+        return std(self, dim=self.shape).native()
+
+    @property
     def sum(self):
         &#34;&#34;&#34; Sum of all values of this `Tensor` as a native scalar. &#34;&#34;&#34;
         from ._ops import sum_
@@ -11008,6 +11017,20 @@ def real(self):
 def shape(self) -&gt; Shape:
     &#34;&#34;&#34; The `Shape` lists the dimensions with their sizes, names and types. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Tensor.std"><code class="name">var <span class="ident">std</span></code></dt>
+<dd>
+<div class="desc"><p>Standard deviation of this <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> as a native scalar.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def std(self):
+    &#34;&#34;&#34; Standard deviation of this `Tensor` as a native scalar. &#34;&#34;&#34;
+    from ._ops import std
+    return std(self, dim=self.shape).native()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Tensor.sum"><code class="name">var <span class="ident">sum</span></code></dt>
@@ -12342,6 +12365,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 <li><code><a title="phi.math.Tensor.rank" href="#phi.math.Tensor.rank">rank</a></code></li>
 <li><code><a title="phi.math.Tensor.real" href="#phi.math.Tensor.real">real</a></code></li>
 <li><code><a title="phi.math.Tensor.shape" href="#phi.math.Tensor.shape">shape</a></code></li>
+<li><code><a title="phi.math.Tensor.std" href="#phi.math.Tensor.std">std</a></code></li>
 <li><code><a title="phi.math.Tensor.sum" href="#phi.math.Tensor.sum">sum</a></code></li>
 <li><code><a title="phi.math.Tensor.unpack" href="#phi.math.Tensor.unpack">unpack</a></code></li>
 <li><code><a title="phi.math.Tensor.unstack" href="#phi.math.Tensor.unstack">unstack</a></code></li>

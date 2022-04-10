@@ -35,7 +35,7 @@ import torch.nn.functional as F
 from torch import optim
 
 from . import TORCH
-from ._torch_backend import JIT_REGISTERED_MODULES
+from ._torch_backend import register_module_call
 
 
 def parameter_count(model: nn.Module) -&gt; int:
@@ -103,9 +103,7 @@ def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Ca
         Output of `loss_function`.
     &#34;&#34;&#34;
     optimizer.zero_grad()
-    JIT_REGISTERED_MODULES.append(net)
     output = loss_function(*loss_args, **loss_kwargs)
-    JIT_REGISTERED_MODULES.remove(net)
     loss = output[0] if isinstance(output, tuple) else output
     loss.sum.backward()
     optimizer.step()
@@ -146,6 +144,7 @@ class DenseNet(nn.Module):
             self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
 
     def forward(self, x):
+        register_module_call(self)
         x = TORCH.as_tensor(x)
         for i in range(len(self._layers) - 2):
             x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
@@ -189,6 +188,7 @@ class UNet(nn.Module):
         self.add_module(&#39;outc&#39;, CONV[d](filters[0], out_channels, kernel_size=1))
 
     def forward(self, x):
+        register_module_call(self)
         x = TORCH.as_tensor(x)
         x = self.inc(x)
         xs = [x]
@@ -523,9 +523,7 @@ Analogue functions exist for other learning frameworks.</p></div>
         Output of `loss_function`.
     &#34;&#34;&#34;
     optimizer.zero_grad()
-    JIT_REGISTERED_MODULES.append(net)
     output = loss_function(*loss_args, **loss_kwargs)
-    JIT_REGISTERED_MODULES.remove(net)
     loss = output[0] if isinstance(output, tuple) else output
     loss.sum.backward()
     optimizer.step()
@@ -586,6 +584,7 @@ evaluation mode.
             self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
 
     def forward(self, x):
+        register_module_call(self)
         x = TORCH.as_tensor(x)
         for i in range(len(self._layers) - 2):
             x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
@@ -627,6 +626,7 @@ registered hooks while the latter silently ignores them.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def forward(self, x):
+    register_module_call(self)
     x = TORCH.as_tensor(x)
     for i in range(len(self._layers) - 2):
         x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
@@ -818,6 +818,7 @@ evaluation mode.
         self.add_module(&#39;outc&#39;, CONV[d](filters[0], out_channels, kernel_size=1))
 
     def forward(self, x):
+        register_module_call(self)
         x = TORCH.as_tensor(x)
         x = self.inc(x)
         xs = [x]
@@ -864,6 +865,7 @@ registered hooks while the latter silently ignores them.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def forward(self, x):
+    register_module_call(self)
     x = TORCH.as_tensor(x)
     x = self.inc(x)
     xs = [x]
