@@ -250,6 +250,12 @@ class Tensor(Sliceable):
         return mean(self, dim=self.shape).native()
 
     @property
+    def std(self):
+        """ Standard deviation of this `Tensor` as a native scalar. """
+        from ._ops import std
+        return std(self, dim=self.shape).native()
+
+    @property
     def sum(self):
         """ Sum of all values of this `Tensor` as a native scalar. """
         from ._ops import sum_

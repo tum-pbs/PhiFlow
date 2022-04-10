@@ -1210,6 +1210,8 @@ def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None
     """
     Computes the standard deviation over `values` along the specified dimensions.
 
+    *Warning*: The standard deviation of non-uniform tensors along the stack dimension is undefined.
+
     Args:
         value: `Tensor` or `list` / `tuple` of Tensors.
         dim: Dimension or dimensions to be reduced. One of
@@ -1224,7 +1226,7 @@ def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim,
+    return _reduce(cached(value), dim,
                    native_function=lambda backend, native, dim: backend.std(native, dim),
                    collapsed_function=lambda inner, red_shape: inner,
                    unaffected_function=lambda value: value * 0)
