@@ -2,7 +2,7 @@ import numbers
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Callable, Dict
+from typing import List, Callable, Optional
 
 import numpy as np
 import torch
@@ -89,6 +89,14 @@ class TorchBackend(Backend):
             tensor = tensor.to(self.get_default_device().ref)
         return tensor
 
+    def recursive_as_tensor(self, obj):
+        if isinstance(obj, (tuple, list)):
+            return type(obj)([self.recursive_as_tensor(item) for item in obj])
+        elif isinstance(obj, dict):
+            raise NotImplementedError()
+        else:
+            return self.as_tensor(obj)
+
     def auto_cast(self, *tensors) -> list:
         tensors = [t if isinstance(t, (numbers.Number, bool)) else self.as_tensor(t, True) for t in tensors]
         return Backend.auto_cast(self, *tensors)
@@ -163,7 +171,7 @@ class TorchBackend(Backend):
                 jit.autograd_function_calls[torch_function] = args
                 return torch_function.apply(*args)
 
-        torch_function = construct_torch_custom_function(f, gradient, is_traced=False)
+        torch_function = construct_torch_custom_function(f, None, gradient, is_f_traced=False, backend=self)
         return select_jit
 
     def transpose(self, tensor, axes):
@@ -805,7 +813,7 @@ class JITFunction:
         if CURRENT_JIT_CALLS:
             warnings.warn(f"PyTorch does not support nested tracing. The inner JIT of {self.f.__name__} will be ignored.", RuntimeWarning)
             return self.f(*args)
-        args = [self.backend.as_tensor(arg) for arg in args]
+        args = self.backend.recursive_as_tensor(args)
         if self.traced is None:
             self_jit = self
             CURRENT_JIT_CALLS.append(self)
@@ -844,37 +852,68 @@ def register_module_call(module: torch.nn.Module):
             jit_module_list.append(module)
 
 
-def construct_torch_custom_function(f: Callable, g: Callable, is_traced: bool):
+def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], g: Callable, is_f_traced: bool, backend: TorchBackend):
+    jit_g = []
+
     class TorchCustomFunction(torch.autograd.Function):
 
         @staticmethod
         def forward(ctx, *args, **kwargs):
-            y = f(*args, **kwargs)
+            y = (jit_f or f)(*args, **kwargs)
             ctx.save_for_backward(*args, *y)
             ctx.input_count = len(args)
             return y
 
         @staticmethod
-        def backward(ctx, *grad_args):
+        def backward(ctx, *grad_args):  # Breakpoints not supported here
             x = ctx.saved_tensors[:ctx.input_count]
             y = ctx.saved_tensors[ctx.input_count:]
-            output = g(x, y, grad_args)
+            if is_f_traced:
+                if not jit_g:
+                    # backward pass can return None but that's not allowed in JIT functions
+                    needs_input_grad = ctx.needs_input_grad
+                    none_indices = []  # jit function cannot return None but gradient returns None to indicate there is no gradient
+
+                    def filter_required_grads(*args):  # traced once
+                        grads = g(*args)
+                        filtered = [gv for gv, need in zip(grads, needs_input_grad) if need]
+                        none_indices.clear()
+                        none_indices.extend([i for i, g in enumerate(filtered) if g is None])
+                        filtered = [gv for gv in filtered if gv is not None]
+                        assert len(filtered) > 0, "Custom backward function must return at least one valid gradient."
+                        assert all([isinstance(gv, torch.Tensor) for gv in filtered]), [type(gv) for gv in grads]
+                        return filtered
+
+                    PHI_LOGGER.debug(f"Tracing backward pass of '{f.__name__}' which uses a custom gradient")
+                    needed_g = backend.jit_compile(filter_required_grads)
+                    # needed_g = torch.jit.trace(filter_required_grads, tuple([x, y, grad_args]), check_trace=False, strict=False)
+
+                    def g_(*args):  # called each time, not jitted
+                        needed = backend.as_registered.call(needed_g, *args, name=f"run jit-compiled custom backward '{g.__name__}'")
+                        assert isinstance(needed, (tuple, list))
+                        needed = list(needed)
+                        for i in none_indices:
+                            needed.insert(i, None)
+                        result = [(needed.pop(0) if need else None) for need in needs_input_grad]
+                        return result
+
+                    jit_g.append(g_)
+                output = jit_g[0](x, y, grad_args)
+            else:
+                output = g(x, y, grad_args)
             result = output[0] if len(output) == 1 else (*output,)
             return result
 
-        def compile(self, *args: tuple):
-            if is_traced:
-                return self
-            else:
-                jit_f = torch.jit.trace(f, args, strict=False, check_trace=False)
-                y = jit_f(*args)
-                dy = y  # Example args for backward pass
-                jit_g = torch.jit.trace(g, (args, y, dy), strict=False, check_trace=False)
-                return construct_torch_custom_function(jit_f, jit_g, is_traced=True)
+        @staticmethod
+        def compile(*args: tuple):
+            assert jit_f is None
+            PHI_LOGGER.debug(f"Tracing forward pass of '{f.__name__}' which uses a custom gradient")
+            jit_f_ = torch.jit.trace(f, args, strict=False, check_trace=False)
+            return construct_torch_custom_function(f, jit_f_, g, is_f_traced=True, backend=backend)
 
         @property
         def __name__(self):
-            return f"TorchCustomFunction-{'jit' if is_traced else 'non-jit'}[{f.__name__}]"
+            return f"TorchCustomFunction-{'jit' if is_f_traced else 'non-jit'}[{f.__name__}]"
 
     return TorchCustomFunction()
 
