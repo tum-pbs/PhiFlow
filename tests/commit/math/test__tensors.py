@@ -377,3 +377,13 @@ class TestTensors(TestCase):
 
     def test_default_backend_layout(self):
         self.assertIsNone(math.layout(None).default_backend)
+
+    def test_reduction_properties(self):
+        t = math.meshgrid(x=2, y=2)
+        self.assertEqual(0.5, t.mean)
+        self.assertEqual(0.5, t.std)
+        self.assertEqual(1, t.max)
+        self.assertEqual(0, t.min)
+        self.assertEqual(4, t.sum)
+        self.assertEqual(False, t.all)
+        self.assertEqual(True, t.any)
