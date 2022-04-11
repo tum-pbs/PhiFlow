@@ -10,7 +10,7 @@ Examples:
 import warnings
 
 from phi import math
-from phi.field import SampledField, ConstantField, Field, PointCloud, extrapolate_valid, Grid, sample, reduce_sample
+from phi.field import SampledField, Field, PointCloud, extrapolate_valid, Grid, sample, reduce_sample
 from phi.field._field import FieldType
 from phi.field._field_math import GridType
 from phi.geom import Geometry
@@ -59,8 +59,6 @@ def advect(field: SampledField,
         return points(field, velocity, dt=dt, integrator=integrator)
     elif isinstance(field, Grid):
         return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
-    elif isinstance(field, ConstantField):
-        return field
     raise NotImplementedError(field)
 
 

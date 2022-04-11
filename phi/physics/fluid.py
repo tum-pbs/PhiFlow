@@ -12,6 +12,39 @@ from ..math._tensors import copy_with
 from ..math.extrapolation import combine_sides
 
 
+class Obstacle:
+    """
+    An obstacle defines boundary conditions inside a geometry.
+    It can also have a linear and angular velocity.
+    """
+
+    def __init__(self, geometry, velocity=0, angular_velocity=0):
+        """
+        Args:
+            geometry: Physical shape and size of the obstacle.
+            velocity: Linear velocity vector of the obstacle.
+            angular_velocity: Rotation speed of the obstacle. Scalar value in 2D, vector in 3D.
+        """
+        self.geometry = geometry
+        self.velocity = velocity
+        self.angular_velocity = angular_velocity
+
+    @property
+    def is_stationary(self):
+        """ Test whether the obstacle is completely still. """
+        return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
+
+    def copied_with(self, **kwargs):
+        geometry, velocity, angular_velocity = self.geometry, self.velocity, self.angular_velocity
+        if 'geometry' in kwargs:
+            geometry = kwargs['geometry']
+        if 'velocity' in kwargs:
+            velocity = kwargs['velocity']
+        if 'angular_velocity' in kwargs:
+            angular_velocity = kwargs['angular_velocity']
+        return Obstacle(geometry, velocity, angular_velocity)
+
+
 def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
                         solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[GridType, CenteredGrid]:
@@ -77,6 +110,7 @@ def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
     """
     # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
+        assert isinstance(obstacle, Obstacle)
         obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) @ velocity
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity

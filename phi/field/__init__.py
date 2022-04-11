@@ -18,7 +18,6 @@ See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fi
 """
 
 from ._field import Field, SampledField, unstack, sample, reduce_sample
-from ._constant import ConstantField
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import Grid, CenteredGrid, StaggeredGrid
 from ._point_cloud import PointCloud

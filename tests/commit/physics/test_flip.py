@@ -1,7 +1,6 @@
 from unittest import TestCase
 
 from phi.flow import *
-from phi.physics._boundaries import Domain, STICKY
 
 
 def step(particles, domain, dt, accessible):

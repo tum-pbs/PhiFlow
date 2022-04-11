@@ -4,13 +4,12 @@ Functions for running fluid implicit particle (FLIP) and particle-in-cell (PIC) 
 from phi import math, field
 
 from phi.math._tensors import copy_with
-from ._boundaries import Domain, Obstacle
+from .fluid import Obstacle
 from phi.field import StaggeredGrid, PointCloud, Grid, extrapolate_valid
-from phi.geom import union, Sphere
+from phi.geom import union, Sphere, Box
 
 
 def make_incompressible(velocity: StaggeredGrid,
-                        domain: Domain,
                         particles: PointCloud,
                         obstacles: tuple or list or StaggeredGrid = (),
                         solve=math.Solve('auto', 1e-5, 0, gradient_solve=math.Solve('auto', 1e-5, 1e-5))):
@@ -107,14 +106,14 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud,
     return previous_particle_velocity.with_values(velocities)
 
 
-def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: list, offset: float = 0.5) -> PointCloud:
+def respect_boundaries(particles: PointCloud, bounds: Box, not_accessible: list, offset: float = 0.5) -> PointCloud:
     """
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of 
     obstacles or back into the domain.
     
     Args:
         particles: PointCloud holding particle positions as elements
-        domain: Domain for which any particles outside should get shifted inwards
+        bounds: Domain for which any particles outside should get shifted inwards
         not_accessible: List of Obstacle or Geometry objects where any particles inside should get shifted outwards
         offset: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
 
@@ -126,5 +125,5 @@ def respect_boundaries(particles: PointCloud, domain: Domain, not_accessible: li
         if isinstance(obj, Obstacle):
             obj = obj.geometry
         new_positions = obj.push(new_positions, shift_amount=offset)
-    new_positions = (~domain.bounds).push(new_positions, shift_amount=offset)
+    new_positions = (~bounds).push(new_positions, shift_amount=offset)
     return particles.with_elements(Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))

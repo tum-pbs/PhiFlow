@@ -2,7 +2,7 @@
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 """
 from phi import math
-from phi.field import ConstantField, Grid, Field, laplace, solve_linear, jit_compile_linear
+from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
 from phi.math._tensors import copy_with
@@ -79,8 +79,6 @@ def fourier(field: GridType,
     Returns:
         Diffused field of same type as `field`.
     """
-    if isinstance(field, ConstantField):
-        return field
     assert isinstance(field, Grid), "Cannot diffuse field of type '%s'" % type(field)
     assert field.extrapolation == math.extrapolation.PERIODIC, "Fourier diffusion can only be applied to periodic fields."
     amount = diffusivity * dt
