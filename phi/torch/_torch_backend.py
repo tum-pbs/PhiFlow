@@ -162,16 +162,18 @@ class TorchBackend(Backend):
             if not CURRENT_JIT_CALLS:
                 return torch_function.apply(*args)
             jit = CURRENT_JIT_CALLS[-1]
-            if jit.autograd_function_calls:
+            if jit.autograd_function_calls:  # second call: we are tracing
+                assert torch._C._get_tracing_state() is not None
                 assert torch_function in jit.autograd_function_calls
                 assert torch_function in jit.compiled_functions
                 compiled_function = jit.compiled_functions[torch_function]
-                return compiled_function.apply(*args)
+                return compiled_function.apply(*args)  # this adds the compiled function to TorchScript. The function must not call any torch functions while being traced lest they be double-executed later.
             else:  # first call: record this function
-                jit.autograd_function_calls[torch_function] = args
-                return torch_function.apply(*args)
+                output = torch_function.apply(*args)
+                jit.autograd_function_calls[torch_function] = (args, output)
+                return output
 
-        torch_function = construct_torch_custom_function(f, None, gradient, is_f_traced=False, backend=self)
+        torch_function = construct_torch_custom_function(f, None, None, gradient, is_f_traced=False, backend=self)
         return select_jit
 
     def transpose(self, tensor, axes):
@@ -803,7 +805,7 @@ class JITFunction:
         self.backend = backend
         self.f = f
         self.traced = None
-        self.autograd_function_calls = {}  # TorchCustomFunction -> args
+        self.autograd_function_calls = {}  # TorchCustomFunction -> (args, output)
         self.compiled_functions = {}  # TorchCustomFunction -> TorchCustomFunction
         self.called_modules: List[torch.nn.Module] = []
 
@@ -818,8 +820,8 @@ class JITFunction:
             self_jit = self
             CURRENT_JIT_CALLS.append(self)
             self.f(*args)  # records all autograd.Funcion / nn.Module calls with their args -> self.autograd_function_calls, self.called_modules
-            for rec_function, rec_args in self.autograd_function_calls.items():
-                self.compiled_functions[rec_function] = rec_function.compile(*rec_args)
+            for rec_function, (rec_args, rec_output) in self.autograd_function_calls.items():
+                self.compiled_functions[rec_function] = rec_function.compile(rec_args, rec_output)
 
             class JitModule(torch.nn.Module):
 
@@ -852,17 +854,23 @@ def register_module_call(module: torch.nn.Module):
             jit_module_list.append(module)
 
 
-def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], g: Callable, is_f_traced: bool, backend: TorchBackend):
+def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], f_example_output, g: Callable, is_f_traced: bool, backend: TorchBackend):
     jit_g = []
 
     class TorchCustomFunction(torch.autograd.Function):
 
         @staticmethod
-        def forward(ctx, *args, **kwargs):
+        def forward(ctx, *args, **kwargs):  # The result of this is used in the graph.
+            if torch._C._get_tracing_state():
+                PHI_LOGGER.debug(f"Trace encountered forward pass of {f.__name__}. Returning cached output to avoid double execution.")
+                # jit_context = CURRENT_JIT_CALLS[-1]; jit_context.cached_output[torch_custom_function]
+                return f_example_output
             y = (jit_f or f)(*args, **kwargs)
             ctx.save_for_backward(*args, *y)
             ctx.input_count = len(args)
             return y
+
+        # @torch.jit.unused, @torch.jit.ignore(drop=True)  do not work here
 
         @staticmethod
         def backward(ctx, *grad_args):  # Breakpoints not supported here
@@ -905,17 +913,18 @@ def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], g: C
             return result
 
         @staticmethod
-        def compile(*args: tuple):
+        def compile(args: tuple, output):
             assert jit_f is None
             PHI_LOGGER.debug(f"Tracing forward pass of '{f.__name__}' which uses a custom gradient")
             jit_f_ = torch.jit.trace(f, args, strict=False, check_trace=False)
-            return construct_torch_custom_function(f, jit_f_, g, is_f_traced=True, backend=backend)
+            return construct_torch_custom_function(f, jit_f_, output, g, is_f_traced=True, backend=backend)
 
         @property
         def __name__(self):
             return f"TorchCustomFunction-{'jit' if is_f_traced else 'non-jit'}[{f.__name__}]"
 
-    return TorchCustomFunction()
+    torch_custom_function = TorchCustomFunction()
+    return torch_custom_function
 
 
 def to_torch_dtype(dtype: DType):
