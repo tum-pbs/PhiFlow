@@ -1,3 +1,4 @@
+import warnings
 from typing import Any
 
 from phi import math
@@ -163,3 +164,58 @@ def nonzero(field: SampledField):
     indices = math.nonzero(field.values, list_dim=instance('points'))
     elements = field.elements[indices]
     return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds, color=None)
+
+
+def distribute_points(geometries: tuple or list,
+                      points_per_cell: int = 8,
+                      color: str = None,
+                      center: bool = False,
+                      radius: float = None,
+                      **domain) -> PointCloud:
+    """
+    Transforms `Geometry` objects into a PointCloud.
+
+    Args:
+        geometries: Geometry objects marking the cells which should contain points
+        points_per_cell: Number of points for each cell of `geometries`
+        color (Optional): Color of PointCloud
+        center: Set all points to the center of the grid cells.
+        radius: Sphere radius.
+
+    Returns:
+         PointCloud representation of `geometries`.
+    """
+    warnings.warn("distribute_points() is deprecated. Construct a PointCloud directly.", DeprecationWarning)
+    from phi.field import CenteredGrid
+    from phi.field import HardGeometryMask
+    from phi.geom import union
+    geometries = CenteredGrid(HardGeometryMask(union(geometries)), **domain)
+    initial_points = _distribute_points(geometries.values, points_per_cell, center=center)
+    if radius is None:
+        from phi.field._field_math import data_bounds
+        radius = math.mean(data_bounds(initial_points).size) * 0.005
+    from phi.geom import Sphere
+    return PointCloud(Sphere(initial_points, radius=radius), color=color, bounds=geometries.bounds)
+
+
+def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool = False) -> math.Tensor:
+    """
+    Generates points (either uniformly distributed or at the cell centers) according to the given tensor mask.
+
+    Args:
+        mask: Tensor with nonzero values at the indices where particles should get generated.
+        points_per_cell: Number of particles to generate at each marked index
+        center: Set points to cell centers. If False, points will be distributed using a uniform
+            distribution within each cell.
+
+    Returns:
+        A tensor containing the positions of the generated points.
+    """
+    indices = math.to_float(math.nonzero(mask, list_dim=instance('points')))
+    temp = []
+    for _ in range(points_per_cell):
+        if center:
+            temp.append(indices + 0.5)
+        else:
+            temp.append(indices + (math.random_uniform(indices.shape)))
+    return math.concat(temp, dim=instance('points'))

@@ -627,3 +627,7 @@ def pack_dims(field: SampledFieldType,
         return field.with_values(math.pack_dims(field.values, dims, packed_dim, pos))
     else:
         raise NotImplementedError()
+
+
+def support(field: SampledField, list_dim: Shape or str = instance('nonzero')) -> Tensor:
+    return field.points[math.nonzero(field.values, list_dim=list_dim)]

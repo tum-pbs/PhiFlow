@@ -1076,7 +1076,7 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
     return NativeTensor(result, shape)
 
 
-def nonzero(value: Tensor, list_dim: Shape = instance('nonzero'), index_dim: Shape = channel('vector')):
+def nonzero(value: Tensor, list_dim: Shape or str = instance('nonzero'), index_dim: Shape = channel('vector')):
     """
     Get spatial indices of non-zero / True values.
     
@@ -1101,6 +1101,9 @@ def nonzero(value: Tensor, list_dim: Shape = instance('nonzero'), index_dim: Sha
     """
     if value.shape.channel_rank > 0:
         value = sum_(abs(value), value.shape.channel)
+
+    if isinstance(list_dim, str):
+        list_dim = instance(list_dim)
 
     def unbatched_nonzero(value: Tensor):
         native = reshaped_native(value, [*value.shape.spatial])

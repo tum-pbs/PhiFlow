@@ -44,6 +44,7 @@ from ._field_math import (
     native_call,
     integrate,
     pack_dims,
+    support,
 )
 from ._field_io import write, read
 from ._scene import Scene

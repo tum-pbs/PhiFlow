@@ -75,7 +75,7 @@ def make_incompressible(velocity: GridType,
         solve = copy_with(solve, preprocess_y=_balance_divergence, preprocess_y_args=(active,))
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
-        solve = copy_with(solve, x0=CenteredGrid(0, resolution=div.resolution, bounds=div.bounds, extrapolation=pressure_extrapolation))
+        solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
     pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
     velocity = velocity - grad_pressure

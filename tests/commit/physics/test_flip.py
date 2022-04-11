@@ -1,48 +1,40 @@
 from unittest import TestCase
 
+from phi.field._field_math import data_bounds
+from phi.field._point_cloud import distribute_points
 from phi.flow import *
 
 
-def step(particles, domain, dt, accessible):
-    velocity = particles @ domain.staggered_grid()
-    div_free_velocity, _, occupied = \
-        flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), domain, particles, accessible)
+def step(particles: PointCloud, accessible: StaggeredGrid, dt: float):
+    velocity = particles @ accessible
+    div_free_velocity, _, occupied = flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), particles, accessible)
     particles = flip.map_velocity_to_particles(particles, div_free_velocity, occupied, previous_velocity_grid=velocity, viscosity=0.9)
     particles = advect.runge_kutta_4(particles, div_free_velocity, dt, accessible=accessible, occupied=occupied)
-    particles = flip.respect_boundaries(particles, domain, [])
-    return dict(particles=particles, domain=domain, dt=dt, accessible=accessible)
+    particles = flip.respect_boundaries(particles, [])
+    return particles
 
 
 class FlipTest(TestCase):
 
     def test_falling_block_short(self):
         """ Tests if a block of liquid has a constant shape during free fall for 4 steps. """
-        DOMAIN = Domain(x=32, y=128, boundaries=STICKY, bounds=Box[0:32, 0:128])
-        DT = 0.05
-        ACCESSIBLE = DOMAIN.accessible_mask([], type=StaggeredGrid)
-        PARTICLES = DOMAIN.distribute_points(union(Box[12:20, 110:120])) * (0, -10)
-        extent = math.max(PARTICLES.points, dim='points') - math.min(PARTICLES.points, dim='points')
-        state = dict(particles=PARTICLES, domain=DOMAIN, dt=DT, accessible=ACCESSIBLE)
+        ACCESSIBLE_FACES = field.stagger(CenteredGrid(1, 0, x=32, y=128), math.minimum, extrapolation.ZERO)
+        particles = initial_particles = distribute_points(union(Box[12:20, 110:120]), x=32, y=128) * (0, -10)
+        initial_bounds = data_bounds(particles)
         for i in range(4):
-            state = step(**state)
-            curr_extent = math.max(state['particles'].points, dim='points') - \
-                          math.min(state['particles'].points, dim='points')
-            math.assert_close(curr_extent, extent)  # shape of falling block stays the same
-            assert math.max(state['particles'].points, dim='points')[1] < \
-                   math.max(PARTICLES.points, dim='points')[1]  # block really falls
-            extent = curr_extent
+            particles = step(particles, ACCESSIBLE_FACES, dt=0.05)
+            math.assert_close(data_bounds(particles).size, initial_bounds.size)  # shape of falling block stays the same
+            assert math.max(particles.points, dim='points').vector['y'] < math.max(initial_particles.points, dim='points').vector['y']  # block really falls
 
     def test_respect_boundaries(self):
         """ Tests if particles really get puhsed outside of obstacles and domain boundaries. """
-        SIZE = 64
-        DOMAIN = Domain(x=SIZE, y=SIZE, boundaries=STICKY, bounds=Box[0:SIZE, 0:SIZE])
         OBSTACLE = Box[20:40, 10:30]
-        PARTICLES = DOMAIN.distribute_points(union(Box[20:38, 20:50], Box[50:60, 10:50]), center=True) * (10, 0)
-        PARTICLES = advect.points(PARTICLES, PARTICLES, 1)
-        assert math.any(OBSTACLE.lies_inside(PARTICLES.points))
-        assert math.any((~DOMAIN.bounds).lies_inside(PARTICLES.points))
-        PARTICLES = flip.respect_boundaries(PARTICLES, DOMAIN, [OBSTACLE], offset=0.1)
-        assert math.all(~OBSTACLE.lies_inside(PARTICLES.points))
-        assert math.all(~(~DOMAIN.bounds).lies_inside(PARTICLES.points))
+        particles = distribute_points(union(Box[20:38, 20:50], Box[50:60, 10:50]), center=True, x=64, y=64) * (10, 0)
+        particles = advect.points(particles, particles, 1)
+        assert math.any(OBSTACLE.lies_inside(particles.points))
+        assert math.any((~particles.bounds).lies_inside(particles.points))
+        particles = flip.respect_boundaries(particles, [OBSTACLE], offset=0.1)
+        assert math.all(~OBSTACLE.lies_inside(particles.points))
+        assert math.all(~(~particles.bounds).lies_inside(particles.points))
 
 
