@@ -162,15 +162,12 @@ class TorchBackend(Backend):
             if not CURRENT_JIT_CALLS:
                 return torch_function.apply(*args)
             jit = CURRENT_JIT_CALLS[-1]
-            if jit.autograd_function_calls:  # second call: we are tracing
-                assert torch._C._get_tracing_state() is not None
-                assert torch_function in jit.autograd_function_calls
-                assert torch_function in jit.compiled_functions
-                compiled_function = jit.compiled_functions[torch_function]
+            if torch._C._get_tracing_state() is not None:  # second call: we are tracing
+                compiled_function = jit.get_compiled_function(torch_function, args)
                 return compiled_function.apply(*args)  # this adds the compiled function to TorchScript. The function must not call any torch functions while being traced lest they be double-executed later.
             else:  # first call: record this function
                 output = torch_function.apply(*args)
-                jit.autograd_function_calls[torch_function] = (args, output)
+                jit.record_autograd_function_call(torch_function, args, output)
                 return output
 
         torch_function = construct_torch_custom_function(f, None, None, gradient, is_f_traced=False, backend=self)
@@ -805,8 +802,9 @@ class JITFunction:
         self.backend = backend
         self.f = f
         self.traced = None
-        self.autograd_function_calls = {}  # TorchCustomFunction -> (args, output)
+        self.autograd_function_calls = {}  # TorchCustomFunction -> [(args, output)]
         self.compiled_functions = {}  # TorchCustomFunction -> TorchCustomFunction
+        self.autograd_function_call_counts = {}
         self.called_modules: List[torch.nn.Module] = []
 
     def __call__(self, *args, **kwargs):
@@ -819,9 +817,11 @@ class JITFunction:
         if self.traced is None:
             self_jit = self
             CURRENT_JIT_CALLS.append(self)
-            self.f(*args)  # records all autograd.Funcion / nn.Module calls with their args -> self.autograd_function_calls, self.called_modules
-            for rec_function, (rec_args, rec_output) in self.autograd_function_calls.items():
-                self.compiled_functions[rec_function] = rec_function.compile(rec_args, rec_output)
+            self.f(*args)  # records all autograd.Function / nn.Module calls with their args -> self.autograd_function_calls, self.called_modules
+            for rec_function, rec_calls in self.autograd_function_calls.items():
+                for i, (rec_args, rec_output) in enumerate(rec_calls):
+                    self.compiled_functions[(rec_function, i)] = rec_function.compile(rec_args, rec_output)
+            self.autograd_function_call_counts = {f: 0 for f in self.autograd_function_calls.keys()}
 
             class JitModule(torch.nn.Module):
 
@@ -839,6 +839,18 @@ class JITFunction:
             assert CURRENT_JIT_CALLS.pop(-1) == self
         from phi.math.backend import choose_backend
         return choose_backend(self).call(self.traced, *args, name=f"run jit-compiled '{self.f.__name__}'")
+
+    def record_autograd_function_call(self, function: torch.autograd.Function, args, output):
+        self.autograd_function_calls.setdefault(function, []).append((args, output))
+
+    def get_compiled_function(self, function: torch.autograd.Function, args) -> torch.autograd.Function:
+        assert torch._C._get_tracing_state() is not None
+        assert function in self.autograd_function_calls
+        i = self.autograd_function_call_counts[function]
+        compiled_function = self.compiled_functions[(function, i)]
+        assert isinstance(compiled_function, torch.autograd.Function)
+        self.autograd_function_call_counts[function] += 1
+        return compiled_function
 
     def __repr__(self):
         return f"TorchScript[{self.f.__name__}]"
@@ -862,7 +874,7 @@ def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], f_ex
         @staticmethod
         def forward(ctx, *args, **kwargs):  # The result of this is used in the graph.
             if torch._C._get_tracing_state():
-                PHI_LOGGER.debug(f"Trace encountered forward pass of {f.__name__}. Returning cached output to avoid double execution.")
+                PHI_LOGGER.debug(f"torch.jit.trace encountered forward pass of {f.__name__}. Returning cached output to avoid double execution.")
                 # jit_context = CURRENT_JIT_CALLS[-1]; jit_context.cached_output[torch_custom_function]
                 return f_example_output
             y = (jit_f or f)(*args, **kwargs)
