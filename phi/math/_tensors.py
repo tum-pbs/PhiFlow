@@ -840,6 +840,13 @@ class TensorDim:
         else:
             raise ValueError(f"Syntax tensor[{type(item)}] not supported")
 
+    def __iter__(self):
+        """ Iterate over slices along this dim """
+        if not self.exists:
+            return iter([self.tensor])
+        else:
+            return iter(self.tensor.unstack(self.name))
+
     def flip(self):
         """ Flips the element order along this dimension and returns the result as a `Tensor`. """
         return self.tensor.flip(self.name)
