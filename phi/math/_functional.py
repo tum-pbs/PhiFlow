@@ -1109,6 +1109,7 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
                 or (self.absolute_tolerance != other.absolute_tolerance).any \
                 or (self.relative_tolerance != other.relative_tolerance).any \
                 or (self.max_iterations != other.max_iterations).any \
+                or self.preprocess_y is not other.preprocess_y \
                 or self.suppress != other.suppress:
             return False
         return self.x0 == other.x0
