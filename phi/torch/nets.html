@@ -136,10 +136,10 @@ class DenseNet(nn.Module):
 
     def __init__(self,
                  layers: list,
-                 activation=F.relu):
+                 activation: type):
         super(DenseNet, self).__init__()
         self._layers = layers
-        self._activation = activation
+        self._activation = activation()
         for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
             self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
 
@@ -537,7 +537,7 @@ Analogue functions exist for other learning frameworks.</p></div>
 <dl>
 <dt id="phi.torch.nets.DenseNet"><code class="flex name class">
 <span>class <span class="ident">DenseNet</span></span>
-<span>(</span><span>layers: list, activation=&lt;function relu&gt;)</span>
+<span>(</span><span>layers: list, activation: type)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -576,10 +576,10 @@ evaluation mode.
 
     def __init__(self,
                  layers: list,
-                 activation=F.relu):
+                 activation: type):
         super(DenseNet, self).__init__()
         self._layers = layers
-        self._activation = activation
+        self._activation = activation()
         for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
             self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
 
