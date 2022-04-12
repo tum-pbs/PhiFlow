@@ -15210,6 +15210,45 @@ Say we want to optimize the initial velocities so that all simulations arrive at
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 8 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 9 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 10 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 11 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 12 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 13 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 14 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 15 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 16 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 17 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 18 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 19 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 20 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1550: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 21 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)  # this should hopefully result in implicit gradients for higher orders as well
+</pre>
+</div>
+</div>
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">AttributeError</span>                            Traceback (most recent call last)
@@ -15282,9 +15321,122 @@ For more advanced optimization techniques and neural network training, see the <
     <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 22 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 23 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 24 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 25 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 26 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 27 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 28 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 29 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 30 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 31 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 32 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 33 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 34 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 35 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 36 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 37 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 38 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 39 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 40 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 41 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+</pre>
+</div>
+</div>
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
 <pre>Initial loss: (268.389, 214.37184, 136.68129, 0.0) along inflow_locᵇ
-Next loss: (243.85736, 206.6886, 125.862724, 0.0) along inflow_locᵇ
+</pre>
+</div>
+</div>
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 42 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 43 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 44 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 45 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 46 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 47 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 48 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 49 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 50 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 51 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 52 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 53 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 54 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 55 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 56 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 57 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 58 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 59 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 60 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_functional.py:1480: RuntimeWarning: custom_grad(_matrix_solve_forward) has been traced 61 times. To avoid memory leaks, call _matrix_solve_forward.traces.clear(), _matrix_solve_forward.recorded_mappings.clear()
+  return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
+</pre>
+</div>
+</div>
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>Next loss: (243.85736, 206.6886, 125.862724, 0.0) along inflow_locᵇ
 </pre>
 </div>
 </div>
