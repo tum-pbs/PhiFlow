@@ -95,11 +95,9 @@ def dense_net(in_channels: int,
               layers: tuple or list,
               batch_norm=False,
               activation: str or Callable = 'ReLU') -> nn.Module:
-    if batch_norm:
-        raise NotImplementedError("only batch_norm=False currently supported")
     layers = [in_channels, *layers, out_channels]
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-    net = DenseNet(layers, activation=activation)
+    net = DenseNet(layers, activation, batch_norm)
     net = net.to(TORCH.get_default_device().ref)
     return net
 
@@ -108,18 +106,24 @@ class DenseNet(nn.Module):
 
     def __init__(self,
                  layers: list,
-                 activation: type):
+                 activation: type,
+                 batch_norm: bool):
         super(DenseNet, self).__init__()
         self._layers = layers
-        self._activation = activation()
+        self._activation = activation
+        self._batch_norm = batch_norm
         for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
             self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
+            if batch_norm:
+                self.add_module(f'norm{i}', nn.BatchNorm1d(s2))
 
     def forward(self, x):
         register_module_call(self)
         x = TORCH.as_tensor(x)
         for i in range(len(self._layers) - 2):
-            x = self._activation(getattr(self, f'linear{i}')(x))
+            x = self._activation()(getattr(self, f'linear{i}')(x))
+            if self._batch_norm:
+                x = getattr(self, f'norm{i}')(x)
         x = getattr(self, f'linear{len(self._layers) - 2}')(x)
         return x
 

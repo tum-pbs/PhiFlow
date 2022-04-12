@@ -2029,7 +2029,7 @@ def dtype(x) -> DType:
         return choose_backend(x).dtype(x)
 
 
-def expand(value: Tensor, dims: Shape):
+def expand(value: float or Tensor, dims: Shape):
     """
     Adds dimensions to a `Tensor` by implicitly repeating the tensor values along the new dimensions.
     If `value` already contains some of the new dimensions, a size and type check is performed instead.
