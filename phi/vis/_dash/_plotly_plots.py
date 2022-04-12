@@ -1,7 +1,7 @@
-from typing import Tuple, Any, Dict, Optional
+from typing import Tuple, Any, Dict, Optional, List
 
 import numpy
-import plotly.graph_objs
+import numpy as np
 from plotly import graph_objects
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
@@ -11,7 +11,7 @@ from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
 from phi.geom import Sphere, BaseBox
 from phi.math import instance, Tensor, spatial
 from phi.vis._dash.colormaps import COLORMAPS
-from phi.vis._plot_util import smooth_uniform_curve
+from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
 from phi.vis._vis_base import PlottingLibrary
 
 
@@ -302,14 +302,6 @@ def get_color_interpolation(val, cm_arr):
     return center
 
 
-def split_curve(x, y):
-    backtracks = numpy.argwhere(x[1:] < x[:-1])[:, 0] + 1
-    if len(backtracks) > 0:
-        x = numpy.insert(numpy.array(x, numpy.float), backtracks, numpy.nan)
-        y = numpy.insert(numpy.array(y, numpy.float), backtracks, numpy.nan)
-    return x, y
-
-
 def plot_scalars(curves: tuple or list, labels, subplots=True, log_scale='', smooth: int = 1):
     if not curves:
         return graph_objects.Figure()
@@ -331,16 +323,37 @@ def plot_scalars(curves: tuple or list, labels, subplots=True, log_scale='', smo
     return fig
 
 
-def _graph(label: str, x, y, smooth: int, index: int):
+def _graph(label: str, x: np.ndarray, y: np.ndarray, smooth: int, index: int, max_points=2000):
     color = DEFAULT_PLOTLY_COLORS[index % len(DEFAULT_PLOTLY_COLORS)]
-    x, y = split_curve(x, y)
-    if smooth > 1:
-        smooth_x, smooth_y = smooth_uniform_curve(x, y, n=smooth)
+    if len(x) > len(y):
+        x = x[:len(y)]
+    if len(y) > len(x):
+        y = y[:len(x)]
+    curves = split_curve(np.stack([x, y], -1))
+    low_res = [down_sample_curve(c, max_points) for c in curves]
+    x, y = join_curves(low_res).T
+    if smooth <= 1:
+        return [graph_objects.Scatter(x=x, y=y, name=label, line=graph_objects.scatter.Line(color=color))]
+    else:  # smooth
+        smooth_curves = [smooth_uniform_curve(c, smooth) for c in curves]
+        low_res_smooth = [down_sample_curve(c, max_points) for c in smooth_curves]
+        smooth_x, smooth_y = join_curves(low_res_smooth).T
         transparent_color = f"rgba{color[3:-1]}, 0.4)"
         return [
             graph_objects.Scatter(x=x, y=y, line=graph_objects.scatter.Line(color=transparent_color, width=1), showlegend=False),
             graph_objects.Scatter(x=smooth_x, y=smooth_y, name=label, line=graph_objects.scatter.Line(color=color, width=3), mode='lines')
         ]
-    else:
-        return [graph_objects.Scatter(x=x, y=y, name=label, line=graph_objects.scatter.Line(color=color))]
 
+
+def split_curve(curve: np.ndarray) -> List[np.ndarray]:
+    x = curve[..., 0]
+    backtracks = numpy.argwhere(x[1:] < x[:-1])[:, 0] + 1
+    if len(backtracks) == 0:
+        return [curve]
+    cuts = [0] + list(backtracks) + [curve.shape[-2]]
+    return [curve[s:e] for s, e in zip(cuts[:-1], cuts[1:])]
+
+
+def join_curves(curves: List[np.ndarray]) -> np.ndarray:
+    curves = [np.append(np.array(c, numpy.float), numpy.nan, -2) for c in curves[:-1]] + [curves[-1]]
+    return np.concatenate(curves, -2)

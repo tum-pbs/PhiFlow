@@ -357,7 +357,8 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 color = cycle[int(color)]
             logging.debug(f"Plotting curve {label}")
             axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
-            axis.plot(*smooth_uniform_curve(x_values, values, n=smooth), color=color, linewidth=smooth_linewidth, label=label)
+            curve = np.stack([x_values, values], -1)
+            axis.plot(*smooth_uniform_curve(curve, smooth), color=color, linewidth=smooth_linewidth, label=label)
             if grid:
                 if isinstance(grid, dict):
                     axis.grid(**grid)
