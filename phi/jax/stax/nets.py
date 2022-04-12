@@ -179,15 +179,13 @@ def dense_net(in_channels: int,
               layers: tuple or list,
               batch_norm=False,
               activation='ReLU') -> StaxNet:
-    if batch_norm:
-        raise NotImplementedError("only batch_norm=False currently supported")
-    layers = [in_channels, *layers, out_channels]
     activation = {'ReLU': stax.Relu, 'Sigmoid': stax.Sigmoid, 'tanh': stax.Tanh}[activation]
     stax_layers = []
     for neuron_count in layers:
         stax_layers.append(stax.Dense(neuron_count))
         stax_layers.append(activation)
-        stax.Conv()
+        if batch_norm:
+            stax_layers.append(stax.BatchNorm(axis=(0,)))
     stax_layers.append(stax.Dense(out_channels))
     net_init, net_apply = stax.serial(*stax_layers)
     net = StaxNet(net_init, net_apply, (-1, in_channels))

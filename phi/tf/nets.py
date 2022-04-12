@@ -108,11 +108,15 @@ def adam(net: keras.Model, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsi
 def dense_net(in_channels: int,
               out_channels: int,
               layers: tuple or list,
+              batch_norm=False,
               activation='ReLU') -> keras.Model:
-    if isinstance(activation, str):
-        activation = [activation]
-    dense_layers = [kl.Dense(l, activation=activation) for l in layers]
-    return keras.models.Sequential([kl.InputLayer(input_shape=(in_channels,)), *dense_layers, kl.Dense(out_channels, activation='linear')])
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    keras_layers = []
+    for neuron_count in layers:
+        keras_layers.append(kl.Dense(neuron_count, activation=activation))
+        if batch_norm:
+            keras_layers.append(kl.BatchNormalization())
+    return keras.models.Sequential([kl.InputLayer(input_shape=(in_channels,)), *keras_layers, kl.Dense(out_channels, activation='linear')])
 
 
 def u_net(in_channels: int,

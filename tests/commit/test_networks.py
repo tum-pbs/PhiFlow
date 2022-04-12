@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from phi import math
+from phi.math import channel, batch
 from phi.tf import nets as tf_nets
 from phi.torch import nets as torch_nets
 from phi.jax.stax import nets as stax_nets
@@ -55,5 +56,22 @@ class TestNetworks(TestCase):
             for i in range(2):
                 lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
 
+    def test_dense_net_network_sizes(self):
+        for lib in LIBRARIES:
+            net = lib.dense_net(2, 3, layers=[10, 12], batch_norm=False, activation='ReLU')
+            self.assertEqual(201, lib.parameter_count(net))
 
+    def test_optimize_dense_net(self):
+        for lib in LIBRARIES:
+            net = lib.dense_net(2, 3, layers=[10], batch_norm=True, activation='Sigmoid')
+            optimizer = lib.adam(net)
+
+            def loss_function(x):
+                print("Running loss_function")
+                assert isinstance(x, math.Tensor)
+                pred = math.native_call(net, x)
+                return math.l2_loss(pred)
+
+            for i in range(2):
+                lib.update_weights(net, optimizer, loss_function, math.random_uniform(batch(batch=10), channel(vector=2)))
 

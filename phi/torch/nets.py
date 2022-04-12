@@ -108,10 +108,10 @@ class DenseNet(nn.Module):
 
     def __init__(self,
                  layers: list,
-                 activation=F.relu):
+                 activation: type):
         super(DenseNet, self).__init__()
         self._layers = layers
-        self._activation = activation
+        self._activation = activation()
         for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
             self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
 
