@@ -1563,7 +1563,7 @@ The grid values at the new points are determined via mean (linear interpolation)
 </details>
 </dd>
 <dt id="phi.math.expand"><code class="name flex">
-<span>def <span class="ident">expand</span></span>(<span>value: phi.math._tensors.Tensor, dims: phi.math._shape.Shape)</span>
+<span>def <span class="ident">expand</span></span>(<span>value: float, dims: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Adds dimensions to a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> by implicitly repeating the tensor values along the new dimensions.
@@ -1587,7 +1587,7 @@ If <code>value</code> already contains some of the new dimensions, a size and ty
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def expand(value: Tensor, dims: Shape):
+<pre><code class="python">def expand(value: float or Tensor, dims: Shape):
     &#34;&#34;&#34;
     Adds dimensions to a `Tensor` by implicitly repeating the tensor values along the new dimensions.
     If `value` already contains some of the new dimensions, a size and type check is performed instead.
@@ -11487,6 +11487,13 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
             return boolean_mask(self.tensor, self.name, item)
         else:
             raise ValueError(f&#34;Syntax tensor[{type(item)}] not supported&#34;)
+
+    def __iter__(self):
+        &#34;&#34;&#34; Iterate over slices along this dim &#34;&#34;&#34;
+        if not self.exists:
+            return iter([self.tensor])
+        else:
+            return iter(self.tensor.unstack(self.name))
 
     def flip(self):
         &#34;&#34;&#34; Flips the element order along this dimension and returns the result as a `Tensor`. &#34;&#34;&#34;

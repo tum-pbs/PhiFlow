@@ -123,11 +123,9 @@ def dense_net(in_channels: int,
               layers: tuple or list,
               batch_norm=False,
               activation: str or Callable = &#39;ReLU&#39;) -&gt; nn.Module:
-    if batch_norm:
-        raise NotImplementedError(&#34;only batch_norm=False currently supported&#34;)
     layers = [in_channels, *layers, out_channels]
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-    net = DenseNet(layers, activation=activation)
+    net = DenseNet(layers, activation, batch_norm)
     net = net.to(TORCH.get_default_device().ref)
     return net
 
@@ -136,18 +134,24 @@ class DenseNet(nn.Module):
 
     def __init__(self,
                  layers: list,
-                 activation: type):
+                 activation: type,
+                 batch_norm: bool):
         super(DenseNet, self).__init__()
         self._layers = layers
-        self._activation = activation()
+        self._activation = activation
+        self._batch_norm = batch_norm
         for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
             self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
+            if batch_norm:
+                self.add_module(f&#39;norm{i}&#39;, nn.BatchNorm1d(s2))
 
     def forward(self, x):
         register_module_call(self)
         x = TORCH.as_tensor(x)
         for i in range(len(self._layers) - 2):
-            x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
+            x = self._activation()(getattr(self, f&#39;linear{i}&#39;)(x))
+            if self._batch_norm:
+                x = getattr(self, f&#39;norm{i}&#39;)(x)
         x = getattr(self, f&#39;linear{len(self._layers) - 2}&#39;)(x)
         return x
 
@@ -340,11 +344,9 @@ Analogue functions exist for other learning frameworks.</p></div>
               layers: tuple or list,
               batch_norm=False,
               activation: str or Callable = &#39;ReLU&#39;) -&gt; nn.Module:
-    if batch_norm:
-        raise NotImplementedError(&#34;only batch_norm=False currently supported&#34;)
     layers = [in_channels, *layers, out_channels]
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-    net = DenseNet(layers, activation=activation)
+    net = DenseNet(layers, activation, batch_norm)
     net = net.to(TORCH.get_default_device().ref)
     return net</code></pre>
 </details>
@@ -537,7 +539,7 @@ Analogue functions exist for other learning frameworks.</p></div>
 <dl>
 <dt id="phi.torch.nets.DenseNet"><code class="flex name class">
 <span>class <span class="ident">DenseNet</span></span>
-<span>(</span><span>layers: list, activation: type)</span>
+<span>(</span><span>layers: list, activation: type, batch_norm: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -576,18 +578,24 @@ evaluation mode.
 
     def __init__(self,
                  layers: list,
-                 activation: type):
+                 activation: type,
+                 batch_norm: bool):
         super(DenseNet, self).__init__()
         self._layers = layers
-        self._activation = activation()
+        self._activation = activation
+        self._batch_norm = batch_norm
         for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
             self.add_module(f&#39;linear{i}&#39;, nn.Linear(s1, s2, bias=True))
+            if batch_norm:
+                self.add_module(f&#39;norm{i}&#39;, nn.BatchNorm1d(s2))
 
     def forward(self, x):
         register_module_call(self)
         x = TORCH.as_tensor(x)
         for i in range(len(self._layers) - 2):
-            x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
+            x = self._activation()(getattr(self, f&#39;linear{i}&#39;)(x))
+            if self._batch_norm:
+                x = getattr(self, f&#39;norm{i}&#39;)(x)
         x = getattr(self, f&#39;linear{len(self._layers) - 2}&#39;)(x)
         return x</code></pre>
 </details>
@@ -629,7 +637,9 @@ registered hooks while the latter silently ignores them.</p>
     register_module_call(self)
     x = TORCH.as_tensor(x)
     for i in range(len(self._layers) - 2):
-        x = self._activation(getattr(self, f&#39;linear{i}&#39;)(x))
+        x = self._activation()(getattr(self, f&#39;linear{i}&#39;)(x))
+        if self._batch_norm:
+            x = getattr(self, f&#39;norm{i}&#39;)(x)
     x = getattr(self, f&#39;linear{len(self._layers) - 2}&#39;)(x)
     return x</code></pre>
 </details>
