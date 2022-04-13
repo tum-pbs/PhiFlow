@@ -11,7 +11,7 @@ import numpy as np
 from . import extrapolation as e_
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
-                     IncompatibleShapes)
+                     IncompatibleShapes, DimFilter, non_batch)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
     value_attributes, Layout, layout, cached, Sliceable
@@ -537,7 +537,7 @@ def transpose(x, axes):
         return choose_backend(x).transpose(x, axes)
 
 
-def cumulative_sum(x: Tensor, dim: str or Shape):
+def cumulative_sum(x: Tensor, dim: DimFilter):
     """
     Performs a cumulative sum of `x` along `dim`.
 
@@ -555,10 +555,10 @@ def cumulative_sum(x: Tensor, dim: str or Shape):
     Returns:
         `Tensor` with the same shape as `x`.
     """
-    dim = parse_dim_order(dim)
+    dim = x.shape.only(dim)
     assert len(dim) == 1, f"dim must be a single dimension but got {dim}"
     native_x = x.native(x.shape)
-    native_result = choose_backend(native_x).cumsum(native_x, x.shape.index(dim[0]))
+    native_result = choose_backend(native_x).cumsum(native_x, x.shape.index(dim))
     return NativeTensor(native_result, x.shape)
 
 
@@ -1116,7 +1116,7 @@ def nonzero(value: Tensor, list_dim: Shape or str = instance('nonzero'), index_d
 
 
 def _reduce(value: Tensor or list or tuple,
-            dim: str or tuple or list or Shape or Callable or None,
+            dim: DimFilter,
             native_function: Callable,
             collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
             unaffected_function: Callable = lambda value: value) -> Tensor:
@@ -1137,22 +1137,11 @@ def _reduce(value: Tensor or list or tuple,
             assert dim in ('0', None), "dim must be '0' or None when passing a sequence of tensors"
         else:
             value = wrap(value)
-        dims = _resolve_dims(dim, value.shape)
-        return value._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
+        dims = value.shape.only(dim)
+        return value._tensor_reduce(dims.names, native_function, collapsed_function, unaffected_function)
 
 
-def _resolve_dims(dim: str or tuple or list or Shape or None or Callable,
-                  t_shape: Shape) -> Tuple[str]:
-    if dim is None:
-        return t_shape.non_batch.names
-    elif callable(dim):  # dim type like spatial
-        return dim(t_shape)
-    else:
-        return parse_dim_order(dim)
-
-
-def sum_(value: Tensor or list or tuple,
-         dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     """
     Sums `values` along the specified dimensions.
 
@@ -1175,7 +1164,7 @@ def sum_(value: Tensor or list or tuple,
                    collapsed_function=lambda inner, red_shape: inner * red_shape.volume)
 
 
-def prod(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def prod(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     """
     Multiplies `values` along the specified dimensions.
 
@@ -1198,7 +1187,7 @@ def prod(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
                    collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)
 
 
-def mean(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def mean(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     """
     Computes the mean over `values` along the specified dimensions.
 
@@ -1219,7 +1208,7 @@ def mean(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.mean(native, dim))
 
 
-def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def std(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     """
     Computes the standard deviation over `values` along the specified dimensions.
 
@@ -1245,7 +1234,7 @@ def std(value: Tensor or list or tuple, dim: str or int or tuple or list or None
                    unaffected_function=lambda value: value * 0)
 
 
-def any_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def any_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     """
     Tests whether any entry of `boolean_tensor` is `True` along the specified dimensions.
 
@@ -1266,7 +1255,7 @@ def any_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or li
     return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.any(native, dim))
 
 
-def all_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def all_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     """
     Tests whether all entries of `boolean_tensor` are `True` along the specified dimensions.
 
@@ -1287,7 +1276,7 @@ def all_(boolean_tensor: Tensor or list or tuple, dim: str or int or tuple or li
     return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.all(native, dim))
 
 
-def max_(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def max_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     """
     Determines the maximum value of `values` along the specified dimensions.
 
@@ -1308,7 +1297,7 @@ def max_(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.max(native, dim))
 
 
-def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or None or Shape = None) -> Tensor:
+def min_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     """
     Determines the minimum value of `values` along the specified dimensions.
 
@@ -1331,7 +1320,7 @@ def min_(value: Tensor or list or tuple, dim: str or int or tuple or list or Non
 
 def quantile(value: Tensor,
              quantiles: float or tuple or list or Tensor,
-             dim: str or int or tuple or list or None or Shape or Callable = None):
+             dim: DimFilter = non_batch):
     """
     Compute the q-th quantile of `value` along `dim` for each q in `quantiles`.
 
@@ -1358,7 +1347,7 @@ def quantile(value: Tensor,
     Returns:
         `Tensor` with dimensions of `quantiles` and non-reduced dimensions of `value`.
     """
-    dims = _resolve_dims(dim, value.shape)
+    dims = value.shape.only(dim)
     native_values = reshaped_native(value, [*value.shape.without(dims), value.shape.only(dims)])
     backend = choose_backend(native_values)
     q = tensor(quantiles, default_list_dim=instance('quantiles'))
@@ -1367,7 +1356,7 @@ def quantile(value: Tensor,
     return reshaped_tensor(native_result, [q.shape, *value.shape.without(dims)])
 
 
-def median(value, dim: str or int or tuple or list or None or Shape or Callable = None):
+def median(value, dim: DimFilter = non_batch):
     """
     Reduces `dim` of `value` by picking the median value.
     For odd dimension sizes (ambigous choice), the linear average of the two median values is computed.
@@ -1392,9 +1381,9 @@ def median(value, dim: str or int or tuple or list or None or Shape or Callable 
 
 
 def dot(x: Tensor,
-        x_dims: str or tuple or list or Shape or Callable or None,
+        x_dims: DimFilter,
         y: Tensor,
-        y_dims: str or tuple or list or Shape or Callable or None) -> Tensor:
+        y_dims: DimFilter) -> Tensor:
     """
     Computes the dot product along the specified dimensions.
     Contracts `x_dims` with `y_dims` by first multiplying the elements and then summing them up.
@@ -1417,8 +1406,8 @@ def dot(x: Tensor,
     Returns:
         Dot product as `Tensor`.
     """
-    x_dims = _resolve_dims(x_dims, x.shape)
-    y_dims = _resolve_dims(y_dims, y.shape)
+    x_dims = x.shape.only(x_dims)
+    y_dims = y.shape.only(y_dims)
     x_native = x.native(x.shape)
     y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)
@@ -1777,7 +1766,7 @@ def convolve(value: Tensor,
     return result
 
 
-def unstack(value: Tensor or Sliceable, dim: str or Shape or Callable):
+def unstack(value: Tensor or Sliceable, dim: DimFilter):
     """
     Unstacks a `Tensor` along one or multiple dimensions.
 
@@ -1788,9 +1777,7 @@ def unstack(value: Tensor or Sliceable, dim: str or Shape or Callable):
     Returns:
         `tuple` of `Tensor` objects.
     """
-    if callable(dim):
-        dim = dim(value.shape)
-    dims = parse_dim_order(dim)
+    dims = value.shape.only(dim)
     assert len(dims) > 0, "unstack() requires at least one dimension"
     if len(dims) > 1:
         assert isinstance(value, Tensor), "Multi-dimensional unstacking only supported for Tensors"
@@ -1798,7 +1785,7 @@ def unstack(value: Tensor or Sliceable, dim: str or Shape or Callable):
         value = pack_dims(value, dims, packed_dim)
         dims = [packed_dim.name]
     if isinstance(value, Tensor):
-        return value.unstack(dims[0])
+        return value.unstack(dims.names[0])
     else:
         size = value.shape.get_size(dim)
         return tuple([value[{dim: i}] for i in range(size)])
@@ -1844,7 +1831,7 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=mask.shape.without(dim))
 
 
-def gather(values: Tensor, indices: Tensor, dims: str or Shape or tuple or list = None):
+def gather(values: Tensor, indices: Tensor, dims: DimFilter or None = None):
     """
     Gathers the entries of `values` at positions described by `indices`.
 
@@ -1977,7 +1964,7 @@ def scatter(base_grid: Tensor or Shape,
     return result
 
 
-def fft(x: Tensor, dims: str or tuple or list or Shape = None) -> Tensor:
+def fft(x: Tensor, dims: DimFilter = spatial) -> Tensor:
     """
     Performs a fast Fourier transform (FFT) on all spatial dimensions of x.
     
@@ -2004,13 +1991,13 @@ def fft(x: Tensor, dims: str or tuple or list or Shape = None) -> Tensor:
     Returns:
         *Ƒ(x)* as complex `Tensor`
     """
-    dims = parse_dim_order(dims) if dims is not None else x.shape.spatial.names
+    dims = x.shape.only(dims)
     x_native = x.native(x.shape)
     result_native = choose_backend(x_native).fft(x_native, x.shape.indices(dims))
     return NativeTensor(result_native, x.shape)
 
 
-def ifft(k: Tensor, dims: str or tuple or list or Shape = None):
+def ifft(k: Tensor, dims: DimFilter = spatial):
     """
     Inverse of `fft()`.
 
@@ -2022,7 +2009,7 @@ def ifft(k: Tensor, dims: str or tuple or list or Shape = None):
     Returns:
         *Ƒ<sup>-1</sup>(k)* as complex `Tensor`
     """
-    dims = parse_dim_order(dims) if dims is not None else k.shape.spatial.names
+    dims = k.shape.only(dims)
     k_native = k.native(k.shape)
     result_native = choose_backend(k_native).ifft(k_native, k.shape.indices(dims))
     return NativeTensor(result_native, k.shape)

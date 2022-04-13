@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple, Callable, List
+from typing import Tuple, Callable, List, Union
 
 from phi import math
 from phi.math.backend import PHI_LOGGER
@@ -543,7 +543,7 @@ class Shape:
         item_names.insert(pos, dim.item_names[0])
         return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
 
-    def without(self, dims: str or tuple or list or 'Shape') -> 'Shape':
+    def without(self, dims: 'DimFilter') -> 'Shape':
         """
         Builds a new shape from this one that is missing all given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -570,7 +570,7 @@ class Shape:
         else:
             raise ValueError(dims)
 
-    def only(self, dims: str or tuple or list or 'Shape' or Callable):
+    def only(self, dims: 'DimFilter'):
         """
         Builds a new shape from this one that only contains the given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -921,6 +921,19 @@ class Shape:
 
 
 EMPTY_SHAPE = Shape((), (), (), ())
+""" Empty shape, `()` """
+
+DimFilter = Union[str, tuple, list, Shape, Callable]
+"""
+Dimension filters can be used with `Shape.only()` and `Shype.without()`, making them the standard tool for specifying sets of dimensions.
+
+The following types can be used as dimension filters:
+
+* `Shape` instances
+* `tuple` or `list` objects containing dimension names as `str`
+* Single `str` listing comma-separated dimension names
+* Any function `filter(Shape) -> Shape`, such as `math.batch()`, `math.non_batch()`, `math.spatial()`, etc.
+"""
 
 
 class IncompatibleShapes(ValueError):
@@ -1229,6 +1242,25 @@ def merge_shapes(*shapes: Shape, order=(batch, instance, spatial, channel)):
                         type_group = type_group._with_item_name(dim, tuple(names2))
         merged.append(type_group)
     return concat_shapes(*merged)
+
+
+def non_batch(obj) -> Shape:
+    """
+    Returns the non-batch dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    if isinstance(obj, Shape):
+        return obj.non_batch
+    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
+        return obj.shape.non_batch
+    else:
+        raise AssertionError(f"non_batch() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
 
 
 def _size_equal(s1, s2):

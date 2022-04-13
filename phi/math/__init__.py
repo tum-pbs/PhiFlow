@@ -17,7 +17,12 @@ from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes, IncompatibleShapes
+from ._shape import (
+    Shape, EMPTY_SHAPE, DimFilter,
+    spatial, channel, batch, instance,
+    non_batch,
+    merge_shapes, concat_shapes, IncompatibleShapes
+)
 from ._tensors import wrap, tensor, layout, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict, shape
 from .extrapolation import Extrapolation
 from ._ops import (

@@ -9,16 +9,15 @@ from . import _ops as math
 from . import extrapolation as extrapolation
 from ._config import GLOBAL_AXIS_ORDER
 from ._ops import stack
-from ._shape import Shape, channel, batch, spatial
+from ._shape import Shape, channel, batch, spatial, DimFilter
 from ._tensors import Tensor, TensorLike, variable_values
 from ._tensors import wrap
 from .extrapolation import Extrapolation
 
 
-def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None, eps: float or Tensor = None):
+def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: float or Tensor = None):
     """
     Computes the vector length of `vec`.
-    If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector.
 
     Args:
         eps: Minimum vector length. Use to avoid `inf` gradients for zero-length vectors.
@@ -29,12 +28,12 @@ def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None, eps: flo
     return math.sqrt(squared)
 
 
-def vec_squared(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+def vec_squared(vec: Tensor, vec_dim: DimFilter = channel):
     """ Computes the squared length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
-    return math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim)
+    return math.sum_(vec ** 2, dim=vec_dim)
 
 
-def vec_normalize(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+def vec_normalize(vec: Tensor, vec_dim: DimFilter = channel):
     """ Normalizes the vectors in `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
     return vec / vec_abs(vec, vec_dim=vec_dim)
 
@@ -119,15 +118,14 @@ def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tensor:
+def l1_loss(x, reduce: DimFilter = None) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
         x: `Tensor` or `TensorLike`.
             For `TensorLike` objects, only value the sum over all value attributes is computed.
-        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
-            `Shape or list or tuple or str or spatial or instance or channel`.
+        reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
         loss: `Tensor`
@@ -140,15 +138,14 @@ def l1_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tens
         raise ValueError(x)
 
 
-def l2_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tensor:
+def l2_loss(x, reduce: DimFilter = None) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
         x: `Tensor` or `TensorLike`.
             For `TensorLike` objects, only value the sum over all value attributes is computed.
-        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
-            `Shape or list or tuple or str or spatial or instance or channel`.
+        reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
         loss: `Tensor`
@@ -250,7 +247,7 @@ def abs_square(complex_values: Tensor) -> Tensor:
 
 def shift(x: Tensor,
           offsets: tuple,
-          dims: str or Shape or tuple or list or Callable or None = math.spatial,
+          dims: DimFilter = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
           stack_dim: Shape or None = channel('shift')) -> list:
     """
@@ -267,8 +264,7 @@ def shift(x: Tensor,
         list: offset_tensor
 
     """
-    if dims is None:
-        dims = spatial
+    assert dims is not None
     dims = x.shape.only(dims).names
     if stack_dim is None:
         assert len(dims) == 1
@@ -335,7 +331,7 @@ def spatial_gradient(grid: Tensor,
                      dx: float or int = 1,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
-                     dims: str or Shape or tuple or list or Callable or None = spatial,
+                     dims: DimFilter = spatial,
                      stack_dim: Shape or None = channel('gradient')) -> Tensor:
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -380,7 +376,7 @@ def spatial_gradient(grid: Tensor,
 def laplace(x: Tensor,
             dx: Tensor or float = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
-            dims: str or tuple or list or Shape or Callable = spatial):
+            dims: DimFilter = spatial):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -462,7 +458,7 @@ def fourier_poisson(grid: Tensor,
 
 def downsample2x(grid: Tensor,
                  padding: Extrapolation = extrapolation.BOUNDARY,
-                 dims: str or tuple or list or Shape or Callable = spatial) -> Tensor:
+                 dims: DimFilter = spatial) -> Tensor:
     """
     Resamples a regular grid to half the number of spatial sample points per dimension.
     The grid values at the new points are determined via mean (linear interpolation).
@@ -489,7 +485,7 @@ def downsample2x(grid: Tensor,
 
 def upsample2x(grid: Tensor,
                padding: Extrapolation = extrapolation.BOUNDARY,
-               dims: str or tuple or list or Shape or Callable = spatial) -> Tensor:
+               dims: DimFilter = spatial) -> Tensor:
     """
     Resamples a regular grid to double the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
