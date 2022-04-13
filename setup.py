@@ -138,7 +138,6 @@ setup(
               'phi.math',
               'phi.math.backend',
               'phi.physics',
-              'phi.struct',
               'phi.tf',
               'phi.torch',
               'phi.vis',
