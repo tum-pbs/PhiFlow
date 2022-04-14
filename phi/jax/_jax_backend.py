@@ -17,6 +17,10 @@ from phi.math.backend._backend import combined_dim, SolveResult, PHI_LOGGER
 from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
 
 
+from jax.config import config
+config.update("jax_enable_x64", True)
+
+
 class JaxBackend(Backend):
 
     def __init__(self):
