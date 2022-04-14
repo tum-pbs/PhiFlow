@@ -2,7 +2,7 @@ import numbers
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Callable, Optional
+from typing import List, Callable, Optional, Set
 
 import numpy as np
 import torch
@@ -802,10 +802,10 @@ class JITFunction:
         self.backend = backend
         self.f = f
         self.traced = None
-        self.autograd_function_calls = {}  # TorchCustomFunction -> [(args, output)]
-        self.compiled_functions = {}  # TorchCustomFunction -> TorchCustomFunction
-        self.autograd_function_call_counts = {}
-        self.called_modules: List[torch.nn.Module] = []
+        self.autograd_function_calls = []  # (TorchCustomFunction, args, output)
+        self.compiled_functions = []  # (TorchCustomFunction, TorchCustomFunction)
+        self.autograd_function_call_counts = 0
+        self.called_modules: Set[torch.nn.Module] = set()
 
     def __call__(self, *args, **kwargs):
         if kwargs:
@@ -818,10 +818,9 @@ class JITFunction:
             self_jit = self
             CURRENT_JIT_CALLS.append(self)
             self.f(*args)  # records all autograd.Function / nn.Module calls with their args -> self.autograd_function_calls, self.called_modules
-            for rec_function, rec_calls in self.autograd_function_calls.items():
-                for i, (rec_args, rec_output) in enumerate(rec_calls):
-                    self.compiled_functions[(rec_function, i)] = rec_function.compile(rec_args, rec_output)
-            self.autograd_function_call_counts = {f: 0 for f in self.autograd_function_calls.keys()}
+            for i, (rec_function, rec_args, rec_output) in enumerate(self.autograd_function_calls):
+                self.compiled_functions.append((rec_function, rec_function.compile(rec_args, rec_output)))
+            assert self.autograd_function_call_counts == 0
 
             class JitModule(torch.nn.Module):
 
@@ -836,20 +835,20 @@ class JITFunction:
 
             module = JitModule()
             self.traced = torch.jit.trace(module, tuple(args), check_trace=False, strict=False)
+            assert self.autograd_function_call_counts == len(self.autograd_function_calls), "Not all custom-gradient functions were called during tracing! Nested custom gradients are not supported."
             assert CURRENT_JIT_CALLS.pop(-1) == self
         from phi.math.backend import choose_backend
         return choose_backend(self).call(self.traced, *args, name=f"run jit-compiled '{self.f.__name__}'")
 
     def record_autograd_function_call(self, function: torch.autograd.Function, args, output):
-        self.autograd_function_calls.setdefault(function, []).append((args, output))
+        self.autograd_function_calls.append((function, args, output))
 
     def get_compiled_function(self, function: torch.autograd.Function, args) -> torch.autograd.Function:
         assert torch._C._get_tracing_state() is not None
-        assert function in self.autograd_function_calls
-        i = self.autograd_function_call_counts[function]
-        compiled_function = self.compiled_functions[(function, i)]
+        assert self.autograd_function_call_counts < len(self.autograd_function_calls), f"More custom-gradient functions were called during tracing!\nLast encountered: {function}"
+        original_function, compiled_function = self.compiled_functions[self.autograd_function_call_counts]
         assert isinstance(compiled_function, torch.autograd.Function)
-        self.autograd_function_call_counts[function] += 1
+        self.autograd_function_call_counts += 1
         return compiled_function
 
     def __repr__(self):
@@ -861,9 +860,7 @@ CURRENT_JIT_CALLS: List[JITFunction] = []  # should contain no more than 1 eleme
 
 def register_module_call(module: torch.nn.Module):
     if CURRENT_JIT_CALLS:
-        jit_module_list = CURRENT_JIT_CALLS[-1].called_modules
-        if module not in jit_module_list:
-            jit_module_list.append(module)
+        CURRENT_JIT_CALLS[-1].called_modules.add(module)
 
 
 def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], f_example_output, g: Callable, is_f_traced: bool, backend: TorchBackend):
@@ -934,6 +931,9 @@ def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], f_ex
         @property
         def __name__(self):
             return f"TorchCustomFunction-{'jit' if is_f_traced else 'non-jit'}[{f.__name__}]"
+
+        def __repr__(self):
+            return self.__name__
 
     torch_custom_function = TorchCustomFunction()
     return torch_custom_function

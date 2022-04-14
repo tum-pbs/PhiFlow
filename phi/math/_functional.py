@@ -70,16 +70,17 @@ class SignatureKey:
         return shape_.with_sizes(sizes)
 
 
-def match_output_signature(new_in: SignatureKey, recorded_mappings: Dict[SignatureKey, SignatureKey]) -> SignatureKey:
+def match_output_signature(new_in: SignatureKey, recorded_mappings: Dict[SignatureKey, SignatureKey], source) -> SignatureKey:
     for rec_in, rec_out in recorded_mappings.items():
         if rec_in == new_in:  # exact match
             return rec_out
     for rec_in, rec_out in recorded_mappings.items():
         if rec_in.matches_structure_and_names(new_in):
             return rec_out.extrapolate(rec_in, new_in)
-    raise KeyError(f"Not output shape found for input shapes {new_in}. "
-                   f"Maybe the backend extrapolated the concrete function from another trace? "
-                   f"Registered transforms: {recorded_mappings}")
+    transforms_str = ''.join([f'\n* {i} -> {o}' for i, o in recorded_mappings.items()])
+    raise RuntimeError(f"{source}: no output shape found for input shapes {new_in}.\n"
+                       f"Maybe the backend extrapolated the concrete function from another trace?\n"
+                       f"Registered transforms:\n{transforms_str}")  # KeyError does not support \n
 
 
 def key_from_args(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list]:
@@ -146,7 +147,7 @@ class JitFunction:
         if key not in self.traces:
             self.traces[key] = self._jit_compile(key)
         native_result = self.traces[key](*natives)
-        output_key = match_output_signature(key, self.recorded_mappings)
+        output_key = match_output_signature(key, self.recorded_mappings, self)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
         return assemble_tree(output_key.tree, output_tensors)
 
@@ -359,7 +360,7 @@ class GradientFunction:
         if key not in self.grads:
             self.grads[key] = self._trace_grad(key, wrt_natives)
         native_result = self.grads[key](*natives)
-        output_key = match_output_signature(key, self.recorded_mappings)
+        output_key = match_output_signature(key, self.recorded_mappings, self)
         if self.get_output:
             result_shapes = list(output_key.shapes) + [key.shapes[i] for i in wrt_tensors]
             output_tensors = assemble_tensors(native_result, result_shapes)
@@ -475,7 +476,7 @@ class HessianFunction:
             self.grads[key] = self._trace_hessian(key, wrt_natives)
         native_result = self.grads[key](*natives)
         assert len(native_result) == 1 + int(self.get_output) + int(self.get_gradient)
-        output_key = match_output_signature(key, self.recorded_mappings)
+        output_key = match_output_signature(key, self.recorded_mappings, self)
         result = ()
         if self.get_output:
             output_tensors = assemble_tensors(native_result[0], output_key.shapes)
@@ -625,7 +626,7 @@ class CustomGradientFunction:
             if len(self.traces) >= 8:
                 warnings.warn(f"{self.__name__} has been traced {len(self.traces)} times. To avoid memory leaks, call {self.f.__name__}.traces.clear(), {self.f.__name__}.recorded_mappings.clear()", RuntimeWarning, stacklevel=2)
         native_result = self.traces[key](*natives)
-        output_key = match_output_signature(key, self.recorded_mappings)
+        output_key = match_output_signature(key, self.recorded_mappings, self)
         output_tensors = assemble_tensors(native_result, output_key.shapes)
         return assemble_tree(output_key.tree, output_tensors)
 
@@ -1063,6 +1064,7 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
                  x0: X or Any = None,
                  suppress: tuple or list = (),
                  preprocess_y: Callable = None,
+                 preprocess_y_args: tuple = (),
                  gradient_solve: 'Solve[Y, X]' or None = None):
         assert isinstance(method, str)
         self.method: str = method
@@ -1081,6 +1083,7 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
         self.preprocess_y: Callable = preprocess_y
         """ Function to be applied to the right-hand-side vector of an equation system before solving the system.
         This property is propagated to gradient solves by default. """
+        self.preprocess_y_args: tuple = preprocess_y_args
         assert all(issubclass(err, ConvergenceException) for err in suppress)
         self.suppress: tuple = tuple(suppress)
         """ Error types to suppress; `tuple` of `ConvergenceException` types. For these errors, the solve function will instead return the partial result without raising the error. """
@@ -1114,8 +1117,8 @@ class Solve(Generic[X, Y]):  # TODO move to phi.math._functional, put Tensors th
             return False
         return self.x0 == other.x0
 
-    def __variable_attrs__(self) -> Tuple[str]:
-        return 'x0',
+    def __variable_attrs__(self):
+        return 'x0', 'preprocess_y_args'
 
 
 class SolveInfo(Generic[X, Y]):
@@ -1493,7 +1496,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
                           active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
     PHI_LOGGER.debug(f"Performing linear solve {solve} with backend {backend}")
     if solve.preprocess_y is not None:
-        y = solve.preprocess_y(y)
+        y = solve.preprocess_y(y, *solve.preprocess_y_args)
     y_nest, (y_tensor,) = disassemble_tree(y)
     x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     batch_dims = (y_tensor.shape & x0_tensor.shape).without(active_dims)
