@@ -166,7 +166,7 @@ def nonzero(field: SampledField):
     return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds, color=None)
 
 
-def distribute_points(geometries: tuple or list,
+def distribute_points(geometries: tuple or list or Geometry or float,
                       points_per_cell: int = 8,
                       color: str = None,
                       center: bool = False,
@@ -187,9 +187,10 @@ def distribute_points(geometries: tuple or list,
     """
     warnings.warn("distribute_points() is deprecated. Construct a PointCloud directly.", DeprecationWarning)
     from phi.field import CenteredGrid
-    from phi.field import HardGeometryMask
-    from phi.geom import union
-    geometries = CenteredGrid(HardGeometryMask(union(geometries)), **domain)
+    if isinstance(geometries, (tuple, list, Geometry)):
+        from phi.geom import union
+        geometries = union(geometries)
+    geometries = CenteredGrid(geometries, **domain)
     initial_points = _distribute_points(geometries.values, points_per_cell, center=center)
     if radius is None:
         from phi.field._field_math import data_bounds

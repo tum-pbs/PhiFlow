@@ -2,8 +2,8 @@ from unittest import TestCase
 
 from phi import field
 from phi.field import Noise, CenteredGrid, StaggeredGrid
+from phi.field._point_cloud import distribute_points
 from phi.physics import advect
-from phi.physics._boundaries import Domain
 
 
 def _test_advection(adv):
@@ -27,13 +27,11 @@ class TestAdvect(TestCase):
         _test_advection(advect.mac_cormack)
 
     def test_advect_points(self):
-        domain = Domain(x=4, y=3)
-        v = domain.distribute_points(domain.bounds, points_per_cell=2) * (1, -1)
+        v = distribute_points(1, points_per_cell=2, x=4, y=3) * (1, -1)
         field.assert_close(v, advect.points(v, v, 0), advect.points(v, v*0, 0))
 
     def test_runge_kutta_4(self):
-        domain = Domain(x=4, y=3)
-        points = domain.distribute_points(domain.bounds, points_per_cell=2)
+        points = distribute_points(1, points_per_cell=2, x=4, y=3)
         v = CenteredGrid(Noise(vector=2), x=4, y=3)
         field.assert_close(points, advect.runge_kutta_4(points, v, 0), advect.runge_kutta_4(points, v*0, 0))
         sv = StaggeredGrid(Noise(), x=4, y=3)
