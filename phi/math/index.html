@@ -9968,7 +9968,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         In any case, the gradient solve information will be stored in `gradient_solve.result`.
         &#34;&#34;&#34;
         if self._gradient_solve is None:
-            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y)
+            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y, self.preprocess_y_args)
         return self._gradient_solve
 
     def __repr__(self):
@@ -10018,7 +10018,7 @@ def gradient_solve(self) -&gt; &#39;Solve[Y, X]&#39;:
     In any case, the gradient solve information will be stored in `gradient_solve.result`.
     &#34;&#34;&#34;
     if self._gradient_solve is None:
-        self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y)
+        self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y, self.preprocess_y_args)
     return self._gradient_solve</code></pre>
 </details>
 </dd>
