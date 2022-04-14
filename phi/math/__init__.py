@@ -20,7 +20,7 @@ from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (
     Shape, EMPTY_SHAPE, DimFilter,
     spatial, channel, batch, instance,
-    non_batch,
+    non_batch, non_spatial, non_instance, non_channel,
     merge_shapes, concat_shapes, IncompatibleShapes
 )
 from ._tensors import wrap, tensor, layout, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict, shape

@@ -1262,6 +1262,60 @@ def non_batch(obj) -> Shape:
         raise AssertionError(f"non_batch() must be called either on a Shape or an object with a 'shape' property but got {obj}")
 
 
+def non_spatial(obj) -> Shape:
+    """
+    Returns the non-spatial dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    if isinstance(obj, Shape):
+        return obj.non_spatial
+    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
+        return obj.shape.non_spatial
+    else:
+        raise AssertionError(f"non_spatial() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
+
+def non_instance(obj) -> Shape:
+    """
+    Returns the non-instance dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    if isinstance(obj, Shape):
+        return obj.non_instance
+    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
+        return obj.shape.non_instance
+    else:
+        raise AssertionError(f"non_instance() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
+
+def non_channel(obj) -> Shape:
+    """
+    Returns the non-channel dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    if isinstance(obj, Shape):
+        return obj.non_channel
+    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
+        return obj.shape.non_channel
+    else:
+        raise AssertionError(f"non_channel() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
+
 
 def _size_equal(s1, s2):
     if s1 is None:

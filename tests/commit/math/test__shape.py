@@ -1,8 +1,8 @@
 from unittest import TestCase
 
 from phi import math
-from phi.math import spatial, channel, batch, instance
-from phi.math._shape import shape_stack, vector_add, IncompatibleShapes, EMPTY_SHAPE
+from phi.math import spatial, channel, batch, instance, non_instance, non_channel, non_spatial, non_batch
+from phi.math._shape import shape_stack, vector_add, EMPTY_SHAPE
 
 
 class TestShape(TestCase):
@@ -100,3 +100,20 @@ class TestShape(TestCase):
             dict(x=0, vector='x'),
             dict(x=1, vector='x'),
         ], indices)
+
+    def test_filters(self):
+        b = batch(batch=10)
+        s = spatial(x=4, y=3)
+        i = instance(points=5)
+        c = channel(vector=2)
+        shape = math.concat_shapes(b, s, i, c)
+        for obj in [shape, math.zeros(shape)]:
+            self.assertEqual(batch(obj), b)
+            self.assertEqual(spatial(obj), s)
+            self.assertEqual(instance(obj), i)
+            self.assertEqual(channel(obj), c)
+            self.assertEqual(non_batch(obj), math.concat_shapes(s, i, c))
+            self.assertEqual(non_spatial(obj), math.concat_shapes(b, i, c))
+            self.assertEqual(non_instance(obj), math.concat_shapes(b, s, c))
+            self.assertEqual(non_channel(obj), math.concat_shapes(b, s, i))
+
