@@ -39,3 +39,17 @@ PyTorch cannot trace backward passes.
 `SolveTape` does not work while tracing with PyTorch.
 This is because PyTorch does not correctly trace `torch.autograd.Function` instances which are required for the implicit backward solve.
 
+
+## Memory Leaks
+
+Memory leaks can occur when transformed function are repeatedly called with non-compatible arguments.
+This can happen with `custom_gradient` but also `jit_compile`, `functional_gradient` or `hessian`.
+Each time such a function is called with new keyword arguments or tensors of new shapes, a record is stored with that function.
+For top-level functions, such as `solve_linear`, that record will be held indefinitely.
+In cases, where this becomes an issue, you can manually clear the these records or `jit_compile` the function producing the repeated calls.
+
+To clear the cached mappings of a transformed function `f`, use
+```python
+f.traces.clear()
+f.recorded_mappings.clear()
+```

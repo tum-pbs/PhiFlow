@@ -327,7 +327,7 @@ class GradientFunction:
         self.f = f
         self.wrt = wrt
         self.get_output = get_output
-        self.grads: Dict[SignatureKey, Callable] = {}
+        self.traces: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
         self.jit = jit
 
@@ -357,9 +357,9 @@ class GradientFunction:
                 raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
         wrt_tensors = self._track_wrt(args)
         wrt_natives = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
-        if key not in self.grads:
-            self.grads[key] = self._trace_grad(key, wrt_natives)
-        native_result = self.grads[key](*natives)
+        if key not in self.traces:
+            self.traces[key] = self._trace_grad(key, wrt_natives)
+        native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings, self)
         if self.get_output:
             result_shapes = list(output_key.shapes) + [key.shapes[i] for i in wrt_tensors]
@@ -442,7 +442,7 @@ class HessianFunction:
         self.get_output = get_output
         self.get_gradient = get_gradient
         self.dim_suffixes = dim_suffixes
-        self.grads: Dict[SignatureKey, Callable] = {}
+        self.traces: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
         self.jit = jit
 
@@ -472,9 +472,9 @@ class HessianFunction:
                 raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
         wrt_tensors: List[int] = self._track_wrt(args)
         wrt_natives: List[int] = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
-        if key not in self.grads:
-            self.grads[key] = self._trace_hessian(key, wrt_natives)
-        native_result = self.grads[key](*natives)
+        if key not in self.traces:
+            self.traces[key] = self._trace_hessian(key, wrt_natives)
+        native_result = self.traces[key](*natives)
         assert len(native_result) == 1 + int(self.get_output) + int(self.get_gradient)
         output_key = match_output_signature(key, self.recorded_mappings, self)
         result = ()
