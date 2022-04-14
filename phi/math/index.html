@@ -9912,7 +9912,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 <dt id="phi.math.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>method: str, relative_tolerance: float, absolute_tolerance: float, max_iterations: int = 1000, x0: ~X = None, suppress: tuple = (), preprocess_y: Callable = None, gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X] = None)</span>
+<span>(</span><span>method: str, relative_tolerance: float, absolute_tolerance: float, max_iterations: int = 1000, x0: ~X = None, suppress: tuple = (), preprocess_y: Callable = None, preprocess_y_args: tuple = (), gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specifies parameters and stopping criteria for solving a minimization problem or system of equations.</p></div>
@@ -9933,6 +9933,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
                  x0: X or Any = None,
                  suppress: tuple or list = (),
                  preprocess_y: Callable = None,
+                 preprocess_y_args: tuple = (),
                  gradient_solve: &#39;Solve[Y, X]&#39; or None = None):
         assert isinstance(method, str)
         self.method: str = method
@@ -9951,6 +9952,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         self.preprocess_y: Callable = preprocess_y
         &#34;&#34;&#34; Function to be applied to the right-hand-side vector of an equation system before solving the system.
         This property is propagated to gradient solves by default. &#34;&#34;&#34;
+        self.preprocess_y_args: tuple = preprocess_y_args
         assert all(issubclass(err, ConvergenceException) for err in suppress)
         self.suppress: tuple = tuple(suppress)
         &#34;&#34;&#34; Error types to suppress; `tuple` of `ConvergenceException` types. For these errors, the solve function will instead return the partial result without raising the error. &#34;&#34;&#34;
@@ -9984,8 +9986,8 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
             return False
         return self.x0 == other.x0
 
-    def __variable_attrs__(self) -&gt; Tuple[str]:
-        return &#39;x0&#39;,</code></pre>
+    def __variable_attrs__(self):
+        return &#39;x0&#39;, &#39;preprocess_y_args&#39;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
