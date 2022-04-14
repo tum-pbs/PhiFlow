@@ -603,7 +603,7 @@ class Backend:
         return self.cast(x, DType(int, 64))
 
     def to_complex(self, x):
-        return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
+        return self.cast(x, DType(complex, max(64, self.precision * 2)))
 
     def batched_gather_nd(self, values, indices):
         """
