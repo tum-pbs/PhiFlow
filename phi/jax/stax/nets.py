@@ -28,7 +28,9 @@ class StaxNet:
     def initialize(self):
         rnd_key = JAX.rnd_key
         JAX.rnd_key, init_key = random.split(rnd_key)
-        out_shape, self.parameters = self._initialize(init_key, input_shape=self._input_shape)
+        out_shape, params64 = self._initialize(init_key, input_shape=self._input_shape)
+        if math.get_precision() < 64:
+            self.parameters = _recursive_to_float32(params64)
 
     def __call__(self, *args, **kwargs):
         if self._tracers is not None:
@@ -93,6 +95,16 @@ def parameter_count(model: StaxNet) -> int:
         `int`
     """
     return int(_recursive_count_parameters(model.parameters))
+
+
+def _recursive_to_float32(obj):
+    if isinstance(obj, (tuple, list)):
+        return type(obj)([_recursive_to_float32(i) for i in obj])
+    elif isinstance(obj, dict):
+        return {k: _recursive_to_float32(v) for k, v in obj.items()}
+    else:
+        assert isinstance(obj, jax.numpy.ndarray)
+        return obj.astype(jax.numpy.float32)
 
 
 def _recursive_count_parameters(obj):
