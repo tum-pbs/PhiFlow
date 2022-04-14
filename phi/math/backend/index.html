@@ -1064,7 +1064,7 @@ The output of math operations has the same precision as its inputs.</p>
         return self.cast(x, DType(int, 64))
 
     def to_complex(self, x):
-        return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
+        return self.cast(x, DType(complex, max(64, self.precision * 2)))
 
     def batched_gather_nd(self, values, indices):
         &#34;&#34;&#34;
@@ -4333,7 +4333,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def to_complex(self, x):
-    return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))</code></pre>
+    return self.cast(x, DType(complex, max(64, self.precision * 2)))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.to_dlpack"><code class="name flex">
