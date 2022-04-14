@@ -83,6 +83,7 @@ def to_numpy_dtype(dtype: DType):
     if dtype.kind == str:
         bytes_per_char = np.dtype('<U1').itemsize
         return np.dtype(f'<U{dtype.itemsize // bytes_per_char}')
+    raise KeyError(f"Unsupported dtype: {dtype}")
 
 
 def from_numpy_dtype(np_dtype) -> DType:

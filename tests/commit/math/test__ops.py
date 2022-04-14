@@ -604,3 +604,24 @@ class TestMathFunctions(TestCase):
                 a = math.random_uniform(instance(values=4), low=-1, high=0, dtype=(complex, 64))
                 self.assertEqual(a.dtype, DType(complex, 64), msg=backend.name)
                 math.assert_close(a.imag, 0, msg=backend.name)
+
+    def test_cast(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.random_uniform(dtype=DType(float, 64))
+                self.assertEqual(DType(float, 32), math.to_float(x).dtype, msg=backend.name)
+                self.assertEqual(DType(complex, 64), math.to_complex(x).dtype, msg=backend.name)
+                with math.precision(64):
+                    self.assertEqual(DType(float, 64), math.to_float(x).dtype, msg=backend.name)
+                    self.assertEqual(DType(complex, 128), math.to_complex(x).dtype, msg=backend.name)
+                self.assertEqual(DType(int, 64), math.to_int64(x).dtype, msg=backend.name)
+                self.assertEqual(DType(int, 32), math.to_int32(x).dtype, msg=backend.name)
+                self.assertEqual(DType(float, 16), math.cast(x, DType(float, 16)).dtype, msg=backend.name)
+                self.assertEqual(DType(complex, 128), math.cast(x, DType(complex, 128)).dtype, msg=backend.name)
+                try:
+                    math.cast(x, DType(float, 3))
+                    self.fail(msg=backend.name)
+                except KeyError:
+                    pass
+
+
