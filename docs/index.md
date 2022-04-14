@@ -13,6 +13,7 @@
 * [Contributing to Φ<sub>Flow</sub>](https://github.com/tum-pbs/PhiFlow/blob/develop/CONTRIBUTING.md):
   Style guide, docstrings, commit tags
 * [Cookbook](Cookbook.html): Example code snippets for various things
+* [What to Avoid](Known_Issues.html): How to keep your code compatible with PyTorch, TensorFlow and Jax
 
 | Module API  | Documentation                                        |
 |-------------|------------------------------------------------------|
