@@ -6,14 +6,14 @@
 #include <cublas_v2.h>
 #include <cusparse.h> // SpMM, SpMV
 #include <vector>
-#include "torch_cuda.hpp"
+#include "phi_torch_cuda.hpp"
 #include <ctime>
 #include <chrono>
 
 #define TRUE 1
 #define FALSE 0
 
-namespace torch_cuda {
+namespace phi_torch_cuda {
     // GLOBAL VARIABLES
     void *globalBuffer = NULL;
     size_t globalBufferSize = 0;
@@ -41,6 +41,10 @@ namespace torch_cuda {
         std::cout << name << "\n" << variable << std::endl;
     }
 
+    /*
+        Sparse versus Dense Matrix Multiplication. 32 floating point precision.
+        This function is called from cusparse_SpMM()
+    */
     torch::Tensor floatSpMM(const at::Tensor& dA_csrOffsets,
                             const at::Tensor& dA_columns,
                             const at::Tensor& dA_values,
@@ -92,6 +96,10 @@ namespace torch_cuda {
         return dC;
     }
 
+    /*
+        Sparse versus Dense Matrix Multiplication. 64 floating point precision.
+        This function is called from cusparse_SpMM()
+    */
     torch::Tensor doubleSpMM(const at::Tensor& dA_csrOffsets,
                             const at::Tensor& dA_columns,
                             const at::Tensor& dA_values,
@@ -143,6 +151,10 @@ namespace torch_cuda {
         return dC;
     }
 
+    /*
+        Sparse versus Dense Matrix Multiplication.
+        This function is externally called from Python.
+    */
     torch::Tensor cusparse_SpMM(
                             const at::Tensor& dA_csrOffsets,
                             const at::Tensor& dA_columns,
@@ -164,6 +176,10 @@ namespace torch_cuda {
         }
     }
 
+    /*
+        Sparse versus dense matrix multiplication using CUSPARSE.
+        This function is called internally from conjugate_gradient()
+     */
     torch::Tensor __cusparse_SpMM(
                             at::Tensor& dB,
                             const int64_t dim_i,
@@ -220,10 +236,9 @@ namespace torch_cuda {
         if(trj) {
             std::cout << "Trajectory tracing not supported. Return only final values" << std::endl;
         }
-        std::clock_t begin = std::clock();
-        // CREATE HANDLE AND CSR MATRIX REPRESENTATION
 
         CHECK_CUSPARSE( cusparseCreate(&globalHandle) )
+
         // Create sparse matrix A in CSR format
         dC = torch::empty({csr_dim0}, x.options());
         if(csr_values.dtype() == torch::kFloat32) {
@@ -301,11 +316,8 @@ namespace torch_cuda {
         CHECK_CUSPARSE( cusparseDestroySpMat(globalSparseMatrixA) )
         CHECK_CUSPARSE( cusparseDestroy(globalHandle) )
         CHECK_CUSPARSE( cusparseDestroyDnVec(dC_cusparse) )
-
         CHECK_CUDA( cudaFree(globalBuffer) )
-        // CLOSE HANDLE AND CSR MATRIX REPRESENTATION
-        std::clock_t end = std::clock();
-        std::cout << double(end - begin) / CLOCKS_PER_SEC << std::endl;
+
 
         // Create result tensor with the following variables: x, residual, iterations, function_evaluations, converged, diverged}
         return {x, residual, torch::squeeze(iterations, -1), torch::squeeze(function_evaluations, -1),
@@ -318,7 +330,7 @@ namespace torch_cuda {
       m.def("cusparse_SpMM", &cusparse_SpMM, "Sparse(CSR) times dense matrix multiplication on CUSPARSE");
     }
 
-    TORCH_LIBRARY(torch_cuda, m) {
+    TORCH_LIBRARY(phi_torch_cuda, m) {
       m.def("conjugate_gradient", &conjugate_gradient);
       m.def("cusparse_SpMM", &cusparse_SpMM);
     }

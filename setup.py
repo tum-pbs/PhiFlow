@@ -116,7 +116,7 @@ class CudaCommand(distutils.cmd.Command):
         print(f"Compilation complete. See {logfile_path} for details.")
 
 
-class TorchCuda(distutils.cmd.Command):
+class PhiTorchCuda(distutils.cmd.Command):
     description = 'Compile PyTorch CUDA library'
     user_options = []
 
@@ -127,8 +127,13 @@ class TorchCuda(distutils.cmd.Command):
         pass
 
     def compile_torch_cuda(self):
-        command = ['python', './phi/torch/cuda/torch_cuda_setup.py', 'install']
+        import glob
+        command = ['python', './phi/torch/cuda/phi_torch_cuda_setup.py', 'install']
         subprocess.check_call(command)
+        old_file = glob.glob('./build/lib.*/*.so')[0]
+        print(old_file)
+        assert isfile(old_file), f"Could not find file {old_file}"
+        os.rename(old_file, './build/phi_torch_cuda.so')
 
     def run(self):
         self.compile_torch_cuda()
@@ -165,7 +170,7 @@ setup(
               'webglviewer'],
     cmdclass={
         'tf_cuda': CudaCommand,
-        'torch_cuda': TorchCuda
+        'phi_torch_cuda': PhiTorchCuda
     },
     description='Differentiable PDE solving framework for machine learning',
     long_description=long_description,
