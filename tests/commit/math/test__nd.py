@@ -49,7 +49,7 @@ class TestMathNDNumpy(TestCase):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1))
         cases = dict(padding=(extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
                      dx=(0.1, 1),
-                     dims=(None, ('x',), ('y',), ('x', 'y')))
+                     dims=(spatial, ('x',), ('y',), ('x', 'y')))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             laplace = math.laplace(meshgrid, **case_dict)
 

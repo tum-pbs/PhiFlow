@@ -118,7 +118,7 @@ def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(x, reduce: DimFilter = None) -> Tensor:
+def l1_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
@@ -138,7 +138,7 @@ def l1_loss(x, reduce: DimFilter = None) -> Tensor:
         raise ValueError(x)
 
 
-def l2_loss(x, reduce: DimFilter = None) -> Tensor:
+def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
@@ -264,7 +264,8 @@ def shift(x: Tensor,
         list: offset_tensor
 
     """
-    assert dims is not None
+    if dims is None:
+        raise ValueError("dims=None is not supported anymore.")
     dims = x.shape.only(dims).names
     if stack_dim is None:
         assert len(dims) == 1

@@ -1,3 +1,4 @@
+# import os; os.environ['CUDA_VISIBLE_DEVICES'] = ""
 from unittest import TestCase
 
 from phi import math
