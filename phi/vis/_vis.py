@@ -18,7 +18,7 @@ from ..math import Tensor, layout, batch, Shape
 from ..math._tensors import Layout
 
 
-def show(*model: VisModel or SampledField or tuple or list or Tensor,
+def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry,
          play=True,
          gui: Gui or str = None,
          keep_alive=True,
@@ -66,12 +66,10 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor,
     elif len(model) == 0:
         plots = default_plots() if gui is None else get_plots(gui)
         plots.show(plots.current_figure)
-    elif all([isinstance(m, (Field, Tensor, tuple, list)) for m in model]):
+    else:
         plots = default_plots() if gui is None else get_plots(gui)
         fig = plot(*model, lib=plots, **config)
         plots.show(fig)
-    else:
-        raise ValueError(f"show() requires an App, plottable or None but got {model}")
 
 
 RECORDINGS = {}
