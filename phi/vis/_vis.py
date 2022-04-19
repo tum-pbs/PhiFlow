@@ -11,12 +11,11 @@ from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, \
     PlottingLibrary
 from .. import math, field
-from ..field import SampledField, Scene, Field
+from ..field import SampledField, Scene, Field, PointCloud
 from ..field._scene import _slugify_filename
+from ..geom import Geometry
 from ..math import Tensor, layout, batch, Shape
-from ..math._shape import parse_dim_order
 from ..math._tensors import Layout
-from ..math.backend import PHI_LOGGER
 
 
 def show(*model: VisModel or SampledField or tuple or list or Tensor,
@@ -328,6 +327,8 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
     else:
         if isinstance(data, Tensor):
             data = field.tensor_as_field(data)
+        elif isinstance(data, Geometry):
+            data = PointCloud(data)
         assert isinstance(data, Field), data
         row_shape: Shape = batch(data).only(row_dims)
         col_shape: Shape = batch(data).only(col_dims).without(row_dims)

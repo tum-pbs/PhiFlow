@@ -46,6 +46,10 @@ class TestMatplotlibPlots(TestCase):
     def test_plot_staggered_grid_2d(self):
         self._test_plot(StaggeredGrid(Noise(), extrapolation.ZERO, x=16, y=10, bounds=Box(0, [1, 1])) * 0.1)
 
+    def test_plot_spheres_2d(self):
+        spheres = Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel('vector')), radius=.1)
+        self._test_plot(spheres)
+
     def test_plot_point_cloud_2d(self):
         spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel('vector')), radius=.1))
         cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[.4:.6, .2:.4]).elements, 'x,y', instance('points')))
