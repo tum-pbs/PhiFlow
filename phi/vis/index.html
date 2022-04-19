@@ -538,7 +538,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show(*model: VisModel or SampledField or tuple or list or Tensor,
+<pre><code class="python">def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry,
          play=True,
          gui: Gui or str = None,
          keep_alive=True,
@@ -586,12 +586,10 @@ For a full list of parameters, see the respective GUI documentation at <a href="
     elif len(model) == 0:
         plots = default_plots() if gui is None else get_plots(gui)
         plots.show(plots.current_figure)
-    elif all([isinstance(m, (Field, Tensor, tuple, list)) for m in model]):
+    else:
         plots = default_plots() if gui is None else get_plots(gui)
         fig = plot(*model, lib=plots, **config)
-        plots.show(fig)
-    else:
-        raise ValueError(f&#34;show() requires an App, plottable or None but got {model}&#34;)</code></pre>
+        plots.show(fig)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
