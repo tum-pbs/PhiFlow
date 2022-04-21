@@ -80,6 +80,10 @@ class BoundDim:
     def is_instance(self):
         return self.dim_type == INSTANCE_DIM
 
+    @property
+    def item_names(self):
+        return self.obj.shape.get_item_names(self.name)
+
     def __getitem__(self, item):
         if isinstance(item, str):
             item = self.obj.shape.spatial.index(item)
@@ -96,6 +100,13 @@ class BoundDim:
                 return unstacked
             else:
                 return (self.obj,) * size
+
+    def __iter__(self):
+        """ Iterate over slices along this dim """
+        if self.exists:
+            return iter(self.unstack())
+        else:
+            return iter([self.obj])
 
     def __call__(self, *args, **kwargs):
         raise TypeError(f"Method {type(self.obj).__name__}.{self.name}() does not exist.")
