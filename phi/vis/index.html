@@ -263,8 +263,11 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
     else:
         min_val = max_val = None
     subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
+    if title is None or isinstance(title, str):
+        title = layout(title)
+    assert isinstance(title, Tensor), &#34;title must be a Tensor or str&#34;
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, titles=title or layout(None))
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, titles=title)
         LAST_FIGURE[0] = figure
         for pos, fields in positioning.items():
             for f in fields:
