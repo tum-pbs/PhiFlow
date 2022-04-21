@@ -82,7 +82,7 @@ class BoundDim:
 
     @property
     def item_names(self):
-        return self.obj.shape.get_item_names(self.name)
+        return self.obj.shape.get_item_names(self.name) if self.exists else None
 
     def __getitem__(self, item):
         if isinstance(item, str):
@@ -316,7 +316,10 @@ class Tensor(Sliceable):
                     return str(self.numpy())
                 elif self.shape.volume is not None and self.shape.volume <= 6:
                     content = list(np.reshape(self.numpy(self.shape.names), [-1]))
-                    content = ', '.join([repr(number) for number in content])
+                    if self.shape.rank == 1 and self.shape.get_item_names(0) is not None:
+                        content = ", ".join([f"{item}={number}" for number, item in zip(content, self.shape.get_item_names(0))])
+                    else:
+                        content = ', '.join([repr(number) for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
                         if self.shape.name == 'vector' and self.shape.type == CHANNEL_DIM:
                             return f"({content})"

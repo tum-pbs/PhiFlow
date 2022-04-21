@@ -5,7 +5,7 @@ from phi.geom import Box, Geometry, GridCell
 from . import HardGeometryMask
 from ._field import SampledField, Field, sample, reduce_sample
 from ..geom._stack import GeometryStack
-from ..math import Shape
+from ..math import Shape, NUMPY
 from ..math._shape import spatial, channel
 from ..math._tensors import TensorStack, Tensor
 
@@ -16,6 +16,9 @@ class Grid(SampledField):
     """
 
     def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, resolution: Shape, bounds: Box):
+        if bounds.size.vector.item_names is None:
+            with NUMPY:
+                bounds = bounds.shifted(math.zeros(channel(vector=spatial(values).names)))
         SampledField.__init__(self, elements, values, extrapolation, bounds)
         assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"

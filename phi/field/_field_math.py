@@ -3,7 +3,7 @@ from typing import Callable, List, Tuple
 
 from phi import geom
 from phi import math
-from phi.math import Tensor, spatial, instance
+from phi.math import Tensor, spatial, instance, tensor
 from phi.geom import Box, Geometry, Sphere
 from phi.math import extrapolate_valid_values, channel, Shape, batch
 from ._field import Field, SampledField, unstack, SampledFieldType
@@ -88,9 +88,6 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Shape = channel('shift'
       grid: CenteredGrid: 
       offsets: tuple: 
       stack_dim:  (Default value = 'shift')
-
-    Returns:
-
     """
     data = math.shift(grid.values, offsets, padding=grid.extrapolation, stack_dim=stack_dim)
     return [CenteredGrid(data[i], bounds=grid.bounds, extrapolation=grid.extrapolation) for i in range(len(offsets))]
@@ -163,8 +160,8 @@ def divergence(field: Grid) -> CenteredGrid:
     if isinstance(field, StaggeredGrid):
         field = bake_extrapolation(field)
         components = []
-        for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference='forward', padding=None, dims=[dim]).gradient[0]
+        for dim in field.shape.spatial.names:
+            div_dim = math.spatial_gradient(field.values.vector[dim], field.dx, 'forward', None, dims=dim, stack_dim=None)
             components.append(div_dim)
         data = math.sum(components, dim='0')
         return CenteredGrid(data, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
@@ -181,19 +178,32 @@ def divergence(field: Grid) -> CenteredGrid:
 def curl(field: Grid, type: type = CenteredGrid):
     """ Computes the finite-difference curl of the give 2D `StaggeredGrid`. """
     assert field.spatial_rank in (2, 3), "curl is only defined in 2 and 3 spatial dimensions."
-    if isinstance(field, CenteredGrid) and 'vector' not in field.shape and field.spatial_rank == 2 and type == StaggeredGrid:
-        # 2D curl of scalar field
-        grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
-        result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
-        bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
-        return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
-    if isinstance(field, CenteredGrid) and 'vector' in field.shape and field.spatial_rank == 2 and type == CenteredGrid:
-        # 2D curl of vector field
-        x, y = field.shape.spatial.names
-        vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
-        vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
-        c = vy_dx - vx_dy
-        return field.with_values(c)
+    if isinstance(field, CenteredGrid) and field.spatial_rank == 2:
+        if 'vector' not in field.shape and type == StaggeredGrid:
+            # 2D curl of scalar field
+            grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
+            result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
+            bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
+            return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
+        if 'vector' in field.shape and type == CenteredGrid:
+            # 2D curl of vector field
+            x, y = field.shape.spatial.names
+            vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
+            vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
+            c = vy_dx - vx_dy
+            return field.with_values(c)
+    elif isinstance(field, StaggeredGrid) and field.spatial_rank == 2:
+        if type == CenteredGrid:
+            for dim in field.resolution.names:
+                l, u = field.extrapolation.valid_outer_faces(dim)
+                assert l == u, "periodic extrapolation not yet supported"
+            values = bake_extrapolation(field).values
+            x_padded = math.pad(values.vector['x'], {'y': (1, 1)}, field.extrapolation)
+            y_padded = math.pad(values.vector['y'], {'x': (1, 1)}, field.extrapolation)
+            vx_dy = math.spatial_gradient(x_padded, field.dx, 'forward', None, dims='y', stack_dim=None)
+            vy_dx = math.spatial_gradient(y_padded, field.dx, 'forward', None, dims='x', stack_dim=None)
+            result = vx_dy - vy_dx
+            return CenteredGrid(result, field.extrapolation.spatial_gradient(), bounds=field.bounds)
     raise NotImplementedError()
 
 
@@ -224,7 +234,7 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
     Returns:
         `SampledField` matching the first `SampledField` in `inputs`.
     """
-    input_tensors = [i.values if isinstance(i, SampledField) else Tensor(i) for i in inputs]
+    input_tensors = [i.values if isinstance(i, SampledField) else tensor(i) for i in inputs]
     values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):

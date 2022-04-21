@@ -154,12 +154,17 @@ class TestFieldMath(TestCase):
         density = CenteredGrid(HardGeometryMask(Box[:, 2:3]), x=4, y=3)
         math.assert_close(field.center_of_mass(density), (2, 2.5))
 
-    def test_staggered_curl_2d(self):
-        pot = CenteredGrid(HardGeometryMask(Box[1:2, 1:2]), x=4, y=3)
+    def test_curl_2d_centered_to_staggered(self):
+        pot = CenteredGrid(Box[1:2, 1:2], x=4, y=3)
         curl = field.curl(pot, type=StaggeredGrid)
         math.assert_close(field.mean(curl), 0)
         math.assert_close(curl.values.vector[0].x[1], (1, -1))
         math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))
+
+    def test_curl_2d_staggered_to_centered(self):
+        velocity = StaggeredGrid((2, 0), extrapolation.BOUNDARY, x=2, y=2)
+        curl = field.curl(velocity)
+        self.assertEqual(spatial(x=3, y=3), curl.resolution)
 
     def test_integrate_all(self):
         grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:10, 0:10])
