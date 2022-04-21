@@ -5,7 +5,7 @@ import plotly
 from phi import geom, field, math
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, SoftGeometryMask
 from phi.geom import Sphere, Box
-from phi.math import extrapolation, wrap, instance, channel, batch
+from phi.math import extrapolation, wrap, instance, channel, batch, spatial
 from phi.vis import show, overlay, plot
 import matplotlib.pyplot as plt
 
@@ -71,13 +71,14 @@ class TestMatplotlibPlots(TestCase):
         grid2 = CenteredGrid(grid, 0, Box[0:2, 0:1], x=20, y=50)
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         cloud = PointCloud(Sphere(points, radius=0.1), bounds=Box(0, [1, 1]))
-        self._test_plot(grid, grid2, cloud, row_dims='b')
+        titles = math.wrap([['b=0', 'b=0', 'points'], ['b=1', 'b=1', '']], spatial('rows,cols'))
+        self._test_plot(grid, grid2, cloud, row_dims='b', title=titles)
 
     def test_overlay(self):
         grid = CenteredGrid(Noise(), extrapolation.ZERO, x=64, y=8, bounds=Box(0, [1, 1]))
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         cloud = PointCloud(Sphere(points, radius=.1))
-        self._test_plot(overlay(grid, grid * (0.1, 0.02), cloud))
+        self._test_plot(overlay(grid, grid * (0.1, 0.02), cloud), title='Overlay')
 
     def test_plot_density_3d_batched(self):
         sphere = CenteredGrid(SoftGeometryMask(Sphere(x=.5, y=.5, z=.5, radius=.4)), x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1))
