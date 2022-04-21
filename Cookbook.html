@@ -14628,12 +14628,12 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>2022-04-21 20:17:56.207259: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
-2022-04-21 20:17:56.207298: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
-2022-04-21 20:17:58.351780: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcuda.so.1&#39;; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
-2022-04-21 20:17:58.351824: W tensorflow/stream_executor/cuda/cuda_driver.cc:269] failed call to cuInit: UNKNOWN ERROR (303)
-2022-04-21 20:17:58.351851: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (fv-az377-571): /proc/driver/nvidia/version does not exist
-2022-04-21 20:17:58.352225: I tensorflow/core/platform/cpu_feature_guard.cc:151] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
+<pre>2022-04-21 21:00:10.281801: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
+2022-04-21 21:00:10.281863: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2022-04-21 21:00:12.295900: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcuda.so.1&#39;; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
+2022-04-21 21:00:12.295934: W tensorflow/stream_executor/cuda/cuda_driver.cc:269] failed call to cuInit: UNKNOWN ERROR (303)
+2022-04-21 21:00:12.295956: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (fv-az377-571): /proc/driver/nvidia/version does not exist
+2022-04-21 21:00:12.296276: I tensorflow/core/platform/cpu_feature_guard.cc:151] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
 WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
 </pre>
@@ -15128,6 +15128,352 @@ Note that the shapes of the arrays must <a href="https://tum-pbs.github.io/PhiFl
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
 <pre>(1.573937478690371, -1.573937478690371) along batchᵇ</pre>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="Linear-Solve">Linear Solve<a class="anchor-link" href="#Linear-Solve">&#182;</a></h2>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[11]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span>
+
+
+<span class="n">math</span><span class="o">.</span><span class="n">solve_linear</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">Solve</span><span class="p">(</span><span class="s1">&#39;CG&#39;</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[11]:</div>
+
+
+
+
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre>42.0</pre>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="Sparse-Matrix-Construction">Sparse Matrix Construction<a class="anchor-link" href="#Sparse-Matrix-Construction">&#182;</a></h2>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[12]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+
+<span class="n">periodic_laplace</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">laplace</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="n">extrapolation</span><span class="o">.</span><span class="n">PERIODIC</span><span class="p">)</span>
+<span class="n">matrix</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">jit_compile_linear</span><span class="p">(</span><span class="n">periodic_laplace</span><span class="p">)</span><span class="o">.</span><span class="n">sparse_matrix</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">5</span><span class="p">)),</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;coo&#39;</span><span class="p">)</span>  <span class="c1"># csr, csc, coo</span>
+<span class="n">math</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">matrix</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>shape=(nnzⁱ=15)
+  1.,  1., -2.,  1.,  1., -2.,  1.,  1., -2.,  1.,  1., -2.,  1.,  1., -2.
+</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="Sampling-a-Function">Sampling a Function<a class="anchor-link" href="#Sampling-a-Function">&#182;</a></h2>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[13]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="nd">@math</span><span class="o">.</span><span class="n">map_s2b</span>  <span class="c1"># converts x and y dimensions to type batch before calling f(x)</span>
+<span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">l2_loss</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="n">vis</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">CenteredGrid</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">2</span><span class="p">)));</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+
+
+<div class="jp-RenderedImage jp-OutputArea-output ">
+<img src="data:image/png;base64,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
+"
+class="
+jp-needs-light-background
+"
+>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="Neural-Network-Training">Neural Network Training<a class="anchor-link" href="#Neural-Network-Training">&#182;</a></h2>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[14]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">net</span> <span class="o">=</span> <span class="n">dense_net</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">layers</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="s1">&#39;ReLU&#39;</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">adam</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">)</span>
+<span class="n">BATCH</span> <span class="o">=</span> <span class="n">batch</span><span class="p">(</span><span class="n">batch</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">loss_function</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+    <span class="n">prediction</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">native_call</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">l2_loss</span><span class="p">(</span><span class="n">prediction</span> <span class="o">-</span> <span class="n">label</span><span class="p">),</span> <span class="n">data</span><span class="p">,</span> <span class="n">label</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initial loss: </span><span class="si">{</span><span class="n">loss_function</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">random_normal</span><span class="p">(</span><span class="n">BATCH</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">loss</span><span class="p">,</span> <span class="n">_data</span><span class="p">,</span> <span class="n">_label</span> <span class="o">=</span> <span class="n">update_weights</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">loss_function</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">random_normal</span><span class="p">(</span><span class="n">BATCH</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final loss: </span><span class="si">{</span><span class="n">loss</span><span class="o">.</span><span class="n">mean</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">IndexError</span>                                Traceback (most recent call last)
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/jax/_src/device_array.py:235</span>, in <span class="ansi-cyan-fg">__len__</span><span class="ansi-blue-fg">(self)</span>
+<span class="ansi-green-intense-fg ansi-bold">    234</span> <span class="ansi-bold" style="color: rgb(0,135,0)">try</span>:
+<span class="ansi-green-fg">--&gt; 235</span>   <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">aval</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">shape</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">]</span>
+<span class="ansi-green-intense-fg ansi-bold">    236</span> <span class="ansi-bold" style="color: rgb(0,135,0)">except</span> <span class="ansi-bold" style="color: rgb(215,95,95)">IndexError</span> <span class="ansi-bold" style="color: rgb(0,135,0)">as</span> err:
+
+<span class="ansi-red-fg">IndexError</span>: tuple index out of range
+
+The above exception was the direct cause of the following exception:
+
+<span class="ansi-red-fg">TypeError</span>                                 Traceback (most recent call last)
+Input <span class="ansi-green-fg">In [14]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 10&gt;</span><span class="ansi-blue-fg">()</span>
+<span class="ansi-green-intense-fg ansi-bold">      7</span>     label <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>sin(data)
+<span class="ansi-green-intense-fg ansi-bold">      8</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> math<span style="color: rgb(98,98,98)">.</span>l2_loss(prediction <span style="color: rgb(98,98,98)">-</span> label), data, label
+<span class="ansi-green-fg">---&gt; 10</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Initial loss: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>loss_function(math<span style="color: rgb(98,98,98)">.</span>random_normal(BATCH))[<span style="color: rgb(98,98,98)">0</span>]<span style="color: rgb(98,98,98)">.</span>mean<span class="ansi-bold" style="color: rgb(175,95,135)">:</span><span style="color: rgb(175,0,0)">.2f</span><span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-intense-fg ansi-bold">     11</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> i <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">range</span>(<span style="color: rgb(98,98,98)">100</span>):
+<span class="ansi-green-intense-fg ansi-bold">     12</span>     loss, _data, _label <span style="color: rgb(98,98,98)">=</span> update_weights(net, optimizer, loss_function, data<span style="color: rgb(98,98,98)">=</span>math<span style="color: rgb(98,98,98)">.</span>random_normal(BATCH))
+
+Input <span class="ansi-green-fg">In [14]</span>, in <span class="ansi-cyan-fg">loss_function</span><span class="ansi-blue-fg">(data)</span>
+<span class="ansi-green-intense-fg ansi-bold">      5</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">loss_function</span>(data: Tensor):
+<span class="ansi-green-fg">----&gt; 6</span>     prediction <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">native_call</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">net</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">data</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      7</span>     label <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>sin(data)
+<span class="ansi-green-intense-fg ansi-bold">      8</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> math<span style="color: rgb(98,98,98)">.</span>l2_loss(prediction <span style="color: rgb(98,98,98)">-</span> label), data, label
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/math/_ops.py:286</span>, in <span class="ansi-cyan-fg">native_call</span><span class="ansi-blue-fg">(f, channels_last, channel_dim, *inputs)</span>
+<span class="ansi-green-intense-fg ansi-bold">    284</span>     groups <span style="color: rgb(98,98,98)">=</span> (batch, <span style="color: rgb(98,98,98)">*</span>i<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>names, i<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>channel) <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> channels_last <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> (batch, i<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>channel, <span style="color: rgb(98,98,98)">*</span>i<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>spatial<span style="color: rgb(98,98,98)">.</span>names)
+<span class="ansi-green-intense-fg ansi-bold">    285</span>     natives<span style="color: rgb(98,98,98)">.</span>append(reshaped_native(i, groups))
+<span class="ansi-green-fg">--&gt; 286</span> output <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">f</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">natives</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    287</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(channel_dim, <span style="color: rgb(0,135,0)">str</span>):
+<span class="ansi-green-intense-fg ansi-bold">    288</span>     channel_dim <span style="color: rgb(98,98,98)">=</span> channel(channel_dim)
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/torch/nn/modules/module.py:1110</span>, in <span class="ansi-cyan-fg">Module._call_impl</span><span class="ansi-blue-fg">(self, *input, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1106</span> <span style="color: rgb(95,135,135)"># If we don&#39;t have any hooks, we want to skip the rest of the logic in</span>
+<span class="ansi-green-intense-fg ansi-bold">   1107</span> <span style="color: rgb(95,135,135)"># this function, and just call forward.</span>
+<span class="ansi-green-intense-fg ansi-bold">   1108</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> (<span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_backward_hooks <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_forward_hooks <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_forward_pre_hooks <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> _global_backward_hooks
+<span class="ansi-green-intense-fg ansi-bold">   1109</span>         <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> _global_forward_hooks <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> _global_forward_pre_hooks):
+<span class="ansi-green-fg">-&gt; 1110</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg">forward_call</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">input</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">kwargs</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1111</span> <span style="color: rgb(95,135,135)"># Do not call functions when jit is used</span>
+<span class="ansi-green-intense-fg ansi-bold">   1112</span> full_backward_hooks, non_full_backward_hooks <span style="color: rgb(98,98,98)">=</span> [], []
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/torch/nets.py:122</span>, in <span class="ansi-cyan-fg">DenseNet.forward</span><span class="ansi-blue-fg">(self, x)</span>
+<span class="ansi-green-intense-fg ansi-bold">    120</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">forward</span>(<span style="color: rgb(0,135,0)">self</span>, x):
+<span class="ansi-green-intense-fg ansi-bold">    121</span>     register_module_call(<span style="color: rgb(0,135,0)">self</span>)
+<span class="ansi-green-fg">--&gt; 122</span>     x <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">TORCH</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">as_tensor</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    123</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> i <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">range</span>(<span style="color: rgb(0,135,0)">len</span>(<span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_layers) <span style="color: rgb(98,98,98)">-</span> <span style="color: rgb(98,98,98)">2</span>):
+<span class="ansi-green-intense-fg ansi-bold">    124</span>         x <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_activation()(<span style="color: rgb(0,135,0)">getattr</span>(<span style="color: rgb(0,135,0)">self</span>, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">linear</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>i<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span>)(x))
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/phi/torch/_torch_backend.py:79</span>, in <span class="ansi-cyan-fg">TorchBackend.as_tensor</span><span class="ansi-blue-fg">(self, x, convert_external)</span>
+<span class="ansi-green-intense-fg ansi-bold">     77</span>         tensor <span style="color: rgb(98,98,98)">=</span> torch<span style="color: rgb(98,98,98)">.</span>stack(components, dim<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">0</span>)
+<span class="ansi-green-intense-fg ansi-bold">     78</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-fg">---&gt; 79</span>     tensor <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">torch</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">tensor</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">device</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">get_default_device</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">ref</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     80</span> <span style="color: rgb(95,135,135)"># --- Enforce Precision ---</span>
+<span class="ansi-green-intense-fg ansi-bold">     81</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>is_tensor(tensor, only_native<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">True</span>):
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/jax/_src/device_array.py:237</span>, in <span class="ansi-cyan-fg">__len__</span><span class="ansi-blue-fg">(self)</span>
+<span class="ansi-green-intense-fg ansi-bold">    235</span>   <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>aval<span style="color: rgb(98,98,98)">.</span>shape[<span style="color: rgb(98,98,98)">0</span>]
+<span class="ansi-green-intense-fg ansi-bold">    236</span> <span class="ansi-bold" style="color: rgb(0,135,0)">except</span> <span class="ansi-bold" style="color: rgb(215,95,95)">IndexError</span> <span class="ansi-bold" style="color: rgb(0,135,0)">as</span> err:
+<span class="ansi-green-fg">--&gt; 237</span>   <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">TypeError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">len() of unsized object</span><span style="color: rgb(175,0,0)">&#34;</span>) <span class="ansi-bold" style="color: rgb(0,135,0)">from</span> <span class="ansi-bold" style="color: rgb(0,0,255)">err</span>
+
+<span class="ansi-red-fg">TypeError</span>: len() of unsized object</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="Parameter-Count">Parameter Count<a class="anchor-link" href="#Parameter-Count">&#182;</a></h2>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[15]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">parameter_count</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[15]:</div>
+
+
+
+
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre>97</pre>
 </div>
 
 </div>
