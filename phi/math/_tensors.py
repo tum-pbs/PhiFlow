@@ -821,7 +821,7 @@ class TensorDim:
         return self.tensor.shape.get_item_names(self.name)
 
     def __getitem__(self, item):
-        if isinstance(item, (int, slice, np.ndarray)):
+        if isinstance(item, (int, slice)):
             return self.tensor[{self.name: item}]
         if isinstance(item, Shape):
             item = item.names
@@ -845,11 +845,19 @@ class TensorDim:
             item_names = [str(n) for n in item]
             stack_dim = self.tensor.shape.only(self.name) if self.exists else channel(self.name)
             return stack({n: r for n, r in zip(item_names, result)}, stack_dim)
-        elif isinstance(item, Tensor) and item.dtype == DType(bool):
+        elif isinstance(item, Tensor) and item.dtype.kind == bool:
             from ._ops import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
+        elif isinstance(item, Tensor) and item.dtype.kind == int:
+            from ._ops import gather
+            return gather(self.tensor, item, dims=self.name)
         else:
-            raise ValueError(f"Syntax tensor[{type(item)}] not supported")
+            try:
+                backend = choose_backend(item)
+                assert backend.staticshape(item) == () and backend.dtype(item).kind == int, f"Can only slice Tensor with scalar int tensor but got {item}"
+                return self.tensor[{self.name: item}]
+            except NoBackendFound:
+                raise ValueError(f"Slicing tensor.{self.name}[{type(item)}] not supported")
 
     def __iter__(self):
         """ Iterate over slices along this dim """
