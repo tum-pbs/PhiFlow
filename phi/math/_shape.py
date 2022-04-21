@@ -984,7 +984,7 @@ def _construct_shape(dim_type: str, *args, **dims):
     return math.Shape(sizes, names, (dim_type,) * len(sizes), item_names)
 
 
-def spatial(*args, **dims: int) -> Shape:
+def spatial(*args, **dims: int or str or tuple or list) -> Shape:
     """
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.
 
@@ -1029,7 +1029,7 @@ def spatial(*args, **dims: int) -> Shape:
         raise AssertionError(f"spatial() must be called either as a selector spatial(Shape) or spatial(Tensor) or as a constructor spatial(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def channel(*args, **dims: int or str) -> Shape:
+def channel(*args, **dims: int or str or tuple or list) -> Shape:
     """
     Returns the channel dimensions of an existing `Shape` or creates a new `Shape` with only channel dimensions.
 
@@ -1078,7 +1078,7 @@ def channel(*args, **dims: int or str) -> Shape:
         raise AssertionError(f"channel() must be called either as a selector channel(Shape) or channel(Tensor) or as a constructor channel(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def batch(*args, **dims: int or str) -> Shape:
+def batch(*args, **dims: int or str or tuple or list) -> Shape:
     """
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
@@ -1123,7 +1123,7 @@ def batch(*args, **dims: int or str) -> Shape:
         raise AssertionError(f"batch() must be called either as a selector batch(Shape) or batch(Tensor) or as a constructor batch(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def instance(*args, **dims: int) -> Shape:
+def instance(*args, **dims: int or str or tuple or list) -> Shape:
     """
     Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
 
@@ -1205,7 +1205,7 @@ def merge_shapes(*shapes: Shape, order=(batch, instance, spatial, channel)):
                         raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
                     names1 = type_group.get_item_names(dim)
                     names2 = shape.get_item_names(dim)
-                    if names1 is not None and names2 is not None:
+                    if names1 is not None and names2 is not None and len(names1) > 1:
                         if names1 != names2:
                             raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
                     elif names1 is None and names2 is not None:
