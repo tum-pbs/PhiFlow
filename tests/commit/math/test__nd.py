@@ -28,7 +28,7 @@ class TestMathNDNumpy(TestCase):
         cases = dict(difference=('central', 'forward', 'backward'),
                      padding=(extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
                      dx=(0.1, 1),
-                     dims=(None, ('x', 'y'), ))
+                     dims=(spatial, ('x', 'y'), ))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             grad = math.spatial_gradient(meshgrid, **case_dict)
             inner = grad.x[1:-1].y[1:-1]
