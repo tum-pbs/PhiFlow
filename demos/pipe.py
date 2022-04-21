@@ -5,7 +5,7 @@ from phi.flow import *
 
 DOMAIN = dict(x=50, y=32, extrapolation=extrapolation.combine_sides(x=extrapolation.BOUNDARY, y=extrapolation.ZERO))
 DT = 1.0
-BOUNDARY_MASK = StaggeredGrid(HardGeometryMask(Box(x=(-INF, 0.5), y=None)), **DOMAIN)
+BOUNDARY_MASK = StaggeredGrid(Box(x=(-INF, 0.5), y=None), **DOMAIN)
 velocity = StaggeredGrid(0, **DOMAIN)
 pressure = None
 
