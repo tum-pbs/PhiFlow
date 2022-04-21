@@ -1634,6 +1634,11 @@ The output of math operations has the same precision as its inputs.</p>
         return self.prod(self.shape(array))
 
     def multi_slice(self, tensor, slices: tuple):
+        &#34;&#34;&#34;
+        Args:
+            tensor: value to slice
+            slices: `tuple` of `slice`, `int`, or scalar integer tensors
+        &#34;&#34;&#34;
         return tensor[slices]
 
     def batch_gather(self, tensor, batches):
@@ -3521,12 +3526,23 @@ This method need not provide a gradient for the operation.</p>
 <span>def <span class="ident">multi_slice</span></span>(<span>self, tensor, slices: tuple)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>value to slice</dd>
+<dt><strong><code>slices</code></strong></dt>
+<dd><code>tuple</code> of <code>slice</code>, <code>int</code>, or scalar integer tensors</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def multi_slice(self, tensor, slices: tuple):
+    &#34;&#34;&#34;
+    Args:
+        tensor: value to slice
+        slices: `tuple` of `slice`, `int`, or scalar integer tensors
+    &#34;&#34;&#34;
     return tensor[slices]</code></pre>
 </details>
 </dd>

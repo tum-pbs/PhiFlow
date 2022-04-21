@@ -7700,7 +7700,7 @@ This is the default implementation.</p>
         for i, c_arg in enumerate(condition_args):
             kwargs[f&#39;_condition_arg[{i}]&#39;] = c_arg
         key, _ = key_from_args(x, cache=False, **kwargs)
-        assert key.backend.supports(Backend.sparse_coo_tensor)
+        # assert key.backend.supports(Backend.sparse_coo_tensor)
         return key
 
     def stencil_inspector(self, *args, **kwargs):
@@ -11461,7 +11461,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         return self.tensor.shape.get_item_names(self.name)
 
     def __getitem__(self, item):
-        if isinstance(item, (int, slice, np.ndarray)):
+        if isinstance(item, (int, slice)):
             return self.tensor[{self.name: item}]
         if isinstance(item, Shape):
             item = item.names
@@ -11485,11 +11485,19 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
             item_names = [str(n) for n in item]
             stack_dim = self.tensor.shape.only(self.name) if self.exists else channel(self.name)
             return stack({n: r for n, r in zip(item_names, result)}, stack_dim)
-        elif isinstance(item, Tensor) and item.dtype == DType(bool):
+        elif isinstance(item, Tensor) and item.dtype.kind == bool:
             from ._ops import boolean_mask
             return boolean_mask(self.tensor, self.name, item)
+        elif isinstance(item, Tensor) and item.dtype.kind == int:
+            from ._ops import gather
+            return gather(self.tensor, item, dims=self.name)
         else:
-            raise ValueError(f&#34;Syntax tensor[{type(item)}] not supported&#34;)
+            try:
+                backend = choose_backend(item)
+                assert backend.staticshape(item) == () and backend.dtype(item).kind == int, f&#34;Can only slice Tensor with scalar int tensor but got {item}&#34;
+                return self.tensor[{self.name: item}]
+            except NoBackendFound:
+                raise ValueError(f&#34;Slicing tensor.{self.name}[{type(item)}] not supported&#34;)
 
     def __iter__(self):
         &#34;&#34;&#34; Iterate over slices along this dim &#34;&#34;&#34;
