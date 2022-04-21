@@ -320,3 +320,11 @@ class TestFunctional(TestCase):
                     math.assert_close(2, H.v1[0].v2[0].batch[0], H.v1[1].v2[1].batch[0], H.v1[2].v2[2].batch[0], msg=backend.name)
                     math.assert_close(4, H.v1[0].v2[0].batch[1], H.v1[1].v2[1].batch[1], H.v1[2].v2[2].batch[1], msg=backend.name)
 
+    def test_sparse_matrix(self):
+        for backend in BACKENDS:
+            with backend:
+                for f in ['csr', 'csc', 'coo']:
+                    matrix = math.jit_compile_linear(math.laplace).sparse_matrix(math.zeros(spatial(x=5)), format=f)
+                    self.assertEqual(f, matrix.indexing_type)
+                    self.assertEqual((5, 5), matrix.shape)
+

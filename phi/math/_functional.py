@@ -277,7 +277,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         for i, c_arg in enumerate(condition_args):
             kwargs[f'_condition_arg[{i}]'] = c_arg
         key, _ = key_from_args(x, cache=False, **kwargs)
-        assert key.backend.supports(Backend.sparse_coo_tensor)
+        # assert key.backend.supports(Backend.sparse_coo_tensor)
         return key
 
     def stencil_inspector(self, *args, **kwargs):
@@ -813,7 +813,7 @@ class ShiftLinTracer(Tensor):
         if coo.values.nnz.size != len(scipy_csr.data):
             warnings.warn("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.", RuntimeWarning)
             return coo
-        values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
+        values = coo.values.nnz[wrap(scipy_csr.data - 1, instance('nnz'))]  # Change order accordingly
         self._sparse_csr = SparseMatrixContainer('csr', coo.shape, coo.indices_key, coo.src_shape, values, row_ptr, col_indices)
         return self._sparse_csr
 
@@ -833,7 +833,7 @@ class ShiftLinTracer(Tensor):
         if coo.values.nnz.size != len(scipy_csr.data):
             warnings.warn("Failed to create CSR matrix because the CSR matrix contains fewer non-zero values than COO. This can happen when the `x` tensor is too small for the stencil.", RuntimeWarning)
             return coo
-        values = coo.values.nnz[scipy_csr.data - 1]  # Change order accordingly
+        values = coo.values.nnz[wrap(scipy_csr.data - 1, instance('nnz'))]  # Change order accordingly
         self._sparse_csc = SparseMatrixContainer('csc', coo.shape, coo.indices_key, coo.src_shape, values, row_indices, col_ptr)
         return self._sparse_csc
 
@@ -845,7 +845,7 @@ class ShiftLinTracer(Tensor):
                 matrix_format = 'csr'
             else:
                 matrix_format = 'coo'
-        if matrix_format == 'csr':
+        if matrix_format == 'csc':
             return self.get_sparse_csc_matrix()
         if matrix_format == 'csr':
             return self.get_sparse_csr_matrix()

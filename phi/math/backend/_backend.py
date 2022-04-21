@@ -1173,6 +1173,11 @@ class Backend:
         return self.prod(self.shape(array))
 
     def multi_slice(self, tensor, slices: tuple):
+        """
+        Args:
+            tensor: value to slice
+            slices: `tuple` of `slice`, `int`, or scalar integer tensors
+        """
         return tensor[slices]
 
     def batch_gather(self, tensor, batches):
