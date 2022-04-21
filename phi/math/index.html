@@ -5738,7 +5738,7 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 
     &#34;&#34;&#34;
     grid = wrap(grid)
-    if stack_dim in grid.shape:
+    if stack_dim is not None and stack_dim in grid.shape:
         assert grid.shape.only(stack_dim).size == 1, f&#34;spatial_gradient() cannot list components along {stack_dim.name} because that dimension already exists on grid {grid}&#34;
         grid = grid[{stack_dim.name: 0}]
     if difference.lower() == &#39;central&#39;:
