@@ -170,17 +170,13 @@ class JaxBackend(Backend):
             @wraps(f)
             def aux_f(*args):
                 output = f(*args)
-                if isinstance(output, (tuple, list)) and len(output) == 1:
-                    output = output[0]
-                result = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-                if result[0].ndim > 0:
-                    result = jnp.sum(result[0]), result[1]
-                return result
+                output = output if isinstance(output, (tuple, list)) else [output]
+                return jnp.sum(output[0]), output
             jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
             @wraps(f)
             def unwrap_outputs(*args):
-                (loss, aux), grads = jax_grad_f(*args)
-                return (loss, *aux, *grads) if aux is not None else (loss, *grads)
+                (_, output_tuple), grads = jax_grad_f(*args)
+                return (*output_tuple, *grads)
             return unwrap_outputs
         else:
             @wraps(f)
