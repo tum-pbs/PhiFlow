@@ -357,9 +357,11 @@ def spatial_gradient(grid: Tensor,
         assert grid.shape.only(stack_dim).size == 1, f"spatial_gradient() cannot list components along {stack_dim.name} because that dimension already exists on grid {grid}"
         grid = grid[{stack_dim.name: 0}]
     dims = grid.shape.only(dims)
-    dx = wrap(dx).vector[dims]
-    if dx.vector.size == 1:
-        dx = dx.vector[0]
+    dx = wrap(dx)
+    if dx.vector.exists:
+        dx = dx.vector[dims]
+        if dx.vector.size == 1:
+            dx = dx.vector[0]
     if difference.lower() == 'central':
         left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / (dx * 2)
