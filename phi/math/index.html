@@ -530,7 +530,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def batch(*args, **dims: int or str) -&gt; Shape:
+<pre><code class="python">def batch(*args, **dims: int or str or tuple or list) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
@@ -744,7 +744,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def channel(*args, **dims: int or str) -&gt; Shape:
+<pre><code class="python">def channel(*args, **dims: int or str or tuple or list) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the channel dimensions of an existing `Shape` or creates a new `Shape` with only channel dimensions.
 
@@ -2609,7 +2609,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def instance(*args, **dims: int) -&gt; Shape:
+<pre><code class="python">def instance(*args, **dims: int or str or tuple or list) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
 
@@ -3486,7 +3486,7 @@ However, <code>spatial(x=5, y=4)</code> can be combined with <code>spatial(y=4, 
                         raise IncompatibleShapes(f&#34;Cannot merge shapes {shapes} because dimension &#39;{dim.name}&#39; exists with different sizes.&#34;, *shapes)
                     names1 = type_group.get_item_names(dim)
                     names2 = shape.get_item_names(dim)
-                    if names1 is not None and names2 is not None:
+                    if names1 is not None and names2 is not None and len(names1) &gt; 1:
                         if names1 != names2:
                             raise IncompatibleShapes(f&#34;Cannot merge shapes {shapes} because dimension &#39;{dim.name}&#39; exists with different item names.&#34;, *shapes)
                     elif names1 is None and names2 is not None:
@@ -5643,7 +5643,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def spatial(*args, **dims: int) -&gt; Shape:
+<pre><code class="python">def spatial(*args, **dims: int or str or tuple or list) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.
 
@@ -5689,7 +5689,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: str = &lt;function spatial&gt;, stack_dim: phi.math._shape.Shape = (gradientᶜ=None))</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: str = &lt;function spatial&gt;, stack_dim: phi.math._shape.Shape = (gradientᶜ=None)) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -5710,7 +5710,7 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 <dd>name of the new vector dimension listing the spatial_gradient w.r.t. the various axes</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>tensor of shape (batch_size, spatial_dimensions&hellip;, spatial rank)</p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5720,7 +5720,7 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
                      difference: str = &#39;central&#39;,
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: str or Shape or tuple or list or Callable or None = spatial,
-                     stack_dim: Shape = channel(&#39;gradient&#39;)):
+                     stack_dim: Shape or None = channel(&#39;gradient&#39;)) -&gt; Tensor:
     &#34;&#34;&#34;
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
@@ -5734,13 +5734,16 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
       stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
 
     Returns:
-      tensor of shape (batch_size, spatial_dimensions..., spatial rank)
-
+        `Tensor`
     &#34;&#34;&#34;
     grid = wrap(grid)
     if stack_dim is not None and stack_dim in grid.shape:
         assert grid.shape.only(stack_dim).size == 1, f&#34;spatial_gradient() cannot list components along {stack_dim.name} because that dimension already exists on grid {grid}&#34;
         grid = grid[{stack_dim.name: 0}]
+    dims = grid.shape.only(dims)
+    dx = wrap(dx).vector[dims]
+    if dx.vector.size == 1:
+        dx = dx.vector[0]
     if difference.lower() == &#39;central&#39;:
         left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / (dx * 2)
@@ -10528,7 +10531,10 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                     return str(self.numpy())
                 elif self.shape.volume is not None and self.shape.volume &lt;= 6:
                     content = list(np.reshape(self.numpy(self.shape.names), [-1]))
-                    content = &#39;, &#39;.join([repr(number) for number in content])
+                    if self.shape.rank == 1 and self.shape.get_item_names(0) is not None:
+                        content = &#34;, &#34;.join([f&#34;{item}={number}&#34; for number, item in zip(content, self.shape.get_item_names(0))])
+                    else:
+                        content = &#39;, &#39;.join([repr(number) for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
                         if self.shape.name == &#39;vector&#39; and self.shape.type == CHANNEL_DIM:
                             return f&#34;({content})&#34;

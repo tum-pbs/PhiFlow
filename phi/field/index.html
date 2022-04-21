@@ -418,19 +418,32 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <pre><code class="python">def curl(field: Grid, type: type = CenteredGrid):
     &#34;&#34;&#34; Computes the finite-difference curl of the give 2D `StaggeredGrid`. &#34;&#34;&#34;
     assert field.spatial_rank in (2, 3), &#34;curl is only defined in 2 and 3 spatial dimensions.&#34;
-    if isinstance(field, CenteredGrid) and &#39;vector&#39; not in field.shape and field.spatial_rank == 2 and type == StaggeredGrid:
-        # 2D curl of scalar field
-        grad = math.spatial_gradient(field.values, dx=field.dx, difference=&#39;forward&#39;, padding=None, stack_dim=channel(&#39;vector&#39;))
-        result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
-        bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
-        return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
-    if isinstance(field, CenteredGrid) and &#39;vector&#39; in field.shape and field.spatial_rank == 2 and type == CenteredGrid:
-        # 2D curl of vector field
-        x, y = field.shape.spatial.names
-        vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
-        vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
-        c = vy_dx - vx_dy
-        return field.with_values(c)
+    if isinstance(field, CenteredGrid) and field.spatial_rank == 2:
+        if &#39;vector&#39; not in field.shape and type == StaggeredGrid:
+            # 2D curl of scalar field
+            grad = math.spatial_gradient(field.values, dx=field.dx, difference=&#39;forward&#39;, padding=None, stack_dim=channel(&#39;vector&#39;))
+            result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
+            bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
+            return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
+        if &#39;vector&#39; in field.shape and type == CenteredGrid:
+            # 2D curl of vector field
+            x, y = field.shape.spatial.names
+            vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
+            vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
+            c = vy_dx - vx_dy
+            return field.with_values(c)
+    elif isinstance(field, StaggeredGrid) and field.spatial_rank == 2:
+        if type == CenteredGrid:
+            for dim in field.resolution.names:
+                l, u = field.extrapolation.valid_outer_faces(dim)
+                assert l == u, &#34;periodic extrapolation not yet supported&#34;
+            values = bake_extrapolation(field).values
+            x_padded = math.pad(values.vector[&#39;x&#39;], {&#39;y&#39;: (1, 1)}, field.extrapolation)
+            y_padded = math.pad(values.vector[&#39;y&#39;], {&#39;x&#39;: (1, 1)}, field.extrapolation)
+            vx_dy = math.spatial_gradient(x_padded, field.dx, &#39;forward&#39;, None, dims=&#39;y&#39;, stack_dim=None)
+            vy_dx = math.spatial_gradient(y_padded, field.dx, &#39;forward&#39;, None, dims=&#39;x&#39;, stack_dim=None)
+            result = vx_dy - vy_dx
+            return CenteredGrid(result, field.extrapolation.spatial_gradient(), bounds=field.bounds)
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -473,8 +486,8 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     if isinstance(field, StaggeredGrid):
         field = bake_extrapolation(field)
         components = []
-        for i, dim in enumerate(field.shape.spatial.names):
-            div_dim = math.spatial_gradient(field.values.vector[i], dx=field.dx[i], difference=&#39;forward&#39;, padding=None, dims=[dim]).gradient[0]
+        for dim in field.shape.spatial.names:
+            div_dim = math.spatial_gradient(field.values.vector[dim], field.dx, &#39;forward&#39;, None, dims=dim, stack_dim=None)
             components.append(div_dim)
         data = math.sum(components, dim=&#39;0&#39;)
         return CenteredGrid(data, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
@@ -1396,7 +1409,7 @@ The function output must have the same dimension layout as the inputs and the ba
     Returns:
         `SampledField` matching the first `SampledField` in `inputs`.
     &#34;&#34;&#34;
-    input_tensors = [i.values if isinstance(i, SampledField) else Tensor(i) for i in inputs]
+    input_tensors = [i.values if isinstance(i, SampledField) else tensor(i) for i in inputs]
     values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, SampledField):
@@ -1731,8 +1744,7 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 <dd>tuple: </dd>
 <dt><strong><code>stack_dim</code></strong></dt>
 <dd>(Default value = 'shift')</dd>
-</dl>
-<p>Returns:</p></div>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1745,9 +1757,6 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
       grid: CenteredGrid: 
       offsets: tuple: 
       stack_dim:  (Default value = &#39;shift&#39;)
-
-    Returns:
-
     &#34;&#34;&#34;
     data = math.shift(grid.values, offsets, padding=grid.extrapolation, stack_dim=stack_dim)
     return [CenteredGrid(data[i], bounds=grid.bounds, extrapolation=grid.extrapolation) for i in range(len(offsets))]</code></pre>
@@ -3313,6 +3322,9 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
     &#34;&#34;&#34;
 
     def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, resolution: Shape, bounds: Box):
+        if bounds.size.vector.item_names is None:
+            with NUMPY:
+                bounds = bounds.shifted(math.zeros(channel(vector=spatial(values).names)))
         SampledField.__init__(self, elements, values, extrapolation, bounds)
         assert values.shape.spatial_rank == elements.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
         assert values.shape.spatial_rank == bounds.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
