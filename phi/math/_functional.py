@@ -838,14 +838,21 @@ class ShiftLinTracer(Tensor):
         return self._sparse_csc
 
     def get_sparse_matrix(self, matrix_format: str = None) -> 'SparseMatrixContainer':
-        if self.default_backend.supports(Backend.csc_matrix) and matrix_format in (None, 'csc'):
+        if matrix_format is None:
+            if self.default_backend.supports(Backend.csc_matrix):
+                matrix_format = 'csc'
+            elif self.default_backend.supports(Backend.csr_matrix):
+                matrix_format = 'csr'
+            else:
+                matrix_format = 'coo'
+        if matrix_format == 'csr':
             return self.get_sparse_csc_matrix()
-        if self.default_backend.supports(Backend.csr_matrix) and matrix_format in (None, 'csr'):
+        if matrix_format == 'csr':
             return self.get_sparse_csr_matrix()
-        elif self.default_backend.supports(Backend.sparse_coo_tensor) and matrix_format in (None, 'coo'):
+        elif matrix_format == 'coo':
             return self.get_sparse_coordinate_matrix()
         else:
-            raise NotImplementedError(f"Cannot create sparse matrix using backend '{self.default_backend}' given type '{matrix_format}'")
+            raise NotImplementedError(f"Unsupported sparse matrix format: '{matrix_format}'")
 
     @property
     def dependent_dims(self):
