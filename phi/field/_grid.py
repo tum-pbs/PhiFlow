@@ -145,6 +145,7 @@ class CenteredGrid(Grid):
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
                 * `phi.math.Tensor` compatible with grid dims: uses tensor values as grid values
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                    The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
                 Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
@@ -171,7 +172,7 @@ class CenteredGrid(Grid):
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
-                values = values(elements.center)
+                values = math.map_s2b(values)(elements.center)
                 assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
             else:
                 if isinstance(values, (tuple, list)) and len(values) == resolution.rank:
@@ -235,7 +236,6 @@ class StaggeredGrid(Grid):
     
     Staggered grids support batch and spatial dimensions but only one channel dimension for the staggered vector components.
 
-
     See Also:
         `CenteredGrid`,
         `Grid`,
@@ -263,6 +263,7 @@ class StaggeredGrid(Grid):
                   Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
                   Use `phi.math.stack()` to manually create this non-uniform tensor.
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                    The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
                 Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
@@ -295,7 +296,7 @@ class StaggeredGrid(Grid):
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
-                values = values(elements.center)
+                values = math.map_s2b(values)(elements.center)
                 if elements.shape.shape.rank > 1:  # Different number of X and Y faces
                     assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
                 assert 'staggered_direction' in values.shape
