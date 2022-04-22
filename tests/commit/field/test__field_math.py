@@ -9,7 +9,6 @@ from phi.geom import Box, Sphere
 from phi import field
 from phi.math import extrapolation, instance, channel, spatial, batch
 from phi.math.backend import Backend
-from phi.physics._boundaries import Domain
 
 BACKENDS = phi.detect_backends()
 
