@@ -6121,11 +6121,11 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             data = array
         else:
             inner_shape = [] if shape is None else [shape[1:]]
-            elements = [tensor(d, *inner_shape, convert=convert) for d in data]
-            common_shape = merge_shapes(*[e.shape for e in elements])
-            stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(elements)])
-            assert all(stack_dim not in t.shape for t in elements), f&#34;Cannot stack tensors with dimension &#39;{stack_dim}&#39; because a tensor already has that dimension.&#34;
-            elements = [CollapsedTensor(e, common_shape) if e.shape.rank &lt; common_shape.rank else e for e in elements]
+            tensors = [d if isinstance(d, Tensor) else tensor(d, *inner_shape, convert=convert) for d in data]
+            common_shape = merge_shapes(*[e.shape for e in tensors])
+            stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(tensors)])
+            assert all(stack_dim not in t.shape for t in tensors), f&#34;Cannot stack tensors with dimension &#39;{stack_dim}&#39; because a tensor already has that dimension.&#34;
+            elements = [CollapsedTensor(e, common_shape) if e.shape.rank &lt; common_shape.rank else e for e in tensors]
             from ._ops import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, stack_dim)
