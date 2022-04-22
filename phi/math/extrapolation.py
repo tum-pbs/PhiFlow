@@ -288,6 +288,8 @@ class ConstantExtrapolation(Extrapolation):
     def __sub__(self, other):
         if isinstance(other, ConstantExtrapolation):
             return ConstantExtrapolation(self.value - other.value)
+        elif self.is_zero():
+            return -other
         else:
             return NotImplemented
 
@@ -420,11 +422,7 @@ class _CopyExtrapolation(Extrapolation):
             return self
         if isinstance(other, ConstantExtrapolation):  # some operations can be handled by ConstantExtrapolation, e.g. * 0
             op = getattr(other, op.__name__)
-            const_result = op(self)
-            if const_result is NotImplemented:
-                return self
-            else:
-                return const_result
+            return op(self)
         else:
             return NotImplemented
 

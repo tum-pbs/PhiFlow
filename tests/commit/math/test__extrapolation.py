@@ -147,6 +147,8 @@ class TestExtrapolation(TestCase):
         self.assertEqual(ext, ZERO + ext)
         self.assertEqual(-ext, ZERO - ext)
         self.assertEqual(ext, ONE * ext)
-        self.assertEqual(ext, ONE / ext)
+        self.assertEqual(ZERO, ZERO / ext)
+        self.assertEqual(ZERO, ZERO * ext)
+        self.assertEqual(ZERO, ext * ZERO)
         self.assertEqual(ext, abs(ext))
 
