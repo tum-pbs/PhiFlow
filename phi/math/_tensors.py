@@ -1547,11 +1547,11 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             data = array
         else:
             inner_shape = [] if shape is None else [shape[1:]]
-            elements = [tensor(d, *inner_shape, convert=convert) for d in data]
-            common_shape = merge_shapes(*[e.shape for e in elements])
-            stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(elements)])
-            assert all(stack_dim not in t.shape for t in elements), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
-            elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in elements]
+            tensors = [d if isinstance(d, Tensor) else tensor(d, *inner_shape, convert=convert) for d in data]
+            common_shape = merge_shapes(*[e.shape for e in tensors])
+            stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(tensors)])
+            assert all(stack_dim not in t.shape for t in tensors), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
+            elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in tensors]
             from ._ops import cast_same
             elements = cast_same(*elements)
             return TensorStack(elements, stack_dim)
