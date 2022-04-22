@@ -136,3 +136,17 @@ class TestExtrapolation(TestCase):
         math.assert_close(0, p.vector['y'].x[1:-1].y[0])
         math.assert_close(0, p.vector['y'].x[1:-1].y[-1])
         math.print(p)
+
+    def test_normal_tangential_math(self):
+        ext = combine_by_direction(normal=ONE, tangential=PERIODIC)
+        self.assertEqual(combine_by_direction(normal=ZERO, tangential=ZERO), ext * ZERO)
+        self.assertEqual(ext, ext + ZERO)
+        self.assertEqual(ext, ext - ZERO)
+        self.assertEqual(ext, ext * ONE)
+        self.assertEqual(ext, ext / ONE)
+        self.assertEqual(ext, ZERO + ext)
+        self.assertEqual(-ext, ZERO - ext)
+        self.assertEqual(ext, ONE * ext)
+        self.assertEqual(ext, ONE / ext)
+        self.assertEqual(ext, abs(ext))
+

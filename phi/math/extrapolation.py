@@ -144,6 +144,36 @@ class Extrapolation:
     def __getitem__(self, item):
         return self
 
+    def __abs__(self):
+        raise NotImplementedError(self.__class__)
+
+    def __neg__(self):
+        raise NotImplementedError(self.__class__)
+
+    def __add__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __radd__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __sub__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __rsub__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __mul__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __rmul__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __truediv__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __rtruediv__(self, other):
+        raise NotImplementedError(self.__class__)
+
 
 class ConstantExtrapolation(Extrapolation):
     """
@@ -253,6 +283,8 @@ class ConstantExtrapolation(Extrapolation):
         else:
             return NotImplemented
 
+    __radd__ = __add__
+
     def __sub__(self, other):
         if isinstance(other, ConstantExtrapolation):
             return ConstantExtrapolation(self.value - other.value)
@@ -276,6 +308,8 @@ class ConstantExtrapolation(Extrapolation):
             return self
         else:
             return NotImplemented
+
+    __rmul__ = __mul__
 
     def __truediv__(self, other):
         if isinstance(other, ConstantExtrapolation):
@@ -384,23 +418,39 @@ class _CopyExtrapolation(Extrapolation):
     def _op(self, other, op):
         if type(other) == type(self):
             return self
-        elif isinstance(other, Extrapolation) and not isinstance(other, _CopyExtrapolation):
+        if isinstance(other, ConstantExtrapolation):  # some operations can be handled by ConstantExtrapolation, e.g. * 0
             op = getattr(other, op.__name__)
-            return op(self)
+            const_result = op(self)
+            if const_result is NotImplemented:
+                return self
+            else:
+                return const_result
         else:
             return NotImplemented
 
     def __add__(self, other):
         return self._op(other, ConstantExtrapolation.__add__)
 
+    def __radd__(self, other):
+        return self._op(other, ConstantExtrapolation.__add__)
+
     def __mul__(self, other):
+        return self._op(other, ConstantExtrapolation.__mul__)
+
+    def __rmul__(self, other):
         return self._op(other, ConstantExtrapolation.__mul__)
 
     def __sub__(self, other):
         return self._op(other, ConstantExtrapolation.__rsub__)
 
+    def __rsub__(self, other):
+        return self._op(other, ConstantExtrapolation.__sub__)
+
     def __truediv__(self, other):
         return self._op(other, ConstantExtrapolation.__rtruediv__)
+
+    def __rtruediv__(self, other):
+        return self._op(other, ConstantExtrapolation.__truediv__)
 
     def __lt__(self, other):
         return self._op(other, ConstantExtrapolation.__gt__)
@@ -794,12 +844,24 @@ class _MixedExtrapolation(Extrapolation):
     def __rmul__(self, other):
         return self._op2(other, lambda e1, e2: e2 * e1)
 
+    def __truediv__(self, other):
+        return self._op2(other, lambda e1, e2: e1 / e2)
+
+    def __rtruediv__(self, other):
+        return self._op2(other, lambda e1, e2: e2 / e1)
+
     def _op2(self, other, operator):
         if isinstance(other, _MixedExtrapolation):
             assert self.ext.keys() == other.ext.keys()
             return combine_sides(**{ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
         else:
             return combine_sides(**{ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
+
+    def __abs__(self):
+        return combine_sides(**{ax: (abs(lo), abs(up)) for ax, (lo, up) in self.ext.items()})
+
+    def __neg__(self):
+        return combine_sides(**{ax: (-lo, -up) for ax, (lo, up) in self.ext.items()})
 
 
 class _NormalTangentialExtrapolation(Extrapolation):
@@ -815,6 +877,9 @@ class _NormalTangentialExtrapolation(Extrapolation):
             'normal': self.normal.to_dict(),
             'tangential': self.tangential.to_dict(),
         }
+
+    def __repr__(self):
+        return f"normal={self.normal}, tangential={self.tangential}"
 
     def spatial_gradient(self) -> 'Extrapolation':
         return combine_by_direction(self.normal.spatial_gradient(), self.tangential.spatial_gradient())
@@ -839,6 +904,45 @@ class _NormalTangentialExtrapolation(Extrapolation):
         from ._ops import stack
         result = stack(result, value.shape.only('vector'))
         return result
+
+    def __eq__(self, other):
+        return isinstance(other, _NormalTangentialExtrapolation) and self.normal == other.normal and self.tangential == other.tangential
+
+    def __add__(self, other):
+        return self._op2(other, lambda e1, e2: e1 + e2)
+
+    def __radd__(self, other):
+        return self._op2(other, lambda e1, e2: e2 + e1)
+
+    def __sub__(self, other):
+        return self._op2(other, lambda e1, e2: e1 - e2)
+
+    def __rsub__(self, other):
+        return self._op2(other, lambda e1, e2: e2 - e1)
+
+    def __mul__(self, other):
+        return self._op2(other, lambda e1, e2: e1 * e2)
+
+    def __rmul__(self, other):
+        return self._op2(other, lambda e1, e2: e2 * e1)
+
+    def __truediv__(self, other):
+        return self._op2(other, lambda e1, e2: e1 / e2)
+
+    def __rtruediv__(self, other):
+        return self._op2(other, lambda e1, e2: e2 / e1)
+
+    def _op2(self, other, operator):
+        if isinstance(other, _NormalTangentialExtrapolation):
+            return combine_by_direction(normal=operator(self.normal, other.normal), tangential=operator(self.tangential, other.tangential))
+        else:
+            return combine_by_direction(normal=operator(self.normal, other), tangential=operator(self.tangential, other))
+
+    def __abs__(self):
+        return combine_by_direction(normal=abs(self.normal), tangential=abs(self.tangential))
+
+    def __neg__(self):
+        return combine_by_direction(normal=-self.normal, tangential=-self.tangential)
 
 
 def combine_by_direction(normal: Extrapolation, tangential: Extrapolation) -> Extrapolation:
