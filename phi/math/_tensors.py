@@ -11,7 +11,7 @@ from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
-    Backend, PHI_LOGGER
+    Backend
 from .backend._dtype import DType
 
 
@@ -327,8 +327,13 @@ class Tensor(Sliceable):
                     return f"{self.shape} {self.dtype}  {content}"
                 else:
                     if self.dtype.kind in (float, int):
-                        min_val, max_val = self.min, self.max
-                        return f"{self.shape} {self.dtype}  {min_val} < ... < {max_val}"
+                        min_val, max_val, mean, std = [float(f) for f in [self.min, self.max, self.mean, self.std]]
+                        if std == 0:
+                            return f"{self.shape} {self.dtype} const {mean}"
+                        if any([abs(v) < 0.001 or abs(v) > 1000 for v in [mean, std]]):
+                            return f"{self.shape} {self.dtype}  {mean:.2e} ± {std:.1e} ({min_val:.0e}...{max_val:.0e})"
+                        else:
+                            return f"{self.shape} {self.dtype}  {mean:.3f} ± {std:.3f} ({min_val:.0e}...{max_val:.0e})"
                     elif self.dtype.kind == complex:
                         max_val = abs(self).max
                         return f"{self.shape} {self.dtype} |...| < {max_val}"
