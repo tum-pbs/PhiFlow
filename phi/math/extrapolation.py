@@ -5,11 +5,12 @@ Standard extrapolations are listed as global variables in this module.
 Extrapolations are an important part of sampled fields such as grids.
 See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
+import warnings
 from typing import Union, Dict
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
-from ._shape import Shape, channel
+from ._shape import Shape, channel, spatial
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -306,6 +307,9 @@ class ConstantExtrapolation(Extrapolation):
 
     def __abs__(self):
         return ConstantExtrapolation(abs(self.value))
+
+    def __neg__(self):
+        return ConstantExtrapolation(-self.value)
 
     def _op1(self, operator):
         return ConstantExtrapolation(self.value._op1(operator))
@@ -682,7 +686,7 @@ class _MixedExtrapolation(Extrapolation):
         Args:
           extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
         """
-        Extrapolation.__init__(self, None, )
+        super().__init__(pad_rank=None)
         self.ext = {dim: (e, e) if isinstance(e, Extrapolation) else tuple(e) for dim, e in extrapolations.items()}
 
     def to_dict(self) -> dict:
@@ -798,6 +802,59 @@ class _MixedExtrapolation(Extrapolation):
             return combine_sides(**{ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
 
 
+class _NormalTangentialExtrapolation(Extrapolation):
+
+    def __init__(self, normal: Extrapolation, tangential: Extrapolation):
+        super().__init__(pad_rank=min(normal.pad_rank, tangential.pad_rank))
+        self.normal = normal
+        self.tangential = tangential
+
+    def to_dict(self) -> dict:
+        return {
+            'type': 'normal-tangential',
+            'normal': self.normal.to_dict(),
+            'tangential': self.tangential.to_dict(),
+        }
+
+    def spatial_gradient(self) -> 'Extrapolation':
+        return combine_by_direction(self.normal.spatial_gradient(), self.tangential.spatial_gradient())
+
+    def valid_outer_faces(self, dim) -> tuple:
+        return self.normal.valid_outer_faces(dim)
+
+    @property
+    def connects_to_outside(self) -> bool:
+        return self.normal.connects_to_outside
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
+        if 'vector' not in value.shape:
+            warnings.warn(f'{self} adding a vector dimension to tensor {value.shape}')
+            from phi.math import expand
+            value = expand(value, channel(vector=spatial(value).names))
+        assert value.vector.item_names is not None, "item_names must be present when padding with normal-tangential"
+        result = []
+        for dim, component in zip(value.vector.item_names, value.vector):
+            ext = self.normal if dim == dimension else self.tangential
+            result.append(ext.pad_values(component, width, dimension, upper_edge))
+        from ._ops import stack
+        result = stack(result, value.shape.only('vector'))
+        return result
+
+
+def combine_by_direction(normal: Extrapolation, tangential: Extrapolation) -> Extrapolation:
+    """
+    Use a different extrapolation for the normal component of vector-valued tensors.
+
+    Args:
+        normal: Extrapolation for the component that is orthogonal to the boundary.
+        tangential: Extrapolation for the component that is tangential to the boundary.
+
+    Returns:
+        `Extrapolation`
+    """
+    return normal if normal == tangential else _NormalTangentialExtrapolation(normal, tangential)
+
+
 def from_dict(dictionary: dict) -> Extrapolation:
     """
     Loads an `Extrapolation` object from a dictionary that was created using `Extrapolation.to_dict()`.
@@ -823,6 +880,10 @@ def from_dict(dictionary: dict) -> Extrapolation:
         dims: Dict[str, tuple] = dictionary['dims']
         extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
         return _MixedExtrapolation(extrapolations)
+    elif etype == 'normal-tangential':
+        normal = from_dict(dictionary['normal'])
+        tangential = from_dict(dictionary['tangential'])
+        return _NormalTangentialExtrapolation(normal, tangential)
     else:
         raise ValueError(dictionary)
 
