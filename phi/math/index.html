@@ -10544,8 +10544,13 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                     return f&#34;{self.shape} {self.dtype}  {content}&#34;
                 else:
                     if self.dtype.kind in (float, int):
-                        min_val, max_val = self.min, self.max
-                        return f&#34;{self.shape} {self.dtype}  {min_val} &lt; ... &lt; {max_val}&#34;
+                        min_val, max_val, mean, std = [float(f) for f in [self.min, self.max, self.mean, self.std]]
+                        if std == 0:
+                            return f&#34;{self.shape} {self.dtype} const {mean}&#34;
+                        if any([abs(v) &lt; 0.001 or abs(v) &gt; 1000 for v in [mean, std]]):
+                            return f&#34;{self.shape} {self.dtype}  {mean:.2e} ± {std:.1e} ({min_val:.0e}...{max_val:.0e})&#34;
+                        else:
+                            return f&#34;{self.shape} {self.dtype}  {mean:.3f} ± {std:.3f} ({min_val:.0e}...{max_val:.0e})&#34;
                     elif self.dtype.kind == complex:
                         max_val = abs(self).max
                         return f&#34;{self.shape} {self.dtype} |...| &lt; {max_val}&#34;
