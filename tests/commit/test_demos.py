@@ -102,6 +102,3 @@ class TestDemos(TestCase):
 
     def test_taylor_green(self):
         demo_run('taylor_green')
-
-    def test_kuramoto_sivashinsky(self):
-        demo_run('kuramoto_sivashinsky')
