@@ -2705,7 +2705,8 @@ Has to be one of the following:</p>
 <li><code>Number</code>: uses the value for all sample points</li>
 <li><code>tuple</code> or <code>list</code>: interprets the sequence as vector, used for all sample points</li>
 <li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> compatible with grid dims: uses tensor values as grid values</li>
-<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.</li>
+<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.
+The spatial dimensions of the grid will be passed as batch dimensions to the function.</li>
 </ul>
 </dd>
 <dt><strong><code>extrapolation</code></strong></dt>
@@ -2754,6 +2755,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
                 * `phi.math.Tensor` compatible with grid dims: uses tensor values as grid values
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                    The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
                 Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
@@ -2780,7 +2782,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
-                values = values(elements.center)
+                values = math.map_s2b(values)(elements.center)
                 assert isinstance(values, math.Tensor), f&#34;values function must return a Tensor but returned {type(values)}&#34;
             else:
                 if isinstance(values, (tuple, list)) and len(values) == resolution.rank:
@@ -5594,7 +5596,8 @@ Has to be one of the following:</p>
 <li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> with staggered shape: uses tensor values as grid values.
 Must contain a <code>vector</code> dimension with each slice consisting of one more element along the dimension they describe.
 Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">stack()</a></code> to manually create this non-uniform tensor.</li>
-<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.</li>
+<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.
+The spatial dimensions of the grid will be passed as batch dimensions to the function.</li>
 </ul>
 </dd>
 <dt><strong><code>extrapolation</code></strong></dt>
@@ -5617,7 +5620,6 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
     A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.
     
     Staggered grids support batch and spatial dimensions but only one channel dimension for the staggered vector components.
-
 
     See Also:
         `CenteredGrid`,
@@ -5646,6 +5648,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
                   Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
                   Use `phi.math.stack()` to manually create this non-uniform tensor.
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                    The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
                 Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
@@ -5678,7 +5681,7 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
-                values = values(elements.center)
+                values = math.map_s2b(values)(elements.center)
                 if elements.shape.shape.rank &gt; 1:  # Different number of X and Y faces
                     assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
                 assert &#39;staggered_direction&#39; in values.shape
