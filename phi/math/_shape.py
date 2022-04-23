@@ -222,7 +222,6 @@ class Shape:
         if result is not None:
             return result
         elif fallback_spatial and self.spatial_rank == self.get_size(dim) and self.get_type(dim) == CHANNEL_DIM:
-            assert self.get_size(dim) == self.spatial_rank, f"No item names defined for dim '{dim}' in {self} and dimension size does not match spatial rank."
             return self.spatial.names
         else:
             return None
