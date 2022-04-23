@@ -206,6 +206,9 @@ class Box(BaseBox, metaclass=BoxType):
             upper = [INF if u is None else u for u in upper]
             self._upper = math.wrap(upper, math.channel(vector=tuple(size.keys())))
             self._lower = math.wrap(lower, math.channel(vector=tuple(size.keys())))
+        vector_shape = self._lower.shape & self._upper.shape
+        self._lower = math.expand(self._lower, vector_shape)
+        self._upper = math.expand(self._upper, vector_shape)
         if self.size.vector.item_names is None:
             warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
