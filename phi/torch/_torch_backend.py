@@ -287,6 +287,8 @@ class TorchBackend(Backend):
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         boolean_tensor = self.as_tensor(boolean_tensor, convert_external=True)
+        if self.dtype(boolean_tensor).kind != bool:
+            boolean_tensor = boolean_tensor != 0
         if axis is None:
             return torch.any(boolean_tensor)
         else:
@@ -297,6 +299,8 @@ class TorchBackend(Backend):
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
         boolean_tensor = self.as_tensor(boolean_tensor, convert_external=True)
+        if self.dtype(boolean_tensor).kind != bool:
+            boolean_tensor = boolean_tensor != 0
         if axis is None:
             return torch.all(boolean_tensor)
         else:
@@ -320,6 +324,8 @@ class TorchBackend(Backend):
         return torch.where(condition, x, y)
 
     def mean(self, value, axis=None, keepdims=False):
+        if self.dtype(value).kind not in (float, complex):
+            value = self.to_float(value)
         return torch.mean(value, dim=axis, keepdim=keepdims)
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
@@ -487,7 +493,9 @@ class TorchBackend(Backend):
         return unstacked
 
     def std(self, x, axis=None, keepdims=False):
-        return torch.std(x, dim=axis, keepdim=keepdims)
+        if self.dtype(x).kind not in (float, complex):
+            x = self.to_float(x)
+        return torch.std(x, dim=axis, keepdim=keepdims, unbiased=False)
 
     def boolean_mask(self, x, mask, axis=0):
         x = self.as_tensor(x)
