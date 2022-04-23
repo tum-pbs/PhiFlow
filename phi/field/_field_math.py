@@ -544,7 +544,7 @@ def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tupl
             new_tensor, new_mask = extrapolate_valid(cgrid, valid=cvalid, distance_cells=distance_cells)
             new_values.append(new_tensor.values)
             new_valid.append(new_mask.values)
-        return grid.with_values(math.stack(new_values, channel('vector'))), valid.with_values(math.stack(new_valid, channel('vector')))
+        return grid.with_values(math.stack(new_values, channel(grid))), valid.with_values(math.stack(new_valid, channel(grid)))
     else:
         raise NotImplementedError()
 
