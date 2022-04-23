@@ -63,7 +63,7 @@ class GridTest(TestCase):
         field.assert_close(s1, s2)
 
     def test_staggered_grid_with_extrapolation(self):
-        grid = StaggeredGrid(Noise(), extrapolation.BOUNDARY, x=20, y=10)
+        grid = StaggeredGrid(Noise(vector='x,y'), extrapolation.BOUNDARY, x=20, y=10)
         grid_0 = grid.with_extrapolation(extrapolation.ZERO)
         self.assertEqual(grid.resolution, grid_0.resolution)
         grid_ = grid_0.with_extrapolation(extrapolation.BOUNDARY)
@@ -86,11 +86,13 @@ class GridTest(TestCase):
         StaggeredGrid(cylinder, 0, x=4, y=3, z=2)
 
     def test_zero_vector_grid(self):
-        grid = CenteredGrid((0, 0), 0, x=4, y=3)
-        self.assertEqual(('x', 'y'), grid.values.vector.item_names)
-        self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
+        for data in [(0, 0), Noise(vector='x,y'), Noise(vector=2), lambda x: x]:
+            grid = CenteredGrid(data, 0, x=4, y=3)
+            self.assertEqual(('x', 'y'), grid.values.vector.item_names)
+            self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
 
     def test_zero_staggered_grid(self):
-        grid = StaggeredGrid((0, 0), 0, x=4, y=3)
-        self.assertEqual(('x', 'y'), grid.values.vector.item_names)
-        self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
+        for data in [(0, 0), 0, Noise(), lambda x: x]:
+            grid = StaggeredGrid(data, 0, x=4, y=3)
+            self.assertEqual(('x', 'y'), grid.values.vector.item_names)
+            self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
