@@ -347,15 +347,15 @@ def _print_tensor(value: Tensor, name: str or None):
             text = np.array2string(value.numpy(value.shape), precision=2, separator=', ', max_line_width=np.inf)
             print(text)
     elif value.shape.spatial_rank == 1:
-        for index_dict in value.shape.non_spatial.meshgrid():
+        for index_dict in value.shape.non_spatial.meshgrid(names=True):
             if value.shape.non_spatial.volume > 1:
-                print(f"--- {', '.join('%s=%d' % (name, idx) for name, idx in index_dict.items())} ---")
+                print(f"--- {', '.join(f'{name}={idx}' for name, idx in index_dict.items())} ---")
             text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=', ', max_line_width=np.inf)
             print(' ' + re.sub('[\\[\\]]', '', text))
     elif value.shape.spatial_rank == 2:
-        for index_dict in value.shape.non_spatial.meshgrid():
+        for index_dict in value.shape.non_spatial.meshgrid(names=True):
             if value.shape.non_spatial.volume > 1:
-                print(f"--- {', '.join('%s=%d' % (name, idx) for name, idx in index_dict.items())} ---")
+                print(f"--- {', '.join(f'{name}={idx}' for name, idx in index_dict.items())} ---")
             text = np.array2string(value[index_dict].numpy(dim_order)[::-1], precision=2, separator=', ', max_line_width=np.inf)
             print(' ' + re.sub('[\\[\\]]', '', re.sub('\\],', '', text)))
     else:
@@ -1813,6 +1813,9 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     Returns:
         Selected values of `x` as `Tensor` with dimensions from `x` and `mask`.
     """
+    assert dim in x.shape, f"mask dimension '{dim}' must be present on the data but got {x.shape}"
+    assert dim in mask.shape, f"mask dimension '{dim}' must be present on the mask but got {mask.shape}"
+
     def uniform_boolean_mask(x: Tensor, mask_1d: Tensor):
         if dim in x.shape:
             x_native = x.native(x.shape.names)  # order does not matter
@@ -1853,12 +1856,12 @@ def gather(values: Tensor, indices: Tensor, dims: str or Shape or tuple or list 
         indices = to_int32(indices)
     dims = parse_dim_order(dims)
     batch = (values.shape.batch & indices.shape.batch).without(dims)
-    channel = values.shape.channel.without(dims)
+    channel = values.shape.without(dims).without(batch)
     native_values = reshaped_native(values, [batch, *dims, channel])
     native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch.non_channel, indices.shape.channel])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
-    result = reshaped_tensor(native_result, [batch, *indices.shape.non_channel.non_batch, values.shape.channel])
+    result = reshaped_tensor(native_result, [batch, *indices.shape.non_channel.non_batch, channel])
     return result
 
 
