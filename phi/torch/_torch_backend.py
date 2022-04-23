@@ -158,6 +158,7 @@ class TorchBackend(Backend):
         return JITFunction(self, f)
 
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
+        """ See PyTorch_Jit.md """
         def select_jit(*args):
             if not CURRENT_JIT_CALLS:
                 return torch_function.apply(*args)
@@ -804,6 +805,8 @@ class JITFunction:
     4. Trace JIT Module
 
     Nested jit calls are ignored.
+
+    See PyTorch_Jit.md
     """
 
     def __init__(self, backend: TorchBackend, f):
@@ -875,6 +878,7 @@ def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], f_ex
     jit_g = []
 
     class TorchCustomFunction(torch.autograd.Function):
+        """ See PyTorch_Jit.md """
 
         @staticmethod
         def forward(ctx, *args, **kwargs):  # The result of this is used in the graph.
