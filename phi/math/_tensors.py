@@ -423,6 +423,7 @@ class Tensor(Sliceable):
                 selection = parse_dim_order(selection)
             if isinstance(selection, str):  # single item name
                 item_names = self.shape.get_item_names(dim, fallback_spatial=True)
+                assert item_names is not None, f"No item names defined for dim '{dim}' in tensor {self.shape} and dimension size does not match spatial rank."
                 assert selection in item_names, f"Accessing tensor.{dim}['{selection}'] failed. Item names are {item_names}."
                 selection = item_names.index(selection)
             # Either handle slicing directly or add it to the dict
@@ -1610,7 +1611,7 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
     elif isinstance(data, Shape):
         assert compat_shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
         assert data.rank == compat_shape.channel.volume
-        return wrap(data.spatial.sizes, *compat_shape.channel)
+        return wrap(data.spatial.sizes, *compat_shape.channel._with_item_names((data.names,)))
     else:
         backend = choose_backend(*compat_natives, data)
         try:

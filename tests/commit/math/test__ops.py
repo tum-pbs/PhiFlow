@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import extrapolation, spatial, channel, instance, batch, DType
+from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes
 from phi.math.backend import Backend
 
 
@@ -624,4 +624,17 @@ class TestMathFunctions(TestCase):
                 except KeyError:
                     pass
 
-
+    def test_expand_copy_item_names(self):
+        a = math.zeros(channel(vector=2))
+        try:
+            math.expand(a, channel(vector=3))
+            self.fail()
+        except IncompatibleShapes:
+            pass
+        b = math.expand(a, channel(vector='x,y'))
+        self.assertEqual(('x', 'y'), b.vector.item_names)
+        try:
+            math.expand(b, channel(vector='a,b'))
+            self.fail()
+        except IncompatibleShapes:
+            pass
