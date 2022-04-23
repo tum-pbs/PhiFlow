@@ -349,6 +349,7 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
             sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
         else:
             sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
+        dim = dim._with_item_names(geometry.shape.channel.item_names)
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
         return field._sample(geometry)

@@ -6,7 +6,7 @@ from . import HardGeometryMask
 from ._field import SampledField, Field, sample, reduce_sample
 from ..geom._stack import GeometryStack
 from ..math import Shape, NUMPY
-from ..math._shape import spatial, channel
+from ..math._shape import spatial, channel, parse_dim_order
 from ..math._tensors import TensorStack, Tensor
 
 
@@ -366,12 +366,19 @@ class StaggeredGrid(Grid):
         extrapolation = self._extrapolation[item]
         bounds = GridCell(self._resolution, self._bounds)[item].bounds
         if 'vector' in item:
-            if isinstance(item['vector'], int):
-                dim = self.shape.spatial.names[item['vector']]
+            selection = item['vector']
+            if isinstance(selection, str) and ',' in selection:
+                selection = parse_dim_order(selection)
+            if isinstance(selection, str):  # single item name
+                item_names = self.shape.get_item_names('vector', fallback_spatial=True)
+                assert selection in item_names, f"Accessing field.vector['{selection}'] failed. Item names are {item_names}."
+                selection = item_names.index(selection)
+            if isinstance(selection, int):
+                dim = self.shape.spatial.names[selection]
                 comp_cells = GridCell(self.resolution, bounds).stagger(dim, *self.extrapolation.valid_outer_faces(dim))
                 return CenteredGrid(values, bounds=comp_cells.bounds, extrapolation=extrapolation)
             else:
-                assert isinstance(item['vector'], slice) and not item['vector'].start and not item['vector'].stop
+                assert isinstance(selection, slice) and not selection.start and not selection.stop
         return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
     def staggered_tensor(self) -> Tensor:
@@ -418,10 +425,11 @@ def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extra
     for dim in resolution.names:
         lower, upper = extrapolation.valid_outer_faces(dim)
         grids.append(cells.stagger(dim, lower, upper))
-    return geom.stack(grids, channel('staggered_direction'))
+    return geom.stack(grids, channel(staggered_direction=resolution.names))
 
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extrapolation):
+    """ Add missing spatial dimensions to `values` """
     cells = GridCell(resolution, Box(0, math.wrap((1,) * resolution.rank, channel(vector=resolution.names))))
     components = values.vector.unstack(resolution.spatial_rank)
     tensors = []
