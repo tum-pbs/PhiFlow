@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 
 from phi import math
@@ -37,6 +39,10 @@ class Noise(Field):
 
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
         shape = (self._shape if shape is None else shape) & resolution
+        for dim in channel(self._shape):
+            if dim.item_names[0] is None:
+                warnings.warn(f"Please provide item names for Noise dim {dim} using {dim}='x,y,z'", FutureWarning)
+                shape &= channel(**{dim.name: resolution.names})
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
         with math.NUMPY:
             k = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
