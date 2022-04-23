@@ -5,7 +5,7 @@ from typing import Tuple, Callable, List, TypeVar
 
 import numpy as np
 
-from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape
+from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, instance
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
@@ -51,45 +51,80 @@ class BoundDim:
 
     @property
     def exists(self):
+        """ Whether the dimension is listed in the `Shape` of the object. """
         return self.name in self.obj.shape
 
-    def __str__(self):
-        return self.name
+    def __repr__(self):
+        if self.name not in self.obj.shape:
+            return f"{type(self.obj).__name__}.{self.name} (non-existent)"
+        items = self.item_names
+        if items is not None:
+            if len(items) <= 4:
+                size_repr = ",".join(items)
+            else:
+                size_repr = f"{self.size}:{items[0]}..{items[-1]}"
+        else:
+            size_repr = self.size
+        return f"{type(self.obj).__name__}.{self.name}{TYPE_ABBR.get(self.dim_type, '?')}={size_repr}"
 
     @property
     def size(self):
+        """ Length of this dimension as listed in the `Shape` of the bound object. """
+        assert self.exists, f"Dimension '{self.name}' does not exist on {type(self.obj)} with shape {self.obj.shape}"
         return self.obj.shape.get_size(self.name)
+
+    def __len__(self):
+        raise NotImplementedError("len(BoundDim) is not supported as it can only return integers. Use dim.size instead.")
 
     @property
     def dim_type(self):
         return self.obj.shape.get_type(self.name)
 
     @property
+    def _dim_type(self):
+        return self.obj.shape.get_type(self.name)
+
+    @property
     def is_spatial(self):
-        return self.dim_type == SPATIAL_DIM
+        """ Whether the type of this dimension as listed in the `Shape` is *spatial*. Only defined for existing dimensions. """
+        return self._dim_type == SPATIAL_DIM
 
     @property
     def is_batch(self):
-        return self.dim_type == BATCH_DIM
+        """ Whether the type of this dimension as listed in the `Shape` is *batch*. Only defined for existing dimensions. """
+        return self._dim_type == BATCH_DIM
 
     @property
     def is_channel(self):
-        return self.dim_type == CHANNEL_DIM
-
-    @property
-    def is_instance(self):
-        return self.dim_type == INSTANCE_DIM
+        """ Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. """
+        return self._dim_type == CHANNEL_DIM
 
     @property
     def item_names(self):
-        return self.obj.shape.get_item_names(self.name) if self.exists else None
+        return self.obj.shape.get_item_names(self.name)
+
+    @property
+    def index(self):
+        """ The index of this dimension in the `Shape` of the `Tensor`. """
+        return self.obj.shape.index(self.name)
+
+    def __int__(self):
+        return self.index
 
     def __getitem__(self, item):
-        if isinstance(item, str):
-            item = self.obj.shape.spatial.index(item)
         return self.obj[{self.name: item}]
 
-    def unstack(self, size: int or None = None):
+    def unstack(self, size: int or None = None) -> tuple:
+        """
+        Lists the slices along this dimension as a `tuple`.
+
+        Args:
+            size: (optional) If given as `int`, this dimension can be unstacked even if it is not present on the object.
+                In that case, `size` copies of the object are returned.
+
+        Returns:
+            `tuple` of `Sliceable`
+        """
         from ._ops import unstack
         if size is None:
             return unstack(self.obj, self.name)
@@ -378,7 +413,43 @@ class Tensor(Sliceable):
                 warnings.warn("Slicing a Tensor with a tuple or list should only be used for channel dimensions. Use a dict or the special slicing syntax tensor.dim[slice] instead", SyntaxWarning, stacklevel=2)
                 item = {name: selection for name, selection in zip(self.shape.names, item)}
         assert isinstance(item, dict)  # dict mapping name -> slice/int
-        return self._getitem(item)
+        selections = {}
+        sliced = self
+        for dim, selection in item.items():
+            if dim not in self.shape:
+                continue
+            if isinstance(selection, Shape):
+                selection = selection.name if selection.rank == 1 else selection.names
+            if isinstance(selection, str) and ',' in selection:
+                selection = parse_dim_order(selection)
+            if isinstance(selection, str):  # single item name
+                item_names = self.shape.get_item_names(dim, fallback_spatial=True)
+                assert selection in item_names, f"Accessing tensor.{dim}['{selection}'] failed. Item names are {item_names}."
+                selection = item_names.index(selection)
+            # Either handle slicing directly or add it to the dict
+            if isinstance(selection, (tuple, list)):
+                selection_int = list(selection)
+                if any([isinstance(s, str) for s in selection]):
+                    item_names = self.shape.get_item_names(dim, fallback_spatial=True)
+                    for i, s in enumerate(selection):
+                        if isinstance(s, str):
+                            assert s in item_names, f"Accessing tensor.{dim}['{s}'] failed. Item names are {item_names}."
+                            selection_int[i] = item_names.index(s)
+                from ._ops import stack
+                result = [sliced[{dim: i}] for i in selection_int]
+                item_names = [str(n) for n in selection]
+                stack_dim = self.shape[dim] if dim in self.shape else channel(dim)
+                sliced = stack({n: r for n, r in zip(item_names, result)}, stack_dim)
+            elif isinstance(selection, Tensor) and selection.dtype.kind == bool:
+                from ._ops import boolean_mask
+                sliced = boolean_mask(sliced, dim, selection)
+            elif isinstance(selection, Tensor) and selection.dtype.kind == int:
+                from ._ops import gather
+                sliced = gather(sliced, selection, dims=dim)
+            else:
+                selections[dim] = selection
+        return sliced._getitem(selections) if selections else sliced
+
 
     def _getitem(self, selection: dict) -> 'Tensor':
         """
@@ -662,7 +733,7 @@ def shape(arg: Tensor or Shape) -> Shape:
         raise ValueError(f'shape() requires Tensor of Shape argument but got {arg}')
 
 
-class TensorDim:
+class TensorDim(BoundDim):
     """
     Reference to a specific dimension of a `Tensor`.
 
@@ -674,43 +745,8 @@ class TensorDim:
     """
 
     def __init__(self, tensor: Tensor, name: str):
+        super().__init__(tensor, name)
         self.tensor = tensor
-        self.name = name
-
-    @property
-    def exists(self):
-        """ Whether the dimension is listed in the `Shape` of the `Tensor`. """
-        return self.name in self.tensor.shape
-
-    def __str__(self):
-        """ Dimension name. """
-        return self.name
-
-    def __repr__(self):
-        return f"Dimension '{self.name}' of {self.tensor.shape}"
-
-    def unstack(self, size: int or None = None) -> tuple:
-        """
-        See `unstack_spatial()`.
-
-        Args:
-            size: (optional)
-                None: unstack along this dimension, error if dimension does not exist
-                int: repeating unstack if dimension does not exist
-
-        Returns:
-            sliced tensors
-        """
-        if size is None:
-            result = self.tensor.unstack(self.name)
-        else:
-            if self.exists:
-                unstacked = self.tensor.unstack(self.name)
-                assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
-                result = unstacked
-            else:
-                result = (self.tensor,) * size
-        return result
 
     def optional_unstack(self):
         """
@@ -720,6 +756,7 @@ class TensorDim:
         Returns:
             `tuple` of sliced tensors or original `Tensor`
         """
+        warnings.warn("optional_unstack() is deprecated.", DeprecationWarning)
         if self.exists:
             return self.unstack()
         else:
@@ -727,6 +764,9 @@ class TensorDim:
 
     def unstack_spatial(self, components: str or tuple or list or Shape) -> tuple:
         """
+        Deprecated.
+        Use item names instead.
+
         Slices the tensor along this dimension, returning only the selected components in the specified order.
 
         Args:
@@ -749,23 +789,9 @@ class TensorDim:
             result = [self.tensor] * len(components)
         return tuple(result)
 
-    @property
-    def index(self):
-        """ The index of this dimension in the `Shape` of the `Tensor`. """
-        return self.tensor.shape.index(self.name)
-
-    def __int__(self):
-        return self.index
-
     def __len__(self):
         warnings.warn("Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.", DeprecationWarning)
         return self.size
-
-    @property
-    def size(self):
-        """ Length of this tensor dimension as listed in the `Shape`, otherwise `1`. """
-        assert self.exists, f"Dimension '{self.name}' does not exist for tensor {self.tensor.shape}"
-        return self.tensor.shape.get_size(self.name)
 
     def as_batch(self, name: str = None):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. """
@@ -805,81 +831,14 @@ class TensorDim:
         new_shape = Shape(shape.sizes, tuple(new_names), tuple(new_types), shape.item_names)
         return self.tensor._with_shape_replaced(new_shape)
 
-    @property
-    def _dim_type(self):
-        return self.tensor.shape.get_type(self.name)
-
-    @property
-    def is_spatial(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *spatial*. Only defined for existing dimensions. """
-        return self._dim_type == SPATIAL_DIM
-
-    @property
-    def is_batch(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *batch*. Only defined for existing dimensions. """
-        return self._dim_type == BATCH_DIM
-
-    @property
-    def is_channel(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. """
-        return self._dim_type == CHANNEL_DIM
-
-    @property
-    def item_names(self):
-        return self.tensor.shape.get_item_names(self.name)
-
-    def __getitem__(self, item):
-        if isinstance(item, (int, slice)):
-            return self.tensor[{self.name: item}]
-        if isinstance(item, Shape):
-            item = item.names
-        if isinstance(item, str):
-            if ',' in item:
-                item = parse_dim_order(item)
-            else:
-                if not self.exists:
-                    return self.tensor
-                item_names = self.tensor.shape.get_item_names(self.name)
-                if item_names is not None:
-                    assert item in item_names, f"Accessing tensor.{self.name}['{item}'] failed. Item names are {item_names}."
-                    item = item_names.index(item)
-                else:
-                    assert self.size == self.tensor.shape.spatial.rank, f"Cannot access tensor.{self.name}[{item}] because dimension length ({self.size}) does not match number of spatial dimensions, {self.tensor.shape.spatial}"
-                    item = self.tensor.shape.spatial.index(item)
-                return self.tensor[{self.name: item}]
-        if isinstance(item, (tuple, list)):
-            from ._ops import stack
-            result = [self[i] for i in item]
-            item_names = [str(n) for n in item]
-            stack_dim = self.tensor.shape.only(self.name) if self.exists else channel(self.name)
-            return stack({n: r for n, r in zip(item_names, result)}, stack_dim)
-        elif isinstance(item, Tensor) and item.dtype.kind == bool:
-            from ._ops import boolean_mask
-            return boolean_mask(self.tensor, self.name, item)
-        elif isinstance(item, Tensor) and item.dtype.kind == int:
-            from ._ops import gather
-            return gather(self.tensor, item, dims=self.name)
-        else:
-            try:
-                backend = choose_backend(item)
-                assert backend.staticshape(item) == () and backend.dtype(item).kind == int, f"Can only slice Tensor with scalar int tensor but got {item}"
-                return self.tensor[{self.name: item}]
-            except NoBackendFound:
-                raise ValueError(f"Slicing tensor.{self.name}[{type(item)}] not supported")
-
-    def __iter__(self):
-        """ Iterate over slices along this dim """
-        if not self.exists:
-            return iter([self.tensor])
-        else:
-            return iter(self.tensor.unstack(self.name))
-
     def flip(self):
         """ Flips the element order along this dimension and returns the result as a `Tensor`. """
+        warnings.warn("dim.flip() is deprecated. Use dim[::-1] instead", DeprecationWarning)
         return self.tensor.flip(self.name)
 
     def split(self, split_dimensions: Shape):
         """ See `phi.math.unpack_dims()` """
+        warnings.warn("dim.split() is deprecated. Use math.split_dims() instead.")
         from ._ops import unpack_dims
         return unpack_dims(self.tensor, self.name, split_dimensions)
 
@@ -889,9 +848,6 @@ class TensorDim:
             return dot(self.tensor, (self.name,), other.tensor, (other.name,))
         else:
             return NotImplemented
-
-    def __call__(self, *args, **kwargs):
-        raise TypeError(f"Method Tensor.{self.name}() does not exist.")
 
     def sum(self):
         from ._ops import sum_
