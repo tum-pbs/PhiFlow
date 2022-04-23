@@ -222,6 +222,7 @@ class Shape:
         if result is not None:
             return result
         elif fallback_spatial and self.spatial_rank == self.get_size(dim) and self.get_type(dim) == CHANNEL_DIM:
+            assert self.get_size(dim) == self.spatial_rank, f"No item names defined for dim '{dim}' in {self} and dimension size does not match spatial rank."
             return self.spatial.names
         else:
             return None
@@ -860,11 +861,28 @@ class Shape:
                 raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allowed.")
         return result
 
-    def meshgrid(self):
-        """Builds a sequence containing all multi-indices within a tensor of this shape."""
+    def meshgrid(self, names=False):
+        """
+        Builds a sequence containing all multi-indices within a tensor of this shape.
+        All indices are returned as `dict` mapping dimension names to `int` indices.
+
+        The corresponding values can be retrieved from Tensors and other Sliceables using `tensor[index]`.
+
+        This function currently only supports uniform tensors.
+
+        Args:
+            names: If `True`, replace indices by their item names if available.
+
+        Returns:
+            `dict` iterator.
+        """
+        assert self.is_uniform
         indices = [0] * self.rank
         while True:
-            yield {name: index for name, index in zip(self.names, indices)}
+            if names:
+                yield {dim: (names[index] if names is not None else index) for dim, index, names in zip(self.names, indices, self.item_names)}
+            else:
+                yield {dim: index for dim, index in zip(self.names, indices)}
             for i in range(self.rank-1, -1, -1):
                 indices[i] = (indices[i] + 1) % self.sizes[i]
                 if indices[i] != 0:

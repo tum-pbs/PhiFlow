@@ -84,3 +84,19 @@ class TestShape(TestCase):
         except math.IncompatibleShapes:
             pass
         math.merge_shapes(s1, s1)
+
+    def test_meshgrid(self):
+        shape = spatial(x=2) & channel(vector='x')
+        indices = list(shape.meshgrid(names=False))
+        self.assertEqual([
+            dict(x=0, vector=0),
+            dict(x=1, vector=0),
+        ], indices)
+
+    def test_meshgrid_names(self):
+        shape = spatial(x=2) & channel(vector='x')
+        indices = list(shape.meshgrid(names=True))
+        self.assertEqual([
+            dict(x=0, vector='x'),
+            dict(x=1, vector='x'),
+        ], indices)
