@@ -70,8 +70,7 @@ class BoundDim:
     @property
     def size(self):
         """ Length of this dimension as listed in the `Shape` of the bound object. """
-        assert self.exists, f"Dimension '{self.name}' does not exist on {type(self.obj)} with shape {self.obj.shape}"
-        return self.obj.shape.get_size(self.name)
+        return self.obj.shape.get_size(self.name) if self.exists else None
 
     def __len__(self):
         raise NotImplementedError("len(BoundDim) is not supported as it can only return integers. Use dim.size instead.")
