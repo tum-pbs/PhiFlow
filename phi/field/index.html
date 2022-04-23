@@ -1658,6 +1658,7 @@ Currently, <code>geometry</code> may have at most one channel dimension.</p>
             sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
         else:
             sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
+        dim = dim._with_item_names(geometry.shape.channel.item_names)
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
         return field._sample(geometry)</code></pre>
@@ -5751,12 +5752,19 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
         extrapolation = self._extrapolation[item]
         bounds = GridCell(self._resolution, self._bounds)[item].bounds
         if &#39;vector&#39; in item:
-            if isinstance(item[&#39;vector&#39;], int):
-                dim = self.shape.spatial.names[item[&#39;vector&#39;]]
+            selection = item[&#39;vector&#39;]
+            if isinstance(selection, str) and &#39;,&#39; in selection:
+                selection = parse_dim_order(selection)
+            if isinstance(selection, str):  # single item name
+                item_names = self.shape.get_item_names(&#39;vector&#39;, fallback_spatial=True)
+                assert selection in item_names, f&#34;Accessing field.vector[&#39;{selection}&#39;] failed. Item names are {item_names}.&#34;
+                selection = item_names.index(selection)
+            if isinstance(selection, int):
+                dim = self.shape.spatial.names[selection]
                 comp_cells = GridCell(self.resolution, bounds).stagger(dim, *self.extrapolation.valid_outer_faces(dim))
                 return CenteredGrid(values, bounds=comp_cells.bounds, extrapolation=extrapolation)
             else:
-                assert isinstance(item[&#39;vector&#39;], slice) and not item[&#39;vector&#39;].start and not item[&#39;vector&#39;].stop
+                assert isinstance(selection, slice) and not selection.start and not selection.stop
         return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
     def staggered_tensor(self) -&gt; Tensor:
