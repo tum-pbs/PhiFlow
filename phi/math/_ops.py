@@ -2055,8 +2055,7 @@ def expand(value: float or Tensor, dims: Shape):
     shape = value.shape
     for dim in reversed(dims):
         if dim in value.shape:
-            assert dim.size is None or shape.get_size(dim.name) == dim.size, f"Cannot expand tensor with shape {shape} by dimension {dim}"
-            assert shape.get_type(dim) == dim.type, f"Cannot expand tensor with shape {shape} by dimension {dim} of type '{dim.type}' because the dimension types do not match. Original type of '{dim.name}' was {shape.get_type(dim.name)}."
+            shape &= dim  # checks sizes, copies item names
         else:
             if dim.size is None:
                 dim = dim.with_sizes([1])
