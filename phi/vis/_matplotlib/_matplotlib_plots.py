@@ -119,14 +119,19 @@ MATPLOTLIB = MatplotlibPlots()
 def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
     if isinstance(data, Grid) and data.spatial_rank == 1:
         x = data.points.staggered_direction[0].vector[0].numpy()
-        for c in channel(data).meshgrid():
+        requires_legend = False
+        for c in channel(data).meshgrid(names=True):
+            label = ", ".join([i for dim, i in c.items() if isinstance(i, str)])
             values = data.values[c].numpy()
             if values.dtype in (np.complex64, np.complex128):
-                axis.plot(x, values.real, label='real')
-                axis.plot(x, values.imag, label='imag')
-                axis.legend()
+                axis.plot(x, values.real, label=f"real({label})" if label else "real")
+                axis.plot(x, values.imag, label=f"imag({label})" if label else "real")
+                requires_legend = True
             else:
-                axis.plot(x, values)
+                axis.plot(x, values, label=label)
+                requires_legend = requires_legend or label
+        if requires_legend:
+            axis.legend()
     elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
         dims = spatial(data)
         if data.bounds.upper.vector.item_names is not None:
