@@ -212,6 +212,8 @@ class TFBackend(Backend):
 
     def mean(self, value, axis=None, keepdims=False):
         with tf.device(value.device):
+            if self.dtype(value).kind not in (float, complex):
+                value = self.to_float(value)
             if axis is not None:
                 if not isinstance(axis, int):
                     axis = list(axis)
@@ -400,6 +402,8 @@ class TFBackend(Backend):
 
     def std(self, x, axis=None, keepdims=False):
         with tf.device(x.device):
+            if self.dtype(x).kind not in (float, complex):
+                x = self.to_float(x)
             _mean, var = tf.nn.moments(x, axis, keepdims=keepdims)
             return tf.sqrt(var)
 
