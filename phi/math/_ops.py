@@ -1813,9 +1813,8 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     Returns:
         Selected values of `x` as `Tensor` with dimensions from `x` and `mask`.
     """
-    assert dim in x.shape, f"mask dimension '{dim}' must be present on the data but got {x.shape}"
     assert dim in mask.shape, f"mask dimension '{dim}' must be present on the mask but got {mask.shape}"
-
+    
     def uniform_boolean_mask(x: Tensor, mask_1d: Tensor):
         if dim in x.shape:
             x_native = x.native(x.shape.names)  # order does not matter
