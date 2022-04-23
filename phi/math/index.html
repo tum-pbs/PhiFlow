@@ -1613,8 +1613,7 @@ If <code>value</code> already contains some of the new dimensions, a size and ty
     shape = value.shape
     for dim in reversed(dims):
         if dim in value.shape:
-            assert dim.size is None or shape.get_size(dim.name) == dim.size, f&#34;Cannot expand tensor with shape {shape} by dimension {dim}&#34;
-            assert shape.get_type(dim) == dim.type, f&#34;Cannot expand tensor with shape {shape} by dimension {dim} of type &#39;{dim.type}&#39; because the dimension types do not match. Original type of &#39;{dim.name}&#39; was {shape.get_type(dim.name)}.&#34;
+            shape &amp;= dim  # checks sizes, copies item names
         else:
             if dim.size is None:
                 dim = dim.with_sizes([1])
@@ -8037,7 +8036,6 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         if result is not None:
             return result
         elif fallback_spatial and self.spatial_rank == self.get_size(dim) and self.get_type(dim) == CHANNEL_DIM:
-            assert self.get_size(dim) == self.spatial_rank, f&#34;No item names defined for dim &#39;{dim}&#39; in {self} and dimension size does not match spatial rank.&#34;
             return self.spatial.names
         else:
             return None
@@ -9411,7 +9409,6 @@ def well_defined(self):
     if result is not None:
         return result
     elif fallback_spatial and self.spatial_rank == self.get_size(dim) and self.get_type(dim) == CHANNEL_DIM:
-        assert self.get_size(dim) == self.spatial_rank, f&#34;No item names defined for dim &#39;{dim}&#39; in {self} and dimension size does not match spatial rank.&#34;
         return self.spatial.names
     else:
         return None</code></pre>
@@ -10654,6 +10651,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                 selection = parse_dim_order(selection)
             if isinstance(selection, str):  # single item name
                 item_names = self.shape.get_item_names(dim, fallback_spatial=True)
+                assert item_names is not None, f&#34;No item names defined for dim &#39;{dim}&#39; in tensor {self.shape} and dimension size does not match spatial rank.&#34;
                 assert selection in item_names, f&#34;Accessing tensor.{dim}[&#39;{selection}&#39;] failed. Item names are {item_names}.&#34;
                 selection = item_names.index(selection)
             # Either handle slicing directly or add it to the dict

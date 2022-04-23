@@ -613,7 +613,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
             new_tensor, new_mask = extrapolate_valid(cgrid, valid=cvalid, distance_cells=distance_cells)
             new_values.append(new_tensor.values)
             new_valid.append(new_mask.values)
-        return grid.with_values(math.stack(new_values, channel(&#39;vector&#39;))), valid.with_values(math.stack(new_valid, channel(&#39;vector&#39;)))
+        return grid.with_values(math.stack(new_values, channel(grid))), valid.with_values(math.stack(new_valid, channel(grid)))
     else:
         raise NotImplementedError()</code></pre>
 </details>
@@ -3706,6 +3706,10 @@ Each time values are sampled from a Noise field, a new noise field is generated.
 
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
         shape = (self._shape if shape is None else shape) &amp; resolution
+        for dim in channel(self._shape):
+            if dim.item_names[0] is None:
+                warnings.warn(f&#34;Please provide item names for Noise dim {dim} using {dim}=&#39;x,y,z&#39;&#34;, FutureWarning)
+                shape &amp;= channel(**{dim.name: resolution.names})
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
         with math.NUMPY:
             k = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
@@ -3769,6 +3773,10 @@ def shape(self):
 </summary>
 <pre><code class="python">def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
     shape = (self._shape if shape is None else shape) &amp; resolution
+    for dim in channel(self._shape):
+        if dim.item_names[0] is None:
+            warnings.warn(f&#34;Please provide item names for Noise dim {dim} using {dim}=&#39;x,y,z&#39;&#34;, FutureWarning)
+            shape &amp;= channel(**{dim.name: resolution.names})
     rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
     with math.NUMPY:
         k = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
