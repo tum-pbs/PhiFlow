@@ -266,6 +266,16 @@ class TestTensors(TestCase):
         math.assert_close(t.dims[('y', 'x')], (3, 4))
         math.assert_close(t.dims[spatial('x,y')], (4, 3))
 
+    def test_slice_by_bool_tensor(self):
+        indices = math.meshgrid(x=2, y=2)
+        sel = indices.x[wrap((True, False), spatial('x'))]
+        self.assertEqual(1, sel.x.size)
+
+    def test_slice_by_int_tensor(self):
+        indices = math.meshgrid(x=2, y=2)
+        sel = indices.x[wrap((1, 0), spatial('x'))]
+        math.assert_close((1, 0), sel.vector['x'].y[0])
+
     def test_serialize_tensor(self):
         t = math.random_normal(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
         math.assert_close(t, math.from_dict(math.to_dict(t)))
