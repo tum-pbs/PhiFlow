@@ -780,7 +780,7 @@ class Shape:
     def _with_types(self, types: 'Shape'):
         return Shape(self.sizes, self.names, tuple([types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)]), self.item_names)
 
-    def _with_item_names(self, item_names):
+    def _with_item_names(self, item_names: tuple):
         return Shape(self.sizes, self.names, self.types, item_names)
 
     def _with_item_name(self, dim: str, item_name: tuple):
