@@ -268,8 +268,12 @@ def plot(*fields: SampledField or Tensor or Layout,
     nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, 0, 0, positioning)
     plots = default_plots() if lib is None else get_plots(lib)
     if same_scale:
-        min_val = float(min([f.values.min for l in positioning.values() for f in l]))
-        max_val = float(max([f.values.max for l in positioning.values() for f in l]))
+        if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
+            min_val = 0
+            max_val = float(max([abs(f.values).max for l in positioning.values() for f in l]))
+        else:
+            min_val = float(min([f.values.min for l in positioning.values() for f in l]))
+            max_val = float(max([f.values.max for l in positioning.values() for f in l]))
     else:
         min_val = max_val = None
     subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
