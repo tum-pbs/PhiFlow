@@ -360,7 +360,7 @@ def spatial_gradient(grid: Tensor,
     dx = wrap(dx)
     if dx.vector.exists:
         dx = dx.vector[dims]
-        if dx.vector.size == 1:
+        if dx.vector.size in (None, 1):
             dx = dx.vector[0]
     if difference.lower() == 'central':
         left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
