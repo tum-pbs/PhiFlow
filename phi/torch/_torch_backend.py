@@ -194,8 +194,8 @@ class TorchBackend(Backend):
         else:
             raise ValueError(dtype)
 
-    def random_normal(self, shape):
-        return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+    def random_normal(self, shape, dtype: DType):
+        return torch.randn(size=shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def stack(self, values, axis=0):
         values = [self.as_tensor(v) for v in values]

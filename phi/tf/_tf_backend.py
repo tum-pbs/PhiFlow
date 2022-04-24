@@ -139,9 +139,9 @@ class TFBackend(Backend):
                 imag = tf.cast(tf.random.uniform(shape, low.imag, high.imag, dtype=to_numpy_dtype(DType(float, dtype.precision))), tdt)
                 return real + 1j * imag
 
-    def random_normal(self, shape):
+    def random_normal(self, shape, dtype: DType):
         with self._default_device.ref:
-            return tf.random.normal(shape, dtype=to_numpy_dtype(self.float_type))
+            return tf.random.normal(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         with self._default_device.ref:

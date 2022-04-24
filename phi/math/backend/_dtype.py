@@ -66,13 +66,25 @@ class DType:
         return f"{self.kind.__name__}{self.bits}"
 
     @staticmethod
-    def as_dtype(value: 'DType' or tuple or None) -> 'DType' or None:
+    def as_dtype(value: 'DType' or tuple or type or None) -> 'DType' or None:
         if isinstance(value, DType):
             return value
+        elif value is int:
+            return DType(int, 32)
+        elif value is float:
+            from phi.math import get_precision
+            return DType(float, get_precision())
+        elif value is complex:
+            from phi.math import get_precision
+            return DType(complex, 2 * get_precision())
         elif value is None:
             return None
-        else:
+        elif isinstance(value, tuple):
             return DType(*value)
+        elif value is str:
+            raise ValueError("str DTypes must specify precision")
+        else:
+            return DType(value)  # bool, object
 
 
 # --- NumPy Conversion ---
