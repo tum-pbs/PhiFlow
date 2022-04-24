@@ -18,3 +18,19 @@ class TestDType(TestCase):
 
     def test_object_dtype(self):
         self.assertIn(DType(object).bits, (32, 64))
+
+    def test_as_dtype(self):
+        self.assertEqual(None, DType.as_dtype(None))
+        self.assertEqual(DType(int, 32), DType.as_dtype(DType(int, 32)))
+        self.assertEqual(DType(int, 32), DType.as_dtype(int))
+        self.assertEqual(DType(float, 32), DType.as_dtype(float))
+        self.assertEqual(DType(complex, 64), DType.as_dtype(complex))
+        self.assertEqual(DType(bool), DType.as_dtype(bool))
+        self.assertEqual(DType(int, 8), DType.as_dtype((int, 8)))
+        self.assertEqual(object, DType.as_dtype(object).kind)
+        try:
+            DType.as_dtype(str)
+            self.fail()
+        except ValueError:
+            pass
+

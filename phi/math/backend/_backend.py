@@ -371,7 +371,7 @@ class Backend:
         """ Float tensor of selected precision containing random values in the range [0, 1) """
         raise NotImplementedError(self)
 
-    def random_normal(self, shape):
+    def random_normal(self, shape, dtype: DType):
         """ Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1. """
         raise NotImplementedError(self)
 
