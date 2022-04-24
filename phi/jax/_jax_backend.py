@@ -227,10 +227,11 @@ class JaxBackend(Backend):
             raise ValueError(dtype)
         return jax.device_put(tensor, self._default_device.ref)
 
-    def random_normal(self, shape):
+    def random_normal(self, shape, dtype: DType):
         self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
-        return jax.device_put(random.normal(subkey, shape, dtype=to_numpy_dtype(self.float_type)), self._default_device.ref)
+        dtype = dtype or self.float_type
+        return jax.device_put(random.normal(subkey, shape, dtype=to_numpy_dtype(dtype)), self._default_device.ref)
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         if limit is None:

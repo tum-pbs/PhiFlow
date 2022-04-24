@@ -471,8 +471,7 @@ def random_normal(*shape: Shape, dtype: DType = None) -> Tensor:
     """
 
     def uniform_random_normal(shape):
-        native = choose_backend(*shape.sizes, prefer_default=True).random_normal(shape.sizes)
-        native = native if dtype is None else native.astype(dtype)
+        native = choose_backend(*shape.sizes, prefer_default=True).random_normal(shape.sizes, DType.as_dtype(dtype))
         return NativeTensor(native, shape)
 
     return _initialize(uniform_random_normal, shape)
