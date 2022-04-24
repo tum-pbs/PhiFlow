@@ -137,8 +137,9 @@ class NumPyBackend(Backend):
         else:
             raise ValueError(dtype)
 
-    def random_normal(self, shape):
-        return np.random.standard_normal(shape).astype(to_numpy_dtype(self.float_type))
+    def random_normal(self, shape, dtype: DType):
+        dtype = dtype or self.float_type
+        return np.random.standard_normal(shape).astype(to_numpy_dtype(dtype))
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         if limit is None:
