@@ -439,7 +439,7 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
             elif names_equal:
                 axis.set_title(display_name(str(names[b])))
             elif paths_equal:
-                axis.set_title(os.path.basename(str(scene.paths[b])))
+                axis.set_title(os.path.basename(scene.paths[b].native()))
         if labels is not None:
             curve_labels = labels
         elif names_equal:

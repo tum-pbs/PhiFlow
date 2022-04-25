@@ -4707,7 +4707,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 
     def _write_properties(self):
         for instance in self.paths.shape.meshgrid():
-            path = str(self.paths[instance])
+            path = self.paths[instance].native()
             instance_properties = self._get_properties(instance)
             with open(join(path, &#34;description.json&#34;), &#34;w&#34;) as out:
                 json.dump(instance_properties, out, indent=2)

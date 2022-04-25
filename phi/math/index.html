@@ -11465,7 +11465,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         Returns:
             selected components
         &#34;&#34;&#34;
-        warnings.warn(f&#34;unstack_spatial() is deprecated. Use tensor.dim[order].dim&#34;)
+        # warnings.warn(f&#34;unstack_spatial() is deprecated. Use tensor.dim[order].dim&#34;)
         if isinstance(components, (Shape, str)):
             components = parse_dim_order(components)
         if self.exists:
@@ -11756,7 +11756,7 @@ Use item names instead.</p>
     Returns:
         selected components
     &#34;&#34;&#34;
-    warnings.warn(f&#34;unstack_spatial() is deprecated. Use tensor.dim[order].dim&#34;)
+    # warnings.warn(f&#34;unstack_spatial() is deprecated. Use tensor.dim[order].dim&#34;)
     if isinstance(components, (Shape, str)):
         components = parse_dim_order(components)
     if self.exists:
