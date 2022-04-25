@@ -96,3 +96,9 @@ class GridTest(TestCase):
             grid = StaggeredGrid(data, 0, x=4, y=3)
             self.assertEqual(('x', 'y'), grid.values.vector.item_names)
             self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
+
+    def test_iter_dim(self):
+        slices = tuple(StaggeredGrid(0, x=4, y=3).vector)
+        self.assertEqual(2, len(slices))
+        self.assertFalse(slices[0].shape.non_spatial)
+        self.assertEqual(('x', 'y'), slices[0].bounds.size.vector.item_names)
