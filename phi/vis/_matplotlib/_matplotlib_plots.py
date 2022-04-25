@@ -16,7 +16,7 @@ from phi import math, field
 from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
 from phi.field._scene import _str
 from phi.geom import Sphere, BaseBox
-from phi.math import Tensor, batch, channel, spatial
+from phi.math import Tensor, batch, channel, spatial, instance
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name, PlottingLibrary
 
@@ -244,7 +244,7 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
                 _plot(axis, d, show_color_bar, vmin, vmax, **plt_args)
         else:
             x, y, z = [d.numpy() for d in data.points.vector.unstack_spatial('x,y,z')]
-            color = [str(d) for d in data.color.points.unstack(len(x))]
+            color = [d.native() for d in data.color.points.unstack(len(x))]
             if isinstance(data.elements, Sphere):
                 symbol = 'o'
                 size = data.elements.bounding_radius().numpy() * 0.4
@@ -266,9 +266,9 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         raise NotImplementedError(f"No figure recipe for {data}")
 
 
-def _plot_points(axis, data, **plt_args):
+def _plot_points(axis, data: PointCloud, **plt_args):
     x, y = [d.numpy() for d in data.points.vector.unstack_spatial('x,y')]
-    color = [str(d) for d in data.color.points.unstack(len(x))]
+    color = [d.native() for d in data.color.points.unstack(len(x))]
     if isinstance(data.elements, Sphere):
         symbol = 'o'
         size = data.elements.bounding_radius().numpy() * 1.41
@@ -280,6 +280,18 @@ def _plot_points(axis, data, **plt_args):
         size = data.elements.bounding_radius().numpy()
     size_px = size * _get_pixels_per_unit(axis.figure, axis)
     axis.scatter(x, y, marker=symbol, color=color, s=size_px ** 2, alpha=0.8)
+    _annotate_points(axis, data.points, instance(data))
+
+
+def _annotate_points(axis, points: math.Tensor, labelled_dim: math.Shape):
+    if points.shape['vector'].size == 2:
+        x, y = math.reshaped_native(points, ['vector', points.shape.without('vector')], to_numpy=True, force_expand=True)
+        if labelled_dim.item_names[0]:
+            x_view = axis.get_xlim()[1] - axis.get_xlim()[0]
+            y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
+            for x_, y_, label in zip(x, y, labelled_dim.item_names[0]):
+                axis.annotate(label, (x_ + .01 * x_view, y_ + .01 * y_view))
+
 
 
 def _get_pixels_per_unit(fig: plt.Figure, axis: plt.Axes, dpi=90):
@@ -380,7 +392,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
             elif names_equal:
                 axis.set_title(display_name(str(names[b])))
             elif paths_equal:
-                axis.set_title(os.path.basename(str(scene.paths[b])))
+                axis.set_title(os.path.basename(scene.paths[b].native()))
         if labels is not None:
             curve_labels = labels
         elif names_equal:
