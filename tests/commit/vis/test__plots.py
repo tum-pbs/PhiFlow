@@ -66,6 +66,11 @@ class TestMatplotlibPlots(TestCase):
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         self._test_plot(PointCloud(Sphere(points, radius=0.1), bounds=Box(0, [1, 1])))
 
+    def test_plot_point_cloud_vector_field_2d_bounded(self):
+        points = math.random_uniform(instance(points='a,b,c,d,e'), channel(vector='x,y'))
+        velocity = PointCloud(Sphere(points, radius=.1), bounds=Box(x=1, y=1))
+        self._test_plot(velocity * (.05, 0))
+
     def test_plot_multiple(self):
         grid = CenteredGrid(Noise(batch(b=2)), 0, Box[0:1, 0:1], x=50, y=10)
         grid2 = CenteredGrid(grid, 0, Box[0:2, 0:1], x=20, y=50)
