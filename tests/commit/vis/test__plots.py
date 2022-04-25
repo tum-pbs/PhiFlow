@@ -10,7 +10,7 @@ from phi.vis import show, overlay, plot
 import matplotlib.pyplot as plt
 
 
-class TestMatplotlibPlots(TestCase):
+class TestPlots(TestCase):
 
     def _test_plot(self, *plottable, show_=True, **kwargs):
         fig = plot(*plottable, lib='matplotlib', **kwargs)
