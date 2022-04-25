@@ -103,4 +103,5 @@ class TestMatplotlibPlots(TestCase):
     def test_animate(self):
         values = math.random_uniform(batch(time=3), spatial(x=32, y=32))
         anim = plot(values, animate='time', show_color_bar=False, frame_time=100, lib='matplotlib')
-        anim.to_html5_video()
+        # anim.to_html5_video()
+        # anim.save('animation.mp4')
