@@ -461,8 +461,8 @@ class Point(Geometry):
     def __hash__(self):
         return hash(self._location)
 
-    def _characteristics_(self) -> Dict[str, math.Tensor]:
-        return {'location': self._location}
+    def __variable_attrs__(self):
+        return '_location',
 
 
 def assert_same_rank(rank1, rank2, error_message):
