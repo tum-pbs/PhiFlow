@@ -329,11 +329,12 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
     if isinstance(data, Layout):
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
-        if not batch(data):
+        if not batch(data):  # overlay
             for d in data:  # overlay these fields
-                e_rows, e_cols, _ = layout_sub_figures(d, row_dims, col_dims, animate, offset_row, offset_col, positioning)
+                e_rows, e_cols, d_non_reduced = layout_sub_figures(d, row_dims, col_dims, animate, offset_row, offset_col, positioning)
                 rows = max(rows, e_rows)
                 cols = max(cols, e_cols)
+                non_reduced &= d_non_reduced
         else:
             dim0 = data.shape[0]
             elements = data.unstack(dim0.name)
