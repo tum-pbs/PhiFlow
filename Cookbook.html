@@ -14628,12 +14628,12 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>2022-04-25 11:08:49.073873: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
-2022-04-25 11:08:49.073905: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
-2022-04-25 11:08:50.682529: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcuda.so.1&#39;; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
-2022-04-25 11:08:50.682563: W tensorflow/stream_executor/cuda/cuda_driver.cc:269] failed call to cuInit: UNKNOWN ERROR (303)
-2022-04-25 11:08:50.682584: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (fv-az90-777): /proc/driver/nvidia/version does not exist
-2022-04-25 11:08:50.682866: I tensorflow/core/platform/cpu_feature_guard.cc:151] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 AVX512F FMA
+<pre>2022-04-25 12:42:58.739727: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
+2022-04-25 12:42:58.739766: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2022-04-25 12:43:00.686904: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcuda.so.1&#39;; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.12/x64/lib
+2022-04-25 12:43:00.686942: W tensorflow/stream_executor/cuda/cuda_driver.cc:269] failed call to cuInit: UNKNOWN ERROR (303)
+2022-04-25 12:43:00.686972: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (fv-az380-268): /proc/driver/nvidia/version does not exist
+2022-04-25 12:43:00.687314: I tensorflow/core/platform/cpu_feature_guard.cc:151] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 AVX512F FMA
 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
 WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
 /opt/hostedtoolcache/Python/3.8.12/x64/lib/python3.8/site-packages/jax/experimental/stax.py:28: FutureWarning: jax.experimental.stax is deprecated, import jax.example_libraries.stax instead
@@ -14804,22 +14804,22 @@ WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>array([[0.7501763 , 0.35354716, 0.50630337, 0.86292154, 0.6779954 ,
-        0.17489338],
-       [0.50122094, 0.3530872 , 0.9701852 , 0.5833054 , 0.45159042,
-        0.06067699],
-       [0.886311  , 0.29413682, 0.77805877, 0.28613478, 0.09443271,
-        0.00176364],
-       [0.15667212, 0.35104817, 0.83588403, 0.42555672, 0.89412904,
-        0.1763221 ],
-       [0.758897  , 0.39795977, 0.88359725, 0.5398016 , 0.27857673,
-        0.37978113],
-       [0.03925359, 0.16504788, 0.29898626, 0.98825985, 0.8844758 ,
-        0.8135951 ],
-       [0.8071289 , 0.3246405 , 0.09755903, 0.48634475, 0.7415541 ,
-        0.82868737],
-       [0.86410767, 0.3947255 , 0.9060159 , 0.9674708 , 0.6712136 ,
-        0.05119085]], dtype=float32)</pre>
+<pre>array([[0.33719283, 0.41627622, 0.5418952 , 0.79461116, 0.04365134,
+        0.29566538],
+       [0.0352996 , 0.8502263 , 0.5726568 , 0.0014714 , 0.03750348,
+        0.22725058],
+       [0.07130712, 0.58959323, 0.7391432 , 0.874438  , 0.7945534 ,
+        0.8966906 ],
+       [0.68260497, 0.76175755, 0.8352446 , 0.44085187, 0.7350625 ,
+        0.03417659],
+       [0.31501007, 0.0344736 , 0.6403692 , 0.65396667, 0.55155796,
+        0.6349219 ],
+       [0.55135876, 0.51225656, 0.682559  , 0.39036393, 0.3795237 ,
+        0.62707686],
+       [0.798148  , 0.44044173, 0.6229355 , 0.41747087, 0.07725787,
+        0.771278  ],
+       [0.6393551 , 0.38316888, 0.81882036, 0.2953679 , 0.5828987 ,
+        0.5373987 ]], dtype=float32)</pre>
 </div>
 
 </div>
@@ -15344,8 +15344,8 @@ Note that the shapes of the arrays must <a href="https://tum-pbs.github.io/PhiFl
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Initial loss: (batchᵇ=100) float32  0.176 ± 0.183 (5e-07...6e-01)
-Final loss: (batchᵇ=100) float32  0.016 ± 0.011 (3e-05...4e-02)
+<pre>Initial loss: (batchᵇ=100) float32  0.330 ± 0.320 (4e-04...1e+00)
+Final loss: (batchᵇ=100) float32  0.139 ± 0.120 (9e-04...4e-01)
 </pre>
 </div>
 </div>
