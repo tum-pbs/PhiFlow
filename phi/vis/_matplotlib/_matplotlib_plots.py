@@ -15,7 +15,7 @@ from matplotlib.transforms import Bbox
 from phi import math, field
 from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
 from phi.field._scene import _str
-from phi.geom import Sphere, BaseBox
+from phi.geom import Sphere, BaseBox, Point
 from phi.math import Tensor, batch, channel, spatial, instance
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name, PlottingLibrary
@@ -245,17 +245,20 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         else:
             x, y, z = [d.numpy() for d in data.points.vector.unstack_spatial('x,y,z')]
             color = [d.native() for d in data.color.points.unstack(len(x))]
+            M = axis.transData.get_matrix()
+            x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
             if isinstance(data.elements, Sphere):
                 symbol = 'o'
                 size = data.elements.bounding_radius().numpy() * 0.4
             elif isinstance(data.elements, BaseBox):
                 symbol = 's'
                 size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 0.35
+            elif isinstance(data.elements, Point):
+                symbol = 'x'
+                size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
             else:
                 symbol = 'X'
                 size = data.elements.bounding_radius().numpy()
-            M = axis.transData.get_matrix()
-            x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
             axis.scatter(x, y, z, marker=symbol, color=color, s=(size * 0.5 * (x_scale+y_scale+z_scale)/3) ** 2)
         lower_x, lower_y, lower_z = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y,z')]
         upper_x, upper_y, upper_z = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y,z')]
@@ -275,8 +278,11 @@ def _plot_points(axis, data: PointCloud, **plt_args):
     elif isinstance(data.elements, BaseBox):
         symbol = 's'
         size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy()
+    elif isinstance(data.elements, Point):
+        symbol = 'x'
+        size = 6 / _get_pixels_per_unit(axis.figure, axis)
     else:
-        symbol = 'X'
+        symbol = '*'
         size = data.elements.bounding_radius().numpy()
     size_px = size * _get_pixels_per_unit(axis.figure, axis)
     axis.scatter(x, y, marker=symbol, color=color, s=size_px ** 2, alpha=0.8)
