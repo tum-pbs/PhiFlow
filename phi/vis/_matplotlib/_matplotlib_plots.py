@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from numbers import Number
 from typing import Callable, Tuple, Any, Dict
 
@@ -8,14 +9,16 @@ import matplotlib.pyplot as plt
 import numpy
 import numpy as np
 from matplotlib import animation
+from matplotlib import rc
+from matplotlib.transforms import Bbox
 
 from phi import math, field
+from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
+from phi.field._scene import _str
 from phi.geom import Sphere, BaseBox
-from phi.math import Tensor, batch, channel, instance, spatial
+from phi.math import Tensor, batch, channel, spatial
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name, PlottingLibrary
-from phi.field import Grid, StaggeredGrid, PointCloud, Scene, unstack, SampledField
-from phi.field._scene import _str
 
 
 class MatplotlibPlots(PlottingLibrary):
@@ -45,6 +48,29 @@ class MatplotlibPlots(PlottingLibrary):
                     axes_by_pos[(row, col)] = axes[row, col]
         return figure, axes_by_pos
 
+    def animate(self, fig: plt.Figure, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
+        if 'ipykernel' in sys.modules:
+            rc('animation', html='html5')
+
+        base_axes = tuple(fig.axes)
+        positions = {a: (a.figbox.p0, a.figbox.p1) for a in base_axes}
+        specs = {a: a.get_subplotspec() for a in base_axes}
+
+        def clear_and_plot(frame: int):
+            axes = tuple(fig.axes)
+            for axis in axes:
+                if axis not in base_axes:  # colorbar etc.
+                    axis.remove()
+                else:
+                    axis.cla()  # clear
+                    box = Bbox(positions[axis])
+                    axis.set_position(box, which='active')
+                    axis.set_subplotspec(specs[axis])
+            # plt.tight_layout()
+            plot_frame_function(frame)
+
+        return animation.FuncAnimation(fig, clear_and_plot, repeat=repeat, frames=frames, interval=interval)
+
     def plot(self,
              data: SampledField,
              figure,
@@ -57,13 +83,26 @@ class MatplotlibPlots(PlottingLibrary):
         Returns:
             [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
         """
-        plt.tight_layout()
+        # plt.tight_layout()
         _plot(subplot, data, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
         plt.tight_layout()
         return figure
 
-    def show(self, figure: plt.Figure):
-        figure.show()
+    def plotting_done(self, figure, subfigures):
+        if isinstance(figure, plt.Figure):
+            plt.close(figure)
+        elif isinstance(figure, animation.FuncAnimation):
+            plt.close(figure._fig)
+
+    def show(self, figure):
+        if isinstance(figure, plt.Figure):
+            figure.show()
+        elif isinstance(figure, animation.FuncAnimation):
+            if 'ipykernel' in sys.modules:
+                from IPython.display import HTML
+                return HTML(figure.to_html5_video())
+            else:
+                figure._fig.show()
 
     def save(self, figure: plt.Figure, path: str, dpi: float):
         figure.savefig(path, dpi=dpi)
@@ -144,7 +183,7 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         extent = (float(left), float(right), float(bottom), float(top))
         im = axis.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
         if show_color_bar:
-            plt.colorbar(im, ax=axis)
+            axis.figure.colorbar(im, ax=axis)  # adds a new Axis to the figure
         axis.set_xlabel(dims.names[0])
         axis.set_ylabel(dims.names[1])
     elif isinstance(data, Grid) and data.spatial_rank == 2:  # vector field
@@ -175,7 +214,7 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         upper_x, upper_y = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y')]
         axis.set_xlim((lower_x, upper_x))
         axis.set_ylim((lower_y, upper_y))
-        if data.points.shape.non_channel.rank > 1:
+        if data.points.shape.non_channel.rank > 1:  # multiple instance / spatial dimensions
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
                 _plot_points(axis, d, **plt_args)

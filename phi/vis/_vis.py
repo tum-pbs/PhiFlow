@@ -65,11 +65,11 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
             gui.show(True)  # may be blocking call
     elif len(model) == 0:
         plots = default_plots() if gui is None else get_plots(gui)
-        plots.show(plots.current_figure)
+        return plots.show(plots.current_figure)
     else:
         plots = default_plots() if gui is None else get_plots(gui)
         fig = plot(*model, lib=plots, **config)
-        plots.show(fig)
+        return plots.show(fig)
 
 
 RECORDINGS = {}
@@ -238,10 +238,13 @@ def plot(*fields: SampledField or Tensor or Layout,
          lib: str or PlottingLibrary = None,
          row_dims: str or Shape or tuple or list or Callable = None,
          col_dims: str or Shape or tuple or list or Callable = batch,
+         animate: str or Shape or tuple or list or Callable = None,
          title: Tensor = None,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
+         frame_time=200,
+         repeat=True,
          **plt_args):
     """
     Creates one or multiple figures and sub-figures and plots the given fields.
@@ -259,13 +262,19 @@ def plot(*fields: SampledField or Tensor or Layout,
         size: Figure size in inches, `(width, height)`.
         same_scale: Whether to use the same axis limits for all sub-figures.
         show_color_bar: Whether to display color bars for heat maps.
+        animate: Time dimension to animate.
+            If not present in the data, will produce a regular plot instead.
+        frame_time: Interval between frames in the animation.
+        repeat: Whether the animation should loop.
 
     Returns:
         If all batch dimensions are reduced by `rows` and `cols`, returns a single figure created for `data`.
         Otherwise returns a `Tensor` of figures (not yet supported).
     """
     positioning = {}
-    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, 0, 0, positioning)
+    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, 0, 0, positioning)
+    animate = fig_shape.only(animate)
+    fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
     if same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
@@ -281,12 +290,25 @@ def plot(*fields: SampledField or Tensor or Layout,
         title = layout(title)
     assert isinstance(title, Tensor), "title must be a Tensor or str"
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, titles=title)
-        LAST_FIGURE[0] = figure
-        for pos, fields in positioning.items():
-            for f in fields:
-                plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
-        return figure
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
+        plots.plotting_done(figure, axes)
+        if animate:
+            def plot_frame(frame: int):
+                for pos, fields in positioning.items():
+                    for f in fields:
+                        f = f[{animate.name: frame}]
+                        plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
+            LAST_FIGURE[0] = anim
+            plots.plotting_done(figure, axes)
+            return anim
+        else:
+            for pos, fields in positioning.items():
+                for f in fields:
+                    plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+            LAST_FIGURE[0] = figure
+            plots.plotting_done(figure, axes)
+            return figure
     else:
         raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
 
@@ -294,6 +316,7 @@ def plot(*fields: SampledField or Tensor or Layout,
 def layout_sub_figures(data: Tensor or Layout or SampledField,
                        row_dims: str or Shape or tuple or list or Callable,
                        col_dims: str or Shape or tuple or list or Callable,
+                       animate: str or Shape or tuple or list or Callable,  # do not reduce these dims, has priority
                        offset_row: int,
                        offset_col: int,
                        positioning: Dict[Tuple[int, int], List]) -> Tuple[int, int, Shape]:  # rows, cols
@@ -308,23 +331,26 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         non_reduced = math.EMPTY_SHAPE
         if not batch(data):
             for d in data:  # overlay these fields
-                e_rows, e_cols, _ = layout_sub_figures(d, row_dims, col_dims, offset_row, offset_col, positioning)
+                e_rows, e_cols, _ = layout_sub_figures(d, row_dims, col_dims, animate, offset_row, offset_col, positioning)
                 rows = max(rows, e_rows)
                 cols = max(cols, e_cols)
         else:
             dim0 = data.shape[0]
             elements = data.unstack(dim0.name)
             for e in elements:
-                if dim0.only(row_dims):
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, offset_row + rows, offset_col, positioning)
+                if dim0.only(animate):
+                    # assert data.shape.rank == 1,
+                    raise NotImplementedError("To animate plots, stack data along time axis first.")
+                elif dim0.only(row_dims):
+                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row + rows, offset_col, positioning)
                     rows += e_rows
                     cols = max(cols, e_cols)
                 elif dim0.only(col_dims):
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, offset_row, offset_col + cols, positioning)
+                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col + cols, positioning)
                     cols += e_cols
                     rows = max(rows, e_rows)
                 else:
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, offset_row, offset_col, positioning)
+                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col, positioning)
                     cols = max(cols, e_cols)
                     rows = max(rows, e_rows)
                 non_reduced &= e_non_reduced
@@ -335,9 +361,10 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         elif isinstance(data, Geometry):
             data = PointCloud(data)
         assert isinstance(data, Field), data
-        row_shape: Shape = batch(data).only(row_dims)
-        col_shape: Shape = batch(data).only(col_dims).without(row_dims)
-        non_reduced: Shape = batch(data).without(row_dims).without(col_dims)
+        animate = data.shape.only(animate)
+        row_shape = batch(data).only(row_dims).without(animate)
+        col_shape = batch(data).only(col_dims).without(row_dims).without(animate)
+        non_reduced: Shape = batch(data).without(row_dims).without(col_dims) & animate
         for ri, r in enumerate(row_shape.meshgrid()):
             for ci, c in enumerate(col_shape.meshgrid()):
                 sub_data = data[r][c]
