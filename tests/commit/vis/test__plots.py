@@ -94,3 +94,8 @@ class TestMatplotlibPlots(TestCase):
         points = math.random_uniform(instance(points=50), channel(vector=3))
         cloud = PointCloud(Sphere(points, radius=.1), bounds=Box(x=2, y=1, z=1))
         self._test_plot(cloud)
+
+    def test_animate(self):
+        values = math.random_uniform(batch(time=3), spatial(x=32, y=32))
+        anim = plot(values, animate='time', show_color_bar=False, frame_time=100, lib='matplotlib')
+        anim.to_html5_video()
