@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import channel, batch
+from phi.math import channel, batch, DType
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached
 from phi.math.backend import Backend
@@ -193,7 +193,11 @@ class TestTensors(TestCase):
         print(repr(math.zeros(batch(b=10))))
         print(repr(math.zeros(batch(b=10)) > 0))
         print(repr(math.ones(channel(vector=3))))
+        print(repr(math.ones(channel(vector=3), dtype=DType(int, 64))))
+        print(repr(math.ones(channel(vector=3), dtype=DType(float, 64))))
         print(repr(math.ones(batch(vector=3))))
+        print(repr(math.random_normal(batch(b=10))))
+        print(repr(math.random_normal(batch(b=10), dtype=DType(float, 64)) * 1e-6))
 
         def tracable(x):
             print(x)
@@ -399,3 +403,7 @@ class TestTensors(TestCase):
                 self.assertEqual(4, t.sum)
                 self.assertEqual(False, t.all)
                 self.assertEqual(True, t.any)
+
+    def test_iter_dim(self):
+        slices = tuple(math.zeros(channel(vector='x,y')).vector)
+        self.assertEqual(2, len(slices))

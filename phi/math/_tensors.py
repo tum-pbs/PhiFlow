@@ -72,9 +72,6 @@ class BoundDim:
         """ Length of this dimension as listed in the `Shape` of the bound object. """
         return self.obj.shape.get_size(self.name) if self.exists else None
 
-    def __len__(self):
-        raise NotImplementedError("len(BoundDim) is not supported as it can only return integers. Use dim.size instead.")
-
     @property
     def dim_type(self):
         return self.obj.shape.get_type(self.name)
