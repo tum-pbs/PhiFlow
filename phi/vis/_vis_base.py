@@ -3,7 +3,7 @@ import time
 from collections import namedtuple
 from math import log10
 from threading import Lock
-from typing import Tuple, Any, Optional, Dict
+from typing import Tuple, Any, Optional, Dict, Callable
 
 from phi import field, math
 from phi.field import SampledField, Scene
@@ -351,6 +351,9 @@ class PlottingLibrary:
         """
         raise NotImplementedError()
 
+    def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
+        raise NotImplementedError()
+
     def plot(self,
              data: SampledField,
              figure,
@@ -359,6 +362,9 @@ class PlottingLibrary:
              max_val: float = None,
              show_color_bar: bool = True,
              **plt_args):
+        raise NotImplementedError()
+
+    def plotting_done(self, figure, subfigures):
         raise NotImplementedError()
 
     def show(self, figure):
