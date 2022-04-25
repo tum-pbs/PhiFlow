@@ -2765,8 +2765,8 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
     def __hash__(self):
         return hash(self._location)
 
-    def _characteristics_(self) -&gt; Dict[str, math.Tensor]:
-        return {&#39;location&#39;: self._location}</code></pre>
+    def __variable_attrs__(self):
+        return &#39;_location&#39;,</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
