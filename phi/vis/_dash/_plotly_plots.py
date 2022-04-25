@@ -65,6 +65,7 @@ def _plot(data: SampledField,
           row: int = None, col: int = None,
           ):
     subplot = fig.get_subplot(row, col)
+    vector = data.points.shape['vector']
     if data.spatial_rank == 1 and isinstance(data, Grid):
         x = data.points.vector[0].numpy().flatten()
         channels = data.values.shape.channel
@@ -93,17 +94,13 @@ def _plot(data: SampledField,
     elif data.spatial_rank == 2 and isinstance(data, Grid):  # vector field
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
-        x, y = [d.numpy('x,y') for d in data.points.vector.unstack_spatial('x,y')]
-        # ToDo Additional channel dims as multiple vectors
+        x, y = math.reshaped_native(data.points.vector[spatial(data)], [vector, data.shape.without(vector)], to_numpy=True, force_expand=True)
         extra_channels = data.shape.channel.without('vector')
-        values = math.pack_dims(real_values(data), extra_channels, math.channel('channels'))
-        data_x, data_y = [d.numpy('channels,x,y') for d in values.vector.unstack_spatial('x,y')]
+        data_x, data_y = math.reshaped_native(data.values, [vector, extra_channels, spatial(data)], to_numpy=True, force_expand=True)
         lower_x, lower_y = [float(l) for l in data.bounds.lower.vector.unstack_spatial('x,y')]
         upper_x, upper_y = [float(u) for u in data.bounds.upper.vector.unstack_spatial('x,y')]
         x_range = [lower_x, upper_x]
         y_range = [lower_y, upper_y]
-        y = y.flatten()
-        x = x.flatten()
         for ch in range(data_x.shape[0]):
             # quiver = figure_factory.create_quiver(x, y, data_x[ch], data_y[ch], scale=1.0)  # 7 points per arrow
             # fig.add_trace(quiver, row=row, col=col)
@@ -150,7 +147,6 @@ def _plot(data: SampledField,
                      sizemode="absolute", sizeref=1,
                      row=row, col=col)
     elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):
-        vector = data.points.shape['vector']
         x, y = math.reshaped_native(data.points, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
         u, v = math.reshaped_native(data.values, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
         lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
@@ -179,10 +175,7 @@ def _plot(data: SampledField,
                 _plot(d, fig, size, colormap, show_color_bar, row, col)
         else:
             x, y = [d.numpy() for d in data.points.vector.unstack_spatial('x,y')]
-            if data.color.shape.instance_rank == 0:
-                color = str(data.color)
-            else:
-                color = [str(d) for d in math.unstack(data.color, instance)]
+            color = data.color.native()
             subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1]
             if isinstance(data.elements, Sphere):
                 symbol = 'circle'
@@ -210,10 +203,11 @@ def _plot(data: SampledField,
                 _plot(d, fig, size, colormap, show_color_bar, row, col)
         else:
             x, y, z = [d.numpy() for d in data.points.vector.unstack_spatial('x,y,z')]
-            if data.color.shape.instance_rank == 0:
-                color = str(data.color)
-            else:
-                color = [str(d) for d in math.unstack(data.color, instance)]
+            color = data.color.native()
+            # if data.color.shape.instance_rank == 0:
+            #     color = str(data.color)
+            # else:
+            #     color = [str(d) for d in math.unstack(data.color, instance)]
             domain_y = fig.layout[subplot.plotly_name].domain.y
             if isinstance(data.elements, Sphere):
                 symbol = 'circle'

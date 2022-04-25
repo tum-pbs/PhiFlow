@@ -784,7 +784,7 @@ class TensorDim(BoundDim):
         Returns:
             selected components
         """
-        warnings.warn(f"unstack_spatial() is deprecated. Use tensor.dim[order].dim")
+        # warnings.warn(f"unstack_spatial() is deprecated. Use tensor.dim[order].dim")
         if isinstance(components, (Shape, str)):
             components = parse_dim_order(components)
         if self.exists:
