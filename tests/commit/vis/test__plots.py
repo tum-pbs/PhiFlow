@@ -62,6 +62,9 @@ class TestPlots(TestCase):
         cloud = field.stack([spheres, cells], instance('stack'))
         self._test_plot(cloud)
 
+    def test_plot_point_cloud_2d_points(self):
+        self._test_plot(PointCloud(math.random_normal(instance(points=5), channel(vector='x,y'))))
+
     def test_plot_point_cloud_2d_bounded(self):
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
         self._test_plot(PointCloud(Sphere(points, radius=0.1), bounds=Box(0, [1, 1])))
@@ -99,6 +102,9 @@ class TestPlots(TestCase):
         points = math.random_uniform(instance(points=50), channel(vector=3))
         cloud = PointCloud(Sphere(points, radius=.1), bounds=Box(x=2, y=1, z=1))
         self._test_plot(cloud)
+
+    def test_plot_point_cloud_3d_points(self):
+        self._test_plot(PointCloud(math.random_normal(instance(points=5), channel(vector='x,y,z'))))
 
     def test_animate(self):
         values = math.random_uniform(batch(time=3), spatial(x=32, y=32))
