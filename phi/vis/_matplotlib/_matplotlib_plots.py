@@ -210,8 +210,9 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         axis.voxels(values, facecolors=colors, edgecolor='k')
     elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):
         axis.set_aspect('equal', adjustable='box')
-        x, y = [d.numpy(data.shape.non_channel).reshape(-1) for d in data.points.vector]
-        u, v = [d.numpy(data.shape.non_channel).reshape(-1) for d in data.values.vector[data.points.vector.item_names].vector]
+        vector = data.points.shape['vector']
+        x, y = math.reshaped_native(data.points, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
+        u, v = math.reshaped_native(data.values, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
         lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
         upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
         axis.set_xlim((lower_x, upper_x))
