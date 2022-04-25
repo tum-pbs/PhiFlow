@@ -208,10 +208,26 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         norm = matplotlib.colors.Normalize(vmin=np.min(values), vmax=np.max(values))
         colors = cmap(norm(values))
         axis.voxels(values, facecolors=colors, edgecolor='k')
+    elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):
+        axis.set_aspect('equal', adjustable='box')
+        x, y = [d.numpy(data.shape.non_channel).reshape(-1) for d in data.points.vector]
+        u, v = [d.numpy(data.shape.non_channel).reshape(-1) for d in data.values.vector[data.points.vector.item_names].vector]
+        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
+        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
+        axis.set_xlim((lower_x, upper_x))
+        axis.set_ylim((lower_y, upper_y))
+        if data.color.shape:
+            color = data.color.numpy(data.shape.non_channel).reshape(-1)
+        else:
+            color = data.color.native()
+        axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
+        if data.points.vector.item_names:
+            axis.set_xlabel(data.points.vector.item_names[0])
+            axis.set_ylabel(data.points.vector.item_names[1])
     elif isinstance(data, PointCloud) and data.spatial_rank == 2:
         axis.set_aspect('equal', adjustable='box')
-        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y')]
-        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y')]
+        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
+        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
         axis.set_xlim((lower_x, upper_x))
         axis.set_ylim((lower_y, upper_y))
         if data.points.shape.non_channel.rank > 1:  # multiple instance / spatial dimensions
