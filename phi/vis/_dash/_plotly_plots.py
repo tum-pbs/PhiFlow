@@ -9,7 +9,7 @@ from plotly.tools import DEFAULT_PLOTLY_COLORS
 
 from phi import math, field
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
-from phi.geom import Sphere, BaseBox
+from phi.geom import Sphere, BaseBox, Point
 from phi.math import instance, Tensor, spatial, channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
@@ -183,6 +183,9 @@ def _plot(data: SampledField,
             elif isinstance(data.elements, BaseBox):
                 symbol = 'square'
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
+            elif isinstance(data.elements, Point):
+                symbol = 'x'
+                marker_size = 12 / (subplot_height / (upper_y - lower_y))
             else:
                 symbol = 'asterisk'
                 marker_size = data.elements.bounding_radius().numpy()
@@ -215,6 +218,9 @@ def _plot(data: SampledField,
             elif isinstance(data.elements, BaseBox):
                 symbol = 'square'
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
+            elif isinstance(data.elements, Point):
+                symbol = 'x'
+                marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (upper_y - lower_y) * 0.5)
             else:
                 symbol = 'asterisk'
                 marker_size = data.elements.bounding_radius().numpy()
