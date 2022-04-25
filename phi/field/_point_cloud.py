@@ -1,7 +1,7 @@
 from typing import Any
 
 from phi import math
-from phi.geom import Geometry, GridCell, Box
+from phi.geom import Geometry, GridCell, Box, Point
 from ._field import SampledField
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance
@@ -23,7 +23,7 @@ class PointCloud(SampledField):
     """
 
     def __init__(self,
-                 elements: Geometry,
+                 elements: Tensor or Geometry,
                  values: Any = 1.,
                  extrapolation: float or math.extrapolation = 0,
                  add_overlapping=False,
@@ -31,13 +31,15 @@ class PointCloud(SampledField):
                  color: str or Tensor or tuple or list or None = None):
         """
         Args:
-          elements: Geometry object specifying the sample points and sizes
+          elements: `Tensor` or `Geometry` object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
           add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
           color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         """
+        if isinstance(elements, Tensor):
+            elements = Point(elements)
         SampledField.__init__(self, elements, math.wrap(values), extrapolation, bounds)
         self._add_overlapping = add_overlapping
         color = '#0060ff' if color is None else color
