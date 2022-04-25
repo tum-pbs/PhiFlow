@@ -270,7 +270,10 @@ class SampledField(Field):
             extrapolation_ = operator(self._extrapolation, other.extrapolation)
             return self.with_values(values).with_extrapolation(extrapolation_)
         else:
-            other = math.tensor(other)
+            if isinstance(other, (tuple, list)) and len(other) == self.spatial_rank:
+                other = math.tensor(other, channel(self.points.shape))
+            else:
+                other = math.tensor(other)
             values = operator(self._values, other)
             return self.with_values(values)
 
