@@ -417,10 +417,14 @@ class TFBackend(Backend):
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         with tf.device(boolean_tensor.device):
+            if self.dtype(boolean_tensor).kind != bool:
+                boolean_tensor = tf.not_equal(boolean_tensor, 0)
             return tf.reduce_any(boolean_tensor, axis=axis, keepdims=keepdims)
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
         with tf.device(boolean_tensor.device):
+            if self.dtype(boolean_tensor).kind != bool:
+                boolean_tensor = tf.not_equal(boolean_tensor, 0)
             return tf.reduce_all(boolean_tensor, axis=axis, keepdims=keepdims)
 
     def quantile(self, x, quantiles):
