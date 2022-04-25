@@ -4531,8 +4531,7 @@ Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <co
     &#34;&#34;&#34;
 
     def uniform_random_normal(shape):
-        native = choose_backend(*shape.sizes, prefer_default=True).random_normal(shape.sizes)
-        native = native if dtype is None else native.astype(dtype)
+        native = choose_backend(*shape.sizes, prefer_default=True).random_normal(shape.sizes, DType.as_dtype(dtype))
         return NativeTensor(native, shape)
 
     return _initialize(uniform_random_normal, shape)</code></pre>
@@ -6857,13 +6856,25 @@ Instead, data types can simply be instantiated as needed.</p>
         return f&#34;{self.kind.__name__}{self.bits}&#34;
 
     @staticmethod
-    def as_dtype(value: &#39;DType&#39; or tuple or None) -&gt; &#39;DType&#39; or None:
+    def as_dtype(value: &#39;DType&#39; or tuple or type or None) -&gt; &#39;DType&#39; or None:
         if isinstance(value, DType):
             return value
+        elif value is int:
+            return DType(int, 32)
+        elif value is float:
+            from phi.math import get_precision
+            return DType(float, get_precision())
+        elif value is complex:
+            from phi.math import get_precision
+            return DType(complex, 2 * get_precision())
         elif value is None:
             return None
+        elif isinstance(value, tuple):
+            return DType(*value)
+        elif value is str:
+            raise ValueError(&#34;str DTypes must specify precision&#34;)
         else:
-            return DType(*value)</code></pre>
+            return DType(value)  # bool, object</code></pre>
 </details>
 <h3>Static methods</h3>
 <dl>
@@ -6877,13 +6888,25 @@ Instead, data types can simply be instantiated as needed.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@staticmethod
-def as_dtype(value: &#39;DType&#39; or tuple or None) -&gt; &#39;DType&#39; or None:
+def as_dtype(value: &#39;DType&#39; or tuple or type or None) -&gt; &#39;DType&#39; or None:
     if isinstance(value, DType):
         return value
+    elif value is int:
+        return DType(int, 32)
+    elif value is float:
+        from phi.math import get_precision
+        return DType(float, get_precision())
+    elif value is complex:
+        from phi.math import get_precision
+        return DType(complex, 2 * get_precision())
     elif value is None:
         return None
+    elif isinstance(value, tuple):
+        return DType(*value)
+    elif value is str:
+        raise ValueError(&#34;str DTypes must specify precision&#34;)
     else:
-        return DType(*value)</code></pre>
+        return DType(value)  # bool, object</code></pre>
 </details>
 </dd>
 </dl>

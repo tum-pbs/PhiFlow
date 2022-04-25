@@ -832,7 +832,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34; Float tensor of selected precision containing random values in the range [0, 1) &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def random_normal(self, shape):
+    def random_normal(self, shape, dtype: DType):
         &#34;&#34;&#34; Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -3794,7 +3794,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.random_normal"><code class="name flex">
-<span>def <span class="ident">random_normal</span></span>(<span>self, shape)</span>
+<span>def <span class="ident">random_normal</span></span>(<span>self, shape, dtype: phi.math.backend._dtype.DType)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1.</p></div>
@@ -3802,7 +3802,7 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def random_normal(self, shape):
+<pre><code class="python">def random_normal(self, shape, dtype: DType):
     &#34;&#34;&#34; Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1. &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>

@@ -191,7 +191,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: str = None, col_dims: str = &lt;function batch&gt;, title: phi.math._tensors.Tensor = None, size=(12, 5), same_scale=True, show_color_bar=True, **plt_args)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: str = None, col_dims: str = &lt;function batch&gt;, animate: str = None, title: phi.math._tensors.Tensor = None, size=(12, 5), same_scale=True, show_color_bar=True, frame_time=200, repeat=True, **plt_args)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
@@ -216,6 +216,13 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <dd>Whether to use the same axis limits for all sub-figures.</dd>
 <dt><strong><code>show_color_bar</code></strong></dt>
 <dd>Whether to display color bars for heat maps.</dd>
+<dt><strong><code>animate</code></strong></dt>
+<dd>Time dimension to animate.
+If not present in the data, will produce a regular plot instead.</dd>
+<dt><strong><code>frame_time</code></strong></dt>
+<dd>Interval between frames in the animation.</dd>
+<dt><strong><code>repeat</code></strong></dt>
+<dd>Whether the animation should loop.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>If all batch dimensions are reduced by <code>rows</code> and <code>cols</code>, returns a single figure created for <code>data</code>.
@@ -228,10 +235,13 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
          lib: str or PlottingLibrary = None,
          row_dims: str or Shape or tuple or list or Callable = None,
          col_dims: str or Shape or tuple or list or Callable = batch,
+         animate: str or Shape or tuple or list or Callable = None,
          title: Tensor = None,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
+         frame_time=200,
+         repeat=True,
          **plt_args):
     &#34;&#34;&#34;
     Creates one or multiple figures and sub-figures and plots the given fields.
@@ -249,13 +259,19 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
         size: Figure size in inches, `(width, height)`.
         same_scale: Whether to use the same axis limits for all sub-figures.
         show_color_bar: Whether to display color bars for heat maps.
+        animate: Time dimension to animate.
+            If not present in the data, will produce a regular plot instead.
+        frame_time: Interval between frames in the animation.
+        repeat: Whether the animation should loop.
 
     Returns:
         If all batch dimensions are reduced by `rows` and `cols`, returns a single figure created for `data`.
         Otherwise returns a `Tensor` of figures (not yet supported).
     &#34;&#34;&#34;
     positioning = {}
-    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, 0, 0, positioning)
+    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, 0, 0, positioning)
+    animate = fig_shape.only(animate)
+    fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
     if same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
@@ -271,12 +287,25 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
         title = layout(title)
     assert isinstance(title, Tensor), &#34;title must be a Tensor or str&#34;
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, titles=title)
-        LAST_FIGURE[0] = figure
-        for pos, fields in positioning.items():
-            for f in fields:
-                plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
-        return figure
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
+        plots.plotting_done(figure, axes)
+        if animate:
+            def plot_frame(frame: int):
+                for pos, fields in positioning.items():
+                    for f in fields:
+                        f = f[{animate.name: frame}]
+                        plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
+            LAST_FIGURE[0] = anim
+            plots.plotting_done(figure, axes)
+            return anim
+        else:
+            for pos, fields in positioning.items():
+                for f in fields:
+                    plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+            LAST_FIGURE[0] = figure
+            plots.plotting_done(figure, axes)
+            return figure
     else:
         raise NotImplementedError(f&#34;Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}&#34;)</code></pre>
 </details>
@@ -592,11 +621,11 @@ For a full list of parameters, see the respective GUI documentation at <a href="
             gui.show(True)  # may be blocking call
     elif len(model) == 0:
         plots = default_plots() if gui is None else get_plots(gui)
-        plots.show(plots.current_figure)
+        return plots.show(plots.current_figure)
     else:
         plots = default_plots() if gui is None else get_plots(gui)
         fig = plot(*model, lib=plots, **config)
-        plots.show(fig)</code></pre>
+        return plots.show(fig)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
