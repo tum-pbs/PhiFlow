@@ -10594,43 +10594,54 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return int(self.native())
 
     def _summary_str(self) -&gt; str:
+        if should_use_color():
+            v = &#39;\033[94m&#39;  # value
+            s = &#39;\033[92m&#39;  # shape
+            e = &#39;\033[0m&#39;   # end
+            d = &#39;\033[93m&#39;  # dtype
+            g = &#39;\033[37m&#39;  # grey (additional)
+            # BOLD = &#39;\033[1m&#39;
+            # UNDERLINE = &#39;\033[4m&#39;
+        else:
+            v, s, d, e, g = &#39;&#39;, &#39;&#39;, &#39;&#39;, &#39;&#39;, &#39;&#39;
+
         try:
             from ._ops import all_available
             if all_available(self):
                 if self.rank == 0:
-                    return str(self.numpy())
+                    return f&#34;{v}{str(self.numpy())}{e}&#34;
                 elif self.shape.volume is not None and self.shape.volume &lt;= 6:
                     content = list(np.reshape(self.numpy(self.shape.names), [-1]))
                     if self.shape.rank == 1 and self.shape.get_item_names(0) is not None:
-                        content = &#34;, &#34;.join([f&#34;{item}={number}&#34; for number, item in zip(content, self.shape.get_item_names(0))])
+                        content = &#34;, &#34;.join([f&#34;{item}={v}{number}{e}&#34; for number, item in zip(content, self.shape.get_item_names(0))])
                     else:
-                        content = &#39;, &#39;.join([repr(number) for number in content])
+                        content = &#39;, &#39;.join([f&#34;{v}{number}{e}&#34; for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
                         if self.shape.name == &#39;vector&#39; and self.shape.type == CHANNEL_DIM:
                             return f&#34;({content})&#34;
-                        return f&#34;({content}) along {self.shape.name}{TYPE_ABBR[self.shape.type]}&#34;
-                    return f&#34;{self.shape} {self.dtype}  {content}&#34;
+                        return f&#34;({content}) along {s}{self.shape.name}{TYPE_ABBR[self.shape.type]}{e}&#34;
+                    return f&#34;{s}{self.shape}{e} {d}{self.dtype}{e}  {content}&#34;
                 else:
                     if self.dtype.kind in (float, int):
                         min_val, max_val, mean, std = [float(f) for f in [self.min, self.max, self.mean, self.std]]
                         if std == 0:
-                            return f&#34;{self.shape} {self.dtype} const {mean}&#34;
-                        if any([abs(v) &lt; 0.001 or abs(v) &gt; 1000 for v in [mean, std]]):
-                            return f&#34;{self.shape} {self.dtype}  {mean:.2e} ± {std:.1e} ({min_val:.0e}...{max_val:.0e})&#34;
+                            return f&#34;{s}{self.shape}{e} {d}{self.dtype}{e} const {v}{mean}{e}&#34;
+                        if any([abs(val) &lt; 0.001 or abs(val) &gt; 1000 for val in [mean, std]]):
+                            return f&#34;{s}{self.shape}{e} {d}{self.dtype}{e}  {v}{mean:.2e} ± {std:.1e}{e} {g}({min_val:.0e}...{max_val:.0e}){e}&#34;
                         else:
-                            return f&#34;{self.shape} {self.dtype}  {mean:.3f} ± {std:.3f} ({min_val:.0e}...{max_val:.0e})&#34;
+                            return f&#34;{s}{self.shape}{e} {d}{self.dtype}{e}  {v}{mean:.3f} ± {std:.3f}{e} {g}({min_val:.0e}...{max_val:.0e}){e}&#34;
                     elif self.dtype.kind == complex:
                         max_val = abs(self).max
-                        return f&#34;{self.shape} {self.dtype} |...| &lt; {max_val}&#34;
+                        return f&#34;{s}{self.shape}{e} {d}{self.dtype}{e} {v}|...| &lt; {max_val}{e}&#34;
                     elif self.dtype.kind == bool:
-                        return f&#34;{self.shape} {self.sum} / {self.shape.volume} True&#34;
+                        return f&#34;{s}{self.shape}{e} {v}{self.sum} / {self.shape.volume} True{e}&#34;
                     else:
-                        return f&#34;{self.shape} {self.dtype}&#34;
+                        return f&#34;{s}{self.shape}{e} {d}{self.dtype}{e}&#34;
             else:
                 if self.rank == 0:
-                    return f&#34;{self.default_backend} scalar {self.dtype}&#34;
+                    return f&#34;{self.default_backend} scalar {d}{self.dtype}{e}&#34;
                 else:
-                    return f&#34;{self.default_backend} {self.shape} {self.dtype}&#34;
+                    return f&#34;{self.default_backend} {s}{self.shape}{e} {d}{self.dtype}{e}&#34;
         except BaseException as err:
             return f&#34;{self.shape}, failed to fetch values: {err}&#34;
 
@@ -11454,6 +11465,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
         Returns:
             selected components
         &#34;&#34;&#34;
+        warnings.warn(f&#34;unstack_spatial() is deprecated. Use tensor.dim[order].dim&#34;)
         if isinstance(components, (Shape, str)):
             components = parse_dim_order(components)
         if self.exists:
@@ -11744,6 +11756,7 @@ Use item names instead.</p>
     Returns:
         selected components
     &#34;&#34;&#34;
+    warnings.warn(f&#34;unstack_spatial() is deprecated. Use tensor.dim[order].dim&#34;)
     if isinstance(components, (Shape, str)):
         components = parse_dim_order(components)
     if self.exists:
