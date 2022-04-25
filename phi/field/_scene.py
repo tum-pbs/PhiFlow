@@ -344,7 +344,7 @@ class Scene(Sliceable):
 
     def _write_properties(self):
         for instance in self.paths.shape.meshgrid():
-            path = str(self.paths[instance])
+            path = self.paths[instance].native()
             instance_properties = self._get_properties(instance)
             with open(join(path, "description.json"), "w") as out:
                 json.dump(instance_properties, out, indent=2)
