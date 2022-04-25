@@ -1,15 +1,16 @@
+import warnings
 from typing import Tuple, Any, Dict, Optional, List, Callable
 
 import numpy
 import numpy as np
-from plotly import graph_objects
+from plotly import graph_objects, figure_factory
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 
 from phi import math, field
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
 from phi.geom import Sphere, BaseBox
-from phi.math import instance, Tensor, spatial
+from phi.math import instance, Tensor, spatial, channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
 from phi.vis._vis_base import PlottingLibrary
@@ -73,8 +74,8 @@ def _plot(data: SampledField,
                 fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name=name), row=row, col=col)
             fig.update_layout(showlegend=True)
         else:
-            for channel in channels.meshgrid():
-                y = math.reshaped_native(real_values(data[channel]), [data.shape.spatial], to_numpy=True)
+            for ch_idx in channels.meshgrid():
+                y = math.reshaped_native(real_values(data[ch_idx]), [data.shape.spatial], to_numpy=True)
                 fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Multi-channel'), row=row, col=col)
             fig.update_layout(showlegend=False)
     elif data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape:  # heatmap
@@ -116,8 +117,8 @@ def _plot(data: SampledField,
             fig.add_scatter(x=lines_x, y=lines_y, mode='lines', row=row, col=col, name=name)
         if data_x.shape[0] == 1:
             fig.update_layout(showlegend=False)
-        fig.update_xaxes(range=x_range)
-        fig.update_yaxes(range=y_range)
+        subplot.xaxis.update(range=x_range)
+        subplot.yaxis.update(range=y_range)
         subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
         subplot.yaxis.update(constrain='domain')
     elif data.spatial_rank == 3 and isinstance(data, Grid) and data.shape.channel.volume == 1:  # 3D heatmap
@@ -148,9 +149,30 @@ def _plot(data: SampledField,
                      colorscale='Blues',
                      sizemode="absolute", sizeref=1,
                      row=row, col=col)
+    elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):
+        vector = data.points.shape['vector']
+        x, y = math.reshaped_native(data.points, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
+        u, v = math.reshaped_native(data.values, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
+        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
+        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
+        subplot.xaxis.update(range=[lower_x, upper_x])
+        subplot.yaxis.update(range=[lower_y, upper_y])
+        quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
+        if data.color.shape:
+            # color = data.color.numpy(data.shape.non_channel).reshape(-1)
+            warnings.warn("Multi-colored vector plots not yet supported")
+        else:
+            color = data.color.native()
+            quiver.line.update(color=color)
+        fig.add_trace(quiver, row=row, col=col)
+        if data.points.vector.item_names:
+            subplot.xaxis.update(title=data.points.vector.item_names[0])
+            subplot.yaxis.update(title=data.points.vector.item_names[1])
+        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
+        subplot.yaxis.update(constrain='domain')
     elif isinstance(data, PointCloud) and data.spatial_rank == 2:
-        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y')]
-        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y')]
+        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
+        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
@@ -174,8 +196,8 @@ def _plot(data: SampledField,
             marker_size *= subplot_height / (upper_y - lower_y)
             marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
             fig.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
-        fig.update_xaxes(range=[lower_x, upper_x])
-        fig.update_yaxes(range=[lower_y, upper_y])
+        subplot.xaxis.update(range=[lower_x, upper_x])
+        subplot.yaxis.update(range=[lower_y, upper_y])
         fig.update_layout(showlegend=False)
         subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
         subplot.yaxis.update(constrain='domain')
