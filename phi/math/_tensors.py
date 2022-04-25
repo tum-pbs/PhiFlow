@@ -1,12 +1,13 @@
 import copy
 import numbers
+import traceback
 import warnings
 from typing import Tuple, Callable, List, TypeVar
 
 import numpy as np
 
 from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, instance
-from ._config import GLOBAL_AXIS_ORDER
+from ._config import GLOBAL_AXIS_ORDER, should_use_color
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes)
@@ -340,43 +341,54 @@ class Tensor(Sliceable):
         return int(self.native())
 
     def _summary_str(self) -> str:
+        if should_use_color():
+            v = '\033[94m'  # value
+            s = '\033[92m'  # shape
+            e = '\033[0m'   # end
+            d = '\033[93m'  # dtype
+            g = '\033[37m'  # grey (additional)
+            # BOLD = '\033[1m'
+            # UNDERLINE = '\033[4m'
+        else:
+            v, s, d, e, g = '', '', '', '', ''
+
         try:
             from ._ops import all_available
             if all_available(self):
                 if self.rank == 0:
-                    return str(self.numpy())
+                    return f"{v}{str(self.numpy())}{e}"
                 elif self.shape.volume is not None and self.shape.volume <= 6:
                     content = list(np.reshape(self.numpy(self.shape.names), [-1]))
                     if self.shape.rank == 1 and self.shape.get_item_names(0) is not None:
-                        content = ", ".join([f"{item}={number}" for number, item in zip(content, self.shape.get_item_names(0))])
+                        content = ", ".join([f"{item}={v}{number}{e}" for number, item in zip(content, self.shape.get_item_names(0))])
                     else:
-                        content = ', '.join([repr(number) for number in content])
+                        content = ', '.join([f"{v}{number}{e}" for number in content])
                     if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
                         if self.shape.name == 'vector' and self.shape.type == CHANNEL_DIM:
                             return f"({content})"
-                        return f"({content}) along {self.shape.name}{TYPE_ABBR[self.shape.type]}"
-                    return f"{self.shape} {self.dtype}  {content}"
+                        return f"({content}) along {s}{self.shape.name}{TYPE_ABBR[self.shape.type]}{e}"
+                    return f"{s}{self.shape}{e} {d}{self.dtype}{e}  {content}"
                 else:
                     if self.dtype.kind in (float, int):
                         min_val, max_val, mean, std = [float(f) for f in [self.min, self.max, self.mean, self.std]]
                         if std == 0:
-                            return f"{self.shape} {self.dtype} const {mean}"
-                        if any([abs(v) < 0.001 or abs(v) > 1000 for v in [mean, std]]):
-                            return f"{self.shape} {self.dtype}  {mean:.2e} ± {std:.1e} ({min_val:.0e}...{max_val:.0e})"
+                            return f"{s}{self.shape}{e} {d}{self.dtype}{e} const {v}{mean}{e}"
+                        if any([abs(val) < 0.001 or abs(val) > 1000 for val in [mean, std]]):
+                            return f"{s}{self.shape}{e} {d}{self.dtype}{e}  {v}{mean:.2e} ± {std:.1e}{e} {g}({min_val:.0e}...{max_val:.0e}){e}"
                         else:
-                            return f"{self.shape} {self.dtype}  {mean:.3f} ± {std:.3f} ({min_val:.0e}...{max_val:.0e})"
+                            return f"{s}{self.shape}{e} {d}{self.dtype}{e}  {v}{mean:.3f} ± {std:.3f}{e} {g}({min_val:.0e}...{max_val:.0e}){e}"
                     elif self.dtype.kind == complex:
                         max_val = abs(self).max
-                        return f"{self.shape} {self.dtype} |...| < {max_val}"
+                        return f"{s}{self.shape}{e} {d}{self.dtype}{e} {v}|...| < {max_val}{e}"
                     elif self.dtype.kind == bool:
-                        return f"{self.shape} {self.sum} / {self.shape.volume} True"
+                        return f"{s}{self.shape}{e} {v}{self.sum} / {self.shape.volume} True{e}"
                     else:
-                        return f"{self.shape} {self.dtype}"
+                        return f"{s}{self.shape}{e} {d}{self.dtype}{e}"
             else:
                 if self.rank == 0:
-                    return f"{self.default_backend} scalar {self.dtype}"
+                    return f"{self.default_backend} scalar {d}{self.dtype}{e}"
                 else:
-                    return f"{self.default_backend} {self.shape} {self.dtype}"
+                    return f"{self.default_backend} {s}{self.shape}{e} {d}{self.dtype}{e}"
         except BaseException as err:
             return f"{self.shape}, failed to fetch values: {err}"
 
@@ -772,6 +784,7 @@ class TensorDim(BoundDim):
         Returns:
             selected components
         """
+        warnings.warn(f"unstack_spatial() is deprecated. Use tensor.dim[order].dim")
         if isinstance(components, (Shape, str)):
             components = parse_dim_order(components)
         if self.exists:
