@@ -334,12 +334,23 @@ def print_(obj: Tensor or TensorLike or Number or tuple or list or None = None, 
         _print_tensor(value, name)
 
 
-def _print_tensor(value: Tensor, name: str or None):
+def _print_tensor(value: Tensor, name: str or None, color=True):
+    if color:
+        v = '\033[94m'  # value
+        s = '\033[92m'  # shape
+        e = '\033[0m'   # end
+        d = '\033[93m'  # dtype
+        g = '\033[37m'  # grey (additional)
+        # BOLD = '\033[1m'
+        # UNDERLINE = '\033[4m'
+    else:
+        v, s, d, e, g = '', '', '', '', ''
+
     if name:
-        print(" " * 16 + name)
+        print(" " * 16 + f"{d}{name}{e}")
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
     if value.shape.spatial_rank == 0:
-        print(f"shape={value.shape}")
+        print(f"{s}{value.shape}{e}")
         if value.shape.rank <= 1:
             text = np.array2string(value.numpy(), precision=2, separator=', ', max_line_width=np.inf)
             print(' ' + re.sub('[\\[\\]]', '', text))
@@ -349,13 +360,13 @@ def _print_tensor(value: Tensor, name: str or None):
     elif value.shape.spatial_rank == 1:
         for index_dict in value.shape.non_spatial.meshgrid(names=True):
             if value.shape.non_spatial.volume > 1:
-                print(f"--- {', '.join(f'{name}={idx}' for name, idx in index_dict.items())} ---")
+                print(f"---{s} {', '.join(f'{name}={idx}' for name, idx in index_dict.items())} {e}---")
             text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=', ', max_line_width=np.inf)
             print(' ' + re.sub('[\\[\\]]', '', text))
     elif value.shape.spatial_rank == 2:
         for index_dict in value.shape.non_spatial.meshgrid(names=True):
             if value.shape.non_spatial.volume > 1:
-                print(f"--- {', '.join(f'{name}={idx}' for name, idx in index_dict.items())} ---")
+                print(f"---{s} {', '.join(f'{name}={idx}' for name, idx in index_dict.items())} {e}---")
             text = np.array2string(value[index_dict].numpy(dim_order)[::-1], precision=2, separator=', ', max_line_width=np.inf)
             print(' ' + re.sub('[\\[\\]]', '', re.sub('\\],', '', text)))
     else:
