@@ -11,6 +11,11 @@ jobs:
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v2.3.1
+
+      - name: Setup ffmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v1
+        id: setup-ffmpeg
+        run: ffmpeg -i input.avi output.mkv
         
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -21,7 +26,7 @@ jobs:
         run: |
           python --version
           python -m pip install --upgrade pip
-          pip install --quiet pdoc3 tensorflow torch jax jaxlib plotly nbformat ipython notebook ipywidgets ffmpeg-python
+          pip install --quiet pdoc3 tensorflow torch jax jaxlib plotly nbformat ipython notebook ipywidgets
           pip install .
           pip list
         
