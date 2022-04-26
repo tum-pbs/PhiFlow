@@ -11,25 +11,35 @@ jobs:
         python-version: [3.6, 3.7, 3.8]
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install --quiet tensorflow tensorflow-probability torch jax jaxlib plotly nbformat ipython pylint coverage pytest
-        pip install .
-    - name: Test with pytest
-      run: |
-        coverage run -m pytest tests/commit
-    - name: Upload coverage
-      run:
-        bash <(curl -s https://codecov.io/bash)
-    - name: pylint
-      continue-on-error: true
-      run: |
-        pylint --rcfile=./demos/.pylintrc demos
-        pylint --rcfile=./tests/.pylintrc tests
-        pylint --rcfile=./phi/.pylintrc phi
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+
+      - name: Setup ffmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v1
+        id: setup-ffmpeg
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --quiet tensorflow tensorflow-probability torch jax jaxlib plotly nbformat ipython pylint coverage pytest
+          pip install .
+
+      - name: Test with pytest
+        run: |
+          coverage run -m pytest tests/commit
+
+      - name: Upload coverage
+        run:
+          bash <(curl -s https://codecov.io/bash)
+
+      - name: pylint
+        continue-on-error: true
+        run: |
+          pylint --rcfile=./demos/.pylintrc demos
+          pylint --rcfile=./tests/.pylintrc tests
+          pylint --rcfile=./phi/.pylintrc phi
