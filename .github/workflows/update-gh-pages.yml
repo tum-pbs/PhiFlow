@@ -15,7 +15,6 @@ jobs:
       - name: Setup ffmpeg
         uses: FedericoCarboni/setup-ffmpeg@v1
         id: setup-ffmpeg
-        run: ffmpeg -i input.avi output.mkv
         
       - name: Set up Python
         uses: actions/setup-python@v2
