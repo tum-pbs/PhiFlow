@@ -55,8 +55,8 @@ def demo_run(name, backends=BACKENDS):
 
 class TestDemos(TestCase):
 
-    def test_burgers_sim(self):
-        demo_run('burgers_sim')
+    def test_burgers(self):
+        demo_run('burgers')
 
     def test_differentiate_pressure(self):
         demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.functional_gradient)])
