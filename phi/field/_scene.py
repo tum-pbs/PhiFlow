@@ -362,6 +362,8 @@ class Scene(Sliceable):
         Returns:
             Single `phi.field.Field` or sequence of fields, depending on the type of `names`.
         """
+        if len(names) == 1 and isinstance(names[0], (tuple, list)):
+            names = names[0]
         result = [self.read_array(name, frame, convert_to_backend) for name in names]
         return result[0] if len(names) == 1 else result
 
