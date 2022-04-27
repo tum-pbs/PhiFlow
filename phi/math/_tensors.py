@@ -404,7 +404,7 @@ class Tensor(Sliceable):
         val = self.numpy()
         return format(val, format_spec)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> 'Tensor':
         if isinstance(item, Tensor):
             from ._ops import gather
             return gather(self, item)

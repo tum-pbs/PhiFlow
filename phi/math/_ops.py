@@ -1783,7 +1783,7 @@ def unstack(value: Tensor or Sliceable, dim: DimFilter):
         assert isinstance(value, Tensor), "Multi-dimensional unstacking only supported for Tensors"
         packed_dim = batch('_unstack')
         value = pack_dims(value, dims, packed_dim)
-        dims = [packed_dim.name]
+        dims = packed_dim
     if isinstance(value, Tensor):
         return value.unstack(dims.names[0])
     else:
