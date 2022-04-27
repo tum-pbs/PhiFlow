@@ -42,6 +42,3 @@ class TestWildcardImportDocs(TestCase):
 
     def test_phi_geom(self):
         self.assert_less_undocumented_wc('phi.geom', 0)
-
-    def test_phi_struct(self):
-        self.assert_less_undocumented_wc('phi.struct', 0.4)
