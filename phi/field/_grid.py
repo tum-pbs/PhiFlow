@@ -101,7 +101,7 @@ class Grid(SampledField):
 
     @property
     def dx(self) -> Tensor:
-        return self.box.size / self.resolution
+        return self.bounds.size / self.resolution
 
     def __repr__(self):
         if self._values is not None:
@@ -324,9 +324,9 @@ class StaggeredGrid(Grid):
                 old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
                 new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
                 widths = (new_lo - old_lo, new_hi - old_hi)
-                values.append(math.pad(component, {dim: widths}, self.extrapolation))
+                values.append(math.pad(component, {dim: widths}, self.extrapolation, bounds=self.bounds))
             values = math.stack(values, channel('vector'))
-            return StaggeredGrid(values, extrapolation=extrapolation, bounds=self.bounds)
+            return StaggeredGrid(values, extrapolation, bounds=self.bounds)
 
     def _sample(self, geometry: Geometry) -> Tensor:
         channels = [sample(component, geometry) for component in self.vector.unstack()]
@@ -395,7 +395,7 @@ class StaggeredGrid(Grid):
             widths = {d: (0, 1) for d in self.resolution.names}
             lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
             widths[dim] = (int(not lo_valid), int(not up_valid))
-            padded.append(math.pad(component, widths, mode=self.extrapolation))
+            padded.append(math.pad(component, widths, self.extrapolation, bounds=self.bounds))
         result = math.stack(padded, channel('vector'))
         assert result.shape.is_uniform
         return result

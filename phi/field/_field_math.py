@@ -46,7 +46,7 @@ def laplace(field: GridType, axes=spatial) -> GridType:
     return result
 
 
-def spatial_gradient(field: CenteredGrid,
+def spatial_gradient(field: Field,
                      extrapolation: math.Extrapolation = None,
                      type: type = CenteredGrid,
                      stack_dim: Shape = channel('vector')):
@@ -310,7 +310,7 @@ def pad(grid: GridType, widths: int or tuple or list or dict) -> GridType:
         assert isinstance(widths, dict)
     widths_list = [widths[axis] for axis in grid.shape.spatial.names]
     if isinstance(grid, Grid):
-        data = math.pad(grid.values, widths, grid.extrapolation)
+        data = math.pad(grid.values, widths, grid.extrapolation, bounds=grid.bounds)
         w_lower = math.wrap([w[0] for w in widths_list])
         w_upper = math.wrap([w[1] for w in widths_list])
         bounds = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
@@ -630,4 +630,14 @@ def pack_dims(field: SampledFieldType,
 
 
 def support(field: SampledField, list_dim: Shape or str = instance('nonzero')) -> Tensor:
+    """
+    Returns the points at which the field values are non-zero.
+
+    Args:
+        field: `SampledField`
+        list_dim: Dimension to list the non-zero values.
+
+    Returns:
+        `Tensor` with shape `(list_dim, vector)`
+    """
     return field.points[math.nonzero(field.values, list_dim=list_dim)]

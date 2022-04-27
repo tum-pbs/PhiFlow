@@ -383,6 +383,10 @@ class GridCell(BaseBox):
         return self.bounds.size / math.wrap(self.resolution.sizes)
 
     @property
+    def dx(self):
+        return self.bounds.size / self.resolution
+
+    @property
     def lower(self):
         return self.center - self.half_size
 

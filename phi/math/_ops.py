@@ -745,7 +745,7 @@ def concat(values: tuple or list, dim: Shape) -> Tensor:
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
 
 
-def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation') -> Tensor:
+def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation', **kwargs) -> Tensor:
     """
     Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
     Unlike `Extrapolation.pad()`, this function can handle negative widths which slice off outer values.
@@ -755,6 +755,9 @@ def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation') -> Tensor:
         widths: `dict` mapping dimension name (`str`) to `(lower, upper)`
             where `lower` and `upper` are `int` that can be positive (pad), negative (slice) or zero (pass).
         mode: `Extrapolation` used to determine values added from positive `widths`.
+        kwargs: Additional padding arguments.
+            These are ignored by the standard extrapolations defined in `phi.math.extrapolation` but can be used to pass additional contextual information to custom extrapolations.
+            Grid classes from `phi.field` will pass the argument `bounds: Box`.
 
     Returns:
         Padded `Tensor`
@@ -764,7 +767,7 @@ def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation') -> Tensor:
     if has_negative_widths:
         slices = {dim: slice(max(0, -w[0]), min(0, w[1]) or None) for dim, w in widths.items()}
         widths = {dim: (max(0, w[0]), max(0, w[1])) for dim, w in widths.items()}
-    result = mode.pad(value, widths)
+    result = mode.pad(value, widths, **kwargs)
     return result[slices] if has_negative_widths else result
 
 

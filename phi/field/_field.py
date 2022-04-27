@@ -148,7 +148,7 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, bounds: Box or None):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or Extrapolation or Field, bounds: Box or None):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
@@ -156,14 +156,18 @@ class SampledField(Field):
           extrapolation: values outside elements
         """
         super().__init__(bounds)
-        if not isinstance(extrapolation, math.Extrapolation):
-            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
-        assert isinstance(extrapolation, Extrapolation), f"Not a valid extrapolation: {extrapolation}"
         assert isinstance(elements, Geometry), elements
         assert isinstance(values, Tensor), f"Values must be a Tensor but got {values}."
-        self._elements = elements
-        self._values = values
-        self._extrapolation = extrapolation
+        self._elements: Geometry = elements
+        self._values: Tensor = values
+        self._extrapolation: Extrapolation = as_extrapolation(extrapolation)
+
+    @property
+    def bounds(self) -> Box:
+        raise NotImplementedError(self.__class__)
+
+    def _sample(self, geometry: Geometry) -> math.Tensor:
+        raise NotImplementedError(self.__class__)
 
     def with_values(self, values):
         """ Returns a copy of this field with `values` replaced. """
@@ -360,3 +364,26 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
 
 FieldType = TypeVar('FieldType', bound=Field)
 SampledFieldType = TypeVar('SampledFieldType', bound=SampledField)
+
+
+def as_extrapolation(obj: Extrapolation or float or Field) -> Extrapolation:
+    """
+    Returns an `Extrapolation` representing `obj`.
+
+    Args:
+        obj: One of
+
+            * `float` or `Tensor`: Extrapolate with a constant value
+            * `Extrapolation`: Use as-is.
+            * `Field`: Sample values from `obj`, embedding another field inside `obj`.
+
+    Returns:
+        `Extrapolation`
+    """
+    if isinstance(obj, Extrapolation):
+        return obj
+    if isinstance(obj, Field):
+        from ._embed import FieldEmbedding
+        return FieldEmbedding(obj)
+    else:
+        return math.extrapolation.ConstantExtrapolation(obj)
