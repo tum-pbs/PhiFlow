@@ -1,27 +1,22 @@
 """ Point Cloud Demo
 Demonstrates working with PointCloud objects and plotting them.
 """
-
-from phi.physics._boundaries import Domain, STICKY as CLOSED
 from phi.flow import *
 
 
-DOMAIN = Domain(x=64, y=64, boundaries=CLOSED, bounds=Box(x=100, y=100))
-# points = DOMAIN.points([(1, 1), (20, 20)], color=['#ba0a04', '#344feb'])
-
-points1 = DOMAIN.points((1, 1), color='#ba0a04')
-points2 = DOMAIN.points((20, 20), color='#344feb')
+points1 = PointCloud(wrap((1, 1)), color='#ba0a04')
+points2 = PointCloud(wrap((20, 20)), color='#ba0a04')
 # points = points1 & points2
-points = field.concat([points1, points2], instance('points'))
+points = field.stack([points1, points2], instance('points'))
 
 # Advection
-velocity = DOMAIN.vector_grid([-1, 1])
+velocity = CenteredGrid((-1, 1), x=64, y=64, bounds=Box(x=100, y=100))
 points = advect.advect(points, velocity, 10)  # RK4
 points = advect.advect(points, points * (-1, 1), -5)  # Euler
 
 # Grid sampling
-scattered_data = field.sample(points, DOMAIN.cells)
-scattered_grid = points @ DOMAIN.vector_grid()
-scattered_sgrid = points @ DOMAIN.staggered_grid()
+scattered_data = field.sample(points, velocity.elements)
+scattered_grid = points @ velocity
+scattered_sgrid = points @ StaggeredGrid(0, 0, velocity.bounds, velocity.resolution)
 
 view(namespace=globals())

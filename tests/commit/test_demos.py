@@ -5,6 +5,8 @@ from unittest import TestCase
 import phi
 import phi.vis._vis_base as display
 from phi.field import Field
+from phi.geom import Geometry
+from phi.math import Tensor
 from phi.math.backend import Backend
 from phi.vis._vis import force_use_gui
 
@@ -16,7 +18,7 @@ BACKENDS = tuple([b for b in BACKENDS if b.name != 'Jax'])
 def validate_fields(app):
     for name in app.field_names:
         value = app.get_field(name, {})
-        assert isinstance(value, Field) or value is None, f"Field '{name}' has an invalid value: {value}"
+        assert isinstance(value, (Field, Tensor, Geometry)) or value is None, f"Field '{name}' has an invalid value: {value}"
 
 
 class PerformModelTests(display.Gui):

@@ -900,6 +900,9 @@ class Layout(Tensor):
     def __repr__(self):
         return repr(self._obj)
 
+    def __format__(self, format_spec):
+        return repr(self._obj)
+
     def unstack(self, dimension: str):
         if dimension == self._shape.names[0]:
             native = tuple(self._obj.values()) if isinstance(self._obj, dict) else self._obj
