@@ -631,22 +631,19 @@ class TFBackend(Backend):
         @wraps(f)
         def eval_grad(*args):
             args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
+            args = [self.to_float(arg) if self.dtype(arg).kind in (bool, int) else arg for arg in args]
             wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
             with tf.GradientTape(watch_accessed_variables=False) as tape:
                 for arg in wrt_args:
                     assert arg.dtype in (tf.float16, tf.float32, tf.float64, tf.complex64, tf.complex128), f"Gradients can only be computed for float or complex tensors but got {arg.dtype} for argument with shape {arg.shape}"
                     tape.watch(arg)
                 output = f(*args)
-            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            # if self.ndims(loss) > 0:
-            #     loss = tf.reduce_sum(loss)  # this is not needed and will cause gradients to be None
+            output = output if isinstance(output, (tuple, list)) else [output]
+            loss = output[0]  # tf.reduce_sum(output[0]) not needed and will cause gradients to be None
             grads = list(self.as_registered.call(tape.gradient, loss, wrt_args, name=f"Backpropagation"))
             assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."
             if get_output:
-                if aux is not None:
-                    return (loss, *aux, *grads)
-                else:
-                    return (loss, *grads)
+                return (*output, *grads)
             else:
                 return grads
         return eval_grad

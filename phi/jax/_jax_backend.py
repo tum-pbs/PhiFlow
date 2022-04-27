@@ -175,6 +175,7 @@ class JaxBackend(Backend):
             jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
             @wraps(f)
             def unwrap_outputs(*args):
+                args = [self.to_float(arg) if self.dtype(arg).kind in (bool, int) else arg for arg in args]
                 (_, output_tuple), grads = jax_grad_f(*args)
                 return (*output_tuple, *grads)
             return unwrap_outputs

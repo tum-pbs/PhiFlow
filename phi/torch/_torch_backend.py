@@ -652,17 +652,12 @@ class TorchBackend(Backend):
         def eval_grad(*args):
             args, wrt_args = self._prepare_graph_inputs(args, wrt)
             output = f(*args)
-            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            if loss.ndim > 0:
-                loss = loss.sum()
+            output = output if isinstance(output, (tuple, list)) else [output]
+            loss = output[0].sum()
             grads = torch.autograd.grad(loss, wrt_args)  # grad() cannot be called during jit trace
             if get_output:
-                loss = loss.detach()
-                if aux is not None:
-                    aux = [aux_.detach() if isinstance(aux_, torch.Tensor) else aux_ for aux_ in aux]
-                    return (loss, *aux, *grads)
-                else:
-                    return (loss, *grads)
+                # output[0] = output[0].detach()  # why?
+                return (*output, *grads)
             else:
                 return grads
         return eval_grad
