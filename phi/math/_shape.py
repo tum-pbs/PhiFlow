@@ -704,7 +704,7 @@ class Shape:
                 return True
         return False
 
-    def with_size(self, size: int):
+    def with_size(self, size: int or None):
         """
         Only for single-dimension shapes.
         Returns a `Shape` representing this dimension but with a different size.

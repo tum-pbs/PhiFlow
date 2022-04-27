@@ -1684,3 +1684,32 @@ def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_
 def map_s2b(f: Callable) -> Callable:
     """ Map spatial dimensions to batch dimensions. Short for `map_types(f, spatial, batch)`. """
     return map_types(f, spatial, batch)
+
+
+def iterate(f: Callable, iterations: int or Shape, x0, f_kwargs: dict = None):
+    """
+    Repeatedly call `function`, passing the previous output as the next input.
+
+    Args:
+        f: Function to call. Must be callable as `f(x0, **f_kwargs)` and `f(f(x0, **f_kwargs), **f_kwargs)`.
+        iterations: Number of iterations as `int` or single-dimension `Shape`.
+            If `int`, returns the final output of `f`.
+            If `Shape`, returns the trajectory (`x0` and all outputs of `f`), stacking the values along this dimension.
+        x0: Initial positional arguments for `f`.
+        f_kwargs: Additional keyword arguments to be passed to `f`.
+            These arguments can be of any type.
+
+    Returns:
+        Trajectory of final output of `f`, depending on `iterations`.
+    """
+    if isinstance(iterations, int):
+        x = x0
+        for i in range(iterations):
+            x = f(x, **f_kwargs)
+        return x
+    elif isinstance(iterations, Shape):
+        xs = [x0]
+        for i in range(iterations.size):
+            xs.append(f(xs[-1], **f_kwargs))
+        xs = math.stack(xs, iterations.with_size(None))
+        return xs

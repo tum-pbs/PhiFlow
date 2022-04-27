@@ -341,3 +341,10 @@ class TestFunctional(TestCase):
                     loss_direct = loss_function(x_test)
                     loss_g, _ = gradient_function(x_test)
                     math.assert_close([0, 0.5], loss_g, loss_direct)
+
+    def test_iterate(self):
+        def f(x, fac):
+            return x * fac
+
+        self.assertEqual(4, math.iterate(f, 2, 1, f_kwargs=dict(fac=2.)))
+        math.assert_close([1, 2, 4], math.iterate(f, batch(trajectory=2), 1, f_kwargs=dict(fac=2.)))
