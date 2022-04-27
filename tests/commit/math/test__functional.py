@@ -328,3 +328,16 @@ class TestFunctional(TestCase):
                     self.assertEqual(f, matrix.indexing_type)
                     self.assertEqual((5, 5), matrix.shape)
 
+    def test_loss_batch_not_reduced(self):
+        def loss_function(x):
+            return math.l2_loss(x)
+
+        gradient_function = math.functional_gradient(loss_function)
+
+        for backend in BACKENDS:
+            if backend.supports(Backend.functional_gradient):
+                with backend:
+                    x_test = tensor([0, 1], batch('examples'))
+                    loss_direct = loss_function(x_test)
+                    loss_g, _ = gradient_function(x_test)
+                    math.assert_close([0, 0.5], loss_g, loss_direct)
