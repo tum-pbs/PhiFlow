@@ -5,11 +5,12 @@ Standard extrapolations are listed as global variables in this module.
 Extrapolations are an important part of sampled fields such as grids.
 See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
+import warnings
 from typing import Union, Dict
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
-from ._shape import Shape, channel
+from ._shape import Shape, channel, spatial
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -143,6 +144,36 @@ class Extrapolation:
     def __getitem__(self, item):
         return self
 
+    def __abs__(self):
+        raise NotImplementedError(self.__class__)
+
+    def __neg__(self):
+        raise NotImplementedError(self.__class__)
+
+    def __add__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __radd__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __sub__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __rsub__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __mul__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __rmul__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __truediv__(self, other):
+        raise NotImplementedError(self.__class__)
+
+    def __rtruediv__(self, other):
+        raise NotImplementedError(self.__class__)
+
 
 class ConstantExtrapolation(Extrapolation):
     """
@@ -252,9 +283,13 @@ class ConstantExtrapolation(Extrapolation):
         else:
             return NotImplemented
 
+    __radd__ = __add__
+
     def __sub__(self, other):
         if isinstance(other, ConstantExtrapolation):
             return ConstantExtrapolation(self.value - other.value)
+        elif self.is_zero():
+            return -other
         else:
             return NotImplemented
 
@@ -275,6 +310,8 @@ class ConstantExtrapolation(Extrapolation):
             return self
         else:
             return NotImplemented
+
+    __rmul__ = __mul__
 
     def __truediv__(self, other):
         if isinstance(other, ConstantExtrapolation):
@@ -306,6 +343,9 @@ class ConstantExtrapolation(Extrapolation):
 
     def __abs__(self):
         return ConstantExtrapolation(abs(self.value))
+
+    def __neg__(self):
+        return ConstantExtrapolation(-self.value)
 
     def _op1(self, operator):
         return ConstantExtrapolation(self.value._op1(operator))
@@ -380,7 +420,7 @@ class _CopyExtrapolation(Extrapolation):
     def _op(self, other, op):
         if type(other) == type(self):
             return self
-        elif isinstance(other, Extrapolation) and not isinstance(other, _CopyExtrapolation):
+        if isinstance(other, ConstantExtrapolation):  # some operations can be handled by ConstantExtrapolation, e.g. * 0
             op = getattr(other, op.__name__)
             return op(self)
         else:
@@ -389,14 +429,26 @@ class _CopyExtrapolation(Extrapolation):
     def __add__(self, other):
         return self._op(other, ConstantExtrapolation.__add__)
 
+    def __radd__(self, other):
+        return self._op(other, ConstantExtrapolation.__add__)
+
     def __mul__(self, other):
+        return self._op(other, ConstantExtrapolation.__mul__)
+
+    def __rmul__(self, other):
         return self._op(other, ConstantExtrapolation.__mul__)
 
     def __sub__(self, other):
         return self._op(other, ConstantExtrapolation.__rsub__)
 
+    def __rsub__(self, other):
+        return self._op(other, ConstantExtrapolation.__sub__)
+
     def __truediv__(self, other):
         return self._op(other, ConstantExtrapolation.__rtruediv__)
+
+    def __rtruediv__(self, other):
+        return self._op(other, ConstantExtrapolation.__truediv__)
 
     def __lt__(self, other):
         return self._op(other, ConstantExtrapolation.__gt__)
@@ -682,7 +734,7 @@ class _MixedExtrapolation(Extrapolation):
         Args:
           extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
         """
-        Extrapolation.__init__(self, None, )
+        super().__init__(pad_rank=None)
         self.ext = {dim: (e, e) if isinstance(e, Extrapolation) else tuple(e) for dim, e in extrapolations.items()}
 
     def to_dict(self) -> dict:
@@ -790,12 +842,119 @@ class _MixedExtrapolation(Extrapolation):
     def __rmul__(self, other):
         return self._op2(other, lambda e1, e2: e2 * e1)
 
+    def __truediv__(self, other):
+        return self._op2(other, lambda e1, e2: e1 / e2)
+
+    def __rtruediv__(self, other):
+        return self._op2(other, lambda e1, e2: e2 / e1)
+
     def _op2(self, other, operator):
         if isinstance(other, _MixedExtrapolation):
             assert self.ext.keys() == other.ext.keys()
             return combine_sides(**{ax: (operator(lo, other.ext[ax][False]), operator(hi, other.ext[ax][True])) for ax, (lo, hi) in self.ext.items()})
         else:
             return combine_sides(**{ax: (operator(lo, other), operator(hi, other)) for ax, (lo, hi) in self.ext.items()})
+
+    def __abs__(self):
+        return combine_sides(**{ax: (abs(lo), abs(up)) for ax, (lo, up) in self.ext.items()})
+
+    def __neg__(self):
+        return combine_sides(**{ax: (-lo, -up) for ax, (lo, up) in self.ext.items()})
+
+
+class _NormalTangentialExtrapolation(Extrapolation):
+
+    def __init__(self, normal: Extrapolation, tangential: Extrapolation):
+        super().__init__(pad_rank=min(normal.pad_rank, tangential.pad_rank))
+        self.normal = normal
+        self.tangential = tangential
+
+    def to_dict(self) -> dict:
+        return {
+            'type': 'normal-tangential',
+            'normal': self.normal.to_dict(),
+            'tangential': self.tangential.to_dict(),
+        }
+
+    def __repr__(self):
+        return f"normal={self.normal}, tangential={self.tangential}"
+
+    def spatial_gradient(self) -> 'Extrapolation':
+        return combine_by_direction(self.normal.spatial_gradient(), self.tangential.spatial_gradient())
+
+    def valid_outer_faces(self, dim) -> tuple:
+        return self.normal.valid_outer_faces(dim)
+
+    @property
+    def connects_to_outside(self) -> bool:
+        return self.normal.connects_to_outside
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool) -> Tensor:
+        if 'vector' not in value.shape:
+            warnings.warn(f'{self} adding a vector dimension to tensor {value.shape}')
+            from phi.math import expand
+            value = expand(value, channel(vector=spatial(value).names))
+        assert value.vector.item_names is not None, "item_names must be present when padding with normal-tangential"
+        result = []
+        for dim, component in zip(value.vector.item_names, value.vector):
+            ext = self.normal if dim == dimension else self.tangential
+            result.append(ext.pad_values(component, width, dimension, upper_edge))
+        from ._ops import stack
+        result = stack(result, value.shape.only('vector'))
+        return result
+
+    def __eq__(self, other):
+        return isinstance(other, _NormalTangentialExtrapolation) and self.normal == other.normal and self.tangential == other.tangential
+
+    def __add__(self, other):
+        return self._op2(other, lambda e1, e2: e1 + e2)
+
+    def __radd__(self, other):
+        return self._op2(other, lambda e1, e2: e2 + e1)
+
+    def __sub__(self, other):
+        return self._op2(other, lambda e1, e2: e1 - e2)
+
+    def __rsub__(self, other):
+        return self._op2(other, lambda e1, e2: e2 - e1)
+
+    def __mul__(self, other):
+        return self._op2(other, lambda e1, e2: e1 * e2)
+
+    def __rmul__(self, other):
+        return self._op2(other, lambda e1, e2: e2 * e1)
+
+    def __truediv__(self, other):
+        return self._op2(other, lambda e1, e2: e1 / e2)
+
+    def __rtruediv__(self, other):
+        return self._op2(other, lambda e1, e2: e2 / e1)
+
+    def _op2(self, other, operator):
+        if isinstance(other, _NormalTangentialExtrapolation):
+            return combine_by_direction(normal=operator(self.normal, other.normal), tangential=operator(self.tangential, other.tangential))
+        else:
+            return combine_by_direction(normal=operator(self.normal, other), tangential=operator(self.tangential, other))
+
+    def __abs__(self):
+        return combine_by_direction(normal=abs(self.normal), tangential=abs(self.tangential))
+
+    def __neg__(self):
+        return combine_by_direction(normal=-self.normal, tangential=-self.tangential)
+
+
+def combine_by_direction(normal: Extrapolation, tangential: Extrapolation) -> Extrapolation:
+    """
+    Use a different extrapolation for the normal component of vector-valued tensors.
+
+    Args:
+        normal: Extrapolation for the component that is orthogonal to the boundary.
+        tangential: Extrapolation for the component that is tangential to the boundary.
+
+    Returns:
+        `Extrapolation`
+    """
+    return normal if normal == tangential else _NormalTangentialExtrapolation(normal, tangential)
 
 
 def from_dict(dictionary: dict) -> Extrapolation:
@@ -823,6 +982,10 @@ def from_dict(dictionary: dict) -> Extrapolation:
         dims: Dict[str, tuple] = dictionary['dims']
         extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
         return _MixedExtrapolation(extrapolations)
+    elif etype == 'normal-tangential':
+        normal = from_dict(dictionary['normal'])
+        tangential = from_dict(dictionary['tangential'])
+        return _NormalTangentialExtrapolation(normal, tangential)
     else:
         raise ValueError(dictionary)
 

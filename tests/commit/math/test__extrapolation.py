@@ -119,3 +119,36 @@ class TestExtrapolation(TestCase):
         serialized = e.to_dict()
         e_ = from_dict(serialized)
         self.assertEqual(e, e_)
+
+    def test_normal_tangential(self):
+        t = math.ones(spatial(x=2, y=2), channel(vector='x,y'))
+        ext = combine_by_direction(normal=ZERO, tangential=-ONE)
+        p = math.pad(t, {'x': (1, 1), 'y': (1, 1)}, ext)
+        math.assert_close(1, p.x[1:-1].y[1:-1])  # inner
+        # x component
+        math.assert_close(0, p.vector['x'].x[0].y[1:-1])
+        math.assert_close(0, p.vector['x'].x[-1].y[1:-1])
+        math.assert_close(-1, p.vector['x'].x[1:-1].y[0])
+        math.assert_close(-1, p.vector['x'].x[1:-1].y[-1])
+        # y component
+        math.assert_close(-1, p.vector['y'].x[0].y[1:-1])
+        math.assert_close(-1, p.vector['y'].x[-1].y[1:-1])
+        math.assert_close(0, p.vector['y'].x[1:-1].y[0])
+        math.assert_close(0, p.vector['y'].x[1:-1].y[-1])
+        math.print(p)
+
+    def test_normal_tangential_math(self):
+        ext = combine_by_direction(normal=ONE, tangential=PERIODIC)
+        self.assertEqual(combine_by_direction(normal=ZERO, tangential=ZERO), ext * ZERO)
+        self.assertEqual(ext, ext + ZERO)
+        self.assertEqual(ext, ext - ZERO)
+        self.assertEqual(ext, ext * ONE)
+        self.assertEqual(ext, ext / ONE)
+        self.assertEqual(ext, ZERO + ext)
+        self.assertEqual(-ext, ZERO - ext)
+        self.assertEqual(ext, ONE * ext)
+        self.assertEqual(ZERO, ZERO / ext)
+        self.assertEqual(ZERO, ZERO * ext)
+        self.assertEqual(ZERO, ext * ZERO)
+        self.assertEqual(ext, abs(ext))
+
