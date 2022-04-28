@@ -6,7 +6,7 @@ from phi import math
 from phi.math import Tensor, spatial, instance, tensor
 from phi.geom import Box, Geometry, Sphere
 from phi.math import extrapolate_valid_values, channel, Shape, batch
-from ._field import Field, SampledField, unstack, SampledFieldType
+from ._field import Field, SampledField, unstack, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._mask import HardGeometryMask
 from ._point_cloud import PointCloud
@@ -95,7 +95,7 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Shape = channel('shift'
 
 def stagger(field: CenteredGrid,
             face_function: Callable,
-            extrapolation: math.extrapolation.Extrapolation,
+            extrapolation: float or math.extrapolation.Extrapolation,
             type: type = StaggeredGrid):
     """
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
@@ -119,6 +119,7 @@ def stagger(field: CenteredGrid,
       grid of type matching the `type` argument
 
     """
+    extrapolation = as_extrapolation(extrapolation)
     all_lower = []
     all_upper = []
     if type == StaggeredGrid:

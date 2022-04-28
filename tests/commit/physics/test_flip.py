@@ -18,7 +18,7 @@ class FlipTest(TestCase):
 
     def test_falling_block_short(self):
         """ Tests if a block of liquid has a constant shape during free fall for 4 steps. """
-        ACCESSIBLE_FACES = field.stagger(CenteredGrid(1, 0, x=32, y=128), math.minimum, extrapolation.ZERO)
+        ACCESSIBLE_FACES = field.stagger(CenteredGrid(1, 0, x=32, y=128), math.minimum, 0)
         particles = initial_particles = distribute_points(union(Box[12:20, 110:120]), x=32, y=128) * (0, -10)
         initial_bounds = data_bounds(particles)
         for i in range(4):
