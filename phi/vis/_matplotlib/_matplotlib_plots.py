@@ -396,7 +396,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
             if isinstance(titles, str):
                 axis.set_title(titles)
             elif names_equal:
-                axis.set_title(display_name(str(names[b])))
+                axis.set_title(display_name(names[b].native()))
             elif paths_equal:
                 axis.set_title(os.path.basename(scene.paths[b].native()))
         if labels is not None:
@@ -437,7 +437,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
             logging.debug(f"Plotting curve {label}")
             axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
             curve = np.stack([x_values, values], -1)
-            axis.plot(*smooth_uniform_curve(curve, smooth), color=color, linewidth=smooth_linewidth, label=label)
+            axis.plot(*smooth_uniform_curve(curve, smooth).T, color=color, linewidth=smooth_linewidth, label=label)
             if grid:
                 if isinstance(grid, dict):
                     axis.grid(**grid)
