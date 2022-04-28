@@ -853,9 +853,14 @@ class TensorDim(BoundDim):
         return unpack_dims(self.tensor, self.name, split_dimensions)
 
     def __mul__(self, other):
+        from ._ops import dot
         if isinstance(other, TensorDim):
-            from ._ops import dot
             return dot(self.tensor, (self.name,), other.tensor, (other.name,))
+        if isinstance(other, (tuple, list)):
+            other = wrap(other, self.obj.shape[self.name])
+        if isinstance(other, Tensor):
+            assert self.name in other.shape, f"Canno reduce '{self.name}' of tensor with shape {self.obj.shape} against tensor with shape {other.shape}. Dimension must be present on both tensors."
+            return dot(self.tensor, (self.name,), other, (self.name,))
         else:
             return NotImplemented
 

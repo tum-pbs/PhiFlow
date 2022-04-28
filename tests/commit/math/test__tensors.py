@@ -407,3 +407,8 @@ class TestTensors(TestCase):
     def test_iter_dim(self):
         slices = tuple(math.zeros(channel(vector='x,y')).vector)
         self.assertEqual(2, len(slices))
+
+    def test_matmul_reduce(self):
+        a = math.meshgrid(x=4, y=3)
+        math.assert_close(a.y[0], a.y * (1, 0, 0))
+        math.assert_close(a.y[1], a.y * (0, 1, 0))
