@@ -46,10 +46,12 @@ class Extrapolation:
         raise NotImplementedError()
 
     @property
-    def connects_to_outside(self) -> bool:
+    def is_flexible(self) -> bool:
         """
-        True if at any place, this extrapolation allows for dynamic flow out of the valid domain.
-        `BOUNDARY` faces allow this, but constant extrapolations and `PERIODIC` do not.
+        Whether the outside values are affected by the inside values.
+        Only `True` if there are actual outside values, i.e. PERIODIC is not flexible.
+
+        This property is important for pressure solves to determine whether the total divergence is fixed or can be adjusted during the solve.
         """
         raise NotImplementedError()
 
@@ -193,7 +195,7 @@ class ConstantExtrapolation(Extrapolation):
         return False, False
 
     @property
-    def connects_to_outside(self) -> bool:
+    def is_flexible(self) -> bool:
         return False
 
     def pad(self, value: Tensor, widths: dict, **kwargs):
@@ -339,9 +341,6 @@ class ConstantExtrapolation(Extrapolation):
     def __neg__(self):
         return ConstantExtrapolation(-self.value)
 
-    def _op1(self, operator):
-        return ConstantExtrapolation(self.value._op1(operator))
-
 
 class _CopyExtrapolation(Extrapolation):
 
@@ -418,6 +417,12 @@ class _CopyExtrapolation(Extrapolation):
         else:
             return NotImplemented
 
+    def __abs__(self):
+        return self  # assume also applied to values
+
+    def __neg__(self):
+        return self  # assume also applied to values
+
     def __add__(self, other):
         return self._op(other, ConstantExtrapolation.__add__)
 
@@ -448,15 +453,6 @@ class _CopyExtrapolation(Extrapolation):
     def __gt__(self, other):
         return self._op(other, ConstantExtrapolation.__lt__)
 
-    def __neg__(self):
-        return self  # assume also applied to values
-
-    def __abs__(self):
-        return self  # assume also applied to values
-
-    def _op1(self, operator):
-        return self  # assume also applied to values
-
 
 class _BoundaryExtrapolation(_CopyExtrapolation):
     """Uses the closest defined value for points lying outside the defined region."""
@@ -471,7 +467,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
         return ZERO
 
     @property
-    def connects_to_outside(self) -> bool:
+    def is_flexible(self) -> bool:
         return True
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
@@ -549,7 +545,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
         return True, False
 
     @property
-    def connects_to_outside(self) -> bool:
+    def is_flexible(self) -> bool:
         return False
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
@@ -582,7 +578,7 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
         return -self
 
     @property
-    def connects_to_outside(self) -> bool:
+    def is_flexible(self) -> bool:
         return True
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
@@ -616,7 +612,7 @@ class _ReflectExtrapolation(_CopyExtrapolation):
         return -self
 
     @property
-    def connects_to_outside(self) -> bool:
+    def is_flexible(self) -> bool:
         return True
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
@@ -630,9 +626,9 @@ class _ReflectExtrapolation(_CopyExtrapolation):
         return (shape - 1) - math.abs_((shape - 1) - coordinates)
 
 
-class _NoExtrapolation(Extrapolation):
+class _NoExtrapolation(Extrapolation):  # singleton
     def to_dict(self) -> dict:
-        return {}
+        return {'type': 'none'}
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
         return value
@@ -644,14 +640,78 @@ class _NoExtrapolation(Extrapolation):
         return True, True
 
     @property
-    def connects_to_outside(self) -> bool:
-        raise AssertionError(f"connects_to_outside not defined by {self.__class__}")
+    def is_flexible(self) -> bool:
+        raise AssertionError(f"is_flexible not defined by {self.__class__}")
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
-        raise AssertionError("Invalid extrapolation")
+        return math.zeros(value.shape._replace_single_size(dimension, 0))
 
     def __repr__(self):
         return "none"
+
+    def __abs__(self):
+        return self
+
+    def __neg__(self):
+        return self
+
+    def __add__(self, other):
+        return self
+
+    def __radd__(self, other):
+        return self
+
+    def __sub__(self, other):
+        return self
+
+    def __rsub__(self, other):
+        return self
+
+    def __mul__(self, other):
+        return self
+
+    def __rmul__(self, other):
+        return self
+
+    def __truediv__(self, other):
+        return self
+
+    def __rtruediv__(self, other):
+        return self
+
+
+class Undefined(Extrapolation):
+    """
+    The extrapolation is unknown and must be replaced before usage.
+    Any access to outside values will raise an AssertionError.
+    """
+
+    def __init__(self, derived_from: Extrapolation):
+        super().__init__(-1)
+        self.derived_from = derived_from
+
+    def to_dict(self) -> dict:
+        return {'type': 'undefined'}
+
+    def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
+        for (lo, up) in widths.items():
+            assert lo == 0 and up == 0, "Undefined extrapolation"
+
+    def spatial_gradient(self) -> 'Extrapolation':
+        return self
+
+    def valid_outer_faces(self, dim):
+        return self.derived_from.valid_outer_faces(dim)
+
+    @property
+    def is_flexible(self) -> bool:
+        raise AssertionError("Undefined extrapolation")
+
+    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
+        raise AssertionError("Undefined extrapolation")
+
+    def __repr__(self):
+        return "undefined"
 
     def __abs__(self):
         return self
@@ -769,8 +829,8 @@ class _MixedExtrapolation(Extrapolation):
         return e_lower.valid_outer_faces(dim)[0], e_upper.valid_outer_faces(dim)[1]
 
     @property
-    def connects_to_outside(self) -> bool:
-        result_by_dim = [lo.connects_to_outside or up.connects_to_outside for lo, up in self.ext.values()]
+    def is_flexible(self) -> bool:
+        result_by_dim = [lo.is_flexible or up.is_flexible for lo, up in self.ext.values()]
         return any(result_by_dim)
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
@@ -884,8 +944,8 @@ class _NormalTangentialExtrapolation(Extrapolation):
         return self.normal.valid_outer_faces(dim)
 
     @property
-    def connects_to_outside(self) -> bool:
-        return self.normal.connects_to_outside
+    def is_flexible(self) -> bool:
+        return self.normal.is_flexible
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
         if 'vector' not in value.shape:
@@ -984,6 +1044,10 @@ def from_dict(dictionary: dict) -> Extrapolation:
         normal = from_dict(dictionary['normal'])
         tangential = from_dict(dictionary['tangential'])
         return _NormalTangentialExtrapolation(normal, tangential)
+    elif etype == 'none':
+        return NONE
+    elif etype == 'undefined':
+        return UNDEFINED
     else:
         raise ValueError(dictionary)
 

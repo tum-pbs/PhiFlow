@@ -774,7 +774,8 @@ def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation', **kwargs) -> Tens
 def closest_grid_values(grid: Tensor,
                         coordinates: Tensor,
                         extrap: 'e_.Extrapolation',
-                        stack_dim_prefix='closest_'):
+                        stack_dim_prefix='closest_',
+                        **kwargs):
     """
     Finds the neighboring grid points in all spatial directions and returns their values.
     The result will have 2^d values for each vector in coordiantes in d dimensions.
@@ -784,23 +785,25 @@ def closest_grid_values(grid: Tensor,
       coordinates: tensor with 1 channel dimension holding vectors pointing to locations in grid index space
       extrap: grid extrapolation
       stack_dim_prefix: For each spatial dimension `dim`, stacks lower and upper closest values along dimension `stack_dim_prefix+dim`.
+      kwargs: Additional information for the extrapolation.
 
     Returns:
       Tensor of shape (batch, coord_spatial, grid_spatial=(2, 2,...), grid_channel)
 
     """
-    return broadcast_op(functools.partial(_closest_grid_values, extrap=extrap, stack_dim_prefix=stack_dim_prefix), [grid, coordinates])
+    return broadcast_op(functools.partial(_closest_grid_values, extrap=extrap, stack_dim_prefix=stack_dim_prefix, pad_kwargs=kwargs), [grid, coordinates])
 
 
 def _closest_grid_values(grid: Tensor,
                          coordinates: Tensor,
                          extrap: 'e_.Extrapolation',
-                         stack_dim_prefix='closest_'):
+                         stack_dim_prefix: str,
+                         pad_kwargs: dict):
     # alternative method: pad array for all 2^d combinations, then stack to simplify gather.
     # --- Pad tensor where transform is not possible ---
     non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
                     for dim in grid.shape.spatial.names}
-    grid = extrap.pad(grid, non_copy_pad)
+    grid = extrap.pad(grid, non_copy_pad, **pad_kwargs)
     coordinates += wrap([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], channel('vector'))
     # --- Transform coordiantes ---
     min_coords = to_int32(floor(coordinates))
@@ -823,7 +826,7 @@ def _closest_grid_values(grid: Tensor,
     return result
 
 
-def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation'):
+def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation', **kwargs):
     """
     Samples values of `grid` at the locations referenced by `coordinates`.
     Values lying in between sample points are determined via linear interpolation.
@@ -834,15 +837,16 @@ def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation'):
         coordinates: Coordinates with a single channel dimension called `'vector'`.
             The size of the `vector` dimension must match the number of spatial dimensions of `grid`.
         extrap: Extrapolation used to determine the values of `grid` outside its valid bounds.
+        kwargs: Additional information for the extrapolation.
 
     Returns:
         `Tensor` with channel dimensions of `grid`, spatial and instance dimensions of `coordinates` and combined batch dimensions.
     """
-    result = broadcast_op(functools.partial(_grid_sample, extrap=extrap), [grid, coordinates])
+    result = broadcast_op(functools.partial(_grid_sample, extrap=extrap, pad_kwargs=kwargs), [grid, coordinates])
     return result
 
 
-def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' or None):
+def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' or None, pad_kwargs: dict):
     if grid.shape.batch == coordinates.shape.batch or grid.shape.batch.volume == 1 or coordinates.shape.batch.volume == 1:
         # call backend.grid_sample()
         batch = grid.shape.batch & coordinates.shape.batch
@@ -858,7 +862,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
                                          extrap.native_grid_sample_mode)
         if result is NotImplemented:
             # pad one layer
-            grid_padded = pad(grid, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or e_.ZERO)
+            grid_padded = pad(grid, {dim: (1, 1) for dim in grid.shape.spatial.names}, extrap or e_.ZERO, **pad_kwargs)
             if extrap is not None:
                 from .extrapolation import _CopyExtrapolation
                 if isinstance(extrap, _CopyExtrapolation):
@@ -874,7 +878,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
             result = reshaped_tensor(result, [grid.shape.batch & coordinates.shape.batch, *coordinates.shape.instance, *coordinates.shape.spatial, grid.shape.channel])
             return result
     # fallback to slower grid sampling
-    neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, '_closest_')
+    neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, '_closest_', pad_kwargs)
     binary = meshgrid(**{f'_closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, dim_type=channel, assign_item_names=False)
     right_weights = coordinates % 1
     binary, right_weights = join_spaces(binary, right_weights)

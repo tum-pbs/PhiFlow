@@ -3,7 +3,7 @@ from typing import TypeVar, Any
 from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
 from . import HardGeometryMask
-from ._field import SampledField, Field, sample, reduce_sample
+from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation
 from ..geom._stack import GeometryStack
 from ..math import Shape, NUMPY
 from ..math._shape import spatial, channel, parse_dim_order
@@ -204,7 +204,7 @@ class CenteredGrid(Grid):
                     return fast_resampled
         points = geometry.center
         local_points = self.box.global_to_local(points) * self.resolution - 0.5
-        return math.grid_sample(self.values, local_points, self.extrapolation)
+        return math.grid_sample(self.values, local_points, self.extrapolation, bounds=self.bounds)
 
     def _shift_resample(self, resolution: Shape, bounds: Box, threshold=1e-5, max_padding=20):
         assert math.all_available(bounds.lower, bounds.upper), "Shift resampling requires 'bounds' to be available."
@@ -271,8 +271,7 @@ class StaggeredGrid(Grid):
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         """
-        if not isinstance(extrapolation, math.Extrapolation):
-            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
+        extrapolation = as_extrapolation(extrapolation)
         if resolution is None and not resolution_:
             assert isinstance(values, Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
             any_dim = values.shape.spatial.names[0]
@@ -316,7 +315,8 @@ class StaggeredGrid(Grid):
         return GridCell(self.resolution, self.bounds)
 
     def with_extrapolation(self, extrapolation: math.Extrapolation):
-        if all(extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names):
+        extrapolation = as_extrapolation(extrapolation)
+        if all([extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names]):
             return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
         else:
             values = []

@@ -70,7 +70,7 @@ def make_incompressible(velocity: GridType,
     hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
     velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity) * active
-    if not input_velocity.extrapolation.connects_to_outside:
+    if not input_velocity.extrapolation.is_flexible:
         assert solve.preprocess_y is None, "fluid.make_incompressible() does not support custom preprocessing"
         solve = copy_with(solve, preprocess_y=_balance_divergence, preprocess_y_args=(active,))
     if solve.x0 is None:
@@ -85,8 +85,8 @@ def make_incompressible(velocity: GridType,
 @math.jit_compile_linear
 def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid):
     grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
-    grad *= hard_bcs
-    div = divergence(grad)
+    valid_grad = grad * hard_bcs
+    div = divergence(valid_grad)
     lap = where(active, div, pressure)
     return lap
 
@@ -134,6 +134,7 @@ def _pressure_extrapolation(vext: math.Extrapolation):
 
 
 def _accessible_extrapolation(vext: math.Extrapolation):
+    """ Determine whether outside cells are accessible based on the velocity extrapolation. """
     if vext == extrapolation.PERIODIC:
         return extrapolation.PERIODIC
     elif vext == extrapolation.BOUNDARY:
@@ -142,5 +143,7 @@ def _accessible_extrapolation(vext: math.Extrapolation):
         return extrapolation.ZERO
     elif isinstance(vext, extrapolation._MixedExtrapolation):
         return combine_sides(**{dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+    elif isinstance(vext, extrapolation._NormalTangentialExtrapolation):
+        return _accessible_extrapolation(vext.normal)
     else:
         raise ValueError(f"Unsupported extrapolation: {type(vext)}")

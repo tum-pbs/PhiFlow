@@ -148,7 +148,7 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or Extrapolation or Field, bounds: Box or None):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or Extrapolation or Field or None, bounds: Box or None):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
@@ -366,7 +366,7 @@ FieldType = TypeVar('FieldType', bound=Field)
 SampledFieldType = TypeVar('SampledFieldType', bound=SampledField)
 
 
-def as_extrapolation(obj: Extrapolation or float or Field) -> Extrapolation:
+def as_extrapolation(obj: Extrapolation or float or Field or None) -> Extrapolation:
     """
     Returns an `Extrapolation` representing `obj`.
 
@@ -382,8 +382,10 @@ def as_extrapolation(obj: Extrapolation or float or Field) -> Extrapolation:
     """
     if isinstance(obj, Extrapolation):
         return obj
-    if isinstance(obj, Field):
+    elif isinstance(obj, Field):
         from ._embed import FieldEmbedding
         return FieldEmbedding(obj)
+    elif obj is None:
+        return math.extrapolation.NONE
     else:
         return math.extrapolation.ConstantExtrapolation(obj)
