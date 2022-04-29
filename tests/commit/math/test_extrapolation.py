@@ -92,6 +92,21 @@ class TestExtrapolation(TestCase):
                 math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
                 math.assert_close(p.x[0].y[:-1], a.x[0])
                 math.assert_close(p.x[-2:].y[:-1], a.x[-1])
+                # symmetric
+                p = math.pad(a, {'x': (2, 2), 'y': (2, 2)}, SYMMETRIC)
+                math.assert_close(p.x[2:-2].y[2:-2], a)  # copy inner
+                math.assert_close(p.x[2:-2].y[2:-2], a)  # copy inner
+                math.assert_close(p.x[2:-2].y[1], a.y[0])
+                math.assert_close(p.x[2:-2].y[0], a.y[1])
+                math.assert_close(p.x[2:-2].y[-2], a.y[-1])
+                math.assert_close(p.x[2:-2].y[-1], a.y[-2])
+                # reflect
+                p = math.pad(a, {'x': (2, 2), 'y': (2, 2)}, REFLECT)
+                math.assert_close(p.x[2:-2].y[2:-2], a)  # copy inner
+                math.assert_close(p.x[2:-2].y[1], a.y[1])
+                math.assert_close(p.x[2:-2].y[0], a.y[2])
+                math.assert_close(p.x[2:-2].y[-2], a.y[-2])
+                math.assert_close(p.x[2:-2].y[-1], a.y[-3])
                 # mixed
                 p = math.pad(a, {'x': (1, 2), 'y': (0, 1)}, combine_sides(x=PERIODIC, y=(ONE, REFLECT)))
                 math.print(p)

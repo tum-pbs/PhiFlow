@@ -586,20 +586,10 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
         return ((2 * shape - 1) - abs((2 * shape - 1) - 2 * coordinates)) // 2
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
-        raise NotImplementedError()
-        # raise NotImplementedError()  # only used by PyTorch which does not support ::-1 axis flips
-        # dims = range(math.ndims(value))
-        # for dim in dims:
-        #     pad_lower, pad_upper = pad_width[dim]
-        #     if pad_lower == 0 and pad_upper == 0:
-        #         continue  # Nothing to pad
-        #     top_rows = value[
-        #         tuple([slice(value.shape[dim] - pad_upper, None) if d == dim else slice(None) for d in dims])]
-        #     bottom_rows = value[tuple([slice(None, pad_lower) if d == dim else slice(None) for d in dims])]
-        #     top_rows = math.flip_axis(top_rows, dim)
-        #     bottom_rows = math.flip_axis(bottom_rows, dim)
-        #     value = math.concat([bottom_rows, value, top_rows], axis=dim)
-        # return value
+        if upper_edge:
+            return value[{dimension: slice(-width, None)}].flip(dimension)
+        else:
+            return value[{dimension: slice(0, width)}].flip(dimension)
 
 
 class _ReflectExtrapolation(_CopyExtrapolation):
