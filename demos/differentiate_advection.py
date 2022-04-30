@@ -9,7 +9,7 @@ from phi.torch.flow import *
 # from phi.tf.flow import *
 
 
-DOMAIN = dict(x=50, y=50, bounds=Box[0:100, 0:100])
+DOMAIN = dict(x=50, y=50, bounds=Box(x=100, y=100))
 MARKER_0 = CenteredGrid(Sphere((40, 50), radius=20), extrapolation.BOUNDARY, **DOMAIN)
 MARKER_TARGET = CenteredGrid(Sphere((60, 50), radius=20), extrapolation.BOUNDARY, **DOMAIN)
 

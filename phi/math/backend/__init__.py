@@ -7,6 +7,7 @@ from ._backend import (
     default_backend, set_global_default_backend, BACKENDS, context_backend, _DEFAULT,
     get_precision, precision, set_global_precision,
     convert,
+    PHI_LOGGER,
 )
 from ._numpy_backend import NumPyBackend as _NumPyBackend
 from ._profile import Profile, get_current_profile, profile, profile_function

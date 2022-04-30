@@ -14,15 +14,16 @@ See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 
 from phi.flow import *
 from . import TENSORFLOW
-from ._keras_util import parameter_count, dense_net, u_net
+from .nets import parameter_count, dense_net, u_net, save_state, load_state, update_weights, adam
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers
+
+from ..math.backend import PHI_LOGGER as _LOGGER
 
 tf = tensorflow
 
 if not backend.context_backend():
     backend.set_global_default_backend(TENSORFLOW)
 else:
-    import warnings
-    warnings.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")
+    _LOGGER.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")

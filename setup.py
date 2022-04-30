@@ -156,6 +156,7 @@ setup(
               'phi.field',
               'phi.geom',
               'phi.jax',
+              'phi.jax.stax',
               'phi.math',
               'phi.math.backend',
               'phi.physics',
@@ -166,8 +167,7 @@ setup(
               'phi.vis._console',
               'phi.vis._dash',
               'phi.vis._matplotlib',
-              'phi.vis._widgets',
-              'webglviewer'],
+              'phi.vis._widgets'],
     cmdclass={
         'tf_cuda': CudaCommand,
         'phi_torch_cuda': PhiTorchCuda
@@ -182,12 +182,12 @@ setup(
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
     install_requires=[
-        'numpy==1.19.5',  # 1.20 causes TensorFlow tracing errors: NotImplementedError: Cannot convert a symbolic Tensor to a numpy array.
-        'scipy',
+        'numpy',  # 1.20 causes TensorFlow tracing errors: NotImplementedError: Cannot convert a symbolic Tensor to a numpy array.
+        'scipy>=1.5.4',
         'matplotlib'  # also required by dash for color maps
     ],
     # Optional packages:
-    # - dash + plotly (included in dash) + imageio (for webgl-viewer)
+    # - dash + plotly (included in dash)
     # - torch
     # - tensorflow
     # - jax

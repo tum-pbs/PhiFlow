@@ -259,7 +259,7 @@ class TestFunctional(TestCase):
     def test_jit_solves(self):
         @math.jit_compile
         def solve(y, method):
-            print(f"Tracing {method}...")
+            print(f"Tracing {method} with {backend}...")
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             with SolveTape() as solves:
                 x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
@@ -275,3 +275,69 @@ class TestFunctional(TestCase):
                     x = solve(CenteredGrid(1, extrapolation.ZERO, x=3), method=method)
                     math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
 
+    def test_gradient_descent_minimize(self):
+        def loss(x):
+            return x ** 2
+
+        for backend in BACKENDS:
+            if backend.supports(Backend.functional_gradient):
+                with backend:
+                    result = math.minimize(loss, Solve('GD', 0, 1e-5, 20, x0=3))
+                    math.assert_close(result, 0, abs_tolerance=1e-5, msg=backend.name)
+
+    def test_map_types(self):
+        def f(x, y):
+            assert x.shape.batch.names == ('batch', 'x', 'y')
+            assert x.shape.channel.names == ('vector',)
+            assert y.shape == x.shape
+            return x, y
+
+        for f_ in [
+            # math.map_types(f, 'x,y', batch),
+            # math.map_types(f, spatial('x,y'), batch),
+            math.map_types(f, spatial, batch),
+        ]:
+            x = math.random_uniform(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
+            x_, y_ = f_(x, x)
+            assert x_.shape == x.shape
+            math.assert_close(x, x_)
+
+    def test_hessian(self):
+        def f(x, y):
+            return math.l1_loss(x ** 2 * y), x, y
+        
+        eval_hessian = math.hessian(f, wrt=[0, ], get_output=True, get_gradient=True, dim_suffixes=('1', '2'))
+
+        for backend in BACKENDS:
+            if backend.supports(Backend.hessian):
+                with backend:
+                    x = math.tensor([(0.01, 1, 2)], channel('vector', 'v'))
+                    y = math.tensor([1., 2.], batch('batch'))
+                    (L, x, y), g, H, = eval_hessian(x, y)
+                    math.assert_close(L, (5.0001, 10.0002), msg=backend.name)
+                    math.assert_close(g.batch[0].vector[0], (0.02, 2, 4), msg=backend.name)
+                    math.assert_close(g.batch[1].vector[0], (0.04, 4, 8), msg=backend.name)
+                    math.assert_close(2, H.v1[0].v2[0].batch[0], H.v1[1].v2[1].batch[0], H.v1[2].v2[2].batch[0], msg=backend.name)
+                    math.assert_close(4, H.v1[0].v2[0].batch[1], H.v1[1].v2[1].batch[1], H.v1[2].v2[2].batch[1], msg=backend.name)
+
+    def test_sparse_matrix(self):
+        for backend in BACKENDS:
+            with backend:
+                for f in ['csr', 'csc', 'coo']:
+                    matrix = math.jit_compile_linear(math.laplace).sparse_matrix(math.zeros(spatial(x=5)), format=f)
+                    self.assertEqual(f, matrix.indexing_type)
+                    self.assertEqual((5, 5), matrix.shape)
+
+    def test_loss_batch_not_reduced(self):
+        def loss_function(x):
+            return math.l2_loss(x)
+
+        gradient_function = math.functional_gradient(loss_function)
+
+        for backend in BACKENDS:
+            if backend.supports(Backend.functional_gradient):
+                with backend:
+                    x_test = tensor([0, 1], batch('examples'))
+                    loss_direct = loss_function(x_test)
+                    loss_g, _ = gradient_function(x_test)
+                    math.assert_close([0, 0.5], loss_g, loss_direct)

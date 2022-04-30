@@ -1,8 +1,40 @@
+from typing import List
+
 import numpy
 
 from phi.field import Grid, CenteredGrid
 from ._console_util import underline, get_arrow
-from ...math import extrapolation
+from .._vis_base import PlottingLibrary
+from ...math import extrapolation, Tensor
+
+
+class ConsolePlots(PlottingLibrary):
+
+    def __init__(self):
+        self.last_figure = ""
+
+    # def plot(self, data: Tensor,
+    #          title=False,
+    #          size=(12, 5),
+    #          same_scale=True,
+    #          show_color_bar=True,
+    #          figure=None,
+    #          **plt_args):
+    #     if v.vector.exists:
+    #         plt_lines = quiver(v, plt_width, plt_height, name, threshold=0.1, basic_chars=True)
+    #     else:
+    #         plt_lines = heatmap(v, plt_width, plt_height, name)
+
+    def show(self, figure: List[str]):
+        print(figure)
+
+    def save(self, figure: List[str], path: str):
+        with open(path, 'w') as file:
+            file.writelines(figure)
+
+
+CONSOLE = ConsolePlots()
+
 
 FILLED = [' ', '.', ':', '-', '=', '+', '*', '#', '%', '@']
 

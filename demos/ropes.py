@@ -15,7 +15,7 @@ id_ab = math.concat([id_a, id_b], id_a.shape)
 lengths = math.vec_abs(positions[id_b] - positions[id_a])
 previous_positions = positions
 
-cloud = PointCloud(Sphere(positions, radius=0.1), bounds=Box[-5:5, -10:1])  # only for viewing
+cloud = PointCloud(Sphere(positions, radius=0.1), bounds=Box(x=(-5, 5), y=(-10, 1)))  # only for viewing
 viewer = view(cloud, positions, previous_positions, namespace=globals(), play=False, framerate=20)
 for _ in viewer.range():
     moved_positions = positions + (positions - previous_positions)
@@ -31,4 +31,4 @@ for _ in viewer.range():
         new_pos = math.concat([new_pos_a, new_pos_b], new_pos_a.shape.instance)
         new_points = math.scatter(positions, id_ab, new_pos, mode='mean', outside_handling='undefined')
         positions = math.where(fixed, positions, new_points)
-    cloud = PointCloud(Sphere(positions, radius=0.1), bounds=Box[-5:5, -10:1])  # only for viewing
+    cloud = PointCloud(Sphere(positions, radius=0.1), bounds=Box(x=(-5, 5), y=(-10, 1)))  # only for viewing

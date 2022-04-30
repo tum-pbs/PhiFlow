@@ -2,7 +2,7 @@ import numbers
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Callable
+from typing import List, Callable, Optional, Set
 
 import numpy as np
 import torch
@@ -10,8 +10,8 @@ import torch.fft
 import torch.nn.functional as torchf
 
 from phi.math import DType
-from phi.math.backend import Backend, NUMPY, ComputeDevice
-from phi.math.backend._backend import combined_dim, SolveResult
+from phi.math.backend import Backend, NUMPY, ComputeDevice, PHI_LOGGER
+from phi.math.backend._backend import combined_dim, SolveResult, get_functional_derivative_order
 torch.ops.load_library('../build/phi_torch_cuda.so')
 
 class SparseCSRMatrix:
@@ -26,7 +26,8 @@ class TorchBackend(Backend):
     def __init__(self):
         cpu = NUMPY.cpu
         self.cpu = ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')
-        Backend.__init__(self, 'PyTorch', default_device=self.cpu)
+        gpus = self.list_devices('GPU')
+        Backend.__init__(self, 'PyTorch', default_device=gpus[0] if gpus else cpu)
 
     def prefers_channels_last(self) -> bool:
         return False
@@ -47,8 +48,11 @@ class TorchBackend(Backend):
                                              ref=f'cuda:{index}'))
         return devices
 
+    def is_module(self, obj):
+        return isinstance(obj, (JITFunction, torch.nn.Module))
+
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, (torch.Tensor, JITFunction)):
+        if isinstance(x, torch.Tensor):
             return True
         if only_native:
             return False
@@ -61,6 +65,8 @@ class TorchBackend(Backend):
         return False
 
     def as_tensor(self, x, convert_external=True):
+        if isinstance(x, torch.nn.Module):
+            return x
         if self.is_tensor(x, only_native=convert_external):
             tensor = x
         elif isinstance(x, np.ndarray):
@@ -71,6 +77,7 @@ class TorchBackend(Backend):
             tensor = tensor.to(self.get_default_device().ref)
         elif isinstance(x, (tuple, list)):
             try:
+                x = np.stack(x)
                 tensor = torch.tensor(x, device=self.get_default_device().ref)
             except ValueError:  # there may be Tensors inside the list
                 components = [self.as_tensor(c) for c in x]
@@ -84,13 +91,25 @@ class TorchBackend(Backend):
                 tensor = self.to_float(tensor)
             elif dtype.kind == complex:
                 tensor = self.to_complex(tensor)
+        # --- Move to default device ---
+        if isinstance(tensor, torch.Tensor) and tensor.device != self.get_default_device().ref:
+            tensor = tensor.to(self.get_default_device().ref)
         return tensor
 
+    def recursive_as_tensor(self, obj):
+        if isinstance(obj, (tuple, list)):
+            return type(obj)([self.recursive_as_tensor(item) for item in obj])
+        elif isinstance(obj, dict):
+            raise NotImplementedError()
+        else:
+            return self.as_tensor(obj)
+
     def auto_cast(self, *tensors) -> list:
-        tensors = [t if isinstance(t, (torch.Tensor, numbers.Number, bool)) else self.as_tensor(t, True) for t in tensors]
+        tensors = [t if isinstance(t, (numbers.Number, bool)) else self.as_tensor(t, True) for t in tensors]
         return Backend.auto_cast(self, *tensors)
 
     def is_available(self, tensor) -> bool:
+        # return True
         return torch._C._get_tracing_state() is None  # TODO can we find out whether this tensor specifically is being traced?
 
     def numpy(self, tensor):
@@ -123,11 +142,14 @@ class TorchBackend(Backend):
     sqrt = torch.sqrt
     exp = torch.exp
     sin = torch.sin
+    arcsin = torch.arcsin
     cos = torch.cos
+    arccos = torch.arccos
     tan = torch.tan
     log = torch.log
     log2 = torch.log2
     log10 = torch.log10
+    sigmoid = torch.sigmoid
     isfinite = torch.isfinite
     abs = torch.abs
     sign = torch.sign
@@ -140,79 +162,24 @@ class TorchBackend(Backend):
     einsum = staticmethod(torch.einsum)
 
     def jit_compile(self, f: Callable) -> Callable:
-        return JITFunction(f)
+        return JITFunction(self, f)
 
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
-        TRACED_F = {}
-        TRACED_B = {}
+        """ See PyTorch_Jit.md """
+        def select_jit(*args):
+            if not CURRENT_JIT_CALLS:
+                return torch_function.apply(*args)
+            jit = CURRENT_JIT_CALLS[-1]
+            if torch._C._get_tracing_state() is not None:  # second call: we are tracing
+                compiled_function = jit.get_compiled_function(torch_function, args)
+                return compiled_function.apply(*args)  # this adds the compiled function to TorchScript. The function must not call any torch functions while being traced lest they be double-executed later.
+            else:  # first call: record this function
+                output = torch_function.apply(*args)
+                jit.record_autograd_function_call(torch_function, args, output)
+                return output
 
-        class TorchFunction(torch.autograd.Function):
-
-            @staticmethod
-            def forward(ctx, *args, **kwargs):
-                current_jit = CURRENT_JIT_CALLS[-1] if CURRENT_JIT_CALLS else None
-                if torch._C._get_tracing_state() is not None:
-                    assert current_jit, "Detected PyTorch tracing outside Φ-Flow"
-                    f_ = f
-
-                    def trace_later():
-                        TRACED_F[current_jit] = torch.jit.trace(f, args)  # nested traces not allowed in PyTorch
-                    current_jit.post_trace.append(trace_later)
-                elif CURRENT_JIT_CALLS:
-                    jit_f = TRACED_F[CURRENT_JIT_CALLS[-1]]
-                    f_ = jit_f
-                else:
-                    f_ = f
-                y = f_(*args, **kwargs)
-                ctx.save_for_backward(*args, *y)
-                ctx.input_count = len(args)
-                ctx.jit_f = current_jit
-                return y
-
-            @staticmethod
-            def backward(ctx, *grad_args):
-                x = ctx.saved_tensors[:ctx.input_count]
-                y = ctx.saved_tensors[ctx.input_count:]
-                if torch._C._get_tracing_state() is not None:
-                    assert CURRENT_JIT_CALLS
-                    raise NotImplementedError()
-                    # g_ = gradient
-                    #
-                    # def trace_later():
-                    #     TRACED_F[current_jit] = torch.jit.trace(f, args)  # nested traces not allowed in PyTorch
-                elif ctx.jit_f:
-                    jit_f = ctx.jit_f
-                    if ctx.jit_f in TRACED_B:
-                        g_ = TRACED_B[ctx.jit_f]
-                    else:
-                        # jit-compile the gradient function
-                        # jit-functions cannot return None, so we have to filter out non-required gradients
-                        needs_input_grad = ctx.needs_input_grad
-                        with ctx.jit_f:
-                            def filter_required_grads(*args):
-                                grads = gradient(*args)
-                                filtered = [g for g, need in zip(grads, needs_input_grad) if need]
-                                return filtered
-
-                            needed_g = torch.jit.trace(filter_required_grads, tuple([x, y, grad_args]), check_trace=False)
-
-                            def g_(*args):
-                                with jit_f:
-                                    needed = self.as_registered.call(needed_g, *args, name=f"run jit-compiled custom backward '{gradient.__name__}'")
-                                assert not jit_f.post_trace
-                                assert isinstance(needed, (tuple, list))
-                                needed = list(needed)
-                                result = [(needed.pop(0) if need else None) for need in needs_input_grad]
-                                return result
-
-                            TRACED_B[ctx.jit_f] = g_
-                else:
-                    g_ = gradient
-                output = g_(x, y, grad_args)
-                result = output[0] if len(output) == 1 else (*output, )
-                return result
-
-        return TorchFunction.apply
+        torch_function = construct_torch_custom_function(f, None, None, gradient, is_f_traced=False, backend=self)
+        return select_jit
 
     def transpose(self, tensor, axes):
         return tensor.permute(axes)
@@ -221,11 +188,21 @@ class TorchBackend(Backend):
         x, y = self.auto_cast(x, y)
         return x == y
 
-    def random_uniform(self, shape):
-        return torch.rand(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+    def random_uniform(self, shape, low, high, dtype: DType or None):
+        dtype = dtype or self.float_type
+        if dtype.kind == float:
+            return low + (high - low) * torch.rand(size=shape, dtype=to_torch_dtype(dtype), device=self.get_default_device().ref)
+        elif dtype.kind == complex:
+            real = low.real + (high.real - low.real) * torch.rand(size=shape, dtype=to_torch_dtype(DType(float, dtype.precision)), device=self.get_default_device().ref)
+            imag = low.imag + (high.imag - low.imag) * torch.rand(size=shape, dtype=to_torch_dtype(DType(float, dtype.precision)), device=self.get_default_device().ref)
+            return real + 1j * imag
+        elif dtype.kind == int:
+            return torch.randint(low, high, shape, dtype=to_torch_dtype(dtype))
+        else:
+            raise ValueError(dtype)
 
-    def random_normal(self, shape):
-        return torch.randn(size=shape, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+    def random_normal(self, shape, dtype: DType):
+        return torch.randn(size=shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def stack(self, values, axis=0):
         values = [self.as_tensor(v) for v in values]
@@ -271,13 +248,15 @@ class TorchBackend(Backend):
         try:
             result = torchf.pad(reordered, pad_width_spatial, mode, value=constant_values)  # supports 3D to 5D (2 + 1D to 3D)
         except RuntimeError as err:
-            warnings.warn(f"PyTorch error {err}")
+            warnings.warn(f"PyTorch error {err}", RuntimeWarning)
             return NotImplemented
         result = undo_transform(result)
         return result
 
-    def grid_sample(self, grid, coordinates, extrapolation='constant'):
+    def grid_sample(self, grid, coordinates, extrapolation: str):
         assert extrapolation in ('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflect'), extrapolation
+        if get_functional_derivative_order() > 1:
+            return NotImplemented  # PyTorch's grid_sample operator does not define higher-order derivatives
         extrapolation = {'undefined': 'zeros', 'zeros': 'zeros', 'boundary': 'border', 'reflect': 'reflection'}.get(extrapolation, None)
         if extrapolation is None:
             return NotImplemented
@@ -316,6 +295,8 @@ class TorchBackend(Backend):
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         boolean_tensor = self.as_tensor(boolean_tensor, convert_external=True)
+        if self.dtype(boolean_tensor).kind != bool:
+            boolean_tensor = boolean_tensor != 0
         if axis is None:
             return torch.any(boolean_tensor)
         else:
@@ -326,6 +307,8 @@ class TorchBackend(Backend):
 
     def all(self, boolean_tensor, axis=None, keepdims=False):
         boolean_tensor = self.as_tensor(boolean_tensor, convert_external=True)
+        if self.dtype(boolean_tensor).kind != bool:
+            boolean_tensor = boolean_tensor != 0
         if axis is None:
             return torch.all(boolean_tensor)
         else:
@@ -349,6 +332,8 @@ class TorchBackend(Backend):
         return torch.where(condition, x, y)
 
     def mean(self, value, axis=None, keepdims=False):
+        if self.dtype(value).kind not in (float, complex):
+            value = self.to_float(value)
         return torch.mean(value, dim=axis, keepdim=keepdims)
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
@@ -360,22 +345,27 @@ class TorchBackend(Backend):
         return torch.zeros(shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def zeros_like(self, tensor):
-        return torch.zeros_like(tensor, device=self.get_default_device().ref)
+        return torch.zeros_like(self.as_tensor(tensor), device=self.get_default_device().ref)
 
     def ones(self, shape, dtype: DType = None):
         return torch.ones(shape, dtype=to_torch_dtype(dtype or self.float_type), device=self.get_default_device().ref)
 
     def ones_like(self, tensor):
-        return torch.ones_like(tensor, device=self.get_default_device().ref)
+        return torch.ones_like(self.as_tensor(tensor), device=self.get_default_device().ref)
 
     def meshgrid(self, *coordinates):
         coordinates = [self.as_tensor(c) for c in coordinates]
-        return torch.meshgrid(coordinates)
+        from packaging import version
+        if version.parse(torch.__version__) >= version.parse('1.10'):
+            return torch.meshgrid(*coordinates, indexing='ij')
+        else:
+            return torch.meshgrid(*coordinates)
 
     def linspace(self, start, stop, number):
         return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+        a, b = self.auto_cast(a, b)
         return torch.tensordot(a, b, (a_axes, b_axes))
 
     def _convert_to_int64(self, tensor):
@@ -406,10 +396,10 @@ class TorchBackend(Backend):
                     values = jit_loop(*values)
                 return values
             else:
-                warnings.warn("Tracing a PyTorch while loop requires an additional tracing pass. You can avoid this by passing a torch.ScriptFunction.")
+                warnings.warn("Tracing a PyTorch while loop requires an additional tracing pass. You can avoid this by passing a torch.ScriptFunction.", RuntimeWarning)
                 raise NotImplementedError()
                 # def trace_later():
-                #     jit_loop = torch.jit.trace(loop)
+                #     jit_loop = torch.jit.trace(loop, check_trace=False)
                 #     @torch.jit.script
                 #     def loop_script(values: Tuple[torch.Tensor], loop_script: Callable):
                 #         while torch.any(values[0]):
@@ -498,6 +488,8 @@ class TorchBackend(Backend):
             return NUMPY.shape(tensor)
 
     def staticshape(self, tensor):
+        if isinstance(tensor, torch.nn.Module):
+            return ()
         if self.is_tensor(tensor, only_native=True):
             return tuple(tensor.shape)
         elif isinstance(tensor, SparseCSRMatrix):
@@ -522,7 +514,9 @@ class TorchBackend(Backend):
         return unstacked
 
     def std(self, x, axis=None, keepdims=False):
-        return torch.std(x, dim=axis, keepdim=keepdims)
+        if self.dtype(x).kind not in (float, complex):
+            x = self.to_float(x)
+        return torch.std(x, dim=axis, keepdim=keepdims, unbiased=False)
 
     def boolean_mask(self, x, mask, axis=0):
         x = self.as_tensor(x)
@@ -713,42 +707,135 @@ class TorchBackend(Backend):
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 
+    def _prepare_graph_inputs(self, args: tuple, wrt: tuple or list):
+        args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
+        args = [self.to_float(arg) if self.dtype(arg).kind == int else arg for arg in args]
+        for i, arg in enumerate(args):
+            if self.is_tensor(arg, True) and arg.requires_grad and not arg.is_leaf:
+                arg = torch.clone(arg).detach()
+                arg.requires_grad = i in wrt
+                args[i] = arg
+            elif i in wrt:
+                arg = self.as_tensor(arg, True)
+                arg = arg.detach()  # returns a new tensor in any case
+                arg.requires_grad = True
+                args[i] = arg
+        wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
+        for t in wrt_args:
+            assert t.requires_grad
+        return args, wrt_args
+
     def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)
         def eval_grad(*args):
-            args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
-            for i, arg in enumerate(args):
-                if self.is_tensor(arg, True) and arg.requires_grad and not arg.is_leaf:
-                    arg = torch.clone(arg).detach()
-                    arg.requires_grad = i in wrt
-                    args[i] = arg
-                elif i in wrt:
-                    arg = self.as_tensor(arg, True)
-                    arg = arg.detach()  # returns a new tensor in any case
-                    arg.requires_grad = True
-                    args[i] = arg
-            wrt_args = [arg for i, arg in enumerate(args) if i in wrt]
-            for t in wrt_args:
-                assert t.requires_grad
+            args, wrt_args = self._prepare_graph_inputs(args, wrt)
             output = f(*args)
-            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-            if loss.ndim > 0:
-                loss = loss.sum()
+            output = output if isinstance(output, (tuple, list)) else [output]
+            loss = output[0].sum()
             grads = torch.autograd.grad(loss, wrt_args)  # grad() cannot be called during jit trace
             if get_output:
-                loss = loss.detach()
-                if aux is not None:
-                    aux = [aux_.detach() for aux_ in aux]
-                    return (loss, *aux, *grads)
-                else:
-                    return (loss, *grads)
+                # output[0] = output[0].detach()  # why?
+                return (*output, *grads)
             else:
                 return grads
         return eval_grad
 
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+        pass
+
+    def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
+        # if not get_output and not get_gradient:
+        # @wraps(f)
+        # def eval_hessian(*args):
+        #     batch_size = args[0].shape[0]
+        #     for arg in args:
+        #         assert arg.shape[0] == batch_size, f"All arguments must have a matching batch dimension as their first dimension. Got shapes {[arg.shape for arg in args]}"
+        #
+        #     def f_only_wrt_inputs(*wrt_args_only, reduce_batch=False):
+        #         all_args = list(args)
+        #         for i, arg in zip(wrt, wrt_args_only):
+        #             all_args[i] = arg
+        #         output = f(*all_args)
+        #         loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+        #         if reduce_batch:
+        #             if loss.ndim > 0:
+        #                 loss = loss.sum()
+        #         else:
+        #             assert np.prod(loss.shape) == 1, f"Loss (first output of f) must be scalar but has shape {loss.shape}"
+        #             loss = loss.sum()
+        #         return loss
+        #
+        #     wrt_args = tuple([self.as_tensor(arg, True) for i, arg in enumerate(args) if i in wrt])
+        #     result = ()
+        #     if get_output:
+        #         result += f(*args),
+        #     if get_gradient:
+        #         result += torch.autograd.functional.jacobian(lambda *a: f_only_wrt_inputs(*a, reduce_batch=True), wrt_args),
+        #     if hasattr(torch, 'vmap'):
+        #         # single_hessian_f = lambda *args: torch.autograd.functional.hessian(f_only_wrt_inputs, args)
+        #         # multi_hessian_f = torch.vmap
+        #         raise NotImplementedError()
+        #     else:
+        #         hessian = tuple([tuple([[] for _1 in range(len(wrt))]) for _2 in range(len(wrt))])  # n x n matrix of lists
+        #         for b in range(batch_size):
+        #             h = torch.autograd.functional.hessian(f_only_wrt_inputs, tuple([arg[b:b + 1] for arg in wrt_args]))
+        #             for i in range(len(wrt)):
+        #                 for j in range(len(wrt)):
+        #                     fake_batch_dim = args[i].ndim
+        #                     hessian[i][j].append(torch.squeeze(torch.squeeze(h[i][j], fake_batch_dim), 0))
+        #         hessian = [[torch.stack(hessian[i][j]) for j in range(len(wrt))] for i in range(len(wrt))]
+        #         # hessian = torch.stack([torch.autograd.functional.hessian(f_only_wrt_inputs, tuple([arg[b:b+1] for arg in wrt_args])) for b in range(batch_size)])  # manual batch loop
+        #     result += hessian,
+        #     return result
+        # else:
+        @wraps(f)
+        def eval_hessian(*args):
+            args, wrt_args = self._prepare_graph_inputs(args, wrt)
+            output = f(*args)
+            loss, aux = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
+            scalar_loss = loss.sum() if loss.ndim > 0 else loss
+            grads = torch.autograd.grad(scalar_loss, wrt_args, create_graph=True, retain_graph=True)  # grad() cannot be called during jit trace
+            hessian = []
+            for grad in grads:
+                hessian.append([[] for _ in grads])
+                for lin_index in range(int(np.prod(grad.shape[1:]))):
+                    multi_index = np.unravel_index(lin_index, grad.shape[1:])
+                    h = torch.autograd.grad(grad[(slice(None),) + multi_index].sum(), wrt_args, allow_unused=True, retain_graph=True)  # grad of every entry in grad
+                    # Warning: This returns incorrect values for certain inputs. Hessian of x^2 returns 0 at x=0 but is correct everywhere else.
+                    # ToDo torch.autograd.functional.hessian does not seem to have this issue. Wait for torch.vmap(), then conditionally switch.
+                    for i, h_ in enumerate(h):
+                        hessian[-1][i].append(h_)
+            for col in hessian:
+                for i, row in enumerate(col):
+                    if len(row) > 1:
+                        col[i] = torch.stack(row, dim=1)
+                    else:
+                        col[i] = row[0]
+                    h_shape = tuple(grads[i].shape) + tuple(grads[i].shape[1:])
+                    col[i] = torch.reshape(col[i], h_shape)
+
+            result = ()
+            if get_output:
+                loss = loss.detach()
+                if aux is not None:
+                    aux = [aux_.detach() if isinstance(aux_, torch.Tensor) else aux_ for aux_ in aux]
+                    result += (loss, *aux),
+                else:
+                    result += loss,
+            if get_gradient:
+                result += tuple([g.detach() for g in grads]),
+            result += hessian,
+            return result
+
+        return eval_hessian
+
     def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
         jit = self.jit_compile(f)
         return self.functional_gradient(jit, wrt, get_output)
+
+    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+        jit = self.jit_compile(f)
+        return self.hessian(jit, wrt, get_output, get_gradient)
 
     def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
         if self.ndims(y) > 0:
@@ -783,37 +870,158 @@ def channels_last(x):
 
 
 class JITFunction:
+    """
+    PyTorch Tracing Procedure:
+    1. Call function non-tracing, record all called nn.Modules and autograd.Function forward calls with their args
+    2. Compile autograd.Functions forward and backward passes
+    3. Add nn.Modules to JIT Module
+    4. Trace JIT Module
 
-    def __init__(self, f):
+    Nested jit calls are ignored.
+
+    See PyTorch_Jit.md
+    """
+
+    def __init__(self, backend: TorchBackend, f):
+        self.backend = backend
         self.f = f
         self.traced = None
-        self.post_trace = []
+        self.autograd_function_calls = []  # (TorchCustomFunction, args, output)
+        self.compiled_functions = []  # (TorchCustomFunction, TorchCustomFunction)
+        self.autograd_function_call_counts = 0
+        self.called_modules: Set[torch.nn.Module] = set()
 
     def __call__(self, *args, **kwargs):
         if kwargs:
             raise NotImplementedError("kwargs not supported for traced function")
+        if CURRENT_JIT_CALLS:
+            warnings.warn(f"PyTorch does not support nested tracing. The inner JIT of {self.f.__name__} will be ignored.", RuntimeWarning)
+            return self.f(*args)
+        args = self.backend.recursive_as_tensor(args)
         if self.traced is None:
-            with self:
-                self.traced = torch.jit.trace(self.f, example_inputs=args, check_trace=False)
-        with self:
-            from phi.math.backend import choose_backend
-            return choose_backend(self).call(self.traced, *args, name=f"run jit-compiled '{self.f.__name__}'")
+            self_jit = self
+            CURRENT_JIT_CALLS.append(self)
+            self.f(*args)  # records all autograd.Function / nn.Module calls with their args -> self.autograd_function_calls, self.called_modules
+            for i, (rec_function, rec_args, rec_output) in enumerate(self.autograd_function_calls):
+                self.compiled_functions.append((rec_function, rec_function.compile(rec_args, rec_output)))
+            assert self.autograd_function_call_counts == 0
+
+            class JitModule(torch.nn.Module):
+
+                def __init__(self):
+                    super().__init__()
+                    for submodule in self_jit.called_modules:
+                        self.add_module(str(f"{type(submodule).__name__}_{id(submodule)}"), submodule)
+
+                def forward(self, *args):
+                    PHI_LOGGER.debug(f"Tracing Pytorch jit module for {self_jit.f.__name__}")
+                    return self_jit.f(*args)
+
+            module = JitModule()
+            self.traced = torch.jit.trace(module, tuple(args), check_trace=False, strict=False)
+            assert self.autograd_function_call_counts == len(self.autograd_function_calls), "Not all custom-gradient functions were called during tracing! Nested custom gradients are not supported."
+            assert CURRENT_JIT_CALLS.pop(-1) == self
+        from phi.math.backend import choose_backend
+        return choose_backend(self).call(self.traced, *args, name=f"run jit-compiled '{self.f.__name__}'")
+
+    def record_autograd_function_call(self, function: torch.autograd.Function, args, output):
+        self.autograd_function_calls.append((function, args, output))
+
+    def get_compiled_function(self, function: torch.autograd.Function, args) -> torch.autograd.Function:
+        assert torch._C._get_tracing_state() is not None
+        assert self.autograd_function_call_counts < len(self.autograd_function_calls), f"More custom-gradient functions were called during tracing!\nLast encountered: {function}"
+        original_function, compiled_function = self.compiled_functions[self.autograd_function_call_counts]
+        assert isinstance(compiled_function, torch.autograd.Function)
+        self.autograd_function_call_counts += 1
+        return compiled_function
 
     def __repr__(self):
-        return f"jit-TorchScript[{self.f.__name__}]"
-
-    def __enter__(self):
-        CURRENT_JIT_CALLS.append(self)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        assert CURRENT_JIT_CALLS.pop(-1) == self
-        while self.post_trace:
-            self.post_trace.pop(0)()
+        return f"TorchScript[{self.f.__name__}]"
 
 
+CURRENT_JIT_CALLS: List[JITFunction] = []  # should contain no more than 1 element; PyTorch doesn't support nested tracing
 
-CURRENT_JIT_CALLS: List[JITFunction] = []
+
+def register_module_call(module: torch.nn.Module):
+    if CURRENT_JIT_CALLS:
+        CURRENT_JIT_CALLS[-1].called_modules.add(module)
+
+
+def construct_torch_custom_function(f: Callable, jit_f: Optional[Callable], f_example_output, g: Callable, is_f_traced: bool, backend: TorchBackend):
+    jit_g = []
+
+    class TorchCustomFunction(torch.autograd.Function):
+        """ See PyTorch_Jit.md """
+
+        @staticmethod
+        def forward(ctx, *args, **kwargs):  # The result of this is used in the graph.
+            if torch._C._get_tracing_state():
+                PHI_LOGGER.debug(f"torch.jit.trace encountered forward pass of {f.__name__}. Returning cached output to avoid double execution.")
+                # jit_context = CURRENT_JIT_CALLS[-1]; jit_context.cached_output[torch_custom_function]
+                return f_example_output
+            y = (jit_f or f)(*args, **kwargs)
+            ctx.save_for_backward(*args, *y)
+            ctx.input_count = len(args)
+            return y
+
+        # @torch.jit.unused, @torch.jit.ignore(drop=True)  do not work here
+
+        @staticmethod
+        def backward(ctx, *grad_args):  # Breakpoints not supported here
+            x = ctx.saved_tensors[:ctx.input_count]
+            y = ctx.saved_tensors[ctx.input_count:]
+            if is_f_traced:
+                if not jit_g:
+                    # backward pass can return None but that's not allowed in JIT functions
+                    needs_input_grad = ctx.needs_input_grad
+                    none_indices = []  # jit function cannot return None but gradient returns None to indicate there is no gradient
+
+                    def filter_required_grads(*args):  # traced once
+                        grads = g(*args)
+                        filtered = [gv for gv, need in zip(grads, needs_input_grad) if need]
+                        none_indices.clear()
+                        none_indices.extend([i for i, g in enumerate(filtered) if g is None])
+                        filtered = [gv for gv in filtered if gv is not None]
+                        assert len(filtered) > 0, "Custom backward function must return at least one valid gradient."
+                        assert all([isinstance(gv, torch.Tensor) for gv in filtered]), [type(gv) for gv in grads]
+                        return filtered
+
+                    PHI_LOGGER.debug(f"Tracing backward pass of '{f.__name__}' which uses a custom gradient")
+                    needed_g = backend.jit_compile(filter_required_grads)
+                    # needed_g = torch.jit.trace(filter_required_grads, tuple([x, y, grad_args]), check_trace=False, strict=False)
+
+                    def g_(*args):  # called each time, not jitted
+                        needed = backend.as_registered.call(needed_g, *args, name=f"run jit-compiled custom backward '{g.__name__}'")
+                        assert isinstance(needed, (tuple, list))
+                        needed = list(needed)
+                        for i in none_indices:
+                            needed.insert(i, None)
+                        result = [(needed.pop(0) if need else None) for need in needs_input_grad]
+                        return result
+
+                    jit_g.append(g_)
+                output = jit_g[0](x, y, grad_args)
+            else:
+                output = g(x, y, grad_args)
+            result = output[0] if len(output) == 1 else (*output,)
+            return result
+
+        @staticmethod
+        def compile(args: tuple, output):
+            assert jit_f is None
+            PHI_LOGGER.debug(f"Tracing forward pass of '{f.__name__}' which uses a custom gradient")
+            jit_f_ = torch.jit.trace(f, args, strict=False, check_trace=False)
+            return construct_torch_custom_function(f, jit_f_, output, g, is_f_traced=True, backend=backend)
+
+        @property
+        def __name__(self):
+            return f"TorchCustomFunction-{'jit' if is_f_traced else 'non-jit'}[{f.__name__}]"
+
+        def __repr__(self):
+            return self.__name__
+
+    torch_custom_function = TorchCustomFunction()
+    return torch_custom_function
 
 
 def to_torch_dtype(dtype: DType):

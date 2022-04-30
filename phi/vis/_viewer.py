@@ -11,14 +11,15 @@ from ._user_namespace import UserNamespace
 from ._vis_base import VisModel, Control, Action
 from .. import field
 from ..field import Scene, SampledField
-from ..math import batch
+from ..math import batch, Tensor
+from ..math.backend import PHI_LOGGER
 
 
 def create_viewer(namespace: UserNamespace,
                   fields: dict,
                   name: str,
                   description: str,
-                  scene: Scene,
+                  scene: Scene or None,
                   asynchronous: bool,
                   controls: tuple,
                   actions: dict,
@@ -103,7 +104,9 @@ class Viewer(VisModel):
             value = self._rec[name]
         else:
             value = self.namespace.get_variable(name)
-        if isinstance(value, SampledField):
+        if callable(value):
+            value = value()
+        if isinstance(value, (SampledField, Tensor)):
             value = value[dim_selection]
         return value
 
@@ -286,7 +289,7 @@ class Record:
         for name, val in variables.items():
             self.history[name].append(val)
             if val is None and warn_missing:
-                warnings.warn(f"None value encountered for variable '{name}' at step {self.viewer.steps}. This value will not show up in the recording.")
+                warnings.warn(f"None value encountered for variable '{name}' at step {self.viewer.steps}. This value will not show up in the recording.", RuntimeWarning)
 
     @property
     def recorded_fields(self):

@@ -1,3 +1,6 @@
+import sys
+import traceback
+
 import numpy as np
 
 
@@ -33,3 +36,14 @@ class AxisOrder:
 
 
 GLOBAL_AXIS_ORDER = AxisOrder()
+
+
+# AUTO_REVERSE_ORDER = False
+
+def should_use_color():
+    for line in traceback.format_stack():
+        if "_pydevd_bundle\pydevd_xml.py" in line:
+            return False
+    return True
+
+# COLOR_PRINT = 'ipykernel' in sys.modules

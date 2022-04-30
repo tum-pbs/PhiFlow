@@ -1,16 +1,13 @@
-import sys
 import threading
 import time
-import warnings
 from collections import namedtuple
-from contextlib import contextmanager
 from math import log10
-from threading import Thread, Lock
-from typing import Tuple
+from threading import Lock
+from typing import Tuple, Any, Optional, Dict, Callable
 
-from phi import field
+from phi import field, math
 from phi.field import SampledField, Scene
-from phi.math import Shape, EMPTY_SHAPE
+from phi.math import Shape, EMPTY_SHAPE, Tensor
 
 Control = namedtuple('Control', [
     'name',
@@ -137,7 +134,7 @@ class VisModel:
 
     def get_field_shape(self, name: str) -> Shape:
         value = self.get_field(name, {})
-        if isinstance(value, SampledField):
+        if isinstance(value, (Tensor, SampledField)):
             return value.shape
         else:
             return EMPTY_SHAPE
@@ -265,7 +262,7 @@ class Gui:
         Creates a display for the given vis and initializes the configuration.
         This method does not set up the display. It only sets up the Gui object and returns as quickly as possible.
         """
-        self.app: VisModel = None
+        self.app: Optional[VisModel] = None
         self.asynchronous = asynchronous
         self.config = {}
 
@@ -321,55 +318,60 @@ class Gui:
         raise NotImplementedError(self)
 
 
-def default_gui() -> Gui:
-    if GUI_OVERRIDES:
-        return GUI_OVERRIDES[-1]
-    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
-        options = ['widgets']
-    else:
-        options = ['dash', 'console']
-    for option in options:
-        try:
-            return get_gui(option)
-        except ImportError as import_error:
-            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.")
-    raise RuntimeError("No user interface available.")
+class PlottingLibrary:
 
+    def __init__(self, name: str, figure_classes: tuple or list):
+        self.name = name
+        self.figure_classes = tuple(figure_classes)
+        self.current_figure = None
 
-def get_gui(gui: str or Gui) -> Gui:
-    if GUI_OVERRIDES:
-        return GUI_OVERRIDES[-1]
-    if isinstance(gui, str):
-        if gui == 'dash':
-            from ._dash.dash_gui import DashGui
-            return DashGui()
-        elif gui == 'console':
-            from ._console import ConsoleGui
-            return ConsoleGui()
-        # elif gui == 'matplotlib':
-        #     from ._matplotlib.matplotlib_gui import MatplotlibGui
-        #     return MatplotlibGui()
-        elif gui == 'widgets':
-            from ._widgets import WidgetsGui
-            return WidgetsGui()
-        else:
-            raise NotImplementedError(f"No display available with name {gui}")
-    elif isinstance(gui, Gui):
-        return gui
-    else:
-        raise ValueError(gui)
+    def __repr__(self):
+        return self.name
 
+    def is_figure(self, obj):
+        return isinstance(obj, self.figure_classes)
 
-GUI_OVERRIDES = []
+    def create_figure(self,
+                      size: tuple,
+                      rows: int,
+                      cols: int,
+                      subplots: Dict[Tuple[int, int], int],
+                      titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+        """
+        Args:
+            size: Figure size in inches.
+            rows: Number of sub-figures laid out vertically.
+            cols: Number of sub-figures laid out horizontally.
+            subplots: Dimensionality per plot: `(x,y) -> d`. Only subplot locations contained as keys will be plotted.
+            titles: Subplot titles.
 
+        Returns:
+            figure: Native figure object
+            subfigures: Native sub-figures by subplot location.
+        """
+        raise NotImplementedError()
 
-@contextmanager
-def force_use_gui(gui: Gui):
-    GUI_OVERRIDES.append(gui)
-    try:
-        yield None
-    finally:
-        assert GUI_OVERRIDES.pop(-1) is gui
+    def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
+        raise NotImplementedError()
+
+    def plot(self,
+             data: SampledField,
+             figure,
+             subplot,
+             min_val: float = None,
+             max_val: float = None,
+             show_color_bar: bool = True,
+             **plt_args):
+        raise NotImplementedError()
+
+    def plotting_done(self, figure, subfigures):
+        raise NotImplementedError()
+
+    def show(self, figure):
+        raise NotImplementedError()
+
+    def save(self, figure, path: str, dpi: float):
+        raise NotImplementedError()
 
 
 class GuiInterrupt(KeyboardInterrupt):
@@ -395,18 +397,21 @@ def display_name(python_name):
         return text
 
 
-def select_channel(value: SampledField, channel: str or None):
+def select_channel(value: SampledField or Tensor or tuple or list, channel: str or None):
+    if isinstance(value, (tuple, list)):
+        return [select_channel(v, channel) for v in value]
     if channel is None:
         return value
     elif channel == 'abs':
         if value.vector.exists:
-            return field.vec_abs(value)
+            return field.vec_abs(value) if isinstance(value, SampledField) else math.vec_length(value)
         else:
             return value
     else:  # x, y, z
         if channel in value.shape.spatial and 'vector' in value.shape:
             return value.vector[channel]
         elif 'vector' in value.shape:
-            raise ValueError(f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
+            raise ValueError(
+                f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
         else:
             return value

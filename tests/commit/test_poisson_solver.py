@@ -1,7 +1,6 @@
 # Testing Poisson Solvers
 from unittest import TestCase
 import numpy as np
-from phi.physics._boundaries import Domain, PERIODIC
 from phi.flow import *
 import matplotlib.pyplot as plt
 from functools import partial
@@ -161,18 +160,18 @@ class TestPoissonSolvers(TestCase):
             sine = get_2d_sine((x, y), L)
             # Define
             init_values = sine  # rnd_noise
-            domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
-            sine_grid = domain.grid(math.tensor(init_values, spatial('x, y')))
+            domain = dict(x=x, y=y, extrapolation=extrapolation.PERIODIC, bounds=Box[0:L, 0:L])
+            sine_grid = CenteredGrid(math.tensor(init_values, spatial('x, y')), **domain)
             reference = FFT_solve_numpy(sine_grid.values.numpy(order='z,y,x')[0], dx)
             solver_dict = {
-                "FFT_solve": lambda x: domain.grid(FFT_solve(x.values, dx)).values.numpy(
+                "FFT_solve": lambda x: CenteredGrid(FFT_solve(x.values, dx), **domain).values.numpy(
                     order="z,y,x"
                 )[0],
                 "CG_solve": lambda x: CG_solve(
                     x.values,
-                    guess=domain.grid(0).values,
+                    guess=CenteredGrid(0, **domain).values,
                     dx=dx ** 2,
-                    padding=PERIODIC,
+                    padding=extrapolation.PERIODIC,
                     relative_tolerance=1,
                     absolute_tolerance=1e-10,
                     max_iterations=20000,

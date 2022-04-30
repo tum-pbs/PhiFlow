@@ -80,7 +80,7 @@ class Domain:
             See https://tum-pbs.github.io/PhiFlow/Physics.html#boundary-conditions .
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
-        warnings.warn("Domain is deprecated. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", DeprecationWarning)
+        warnings.warn("Domain is deprecated and will be removed in a future release. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", DeprecationWarning, stacklevel=2)
         self.resolution: math.Shape = spatial(resolution) & spatial(**resolution_)
         assert self.resolution.rank > 0, "Cannot create Domain because no dimensions were specified."
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """
@@ -182,7 +182,7 @@ class Domain:
         else:
             try:
                 value = math.wrap(value, self.resolution)
-            except AssertionError:
+            except math.IncompatibleShapes:
                 pass
             value = math.wrap(value)
         result = CenteredGrid(value, resolution=self.resolution, bounds=self.bounds, extrapolation=extrapolation)

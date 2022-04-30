@@ -1,7 +1,7 @@
 # Because division is different in Python 2 and 3
 from __future__ import division
 
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 
@@ -15,9 +15,18 @@ from ._tensors import wrap
 from .extrapolation import Extrapolation
 
 
-def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
-    """ Computes the vector length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
-    return math.sqrt(math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim))
+def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None, eps: float or Tensor = None):
+    """
+    Computes the vector length of `vec`.
+    If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector.
+
+    Args:
+        eps: Minimum vector length. Use to avoid `inf` gradients for zero-length vectors.
+    """
+    squared = vec_squared(vec, vec_dim)
+    if eps is not None:
+        squared = math.maximum(squared, eps)
+    return math.sqrt(squared)
 
 
 def vec_squared(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
@@ -65,6 +74,33 @@ def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
         raise AssertionError(f'dims = {spatial_rank}. Vector product not available in > 3 dimensions')
 
 
+def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
+    """
+    Rotates `vector` around the origin.
+
+    Args:
+        vector: n-dimensional vector with a channel dimension called `'vector'`
+        angle: Euler angle. The direction is the rotation axis and the length is the amount (in radians).
+
+    Returns:
+        Rotated vector as `Tensor`
+    """
+    assert 'vector' in vector.shape, "vector must have 'vector' dimension."
+    if vector.vector.size == 2:
+        sin = math.sin(angle)
+        cos = math.cos(angle)
+        y, x = vector.vector.unstack()
+        if GLOBAL_AXIS_ORDER.is_x_first:
+            x, y = y, x
+        rot_x = cos * x - sin * y
+        rot_y = sin * x + cos * y
+        return math.stack([rot_x, rot_y], channel('vector'))
+    elif vector.vector.size == 1:
+        raise AssertionError(f"Cannot rotate a 1D vector. shape={vector.shape}")
+    else:
+        raise NotImplementedError(f"Rotation in {vector.vector.size}D not yet implemented.")
+
+
 def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     """
     Multiplies the target so that its sum matches the source.
@@ -83,32 +119,36 @@ def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(x) -> Tensor:
+def l1_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
         x: `Tensor` or `TensorLike`.
             For `TensorLike` objects, only value the sum over all value attributes is computed.
+        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
+            `Shape or list or tuple or str or spatial or instance or channel`.
 
     Returns:
         loss: `Tensor`
     """
     if isinstance(x, Tensor):
-        return math.sum_(abs(x), x.shape.non_batch)
+        return math.sum_(abs(x), reduce)
     elif isinstance(x, TensorLike):
-        return sum([l1_loss(getattr(x, a)) for a in variable_values(x)])
+        return sum([l1_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)
 
 
-def l2_loss(x) -> Tensor:
+def l2_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
         x: `Tensor` or `TensorLike`.
             For `TensorLike` objects, only value the sum over all value attributes is computed.
+        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
+            `Shape or list or tuple or str or spatial or instance or channel`.
 
     Returns:
         loss: `Tensor`
@@ -116,9 +156,9 @@ def l2_loss(x) -> Tensor:
     if isinstance(x, Tensor):
         if x.dtype.kind == complex:
             x = abs(x)
-        return math.sum_(x ** 2, x.shape.non_batch) * 0.5
+        return math.sum_(x ** 2, reduce) * 0.5
     elif isinstance(x, TensorLike):
-        return sum([l2_loss(getattr(x, a)) for a in variable_values(x)])
+        return sum([l2_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)
 
@@ -210,7 +250,7 @@ def abs_square(complex_values: Tensor) -> Tensor:
 
 def shift(x: Tensor,
           offsets: tuple,
-          dims: tuple or None = None,
+          dims: str or Shape or tuple or list or Callable or None = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
           stack_dim: Shape or None = channel('shift')) -> list:
     """
@@ -227,10 +267,12 @@ def shift(x: Tensor,
         list: offset_tensor
 
     """
+    if dims is None:
+        dims = spatial
+    dims = x.shape.only(dims).names
     if stack_dim is None:
         assert len(dims) == 1
     x = wrap(x)
-    dims = dims if dims is not None else x.shape.spatial.names
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
     if padding:
@@ -293,25 +335,33 @@ def spatial_gradient(grid: Tensor,
                      dx: float or int = 1,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
-                     dims: tuple or None = None,
-                     stack_dim: Shape = channel('gradient')):
+                     dims: str or Shape or tuple or list or Callable or None = spatial,
+                     stack_dim: Shape or None = channel('gradient')) -> Tensor:
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
 
     Args:
       grid: grid values
-      dims: optional) sequence of dimension names
+      dims: (Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names
       dx: physical distance between grid points (default 1)
       difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
       padding: tensor padding mode
       stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
 
     Returns:
-      tensor of shape (batch_size, spatial_dimensions..., spatial rank)
-
+        `Tensor`
     """
     grid = wrap(grid)
+    if stack_dim is not None and stack_dim in grid.shape:
+        assert grid.shape.only(stack_dim).size == 1, f"spatial_gradient() cannot list components along {stack_dim.name} because that dimension already exists on grid {grid}"
+        grid = grid[{stack_dim.name: 0}]
+    dims = grid.shape.only(dims)
+    dx = wrap(dx)
+    if dx.vector.exists:
+        dx = dx.vector[dims]
+        if dx.vector.size in (None, 1):
+            dx = dx.vector[0]
     if difference.lower() == 'central':
         left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
         return (right - left) / (dx * 2)
@@ -330,7 +380,7 @@ def spatial_gradient(grid: Tensor,
 def laplace(x: Tensor,
             dx: Tensor or float = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
-            dims: tuple or None = None):
+            dims: str or tuple or list or Shape or Callable = spatial):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -343,7 +393,6 @@ def laplace(x: Tensor,
 
     Returns:
         `phi.math.Tensor` of same shape as `x`
-
     """
     if isinstance(dx, (tuple, list)):
         dx = wrap(dx, batch('_laplace'))
@@ -413,7 +462,7 @@ def fourier_poisson(grid: Tensor,
 
 def downsample2x(grid: Tensor,
                  padding: Extrapolation = extrapolation.BOUNDARY,
-                 dims: tuple or None = None) -> Tensor:
+                 dims: str or tuple or list or Shape or Callable = spatial) -> Tensor:
     """
     Resamples a regular grid to half the number of spatial sample points per dimension.
     The grid values at the new points are determined via mean (linear interpolation).
@@ -430,7 +479,7 @@ def downsample2x(grid: Tensor,
       half-size grid
 
     """
-    dims = grid.shape.spatial.only(dims).names
+    dims = grid.shape.only(dims).names
     odd_dimensions = [dim for dim in dims if grid.shape.get_size(dim) % 2 != 0]
     grid = math.pad(grid, {dim: (0, 1) for dim in odd_dimensions}, padding)
     for dim in dims:
@@ -440,7 +489,7 @@ def downsample2x(grid: Tensor,
 
 def upsample2x(grid: Tensor,
                padding: Extrapolation = extrapolation.BOUNDARY,
-               dims: tuple or None = None) -> Tensor:
+               dims: str or tuple or list or Shape or Callable = spatial) -> Tensor:
     """
     Resamples a regular grid to double the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
@@ -457,7 +506,7 @@ def upsample2x(grid: Tensor,
       double-size grid
 
     """
-    for i, dim in enumerate(grid.shape.spatial.only(dims)):
+    for i, dim in enumerate(grid.shape.only(dims)):
         left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right

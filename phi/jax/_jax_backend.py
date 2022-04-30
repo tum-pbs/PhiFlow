@@ -1,53 +1,55 @@
 import numbers
 import warnings
-from functools import wraps, partial
+from functools import wraps
 from typing import List, Callable
 
-import logging
-import numpy as np
 import jax
 import jax.numpy as jnp
 import jax.scipy as scipy
+import numpy as np
+from jax import random
 from jax.core import Tracer
 from jax.interpreters.xla import DeviceArray
-from jax.scipy.sparse.linalg import cg
-from jax import random
 
-from phi.math import SolveInfo, Solve, DType
-from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
+from phi.math import DType
 from phi.math.backend import Backend, ComputeDevice
-from phi.math.backend._backend import combined_dim, SolveResult
+from phi.math.backend._backend import combined_dim, SolveResult, PHI_LOGGER
+from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
+
+
+from jax.config import config
+config.update("jax_enable_x64", True)
 
 
 class JaxBackend(Backend):
 
     def __init__(self):
-        Backend.__init__(self, "Jax", default_device=None)
+        gpus = self.list_devices('GPU')
+        cpus = self.list_devices('CPU')
+        Backend.__init__(self, "Jax", default_device=gpus[0] if gpus else cpus[0])
         try:
             self.rnd_key = jax.random.PRNGKey(seed=0)
         except RuntimeError as err:
-            warnings.warn(f"{err}")
+            warnings.warn(f"{err}", RuntimeWarning)
             self.rnd_key = None
 
     def prefers_channels_last(self) -> bool:
         return True
 
     def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+        types = ['cpu', 'gpu', 'tpu'] if device_type is None else [device_type.lower()]
         devices = []
-        for jax_dev in jax.devices():
-            jax_dev_type = jax_dev.platform.upper()
-            if device_type is None or device_type == jax_dev_type:
-                description = f"id={jax_dev.id}"
-                devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev_type, -1, -1, description, jax_dev))
+        for device_type in types:
+            try:
+                for jax_dev in jax.devices(device_type):
+                    devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev.platform.upper(), -1, -1, f"id={jax_dev.id}", jax_dev))
+            except RuntimeError as err:
+                pass  # this is just Jax not finding anything. jaxlib.xla_client._get_local_backends() could help but isn't currently available on GitHub actions
         return devices
 
     # def set_default_device(self, device: ComputeDevice or str):
-    #     if device == 'CPU':
-    #         jax.config.update('jax_platform_name', 'cpu')
-    #     elif device == 'GPU':
-    #         jax.config.update('jax_platform_name', 'gpu')
-    #     else:
-    #         raise NotImplementedError()
+    #     Backend.set_default_device(self, device)
+    #     jax.config.update('jax_platform_name', self._default_device.device_type.lower())  # this does not work
 
     def _check_float64(self):
         if self.precision == 64:
@@ -71,6 +73,9 @@ class JaxBackend(Backend):
             elif self.dtype(array).kind == complex:
                 array = self.to_complex(array)
         return array
+
+    def is_module(self, obj):
+        return False
 
     def is_tensor(self, x, only_native=False):
         if isinstance(x, jnp.ndarray) and not isinstance(x, np.ndarray):  # NumPy arrays inherit from Jax arrays
@@ -111,7 +116,9 @@ class JaxBackend(Backend):
     sqrt = staticmethod(jnp.sqrt)
     exp = staticmethod(jnp.exp)
     sin = staticmethod(jnp.sin)
+    arcsin = staticmethod(jnp.arcsin)
     cos = staticmethod(jnp.cos)
+    arccos = staticmethod(jnp.arccos)
     tan = staticmethod(jnp.tan)
     log = staticmethod(jnp.log)
     log2 = staticmethod(jnp.log2)
@@ -130,8 +137,6 @@ class JaxBackend(Backend):
     tile = staticmethod(jnp.tile)
     stack = staticmethod(jnp.stack)
     concat = staticmethod(jnp.concatenate)
-    zeros_like = staticmethod(jnp.zeros_like)
-    ones_like = staticmethod(jnp.ones_like)
     maximum = staticmethod(jnp.maximum)
     minimum = staticmethod(jnp.minimum)
     clip = staticmethod(jnp.clip)
@@ -145,11 +150,12 @@ class JaxBackend(Backend):
 
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):
-            logging.debug(f"JaxBackend: running jit-compiled '{f.__name__}' with shapes {[arg.shape for arg in args]} and dtypes {[arg.dtype.name for arg in args]}")
+            # print(jax.make_jaxpr(f)(*args))
+            PHI_LOGGER.debug(f"JaxBackend: running jit-compiled '{f.__name__}' with shapes {[self.shape(arg) for arg in args]} and dtypes {[self.dtype(arg) for arg in args]}")
             return self.as_registered.call(jit_f, *args, name=f"run jit-compiled '{f.__name__}'")
 
         run_jit_f.__name__ = f"Jax-Jit({f.__name__})"
-        jit_f = jax.jit(f)
+        jit_f = jax.jit(f, device=self._default_device.ref)
         return run_jit_f
 
     def block_until_ready(self, values):
@@ -164,17 +170,14 @@ class JaxBackend(Backend):
             @wraps(f)
             def aux_f(*args):
                 output = f(*args)
-                if isinstance(output, (tuple, list)) and len(output) == 1:
-                    output = output[0]
-                result = (output[0], output[1:]) if isinstance(output, (tuple, list)) else (output, None)
-                if result[0].ndim > 0:
-                    result = jnp.sum(result[0]), result[1]
-                return result
+                output = output if isinstance(output, (tuple, list)) else [output]
+                return jnp.sum(output[0]), output
             jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
             @wraps(f)
             def unwrap_outputs(*args):
-                (loss, aux), grads = jax_grad_f(*args)
-                return (loss, *aux, *grads) if aux is not None else (loss, *grads)
+                args = [self.to_float(arg) if self.dtype(arg).kind in (bool, int) else arg for arg in args]
+                (_, output_tuple), grads = jax_grad_f(*args)
+                return (*output_tuple, *grads)
             return unwrap_outputs
         else:
             @wraps(f)
@@ -202,17 +205,34 @@ class JaxBackend(Backend):
         return jax_fun
 
     def divide_no_nan(self, x, y):
-        return jnp.nan_to_num(x / y, copy=True, nan=0)
+        return jnp.where(y == 0, 0, x / y)
+        # jnp.nan_to_num(x / y, copy=True, nan=0) covers up NaNs from before
 
-    def random_uniform(self, shape):
+    def random_uniform(self, shape, low, high, dtype: DType or None):
         self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
-        return random.uniform(subkey, shape, dtype=to_numpy_dtype(self.float_type))
 
-    def random_normal(self, shape):
+        dtype = dtype or self.float_type
+        jdt = to_numpy_dtype(dtype)
+        if dtype.kind == float:
+            tensor = random.uniform(subkey, shape, minval=low, maxval=high, dtype=jdt)
+        elif dtype.kind == complex:
+            real = random.uniform(subkey, shape, minval=low.real, maxval=high.real, dtype=to_numpy_dtype(DType(float, dtype.precision)))
+            imag = random.uniform(subkey, shape, minval=low.imag, maxval=high.imag, dtype=to_numpy_dtype(DType(float, dtype.precision)))
+            return real + 1j * imag
+        elif dtype.kind == int:
+            tensor = random.randint(subkey, shape, low, high, dtype=jdt)
+            if tensor.dtype != jdt:
+                warnings.warn(f"Jax failed to sample random integers with dtype {dtype}, returned {tensor.dtype} instead.", RuntimeWarning)
+        else:
+            raise ValueError(dtype)
+        return jax.device_put(tensor, self._default_device.ref)
+
+    def random_normal(self, shape, dtype: DType):
         self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
-        return random.normal(subkey, shape, dtype=to_numpy_dtype(self.float_type))
+        dtype = dtype or self.float_type
+        return jax.device_put(random.normal(subkey, shape, dtype=to_numpy_dtype(dtype)), self._default_device.ref)
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
         if limit is None:
@@ -252,20 +272,26 @@ class JaxBackend(Backend):
 
     def zeros(self, shape, dtype: DType = None):
         self._check_float64()
-        return jnp.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
+        return jax.device_put(jnp.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type)), self._default_device.ref)
+
+    def zeros_like(self, tensor):
+        return jax.device_put(jnp.zeros_like(tensor), self._default_device.ref)
 
     def ones(self, shape, dtype: DType = None):
         self._check_float64()
-        return jnp.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
+        return jax.device_put(jnp.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type)), self._default_device.ref)
+
+    def ones_like(self, tensor):
+        return jax.device_put(jnp.ones_like(tensor), self._default_device.ref)
 
     def meshgrid(self, *coordinates):
         self._check_float64()
         coordinates = [self.as_tensor(c) for c in coordinates]
-        return jnp.meshgrid(*coordinates, indexing='ij')
+        return [jax.device_put(c, self._default_device.ref) for c in jnp.meshgrid(*coordinates, indexing='ij')]
 
     def linspace(self, start, stop, number):
         self._check_float64()
-        return jnp.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type))
+        return jax.device_put(jnp.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type)), self._default_device.ref)
 
     def mean(self, value, axis=None, keepdims=False):
         return jnp.mean(value, axis, keepdims=keepdims)
@@ -305,18 +331,17 @@ class JaxBackend(Backend):
         assert value.shape[1] == kernel.shape[2], f"value has {value.shape[1]} channels but kernel has {kernel.shape[2]}"
         assert value.ndim + 1 == kernel.ndim
         # AutoDiff may require jax.lax.conv_general_dilated
-        if zero_padding:
-            result = np.zeros((value.shape[0], kernel.shape[1], *value.shape[2:]), dtype=to_numpy_dtype(self.float_type))
-        else:
-            valid = [value.shape[i + 2] - kernel.shape[i + 3] + 1 for i in range(value.ndim - 2)]
-            result = np.zeros([value.shape[0], kernel.shape[1], *valid], dtype=to_numpy_dtype(self.float_type))
-        mode = 'same' if zero_padding else 'valid'
+        result = []
         for b in range(value.shape[0]):
             b_kernel = kernel[min(b, kernel.shape[0] - 1)]
+            result_b = []
             for o in range(kernel.shape[1]):
+                result_b.append(0)
                 for i in range(value.shape[1]):
-                    result[b, o, ...] += scipy.signal.correlate(value[b, i, ...], b_kernel[o, i, ...], mode=mode)
-        return result
+                    # result.at[b, o, ...].set(scipy.signal.correlate(value[b, i, ...], b_kernel[o, i, ...], mode='same' if zero_padding else 'valid'))
+                    result_b[-1] += scipy.signal.correlate(value[b, i, ...], b_kernel[o, i, ...], mode='same' if zero_padding else 'valid')
+            result.append(jnp.stack(result_b, 0))
+        return jnp.stack(result, 0)
 
     def expand_dims(self, a, axis=0, number=1):
         for _i in range(number):
@@ -380,21 +405,21 @@ class JaxBackend(Backend):
         if not axes:
             return x
         if len(axes) == 1:
-            return np.fft.fft(x, axis=axes[0]).astype(x.dtype)
+            return jnp.fft.fft(x, axis=axes[0]).astype(x.dtype)
         elif len(axes) == 2:
-            return np.fft.fft2(x, axes=axes).astype(x.dtype)
+            return jnp.fft.fft2(x, axes=axes).astype(x.dtype)
         else:
-            return np.fft.fftn(x, axes=axes).astype(x.dtype)
+            return jnp.fft.fftn(x, axes=axes).astype(x.dtype)
 
     def ifft(self, k, axes: tuple or list):
         if not axes:
             return k
         if len(axes) == 1:
-            return np.fft.ifft(k, axis=axes[0]).astype(k.dtype)
+            return jnp.fft.ifft(k, axis=axes[0]).astype(k.dtype)
         elif len(axes) == 2:
-            return np.fft.ifft2(k, axes=axes).astype(k.dtype)
+            return jnp.fft.ifft2(k, axes=axes).astype(k.dtype)
         else:
-            return np.fft.ifftn(k, axes=axes).astype(k.dtype)
+            return jnp.fft.ifftn(k, axes=axes).astype(k.dtype)
 
     def dtype(self, array) -> DType:
         if isinstance(array, int):

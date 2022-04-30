@@ -6,6 +6,7 @@ from ._transform import rotate
 from ._box import bounding_box, Box
 from ..math._shape import merge_shapes
 from ..math._tensors import variable_attributes, copy_with
+from ..math.backend import PHI_LOGGER
 
 
 class Union(Geometry):
@@ -41,8 +42,12 @@ class Union(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.")
+        warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.", RuntimeWarning)
         return math.sum([g.volume for g in self.geometries], dim='0')
+
+    @property
+    def shape_type(self) -> math.Tensor:
+        return math.tensor('?')
 
     def bounding_radius(self):
         return self._bounding_box().bounding_radius()
@@ -56,10 +61,10 @@ class Union(Geometry):
         upper = math.max([b.upper for b in boxes], dim='0')
         return Box(lower, upper)
 
-    def shifted(self, delta):
+    def shifted(self, delta) -> Geometry:
         return Union([geometry.shifted(delta) for geometry in self.geometries])
 
-    def rotated(self, angle):
+    def rotated(self, angle) -> Geometry:
         return rotate(self, angle)
 
 
