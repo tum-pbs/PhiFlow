@@ -669,7 +669,8 @@ class TorchBackend(Backend):
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if isinstance(lin, SparseCSRMatrix):
-            if trj:
+            if trj is not False:
+                trj = False
                 print('Full trajectory log is not supported for the custom C++ CG solver.')
 
             # Convert type to int64
