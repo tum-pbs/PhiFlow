@@ -71,14 +71,3 @@ There are two ways of compiling a static graph
   use the backend-specific compiler, if available, to compile a static graph for `Tensor` or `Field`-valued functions, respectively.
 * Backend compiler: You may trace or compile functions manually using PyTorch, Jax or TensorFlow.
   This involves manually getting all native tensors since backend compilers do not support `phi.math.Tensor` or `Field` arguments.
-
-**Gradients.**
-Computing gradients may be easier in graph mode since no special actions are required for recording the operations.
-In eager execution mode, spatial_gradient recording needs to be enabled using one of the following methods:
-
-1. Code within a `with math.record_gradients():` block will enable spatial_gradient recording for both TensorFlow and PyTorch.
-2. For TensorFlow, a `GradientTape` may be used directly. Retrieve TensorFlow tensors to watch using `Tensor.native()`.
-3. For PyTorch, the `requires_grad` attribute may be set to `True` manually. Retrieve PyTorch tensors using `Tensor.native()`.
-
-Methods 2 and 3 require special handling for non-uniform tensors. Manually iterate over the contained uniform tensors using `tensor.<dim>.unstack()`
-and watch each element using `native()`.

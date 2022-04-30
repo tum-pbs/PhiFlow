@@ -117,17 +117,6 @@ All other outputs are not part of the gradient computation.
 Note that higher-order derivatives might not work as expected with some backends.
 
 
-### Gradients of Tensors
-This method is only supported by PyTorch and TensorFlow.
-Operations within a [`math.record_gradients`](phi/math/#phi.math.record_gradients)
-context record gradient information.
-Calling [`math.gradients`](phi/math/#phi.math.gradients)
-then computes the gradients with respect to a previously marked tensor.
-
-*Warning*: You have to manually detach PyTorch tensors that will be used outside the context.
-Higher-order derivatives are not supported for PyTorch.
-
-
 ## Backend-specific Optimization
 *Recommended for neural network training.*
 

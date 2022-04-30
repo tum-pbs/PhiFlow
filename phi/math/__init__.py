@@ -51,7 +51,7 @@ from ._ops import (
     fft, ifft, convolve, cumulative_sum,
     dtype, cast,
     close, assert_close,
-    record_gradients, gradients, stop_gradient
+    stop_gradient
 )
 from ._nd import (
     shift,

@@ -648,29 +648,6 @@ class TFBackend(Backend):
                 return grads
         return eval_grad
 
-    # def variable(self, value):  # not supported, variables must record gradients outside a context
-    #     return tf.Variable(value, trainable=True)
-
-    def gradients(self, y, xs: tuple or list, grad_y):
-        if _TAPES:
-            tape = _TAPES[-1]
-            return tape.gradient(y, xs, grad_y)
-        return tf.gradients(y, xs, grad_y)
-
-    @contextmanager
-    def record_gradients(self, xs: tuple or list, persistent=False):
-        tape = tf.GradientTape(persistent=persistent)
-        tape.__enter__()
-        for x in xs:
-            tape.watch(x)
-        _TAPES.append(tape)
-
-        try:
-            yield None
-        finally:
-            tape.__exit__(None, None, None)
-            _TAPES.pop(-1)
-
     def stop_gradient(self, value):
         return tf.stop_gradient(value)
 

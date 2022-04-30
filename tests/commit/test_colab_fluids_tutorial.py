@@ -8,25 +8,6 @@ BACKENDS = phi.detect_backends()
 
 class ColabNotebookTest(TestCase):
 
-    def test_graph_gradients(self):
-        for backend in BACKENDS:
-            if backend.supports(Backend.record_gradients):
-                with backend:
-                    INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel('vector'))
-                    INFLOW = CenteredGrid(Sphere(center=INFLOW_LOCATION, radius=3), extrapolation.BOUNDARY, x=32, y=40) * 0.6
-
-                    smoke = CenteredGrid(math.zeros(batch(inflow_loc=4)), extrapolation.BOUNDARY, x=32, y=40)
-                    velocity = initial_velocity = StaggeredGrid(0, 0, x=32, y=40) * math.ones(batch(inflow_loc=4))
-
-                    with math.record_gradients(velocity.values):
-                        for _ in range(3):
-                            smoke = advect.mac_cormack(smoke, velocity, dt=1) + INFLOW
-                            buoyancy_force = smoke * (0, 0.5) @ velocity
-                            velocity = advect.semi_lagrangian(velocity, velocity, dt=1) + buoyancy_force
-                            velocity, _ = fluid.make_incompressible(velocity)
-                        loss = math.mean(field.l2_loss(smoke - field.stop_gradient(smoke.inflow_loc[-1])))
-                        grad = math.gradients(loss, initial_velocity.values)
-
     def test_functional_gradient(self):
         for backend in BACKENDS:
             if backend.supports(Backend.functional_gradient):

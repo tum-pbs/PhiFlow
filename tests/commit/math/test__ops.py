@@ -143,32 +143,38 @@ class TestMathFunctions(TestCase):
             math.assert_close(*sampled, abs_tolerance=1e-5)
 
     def test_grid_sample_gradient_1d(self):
+        def f(grid, coords):
+            sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
+            return math.mean(math.l2_loss(sampled)) / 2
+
+        f_grad = math.jacobian(f, (0, 1), get_output=False)
+
         for backend in BACKENDS:
-            if backend.supports(Backend.gradients):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     grid = math.tensor([0., 1, 2, 3], spatial('x'))
                     coords = math.tensor([0.5, 1.5], instance('points'))
-                    with math.record_gradients(grid, coords):
-                        sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
-                        loss = math.mean(math.l2_loss(sampled)) / 2
-                        grad_grid, grad_coords = math.gradients(loss, grid, coords)
+                    grad_grid, grad_coords = f_grad(grid, coords)
                     math.assert_close(grad_grid, math.tensor([0.125, 0.5, 0.375, 0], spatial('x')), msg=backend)
                     math.assert_close(grad_coords, math.tensor([0.25, 0.75], instance('points')), msg=backend)
 
     def test_grid_sample_gradient_2d(self):
+        def f(grid, coords):
+            sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
+            return math.sum(sampled) / 3
+
+        f_grad = math.jacobian(f, (0, 1), get_output=False)
+
         grads_grid = []
         grads_coords = []
         for backend in BACKENDS:
-            if backend.supports(Backend.gradients):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     grid = math.tensor([[1., 2, 3], [1, 2, 3]], spatial('x,y'))
                     coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], instance('points'), channel('vector'))
-                    with math.record_gradients(grid, coords):
-                        sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
-                        loss = math.sum(sampled) / 3
-                        grad_grid, grad_coords = math.gradients(loss, grid, coords)
-                        grads_grid.append(grad_grid)
-                        grads_coords.append(grad_coords)
+                    grad_grid, grad_coords = f_grad(grid, coords)
+                    grads_grid.append(grad_grid)
+                    grads_coords.append(grad_coords)
         math.assert_close(*grads_grid)
         math.assert_close(*grads_coords)
 

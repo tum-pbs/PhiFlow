@@ -759,26 +759,6 @@ class TorchBackend(Backend):
         jit = self.jit_compile(f)
         return self.hessian(jit, wrt, get_output, get_gradient)
 
-    def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
-        if self.ndims(y) > 0:
-            y = self.sum(y)
-        grad = torch.autograd.grad(y, xs, grad_y)
-        return grad
-
-    @contextmanager
-    def record_gradients(self, xs: tuple or list, persistent=False):
-        for x in xs:
-            assert self.is_tensor(x, only_native=True), f"Must be a PyTorch tensor but got {x}"
-        xs = [x if x.is_leaf else x.detach_() for x in xs]
-        assert not any(x.requires_grad for x in xs)
-        for x in xs:
-            x.requires_grad = True
-        try:
-            yield None
-        finally:
-            for x in xs:
-                x.requires_grad = False
-
     def stop_gradient(self, value):
         return value.detach()
 
