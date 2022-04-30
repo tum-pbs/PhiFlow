@@ -5,7 +5,6 @@ Incompressible fluid simulation with obstacles and buoyancy.
 from phi.torch.flow import *
 # from phi.tf.flow import *
 # from phi.jax.flow import *
-TORCH.set_default_device('GPU')
 
 DOMAIN = dict(x=128, y=128, bounds=Box[0:100, 0:100])
 
@@ -19,9 +18,9 @@ INFLOW = CenteredGrid(Box[14:21, 6:10], extrapolation.BOUNDARY, **DOMAIN) + \
 velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 smoke = pressure = divergence = remaining_divergence = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 
-for _ in view('smoke, velocity, pressure, OBSTACLE_MASK', play=True, namespace=globals()).range(warmup=1):
+for _ in view('smoke, velocity, pressure, OBSTACLE_MASK', play=False, namespace=globals()).range(warmup=1):
     smoke = advect.semi_lagrangian(smoke, velocity, 1) + INFLOW
     buoyancy_force = smoke * (0, 0.1) @ velocity  # resamples density to velocity sample points
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
-    velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('CG', 1e-4, 1e-4, x0=pressure))
+    velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('CG', 1e-5, 1e-5, x0=pressure))
     remaining_divergence = field.divergence(velocity)

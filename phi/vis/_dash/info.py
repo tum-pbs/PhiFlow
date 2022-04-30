@@ -55,7 +55,7 @@ def _description_markdown_src(title, subtitle=''):
 
 def build_phiflow_info(dashapp):
     root_dir = dirname(dirname(inspect.getfile(phi)))
-    setup_file = join(root_dir, 'setup_debug.py')
+    setup_file = join(root_dir, 'setup.py')
     version = phi.__version__
     return dcc.Markdown(u"""
 This application is based on the open-source simulation framework [Φ-Flow](https://github.com/tum-pbs/PhiFlow), version %s.

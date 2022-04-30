@@ -153,9 +153,9 @@ def plot_solves():
                 assert isinstance(result, math.SolveInfo)
                 from phi.math._tensors import disassemble_tree
                 _, (residual,) = disassemble_tree(result.residual)
-                residual_mse = math.mean(math.sqrt(math.sum(residual ** 2)), residual.shape.without('trajectory'))
+                residual_mean = math.mean(math.abs(residual), residual.shape.without('trajectory'))
                 residual_max = math.max(math.abs(residual), residual.shape.without('trajectory'))
-                pylab.plot(residual_mse.numpy(), label=f"{i}: {result.method}", color=cycle[i % len(cycle)])
+                pylab.plot(residual_mean.numpy(), label=f"{i}: {result.method}", color=cycle[i % len(cycle)])
                 pylab.plot(residual_max.numpy(), alpha=0.2, color=cycle[i % len(cycle)])
                 print(f"Solve {i}: {result.method} ({1000 * result.solve_time:.1f} ms)\n"
                       f"\t{result.solve}\n"

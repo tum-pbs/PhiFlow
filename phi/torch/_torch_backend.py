@@ -1,6 +1,5 @@
 import numbers
 import warnings
-from collections import namedtuple, Counter
 from contextlib import contextmanager
 from functools import wraps
 from typing import List, Callable
@@ -385,21 +384,15 @@ class TorchBackend(Backend):
 
     def matmul(self, A, b):
         if isinstance(A, SparseCSRMatrix):
-            b_rows = b.size(0)
-            b_cols = 1 if len(b.shape) == 1 else b.size(1)
-            time = 0
             A.rows.type(torch.int64)
             A.cols.type(torch.int64)
             A.shape.type(torch.int64)
-            C = torch.ops.phi_torch_cuda.cusparse_SpMM_BA(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
-            return C
+            return torch.ops.phi_torch_cuda.cusparse_SpMM(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
-            result = torch.transpose(result, 0, 1)
-            return result
+            return torch.transpose(result, 0, 1)
         if isinstance(A, torch.Tensor) and isinstance(b, torch.Tensor):
-            result = torch.matmul(A, b.T).T
-            return result
+            return torch.matmul(A, b.T).T
         raise NotImplementedError(type(A), type(b))
 
     def cumsum(self, x, axis: int):
@@ -616,30 +609,6 @@ class TorchBackend(Backend):
             multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
 
-    def convert_to_matrix_csr_(self, matrix):
-        """
-        Converts a matrix into a CSR sparse matrix representation.
-        Args:
-            matrix: 2 dimensional tensor
-        Returns:
-            SparseCSRMatrix
-        """
-
-        original_device = matrix.device
-
-        nnz_indices = torch.nonzero(matrix, as_tuple=True)
-        vals = matrix[nnz_indices]
-
-        c = Counter(nnz_indices[0].tolist())
-        rpoint = torch.zeros(matrix.shape[0] + 1, dtype=torch.int32).to(original_device)
-        curr_count = 0
-        for i in range(matrix.shape[0] + 1):
-            rpoint[i] = curr_count
-            curr_count += c[i]
-        colind = nnz_indices[1].type(torch.int32)
-
-        return SparseCSRMatrix(values=vals, row_ptr=rpoint, col_index=colind, shape=matrix.shape)
-
     def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
         """
         Converts a matrix into a CSR sparse matrix representation.
@@ -700,8 +669,8 @@ class TorchBackend(Backend):
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if isinstance(lin, SparseCSRMatrix):
-            #
-            assert not trj, 'trj is not supported for the custom C++ CG solver.'
+            if trj:
+                print('Full trajectory log is not supported for the custom C++ CG solver.')
 
             # Convert type to int64
             lin.cols = lin.cols.type(torch.int64)

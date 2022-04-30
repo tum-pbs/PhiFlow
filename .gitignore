@@ -8,7 +8,5 @@ phi/local/hostname.py
 *.npz
 images/*
 data/*
-Profiling_data/*
 .cache
 run_tests.sh
-marc_ignore_folder/

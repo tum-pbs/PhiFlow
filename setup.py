@@ -84,7 +84,7 @@ class CudaCommand(distutils.cmd.Command):
         pass
 
     def run(self):
-        src_path = abspath('phi/tf/cuda/src')
+        src_path = abspath('./phi/tf/cuda/src')
         build_path = abspath('./phi/tf/cuda/build')
         logfile_path = abspath('./phi/tf/cuda/log.txt')
         print("Source Path:\t" + src_path)
