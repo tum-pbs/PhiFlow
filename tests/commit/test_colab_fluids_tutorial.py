@@ -10,7 +10,7 @@ class ColabNotebookTest(TestCase):
 
     def test_functional_gradient(self):
         for backend in BACKENDS:
-            if backend.supports(Backend.functional_gradient):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel('vector'))
                     INFLOW = CenteredGrid(Sphere(center=INFLOW_LOCATION, radius=3), extrapolation.BOUNDARY, x=32, y=40) * 0.6
@@ -35,7 +35,7 @@ class ColabNotebookTest(TestCase):
 
     def test_functional_gradient_jit(self):
         for backend in BACKENDS:
-            if backend.supports(Backend.functional_gradient):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel('vector'))
                     INFLOW = CenteredGrid(Sphere(center=INFLOW_LOCATION, radius=3), extrapolation.BOUNDARY, x=32, y=40) * 0.6

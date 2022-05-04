@@ -322,6 +322,7 @@ def jit_compile_linear(f: Callable[[X], Y]) -> 'LinearFunction[X, Y]':  # TODO a
 
 
 class GradientFunction:
+    """ Jacobian or Gradient of a function. """
 
     def __init__(self, f: Callable, wrt: tuple, get_output: bool, jit=False):
         self.f = f
@@ -340,34 +341,40 @@ class GradientFunction:
             assert isinstance(values, tuple)  # was disassembled from *args
             with functional_derivative_evaluation(order=1):
                 result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
+            loss = result[0] if isinstance(result, (tuple, list)) else result
+            assert isinstance(loss, Tensor), f"Function {self.f.__name__} must return loss of type phi.math.Tensor as its first output but returned {type(loss)}"
+            loss_reduced = math.sum_(loss, batch)
+            loss_native = loss_reduced.native(loss_reduced.shape.names)
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes = disassemble_tensors(out_tensors)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
-            return result_natives
-        functional_gradient_generator = in_key.backend.jit_compile_grad if self.jit else in_key.backend.functional_gradient
-        return functional_gradient_generator(f_native, wrt=wrt_natives, get_output=self.get_output)
+            return loss_native, result_natives
+        jacobian_generator = in_key.backend.jit_compile_grad if self.jit else in_key.backend.jacobian
+        return jacobian_generator(f_native, wrt=wrt_natives, get_output=self.get_output)
 
     def __call__(self, *args, **kwargs):
         key, natives = key_from_args(*args, cache=True, **kwargs)
-        if not key.backend.supports(Backend.functional_gradient):
-            if math.default_backend().supports(Backend.functional_gradient):
-                warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()", RuntimeWarning)
+        if not key.backend.supports(Backend.jacobian):
+            if math.default_backend().supports(Backend.jacobian):
+                warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support jacobian()", RuntimeWarning)
                 key.backend = math.default_backend()
             else:
-                raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
+                raise AssertionError(f"jacobian() not supported by {key.backend}.")
         wrt_tensors = self._track_wrt(args)
         wrt_natives = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
         if key not in self.traces:
             self.traces[key] = self._trace_grad(key, wrt_natives)
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings, self)
+        jac_shape = output_key.shapes[0]
+        wrt_shapes = [math.concat_shapes(jac_shape, key.shapes[i]) for i in wrt_tensors]
         if self.get_output:
-            result_shapes = list(output_key.shapes) + [key.shapes[i] for i in wrt_tensors]
+            result_shapes = list(output_key.shapes) + wrt_shapes
             output_tensors = assemble_tensors(native_result, result_shapes)
             output_structure, grad_tuple = assemble_tree((output_key.tree, [key.tree[i] for i in self.wrt]), output_tensors)
             return output_structure, grad_tuple
         else:
-            output_tensors = assemble_tensors(native_result, [key.shapes[i] for i in wrt_tensors])
+            output_tensors = assemble_tensors(native_result, wrt_shapes)
             return assemble_tree([key.tree[i] for i in wrt_tensors], output_tensors)
 
     def __repr__(self):
@@ -392,7 +399,7 @@ class GradientFunction:
         return [n_i for n_i, t_i in enumerate(wrt_natives) if t_i in wrt_tensors]
 
 
-def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callable:
+def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callable:
     """
     Creates a function which computes the gradient of `f`.
 
@@ -403,9 +410,9 @@ def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True)
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx, = functional_gradient(loss_function, get_output=False)(x, y)
+    dx, = jacobian(loss_function, get_output=False)(x, y)
 
-    (loss, prediction), (dx, dy) = functional_gradient(loss_function,
+    (loss, prediction), (dx, dy) = jacobian(loss_function,
                                         wrt=(0, 1), get_output=True)(x, y)
     ```
 
@@ -464,12 +471,12 @@ class HessianFunction:
 
     def __call__(self, *args, **kwargs):
         key, natives, batch_shape = key_from_args_pack_batch(*args, cache=True, **kwargs)
-        if not key.backend.supports(Backend.functional_gradient):
-            if math.default_backend().supports(Backend.functional_gradient):
-                warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support functional_gradient()", RuntimeWarning)
+        if not key.backend.supports(Backend.jacobian):
+            if math.default_backend().supports(Backend.jacobian):
+                warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support jacobian()", RuntimeWarning)
                 key.backend = math.default_backend()
             else:
-                raise AssertionError(f"functional_gradient() not supported by {key.backend}.")
+                raise AssertionError(f"jacobian() not supported by {key.backend}.")
         wrt_tensors: List[int] = self._track_wrt(args)
         wrt_natives: List[int] = self._track_wrt_natives(wrt_tensors, disassemble_tree(args)[1])
         if key not in self.traces:
@@ -544,9 +551,9 @@ def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradien
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    hess, = functional_gradient(loss_function, get_output=False, get_gradient=False)(x, y)
+    hess, = jacobian(loss_function, get_output=False, get_gradient=False)(x, y)
 
-    (loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = functional_gradient(loss_function,
+    (loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = jacobian(loss_function,
                                         wrt=(0, 1), get_output=True)(x, y)
     ```
 
@@ -616,7 +623,7 @@ class CustomGradientFunction:
 
     def __call__(self, *args, **kwargs):
         key, natives = key_from_args(*args, cache=False, **kwargs)
-        if not key.backend.supports(Backend.functional_gradient) and not key.backend.supports(Backend.gradients):
+        if not key.backend.supports(Backend.jacobian) and not key.backend.supports(Backend.jacobian):
             return self.f(*args, **kwargs)  # no need to use custom gradient if gradients aren't supported anyway
         elif not key.backend.supports(Backend.custom_gradient):
             warnings.warn(f"custom_gradient() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.", RuntimeWarning)
@@ -1319,7 +1326,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
     Additionally a gradient descent solver with adaptive step size can be used with `method='GD'`.
 
-    `math.minimize()` is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
+    `math.minimize()` is limited to backends that support `jacobian()`, currently PyTorch, TensorFlow and Jax.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 
@@ -1407,7 +1414,7 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     """
     Solves the non-linear equation *f(x) = y* by minimizing the norm of the residual.
 
-    This method is limited to backends that support `functional_gradient()`, currently PyTorch, TensorFlow and Jax.
+    This method is limited to backends that support `jacobian()`, currently PyTorch, TensorFlow and Jax.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 
@@ -1612,7 +1619,7 @@ def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
             x = math.print_gradient(x, 'dx')
             return math.l1_loss(x)
 
-        math.functional_gradient(f)(math.ones(x=6))
+        math.jacobian(f)(math.ones(x=6))
         ```
 
     Args:

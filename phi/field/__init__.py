@@ -26,7 +26,7 @@ from ._angular_velocity import AngularVelocity
 from phi.math import (
     abs, sign, round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
     stop_gradient,
-    jit_compile, jit_compile_linear, functional_gradient,
+    jit_compile, jit_compile_linear, functional_gradient, jacobian, gradient,
     solve_linear, solve_nonlinear, minimize,
     l2_loss, l1_loss, frequency_loss,
 )

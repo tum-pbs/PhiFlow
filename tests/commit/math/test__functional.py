@@ -80,7 +80,7 @@ class TestFunctional(TestCase):
             return loss, pred
 
         for backend in BACKENDS:
-            if backend.supports(Backend.functional_gradient):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     x_data = math.tensor(2.)
                     y_data = math.tensor(1.)
@@ -103,7 +103,7 @@ class TestFunctional(TestCase):
             return df * 0,
 
         for backend in BACKENDS:
-            if backend.supports(Backend.functional_gradient):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     normal_gradient, = math.functional_gradient(f, get_output=False)(math.ones())
                     math.assert_close(normal_gradient, 1)
@@ -134,7 +134,7 @@ class TestFunctional(TestCase):
             return math.l2_loss(x - 1) + math.l2_loss(y + 1)
 
         for backend in BACKENDS:
-            if backend.supports(Backend.functional_gradient):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     x0 = tensor([0, 0, 0], spatial('x')), tensor([-1, -1, -1], spatial('y'))
                     x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
@@ -280,7 +280,7 @@ class TestFunctional(TestCase):
             return x ** 2
 
         for backend in BACKENDS:
-            if backend.supports(Backend.functional_gradient):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     result = math.minimize(loss, Solve('GD', 0, 1e-5, 20, x0=3))
                     math.assert_close(result, 0, abs_tolerance=1e-5, msg=backend.name)
@@ -335,7 +335,7 @@ class TestFunctional(TestCase):
         gradient_function = math.functional_gradient(loss_function)
 
         for backend in BACKENDS:
-            if backend.supports(Backend.functional_gradient):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     x_test = tensor([0, 1], batch('examples'))
                     loss_direct = loss_function(x_test)

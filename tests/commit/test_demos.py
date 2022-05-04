@@ -61,7 +61,7 @@ class TestDemos(TestCase):
         demo_run('burgers')
 
     def test_differentiate_pressure(self):
-        demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.functional_gradient)])
+        demo_run('differentiate_pressure', [b for b in BACKENDS if b.supports(Backend.jacobian)])
 
     def test_flip_liquid(self):
         demo_run('flip_liquid')

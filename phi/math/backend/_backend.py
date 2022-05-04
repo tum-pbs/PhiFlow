@@ -311,16 +311,17 @@ class Backend:
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def functional_gradient(self, f: Callable, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
         """
         Args:
-            f: Function to differentiate.
+            f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
             wrt: Argument indices for which to compute the gradient.
             get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
 
         Returns:
             A function `g` with the same arguments as `f`.
             If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
+            The gradients retain the dimensions of `reduced_loss` in order as outer (first) dimensions.
         """
         raise NotImplementedError(self)
 
@@ -832,13 +833,13 @@ class Backend:
         from scipy.optimize import OptimizeResult, minimize
         from threading import Thread
 
-        assert self.supports(Backend.functional_gradient)
+        assert self.supports(Backend.jacobian)
         x0 = self.numpy(x0)
         assert x0.ndim == 2  # (batch, parameters)
         atol = self.numpy(atol)
         max_iter = self.numpy(max_iter)
         batch_size = x0.shape[0]
-        fg = self.functional_gradient(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True)
         method_description = f"SciPy {method} with {self.name}"
 
         iterations = [0] * batch_size
@@ -935,10 +936,10 @@ class Backend:
             return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
 
     def _minimize_gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size='adaptive'):
-        assert self.supports(Backend.functional_gradient)
+        assert self.supports(Backend.jacobian)
         assert len(self.staticshape(x0)) == 2  # (batch, parameters)
         batch_size = self.staticshape(x0)[0]
-        fg = self.functional_gradient(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True)
         method = f"Gradient descent with {self.name}"
 
         iterations = self.zeros([batch_size], DType(int, 32))
@@ -1136,12 +1137,6 @@ class Backend:
             lin_shape = self.staticshape(lin)
             assert len(lin_shape) == 2, f"A must be a matrix but got shape {lin_shape}"
             return self.matmul(lin, vector)
-
-    def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
-        raise NotImplementedError(self)
-
-    def record_gradients(self, xs: tuple or list, persistent=False):
-        raise NotImplementedError(self)
 
     def stop_gradient(self, value):
         raise NotImplementedError(self)
@@ -1475,7 +1470,7 @@ def functional_derivative_evaluation(order=1):
 def get_functional_derivative_order():
     """
     Operations that do not define a first or higher-order derivative may use slower alternative code paths when the derivative is `>0`.
-    This is set when calling a function created by `math.functional_gradient()` or `math.hessian()`.
+    This is set when calling a function created by `math.jacobian()` or `math.hessian()`.
     """
     return _FUNCTIONAL_DERIVATIVE_CONTEXT[-1]
 

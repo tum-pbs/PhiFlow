@@ -1796,7 +1796,7 @@ class TensorLike(metaclass=_TensorLikeType):
         - `jit_compile()`
         - `jit_compile_linear()`
         - `stop_gradient()`
-        - `functional_gradient()`
+        - `jacobian()`
         - `custom_gradient()`
 
         Returns:

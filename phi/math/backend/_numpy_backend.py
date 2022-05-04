@@ -347,7 +347,7 @@ class NumPyBackend(Backend):
     def stop_gradient(self, value):
         return value
 
-    # def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    # def jacobian(self, f, wrt: tuple or list, get_output: bool):
     #     warnings.warn("NumPy does not support analytic gradients and will use differences instead. This may be slow!", RuntimeWarning)
     #     eps = {64: 1e-9, 32: 1e-4, 16: 1e-1}[self.precision]
     #

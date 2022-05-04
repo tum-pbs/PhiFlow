@@ -165,14 +165,9 @@ class JaxBackend(Backend):
             for v in values:
                 self.block_until_ready(v)
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool):
         if get_output:
-            @wraps(f)
-            def aux_f(*args):
-                output = f(*args)
-                output = output if isinstance(output, (tuple, list)) else [output]
-                return jnp.sum(output[0]), output
-            jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
+            jax_grad_f = jax.value_and_grad(f, argnums=wrt, has_aux=True)
             @wraps(f)
             def unwrap_outputs(*args):
                 args = [self.to_float(arg) if self.dtype(arg).kind in (bool, int) else arg for arg in args]
@@ -182,11 +177,8 @@ class JaxBackend(Backend):
         else:
             @wraps(f)
             def nonaux_f(*args):
-                output = f(*args)
-                result = output[0] if isinstance(output, (tuple, list)) else output
-                if result.ndim > 0:
-                    result = jnp.sum(result)
-                return result
+                loss, output = f(*args)
+                return loss
             return jax.grad(nonaux_f, argnums=wrt, has_aux=False)
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:

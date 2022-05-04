@@ -627,7 +627,7 @@ class TFBackend(Backend):
             a, b = self.auto_cast(a, b)
             return a // b
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)
         def eval_grad(*args):
             args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
@@ -637,15 +637,13 @@ class TFBackend(Backend):
                 for arg in wrt_args:
                     assert arg.dtype in (tf.float16, tf.float32, tf.float64, tf.complex64, tf.complex128), f"Gradients can only be computed for float or complex tensors but got {arg.dtype} for argument with shape {arg.shape}"
                     tape.watch(arg)
-                output = f(*args)
-            output = output if isinstance(output, (tuple, list)) else [output]
-            loss = output[0]  # tf.reduce_sum(output[0]) not needed and will cause gradients to be None
-            grads = list(self.as_registered.call(tape.gradient, loss, wrt_args, name=f"Backpropagation"))
-            assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."
-            if get_output:
-                return (*output, *grads)
+                loss, output = f(*args)
+            if self.prod(tf.shape(loss)) == 1:
+                grads = list(self.as_registered.call(tape.gradient, loss, wrt_args, name=f"Backpropagation"))
             else:
-                return grads
+                grads = list(self.as_registered.call(tape.jacobian, loss, wrt_args, name=f"Backpropagation"))
+            assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."
+            return (*output, *grads) if get_output else grads
         return eval_grad
 
     def stop_gradient(self, value):

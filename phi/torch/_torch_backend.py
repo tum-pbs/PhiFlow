@@ -647,23 +647,18 @@ class TorchBackend(Backend):
             assert t.requires_grad
         return args, wrt_args
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool):
         @wraps(f)
         def eval_grad(*args):
             args, wrt_args = self._prepare_graph_inputs(args, wrt)
-            output = f(*args)
-            output = output if isinstance(output, (tuple, list)) else [output]
-            loss = output[0].sum()
-            grads = torch.autograd.grad(loss, wrt_args)  # grad() cannot be called during jit trace
-            if get_output:
-                # output[0] = output[0].detach()  # why?
-                return (*output, *grads)
+            loss, output = f(*args)
+            if self.prod(loss.shape) == 1:
+                grads = torch.autograd.grad(loss, wrt_args)  # grad() cannot be called during jit trace
             else:
-                return grads
+                raise NotImplementedError()
+                grads = torch.autograd.grad(loss, wrt_args, retain_graph=True)
+            return (*output, *grads) if get_output else grads
         return eval_grad
-
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
-        pass
 
     def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
         # if not get_output and not get_gradient:
@@ -753,7 +748,7 @@ class TorchBackend(Backend):
 
     def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
         jit = self.jit_compile(f)
-        return self.functional_gradient(jit, wrt, get_output)
+        return self.jacobian(jit, wrt, get_output)
 
     def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
         jit = self.jit_compile(f)
