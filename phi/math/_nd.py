@@ -10,7 +10,8 @@ from . import extrapolation as extrapolation
 from ._config import GLOBAL_AXIS_ORDER
 from ._ops import stack
 from ._shape import Shape, channel, batch, spatial, DimFilter
-from ._tensors import Tensor, TensorLike, variable_values
+from ._tensors import Tensor, variable_values
+from .magic import PhiTreeNode
 from ._tensors import wrap
 from .extrapolation import Extrapolation
 
@@ -123,8 +124,8 @@ def l1_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `TensorLike`.
-            For `TensorLike` objects, only value the sum over all value attributes is computed.
+        x: `Tensor` or `PhiTreeNode`.
+            For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
@@ -132,7 +133,7 @@ def l1_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     """
     if isinstance(x, Tensor):
         return math.sum_(abs(x), reduce)
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         return sum([l1_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)
@@ -143,8 +144,8 @@ def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `TensorLike`.
-            For `TensorLike` objects, only value the sum over all value attributes is computed.
+        x: `Tensor` or `PhiTreeNode`.
+            For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
@@ -154,7 +155,7 @@ def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
         if x.dtype.kind == complex:
             x = abs(x)
         return math.sum_(x ** 2, reduce) * 0.5
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         return sum([l2_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)
@@ -170,7 +171,7 @@ def frequency_loss(x,
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-        x: `Tensor` or `TensorLike` Values to penalize, typically `actual - target`.
+        x: `Tensor` or `PhiTreeNode` Values to penalize, typically `actual - target`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
         threshold: Frequency amplitudes below this value are ignored.
@@ -190,7 +191,7 @@ def frequency_loss(x,
         diff_fft = abs_square(math.fft(x) * weights)
         diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
         return l2_loss(diff_fft) if n == 2 else l1_loss(diff_fft)
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         losses = [frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean, n) for a in variable_values(x)]
         return sum(losses)
     else:

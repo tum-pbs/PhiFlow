@@ -5,8 +5,8 @@ from ._geom import Geometry, NO_GEOMETRY
 from ._transform import rotate
 from ._box import bounding_box, Box
 from ..math._shape import merge_shapes
-from ..math._tensors import variable_attributes, copy_with, TensorLike
-from ..math.backend import PHI_LOGGER
+from ..math._tensors import variable_attributes, copy_with
+from ..math.magic import PhiTreeNode
 
 
 class Union(Geometry):
@@ -87,7 +87,7 @@ def union(*geometries) -> Geometry:
         return NO_GEOMETRY
     elif len(geometries) == 1:
         return geometries[0]
-    elif all(type(g) == type(geometries[0]) and isinstance(g, TensorLike) for g in geometries):
+    elif all(type(g) == type(geometries[0]) and isinstance(g, PhiTreeNode) for g in geometries):
         attrs = variable_attributes(geometries[0])
         values = {a: math.stack([getattr(g, a) for g in geometries], math.instance('union')) for a in attrs}
         return copy_with(geometries[0], **values)

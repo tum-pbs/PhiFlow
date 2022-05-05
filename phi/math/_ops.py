@@ -13,10 +13,11 @@ from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
-    custom_op2, compatible_tensor, TensorLike, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
-    value_attributes, Layout, layout, cached, Sliceable
+    custom_op2, compatible_tensor, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
+    value_attributes, Layout, layout, cached
+from .magic import PhiTreeNode, Sliceable
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
-    NoBackendFound, PHI_LOGGER
+    NoBackendFound
 from .backend._dtype import DType, combine_types
 
 
@@ -38,7 +39,7 @@ def choose_backend_t(*values, prefer_default=False) -> Backend:
 
 def convert(x, backend: Backend = None, use_dlpack=True):
     """
-    Convert the native representation of a `Tensor` or `TensorLike` to the native format of `backend`.
+    Convert the native representation of a `Tensor` or `PhiTreeNode` to the native format of `backend`.
 
     *Warning*: This operation breaks the automatic differentiation chain.
 
@@ -46,7 +47,7 @@ def convert(x, backend: Backend = None, use_dlpack=True):
         `phi.math.backend.convert()`.
 
     Args:
-        x: `Tensor` to convert. If `x` is a `TensorLike`, its variable attributes are converted.
+        x: `Tensor` to convert. If `x` is a `PhiTreeNode`, its variable attributes are converted.
         backend: Target backend. If `None`, uses the current default backend, see `phi.math.backend.default_backend()`.
 
     Returns:
@@ -54,7 +55,7 @@ def convert(x, backend: Backend = None, use_dlpack=True):
     """
     if isinstance(x, Tensor):
         return x._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         return copy_with(x, **{a: convert(getattr(x, a), backend, use_dlpack=use_dlpack) for a in variable_attributes(x)})
     else:
         return choose_backend(x).as_tensor(x)
@@ -297,7 +298,7 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
         return result
 
 
-def print_(obj: Tensor or TensorLike or Number or tuple or list or None = None, name: str = ""):
+def print_(obj: Tensor or PhiTreeNode or Number or tuple or list or None = None, name: str = ""):
     """
     Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.
     
@@ -320,13 +321,13 @@ def print_(obj: Tensor or TensorLike or Number or tuple or list or None = None, 
         elif isinstance(obj, dict):
             return obj
         else:
-            raise ValueError(f"Not TensorLike: {type(obj)}")
+            raise ValueError(f"Not PhiTreeNode: {type(obj)}")
 
     if obj is None:
         print()
     elif isinstance(obj, Tensor):
         _print_tensor(obj, name)
-    elif isinstance(obj, TensorLike):
+    elif isinstance(obj, PhiTreeNode):
         for n, val in variables(obj).items():
             print_(val, name + n)
     else:
@@ -427,7 +428,7 @@ def zeros(*shape: Shape, dtype: DType = None) -> Tensor:
     return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape)
 
 
-def zeros_like(obj: Tensor or TensorLike) -> Tensor or TensorLike:
+def zeros_like(obj: Tensor or PhiTreeNode) -> Tensor or PhiTreeNode:
     """ Create a `Tensor` containing only `0.0` / `0` / `False` with the same shape and dtype as `obj`. """
     nest, values = disassemble_tree(obj)
     zeros_ = []
@@ -690,7 +691,7 @@ def range_tensor(shape: Shape):
     return unpack_dims(data, 'range', shape)
 
 
-def stack(values: tuple or list or dict, dim: Shape):
+def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     """
     Lazy stack.
     Stacks `values` along the new dimension `dim`.
@@ -944,15 +945,15 @@ def unpack_dims(value: Tensor, dim: str, unpacked_dims: Shape):
     """
     Decompresses a tensor dimension by unstacking the elements along it.
     This function replaces the traditional `reshape` for these cases.
-    The compressed dimension `dim` is assumed to contain elements laid out according to the order of `split_dims`.
+    The compressed dimension `dim` is assumed to contain elements laid out according to the order of `unpacked_dims`.
 
     See Also:
         `pack_dims()`
 
     Args:
         value: `Tensor` for which one dimension should be split.
-        dim: Compressed dimension to be decompressed.
-        unpacked_dims: Ordered new dimensions to replace `dim` as `Shape`.
+        dim: Dimension to be decompressed.
+        unpacked_dims: `Shape`: Ordered dimensions to replace `dim`, fulfilling `unpacked_dims.volume == shape(self)[dim].rank`.
 
     Returns:
         `Tensor` with decompressed shape
@@ -991,7 +992,7 @@ def pack_dims(value: Tensor,
     Args:
         value: Tensor containing the dimensions `dims`.
         dims: Dimensions to be compressed in the specified order.
-        packed_dim: Name and type of the new dimension.
+        packed_dim: Single-dimension `Shape`.
         pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
 
     Returns:
@@ -1445,10 +1446,10 @@ def dot(x: Tensor,
     return NativeTensor(result_native, result_shape)
 
 
-def _backend_op1(x, unbound_method) -> Tensor or TensorLike:
+def _backend_op1(x, unbound_method) -> Tensor or PhiTreeNode:
     if isinstance(x, Tensor):
         return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         return copy_with(x, **{a: _backend_op1(getattr(x, a), unbound_method) for a in value_attributes(x)})
     else:
         backend = choose_backend(x)
@@ -1456,7 +1457,7 @@ def _backend_op1(x, unbound_method) -> Tensor or TensorLike:
         return wrap(y)
 
 
-def abs_(x) -> Tensor or TensorLike:
+def abs_(x) -> Tensor or PhiTreeNode:
     """
     Computes *||x||<sub>1</sub>*.
     Complex `x` result in matching precision float values.
@@ -1465,7 +1466,7 @@ def abs_(x) -> Tensor or TensorLike:
     TensorFlow and PyTorch return 0 while Jax returns 1.
 
     Args:
-        x: `Tensor` or `TensorLike`
+        x: `Tensor` or `PhiTreeNode`
 
     Returns:
         Absolute value of `x` of same type as `x`.
@@ -1473,46 +1474,46 @@ def abs_(x) -> Tensor or TensorLike:
     return _backend_op1(x, Backend.abs)
 
 
-def sign(x) -> Tensor or TensorLike:
+def sign(x) -> Tensor or PhiTreeNode:
     """
     The sign of positive numbers is 1 and -1 for negative numbers.
     The sign of 0 is undefined.
 
     Args:
-        x: `Tensor` or `TensorLike`
+        x: `Tensor` or `PhiTreeNode`
 
     Returns:
-        `Tensor` or `TensorLike` matching `x`.
+        `Tensor` or `PhiTreeNode` matching `x`.
     """
     return _backend_op1(x, Backend.sign)
 
 
-def round_(x) -> Tensor or TensorLike:
-    """ Rounds the `Tensor` or `TensorLike` `x` to the closest integer. """
+def round_(x) -> Tensor or PhiTreeNode:
+    """ Rounds the `Tensor` or `PhiTreeNode` `x` to the closest integer. """
     return _backend_op1(x, Backend.round)
 
 
-def ceil(x) -> Tensor or TensorLike:
-    """ Computes *⌈x⌉* of the `Tensor` or `TensorLike` `x`. """
+def ceil(x) -> Tensor or PhiTreeNode:
+    """ Computes *⌈x⌉* of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.ceil)
 
 
-def floor(x) -> Tensor or TensorLike:
-    """ Computes *⌊x⌋* of the `Tensor` or `TensorLike` `x`. """
+def floor(x) -> Tensor or PhiTreeNode:
+    """ Computes *⌊x⌋* of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.floor)
 
 
-def sqrt(x) -> Tensor or TensorLike:
-    """ Computes *sqrt(x)* of the `Tensor` or `TensorLike` `x`. """
+def sqrt(x) -> Tensor or PhiTreeNode:
+    """ Computes *sqrt(x)* of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.sqrt)
 
 
-def exp(x) -> Tensor or TensorLike:
-    """ Computes *exp(x)* of the `Tensor` or `TensorLike` `x`. """
+def exp(x) -> Tensor or PhiTreeNode:
+    """ Computes *exp(x)* of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.exp)
 
 
-def to_float(x) -> Tensor or TensorLike:
+def to_float(x) -> Tensor or PhiTreeNode:
     """
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -1524,25 +1525,25 @@ def to_float(x) -> Tensor or TensorLike:
         `cast()`.
 
     Args:
-        x: `Tensor` or `TensorLike` to convert
+        x: `Tensor` or `PhiTreeNode` to convert
 
     Returns:
-        `Tensor` or `TensorLike` matching `x`.
+        `Tensor` or `PhiTreeNode` matching `x`.
     """
     return _backend_op1(x, Backend.to_float)
 
 
-def to_int32(x) -> Tensor or TensorLike:
-    """ Converts the `Tensor` or `TensorLike` `x` to 32-bit integer. """
+def to_int32(x) -> Tensor or PhiTreeNode:
+    """ Converts the `Tensor` or `PhiTreeNode` `x` to 32-bit integer. """
     return _backend_op1(x, Backend.to_int32)
 
 
-def to_int64(x) -> Tensor or TensorLike:
-    """ Converts the `Tensor` or `TensorLike` `x` to 64-bit integer. """
+def to_int64(x) -> Tensor or PhiTreeNode:
+    """ Converts the `Tensor` or `PhiTreeNode` `x` to 64-bit integer. """
     return _backend_op1(x, Backend.to_int64)
 
 
-def to_complex(x) -> Tensor or TensorLike:
+def to_complex(x) -> Tensor or PhiTreeNode:
     """
     Converts the given tensor to complex floating point format with the currently specified precision.
 
@@ -1562,18 +1563,18 @@ def to_complex(x) -> Tensor or TensorLike:
     return _backend_op1(x, Backend.to_complex)
 
 
-def isfinite(x) -> Tensor or TensorLike:
-    """ Returns a `Tensor` or `TensorLike` matching `x` with values `True` where `x` has a finite value and `False` otherwise. """
+def isfinite(x) -> Tensor or PhiTreeNode:
+    """ Returns a `Tensor` or `PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. """
     return _backend_op1(x, Backend.isfinite)
 
 
-def real(x) -> Tensor or TensorLike:
+def real(x) -> Tensor or PhiTreeNode:
     """
     See Also:
         `imag()`, `conjugate()`.
 
     Args:
-        x: `Tensor` or `TensorLike` or native tensor.
+        x: `Tensor` or `PhiTreeNode` or native tensor.
 
     Returns:
         Real component of `x`.
@@ -1581,13 +1582,13 @@ def real(x) -> Tensor or TensorLike:
     return _backend_op1(x, Backend.real)
 
 
-def imag(x) -> Tensor or TensorLike:
+def imag(x) -> Tensor or PhiTreeNode:
     """
     See Also:
         `real()`, `conjugate()`.
 
     Args:
-        x: `Tensor` or `TensorLike` or native tensor.
+        x: `Tensor` or `PhiTreeNode` or native tensor.
 
     Returns:
         Imaginary component of `x` if `x` is complex, zeros otherwise.
@@ -1595,13 +1596,13 @@ def imag(x) -> Tensor or TensorLike:
     return _backend_op1(x, Backend.imag)
 
 
-def conjugate(x) -> Tensor or TensorLike:
+def conjugate(x) -> Tensor or PhiTreeNode:
     """
     See Also:
         `imag()`, `real()`.
 
     Args:
-        x: Real or complex `Tensor` or `TensorLike` or native tensor.
+        x: Real or complex `Tensor` or `PhiTreeNode` or native tensor.
 
     Returns:
         Complex conjugate of `x` if `x` is complex, else `x`.
@@ -1614,52 +1615,52 @@ def degrees(deg):
     return deg * (3.1415 / 180.)
 
 
-def sin(x) -> Tensor or TensorLike:
-    """ Computes *sin(x)* of the `Tensor` or `TensorLike` `x`. """
+def sin(x) -> Tensor or PhiTreeNode:
+    """ Computes *sin(x)* of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.sin)
 
 
-def arcsin(x) -> Tensor or TensorLike:
-    """ Computes the inverse of *sin(x)* of the `Tensor` or `TensorLike` `x`.
+def arcsin(x) -> Tensor or PhiTreeNode:
+    """ Computes the inverse of *sin(x)* of the `Tensor` or `PhiTreeNode` `x`.
     For real arguments, the result lies in the range [-π/2, π/2].
     """
     return _backend_op1(x, Backend.arcsin)
 
 
-def cos(x) -> Tensor or TensorLike:
-    """ Computes *cos(x)* of the `Tensor` or `TensorLike` `x`. """
+def cos(x) -> Tensor or PhiTreeNode:
+    """ Computes *cos(x)* of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.cos)
 
 
-def arccos(x) -> Tensor or TensorLike:
-    """ Computes the inverse of *cos(x)* of the `Tensor` or `TensorLike` `x`.
+def arccos(x) -> Tensor or PhiTreeNode:
+    """ Computes the inverse of *cos(x)* of the `Tensor` or `PhiTreeNode` `x`.
     For real arguments, the result lies in the range [0, π].
     """
     return _backend_op1(x, Backend.cos)
 
 
-def tan(x) -> Tensor or TensorLike:
-    """ Computes *tan(x)* of the `Tensor` or `TensorLike` `x`. """
+def tan(x) -> Tensor or PhiTreeNode:
+    """ Computes *tan(x)* of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.tan)
 
 
-def log(x) -> Tensor or TensorLike:
-    """ Computes the natural logarithm of the `Tensor` or `TensorLike` `x`. """
+def log(x) -> Tensor or PhiTreeNode:
+    """ Computes the natural logarithm of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.log)
 
 
-def log2(x) -> Tensor or TensorLike:
-    """ Computes *log(x)* of the `Tensor` or `TensorLike` `x` with base 2. """
+def log2(x) -> Tensor or PhiTreeNode:
+    """ Computes *log(x)* of the `Tensor` or `PhiTreeNode` `x` with base 2. """
     return _backend_op1(x, Backend.log2)
 
 
-def log10(x) -> Tensor or TensorLike:
-    """ Computes *log(x)* of the `Tensor` or `TensorLike` `x` with base 10. """
+def log10(x) -> Tensor or PhiTreeNode:
+    """ Computes *log(x)* of the `Tensor` or `PhiTreeNode` `x` with base 10. """
     return _backend_op1(x, Backend.log10)
 
 
-def sigmoid(x) -> Tensor or TensorLike:
-    """ Computes the sigmoid function of the `Tensor` or `TensorLike` `x`. """
+def sigmoid(x) -> Tensor or PhiTreeNode:
+    """ Computes the sigmoid function of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.sigmoid)
 
 
@@ -2126,7 +2127,7 @@ def assert_close(*values,
         values = [compatible_tensor(t, phi_tensors[0].shape)._simplify() for t in values]  # use Tensor to infer dimensions
         for other in values[1:]:
             _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)
-    elif all(isinstance(v, TensorLike) for v in values):
+    elif all(isinstance(v, PhiTreeNode) for v in values):
         tree0, tensors0 = disassemble_tree(values[0])
         for value in values[1:]:
             tree, tensors_ = disassemble_tree(value)
@@ -2204,14 +2205,14 @@ def stop_gradient(x):
     * Jax: [`jax.lax.stop_gradient`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.stop_gradient.html)
 
     Args:
-        x: `Tensor` or `TensorLike` for which gradients should be disabled.
+        x: `Tensor` or `PhiTreeNode` for which gradients should be disabled.
 
     Returns:
         Copy of `x`.
     """
     if isinstance(x, Tensor):
         return x._op1(lambda native: choose_backend(native).stop_gradient(native))
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         nest, values = disassemble_tree(x)
         new_values = [stop_gradient(v) for v in values]
         return assemble_tree(nest, new_values)

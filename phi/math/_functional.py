@@ -10,7 +10,8 @@ import numpy as np
 from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, to_float
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
-from ._tensors import Tensor, NativeTensor, disassemble_tree, TensorLike, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
+from ._tensors import Tensor, NativeTensor, disassemble_tree, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
+from .magic import PhiTreeNode
 from .backend import choose_backend, Backend
 from .backend._backend import SolveResult, get_spatial_derivative_order, functional_derivative_evaluation, PHI_LOGGER
 
@@ -27,7 +28,7 @@ class SignatureKey:
                  kwargs: dict or None,
                  backend: Backend,
                  tracing: bool):
-        assert isinstance(tree, TensorLike), tree
+        assert isinstance(tree, PhiTreeNode), tree
         if source_function is None:  # this is an input signature
             assert isinstance(shapes, tuple)
         self.source_function = source_function
@@ -179,7 +180,7 @@ def jit_compile(f: Callable) -> Callable:
     * the keyword arguments differ from previous invocations,
     * the positional tensor arguments have different dimension names or types (the dimension order also counts),
     * any positional `Tensor` arguments require a different backend than previous invocations,
-    * `TensorLike` positional arguments do not match in non-variable properties.
+    * `PhiTreeNode` positional arguments do not match in non-variable properties.
 
     Compilation is implemented for the following backends:
 
@@ -195,7 +196,7 @@ def jit_compile(f: Callable) -> Callable:
 
     Args:
         f: Function to be traced.
-            All positional arguments must be of type `Tensor` or `TensorLike` returning a single `Tensor` or `TensorLike`.
+            All positional arguments must be of type `Tensor` or `PhiTreeNode` returning a single `Tensor` or `PhiTreeNode`.
 
     Returns:
         Function with similar signature and return values as `f`.
@@ -670,7 +671,7 @@ class CustomGradientFunction:
                 return natives
         elif isinstance(nest, dict):
             raise NotImplementedError()
-        elif isinstance(nest, TensorLike):
+        elif isinstance(nest, PhiTreeNode):
             attributes = variable_attributes(nest)
             natives = []
             for attr in attributes:
@@ -1157,9 +1158,9 @@ class SolveInfo(Generic[X, Y]):
         self.solve: Solve[X, Y] = solve
         """ `Solve`, Parameters specified for the solve. """
         self.x: X = x
-        """ `Tensor` or `TensorLike`, solution estimate. """
+        """ `Tensor` or `PhiTreeNode`, solution estimate. """
         self.residual: Y = residual
-        """ `Tensor` or `TensorLike`, residual vector for systems of equations or function value for minimization problems. """
+        """ `Tensor` or `PhiTreeNode`, residual vector for systems of equations or function value for minimization problems. """
         self.iterations: Tensor = iterations
         """ `Tensor`, number of performed iterations to reach this state. """
         self.function_evaluations: Tensor = function_evaluations
@@ -1335,8 +1336,8 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
 
     Args:
         f: Function whose output is subject to minimization.
-            All positional arguments of `f` are optimized and must be `Tensor` or `TensorLike`.
-            The first return value of `f` must be a scalar float `Tensor` or `TensorLike`.
+            All positional arguments of `f` are optimized and must be `Tensor` or `PhiTreeNode`.
+            The first return value of `f` must be a scalar float `Tensor` or `PhiTreeNode`.
         solve: `Solve` object to specify method type, parameters and initial guess for `x`.
 
     Returns:
@@ -1423,13 +1424,13 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
 
     Args:
         f: Function whose output is optimized to match `y`.
-            All positional arguments of `f` are optimized and must be `Tensor` or `TensorLike`.
+            All positional arguments of `f` are optimized and must be `Tensor` or `PhiTreeNode`.
             The output of `f` must match `y`.
-        y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
+        y: Desired output of `f(x)` as `Tensor` or `PhiTreeNode`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
 
     Returns:
-        x: Solution fulfilling `f(x) = y` within specified tolerance as `Tensor` or `TensorLike`.
+        x: Solution fulfilling `f(x) = y` within specified tolerance as `Tensor` or `PhiTreeNode`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
@@ -1467,18 +1468,18 @@ def solve_linear(f: Callable[[X], Y],
         `solve_nonlinear()`, `jit_compile_linear()`.
 
     Args:
-        f: Linear function with `Tensor` or `TensorLike` first parameter and return value.
+        f: Linear function with `Tensor` or `PhiTreeNode` first parameter and return value.
             `f` can have additional arguments.
-        y: Desired output of `f(x)` as `Tensor` or `TensorLike`.
+        y: Desired output of `f(x)` as `Tensor` or `PhiTreeNode`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
-        f_args: Additional `Tensor` or `TensorLike` arguments to be passed to `f`.
+        f_args: Additional `Tensor` or `PhiTreeNode` arguments to be passed to `f`.
             `f` need not be linear in these arguments.
             Use this instead of lambda function since a lambda will not be recognized as calling a jit-compiled function.
         f_kwargs: Additional keyword arguments to be passed to `f`.
             These arguments can be of any type.
 
     Returns:
-        x: solution of the linear system of equations `f(x) = y` as `Tensor` or `TensorLike`.
+        x: solution of the linear system of equations `f(x) = y` as `Tensor` or `PhiTreeNode`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
@@ -1643,7 +1644,7 @@ def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
 
 def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_type: Callable or str) -> Callable:
     """
-    Wraps a function to change the dimension types of its `Tensor` and `TensorLike` arguments.
+    Wraps a function to change the dimension types of its `Tensor` and `PhiTreeNode` arguments.
 
     Args:
         f: Function to wrap.

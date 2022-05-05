@@ -11,7 +11,7 @@ from phi import math, __version__ as phi_version
 from ._field import SampledField
 from ._field_io import read, write
 from ..math import Shape, batch
-from ..math._tensors import Sliceable
+from ..math.magic import BoundDim
 
 
 def _filename(simpath, name, frame):
@@ -43,7 +43,7 @@ def get_frames(path: str, field_name: str = None, mode=set.intersection) -> tupl
         return tuple(sorted(frames))
 
 
-class Scene(Sliceable):
+class Scene:
     """
     Provides methods for reading and writing simulation data.
 
@@ -63,6 +63,9 @@ class Scene(Sliceable):
 
     def __getitem__(self, item: dict):
         return Scene(self._paths[item])
+
+    def __getattr__(self, name: str) -> BoundDim:
+        return BoundDim(self, name)
 
     @property
     def shape(self):

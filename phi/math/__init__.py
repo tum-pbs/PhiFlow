@@ -18,7 +18,7 @@ from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (
-    Shape, EMPTY_SHAPE, DimFilter,
+    Shape, EMPTY_SHAPE, DimFilter, shape,
     spatial, channel, batch, instance,
     non_batch, non_spatial, non_instance, non_channel,
     merge_shapes, concat_shapes, IncompatibleShapes
@@ -99,7 +99,4 @@ __pdoc__ = {
     'Diverged.__init__': False,
     'NotConverged.__init__': False,
     'LinearFunction.__init__': False,
-    'TensorLike.__variable_attrs__': True,
-    'TensorLike.__value_attrs__': True,
-    'TensorLike.__with_attrs__': True,
 }

@@ -8,6 +8,7 @@ import numpy as np
 
 from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, instance
 from ._config import GLOBAL_AXIS_ORDER, should_use_color
+from .magic import BoundDim, PhiTreeNode
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes)
@@ -16,135 +17,7 @@ from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, de
 from .backend._dtype import DType
 
 
-class Sliceable:
-
-    @property
-    def shape(self) -> Shape:
-        """
-        Returns the shape of this object.
-
-        Returns:
-            `Shape`
-        """
-        raise NotImplementedError(self.__class__)
-
-    def __getitem__(self, item: dict) -> 'Sliceable':
-        raise NotImplementedError(self.__class__)
-
-    def __getattr__(self, name: str) -> 'BoundDim':
-        if name.startswith('_'):
-            raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
-        if hasattr(self.__class__, name):
-            raise RuntimeError(f"Failed to get attribute '{name}' of {self.__class__}")
-        return BoundDim(self, name)
-
-
-class BoundDim:
-    """
-    Represents a dimension of a sliceable object.
-    Any instance of `BoundDim` is bound to the sliceable object and is immutable.
-    All operations upon the dim affect return a copy of the sliceable object.
-    """
-
-    def __init__(self, obj: Sliceable, name: str):
-        self.obj = obj
-        self.name = name
-
-    @property
-    def exists(self):
-        """ Whether the dimension is listed in the `Shape` of the object. """
-        return self.name in self.obj.shape
-
-    def __repr__(self):
-        if self.name not in self.obj.shape:
-            return f"{type(self.obj).__name__}.{self.name} (non-existent)"
-        items = self.item_names
-        if items is not None:
-            if len(items) <= 4:
-                size_repr = ",".join(items)
-            else:
-                size_repr = f"{self.size}:{items[0]}..{items[-1]}"
-        else:
-            size_repr = self.size
-        return f"{type(self.obj).__name__}.{self.name}{TYPE_ABBR.get(self.dim_type, '?')}={size_repr}"
-
-    @property
-    def size(self):
-        """ Length of this dimension as listed in the `Shape` of the bound object. """
-        return self.obj.shape.get_size(self.name) if self.exists else None
-
-    @property
-    def dim_type(self):
-        return self.obj.shape.get_type(self.name)
-
-    @property
-    def _dim_type(self):
-        return self.obj.shape.get_type(self.name)
-
-    @property
-    def is_spatial(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *spatial*. Only defined for existing dimensions. """
-        return self._dim_type == SPATIAL_DIM
-
-    @property
-    def is_batch(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *batch*. Only defined for existing dimensions. """
-        return self._dim_type == BATCH_DIM
-
-    @property
-    def is_channel(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. """
-        return self._dim_type == CHANNEL_DIM
-
-    @property
-    def item_names(self):
-        return self.obj.shape.get_item_names(self.name)
-
-    @property
-    def index(self):
-        """ The index of this dimension in the `Shape` of the `Tensor`. """
-        return self.obj.shape.index(self.name)
-
-    def __int__(self):
-        return self.index
-
-    def __getitem__(self, item):
-        return self.obj[{self.name: item}]
-
-    def unstack(self, size: int or None = None) -> tuple:
-        """
-        Lists the slices along this dimension as a `tuple`.
-
-        Args:
-            size: (optional) If given as `int`, this dimension can be unstacked even if it is not present on the object.
-                In that case, `size` copies of the object are returned.
-
-        Returns:
-            `tuple` of `Sliceable`
-        """
-        from ._ops import unstack
-        if size is None:
-            return unstack(self.obj, self.name)
-        else:
-            if self.exists:
-                unstacked = unstack(self.obj, self.name)
-                assert len(unstacked) == size, f"Size of dimension {self.name} does not match {size}."
-                return unstacked
-            else:
-                return (self.obj,) * size
-
-    def __iter__(self):
-        """ Iterate over slices along this dim """
-        if self.exists:
-            return iter(self.unstack())
-        else:
-            return iter([self.obj])
-
-    def __call__(self, *args, **kwargs):
-        raise TypeError(f"Method {type(self.obj).__name__}.{self.name}() does not exist.")
-
-
-class Tensor(Sliceable):
+class Tensor:
     """
     Abstract base class to represent structured data of one data type.
     This class replaces the native tensor classes `numpy.ndarray`, `torch.Tensor`, `tensorflow.Tensor` or `jax.numpy.ndarray` as the main data container in Φ<sub>Flow</sub>.
@@ -719,27 +592,6 @@ class Tensor(Sliceable):
 
     def _simplify(self):
         return self
-
-
-def shape(arg: Tensor or Shape) -> Shape:
-    """
-    If `arg` is a `Tensor` or has a compatible `shape` property, returns its shape.
-
-    If `arg` is a `Shape`, returns `arg`.
-    This function can be passed as a `dim` argument to an operation to specify that it should act upon all dimensions.
-
-    Args:
-        arg: `Tensor` or `Shape`
-
-    Returns:
-        `Shape`
-    """
-    if hasattr(arg, 'shape') and isinstance(arg.shape, Shape):
-        return arg.shape
-    elif isinstance(arg, Shape):
-        return arg
-    else:
-        raise ValueError(f'shape() requires Tensor of Shape argument but got {arg}')
 
 
 class TensorDim(BoundDim):
@@ -1742,82 +1594,6 @@ def _assemble_pop(natives: list, shape: Shape):
         return TensorStack(tensors, s2)
 
 
-class _TensorLikeType(type):
-
-    def __instancecheck__(self, instance):
-        if isinstance(instance, Tensor):
-            return True
-        if isinstance(instance, type(MISSING_TENSOR)) and instance == MISSING_TENSOR:
-            return True
-        if instance is None or isinstance(instance, Tensor):
-            return True
-        elif isinstance(instance, (tuple, list)):
-            return all(isinstance(item, TensorLike) for item in instance)
-        elif isinstance(instance, Dict):
-            return True
-        elif isinstance(instance, dict):
-            return all(isinstance(name, str) for name in instance.keys()) and all(isinstance(val, TensorLike) for val in instance.values())
-        else:
-            return hasattr(instance, '__variable_attrs__') or hasattr(instance, '__value_attrs__')
-
-
-class TensorLike(metaclass=_TensorLikeType):
-    """
-    Tensor-like objects can interoperate with some `phi.math` functions, depending on what methods they implement.
-    Objects are considered `TensorLike` if they implement `TensorLike.__variable_attrs__()` or `TensorLike.__value_attrs__()`.
-    This is reflected in `isinstance` checks.
-
-    `TensorLike` objects may be used as keys, for example in `jit_compile()`.
-    In key mode, all variable attributes are set to `None`.
-    When used as keys, `TensorLike` should also implement `__eq__()` to compare any non-variable properties that can affect a function.
-
-    Do not declare this class as a superclass.
-    """
-
-    def __value_attrs__(self) -> Tuple[str]:
-        """
-        Returns all `Tensor` or `TensorLike` attribute names of `self` that should be transformed by single-operand math operations,
-        such as `sin()`, `exp()`.
-
-        Returns:
-            `tuple` of `str` attributes.
-                Calling `getattr(self, attr)` must return a `Tensor` or `TensorLike` for all returned attributes.
-        """
-        raise NotImplementedError()
-
-    def __variable_attrs__(self) -> Tuple[str]:
-        """
-        Returns all `Tensor` or `TensorLike` attribute names of `self` whose values are variable.
-        Variables denote values that can change from one function call to the next or for which gradients can be recorded.
-        If this method is not implemented, all attributes returned by `__value_attrs__()` are considered variable.
-
-        The returned properties are used by the following functions:
-
-        - `jit_compile()`
-        - `jit_compile_linear()`
-        - `stop_gradient()`
-        - `jacobian()`
-        - `custom_gradient()`
-
-        Returns:
-            `tuple` of `str` attributes.
-                Calling `getattr(self, attr)` must return a `Tensor` or `TensorLike` for all returned attributes.
-        """
-        raise NotImplementedError()
-
-    def __with_attrs__(self, **attrs):
-        """
-        Creates a copy of this object which has the `Tensor` or `TensorLike` attributes contained in `tattrs` replaced.
-        If this method is not implemented, tensor attributes are replaced using `setattr()`.
-
-        Args:
-            **attrs: `dict` mapping `str` attribute names to `Tensor` or `TensorLike`.
-
-        Returns:
-            Altered copy of `self`
-        """
-        raise NotImplementedError()
-
 
 def copy_with(obj, **tensor_attributes):
     if hasattr(obj, '__with_tattrs__'):
@@ -1835,7 +1611,7 @@ def variable_attributes(obj) -> Tuple[str]:
     elif hasattr(obj, '__value_attrs__'):
         return obj.__value_attrs__()
     else:
-        raise ValueError(f"Not TensorLike: {type(obj)}")
+        raise ValueError(f"Not PhiTreeNode: {type(obj)}")
 
 
 def value_attributes(obj):
@@ -1854,13 +1630,13 @@ def variable_values(obj):
 
 
 
-TensorLikeType = TypeVar('TensorLikeType')
+PhiTreeNodeType = TypeVar('PhiTreeNodeType')
 
 
 MISSING_TENSOR = 'missing'
 
 
-def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]:
+def disassemble_tree(obj: PhiTreeNodeType) -> Tuple[PhiTreeNodeType, List[Tensor]]:
     """
     Splits a nested structure of Tensors into the structure without the tensors and an ordered list of tensors.
     Native tensors will be wrapped in phi.math.Tensors with default dimension names and dimension types `None`.
@@ -1870,7 +1646,7 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
 
     Args:
         obj: Nested structure of `Tensor` objects.
-            Nested structures include: `tuple`, `list`, `dict`, `TensorLike`.
+            Nested structures include: `tuple`, `list`, `dict`, `PhiTreeNode`.
 
     Returns:
         empty structure: Same structure as `obj` but with the tensors replaced by `None`.
@@ -1896,7 +1672,7 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
             keys[name] = key
             values.extend(value)
         return keys, values
-    elif isinstance(obj, TensorLike):
+    elif isinstance(obj, PhiTreeNode):
         attributes = variable_attributes(obj)
         keys = {}
         values = []
@@ -1915,7 +1691,7 @@ def disassemble_tree(obj: TensorLikeType) -> Tuple[TensorLikeType, List[Tensor]]
         return None, [NativeTensor(obj, shape)]
 
 
-def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
+def assemble_tree(obj: PhiTreeNodeType, values: List[Tensor]) -> PhiTreeNodeType:
     """ Reverses `disassemble_tree()` given an empty nested structure and a list of tensors. """
     if obj == MISSING_TENSOR:
         return None
@@ -1935,7 +1711,7 @@ def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
         return tuple([assemble_tree(item, values) for item in obj])
     elif isinstance(obj, dict):
         return {name: assemble_tree(val, values) for name, val in obj.items()}
-    elif isinstance(obj, TensorLike):
+    elif isinstance(obj, PhiTreeNode):
         attributes = variable_attributes(obj)
         values = {a: assemble_tree(getattr(obj, a), values) for a in attributes}
         return copy_with(obj, **values)
@@ -1943,8 +1719,8 @@ def assemble_tree(obj: TensorLikeType, values: List[Tensor]) -> TensorLikeType:
         raise ValueError(f"Value must be Tensor or tensor-like but got {type(obj)}")
 
 
-def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
-    assert isinstance(t, (Tensor, TensorLike)), f"All arguments must be Tensors but got {type(t)}"
+def cached(t: Tensor or 'PhiTreeNode') -> Tensor or 'PhiTreeNode':
+    assert isinstance(t, (Tensor, PhiTreeNode)), f"All arguments must be Tensors but got {type(t)}"
     if isinstance(t, NativeTensor):
         return t
     elif isinstance(t, CollapsedTensor):
@@ -1970,7 +1746,7 @@ def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
             natives = [t.native(order=t.shape.names) for t in inners]
             native = choose_backend(*natives).stack(natives, axis=t.shape.index(t.stack_dim.name))
             return NativeTensor(native, t.shape)
-    elif isinstance(t, TensorLike):
+    elif isinstance(t, PhiTreeNode):
         tree, tensors = disassemble_tree(t)
         tensors_ = [cached(t_) for t_ in tensors]
         return assemble_tree(tree, tensors_)
@@ -1980,9 +1756,9 @@ def cached(t: Tensor or TensorLike) -> Tensor or TensorLike:
 
 class Dict(dict):
     """
-    Dictionary of `Tensor` or `TensorLike` values.
+    Dictionary of `Tensor` or `PhiTreeNode` values.
     In addition to dictionary functions, supports mathematical operators with other `Dict`s and lookup via `.key` syntax.
-    `Dict` implements `TensorLike` so instances can be passed to math operations like `sin`.
+    `Dict` implements `PhiTreeNode` so instances can be passed to math operations like `sin`.
     """
 
     def __value_attrs__(self):

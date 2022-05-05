@@ -237,8 +237,8 @@ class TestTensors(TestCase):
 
         v = MyObjV(math.wrap(0))
         t = MyObjT(math.wrap(0), math.wrap(1))
-        self.assertIsInstance(v, math.TensorLike)
-        self.assertIsInstance(t, math.TensorLike)
+        self.assertIsInstance(v, math.PhiTreeNode)
+        self.assertIsInstance(t, math.PhiTreeNode)
         try:
             math.cos(v)
         except Success:

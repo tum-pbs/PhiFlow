@@ -7,7 +7,7 @@ from phi.geom import Geometry, Box
 from phi.math.magic import BoundDim
 
 
-class Field(Sliceable):
+class Field:
     """
     Base class for all fields.
     
@@ -120,6 +120,9 @@ class Field(Sliceable):
             Sliced `Field`.
         """
         raise NotImplementedError(self)
+
+    def __getattr__(self, name: str) -> BoundDim:
+        return BoundDim(self, name)
 
     def dimension(self, name: str):
         """

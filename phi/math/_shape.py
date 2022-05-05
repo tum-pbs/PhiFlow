@@ -1014,6 +1014,29 @@ def _construct_shape(dim_type: str, *args, **dims):
     return math.Shape(sizes, names, (dim_type,) * len(sizes), item_names)
 
 
+def shape(obj) -> Shape:
+    """
+    If `obj` is a `Tensor` or `phi.math.magic.Shaped`, returns its shape.
+    If `obj` is a `Shape`, returns `obj`.
+    
+    This function can be passed as a `dim` argument to an operation to specify that it should act upon all dimensions.
+
+    Args:
+        obj: `Tensor` or `Shape` or `Shaped`
+
+    Returns:
+        `Shape`
+    """
+    if hasattr(obj, '__shape__'):
+        return obj.__shape__()
+    if hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
+        return obj.shape
+    elif isinstance(obj, Shape):
+        return obj
+    else:
+        raise ValueError(f'shape() requires Tensor of Shape argument but got {obj}')
+
+
 def spatial(*args, **dims: int or str or tuple or list) -> Shape:
     """
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.
@@ -1053,8 +1076,8 @@ def spatial(*args, **dims: int or str or tuple or list) -> Shape:
         return _construct_shape(SPATIAL_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].spatial
-    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
-        return args[0].shape.spatial
+    elif len(args) == 1 and isinstance(args[0], Shaped):
+        return shape(args[0]).spatial
     else:
         raise AssertionError(f"spatial() must be called either as a selector spatial(Shape) or spatial(Tensor) or as a constructor spatial(*names, **dims). Got *args={args}, **dims={dims}")
 
@@ -1102,8 +1125,8 @@ def channel(*args, **dims: int or str or tuple or list) -> Shape:
         return result
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
-    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
-        return args[0].shape.channel
+    elif len(args) == 1 and isinstance(args[0], Shaped):
+        return shape(args[0]).channel
     else:
         raise AssertionError(f"channel() must be called either as a selector channel(Shape) or channel(Tensor) or as a constructor channel(*names, **dims). Got *args={args}, **dims={dims}")
 
@@ -1147,8 +1170,8 @@ def batch(*args, **dims: int or str or tuple or list) -> Shape:
         return _construct_shape(BATCH_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].batch
-    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
-        return args[0].shape.batch
+    elif len(args) == 1 and isinstance(args[0], Shaped):
+        return shape(args[0]).batch
     else:
         raise AssertionError(f"batch() must be called either as a selector batch(Shape) or batch(Tensor) or as a constructor batch(*names, **dims). Got *args={args}, **dims={dims}")
 
@@ -1192,8 +1215,8 @@ def instance(*args, **dims: int or str or tuple or list) -> Shape:
         return _construct_shape(INSTANCE_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].instance
-    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
-        return args[0].shape.instance
+    elif len(args) == 1 and isinstance(args[0], Shaped):
+        return shape(args[0]).instance
     else:
         raise AssertionError(f"instance() must be called either as a selector instance(Shape) or instance(Tensor) or as a constructor instance(*names, **dims). Got *args={args}, **dims={dims}")
 
