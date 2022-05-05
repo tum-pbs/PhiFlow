@@ -23,7 +23,7 @@ from ._shape import (
     non_batch, non_spatial, non_instance, non_channel,
     merge_shapes, concat_shapes, IncompatibleShapes
 )
-from ._tensors import wrap, tensor, layout, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict, shape
+from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
@@ -91,7 +91,7 @@ NUMPY = NUMPY  # to show up in pdoc
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
 
 __pdoc__ = {
-    'Extrapolation.__init__': False,
+    'Extrapolation': False,
     'Shape.__init__': False,
     'SolveInfo.__init__': False,
     'TensorDim.__init__': False,

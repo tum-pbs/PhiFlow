@@ -7,8 +7,9 @@ from phi import math, field
 
 from phi.math._tensors import copy_with
 from .fluid import Obstacle, _pressure_extrapolation
-from phi.field import StaggeredGrid, PointCloud, Grid, extrapolate_valid, CenteredGrid, HardGeometryMask
+from phi.field import StaggeredGrid, PointCloud, Grid, extrapolate_valid, CenteredGrid
 from phi.geom import union, Sphere, Box
+from phi.math.extrapolation import Extrapolation, ZERO
 
 
 def make_incompressible(velocity: StaggeredGrid,
@@ -133,7 +134,7 @@ def respect_boundaries(particles: PointCloud, not_accessible: tuple or list, off
     return particles.with_elements(Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))
 
 
-def accessible_mask(not_accessible: tuple or list, type: type = CenteredGrid, extrapolation: math.Extrapolation = math.extrapolation.ZERO) -> CenteredGrid or StaggeredGrid:
+def accessible_mask(not_accessible: tuple or list, type: type = CenteredGrid, extrapolation: Extrapolation = ZERO) -> CenteredGrid or StaggeredGrid:
     """
     Unifies domain and Obstacle or Geometry objects into a binary StaggeredGrid mask which can be used
     to enforce boundary conditions.

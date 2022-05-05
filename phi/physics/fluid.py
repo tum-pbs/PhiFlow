@@ -9,7 +9,7 @@ from phi.geom import union
 from ..field._grid import GridType
 from ..math import extrapolation
 from ..math._tensors import copy_with
-from ..math.extrapolation import combine_sides
+from ..math.extrapolation import combine_sides, Extrapolation
 
 
 class Obstacle:
@@ -120,7 +120,7 @@ def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
     return velocity
 
 
-def _pressure_extrapolation(vext: math.Extrapolation):
+def _pressure_extrapolation(vext: Extrapolation):
     if vext == extrapolation.PERIODIC:
         return extrapolation.PERIODIC
     elif vext == extrapolation.BOUNDARY:
@@ -133,7 +133,7 @@ def _pressure_extrapolation(vext: math.Extrapolation):
         raise ValueError(f"Unsupported extrapolation: {type(vext)}")
 
 
-def _accessible_extrapolation(vext: math.Extrapolation):
+def _accessible_extrapolation(vext: Extrapolation):
     """ Determine whether outside cells are accessible based on the velocity extrapolation. """
     if vext == extrapolation.PERIODIC:
         return extrapolation.PERIODIC

@@ -1,17 +1,15 @@
 from numbers import Number
-from typing import Callable, List, Tuple
+from typing import Callable, List
 
 from phi import geom
 from phi import math
-from phi.math import Tensor, spatial, instance, tensor
 from phi.geom import Box, Geometry, Sphere
+from phi.math import Tensor, spatial, instance, tensor
 from phi.math import extrapolate_valid_values, channel, Shape, batch
 from ._field import Field, SampledField, unstack, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
-from ._mask import HardGeometryMask
 from ._point_cloud import PointCloud
-from ..math._tensors import variable_attributes, copy_with
-from ..math.backend import Backend
+from ..math.extrapolation import Extrapolation
 
 
 def bake_extrapolation(grid: GridType) -> GridType:
@@ -47,7 +45,7 @@ def laplace(field: GridType, axes=spatial) -> GridType:
 
 
 def spatial_gradient(field: Field,
-                     extrapolation: math.Extrapolation = None,
+                     extrapolation: Extrapolation = None,
                      type: type = CenteredGrid,
                      stack_dim: Shape = channel('vector')):
     """

@@ -1,9 +1,10 @@
 from typing import TypeVar, Callable
 
 from phi import math
+from phi.math import Shape, Tensor, channel
+from phi.math.extrapolation import Extrapolation
 from phi.geom import Geometry, Box
-from phi.math import Shape, Tensor, Extrapolation, channel
-from phi.math._tensors import Sliceable, BoundDim
+from phi.math.magic import BoundDim
 
 
 class Field(Sliceable):
@@ -173,7 +174,7 @@ class SampledField(Field):
         """ Returns a copy of this field with `values` replaced. """
         raise NotImplementedError(self)
 
-    def with_extrapolation(self, extrapolation: math.Extrapolation):
+    def with_extrapolation(self, extrapolation: Extrapolation):
         """ Returns a copy of this field with `values` replaced. """
         raise NotImplementedError(self)
 

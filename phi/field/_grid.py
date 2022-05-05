@@ -8,6 +8,7 @@ from ..geom._stack import GeometryStack
 from ..math import Shape, NUMPY
 from ..math._shape import spatial, channel, parse_dim_order
 from ..math._tensors import TensorStack, Tensor
+from ..math.extrapolation import Extrapolation
 
 
 class Grid(SampledField):
@@ -15,7 +16,7 @@ class Grid(SampledField):
     Base class for `CenteredGrid` and `StaggeredGrid`.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, resolution: Shape, bounds: Box):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or Extrapolation, resolution: Shape, bounds: Box):
         if bounds.size.vector.item_names is None:
             with NUMPY:
                 bounds = bounds.shifted(math.zeros(channel(vector=spatial(values).names)))
@@ -52,7 +53,7 @@ class Grid(SampledField):
         else:
             return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
-    def with_extrapolation(self, extrapolation: math.Extrapolation):
+    def with_extrapolation(self, extrapolation: Extrapolation):
         return type(self)(self.values, extrapolation=extrapolation, bounds=self.bounds)
 
     def with_bounds(self, bounds: Box):
@@ -116,7 +117,7 @@ GridType = TypeVar('GridType', bound=Grid)
 class CenteredGrid(Grid):
     """
     N-dimensional grid with values sampled at the cell centers.
-    A centered grid is defined through its `CenteredGrid.values` `phi.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phi.math.Extrapolation`).
+    A centered grid is defined through its `CenteredGrid.values` `phi.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phi.math.extrapolation.Extrapolation`).
     
     Centered grids support batch, spatial and channel dimensions.
 
@@ -246,7 +247,7 @@ class StaggeredGrid(Grid):
 
     def __init__(self,
                  values: Any,
-                 extrapolation: float or math.Extrapolation = 0,
+                 extrapolation: float or Extrapolation = 0,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
@@ -314,7 +315,7 @@ class StaggeredGrid(Grid):
     def cells(self):
         return GridCell(self.resolution, self.bounds)
 
-    def with_extrapolation(self, extrapolation: math.Extrapolation):
+    def with_extrapolation(self, extrapolation: Extrapolation):
         extrapolation = as_extrapolation(extrapolation)
         if all([extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names]):
             return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
@@ -409,7 +410,7 @@ class StaggeredGrid(Grid):
             return SampledField._op2(self, other, operator)
 
 
-def unstack_staggered_tensor(data: Tensor, extrapolation: math.Extrapolation) -> TensorStack:
+def unstack_staggered_tensor(data: Tensor, extrapolation: Extrapolation) -> TensorStack:
     sliced = []
     for dim, component in zip(data.shape.spatial.names, data.unstack('vector')):
         lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
@@ -419,7 +420,7 @@ def unstack_staggered_tensor(data: Tensor, extrapolation: math.Extrapolation) ->
     return math.stack(sliced, channel('vector'))
 
 
-def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extrapolation):
+def staggered_elements(resolution: Shape, bounds: Box, extrapolation: Extrapolation):
     cells = GridCell(resolution, bounds)
     grids = []
     for dim in resolution.names:
@@ -428,7 +429,7 @@ def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extra
     return geom.stack(grids, channel(staggered_direction=resolution.names))
 
 
-def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extrapolation):
+def expand_staggered(values: Tensor, resolution: Shape, extrapolation: Extrapolation):
     """ Add missing spatial dimensions to `values` """
     cells = GridCell(resolution, Box(0, math.wrap((1,) * resolution.rank, channel(vector=resolution.names))))
     components = values.vector.unstack(resolution.spatial_rank)

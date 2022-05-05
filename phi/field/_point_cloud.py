@@ -6,6 +6,7 @@ from phi.geom import Geometry, GridCell, Box, Point
 from ._field import SampledField
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance
+from ..math.extrapolation import Extrapolation
 
 
 class PointCloud(SampledField):
@@ -26,7 +27,7 @@ class PointCloud(SampledField):
     def __init__(self,
                  elements: Tensor or Geometry,
                  values: Any = 1.,
-                 extrapolation: float or math.extrapolation = 0,
+                 extrapolation: float or Extrapolation = 0,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
@@ -69,7 +70,7 @@ class PointCloud(SampledField):
     def with_values(self, values):
         return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
 
-    def with_extrapolation(self, extrapolation: math.Extrapolation):
+    def with_extrapolation(self, extrapolation: Extrapolation):
         return PointCloud(elements=self.elements, values=self.values, extrapolation=extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
 
     def with_color(self, color: str or Tensor or tuple or list):
