@@ -51,7 +51,7 @@ class FluidTest(TestCase):
         self._test_make_incompressible(StaggeredGrid, ext)
         self._test_make_incompressible(StaggeredGrid, ext, batch3=3, batch2=2)
 
-    def test_make_incompressible_gradients_equal_tf_torch(self):
+    def test_make_incompressible_gradients_equal(self):
         def sim(velocity):
             velocity, _ = fluid.make_incompressible(velocity)
             loss = field.l2_loss(velocity)
@@ -65,8 +65,8 @@ class FluidTest(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.jacobian):
                 with backend:
-                    velocity = param = velocity0.with_values(math.tensor(velocity0.values))
-                    grad = sim_grad(velocity)
+                    velocity = velocity0.with_values(math.tensor(velocity0.values))
+                    grad, = sim_grad(velocity)
                     assert math.isfinite(grad).all
                     grads.append(grad)
         math.assert_close(*grads, abs_tolerance=1e-5)

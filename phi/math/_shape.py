@@ -1034,7 +1034,7 @@ def shape(obj) -> Shape:
     elif isinstance(obj, Shape):
         return obj
     else:
-        raise ValueError(f'shape() requires Tensor of Shape argument but got {obj}')
+        raise ValueError(f'shape() requires Shaped or Shape argument but got {obj}')
 
 
 def spatial(*args, **dims: int or str or tuple or list) -> Shape:
@@ -1071,7 +1071,7 @@ def spatial(*args, **dims: int or str or tuple or list) -> Shape:
     Returns:
         `Shape` containing only dimensions of type spatial.
     """
-    from phi.math import Tensor
+    from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
         return _construct_shape(SPATIAL_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
@@ -1116,7 +1116,7 @@ def channel(*args, **dims: int or str or tuple or list) -> Shape:
     Returns:
         `Shape` containing only dimensions of type channel.
     """
-    from ._tensors import Tensor
+    from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
         result = _construct_shape(CHANNEL_DIM, *args, **dims)
         for s, n, t, item_name in result._dimensions:
@@ -1165,7 +1165,7 @@ def batch(*args, **dims: int or str or tuple or list) -> Shape:
     Returns:
         `Shape` containing only dimensions of type batch.
     """
-    from phi.math import Tensor
+    from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
         return _construct_shape(BATCH_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
@@ -1210,7 +1210,7 @@ def instance(*args, **dims: int or str or tuple or list) -> Shape:
     Returns:
         `Shape` containing only dimensions of type instance.
     """
-    from phi.math import Tensor
+    from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
         return _construct_shape(INSTANCE_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
@@ -1277,10 +1277,11 @@ def non_batch(obj) -> Shape:
     Returns:
         `Shape`
     """
+    from .magic import Shaped
     if isinstance(obj, Shape):
         return obj.non_batch
-    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
-        return obj.shape.non_batch
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_batch
     else:
         raise AssertionError(f"non_batch() must be called either on a Shape or an object with a 'shape' property but got {obj}")
 
@@ -1295,10 +1296,11 @@ def non_spatial(obj) -> Shape:
     Returns:
         `Shape`
     """
+    from .magic import Shaped
     if isinstance(obj, Shape):
         return obj.non_spatial
-    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
-        return obj.shape.non_spatial
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_spatial
     else:
         raise AssertionError(f"non_spatial() must be called either on a Shape or an object with a 'shape' property but got {obj}")
 
@@ -1313,10 +1315,11 @@ def non_instance(obj) -> Shape:
     Returns:
         `Shape`
     """
+    from .magic import Shaped
     if isinstance(obj, Shape):
         return obj.non_instance
-    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
-        return obj.shape.non_instance
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_instance
     else:
         raise AssertionError(f"non_instance() must be called either on a Shape or an object with a 'shape' property but got {obj}")
 
@@ -1331,10 +1334,11 @@ def non_channel(obj) -> Shape:
     Returns:
         `Shape`
     """
+    from .magic import Shaped
     if isinstance(obj, Shape):
         return obj.non_channel
-    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
-        return obj.shape.non_channel
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_channel
     else:
         raise AssertionError(f"non_channel() must be called either on a Shape or an object with a 'shape' property but got {obj}")
 

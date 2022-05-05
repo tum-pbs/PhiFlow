@@ -652,7 +652,7 @@ class TorchBackend(Backend):
         def eval_grad(*args):
             args, wrt_args = self._prepare_graph_inputs(args, wrt)
             loss, output = f(*args)
-            if self.prod(loss.shape) == 1:
+            if np.prod(self.staticshape(loss)) == 1:
                 grads = torch.autograd.grad(loss, wrt_args)  # grad() cannot be called during jit trace
             else:
                 raise NotImplementedError()

@@ -908,7 +908,7 @@ class Backend:
                 all_finished = True
                 f_output_available.wait()
                 break
-            _, f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
+            f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
             f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
             f_grad_np = self.numpy(f_grad).astype(numpy.float64)
             f_output_available.wait()
@@ -949,7 +949,7 @@ class Backend:
         if adaptive_step_size:
             step_size = self.zeros([batch_size]) + 0.1
 
-        _, loss, grad = fg(x0)  # Evaluate function and gradient
+        loss, grad = fg(x0)  # Evaluate function and gradient
         diverged = self.any(~self.isfinite(x0), axis=(1,))
         converged = self.zeros([batch_size], DType(bool))
         trajectory = [SolveResult(method, x0, loss, iterations, function_evaluations, converged, diverged, [""] * batch_size)] if trj else None
@@ -964,7 +964,7 @@ class Backend:
                     dx = - grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
                     next_x = x + dx
                     predicted_loss_decrease = - self.sum(grad * dx, -1)  # >= 0
-                    _, next_loss, next_grad = fg(next_x); function_evaluations += continue_1
+                    next_loss, next_grad = fg(next_x); function_evaluations += continue_1
                     converged = converged | (self.sum(next_grad ** 2, axis=-1) < atol ** 2)
                     PHI_LOGGER.debug(f"Gradient: {self.numpy(next_grad)} with step_size={self.numpy(step_size)}")
                     actual_loss_decrease = loss - next_loss  # we want > 0
@@ -984,7 +984,7 @@ class Backend:
                 x, loss, grad = next_x, next_loss, next_grad
             else:
                 x -= grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
-                _, loss, grad = fg(x); function_evaluations += continue_1
+                loss, grad = fg(x); function_evaluations += continue_1
                 diverged = self.any(~self.isfinite(x), axis=(1,)) | (loss > prev_loss)
                 converged = ~diverged & (prev_loss - loss < atol)
             if trj:

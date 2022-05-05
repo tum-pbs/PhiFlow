@@ -367,7 +367,7 @@ class GradientFunction:
             self.traces[key] = self._trace_grad(key, wrt_natives)
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings, self)
-        jac_shape = output_key.shapes[0]
+        jac_shape = output_key.shapes[0].non_batch
         wrt_shapes = [math.concat_shapes(jac_shape, key.shapes[i]) for i in wrt_tensors]
         if self.get_output:
             result_shapes = list(output_key.shapes) + wrt_shapes
@@ -1378,7 +1378,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        return y_tensors[0].sum, reshaped_native(y_tensors[0], [batch_dims])
+        return y_tensors[0].sum, (reshaped_native(y_tensors[0], [batch_dims]), )
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))

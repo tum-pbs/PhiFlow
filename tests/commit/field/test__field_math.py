@@ -63,7 +63,7 @@ class TestFieldMath(TestCase):
         y = CenteredGrid((1, 1), x=4, y=3)
 
         for backend in BACKENDS:
-            if backend.supports(Backend.gradients):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     dx, = grad(x, y)
                     self.assertIsInstance(dx, StaggeredGrid)

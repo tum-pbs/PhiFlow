@@ -8,6 +8,7 @@ from phi.math import channel, batch, DType
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached
 from phi.math.backend import Backend
+from phi.math.magic import PhiTreeNode
 
 BACKENDS = phi.detect_backends()
 
@@ -237,8 +238,8 @@ class TestTensors(TestCase):
 
         v = MyObjV(math.wrap(0))
         t = MyObjT(math.wrap(0), math.wrap(1))
-        self.assertIsInstance(v, math.PhiTreeNode)
-        self.assertIsInstance(t, math.PhiTreeNode)
+        self.assertIsInstance(v, PhiTreeNode)
+        self.assertIsInstance(t, PhiTreeNode)
         try:
             math.cos(v)
         except Success:
