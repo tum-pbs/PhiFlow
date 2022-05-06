@@ -47,31 +47,6 @@ namespace phi_torch_cuda {
     }
 
     /*
-        Sparse versus Dense Matrix Multiplication.
-        This function is externally called from Python.
-    */
-    torch::Tensor cusparse_SpMV(
-                            const at::Tensor& dA_csrOffsets,
-                            const at::Tensor& dA_columns,
-                            const at::Tensor& dA_values,
-                            at::Tensor& dB,
-                            const int64_t dim_i,
-                            const int64_t dim_j)
-    {
-        if(dB.dtype() == torch::kFloat32) {
-            return floatSpMV(dA_csrOffsets, dA_columns, dA_values, dB, dim_i, dim_j);
-        }
-        else if(dB.dtype() == torch::kFloat64) {
-            return doubleSpMV(dA_csrOffsets, dA_columns, dA_values, dB, dim_i, dim_j);
-        }
-        else {
-            fprintf(stderr, "error: %s: cusparse_SpMV type undexpected at line %d\n", __FILE__,       \
-                    __LINE__);                                                     \
-            exit(1);
-        }
-    }
-
-    /*
         - "Sparse CSR * Dense" matrix multiplication.
         - 32 bit floating point precision.
         - This function is called from cusparse_SpMV()
@@ -89,10 +64,10 @@ namespace phi_torch_cuda {
         to a non-convergent solution.
         3. Why CUSPARSE_OPERATION_NON_TRANSPOSE?: The routine is 3x faster when we do not transpose the matrix.
     */
-    torch::Tensor floatSpMV(const at::Tensor& dA_csrOffsets,
-                            const at::Tensor& dA_columns,
-                            const at::Tensor& dA_values,
-                            at::Tensor& dB,
+    torch::Tensor floatSpMV(const torch::Tensor& dA_csrOffsets,
+                            const torch::Tensor& dA_columns,
+                            const torch::Tensor& dA_values,
+                            torch::Tensor& dB,
                             const int64_t dim_i,
                             const int64_t dim_j)
     {
@@ -104,6 +79,9 @@ namespace phi_torch_cuda {
         size_t               bufferSize = 0;
         float alpha           = 1.0f;
         float beta            = 0.0f;
+
+        auto dimension1_b = dB.size(0);
+        auto dimension2_b = dB.size(1);
 
         dB = dB.view({dim_j});
         CHECK_CUSPARSE( cusparseCreate(&handle) )
@@ -135,8 +113,13 @@ namespace phi_torch_cuda {
         CHECK_CUSPARSE( cusparseDestroyDnVec(vecX) )
         CHECK_CUSPARSE( cusparseDestroyDnVec(vecY) )
         CHECK_CUSPARSE( cusparseDestroy(handle) )
-        dB = dB.view({dim_j, 1});
-        dC = dC.view({dim_i, 1});
+        dB = dB.view({dimension1_b, dimension2_b});
+        if(dimension1_b == 1) {
+            dC = dC.view({1, dim_i});
+        }
+        else {
+            dC = dC.view({dim_i, 1});
+        }
         return dC;
     }
 
@@ -158,10 +141,10 @@ namespace phi_torch_cuda {
         to a non-convergent solution.
         3. Why CUSPARSE_OPERATION_NON_TRANSPOSE?: The routine is 3x faster when we do not transpose the matrix.
     */
-    torch::Tensor doubleSpMV(const at::Tensor& dA_csrOffsets,
-                            const at::Tensor& dA_columns,
-                            const at::Tensor& dA_values,
-                            at::Tensor& dB,
+    torch::Tensor doubleSpMV(const torch::Tensor& dA_csrOffsets,
+                            const torch::Tensor& dA_columns,
+                            const torch::Tensor& dA_values,
+                            torch::Tensor& dB,
                             const int64_t dim_i,
                             const int64_t dim_j)
     {
@@ -174,6 +157,8 @@ namespace phi_torch_cuda {
         double alpha           = 1.0f;
         double beta            = 0.0f;
 
+        auto dimension1_b = dB.size(0);
+        auto dimension2_b = dB.size(1);
         dB = dB.view({dim_j});
         CHECK_CUSPARSE( cusparseCreate(&handle) )
         // Create sparse matrix A in CSR format
@@ -204,8 +189,143 @@ namespace phi_torch_cuda {
         CHECK_CUSPARSE( cusparseDestroyDnVec(vecX) )
         CHECK_CUSPARSE( cusparseDestroyDnVec(vecY) )
         CHECK_CUSPARSE( cusparseDestroy(handle) )
-        dB = dB.view({dim_j, 1});
-        dC = dC.view({dim_i, 1});
+        dB = dB.view({dimension1_b, dimension2_b});
+        if(dimension1_b == 1) {
+            dC = dC.view({1, dim_i});
+        }
+        else {
+            dC = dC.view({dim_i, 1});
+        }
+        return dC;
+    }
+
+    torch::Tensor floatSpMM(
+                            const torch::Tensor& dA_csrOffsets,
+                            const torch::Tensor& dA_columns,
+                            const torch::Tensor& dA_values,
+                            const torch::Tensor& dB,
+                            const int64_t A_num_rows, const int64_t A_num_cols, const int64_t B_num_rows, const int64_t B_num_cols)
+    {
+
+        cusparseHandle_t     handle = NULL;
+        cusparseSpMatDescr_t matA;
+        cusparseDnMatDescr_t matB, matC;
+        void*                dBuffer    = NULL;
+        size_t               bufferSize = 0;
+
+        auto   C_num_rows      = A_num_rows;
+        auto   C_num_cols      = B_num_cols;
+
+        auto   A_nnz           = dA_values.size(0);
+        auto   ldb             = B_num_cols;
+        auto   ldc             = A_num_rows;
+        float alpha           = 1.0f;
+        float beta            = 0.0f;
+
+        torch::Tensor dC = torch::zeros({C_num_rows, C_num_cols}, dB.options());
+
+        CHECK_CUSPARSE( cusparseCreate(&handle) );
+        int version;
+        cusparseGetVersion(handle, &version);
+        // Create sparse matrix A in CSR format
+        CHECK_CUSPARSE( cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
+                                          dA_csrOffsets.data_ptr<int64_t>(), dA_columns.data_ptr<int64_t>(),
+                                          dA_values.data_ptr<float>(),
+                                          CUSPARSE_INDEX_64I, CUSPARSE_INDEX_64I,
+                                          CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) )
+        // Create dense matrix B
+        CHECK_CUSPARSE( cusparseCreateDnMat(&matB, B_num_cols, B_num_rows, ldb, dB.data_ptr<float>(),
+                                            CUDA_R_32F, CUSPARSE_ORDER_COL) )
+        // Create dense matrix C
+        CHECK_CUSPARSE( cusparseCreateDnMat(&matC, C_num_rows, C_num_cols, ldc, dC.data_ptr<float>(),
+                                            CUDA_R_32F, CUSPARSE_ORDER_COL) )
+
+        // allocate an external buffer if needed
+        CHECK_CUSPARSE( cusparseSpMM_bufferSize(
+                                     handle,
+                                     CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                     CUSPARSE_OPERATION_TRANSPOSE,
+                                     &alpha, matA, matB, &beta, matC, CUDA_R_32F,
+                                     CUSPARSE_CSRMM_ALG1, &bufferSize) )
+        CHECK_CUDA( cudaMalloc(&dBuffer, bufferSize) )
+
+        // execute SpMM
+        CHECK_CUSPARSE( cusparseSpMM(handle,
+                                     CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                     CUSPARSE_OPERATION_TRANSPOSE,
+                                     &alpha, matA, matB, &beta, matC, CUDA_R_32F,
+                                     CUSPARSE_CSRMM_ALG1, dBuffer) )
+
+        // destroy matrix/vector descriptors
+        CHECK_CUSPARSE( cusparseDestroySpMat(matA) )
+        CHECK_CUSPARSE( cusparseDestroyDnMat(matB) )
+        CHECK_CUSPARSE( cusparseDestroyDnMat(matC) )
+
+        return dC;
+    }
+
+    torch::Tensor doubleSpMM(
+                            const torch::Tensor& dA_csrOffsets,
+                            const torch::Tensor& dA_columns,
+                            const torch::Tensor& dA_values,
+                            const torch::Tensor& dB,
+                            const int64_t A_num_rows, const int64_t A_num_cols, const int64_t B_num_rows, const int64_t B_num_cols)
+    {
+
+        cusparseHandle_t     handle = NULL;
+        cusparseSpMatDescr_t matA;
+        cusparseDnMatDescr_t matB, matC;
+        void*                dBuffer    = NULL;
+        size_t               bufferSize = 0;
+
+        auto   C_num_rows      = A_num_rows;
+        auto   C_num_cols      = B_num_cols;
+
+        auto   A_nnz           = dA_values.size(0);
+        auto   ldb             = B_num_cols;
+        auto   ldc             = A_num_rows;
+        double alpha           = 1.0f;
+        double beta            = 0.0f;
+
+        torch::Tensor dC = torch::zeros({C_num_rows, C_num_cols}, dB.options());
+
+        CHECK_CUSPARSE( cusparseCreate(&handle) );
+        int version;
+        cusparseGetVersion(handle, &version);
+        // Create sparse matrix A in CSR format
+        CHECK_CUSPARSE( cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
+                                          dA_csrOffsets.data_ptr<int64_t>(), dA_columns.data_ptr<int64_t>(),
+                                          dA_values.data_ptr<double>(),
+                                          CUSPARSE_INDEX_64I, CUSPARSE_INDEX_64I,
+                                          CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) )
+        // Create dense matrix B
+        CHECK_CUSPARSE( cusparseCreateDnMat(&matB, B_num_cols, B_num_rows, ldb, dB.data_ptr<double>(),
+                                            CUDA_R_64F, CUSPARSE_ORDER_COL) )
+        // Create dense matrix C
+        CHECK_CUSPARSE( cusparseCreateDnMat(&matC, C_num_rows, C_num_cols, ldc, dC.data_ptr<double>(),
+                                            CUDA_R_64F, CUSPARSE_ORDER_COL) )
+
+        // allocate an external buffer if needed
+        CHECK_CUSPARSE( cusparseSpMM_bufferSize(
+                                     handle,
+                                     CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                     CUSPARSE_OPERATION_TRANSPOSE,
+                                     &alpha, matA, matB, &beta, matC, CUDA_R_32F,
+                                     CUSPARSE_CSRMM_ALG1, &bufferSize) )
+        CHECK_CUDA( cudaMalloc(&dBuffer, bufferSize) )
+
+        // execute SpMM
+        CHECK_CUSPARSE( cusparseSpMM(handle,
+                                     CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                     CUSPARSE_OPERATION_TRANSPOSE,
+                                     &alpha, matA, matB, &beta, matC, CUDA_R_32F,
+                                     CUSPARSE_CSRMM_ALG1, dBuffer) )
+
+        // destroy matrix/vector descriptors
+        CHECK_CUSPARSE( cusparseDestroySpMat(matA) )
+        CHECK_CUSPARSE( cusparseDestroyDnMat(matB) )
+        CHECK_CUSPARSE( cusparseDestroyDnMat(matC) )
+
         return dC;
     }
 
@@ -216,7 +336,7 @@ namespace phi_torch_cuda {
         we make use of global variables that are not passed as arguments.
      */
     torch::Tensor __cusparse_SpMV(
-                            at::Tensor& dB,
+                            torch::Tensor& dB,
                             const int64_t dim_i,
                             const int64_t dim_j)
     {
@@ -265,7 +385,56 @@ namespace phi_torch_cuda {
         return dC;
     }
 
-    std::vector<at::Tensor> conjugate_gradient(torch::Tensor csr_values, torch::Tensor csr_cols, torch::Tensor csr_rows, int64_t csr_dim0, int64_t csr_dim1, int64_t nnz,
+    torch::Tensor cusparse_SpMM(
+                            const torch::Tensor& dA_csrOffsets,
+                            const torch::Tensor& dA_columns,
+                            const torch::Tensor& dA_values,
+                            const torch::Tensor& dB,
+                            const int64_t A_num_rows, const int64_t A_num_cols, const int64_t B_num_rows, const int64_t B_num_cols)
+    {
+        {
+            if(dB.dtype() == torch::kFloat32) {
+                return floatSpMM(dA_csrOffsets, dA_columns, dA_values, dB, A_num_rows, A_num_cols, B_num_rows, B_num_cols);
+            }
+            else if(dB.dtype() == torch::kFloat64) {
+                return doubleSpMM(dA_csrOffsets, dA_columns, dA_values, dB, A_num_rows, A_num_cols, B_num_rows, B_num_cols);
+            }
+            else {
+                fprintf(stderr, "error: %s: cusparse_SpMM type undexpected at line %d\n", __FILE__,       \
+                        __LINE__);                                                     \
+                exit(1);
+            }
+        }
+    }
+
+    /*
+        Sparse versus Dense Matrix Multiplication.
+        This function is externally called from Python.
+    */
+    torch::Tensor cusparse_SpMV(
+                            const torch::Tensor& dA_csrOffsets,
+                            const torch::Tensor& dA_columns,
+                            const torch::Tensor& dA_values,
+                            torch::Tensor& dB,
+                            const int64_t dim_i,
+                            const int64_t dim_j)
+    {
+        if(dB.dtype() == torch::kFloat32) {
+            return floatSpMV(dA_csrOffsets, dA_columns, dA_values, dB, dim_i, dim_j);
+        }
+        else if(dB.dtype() == torch::kFloat64) {
+            return doubleSpMV(dA_csrOffsets, dA_columns, dA_values, dB, dim_i, dim_j);
+        }
+        else {
+            fprintf(stderr, "error: %s: cusparse_SpMV type undexpected at line %d\n", __FILE__,       \
+                    __LINE__);                                                     \
+            exit(1);
+        }
+    }
+
+
+
+    std::vector<torch::Tensor> conjugate_gradient(torch::Tensor csr_values, torch::Tensor csr_cols, torch::Tensor csr_rows, int64_t csr_dim0, int64_t csr_dim1, int64_t nnz,
                             torch::Tensor y, torch::Tensor x, torch::Tensor rtol, torch::Tensor atol, torch::Tensor max_iter, bool trj) {
 
         if(trj) {
@@ -365,7 +534,8 @@ namespace phi_torch_cuda {
     */
     PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       m.def("conjugate_gradient", &conjugate_gradient, "Conjugate gradient function");
-      m.def("cusparse_SpMV", &cusparse_SpMV, "Sparse(CSR) times dense matrix multiplication on CUSPARSE");
+      m.def("cusparse_SpMM", &cusparse_SpMM, "Sparse(CSR) times dense matrix multiplication on CUSPARSE");
+      m.def("cusparse_SpMV", &cusparse_SpMV, "Sparse(CSR) times dense vector multiplication on CUSPARSE");
     }
 
     /*
@@ -374,5 +544,6 @@ namespace phi_torch_cuda {
     TORCH_LIBRARY(phi_torch_cuda, m) {
       m.def("conjugate_gradient", &conjugate_gradient);
       m.def("cusparse_SpMV", &cusparse_SpMV);
+      m.def("cusparse_SpMM", &cusparse_SpMM);
     }
 }

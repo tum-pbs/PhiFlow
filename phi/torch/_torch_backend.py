@@ -373,14 +373,21 @@ class TorchBackend(Backend):
                 tensor = tensor.to(torch.int64)
 
     def matmul(self, A, b):
+
         if isinstance(A, SparseCSRMatrix):
-            A.rows.type(torch.int64)
-            A.cols.type(torch.int64)
-            A.shape.type(torch.int64)
-            if b.ndimension == 1:
-                return torch.ops.phi_torch_cuda.cusparse_SpMV(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
+            A.rows = A.rows.type(torch.int64)
+            A.cols = A.cols.type(torch.int64)
+            A.shape.astype(np.int64)
+            if min(b.size()) == 1:
+                res = torch.ops.phi_torch_cuda.cusparse_SpMV(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
+                return res
             else:
-                return torch.ops.phi_torch_cuda.cusparse_SpMM(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
+                # b will get transposed to (b.size()[1], b.size()[0]) inside this function
+                res = torch.ops.phi_torch_cuda.cusparse_SpMM(A.rows, A.cols, A.values, b,
+                                                             A.shape[0], A.shape[1], b.size(0), b.size(1))
+                # we reshape and transpose to account for the column major format that CUDA creates
+                res = res.reshape(b.size(1), A.shape[0]).T
+                return res
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
@@ -665,6 +672,7 @@ class TorchBackend(Backend):
             raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
+        return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
         if isinstance(lin, SparseCSRMatrix):
             if trj is not False:
                 trj = False
