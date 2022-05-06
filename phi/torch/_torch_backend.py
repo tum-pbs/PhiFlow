@@ -672,7 +672,6 @@ class TorchBackend(Backend):
             raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
 
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
         if isinstance(lin, SparseCSRMatrix):
             if trj is not False:
                 trj = False
