@@ -47,7 +47,7 @@ namespace phi_torch_cuda {
     }
 
     /*
-        - "Sparse CSR * Dense" matrix multiplication.
+        - "Sparse CSR * Dense vector" multiplication.
         - 32 bit floating point precision.
         - This function is called from cusparse_SpMV()
 
@@ -124,7 +124,7 @@ namespace phi_torch_cuda {
     }
 
     /*
-        - "Sparse CSR * Dense" matrix multiplication.
+        - "Sparse CSR * Dense vector" multiplication.
         - 64 bit floating point precision.
         - This function is called from cusparse_SpMV()
 
@@ -199,6 +199,16 @@ namespace phi_torch_cuda {
         return dC;
     }
 
+    /*
+        - "Sparse CSR * Dense" matrix multiplication.
+        - 32 bit floating point precision.
+        - This function is called from cusparse_SpMM()
+
+        The algorithm that is chosen to perform the multiplication is the following:
+        CUSPARSE_CSRMM_ALG1. Reference: https://docs.nvidia.com/cuda/cusparse/index.html
+
+        This algorithm has been chosen because CUSPARSE_CSRMM_ALG2 was not supported at this moment in time. (05/05/2022)
+    */
     torch::Tensor floatSpMM(
                             const torch::Tensor& dA_csrOffsets,
                             const torch::Tensor& dA_columns,
@@ -264,6 +274,16 @@ namespace phi_torch_cuda {
         return dC;
     }
 
+    /*
+        - "Sparse CSR * Dense" matrix multiplication.
+        - 64 bit floating point precision.
+        - This function is called from cusparse_SpMM()
+
+        The algorithm that is chosen to perform the multiplication is the following:
+        CUSPARSE_CSRMM_ALG1. Reference: https://docs.nvidia.com/cuda/cusparse/index.html
+
+        This algorithm has been chosen because CUSPARSE_CSRMM_ALG2 was not supported at this moment in time. (05/05/2022)
+    */
     torch::Tensor doubleSpMM(
                             const torch::Tensor& dA_csrOffsets,
                             const torch::Tensor& dA_columns,
