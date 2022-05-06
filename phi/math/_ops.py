@@ -1454,7 +1454,7 @@ def _backend_op1(x, unbound_method) -> Tensor or PhiTreeNode:
     else:
         backend = choose_backend(x)
         y = getattr(backend, unbound_method.__name__)(x)
-        return wrap(y)
+        return y
 
 
 def abs_(x) -> Tensor or PhiTreeNode:
