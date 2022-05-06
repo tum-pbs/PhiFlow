@@ -377,7 +377,10 @@ class TorchBackend(Backend):
             A.rows.type(torch.int64)
             A.cols.type(torch.int64)
             A.shape.type(torch.int64)
-            return torch.ops.phi_torch_cuda.cusparse_SpMM(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
+            if b.ndimension == 1:
+                return torch.ops.phi_torch_cuda.cusparse_SpMV(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
+            else:
+                return torch.ops.phi_torch_cuda.cusparse_SpMM(A.rows, A.cols, A.values, b, A.shape[0], A.shape[1])
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)

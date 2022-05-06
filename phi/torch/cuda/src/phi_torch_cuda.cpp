@@ -4,7 +4,7 @@
 #include <cuda_runtime_api.h> // cudaMalloc, cudaMemcpy, etc.
 #include <cuda.h>
 #include <cublas_v2.h>
-#include <cusparse.h> // SpMM, SpMV
+#include <cusparse.h>
 #include <vector>
 #include "phi_torch_cuda.hpp"
 #include <ctime>
@@ -14,7 +14,12 @@
 #define FALSE 0
 
 namespace phi_torch_cuda {
-    // GLOBAL VARIABLES
+    /*
+        The following variables are public.
+
+        They are instantiated at the beginning of the call to conjugate_gradient() and released at the end. They are
+        used in the conjugate_gradient() sub-functions that perform cuSPARSE operations.
+    */
     void *globalBuffer = NULL;
     size_t globalBufferSize = 0;
     cusparseHandle_t globalHandle = NULL;
@@ -42,10 +47,49 @@ namespace phi_torch_cuda {
     }
 
     /*
-        Sparse versus Dense Matrix Multiplication. 32 floating point precision.
-        This function is called from cusparse_SpMM()
+        Sparse versus Dense Matrix Multiplication.
+        This function is externally called from Python.
     */
-    torch::Tensor floatSpMM(const at::Tensor& dA_csrOffsets,
+    torch::Tensor cusparse_SpMV(
+                            const at::Tensor& dA_csrOffsets,
+                            const at::Tensor& dA_columns,
+                            const at::Tensor& dA_values,
+                            at::Tensor& dB,
+                            const int64_t dim_i,
+                            const int64_t dim_j)
+    {
+        if(dB.dtype() == torch::kFloat32) {
+            return floatSpMV(dA_csrOffsets, dA_columns, dA_values, dB, dim_i, dim_j);
+        }
+        else if(dB.dtype() == torch::kFloat64) {
+            return doubleSpMV(dA_csrOffsets, dA_columns, dA_values, dB, dim_i, dim_j);
+        }
+        else {
+            fprintf(stderr, "error: %s: cusparse_SpMV type undexpected at line %d\n", __FILE__,       \
+                    __LINE__);                                                     \
+            exit(1);
+        }
+    }
+
+    /*
+        - "Sparse CSR * Dense" matrix multiplication.
+        - 32 bit floating point precision.
+        - This function is called from cusparse_SpMV()
+
+        The algorithm that is chosen to perform the multiplication is the following:
+        CUSPARSE_SPMV_CSR_ALG2. Reference: https://docs.nvidia.com/cuda/cusparse/index.html
+
+        This algorithm has been chosen because:
+        1. Why Matrix*Vector operation?: The sparse * dense matrix multiplications that are performed in the solution of the
+        conjugate gradient method are always [Sparse matrix * Dense vector]. A Matrix * Matrix multiplication could
+        also be used. This would imply making sure that we are interpreting the dense matrix with the right dimensions and possibly some transpositions.
+        (PyTorch tensors are row-major. CUDA is column-major). On the other hand a Vector is dimension agnostic and
+        this requires no extra work.
+        2. Why Algorithm 2?: The algorithm 1 is faster, but it does not provide deterministic results. Which may lead
+        to a non-convergent solution.
+        3. Why CUSPARSE_OPERATION_NON_TRANSPOSE?: The routine is 3x faster when we do not transpose the matrix.
+    */
+    torch::Tensor floatSpMV(const at::Tensor& dA_csrOffsets,
                             const at::Tensor& dA_columns,
                             const at::Tensor& dA_values,
                             at::Tensor& dB,
@@ -97,10 +141,24 @@ namespace phi_torch_cuda {
     }
 
     /*
-        Sparse versus Dense Matrix Multiplication. 64 floating point precision.
-        This function is called from cusparse_SpMM()
+        - "Sparse CSR * Dense" matrix multiplication.
+        - 64 bit floating point precision.
+        - This function is called from cusparse_SpMV()
+
+        The algorithm that is chosen to perform the multiplication is the following:
+        CUSPARSE_SPMV_CSR_ALG2. Reference: https://docs.nvidia.com/cuda/cusparse/index.html
+
+        This algorithm has been chosen because:
+        1. Why Matrix*Vector operation?: The sparse * dense matrix multiplications that are performed in the solution of the
+        conjugate gradient method are always [Sparse matrix * Dense vector]. A Matrix * Matrix multiplication could
+        also be used. This would imply making sure that we are interpreting the dense matrix with the right dimensions and possibly some transpositions.
+        (PyTorch tensors are row-major. CUDA is column-major). On the other hand a Vector is dimension agnostic and
+        this requires no extra work.
+        2. Why Algorithm 2?: The algorithm 1 is faster, but it does not provide deterministic results. Which may lead
+        to a non-convergent solution.
+        3. Why CUSPARSE_OPERATION_NON_TRANSPOSE?: The routine is 3x faster when we do not transpose the matrix.
     */
-    torch::Tensor doubleSpMM(const at::Tensor& dA_csrOffsets,
+    torch::Tensor doubleSpMV(const at::Tensor& dA_csrOffsets,
                             const at::Tensor& dA_columns,
                             const at::Tensor& dA_values,
                             at::Tensor& dB,
@@ -151,36 +209,13 @@ namespace phi_torch_cuda {
         return dC;
     }
 
-    /*
-        Sparse versus Dense Matrix Multiplication.
-        This function is externally called from Python.
-    */
-    torch::Tensor cusparse_SpMM(
-                            const at::Tensor& dA_csrOffsets,
-                            const at::Tensor& dA_columns,
-                            const at::Tensor& dA_values,
-                            at::Tensor& dB,
-                            const int64_t dim_i,
-                            const int64_t dim_j)
-    {
-        if(dB.dtype() == torch::kFloat32) {
-            return floatSpMM(dA_csrOffsets, dA_columns, dA_values, dB, dim_i, dim_j);
-        }
-        else if(dB.dtype() == torch::kFloat64) {
-            return doubleSpMM(dA_csrOffsets, dA_columns, dA_values, dB, dim_i, dim_j);
-        }
-        else {
-            fprintf(stderr, "error: %s: cusparse_SpMM type undexpected at line %d\n", __FILE__,       \
-                    __LINE__);                                                     \
-            exit(1);
-        }
-    }
 
     /*
         Sparse versus dense matrix multiplication using CUSPARSE.
-        This function is called internally from conjugate_gradient()
+        The "__" indicates that this function is called internally, from conjugate_gradient(). This is because
+        we make use of global variables that are not passed as arguments.
      */
-    torch::Tensor __cusparse_SpMM(
+    torch::Tensor __cusparse_SpMV(
                             at::Tensor& dB,
                             const int64_t dim_i,
                             const int64_t dim_j)
@@ -272,7 +307,7 @@ namespace phi_torch_cuda {
         torch::Tensor sum_y = torch::sum(torch::mul(y,y), -1);
         torch::Tensor atol_sq = atol * atol;
         torch::Tensor tolerance_sq = torch::maximum(rtol * rtol * sum_y, atol_sq); // max([ , , ...], [atol*atol])
-        torch::Tensor lin_x = __cusparse_SpMM(x, csr_dim0, csr_dim1);
+        torch::Tensor lin_x = __cusparse_SpMV(x, csr_dim0, csr_dim1);
         auto residual = y - lin_x;
         auto dx = residual;
         int64_t it_counter = 0;
@@ -290,14 +325,14 @@ namespace phi_torch_cuda {
         while(!torch::equal(finished, dummy_ones)) {
             it_counter += 1;
             iterations = iterations + not_finished;
-            torch::Tensor dy = __cusparse_SpMM(dx, csr_dim0, csr_dim1);
+            torch::Tensor dy = __cusparse_SpMV(dx, csr_dim0, csr_dim1);
             function_evaluations += not_finished;
             auto dx_dy = torch::sum(residual * dy, -1, TRUE);
             auto step_size = nan_division(residual_squared, dx_dy); // Account for nan values
             step_size = torch::mul(step_size, not_finished);
             x += (step_size * dx);
             if(it_counter % 50 == 0) {
-                residual = y - __cusparse_SpMM(x, csr_dim0, csr_dim1);
+                residual = y - __cusparse_SpMV(x, csr_dim0, csr_dim1);
                 function_evaluations += 1;
             }
             else {
@@ -325,13 +360,19 @@ namespace phi_torch_cuda {
     }
 
 
+    /*
+        Creates a python module that can be imported in python.
+    */
     PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       m.def("conjugate_gradient", &conjugate_gradient, "Conjugate gradient function");
-      m.def("cusparse_SpMM", &cusparse_SpMM, "Sparse(CSR) times dense matrix multiplication on CUSPARSE");
+      m.def("cusparse_SpMV", &cusparse_SpMV, "Sparse(CSR) times dense matrix multiplication on CUSPARSE");
     }
 
+    /*
+        Allows for JIT to track this functions.
+    */
     TORCH_LIBRARY(phi_torch_cuda, m) {
       m.def("conjugate_gradient", &conjugate_gradient);
-      m.def("cusparse_SpMM", &cusparse_SpMM);
+      m.def("cusparse_SpMV", &cusparse_SpMV);
     }
 }

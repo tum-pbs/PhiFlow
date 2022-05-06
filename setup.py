@@ -128,11 +128,13 @@ class PhiTorchCuda(distutils.cmd.Command):
 
     def compile_torch_cuda(self):
         import glob
+        # We call a setup.py script specific to the phi_torch_cuda package because we need to call
+        # 'python phi_torch_cuda_setup.py install' in order to install the package.
         command = ['python', './phi/torch/cuda/phi_torch_cuda_setup.py', 'install']
         subprocess.check_call(command)
         old_file = glob.glob('./build/lib.*/*.so')[0]
-        print(old_file)
         assert isfile(old_file), f"Could not find file {old_file}"
+        # Rename the file to make the import common across all platforms and python versions
         os.rename(old_file, './build/phi_torch_cuda.so')
 
     def run(self):
