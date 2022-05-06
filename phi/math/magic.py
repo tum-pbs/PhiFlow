@@ -235,10 +235,10 @@ class Shapable(metaclass=_ShapableType):
 class _PhiTreeNodeType(type):
 
     def __instancecheck__(self, instance):
-        from ._tensors import Tensor, MISSING_TENSOR, Dict
+        from ._tensors import Tensor, MISSING_TENSOR, NATIVE_TENSOR, Dict
         if isinstance(instance, Tensor):
             return True
-        if isinstance(instance, type(MISSING_TENSOR)) and instance == MISSING_TENSOR:
+        if instance is MISSING_TENSOR or instance is NATIVE_TENSOR:
             return True
         if instance is None or isinstance(instance, Tensor):
             return True

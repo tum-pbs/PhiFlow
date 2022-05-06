@@ -1634,6 +1634,7 @@ PhiTreeNodeType = TypeVar('PhiTreeNodeType')
 
 
 MISSING_TENSOR = 'missing'
+NATIVE_TENSOR = 'native'
 
 
 def disassemble_tree(obj: PhiTreeNodeType) -> Tuple[PhiTreeNodeType, List[Tensor]]:
@@ -1685,26 +1686,21 @@ def disassemble_tree(obj: PhiTreeNodeType) -> Tuple[PhiTreeNodeType, List[Tensor
         backend = choose_backend(obj)
         sizes = backend.staticshape(obj)
         shape = Shape(sizes, tuple([f"dim{i}" for i in range(len(sizes))]), (None,) * len(sizes), (None,) * len(sizes))
-        shape.is_native_shape = True
-        # if backend.ndims(obj) != 0:
-        #     warnings.warn(f"Only scalar native tensors should be used in function inputs/outputs but got tensor with shape {backend.staticshape(obj)}. Consider using phi.math.Tensor instances instead. Using shape {shape}.")
-        return None, [NativeTensor(obj, shape)]
+        return NATIVE_TENSOR, [NativeTensor(obj, shape)]
 
 
 def assemble_tree(obj: PhiTreeNodeType, values: List[Tensor]) -> PhiTreeNodeType:
     """ Reverses `disassemble_tree()` given an empty nested structure and a list of tensors. """
-    if obj == MISSING_TENSOR:
+    if obj is MISSING_TENSOR:
         return None
-    elif obj is None:
-        assert isinstance(values[0], Tensor)
+    elif obj is NATIVE_TENSOR:
         value = values.pop(0)
-        if value.shape.rank > 0 and all([t is None for t in value.shape.types]):
-            assert value.shape.is_native_shape  # custom attribute set in disassemble_tree
-            return value.native(value.shape)
-        elif hasattr(value.shape, 'is_native_shape') and value.shape.is_native_shape:
-            return value.native(value.shape)
-        else:
-            return value
+        assert isinstance(value, NativeTensor)
+        return value._native
+    elif obj is None:
+        value = values.pop(0)
+        assert isinstance(value, Tensor)
+        return value
     elif isinstance(obj, list):
         return [assemble_tree(item, values) for item in obj]
     elif isinstance(obj, tuple):
