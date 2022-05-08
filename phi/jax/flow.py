@@ -1,6 +1,6 @@
 # pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
 """
-Standard import for Jax mode.
+Standard import for Jax mode without neural network support.
 
 Extends the import `from phi.flow import *` by Jax-related functions and modules.
 
@@ -18,8 +18,9 @@ import jax
 import jax.numpy as jnp
 import jax.scipy as jsp
 
+
 if not backend.context_backend():
     backend.set_global_default_backend(JAX)
 else:
-    import warnings
-    warnings.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")
+    from ..math.backend import PHI_LOGGER as _LOGGER
+    _LOGGER.warning(f"Importing '{__name__}' within a backend context will not set the default backend.")

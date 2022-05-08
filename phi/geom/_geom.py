@@ -44,6 +44,19 @@ class Geometry:
         """
         raise NotImplementedError()
 
+    @property
+    def shape_type(self) -> Tensor:
+        """
+        Returns the type (or types) of this geometry as a string `Tensor`
+        Boxes return `'B'` and spheres return `'S'`.
+        Returns `'?'` for unknown types, e.g. a union over multiple types.
+        Custom types can return their own identifiers.
+
+        Returns:
+            String `Tensor`
+        """
+        raise NotImplementedError()
+
     def unstack(self, dimension: str) -> tuple:
         """
         Unstacks this Geometry along the given dimension.
@@ -55,12 +68,13 @@ class Geometry:
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         """
-        raise NotImplementedError()
+        attrs = {a: getattr(self, a) for a in variable_attributes(self)}
+        return tuple([copy_with(self, **{a: v[{dimension: i}] for a, v in attrs.items() if dimension in v.shape}) for i in range(self.shape.get_size(dimension))])
 
     @property
     def spatial_rank(self) -> int:
         """ Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. """
-        return self.shape.spatial.rank
+        return self.center.shape.get_size('vector')
 
     def lies_inside(self, location: Tensor) -> Tensor:
         """
@@ -145,6 +159,18 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
+    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+        """
+        Samples uniformly distributed random points inside this volume.
+
+        Args:
+            *shape: How many points to sample per individual geometry.
+
+        Returns:
+            `Tensor` containing all dimensions from `Geometry.shape`, `shape` as well as a `channel` dimension `vector` matching the dimensionality of this `Geometry`.
+        """
+        raise NotImplementedError(self.__class__)
+
     def bounding_radius(self) -> Tensor:
         """
         Returns the radius of a Sphere object that fully encloses this geometry.
@@ -180,6 +206,9 @@ class Geometry:
         """
         Returns a translated version of this geometry.
 
+        See Also:
+            `Geometry.at()`.
+
         Args:
           delta: direction vector
           delta: Tensor:
@@ -190,7 +219,26 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def rotated(self, angle) -> 'Geometry':
+    def at(self, center: Tensor):
+        """
+        Returns a copy of this `Geometry` with the center at `center`.
+        This is equal to calling `self @ center`.
+
+        See Also:
+            `Geometry.shifted()`.
+
+        Args:
+            center: New center as `Tensor`.
+
+        Returns:
+            `Geometry`.
+        """
+        return self.shifted(center - self.center)
+
+    def __matmul__(self, other):
+        return self.at(other)
+
+    def rotated(self, angle: float or Tensor) -> 'Geometry':
         """
         Returns a rotated version of this geometry.
         The geometry is rotated about its center point.
@@ -199,7 +247,19 @@ class Geometry:
           angle: scalar (2d) or vector (3D+) representing delta angle
 
         Returns:
-          Geometry: rotated geometry
+            Rotated `Geometry`
+        """
+        raise NotImplementedError(self.__class__)
+
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        """
+        Scales each individual geometry by `factor`.
+        The individual `center` points act as pivots for the operation.
+
+        Args:
+            factor:
+
+        Returns:
 
         """
         raise NotImplementedError(self.__class__)
@@ -401,8 +461,8 @@ class Point(Geometry):
     def __hash__(self):
         return hash(self._location)
 
-    def _characteristics_(self) -> Dict[str, math.Tensor]:
-        return {'location': self._location}
+    def __variable_attrs__(self):
+        return '_location',
 
 
 def assert_same_rank(rank1, rank2, error_message):
@@ -426,12 +486,3 @@ def _rank(rank):
     else:
         raise NotImplementedError(f"{type(rank)} now allowed. Allowed are (int, Geometry, Shape, Tensor).")
     return None if rank == 0 else rank
-
-
-def _fill_spatial_with_singleton(shape: Shape):
-    if shape.spatial.rank == shape.get_size('vector'):
-        return shape
-    else:
-        assert shape.spatial.rank == 0, shape
-        names = [GLOBAL_AXIS_ORDER.axis_name(i, shape.get_size('vector')) for i in range(shape.get_size('vector'))]
-        return shape & spatial(**{n: 1 for n in names})

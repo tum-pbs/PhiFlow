@@ -14,7 +14,7 @@ See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
 
 from phi.flow import *
 from . import TORCH
-from ._torch_nn_util import parameter_count, dense_net, u_net
+from .nets import parameter_count, save_state, load_state, dense_net, u_net, update_weights, adam
 
 import torch
 import torch.nn.functional as torchf
@@ -24,5 +24,5 @@ import torch.optim as optim
 if not backend.context_backend():
     backend.set_global_default_backend(TORCH)
 else:
-    import warnings
-    warnings.warn(f"Importing '{__name__}' within a backend context will not set the default backend.")
+    from ..math.backend import PHI_LOGGER as _LOGGER
+    _LOGGER.warning(f"Importing '{__name__}' within a backend context will not set the default backend.")

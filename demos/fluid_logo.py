@@ -1,12 +1,12 @@
 """ Fluid Logo
 Incompressible fluid simulation with obstacles and buoyancy.
 """
-from phi.flow import *
-# from phi.torch.flow import *
+#from phi.flow import *
+from phi.torch.flow import *
 # from phi.tf.flow import *
 # from phi.jax.flow import *
 
-DOMAIN = dict(x=128, y=128, bounds=Box[0:100, 0:100])
+DOMAIN = dict(x=128, y=128, bounds=Box(x=100, y=100))
 
 OBSTACLE_GEOMETRIES = [Box[15 + x * 7:15 + (x + 1) * 7, 41:83] for x in range(1, 10, 2)] + [Box[43:50, 41:48], Box[15:43, 83:90], Box[50:85, 83:90]]
 OBSTACLE = Obstacle(union(OBSTACLE_GEOMETRIES))
@@ -22,5 +22,5 @@ for _ in view('smoke, velocity, pressure, OBSTACLE_MASK', play=False, namespace=
     smoke = advect.semi_lagrangian(smoke, velocity, 1) + INFLOW
     buoyancy_force = smoke * (0, 0.1) @ velocity  # resamples density to velocity sample points
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
-    velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('CG-adaptive', 1e-5, 0, x0=pressure))
+    velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('CG', 1e-5, 1e-5, x0=pressure))
     remaining_divergence = field.divergence(velocity)

@@ -11,6 +11,7 @@ import warnings
 
 from phi import math
 from phi.field import SampledField, ConstantField, Field, PointCloud, extrapolate_valid, Grid, sample, reduce_sample
+from phi.field._field import FieldType
 from phi.field._field_math import GridType
 from phi.geom import Geometry
 
@@ -36,7 +37,7 @@ def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) 
 def advect(field: SampledField,
            velocity: Field,
            dt: float or math.Tensor,
-           integrator=euler) -> Field:
+           integrator=euler) -> FieldType:
     """
     Advect `field` along the `velocity` vectors using the specified integrator.
 

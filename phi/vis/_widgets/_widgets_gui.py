@@ -15,8 +15,9 @@ from matplotlib import pyplot as plt
 
 from phi.math._shape import parse_dim_order
 from phi.field import SampledField
-from .._matplotlib._matplotlib_plots import plot
+from .._vis import plot
 from .._vis_base import Gui, VisModel, display_name, GuiInterrupt, select_channel, value_range, is_log_control, Action
+from ...math.backend import PHI_LOGGER
 
 
 class WidgetsGui(Gui):
@@ -194,7 +195,7 @@ class WidgetsGui(Gui):
                     if isinstance(value, SampledField):
                         try:
                             value = select_channel(value, {'🡡': None, '⬤': 'abs'}.get(self.vector_select.value, self.vector_select.value))
-                            plot(value, **self.config.get('plt_args', {}))
+                            plot(value, lib='matplotlib', **self.config.get('plt_args', {}))
                             show_inline_matplotlib_plots()
                         except ValueError as err:
                             self.figure_display.append_stdout(f"{err}")
@@ -277,7 +278,7 @@ class WidgetsGui(Gui):
         if loop.is_running():
             loop.call_soon(lambda: _replay_events(self.shell, self.events))
         else:
-            warnings.warn("Automatic execution of scheduled cells only works with asyncio based ipython")
+            warnings.warn("Automatic execution of scheduled cells only works with asyncio based ipython", RuntimeWarning)
 
 
 def _replay_events(shell, events):

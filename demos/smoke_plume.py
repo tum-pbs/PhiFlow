@@ -2,18 +2,26 @@
 Hot smoke is emitted from a circular region at the bottom.
 The simulation computes the resulting air flow in a closed box.
 """
+from phi.flow import *  # minimal dependencies
+# from phi.torch.flow import *
+# from phi.tf.flow import *
+# from phi.jax.flow import *
 
-from phi.flow import *
 
-
-DOMAIN = dict(x=64, y=64, bounds=Box[0:100, 0:100])
-velocity = StaggeredGrid((0, 0), extrapolation.ZERO, **DOMAIN)  # or use CenteredGrid
-smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=200, y=200, bounds=DOMAIN['bounds'])
-INFLOW = 0.2 * CenteredGrid(SoftGeometryMask(Sphere(center=(50, 10), radius=5)), extrapolation.ZERO, resolution=smoke.resolution, bounds=smoke.bounds)
+velocity = StaggeredGrid((0, 0), 0, x=64, y=64, bounds=Box(x=100, y=100))  # or CenteredGrid(...)
+smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=200, y=200, bounds=Box(x=100, y=100))
+INFLOW = 0.2 * CenteredGrid(SoftGeometryMask(Sphere(x=50, y=9.5, radius=5)), 0, smoke.bounds, smoke.resolution)
 pressure = None
 
+
+# @math.jit_compile  # Only for PyTorch, TensorFlow and Jax
+def step(v, s, p, dt=1.):
+    s = advect.mac_cormack(s, v, dt) + INFLOW
+    buoyancy = s * (0, 0.1) @ v  # resamples smoke to velocity sample points
+    v = advect.semi_lagrangian(v, v, dt) + buoyancy * dt
+    v, p = fluid.make_incompressible(v, (), Solve('auto', 1e-5, 0, x0=p))
+    return v, s, p
+
+
 for _ in view(smoke, velocity, 'pressure', play=False, namespace=globals()).range(warmup=1):
-    smoke = advect.mac_cormack(smoke, velocity, 1) + INFLOW
-    buoyancy_force = smoke * (0, 0.1) @ velocity  # resamples smoke to velocity sample points
-    velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
-    velocity, pressure = fluid.make_incompressible(velocity, (), Solve('auto', 1e-5, 0, x0=pressure))
+    velocity, smoke, pressure = step(velocity, smoke, pressure)

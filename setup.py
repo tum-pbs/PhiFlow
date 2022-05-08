@@ -116,6 +116,30 @@ class CudaCommand(distutils.cmd.Command):
         print(f"Compilation complete. See {logfile_path} for details.")
 
 
+class PhiTorchCuda(distutils.cmd.Command):
+    description = 'Compile PyTorch CUDA library'
+    user_options = []
+
+    def initialize_options(self) -> None:
+        pass
+
+    def finalize_options(self) -> None:
+        pass
+
+    def compile_torch_cuda(self):
+        import glob
+        # We call a setup.py script specific to the phi_torch_cuda package because we need to call
+        # 'python phi_torch_cuda_setup.py install' in order to install the package.
+        command = ['python', './phi/torch/cuda/phi_torch_cuda_setup.py', 'install']
+        subprocess.check_call(command)
+        old_file = glob.glob('./build/lib.*/*.so')[0]
+        assert isfile(old_file), f"Could not find file {old_file}"
+        # Rename the file to make the import common across all platforms and python versions
+        os.rename(old_file, './build/phi_torch_cuda.so')
+
+    def run(self):
+        self.compile_torch_cuda()
+
 try:
     with open(join(dirname(__file__), 'docs/Package_Info.md'), 'r') as readme:
         long_description = readme.read()
@@ -134,6 +158,7 @@ setup(
               'phi.field',
               'phi.geom',
               'phi.jax',
+              'phi.jax.stax',
               'phi.math',
               'phi.math.backend',
               'phi.physics',
@@ -144,10 +169,10 @@ setup(
               'phi.vis._console',
               'phi.vis._dash',
               'phi.vis._matplotlib',
-              'phi.vis._widgets',
-              'webglviewer'],
+              'phi.vis._widgets'],
     cmdclass={
         'tf_cuda': CudaCommand,
+        'phi_torch_cuda': PhiTorchCuda
     },
     description='Differentiable PDE solving framework for machine learning',
     long_description=long_description,
@@ -159,12 +184,12 @@ setup(
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
     install_requires=[
-        'numpy==1.19.5',  # 1.20 causes TensorFlow tracing errors: NotImplementedError: Cannot convert a symbolic Tensor to a numpy array.
-        'scipy',
+        'numpy',  # 1.20 causes TensorFlow tracing errors: NotImplementedError: Cannot convert a symbolic Tensor to a numpy array.
+        'scipy>=1.5.4',
         'matplotlib'  # also required by dash for color maps
     ],
     # Optional packages:
-    # - dash + plotly (included in dash) + imageio (for webgl-viewer)
+    # - dash + plotly (included in dash)
     # - torch
     # - tensorflow
     # - jax

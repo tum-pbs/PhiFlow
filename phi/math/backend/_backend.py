@@ -1,8 +1,11 @@
+import sys
+import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from threading import Barrier
 from typing import List, Callable
 
+import logging
 import numpy
 
 from ._dtype import DType, combine_types
@@ -11,7 +14,6 @@ from ._dtype import DType, combine_types
 SolveResult = namedtuple('SolveResult', [
     'method', 'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
 ])
-
 
 class ComputeDevice:
     """
@@ -41,7 +43,7 @@ class ComputeDevice:
         descr = self.description.replace('\n', '  ')
         if len(descr) > 30:
             descr = descr[:28] + "..."
-        return f"{self.name} ({self.device_type}{ref}) | {mem} | {pro} | {descr}"
+        return f"{self.backend} device '{self.name}' ({self.device_type}{ref}) | {mem} | {pro} | {descr}"
 
 
 class Backend:
@@ -157,6 +159,9 @@ class Backend:
         * TensorFlow: `tensorflow.python.client.device_lib.list_local_devices`
         * Jax: [`jax.devices`](https://jax.readthedocs.io/en/latest/jax.html#jax.devices)
 
+        See Also:
+            `Backend.set_default_device()`.
+
         Args:
             device_type: (optional) Return only devices of this type, e.g. `'GPU'` or `'CPU'`. See `ComputeDevice.device_type`.
 
@@ -168,20 +173,55 @@ class Backend:
     def get_default_device(self) -> ComputeDevice:
         return self._default_device
 
-    def set_default_device(self, device: ComputeDevice or str):
+    def set_default_device(self, device: ComputeDevice or str) -> bool:
+        """
+        Sets the device new tensors will be allocated on.
+        This function will do nothing if the target device type is not available.
+
+        See Also:
+            `Backend.list_devices()`, `Backend.get_default_device()`.
+
+        Args:
+            device: `ComputeDevice` or device type as `str`, such as `'CPU'` or `'GPU'`.
+
+        Returns:
+            `bool` whether the device was successfully set.
+        """
         if isinstance(device, str):
             devices = self.list_devices(device)
-            assert len(devices) >= 1, f"{self.name}: Cannot select '{device} because no device of this type is available."
+            if not devices:
+                warnings.warn(f"{self.name}: Cannot select '{device}' because no device of this type is available.", RuntimeWarning)
+                return False
             device = devices[0]
+        assert device.backend is self, f"Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}"
         self._default_device = device
+        return True
 
     def seed(self, seed: int):
+        raise NotImplementedError()
+
+    def is_module(self, obj) -> bool:
+        """
+        Tests if `obj` is of a type that is specific to this backend, e.g. a neural network.
+        If `True`, this backend will be chosen for operations involving `obj`.
+
+        See Also:
+            `Backend.is_tensor()`.
+
+        Args:
+            obj: Object to test.
+        """
         raise NotImplementedError()
 
     def is_tensor(self, x, only_native=False):
         """
         An object is considered a native tensor by a backend if no internal conversion is required by backend methods.
         An object is considered a tensor (nativer or otherwise) by a backend if it is not a struct (e.g. tuple, list) and all methods of the backend accept it as a tensor argument.
+
+        If `True`, this backend will be chosen for operations involving `x`.
+
+        See Also:
+            `Backend.is_module()`.
 
         Args:
           x: object to check
@@ -270,7 +310,38 @@ class Backend:
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def functional_gradient(self, f: Callable, wrt: tuple or list, get_output: bool):
+        """
+        Args:
+            f: Function to differentiate.
+            wrt: Argument indices for which to compute the gradient.
+            get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
+
+        Returns:
+            A function `g` with the same arguments as `f`.
+            If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
+        """
+        raise NotImplementedError(self)
+
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+        raise NotImplementedError(self)
+
+    def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -> tuple:
+        """
+        First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
+        Element-wise Hessians will be computed along the batch dimension.
+        All other dimensions are parameter dimensions and will appear twice in the Hessian matrices.
+
+        Args:
+            f: Function whose first output is a scalar float or complex value.
+            wrt:
+            get_output:
+            get_gradient:
+
+        Returns:
+            Function returning `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
+            The result is always a `tuple` holding at most these three items.
+        """
         raise NotImplementedError(self)
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
@@ -289,14 +360,17 @@ class Backend:
     def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
         raise NotImplementedError()
 
+    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+        raise NotImplementedError()
+
     def transpose(self, tensor, axes):
         raise NotImplementedError()
 
-    def random_uniform(self, shape):
+    def random_uniform(self, shape, low, high, dtype: DType or None):
         """ Float tensor of selected precision containing random values in the range [0, 1) """
         raise NotImplementedError(self)
 
-    def random_normal(self, shape):
+    def random_normal(self, shape, dtype: DType):
         """ Float tensor of selected precision containing random values sampled from a normal distribution with mean 0 and std 1. """
         raise NotImplementedError(self)
 
@@ -528,7 +602,7 @@ class Backend:
         return self.cast(x, DType(int, 64))
 
     def to_complex(self, x):
-        return self.cast(x, DType(complex, max(64, min(self.precision * 2, 128))))
+        return self.cast(x, DType(complex, max(64, self.precision * 2)))
 
     def batched_gather_nd(self, values, indices):
         """
@@ -634,7 +708,13 @@ class Backend:
     def sin(self, x):
         raise NotImplementedError(self)
 
+    def arcsin(self, x):
+        raise NotImplementedError(self)
+
     def cos(self, x):
+        raise NotImplementedError(self)
+
+    def arccos(self, x):
         raise NotImplementedError(self)
 
     def tan(self, x):
@@ -649,6 +729,9 @@ class Backend:
 
     def log10(self, x):
         raise NotImplementedError(self)
+
+    def sigmoid(self, x):
+        return 1 / (1 + self.exp(-x))
 
     def dtype(self, array) -> DType:
         raise NotImplementedError(self)
@@ -742,12 +825,18 @@ class Backend:
         raise NotImplementedError(self)
 
     def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
+        if method == 'GD':
+            return self._minimize_gradient_descent(f, x0, atol, max_iter, trj)
+
         from scipy.optimize import OptimizeResult, minimize
         from threading import Thread
 
         assert self.supports(Backend.functional_gradient)
-        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
-        batch_size = self.staticshape(x0)[0]
+        x0 = self.numpy(x0)
+        assert x0.ndim == 2  # (batch, parameters)
+        atol = self.numpy(atol)
+        max_iter = self.numpy(max_iter)
+        batch_size = x0.shape[0]
         fg = self.functional_gradient(f, [0], get_output=True)
         method_description = f"SciPy {method} with {self.name}"
 
@@ -770,7 +859,7 @@ class Backend:
         trajectories = [[] for _ in range(batch_size)] if trj else None
         threads = []
 
-        for b in range(batch_size):
+        for b in range(batch_size):  # Run each independent example as a scipy minimization in a new thread
 
             def b_thread(b=b):
                 recent_b_losses = []
@@ -817,7 +906,7 @@ class Backend:
                 all_finished = True
                 f_output_available.wait()
                 break
-            _, f_b_losses, f_grad = fg(self.stack(f_inputs))
+            _, f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
             f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
             f_grad_np = self.numpy(f_grad).astype(numpy.float64)
             f_output_available.wait()
@@ -843,6 +932,71 @@ class Backend:
             x = self.stack(xs)
             residual = self.stack(final_losses)
             return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
+
+    def _minimize_gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size='adaptive'):
+        assert self.supports(Backend.functional_gradient)
+        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
+        batch_size = self.staticshape(x0)[0]
+        fg = self.functional_gradient(f, [0], get_output=True)
+        method = f"Gradient descent with {self.name}"
+
+        iterations = self.zeros([batch_size], DType(int, 32))
+        function_evaluations = self.ones([batch_size], DType(int, 32))
+
+        adaptive_step_size = step_size == 'adaptive'
+        if adaptive_step_size:
+            step_size = self.zeros([batch_size]) + 0.1
+
+        _, loss, grad = fg(x0)  # Evaluate function and gradient
+        diverged = self.any(~self.isfinite(x0), axis=(1,))
+        converged = self.zeros([batch_size], DType(bool))
+        trajectory = [SolveResult(method, x0, loss, iterations, function_evaluations, converged, diverged, [""] * batch_size)] if trj else None
+        continue_ = ~converged & ~diverged & (iterations < max_iter)
+
+        def gd_step(continue_, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged):
+            prev_loss, prev_grad, prev_x = loss, grad, x
+            continue_1 = self.to_int32(continue_)
+            iterations += continue_1
+            if adaptive_step_size:
+                for i in range(20):
+                    dx = - grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
+                    next_x = x + dx
+                    predicted_loss_decrease = - self.sum(grad * dx, -1)  # >= 0
+                    _, next_loss, next_grad = fg(next_x); function_evaluations += continue_1
+                    converged = converged | (self.sum(next_grad ** 2, axis=-1) < atol ** 2)
+                    PHI_LOGGER.debug(f"Gradient: {self.numpy(next_grad)} with step_size={self.numpy(step_size)}")
+                    actual_loss_decrease = loss - next_loss  # we want > 0
+                    # we want actual_loss_decrease to be at least half of predicted_loss_decrease
+                    act_pred = self.divide_no_nan(actual_loss_decrease, predicted_loss_decrease)
+                    PHI_LOGGER.debug(f"Actual/Predicted: {self.numpy(act_pred)}")
+                    step_size_fac = self.clip(self.log(1 + 1.71828182845 * self.exp((act_pred - 0.5) * 2.)), 0.1, 10)
+                    PHI_LOGGER.debug(f"step_size *= {self.numpy(step_size_fac)}")
+                    step_size *= step_size_fac
+                    if self.all((act_pred > 0.4) & (act_pred < 0.9) | converged | diverged):
+                        PHI_LOGGER.debug(f"GD minimization: Finished step_size adjustment after {i + 1} tries\n")
+                        break
+                else:
+                    converged = converged | (abs(actual_loss_decrease) < predicted_loss_decrease)
+                    PHI_LOGGER.debug("Backend._minimize_gradient_descent(): No step size found!\n")
+                diverged = diverged | (next_loss > loss)
+                x, loss, grad = next_x, next_loss, next_grad
+            else:
+                x -= grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
+                _, loss, grad = fg(x); function_evaluations += continue_1
+                diverged = self.any(~self.isfinite(x), axis=(1,)) | (loss > prev_loss)
+                converged = ~diverged & (prev_loss - loss < atol)
+            if trj:
+                trajectory.append(SolveResult(method, self.numpy(x), self.numpy(loss), self.numpy(iterations), self.numpy(function_evaluations), self.numpy(diverged), self.numpy(converged), [""] * batch_size))
+            continue_ = ~converged & ~diverged & (iterations < max_iter)
+            return continue_, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged
+
+        not_converged, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged = self.while_loop(gd_step, (continue_, x0, loss, grad, iterations, function_evaluations, step_size, converged, diverged))
+
+        if trj:
+            trajectory.append(SolveResult(method, x, loss, iterations, function_evaluations + 1, converged, diverged, [""] * batch_size))
+            return trajectory
+        else:
+            return SolveResult(method, x, loss, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
     def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         """
@@ -991,7 +1145,7 @@ class Backend:
     def stop_gradient(self, value):
         raise NotImplementedError(self)
 
-    def grid_sample(self, grid, coordinates, extrapolation='constant'):
+    def grid_sample(self, grid, coordinates, extrapolation: str):
         """
         Interpolates a regular grid at the specified coordinates.
 
@@ -1018,6 +1172,11 @@ class Backend:
         return self.prod(self.shape(array))
 
     def multi_slice(self, tensor, slices: tuple):
+        """
+        Args:
+            tensor: value to slice
+            slices: `tuple` of `slice`, `int`, or scalar integer tensors
+        """
         return tensor[slices]
 
     def batch_gather(self, tensor, batches):
@@ -1257,14 +1416,14 @@ def convert(tensor, backend: Backend = None, use_dlpack=True):
 
 def _is_applicable(backend, values):
     for value in values:
-        if not backend.is_tensor(value, only_native=False):
+        if not (backend.is_tensor(value, only_native=False) or backend.is_module(value)):
             return False
     return True
 
 
-def _is_specific(backend, values):
+def _is_specific(backend: Backend, values):
     for value in values:
-        if backend.is_tensor(value, only_native=True):
+        if backend.is_tensor(value, only_native=True) or backend.is_module(value):
             return True
     return False
 
@@ -1282,16 +1441,17 @@ def combined_dim(dim1, dim2, type_str: str = 'batch'):
     return dim1
 
 
-_DERIVATIVE_CONTEXT = [0]
+_SPATIAL_DERIVATIVE_CONTEXT = [0]
+_FUNCTIONAL_DERIVATIVE_CONTEXT = [0]
 
 
 @contextmanager
 def spatial_derivative_evaluation(order=1):
-    _DERIVATIVE_CONTEXT.append(order)
+    _SPATIAL_DERIVATIVE_CONTEXT.append(order)
     try:
         yield None
     finally:
-        assert _DERIVATIVE_CONTEXT.pop(-1) == order
+        assert _SPATIAL_DERIVATIVE_CONTEXT.pop(-1) == order
 
 
 def get_spatial_derivative_order():
@@ -1299,4 +1459,28 @@ def get_spatial_derivative_order():
     Extrapolations may behave differently when extrapolating the derivative of a grid.
     Returns 1 inside a CG loop, and 0 by default.
     """
-    return _DERIVATIVE_CONTEXT[-1]
+    return _SPATIAL_DERIVATIVE_CONTEXT[-1]
+
+
+@contextmanager
+def functional_derivative_evaluation(order=1):
+    _FUNCTIONAL_DERIVATIVE_CONTEXT.append(order)
+    try:
+        yield None
+    finally:
+        assert _FUNCTIONAL_DERIVATIVE_CONTEXT.pop(-1) == order
+
+
+def get_functional_derivative_order():
+    """
+    Operations that do not define a first or higher-order derivative may use slower alternative code paths when the derivative is `>0`.
+    This is set when calling a function created by `math.functional_gradient()` or `math.hessian()`.
+    """
+    return _FUNCTIONAL_DERIVATIVE_CONTEXT[-1]
+
+
+PHI_LOGGER = logging.getLogger('Φ')  # used for warnings and debug messages by all internal PhiFlow functions
+_LOG_CONSOLE_HANDLER = logging.StreamHandler(sys.stdout)
+_LOG_CONSOLE_HANDLER.setFormatter(logging.Formatter("%(message)s (%(levelname)s), %(asctime)sn\n"))
+_LOG_CONSOLE_HANDLER.setLevel(logging.NOTSET)
+PHI_LOGGER.addHandler(_LOG_CONSOLE_HANDLER)

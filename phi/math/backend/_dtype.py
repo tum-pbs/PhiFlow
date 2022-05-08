@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 
 class DType:
@@ -24,13 +25,15 @@ class DType:
             kind: Python type, one of `(bool, int, float, complex, str)`
             bits: number of bits per element, a multiple of 8.
         """
-        assert kind in (bool, int, float, complex, str)
+        assert kind in (bool, int, float, complex, str, object)
         if kind is bool:
             assert bits == 8
+        elif kind == object:
+            bits = int(np.round(np.log2(sys.maxsize))) + 1
         else:
             assert isinstance(bits, int)
         self.kind = kind
-        """ Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex) """
+        """ Python class corresponding to the type of data, ignoring precision. One of (bool, int, float, complex, str) """
         self.bits = bits
         """ Number of bits used to store a single value of this type. See `DType.itemsize`. """
 
@@ -62,6 +65,27 @@ class DType:
     def __repr__(self):
         return f"{self.kind.__name__}{self.bits}"
 
+    @staticmethod
+    def as_dtype(value: 'DType' or tuple or type or None) -> 'DType' or None:
+        if isinstance(value, DType):
+            return value
+        elif value is int:
+            return DType(int, 32)
+        elif value is float:
+            from phi.math import get_precision
+            return DType(float, get_precision())
+        elif value is complex:
+            from phi.math import get_precision
+            return DType(complex, 2 * get_precision())
+        elif value is None:
+            return None
+        elif isinstance(value, tuple):
+            return DType(*value)
+        elif value is str:
+            raise ValueError("str DTypes must specify precision")
+        else:
+            return DType(value)  # bool, object
+
 
 # --- NumPy Conversion ---
 
@@ -71,6 +95,7 @@ def to_numpy_dtype(dtype: DType):
     if dtype.kind == str:
         bytes_per_char = np.dtype('<U1').itemsize
         return np.dtype(f'<U{dtype.itemsize // bytes_per_char}')
+    raise KeyError(f"Unsupported dtype: {dtype}")
 
 
 def from_numpy_dtype(np_dtype) -> DType:
@@ -96,6 +121,7 @@ _TO_NUMPY = {
     DType(int, 32): np.int32,
     DType(int, 64): np.int64,
     DType(bool): np.bool_,
+    DType(object): np.object,
 }
 _FROM_NUMPY = {np: dtype for dtype, np in _TO_NUMPY.items()}
 _FROM_NUMPY[np.bool] = DType(bool)

@@ -1,7 +1,7 @@
 from typing import Any
 
 from phi import math
-from phi.geom import Geometry, GridCell, Box
+from phi.geom import Geometry, GridCell, Box, Point
 from ._field import SampledField
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance
@@ -23,25 +23,25 @@ class PointCloud(SampledField):
     """
 
     def __init__(self,
-                 elements: Geometry,
-                 values: Any = 1,
-                 extrapolation=math.extrapolation.ZERO,
+                 elements: Tensor or Geometry,
+                 values: Any = 1.,
+                 extrapolation: float or math.extrapolation = 0,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
         """
         Args:
-          elements: Geometry object specifying the sample points and sizes
+          elements: `Tensor` or `Geometry` object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
           add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
           color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         """
-        SampledField.__init__(self, elements, math.wrap(values), extrapolation)
+        if isinstance(elements, Tensor):
+            elements = Point(elements)
+        SampledField.__init__(self, elements, math.wrap(values), extrapolation, bounds)
         self._add_overlapping = add_overlapping
-        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
-        self._bounds = bounds
         color = '#0060ff' if color is None else color
         self._color = math.wrap(color, instance('points')) if isinstance(color, (tuple, list)) else math.wrap(color)
 
@@ -49,7 +49,13 @@ class PointCloud(SampledField):
     def shape(self):
         return self._elements.shape & self._values.shape.non_spatial
 
+    @property
+    def spatial_rank(self) -> int:
+        return self._elements.spatial_rank
+
     def __getitem__(self, item: dict):
+        if not item:
+            return self
         elements = self.elements[item]
         values = self._values[item]
         color = self._color[item]
@@ -77,45 +83,71 @@ class PointCloud(SampledField):
     def __variable_attrs__(self):
         return '_values', '_elements'
 
+    def __eq__(self, other):
+        if not type(self) == type(other):
+            return False
+        # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
+        if type(self.elements) is not type(other.elements):
+            return False
+        if self.extrapolation != other.extrapolation:
+            return False
+        if self._add_overlapping != other._add_overlapping:
+            return False
+        if self.values is None:
+            return other.values is None
+        if other.values is None:
+            return False
+        if not math.all_available(self.values) or not math.all_available(other.values):  # tracers involved
+            if math.all_available(self.values) != math.all_available(other.values):
+                return False
+            else:  # both tracers
+                return self.values.shape == other.values.shape
+        return bool((self.values == other.values).all)
+
     @property
     def bounds(self) -> Box:
-        return self._bounds
+        if self._bounds is not None:
+            return self._bounds
+        else:
+            from phi.field._field_math import data_bounds
+            bounds = data_bounds(self.elements.center)
+            radius = math.max(self.elements.bounding_radius())
+            return Box(bounds.lower - radius, bounds.upper + radius)
 
     @property
     def color(self) -> Tensor:
         return self._color
 
-    def _sample(self, geometry: Geometry) -> Tensor:
+    def _sample(self, geometry: Geometry, outside_handling='discard') -> Tensor:
         if geometry == self.elements:
             return self.values
         elif isinstance(geometry, GridCell):
-            return self._grid_scatter(geometry.bounds, geometry.resolution)
+            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
         elif isinstance(geometry, GeometryStack):
             sampled = [self._sample(g) for g in geometry.geometries]
-            return math.stack(sampled, geometry.stack_dim)
+            return math.stack(sampled, geometry.geometries.shape)
         else:
             raise NotImplementedError()
 
-    def _grid_scatter(self, box: Box, resolution: math.Shape):
+    def grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling: str):
         """
         Approximately samples this field on a regular grid using math.scatter().
 
         Args:
-          box: physical dimensions of the grid
+          outside_handling: `str` passed to `phi.math.scatter()`.
+          bounds: physical dimensions of the grid
           resolution: grid resolution
-          box: Box: 
-          resolution: math.Shape: 
 
         Returns:
           CenteredGrid
 
         """
-        closest_index = box.global_to_local(self.points) * resolution - 0.5
+        closest_index = bounds.global_to_local(self.points) * resolution - 0.5
         mode = 'add' if self._add_overlapping else 'mean'
         base = math.zeros(resolution)
         if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
             base += self.extrapolation.value
-        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling='discard')
+        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=outside_handling)
         return scattered
 
     def __repr__(self):

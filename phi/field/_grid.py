@@ -1,12 +1,12 @@
 from typing import TypeVar, Any
 
-from phi import math
+from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
 from . import HardGeometryMask
 from ._field import SampledField, Field, sample, reduce_sample
 from ..geom._stack import GeometryStack
-from ..math import Shape
-from ..math._shape import spatial, channel
+from ..math import Shape, NUMPY
+from ..math._shape import spatial, channel, parse_dim_order
 from ..math._tensors import TensorStack, Tensor
 
 
@@ -15,12 +15,14 @@ class Grid(SampledField):
     Base class for `CenteredGrid` and `StaggeredGrid`.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: math.Extrapolation, resolution: Shape, bounds: Box):
-        SampledField.__init__(self, elements, values, extrapolation)
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, resolution: Shape, bounds: Box):
+        if bounds.size.vector.item_names is None:
+            with NUMPY:
+                bounds = bounds.shifted(math.zeros(channel(vector=spatial(values).names)))
+        SampledField.__init__(self, elements, values, extrapolation, bounds)
         assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
-        self._bounds = bounds
         self._resolution = resolution
 
     def closest_values(self, points: Geometry):
@@ -45,7 +47,8 @@ class Grid(SampledField):
 
     def with_values(self, values):
         if isinstance(values, math.Tensor):
-            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
+            bounds = self.bounds.project(*values.shape.spatial.names)
+            return type(self)(values, extrapolation=self.extrapolation, bounds=bounds)
         else:
             return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
@@ -129,7 +132,7 @@ class CenteredGrid(Grid):
                  values: Any,
                  extrapolation: Any = 0.,
                  bounds: Box = None,
-                 resolution: Shape = None,
+                 resolution: int or Shape = None,
                  **resolution_: int or Tensor):
         """
         Args:
@@ -142,6 +145,7 @@ class CenteredGrid(Grid):
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
                 * `phi.math.Tensor` compatible with grid dims: uses tensor values as grid values
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                    The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
                 Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
@@ -149,14 +153,15 @@ class CenteredGrid(Grid):
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         """
-        if not isinstance(extrapolation, math.Extrapolation):
-            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
         if resolution is None and not resolution_:
             assert isinstance(values, math.Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
             resolution = values.shape.spatial
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = GridCell(resolution, bounds)
         else:
+            if isinstance(resolution, int):
+                assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
+                resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
             resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = GridCell(resolution, bounds)
@@ -167,9 +172,11 @@ class CenteredGrid(Grid):
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
-                values = values(elements.center)
+                values = math.map_s2b(values)(elements.center)
                 assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
             else:
+                if isinstance(values, (tuple, list)) and len(values) == resolution.rank:
+                    values = math.tensor(values, channel(vector=resolution.names))
                 values = math.expand(math.tensor(values), resolution)
         if values.dtype.kind not in (float, complex):
             values = math.to_float(values)
@@ -229,7 +236,6 @@ class StaggeredGrid(Grid):
     
     Staggered grids support batch and spatial dimensions but only one channel dimension for the staggered vector components.
 
-
     See Also:
         `CenteredGrid`,
         `Grid`,
@@ -240,7 +246,7 @@ class StaggeredGrid(Grid):
 
     def __init__(self,
                  values: Any,
-                 extrapolation: Any = 0.,
+                 extrapolation: float or math.Extrapolation = 0,
                  bounds: Box = None,
                  resolution: Shape = None,
                  **resolution_: int or Tensor):
@@ -257,6 +263,7 @@ class StaggeredGrid(Grid):
                   Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
                   Use `phi.math.stack()` to manually create this non-uniform tensor.
                 * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                    The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
                 Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
@@ -276,6 +283,9 @@ class StaggeredGrid(Grid):
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
+            if isinstance(resolution, int):
+                assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
+                resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
             resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
             bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
@@ -286,11 +296,12 @@ class StaggeredGrid(Grid):
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
-                values = values(elements.center)
-                assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
+                values = math.map_s2b(values)(elements.center)
+                if elements.shape.shape.rank > 1:  # Different number of X and Y faces
+                    assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
                 assert 'staggered_direction' in values.shape
                 if 'vector' in values.shape:
-                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel('vector'))
+                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(vector=resolution.names))
                 else:
                     values = values.staggered_direction.as_channel('vector')
             else:
@@ -343,23 +354,31 @@ class StaggeredGrid(Grid):
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
         for dim, sel in item.items():
             if dim in self.shape.spatial:
-                sel = slice(sel, sel + 1) if isinstance(sel, int) else sel
-                values = []
-                for vdim, val in zip(self.shape.spatial.names, self.values.unstack('vector')):
-                    if vdim == dim:
-                        values.append(val[{dim: slice(sel.start, sel.stop + 1)}])
-                    else:
-                        values.append(val[{dim: sel}])
-                values = math.stack(values, channel('vector'))
+                raise AssertionError("Cannot slice StaggeredGrid along spatial dimensions.")
+                # sel = slice(sel, sel + 1) if isinstance(sel, int) else sel
+                # values = []
+                # for vdim, val in zip(self.shape.spatial.names, self.values.unstack('vector')):
+                #     if vdim == dim:
+                #         values.append(val[{dim: slice(sel.start, sel.stop + 1)}])
+                #     else:
+                #         values.append(val[{dim: sel}])
+                # values = math.stack(values, channel('vector'))
         extrapolation = self._extrapolation[item]
         bounds = GridCell(self._resolution, self._bounds)[item].bounds
         if 'vector' in item:
-            if isinstance(item['vector'], int):
-                dim = self.shape.spatial.names[item['vector']]
+            selection = item['vector']
+            if isinstance(selection, str) and ',' in selection:
+                selection = parse_dim_order(selection)
+            if isinstance(selection, str):  # single item name
+                item_names = self.shape.get_item_names('vector', fallback_spatial=True)
+                assert selection in item_names, f"Accessing field.vector['{selection}'] failed. Item names are {item_names}."
+                selection = item_names.index(selection)
+            if isinstance(selection, int):
+                dim = self.shape.spatial.names[selection]
                 comp_cells = GridCell(self.resolution, bounds).stagger(dim, *self.extrapolation.valid_outer_faces(dim))
                 return CenteredGrid(values, bounds=comp_cells.bounds, extrapolation=extrapolation)
             else:
-                assert isinstance(item['vector'], slice) and not item['vector'].start and not item['vector'].stop
+                assert isinstance(selection, slice) and not selection.start and not selection.stop
         return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
     def staggered_tensor(self) -> Tensor:
@@ -406,14 +425,15 @@ def staggered_elements(resolution: Shape, bounds: Box, extrapolation: math.Extra
     for dim in resolution.names:
         lower, upper = extrapolation.valid_outer_faces(dim)
         grids.append(cells.stagger(dim, lower, upper))
-    return GeometryStack(grids, channel('staggered_direction'))
+    return geom.stack(grids, channel(staggered_direction=resolution.names))
 
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: math.Extrapolation):
-    cells = GridCell(resolution, Box(0, [1] * resolution.rank))
+    """ Add missing spatial dimensions to `values` """
+    cells = GridCell(resolution, Box(0, math.wrap((1,) * resolution.rank, channel(vector=resolution.names))))
     components = values.vector.unstack(resolution.spatial_rank)
     tensors = []
     for dim, component in zip(resolution.spatial.names, components):
         comp_cells = cells.stagger(dim, *extrapolation.valid_outer_faces(dim))
         tensors.append(math.expand(component, comp_cells.resolution))
-    return math.stack(tensors, channel('vector'))
+    return math.stack(tensors, channel(vector=resolution.names))

@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import extrapolation, spatial, channel, instance, batch
+from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes
 from phi.math.backend import Backend
 
 
@@ -73,13 +73,25 @@ class TestMathFunctions(TestCase):
         math.assert_close(1.5, math.mean(data))
 
     def test_std_collapsed(self):
-        ones = math.ones(spatial(x=40000, y=30000))
+        ones = math.ones(spatial(x=4, y=3))  # hi-res disabled because the current implementation caches the tensor, causes out-of-memory
         std = math.std(ones)
         math.assert_close(0, std)
 
     def test_sum_by_type(self):
         a = math.ones(spatial(x=3, y=4), batch(b=10), instance(i=2), channel(vector=2))
         math.assert_close(math.sum(a, spatial), 12)
+
+    def test_unstack(self):
+        a = math.random_uniform(batch(b=10), spatial(x=4, y=3), channel(vector=2))
+        u = math.unstack(a, 'vector')
+        self.assertIsInstance(u, tuple)
+        self.assertEqual(len(u), 2)
+        math.assert_close(u, math.unstack(a, channel))
+        # Multiple dimensions
+        u = math.unstack(a, 'x,y')
+        self.assertIsInstance(u, tuple)
+        self.assertEqual(len(u), 12)
+        math.assert_close(u, math.unstack(a, spatial))
 
     def test_grid_sample(self):
         for backend in BACKENDS:
@@ -558,3 +570,71 @@ class TestMathFunctions(TestCase):
         self.assertEqual(math.rename_dims(t, 'x', 'z').shape.get_type('z'), 'spatial')
         self.assertEqual(math.rename_dims(t, ['x'], ['z']).shape.get_type('z'), 'spatial')
         self.assertEqual(math.rename_dims(t, ['x'], channel('z')).shape.get_type('z'), 'channel')
+
+    def test_divide_no_nan(self):
+        for backend in BACKENDS:
+            with backend:
+                one = math.ones()
+                zero = math.zeros()
+                nan = zero / zero
+                # inf = one / zero
+                math.assert_close(math.divide_no_nan(zero, one), zero)
+                math.assert_close(math.divide_no_nan(one, zero), zero)
+                math.assert_close(math.divide_no_nan(zero, zero), zero)
+                math.assert_close(math.divide_no_nan(zero, nan), nan)
+                math.assert_close(math.divide_no_nan(nan, one), nan)
+
+    def test_random_int(self):
+        for backend in BACKENDS:
+            with backend:
+                # 32 bits
+                a = math.random_uniform(instance(values=1000), low=-1, high=1, dtype=(int, 32))
+                self.assertEqual(a.dtype, DType(int, 32), msg=backend.name)
+                self.assertEqual(a.min, -1, msg=backend.name)
+                self.assertEqual(a.max, 0, msg=backend.name)
+                # 64 bits
+                a = math.random_uniform(instance(values=1000), low=-1, high=1, dtype=(int, 64))
+                self.assertEqual(a.dtype.kind, int, msg=backend.name)  # Jax may downcast 64-bit to 32
+                self.assertEqual(a.min, -1, msg=backend.name)
+                self.assertEqual(a.max, 0, msg=backend.name)
+
+    def test_random_complex(self):
+        for backend in BACKENDS:
+            with backend:
+                a = math.random_uniform(instance(values=4), low=-1, high=0, dtype=(complex, 64))
+                self.assertEqual(a.dtype, DType(complex, 64), msg=backend.name)
+                math.assert_close(a.imag, 0, msg=backend.name)
+
+    def test_cast(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.random_uniform(dtype=DType(float, 64))
+                self.assertEqual(DType(float, 32), math.to_float(x).dtype, msg=backend.name)
+                self.assertEqual(DType(complex, 64), math.to_complex(x).dtype, msg=backend.name)
+                with math.precision(64):
+                    self.assertEqual(DType(float, 64), math.to_float(x).dtype, msg=backend.name)
+                    self.assertEqual(DType(complex, 128), math.to_complex(x).dtype, msg=backend.name)
+                self.assertEqual(DType(int, 64), math.to_int64(x).dtype, msg=backend.name)
+                self.assertEqual(DType(int, 32), math.to_int32(x).dtype, msg=backend.name)
+                self.assertEqual(DType(float, 16), math.cast(x, DType(float, 16)).dtype, msg=backend.name)
+                self.assertEqual(DType(complex, 128), math.cast(x, DType(complex, 128)).dtype, msg=backend.name)
+                try:
+                    math.cast(x, DType(float, 3))
+                    self.fail(msg=backend.name)
+                except KeyError:
+                    pass
+
+    def test_expand_copy_item_names(self):
+        a = math.zeros(channel(vector=2))
+        try:
+            math.expand(a, channel(vector=3))
+            self.fail()
+        except IncompatibleShapes:
+            pass
+        b = math.expand(a, channel(vector='x,y'))
+        self.assertEqual(('x', 'y'), b.vector.item_names)
+        try:
+            math.expand(b, channel(vector='a,b'))
+            self.fail()
+        except IncompatibleShapes:
+            pass

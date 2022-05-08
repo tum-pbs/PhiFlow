@@ -7,7 +7,7 @@ DT = 0.1
 
 def move_obstacle(obstacle):
     if (obstacle.geometry.center[0]) > 35:
-        new_geometry = Box[-6:0, 10:16]
+        new_geometry = Box(x=(-6, 0), y=(10, 16))
     else:
         new_geometry = obstacle.geometry.shifted([1. * DT, 0])
     return obstacle.copied_with(geometry=new_geometry)

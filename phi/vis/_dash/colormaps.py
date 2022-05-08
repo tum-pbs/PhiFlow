@@ -4,6 +4,8 @@ import warnings
 
 import numpy as np
 
+from phi.math.backend import PHI_LOGGER
+
 ORANGE_WHITE_BLUE = [
     [0.      ,  22.00000005,   1.00000035,  76.0000011 ],
     [0.030334,  28.999875  ,   5.999997  , 114.9999    ],
@@ -99,4 +101,4 @@ try:
             cols = np.array(colormap.colors) * 255
             COLORMAPS[name] = np.concatenate([pos, cols], axis=-1)
 except ImportError:
-    warnings.warn('matplotlib is not installed. Corresponding colormaps are not available.')
+    warnings.warn('matplotlib is not installed. Corresponding colormaps are not available.', ImportWarning)

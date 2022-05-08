@@ -14,6 +14,6 @@ radius = control(4, (2, 10))
 temperature = CenteredGrid(0, **DOMAIN)
 
 for _ in view(temperature, framerate=30, namespace=globals()).range():
-    temperature -= DT * CenteredGrid(Box[0:64, 44:46], **DOMAIN)
-    temperature += DT * CenteredGrid(Sphere([x, y], radius=radius), **DOMAIN)
+    temperature -= DT * CenteredGrid(Box(x=None, y=(44, 46)), **DOMAIN)
+    temperature += DT * CenteredGrid(Sphere(x=x, y=y, radius=radius), **DOMAIN)
     temperature = diffuse.explicit(temperature, 0.5, DT, substeps=4)

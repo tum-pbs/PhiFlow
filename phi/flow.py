@@ -18,14 +18,14 @@ from .math import extrapolation, backend
 from .physics import fluid, flip, advect, diffuse
 
 # Classes
-from .math import DType, Solve
-from .geom import Geometry, Sphere, Box
+from .math import Tensor, DType, Solve
+from .geom import Geometry, Sphere, Box, Cuboid
 from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
 from .vis import view, Viewer, control
 from .physics._boundaries import Obstacle
 
 # Constants
-from .math import PI
+from .math import PI, INF, NAN
 
 # Functions
 from .math import wrap, tensor, spatial, channel, batch, instance

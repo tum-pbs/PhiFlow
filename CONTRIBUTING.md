@@ -29,6 +29,7 @@ For commits, we use the following tags in the header:
 * `[build]` for changes to the installation
 * `[tests]` for adding or changing unit tests
 * `[demos]` for adding or changing demo scripts
+* `[Φ]` for general changes like version numbers or default imports
   
 If the commit modifies the main codebase (`phi/`), use one of the following tags:
 

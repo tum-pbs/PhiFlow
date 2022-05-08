@@ -6,7 +6,7 @@ Cold air streams in from a rectangular window at the top.
 from phi.flow import *
 
 
-DOMAIN = dict(x=64, y=64, bounds=Box[0:100, 0:100])
+DOMAIN = dict(x=64, y=64, bounds=Box(x=100, y=100))
 velocity = StaggeredGrid((0, 0), extrapolation.ZERO, **DOMAIN)  # or use CenteredGrid
 temperature = CenteredGrid(297.15, extrapolation.BOUNDARY, **DOMAIN)
 humidity = 1 * temperature
