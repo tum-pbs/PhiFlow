@@ -4,7 +4,7 @@ from typing import Callable, List, Tuple
 from phi import geom
 from phi import math
 from phi.math import Tensor, spatial, instance, tensor
-from phi.geom import Box, Geometry, Sphere
+from phi.geom import Box, Geometry, Sphere, Cuboid
 from phi.math import extrapolate_valid_values, channel, Shape, batch
 from ._field import Field, SampledField, unstack, SampledFieldType
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
@@ -592,17 +592,14 @@ def tensor_as_field(t: Tensor):
     Returns:
         `CenteredGrid` or `PointCloud`
     """
-    if spatial(t):
-        assert not instance(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
-        bounds = Box(-0.5, math.wrap(spatial(t), channel('vector')) - 0.5)
-        return CenteredGrid(t, 0, bounds=bounds)
     if instance(t):
-        assert not spatial(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
-        assert 'vector' in t.shape, f"Cannot interpret tensor as PointCloud because it has not vector dimension."
-        point_count = instance(t).volume
-        bounds = data_bounds(t)
-        radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
-        return PointCloud(Sphere(t, radius=radius))
+        return PointCloud(t)
+    elif spatial(t):
+        return CenteredGrid(t, 0, bounds=Box(-0.5, math.wrap(spatial(t), channel('vector')) - 0.5))
+    elif 'vector' in t.shape:
+        return PointCloud(math.expand(t, instance(points=1)), bounds=Cuboid(t, 1).corner_representation())
+    else:
+        raise ValueError(f"Cannot create field from tensor with shape {t.shape}. Requires at least one spatial, instance or vector dimension.")
 
 
 def pack_dims(field: SampledFieldType,

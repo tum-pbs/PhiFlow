@@ -33,6 +33,12 @@ class TestPlots(TestCase):
     def test_plot_scalar_tensor_2d(self):
         self._test_plot(CenteredGrid(Noise(), 0, x=64, y=8, bounds=Box(0, [1, 1])).values)
 
+    def test_plot_point_tensor(self):
+        self._test_plot(wrap((1, 1)))
+
+    def test_plot_collection_tensor(self):
+        self._test_plot(math.wrap([(0, 0), (1, 1)], instance('points'), channel(vector='x,y')))
+
     def test_plot_scalar_2d_batch(self):
         self._test_plot(CenteredGrid(Noise(batch(b=2)), 0, x=64, y=8, bounds=Box(0, [1, 1])))
         self._test_plot(CenteredGrid(Noise(batch(b=2)), 0, x=64, y=8, bounds=Box(0, [1, 1])), row_dims='b', size=(2, 4))
