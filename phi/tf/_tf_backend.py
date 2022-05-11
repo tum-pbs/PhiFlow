@@ -202,9 +202,7 @@ class TFBackend(Backend):
     def where(self, condition, x=None, y=None):
         with self._device_for(condition, x, y):
             x, y = self.auto_cast(x, y)
-            c = self.cast(condition, self.dtype(x))
-            return c * x + (1 - c) * y
-        # return tf.where(condition, x, y)  # TF1 has an inconsistent broadcasting rule for where
+            return tf.where(condition, x, y)
 
     def nonzero(self, values):
         with tf.device(values.device):
