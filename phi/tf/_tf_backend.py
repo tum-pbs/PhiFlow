@@ -202,6 +202,7 @@ class TFBackend(Backend):
     def where(self, condition, x=None, y=None):
         with self._device_for(condition, x, y):
             x, y = self.auto_cast(x, y)
+            condition = tf.cast(condition, tf.bool)
             return tf.where(condition, x, y)
 
     def nonzero(self, values):
