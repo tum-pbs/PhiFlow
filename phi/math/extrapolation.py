@@ -11,6 +11,7 @@ from typing import Union, Dict
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
 from ._shape import Shape, channel, spatial
+from ._magic_ops import concat, stack
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -76,7 +77,7 @@ class Extrapolation:
             values.append(value)
             if widths[dim][True] > 0:
                 values.append(self.pad_values(value, widths[dim][True], dim, True, **kwargs))
-            value = math.concat(values, value.shape[dim])
+            value = concat(values, value.shape[dim])
         return value
 
     def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
@@ -475,7 +476,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             edge = value[{dimension: slice(-1, None)}]
         else:
             edge = value[{dimension: slice(1)}]
-        return math.concat([edge] * width, value.shape[dimension])
+        return concat([edge] * width, value.shape[dimension])
 
     def _pad_linear_tracer(self, value: 'ShiftLinTracer', widths: dict) -> 'ShiftLinTracer':
         """
@@ -681,7 +682,7 @@ class Undefined(Extrapolation):
         self.derived_from = derived_from
 
     def to_dict(self) -> dict:
-        return {'type': 'undefined'}
+        return {'type': 'undefined', 'derived_from': self.derived_from.to_dict()}
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
         for (lo, up) in widths.items():
@@ -861,9 +862,9 @@ class _MixedExtrapolation(Extrapolation):
                 upper = dim_extrapolations[1].transform_coordinates(dim_coords, dim, **kwargs)
                 result.append(math.where(dim_coords <= 0, lower, upper))
         if 'vector' in result[0].shape:
-            return math.concat(result, channel('vector'))
+            return concat(result, channel('vector'))
         else:
-            return math.stack(result, channel('vector'))
+            return stack(result, channel('vector'))
 
     def __getitem__(self, item):
         if isinstance(item, dict):
@@ -1037,7 +1038,8 @@ def from_dict(dictionary: dict) -> Extrapolation:
     elif etype == 'none':
         return NONE
     elif etype == 'undefined':
-        return UNDEFINED
+        derived_from = from_dict(dictionary['derived_from'])
+        return Undefined(derived_from)
     else:
         raise ValueError(dictionary)
 

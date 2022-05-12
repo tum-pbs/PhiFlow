@@ -1720,5 +1720,5 @@ def iterate(f: Callable, iterations: int or Shape, x0, f_kwargs: dict = None):
         xs = [x0]
         for i in range(iterations.size):
             xs.append(f(xs[-1], **f_kwargs))
-        xs = math.stack(xs, iterations.with_size(None))
+        xs = stack(xs, iterations.with_size(None))
         return xs

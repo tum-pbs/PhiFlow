@@ -1310,9 +1310,6 @@ class TensorStack(Tensor):
             for t in self.tensors:
                 t._expand()
         self._cache()
-        if self._cached is not None:
-            from phi.math import all_available
-            assert all_available(self._cached), "Cannot cache a Tensor while it is being traced."
 
     def _simplify(self):
         if self._cached is not None:
