@@ -9,7 +9,7 @@ import numpy as np
 
 from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, to_float
-from ._magic_ops import stack
+from ._magic_ops import stack, unpack_dim
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
 from ._tensors import Tensor, NativeTensor, disassemble_tree, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
 from .magic import PhiTreeNode
@@ -489,12 +489,12 @@ class HessianFunction:
         result = ()
         if self.get_output:
             output_tensors = assemble_tensors(native_result[0], output_key.shapes)
-            output_tensors = [math.unpack_dims(t, 'batch', batch_shape) for t in output_tensors]
+            output_tensors = [unpack_dim(t, 'batch', batch_shape) for t in output_tensors]
             # output_tensors = [math.reshaped_tensor(n, [batch_shape, *shape.non_batch]) for n, shape in zip(native_result[0], output_key.shapes)]
             result += assemble_tree(output_key.tree, output_tensors),
         if self.get_gradient:
             grad_tensors = assemble_tensors(native_result[int(self.get_output)], [key.shapes[i] for i in wrt_tensors])
-            grad_tensors = [math.unpack_dims(t, 'batch', batch_shape) for t in grad_tensors]
+            grad_tensors = [unpack_dim(t, 'batch', batch_shape) for t in grad_tensors]
             grads = assemble_tree([key.tree[i] for i in wrt_tensors], grad_tensors)
             if len(grads) == 1:
                 grads = grads[0]

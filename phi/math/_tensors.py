@@ -399,7 +399,7 @@ class Tensor:
         from ._magic_ops import rename_dims
         return self._with_shape_replaced(rename_dims(self.shape, dims, new_dims))
 
-    def __unpack_dims__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Tensor':
+    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Tensor':
         native = self.native(self.shape.names)
         new_shape = self.shape.without(dim)
         i = self.shape.index(dim)
@@ -454,7 +454,7 @@ class Tensor:
         return pack_dims(self, dims, packed_dim)
 
     def unpack(self, dim, unpacked_dims):
-        """ See `unpack_dims()` """
+        """ See `unpack_dim()` """
         from ._ops import unpack_dim
         return unpack_dim(self, dim, unpacked_dims)
 
@@ -740,7 +740,7 @@ class TensorDim(BoundDim):
         return self.tensor.flip(self.name)
 
     def split(self, split_dimensions: Shape):
-        """ See `phi.math.unpack_dims()` """
+        """ See `phi.math.unpack_dim()` """
         warnings.warn("dim.split() is deprecated. Use math.split_dims() instead.")
         from ._magic_ops import unpack_dim
         return unpack_dim(self.tensor, self.name, split_dimensions)

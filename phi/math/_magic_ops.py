@@ -221,7 +221,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
     If `dims` have varying types, the new dimension will be a batch dimension.
 
     See Also:
-        `unpack_dims()`
+        `unpack_dim()`
 
     Args:
         value: Tensor containing the dimensions `dims`.

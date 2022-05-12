@@ -145,7 +145,7 @@ class Shapable(metaclass=_ShapableType):
     * `phi.math.expand`
     * `phi.math.rename_dims`
     * `phi.math.pack_dims`
-    * `phi.math.unpack_dims`
+    * `phi.math.unpack_dim`
     * `phi.math.flatten`
 
     Additionally, the `phi.math.BoundDim` syntax for dimension renaming and retyping is enabled, e.g. `obj.dim.as_channel('vector')`.
