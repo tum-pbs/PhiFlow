@@ -1,5 +1,5 @@
 from numbers import Number
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 from phi import geom
 from phi import math
@@ -368,7 +368,7 @@ def upsample2x(grid: GridType) -> GridType:
         raise ValueError(type(grid))
 
 
-def concat(fields: List[SampledFieldType], dim: Shape) -> SampledFieldType:
+def concat(fields: List[SampledFieldType] or Tuple[SampledFieldType, ...], dim: str or Shape) -> SampledFieldType:
     """
     Concatenates the given `SampledField`s along `dim`.
 

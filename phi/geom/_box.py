@@ -263,8 +263,8 @@ class Box(BaseBox, metaclass=BoxType):
     def __mul__(self, other):
         if not isinstance(other, Box):
             return NotImplemented
-        lower = self._lower.vector.unstack(self.spatial_rank) + other._lower.vector.unstack(self.spatial_rank)
-        upper = self._upper.vector.unstack(self.spatial_rank) + other._upper.vector.unstack(self.spatial_rank)
+        lower = self._lower.vector.unstack(self.spatial_rank) + other._lower.vector.unstack(other.spatial_rank)
+        upper = self._upper.vector.unstack(self.spatial_rank) + other._upper.vector.unstack(other.spatial_rank)
         names = self._upper.vector.item_names + other._upper.vector.item_names
         lower = math.stack(lower, math.channel(vector=names))
         upper = math.stack(upper, math.channel(vector=names))

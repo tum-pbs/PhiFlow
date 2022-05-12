@@ -39,7 +39,7 @@ def pack_dims(value: Geometry,
 
 
 def concat(geometries: tuple or list,
-           dim: Shape,
+           dim: str or Shape,
            sizes: tuple or list or None = None):
     """
     Concatenates multiple geometries of the same type.
@@ -52,6 +52,8 @@ def concat(geometries: tuple or list,
     Returns:
         New `phi.geom.Geometry` object
     """
+    if isinstance(dim, str):
+        dim = geometries[0].shape.only(dim)
     if all(isinstance(g, type(geometries[0])) for g in geometries):
         characteristics = [{a: getattr(g, a) for a in variable_attributes(g)} for g in geometries]
         new_attributes = {}

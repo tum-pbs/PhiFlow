@@ -1,7 +1,7 @@
 from typing import TypeVar, Callable
 
 from phi import math
-from phi.math import Shape, Tensor, channel
+from phi.math import Shape, Tensor, channel, spatial
 from phi.math.extrapolation import Extrapolation
 from phi.geom import Geometry, Box
 from phi.math.magic import BoundDim
@@ -187,6 +187,14 @@ class SampledField(Field):
 
     def __getitem__(self: 'FieldType', item: dict) -> 'FieldType':
         raise NotImplementedError(self)
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'FieldType':
+        from ._field_math import stack
+        return stack(values, dim, kwargs.get('bounds', None))
+
+    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'FieldType':
+        from ._field_math import concat
+        return concat(values, dim)
 
     @property
     def elements(self) -> Geometry:
