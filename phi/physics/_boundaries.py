@@ -81,6 +81,7 @@ class Domain:
           bounds: physical size of the domain. If not provided, the size is equal to the resolution (unit cubes).
         """
         warnings.warn("Domain is deprecated and will be removed in a future release. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", DeprecationWarning, stacklevel=2)
+        warnings.warn("Domain is deprecated and will be removed in a future release. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", FutureWarning, stacklevel=2)
         self.resolution: math.Shape = spatial(resolution) & spatial(**resolution_)
         assert self.resolution.rank > 0, "Cannot create Domain because no dimensions were specified."
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """
