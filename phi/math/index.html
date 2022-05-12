@@ -940,7 +940,7 @@ The result will have 2^d values for each vector in coordiantes in d dimensions.<
 </details>
 </dd>
 <dt id="phi.math.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>values: tuple, dim: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">concat</span></span>(<span>values: tuple, dim: str) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenates a sequence of tensors along one dimension.
@@ -959,7 +959,7 @@ The size along <code>dim</code> is determined from <code>values</code> and can b
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat(values: tuple or list, dim: Shape) -&gt; Tensor:
+<pre><code class="python">def concat(values: tuple or list, dim: str or Shape) -&gt; Tensor:
     &#34;&#34;&#34;
     Concatenates a sequence of tensors along one dimension.
     The shapes of all values must be equal, except for the size of the concat dimension.
@@ -973,7 +973,9 @@ The size along <code>dim</code> is determined from <code>values</code> and can b
         Concatenated `Tensor`
     &#34;&#34;&#34;
     assert len(values) &gt; 0, &#34;concat() got empty sequence&#34;
-    assert isinstance(dim, Shape) and dim.rank == 1, f&#34;dim must be a single-dimension Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
+    if isinstance(dim, Shape):
+        dim = dim.name
+    assert isinstance(dim, str), f&#34;dim must be a str or Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
     broadcast_shape = merge_shapes(*[t.shape._with_item_name(dim, None).with_sizes([None] * t.shape.rank) for t in values])
     natives = [v.native(order=broadcast_shape.names) for v in values]
     backend = choose_backend(*natives)
