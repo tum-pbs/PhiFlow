@@ -1030,6 +1030,31 @@ def _construct_shape(dim_type: str, *args, **dims):
     return math.Shape(sizes, names, (dim_type,) * len(sizes), item_names)
 
 
+def shape(obj) -> Shape:
+    """
+    If `obj` is a `Tensor` or `phi.math.magic.Shaped`, returns its shape.
+    If `obj` is a `Shape`, returns `obj`.
+
+    This function can be passed as a `dim` argument to an operation to specify that it should act upon all dimensions.
+
+    Args:
+        obj: `Tensor` or `Shape` or `Shaped`
+
+    Returns:
+        `Shape`
+    """
+    if hasattr(obj, '__shape__'):
+        return obj.__shape__()
+    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
+        return obj.shape
+    elif isinstance(obj, Shape):
+        return obj
+    elif isinstance(obj, (int, float, complex, bool)):
+        return EMPTY_SHAPE
+    else:
+        raise ValueError(f'shape() requires Shaped or Shape argument but got {obj}')
+
+
 def spatial(*args, **dims: int or str or tuple or list) -> Shape:
     """
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.

@@ -18,12 +18,12 @@ from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (
-    Shape, EMPTY_SHAPE, DimFilter,
+    shape, Shape, EMPTY_SHAPE, DimFilter,
     spatial, channel, batch, instance,
     non_batch, non_spatial, non_instance, non_channel,
     merge_shapes, concat_shapes, IncompatibleShapes
 )
-from ._magic_ops import shape, unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten
+from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict
 from .extrapolation import Extrapolation
 from ._ops import (

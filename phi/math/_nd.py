@@ -1,14 +1,14 @@
 # Because division is different in Python 2 and 3
 from __future__ import division
 
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Optional
 
 import numpy as np
 
 from . import _ops as math
 from . import extrapolation as extrapolation
 from ._config import GLOBAL_AXIS_ORDER
-from ._magic_ops import stack
+from ._magic_ops import stack, rename_dims
 from ._shape import Shape, channel, batch, spatial, DimFilter
 from ._tensors import Tensor, variable_values
 from .magic import PhiTreeNode
@@ -250,7 +250,7 @@ def shift(x: Tensor,
           offsets: tuple,
           dims: DimFilter = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
-          stack_dim: Shape or None = channel('shift')) -> list:
+          stack_dim: Optional[Shape] = channel('shift')) -> list:
     """
     shift Tensor by a fixed offset and abiding by extrapolation
 
@@ -395,7 +395,7 @@ def laplace(x: Tensor,
     if isinstance(dx, (tuple, list)):
         dx = wrap(dx, batch('_laplace'))
     elif isinstance(dx, Tensor) and dx.vector.exists:
-        dx = math.rename_dims(dx, 'vector', batch('_laplace'))
+        dx = rename_dims(dx, 'vector', batch('_laplace'))
     if isinstance(x, Extrapolation):
         return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch('_laplace'))
@@ -504,11 +504,11 @@ def upsample2x(grid: Tensor,
       double-size grid
 
     """
-    for i, dim in enumerate(grid.shape.only(dims)):
+    for dim in grid.shape.only(dims):
         left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
-        stacked = math.stack_tensors([interp_left, interp_right], spatial('_interleave'))
+        stacked = math.stack_tensors([interp_left, interp_right], channel(_interleave='left,right'))
         grid = math.pack_dims(stacked, (dim.name, '_interleave'), dim)
     return grid
 

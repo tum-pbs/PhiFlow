@@ -455,8 +455,8 @@ class Tensor:
 
     def unpack(self, dim, unpacked_dims):
         """ See `unpack_dims()` """
-        from ._ops import unpack_dims
-        return unpack_dims(self, dim, unpacked_dims)
+        from ._ops import unpack_dim
+        return unpack_dim(self, dim, unpacked_dims)
 
     def __getattr__(self, name):
         if name.startswith('_'):
@@ -742,8 +742,8 @@ class TensorDim(BoundDim):
     def split(self, split_dimensions: Shape):
         """ See `phi.math.unpack_dims()` """
         warnings.warn("dim.split() is deprecated. Use math.split_dims() instead.")
-        from ._ops import unpack_dims
-        return unpack_dims(self.tensor, self.name, split_dimensions)
+        from ._magic_ops import unpack_dim
+        return unpack_dim(self.tensor, self.name, split_dimensions)
 
     def __mul__(self, other):
         from ._ops import dot

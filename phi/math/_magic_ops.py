@@ -1,33 +1,8 @@
-from ._shape import Shape, DimFilter, batch, instance, EMPTY_SHAPE
+from ._shape import Shape, DimFilter, batch, instance, shape
 from .magic import Sliceable, Shaped, Shapable
 
 
 class MagicNotImplemented(Exception): pass
-
-
-def shape(obj) -> Shape:
-    """
-    If `obj` is a `Tensor` or `phi.math.magic.Shaped`, returns its shape.
-    If `obj` is a `Shape`, returns `obj`.
-
-    This function can be passed as a `dim` argument to an operation to specify that it should act upon all dimensions.
-
-    Args:
-        obj: `Tensor` or `Shape` or `Shaped`
-
-    Returns:
-        `Shape`
-    """
-    if hasattr(obj, '__shape__'):
-        return obj.__shape__()
-    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
-        return obj.shape
-    elif isinstance(obj, Shape):
-        return obj
-    elif isinstance(obj, (int, float, complex, bool)):
-        return EMPTY_SHAPE
-    else:
-        raise ValueError(f'shape() requires Shaped or Shape argument but got {obj}')
 
 
 def unstack(value, dim: DimFilter):
