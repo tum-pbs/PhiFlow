@@ -8,7 +8,7 @@ import numpy as np
 from . import _ops as math
 from . import extrapolation as extrapolation
 from ._config import GLOBAL_AXIS_ORDER
-from ._ops import stack
+from ._magic_ops import stack
 from ._shape import Shape, channel, batch, spatial, DimFilter
 from ._tensors import Tensor, variable_values
 from .magic import PhiTreeNode
@@ -65,9 +65,9 @@ def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
         else:
             v2_x, v2_y = vec2.vector.unstack()
             if GLOBAL_AXIS_ORDER.is_x_first:
-                return vec1 * math.stack([-v2_y, v2_x], channel('vector'))
+                return vec1 * math.stack_tensors([-v2_y, v2_x], channel('vector'))
             else:
-                return vec1 * math.stack([v2_y, -v2_x], channel('vector'))
+                return vec1 * math.stack_tensors([v2_y, -v2_x], channel('vector'))
     elif spatial_rank == 3:  # Curl in 3D
         raise NotImplementedError(f'spatial_rank={spatial_rank} not yet implemented')
     else:
@@ -94,7 +94,7 @@ def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
             x, y = y, x
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
-        return math.stack([rot_x, rot_y], channel('vector'))
+        return math.stack_tensors([rot_x, rot_y], channel('vector'))
     elif vector.vector.size == 1:
         raise AssertionError(f"Cannot rotate a 1D vector. shape={vector.shape}")
     else:
@@ -508,7 +508,7 @@ def upsample2x(grid: Tensor,
         left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
-        stacked = math.stack([interp_left, interp_right], spatial('_interleave'))
+        stacked = math.stack_tensors([interp_left, interp_right], spatial('_interleave'))
         grid = math.pack_dims(stacked, (dim.name, '_interleave'), dim)
     return grid
 

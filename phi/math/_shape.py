@@ -749,6 +749,22 @@ class Shape:
         new_sizes[self.index(dim)] = size
         return self.with_sizes(new_sizes)
 
+    def with_dim_size(self, dim: str or 'Shape', size):
+        """
+        Returns a new `Shape` that has a different size for `dim`.
+
+        Args:
+            dim: Dimension for which to replace the size, `Shape` or `str`.
+            size: New size, `int` or `Tensor`
+
+        Returns:
+            `Shape` with same names and types as `self`.
+        """
+        if isinstance(dim, Shape):
+            dim = dim.name
+        assert isinstance(dim, str)
+        return self._replace_single_size(dim, size)
+
     def _with_names(self, names: str or tuple or list):
         if isinstance(names, str):
             names = parse_dim_names(names, self.rank)
@@ -1012,29 +1028,6 @@ def _construct_shape(dim_type: str, *args, **dims):
         sizes += (size,)
         item_names += (items,)
     return math.Shape(sizes, names, (dim_type,) * len(sizes), item_names)
-
-
-def shape(obj) -> Shape:
-    """
-    If `obj` is a `Tensor` or `phi.math.magic.Shaped`, returns its shape.
-    If `obj` is a `Shape`, returns `obj`.
-    
-    This function can be passed as a `dim` argument to an operation to specify that it should act upon all dimensions.
-
-    Args:
-        obj: `Tensor` or `Shape` or `Shaped`
-
-    Returns:
-        `Shape`
-    """
-    if hasattr(obj, '__shape__'):
-        return obj.__shape__()
-    if hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
-        return obj.shape
-    elif isinstance(obj, Shape):
-        return obj
-    else:
-        raise ValueError(f'shape() requires Shaped or Shape argument but got {obj}')
 
 
 def spatial(*args, **dims: int or str or tuple or list) -> Shape:
@@ -1412,7 +1405,7 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
         if all([math.close(s, dim_sizes[0]) for s in dim_sizes[1:]]):
             dim_sizes = dim_sizes[0]
         else:
-            from ._ops import stack
+            from ._magic_ops import stack
             from ._tensors import wrap
             dim_sizes = [wrap(d) for d in dim_sizes]
             dim_sizes = stack(dim_sizes, stack_dim)

@@ -317,11 +317,11 @@ class Tensor:
                         if isinstance(s, str):
                             assert s in item_names, f"Accessing tensor.{dim}['{s}'] failed. Item names are {item_names}."
                             selection_int[i] = item_names.index(s)
-                from ._ops import stack
+                from ._magic_ops import stack
                 result = [sliced[{dim: i}] for i in selection_int]
                 item_names = [str(n) for n in selection]
                 stack_dim = self.shape[dim] if dim in self.shape else channel(dim)
-                sliced = stack({n: r for n, r in zip(item_names, result)}, stack_dim)
+                sliced = stack({n: r for n, r in zip(item_names, result)}, stack_dim.with_size(None))
             elif isinstance(selection, Tensor) and selection.dtype.kind == bool:
                 from ._ops import boolean_mask
                 sliced = boolean_mask(sliced, dim, selection)
@@ -358,15 +358,11 @@ class Tensor:
         """
         raise NotImplementedError()
 
-    # def __setitem__(self, key, value):
-    #     """
-    #     All tensors are editable.
-    #
-    #     :param key: list/tuple of slices / indices
-    #     :param value:
-    #     :return:
-    #     """
-    #     raise NotImplementedError()
+    def __unstack__(self, dims: Tuple[str, ...]) -> Tuple['Tensor', ...]:  # from phi.math.magic.Sliceable
+        if len(dims) == 1:
+            return self.unstack(dims[0])
+        else:
+            return NotImplemented
 
     def unstack(self, dimension: str):
         """
@@ -386,6 +382,51 @@ class Tensor:
 
         """
         raise NotImplementedError()
+
+    def __stack__(self, values: tuple, dim: Shape, **_kwargs) -> 'Tensor':
+        from ._ops import stack_tensors
+        return stack_tensors(values, dim)
+
+    def __expand__(self, dims: Shape, **kwargs) -> 'Tensor':
+        from ._ops import expand_tensor
+        return expand_tensor(self, dims)
+
+    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Tensor':
+        from ._ops import concat_tensor
+        return concat_tensor(values, dim)
+
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Tensor':
+        from ._magic_ops import rename_dims
+        return self._with_shape_replaced(rename_dims(self.shape, dims, new_dims))
+
+    def __unpack_dims__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Tensor':
+        native = self.native(self.shape.names)
+        new_shape = self.shape.without(dim)
+        i = self.shape.index(dim)
+        for d in unpacked_dims:
+            new_shape = new_shape._expand(d, pos=i)
+            i += 1
+        native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
+        return NativeTensor(native_reshaped, new_shape)
+
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Tensor':
+        order = self.shape._order_group(dims)
+        if self.shape.is_uniform:
+            native = self.native(order)
+            if pos is None:
+                pos = min(self.shape.indices(dims))
+            new_shape = self.shape.without(dims)._expand(packed_dim.with_sizes([self.shape.only(dims).volume]), pos)
+            native = choose_backend(native).reshape(native, new_shape.sizes)
+            return NativeTensor(native, new_shape)
+        else:
+            from ._ops import concat_tensor
+            from ._magic_ops import pack_dims
+            value = cached(self)
+            assert isinstance(value, TensorStack)
+            assert value.stack_dim.name in dims
+            concat_dim = value.shape.without(value.stack_dim)[0]
+            c = concat_tensor(value.tensors, concat_dim)
+            return pack_dims(c, [d for d in dims if d != value.stack_dim.name], packed_dim, pos=pos)
 
     def dimension(self, name: str or Shape) -> 'TensorDim':
         """
@@ -788,6 +829,9 @@ class Layout(Tensor):
 
     def _as_list(self):
         return self._as_list_recursive(self._obj, self._shape.rank, [])
+
+    def __flatten__(self, flat_dim: Shape):
+        return layout(self._as_list(), flat_dim)
 
     @staticmethod
     def _as_list_recursive(native, dims: int, result: list):
@@ -1590,7 +1634,6 @@ def _assemble_pop(natives: list, shape: Shape):
             raise NotImplementedError('More than one non-uniform dimension not supported.')
         shapes = shape.unstack(s2.name)
         tensors = [NativeTensor(natives.pop(0), s) for s in shapes]
-        from phi.math._ops import stack
         return TensorStack(tensors, s2)
 
 

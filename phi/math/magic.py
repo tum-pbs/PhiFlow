@@ -21,8 +21,14 @@ from ._shape import Shape
 
 class _ShapedType(type):
     def __instancecheck__(self, instance):
+        if hasattr(instance, '__shape__'):
+            return True
+        if isinstance(instance, (int, float, complex, bool)):
+            return True
         from ._shape import Shape
-        return hasattr(instance, '__shape__') or (hasattr(instance, 'shape') and isinstance(instance.shape, Shape))
+        if hasattr(instance, 'shape') and isinstance(instance.shape, Shape):
+            return True
+        return False
 
 
 class Shaped(metaclass=_ShapedType):
@@ -65,14 +71,16 @@ class Shaped(metaclass=_ShapedType):
 
 class _SliceableType(type):
     def __instancecheck__(self, instance):
-        return hasattr(instance, '__getitem__')
+        return isinstance(instance, Shaped) and hasattr(instance, '__getitem__')
 
 
 class Sliceable(metaclass=_SliceableType):
     """
-    Objects are considered sliceable if they implement `__getitem__` as defined below.
+    Objects are considered sliceable if they are `Shaped` and implement `__getitem__` as defined below.
 
     To enable the slicing syntax `obj.dim[slice]`, implement the `__getattr__` method as defined below.
+
+    Classes implementing `Sliceable` should override `__getattr__` to enable the special slicing syntax defined in `BoundDim`.
 
     **Usage in `phi.math`:**
 
@@ -92,6 +100,21 @@ class Sliceable(metaclass=_SliceableType):
 
         Returns:
             Instance of the same class (or a compatible class) as `self`.
+        """
+        raise NotImplementedError
+
+    def __unstack__(self, dims: Tuple[str, ...]) -> Tuple['Sliceable', ...]:
+        """
+        Un-stack this object along one or multiple dimensions.
+        Un-stacking along multiple dimensions is equal to first packing the dimensions and then unstacking along the packed dimension.
+
+        Implementing this magic method is optional but the default implementation may be slow.
+
+        Args:
+            dims: Ordered `tuple` of dimension names along which to unstack this object.
+
+        Returns:
+            `tuple` of slices along `dims` or `NotImplemented` to revert to default behavior for this object.
         """
         raise NotImplementedError
 
@@ -119,10 +142,11 @@ class Shapable(metaclass=_ShapableType):
 
     * `phi.math.stack`
     * `phi.math.concat`
+    * `phi.math.expand`
     * `phi.math.rename_dims`
     * `phi.math.pack_dims`
     * `phi.math.unpack_dims`
-    * `phi.math.expand`
+    * `phi.math.flatten`
 
     Additionally, the `phi.math.BoundDim` syntax for dimension renaming and retyping is enabled, e.g. `obj.dim.as_channel('vector')`.
     """
@@ -137,6 +161,7 @@ class Shapable(metaclass=_ShapableType):
                 The dimension fulfills the condition `dim.size == len(values)`.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+                Adding batch dimensions must always work without keyword arguments.
 
         Returns:
             New instance of `Shapable` representing the stacked slices.
@@ -154,10 +179,11 @@ class Shapable(metaclass=_ShapableType):
             dim: Dimension nams as `str`, must be present in all `values`.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+                Adding batch dimensions must always work without keyword arguments.
 
         Returns:
-            New instance of `Shapable` representing the concatenated values.
-            The size of `dim` must be equal to the sum of all `dim` sizes in `values`.
+            New instance of `Shapable` representing the concatenated values or `NotImplemented` to revert to default behavior for this object.
+            When returning a valid object, the size of `dim` must be equal to the sum of all `dim` sizes in `values`.
             If such a representation cannot be created because some values in `values` are not supported, returns `NotImplemented`.
         """
         raise NotImplementedError
@@ -172,9 +198,10 @@ class Shapable(metaclass=_ShapableType):
                 They are guaranteed to not already be present in `shape(self)`.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+                Adding batch dimensions must always work without keyword arguments.
 
         Returns:
-            New instance of `Shapable`.
+            New instance of `Shapable` or `NotImplemented` to revert to default behavior for this object.
         """
         raise NotImplementedError
 
@@ -188,13 +215,14 @@ class Shapable(metaclass=_ShapableType):
             new_dims: Replacement dimensions as `Shape` with `rank == len(dims)`.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+                Adding batch dimensions must always work without keyword arguments.
 
         Returns:
-            New instance of `Shapable`.
+            New instance of `Shapable` or `NotImplemented` to revert to default behavior for this object.
         """
         raise NotImplementedError
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None = None, **kwargs) -> 'Shapable':
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Shapable':
         """
         Compresses multiple dimensions into a single dimension by concatenating the elements.
         Elements along the new dimensions are laid out according to the order of `dims`.
@@ -208,13 +236,14 @@ class Shapable(metaclass=_ShapableType):
             pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+                Adding batch dimensions must always work without keyword arguments.
 
         Returns:
-            New instance of `Shapable`.
+            New instance of `Shapable` or `NotImplemented` to revert to default behavior for this object.
         """
         raise NotImplementedError
 
-    def __unpack_dims__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Shapable':
+    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Shapable':
         """
         Decompresses a tensor dimension by unstacking the elements along it.
         The compressed dimension `dim` is assumed to contain elements laid out according to the order of `unpacked_dims`.
@@ -224,9 +253,26 @@ class Shapable(metaclass=_ShapableType):
             unpacked_dims: `Shape`: Ordered dimensions to replace `dim`, fulfilling `unpacked_dims.volume == shape(self)[dim].rank`.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+                Adding batch dimensions must always work without keyword arguments.
 
         Returns:
-            New instance of `Shapable`.
+            New instance of `Shapable` or `NotImplemented` to revert to default behavior for this object.
+        """
+        raise NotImplementedError
+
+    def __flatten__(self, flat_dim: Shape, **kwargs):
+        """
+        Lays out all elements along a single dimension.
+        This is equivalent to packing all dimensions.
+
+        Args:
+            flat_dim: Single dimension as `Shape`.
+            **kwargs: Additional keyword arguments required by specific implementations.
+                Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+                Adding batch dimensions must always work without keyword arguments.
+
+        Returns:
+            New instance of `Shapable` or `NotImplemented` to revert to default behavior for this object.
         """
         raise NotImplementedError
 
@@ -331,7 +377,7 @@ class BoundDim:
     Any instance of `BoundDim` is bound to the sliceable object and is immutable.
     All operations upon the dim affect return a copy of the sliceable object.
 
-    `BoundDim` objects are generally created by and for objects that are both `Sliceable` and `Shaped`.
+    `BoundDim` objects are generally created by and for objects that are `Sliceable` (and therefore also `Shaped`).
     These objects should declare the following method to support the `.dim` syntax:
 
     ```python
@@ -359,7 +405,7 @@ class BoundDim:
     def __init__(self, obj, name: str):
         """
         Args:
-            obj: Bound object, must be `Sliceable` and `Shaped`.
+            obj: `Sliceable` bound object.
             name: Dimension name as `str`.
         """
         if name.startswith('_') or ',' in name or ' ' in name:
@@ -418,7 +464,6 @@ class BoundDim:
         from ._shape import INSTANCE_DIM
         return self._dim_type == INSTANCE_DIM
 
-
     @property
     def is_channel(self):
         """ Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. """
@@ -451,7 +496,7 @@ class BoundDim:
         Returns:
             `tuple` of `Sliceable`
         """
-        from ._ops import unstack
+        from ._magic_ops import unstack
         if size is None:
             return unstack(self.obj, self.name)
         else:

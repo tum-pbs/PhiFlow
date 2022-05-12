@@ -947,7 +947,7 @@ class _NormalTangentialExtrapolation(Extrapolation):
         for dim, component in zip(value.vector.item_names, value.vector):
             ext = self.normal if dim == dimension else self.tangential
             result.append(ext.pad_values(component, width, dimension, upper_edge, **kwargs))
-        from ._ops import stack
+        from ._magic_ops import stack
         result = stack(result, value.shape.only('vector'))
         return result
 

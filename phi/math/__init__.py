@@ -18,11 +18,12 @@ from .backend import NUMPY, precision, set_global_precision, get_precision
 
 from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (
-    Shape, EMPTY_SHAPE, DimFilter, shape,
+    Shape, EMPTY_SHAPE, DimFilter,
     spatial, channel, batch, instance,
     non_batch, non_spatial, non_instance, non_channel,
     merge_shapes, concat_shapes, IncompatibleShapes
 )
+from ._magic_ops import shape, unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict
 from .extrapolation import Extrapolation
 from ._ops import (
@@ -32,9 +33,8 @@ from ._ops import (
     map_ as map,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
-    stack, unstack, concat,
     pad,
-    pack_dims, unpack_dims, rename_dims, flatten, expand, transpose,  # reshape operations
+    transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
     sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all, quantile, median,  # reduce

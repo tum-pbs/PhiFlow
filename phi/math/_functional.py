@@ -8,7 +8,8 @@ from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any
 import numpy as np
 
 from . import _ops as math
-from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, stack, to_float
+from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, to_float
+from ._magic_ops import stack
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
 from ._tensors import Tensor, NativeTensor, disassemble_tree, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
 from .magic import PhiTreeNode
