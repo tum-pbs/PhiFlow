@@ -337,12 +337,12 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
                 non_reduced &= d_non_reduced
         else:
             dim0 = data.shape[0]
+            if dim0.only(animate):
+                data = math.stack(data.native(), batch('_animate'))
+                return layout_sub_figures(data, row_dims, col_dims, animate, offset_row, offset_col, positioning)
             elements = data.unstack(dim0.name)
             for e in elements:
-                if dim0.only(animate):
-                    # assert data.shape.rank == 1,
-                    raise NotImplementedError("To animate plots, stack data along time axis first.")
-                elif dim0.only(row_dims):
+                if dim0.only(row_dims):
                     e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row + rows, offset_col, positioning)
                     rows += e_rows
                     cols = max(cols, e_cols)
