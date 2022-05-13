@@ -442,7 +442,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
             y_padded = math.pad(values.vector[&#39;y&#39;], {&#39;x&#39;: (1, 1)}, field.extrapolation)
             vx_dy = math.spatial_gradient(x_padded, field.dx, &#39;forward&#39;, None, dims=&#39;y&#39;, stack_dim=None)
             vy_dx = math.spatial_gradient(y_padded, field.dx, &#39;forward&#39;, None, dims=&#39;x&#39;, stack_dim=None)
-            result = vx_dy - vy_dx
+            result = vy_dx - vx_dy
             return CenteredGrid(result, field.extrapolation.spatial_gradient(), bounds=field.bounds)
     raise NotImplementedError()</code></pre>
 </details>
