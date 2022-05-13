@@ -5,8 +5,7 @@ import numpy as np
 
 from phi import math
 from ._geom import Geometry
-from ._transform import rotate
-from ..math import wrap, INF
+from ..math import wrap, INF, Shape
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
 
@@ -115,12 +114,8 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
-        if self.size.vector.item_names is None:
-            assert len(dimensions) == self.spatial_rank, "Cannot project a Box if item names not available"
-            return self
-        lower = self.lower.vector[dimensions]
-        upper = self.upper.vector[dimensions]
-        return Box(lower, upper)
+        warnings.warn("Box.project(dims) is deprecated. Use Box.vector[dims] instead", DeprecationWarning, stacklevel=2)
+        return self.vector[dimensions]
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
@@ -137,29 +132,14 @@ class BaseBox(Geometry):  # not a Subwoofer
         return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
     def rotated(self, angle) -> Geometry:
+        from ._transform import rotate
         return rotate(self, angle)
 
     def scaled(self, factor: float or Tensor) -> 'Geometry':
         return Cuboid(self.center, self.half_size * factor)
 
 
-class BoxType(type):
-    """ Deprecated. Does not support item names. """
-
-    def __getitem__(self, item):
-        if not isinstance(item, (tuple, list)):
-            item = [item]
-        lower = []
-        upper = []
-        for dim in item:
-            assert isinstance(dim, slice)
-            assert dim.step is None or dim.step == 1, "Box: step must be 1 but is %s" % dim.step
-            lower.append(dim.start if dim.start is not None else -np.inf)
-            upper.append(dim.stop if dim.stop is not None else np.inf)
-        return Box(lower, upper)
-
-
-class Box(BaseBox, metaclass=BoxType):
+class Box(BaseBox):
     """
     Simple cuboid defined by location of lower and upper corner in physical space.
 
@@ -173,20 +153,23 @@ class Box(BaseBox, metaclass=BoxType):
     ```
     """
 
-    def __init__(self,
-                 lower: Tensor or float or int = None,
-                 upper: Tensor or float or int = None,
-                 **size: int or Tensor):
+    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: int or Tensor):
         """
         Args:
           lower: physical location of lower corner
           upper: physical location of upper corner
-          **size: Upper l
+          **size: Specify size by dimension, either as `int` or `tuple` containing (lower, upper).
         """
         if lower is not None:
-            self._lower = wrap(lower)
+            assert isinstance(lower, Tensor)
+            assert 'vector' in lower.shape, "lower must have a vector dimension"
+            assert lower.vector.item_names is not None, "vector dimension of lower must list spatial dimension order"
+            self._lower = lower
         if upper is not None:
-            self._upper = wrap(upper)
+            assert isinstance(upper, Tensor)
+            assert 'vector' in upper.shape, "lower must have a vector dimension"
+            assert upper.vector.item_names is not None, "vector dimension of lower must list spatial dimension order"
+            self._upper = upper
         else:
             lower = []
             upper = []
@@ -212,11 +195,19 @@ class Box(BaseBox, metaclass=BoxType):
         if self.size.vector.item_names is None:
             warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
-    def unstack(self, dimension):
-        size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
-        lowers = self._lower.dimension(dimension).unstack(size)
-        uppers = self._upper.dimension(dimension).unstack(size)
-        return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))
+    def __getitem__(self, item: dict):
+        item = dict(item)
+        if 'vector' in item:
+            if isinstance(item['vector'], int) or (isinstance(item['vector'], str) and ',' not in item['vector']):
+                item['vector'] = (item['vector'],)
+        return Box(self._lower[item], self._upper[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(isinstance(v, Box) for v in values):
+            return Box(math.stack([v.lower for v in values], dim, **kwargs), math.stack([v.upper for v in values], dim, **kwargs))
+        else:
+            from ._stack import GeometryStack
+            return GeometryStack(math.layout(values, dim))
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
@@ -224,6 +215,13 @@ class Box(BaseBox, metaclass=BoxType):
                and self.size.shape.get_size('vector') == other.size.shape.get_size('vector')\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
+
+    def without(self, dims: Tuple[str, ...]):
+        remaining = list(self.shape.get_item_names('vector'))
+        for dim in dims:
+            if dim in remaining:
+                remaining.remove(dim)
+        return self.vector[remaining]
 
     def __hash__(self):
         return hash(self._upper)
@@ -235,7 +233,7 @@ class Box(BaseBox, metaclass=BoxType):
     def shape(self):
         if self._lower is None or self._upper is None:
             return None
-        return (self._lower.shape & self._upper.shape).non_channel
+        return self._lower.shape & self._upper.shape
 
     @property
     def lower(self):
@@ -320,7 +318,7 @@ class Cuboid(BaseBox):
     def shape(self):
         if self._center is None or self._half_size is None:
             return None
-        return (self._center.shape & self._half_size.shape).without('vector')
+        return self._center.shape & self._half_size.shape
 
     @property
     def size(self):
@@ -451,10 +449,7 @@ class GridCell(BaseBox):
             return Cuboid(center, self.half_size)
 
     def rotated(self, angle) -> Geometry:
-        raise NotImplementedError()
-
-    def unstack(self, dimension):
-        raise NotImplementedError()
+        raise NotImplementedError("Grids cannot be rotated. Use center_representation() to convert it to Cuboids first.")
 
     def __eq__(self, other):
         return isinstance(other, GridCell) and self._bounds == other._bounds and self._resolution == other._resolution

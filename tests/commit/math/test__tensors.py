@@ -413,3 +413,9 @@ class TestTensors(TestCase):
         a = math.meshgrid(x=4, y=3)
         math.assert_close(a.y[0], a.y * (1, 0, 0))
         math.assert_close(a.y[1], a.y * (0, 1, 0))
+
+    def test_zero_dim(self):
+        nothing = math.random_uniform(spatial(x=5)).x[:0]
+        self.assertEqual(spatial(x=0), nothing.shape)
+        nothing = math.zeros(spatial(x=5)).x[:0]
+        self.assertEqual(spatial(x=0), nothing.shape)

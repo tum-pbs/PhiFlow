@@ -6,6 +6,7 @@ import numpy as np
 from phi import math
 from phi.math import Tensor, Shape, spatial, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
 from phi.math._tensors import variable_attributes, copy_with
+from phi.math.magic import BoundDim
 
 
 class Geometry:
@@ -32,7 +33,12 @@ class Geometry:
     @property
     def shape(self) -> Shape:
         """
-        Specifies the number of copies of the geometry as batch and spatial dimensions.
+        The `shape` of a `Geometry` consists of the following dimensions:
+
+        * A single *channel* dimension called `'vector'` specifying the physical space
+        * Instance dimensions denote that this geometry consists of multiple copies in the same space
+        * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
+        * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
         """
         raise NotImplementedError()
 
@@ -68,8 +74,7 @@ class Geometry:
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         """
-        attrs = {a: getattr(self, a) for a in variable_attributes(self)}
-        return tuple([copy_with(self, **{a: v[{dimension: i}] for a, v in attrs.items() if dimension in v.shape}) for i in range(self.shape.get_size(dimension))])
+        return math.unstack(self, dimension)
 
     @property
     def spatial_rank(self) -> int:
@@ -320,10 +325,15 @@ class Geometry:
         return f"{self.__class__.__name__}{self.shape}"
 
     def __getitem__(self, item: dict):
-        assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
-        item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
-        attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
-        return copy_with(self, **attrs)
+        raise NotImplementedError
+        # assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
+        # item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
+        # attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
+        # return copy_with(self, **attrs)
+
+    def __getattr__(self, name: str) -> BoundDim:
+        return BoundDim(self, name)
+
 
 
 class _InvertedGeometry(Geometry):
@@ -371,6 +381,19 @@ class _InvertedGeometry(Geometry):
 
     def __hash__(self):
         return -hash(self.geometry)
+
+
+def invert(geometry: Geometry):
+    """
+    Swaps inside and outside.
+
+    Args:
+        geometry: `phi.geom.Geometry` to swap
+
+    Returns:
+        New `phi.geom.Geometry` object with same surface but swapped normals
+    """
+    return ~geometry
 
 
 class _NoGeometry(Geometry):
@@ -424,6 +447,7 @@ class Point(Geometry):
     """
 
     def __init__(self, location: math.Tensor):
+        assert 'vector' in location.shape, "location must have a vector dimension"
         self._location = location
 
     @property
@@ -432,7 +456,7 @@ class Point(Geometry):
 
     @property
     def shape(self) -> Shape:
-        return self._location.shape.without('vector')
+        return self._location.shape
 
     def unstack(self, dimension: str) -> tuple:
         return tuple(Point(loc) for loc in self._location.unstack(dimension))

@@ -2,6 +2,7 @@ from numbers import Number
 
 from phi import math
 from phi.math import Tensor, Shape
+from . import BaseBox, Box
 from ._geom import Geometry
 from ._sphere import Sphere
 from ..math._shape import parse_dim_order
@@ -171,10 +172,12 @@ class _EmbeddedGeometry(Geometry):
         return hash(self.geometry) + hash(self.projected_dims)
 
 
-def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list) -> Geometry:
+def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list or None) -> Geometry:
     """
     Adds fake spatial dimensions to a geometry.
     The geometry value will be constant along the added dimensions, as if it had infinite length in these directions.
+
+    Dimensions that are already present with `geometry` are ignored.
 
     Args:
         geometry: `Geometry`
@@ -187,6 +190,12 @@ def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list
         return geometry
     if not isinstance(projected_dims, Shape):
         projected_dims = math.spatial(*parse_dim_order(projected_dims))
+    projected_dims = projected_dims.without(geometry.shape.get_item_names('vector'))  # avoid dim duplication
+    if not projected_dims:
+        return geometry
+    if isinstance(geometry, BaseBox):
+        box = geometry.corner_representation()
+        return box * Box(**{dim: None for dim in projected_dims.names})
     return _EmbeddedGeometry(geometry, projected_dims) if projected_dims.rank > 0 else geometry
 
 

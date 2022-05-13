@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from phi import math
 from . import GridCell
@@ -67,11 +67,11 @@ class GeometryStack(Geometry):
     def shifted(self, delta: math.Tensor):
         deltas = delta.dimension(self.geometries.shape).unstack(len(self.geometries))
         geometries = [g.shifted(d) for g, d in zip(self.geometries, deltas)]
-        return stack(geometries, self.geometries.shape)
+        return GeometryStack(math.layout(geometries, self.geometries.shape))
 
     def rotated(self, angle):
         geometries = [g.rotated(angle) for g in self.geometries]
-        return stack(geometries, self.geometries.shape)
+        return GeometryStack(math.layout(geometries, self.geometries.shape))
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         raise NotImplementedError('GeometryStack.push() is not yet implemented.')
@@ -100,12 +100,3 @@ class GeometryStack(Geometry):
             return GeometryStack(selected)
         else:
             return next(iter(selected))
-
-
-def stack(geometries: List[Geometry], dim: Shape):
-    """ Stacks `geometries` along `dim`. The size of `dim` is ignored. """
-    if all(type(g) == type(geometries[0]) and not isinstance(g, GridCell) for g in geometries):
-        attrs = variable_attributes(geometries[0])
-        new_attributes = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
-        return copy_with(geometries[0], **new_attributes)
-    return GeometryStack(math.layout(geometries, dim))

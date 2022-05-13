@@ -2,7 +2,6 @@ import warnings
 
 from phi import math
 from ._geom import Geometry, NO_GEOMETRY
-from ._transform import rotate
 from ._box import bounding_box, Box
 from ..math._shape import merge_shapes
 from ..math._tensors import variable_attributes, copy_with
@@ -65,6 +64,7 @@ class Union(Geometry):
         return Union([geometry.shifted(delta) for geometry in self.geometries])
 
     def rotated(self, angle) -> Geometry:
+        from ._transform import rotate
         return rotate(self, angle)
 
 
