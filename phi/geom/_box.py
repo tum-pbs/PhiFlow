@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 import numpy as np
 
 from phi import math
-from ._geom import Geometry
+from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
@@ -139,7 +139,27 @@ class BaseBox(Geometry):  # not a Subwoofer
         return Cuboid(self.center, self.half_size * factor)
 
 
-class Box(BaseBox):
+class BoxType(type):
+    """ Deprecated. Does not support item names. """
+
+    def __getitem__(self, item):
+        if not isinstance(item, (tuple, list)):
+            item = [item]
+        assert len(item) <= 3, f"Box[...] can only be used for x, y, z but got {len(item)} elements"
+        lower = []
+        upper = []
+        for dim in item:
+            assert isinstance(dim, slice)
+            assert dim.step is None or dim.step == 1, "Box: step must be 1 but is %s" % dim.step
+            lower.append(dim.start if dim.start is not None else -np.inf)
+            upper.append(dim.stop if dim.stop is not None else np.inf)
+        vec = math.channel(vector=tuple('xyz'[:len(item)]))
+        lower = math.stack(lower, vec)
+        upper = math.stack(upper, vec)
+        return Box(lower, upper)
+
+
+class Box(BaseBox, metaclass=BoxType):
     """
     Simple cuboid defined by location of lower and upper corner in physical space.
 
@@ -196,18 +216,14 @@ class Box(BaseBox):
             warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
     def __getitem__(self, item: dict):
-        item = dict(item)
-        if 'vector' in item:
-            if isinstance(item['vector'], int) or (isinstance(item['vector'], str) and ',' not in item['vector']):
-                item['vector'] = (item['vector'],)
+        item = _keep_vector(item)
         return Box(self._lower[item], self._upper[item])
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Box) for v in values):
             return Box(math.stack([v.lower for v in values], dim, **kwargs), math.stack([v.upper for v in values], dim, **kwargs))
         else:
-            from ._stack import GeometryStack
-            return GeometryStack(math.layout(values, dim))
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
@@ -276,7 +292,7 @@ class Box(BaseBox):
             else:  # deprecated
                 return 'Box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
         else:
-            return 'Box[shape=%s]' % self.shape
+            return f'Box[shape={self.shape}]'
 
 
 class Cuboid(BaseBox):

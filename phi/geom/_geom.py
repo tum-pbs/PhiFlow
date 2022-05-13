@@ -1,11 +1,10 @@
 from numbers import Number
-from typing import Dict
 
 import numpy as np
 
 from phi import math
-from phi.math import Tensor, Shape, spatial, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
-from phi.math._tensors import variable_attributes, copy_with
+from phi.math import Tensor, Shape, EMPTY_SHAPE
+from phi.math._tensors import variable_attributes
 from phi.math.magic import BoundDim
 
 
@@ -54,7 +53,7 @@ class Geometry:
     def shape_type(self) -> Tensor:
         """
         Returns the type (or types) of this geometry as a string `Tensor`
-        Boxes return `'B'` and spheres return `'S'`.
+        Boxes return `'B'`, spheres return `'S'`, points return `'P'`.
         Returns `'?'` for unknown types, e.g. a union over multiple types.
         Custom types can return their own identifiers.
 
@@ -331,6 +330,10 @@ class Geometry:
         # attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
         # return copy_with(self, **attrs)
 
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        from ._stack import GeometryStack
+        return GeometryStack(math.layout(values, dim))
+
     def __getattr__(self, name: str) -> BoundDim:
         return BoundDim(self, name)
 
@@ -488,6 +491,23 @@ class Point(Geometry):
     def __variable_attrs__(self):
         return '_location',
 
+    @property
+    def volume(self) -> Tensor:
+        return math.wrap(0)
+
+    @property
+    def shape_type(self) -> Tensor:
+        return math.tensor('P')
+
+    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+        raise NotImplementedError
+
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        return self
+
+    def __getitem__(self, item: dict):
+        return Point(self._location[_keep_vector(item)])
+
 
 def assert_same_rank(rank1, rank2, error_message):
     """ Tests that two objects have the same spatial rank. Objects can be of types: `int`, `None` (no check), `Geometry`, `Shape`, `Tensor` """
@@ -510,3 +530,12 @@ def _rank(rank):
     else:
         raise NotImplementedError(f"{type(rank)} now allowed. Allowed are (int, Geometry, Shape, Tensor).")
     return None if rank == 0 else rank
+
+
+def _keep_vector(dim_selection: dict) -> dict:
+    if 'vector' not in dim_selection:
+        return dim_selection
+    item = dict(dim_selection)
+    if isinstance(item['vector'], int) or (isinstance(item['vector'], str) and ',' not in item['vector']):
+        item['vector'] = (item['vector'],)
+    return item

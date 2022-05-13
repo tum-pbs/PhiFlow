@@ -23,6 +23,17 @@ class TestBox(TestCase):
             pass
         math.assert_close(Box(x=1, y=1).size, 1)
 
+    def test_box_constructor_kwargs(self):
+        b = Box(x=3.5, y=4)
+        math.assert_close(b.lower, 0)
+        math.assert_close(b.upper, (3.5, 4))
+        b = Box(x=(1, 2), y=None)
+        math.assert_close(b.lower, (1, -math.INF))
+        math.assert_close(b.upper, (2, math.INF))
+        b = Box(x=(None, None))
+        math.assert_close(b.lower, -math.INF)
+        math.assert_close(b.upper, math.INF)
+
     def test_box_batched(self):
         lower = math.tensor([(0, 0), (1, 1)], batch('boxes'), channel(vector='x,y'))
         upper = math.wrap((1, 1), channel(vector='x,y'))

@@ -3,8 +3,8 @@ from typing import Dict
 
 from phi import math
 
-from ._geom import Geometry
-from ..math import wrap, Tensor
+from ._geom import Geometry, _keep_vector
+from ..math import wrap, Tensor, Shape
 from ..math.backend import PHI_LOGGER
 
 
@@ -111,10 +111,14 @@ class Sphere(Geometry):
     def __variable_attrs__(self):
         return '_radius', '_center'
 
-    def unstack(self, dimension: str) -> tuple:
-        center = self.center.dimension(dimension).unstack(self.shape.get_size(dimension))
-        radius = self.radius.dimension(dimension).unstack(self.shape.get_size(dimension))
-        return tuple([Sphere(c, r) for c, r in zip(center, radius)])
+    def __getitem__(self, item: dict):
+        return Sphere(self._center[_keep_vector(item)], self._radius[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(isinstance(v, Sphere) for v in values):
+            return Sphere(math.stack([v.center for v in values], dim, **kwargs), radius=math.stack([v.radius for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         raise NotImplementedError()
