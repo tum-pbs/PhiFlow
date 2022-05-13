@@ -1021,6 +1021,9 @@ def _construct_shape(dim_type: str, *args, **dims):
         elif isinstance(size, (tuple, list)):
             items = tuple(size)
             size = len(items)
+        elif isinstance(size, Shape):
+            items = size.names
+            size = size.rank
         else:
             assert size is None or isinstance(size, int), f"Invalid size: {size}"
             items = None
@@ -1055,7 +1058,7 @@ def shape(obj) -> Shape:
         raise ValueError(f'shape() requires Shaped or Shape argument but got {obj}')
 
 
-def spatial(*args, **dims: int or str or tuple or list) -> Shape:
+def spatial(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.
 
@@ -1100,7 +1103,7 @@ def spatial(*args, **dims: int or str or tuple or list) -> Shape:
         raise AssertionError(f"spatial() must be called either as a selector spatial(Shape) or spatial(Tensor) or as a constructor spatial(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def channel(*args, **dims: int or str or tuple or list) -> Shape:
+def channel(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     Returns the channel dimensions of an existing `Shape` or creates a new `Shape` with only channel dimensions.
 
@@ -1149,7 +1152,7 @@ def channel(*args, **dims: int or str or tuple or list) -> Shape:
         raise AssertionError(f"channel() must be called either as a selector channel(Shape) or channel(Tensor) or as a constructor channel(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def batch(*args, **dims: int or str or tuple or list) -> Shape:
+def batch(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
@@ -1194,7 +1197,7 @@ def batch(*args, **dims: int or str or tuple or list) -> Shape:
         raise AssertionError(f"batch() must be called either as a selector batch(Shape) or batch(Tensor) or as a constructor batch(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def instance(*args, **dims: int or str or tuple or list) -> Shape:
+def instance(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
 
