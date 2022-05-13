@@ -4,9 +4,8 @@ from typing import Callable, List, Tuple
 from phi import geom
 from phi import math
 from phi.geom import Box, Geometry, Sphere
-from phi.math import Tensor, spatial, instance, tensor
-from phi.math import extrapolate_valid_values, channel, Shape, batch
-from ._field import Field, SampledField, unstack, SampledFieldType, as_extrapolation
+from phi.math import Tensor, spatial, instance, tensor, extrapolate_valid_values, channel, Shape, batch, unstack
+from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
 from ..math.extrapolation import Extrapolation
@@ -593,7 +592,7 @@ def tensor_as_field(t: Tensor):
     """
     if spatial(t):
         assert not instance(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
-        bounds = Box(-0.5, math.wrap(spatial(t), channel('vector')) - 0.5)
+        bounds = Box(math.const_vec(-0.5, spatial(t)), math.wrap(spatial(t), channel('vector')) - 0.5)
         return CenteredGrid(t, 0, bounds=bounds)
     if instance(t):
         assert not spatial(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"

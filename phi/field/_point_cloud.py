@@ -40,8 +40,6 @@ class PointCloud(SampledField):
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
           color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         """
-        if isinstance(elements, Tensor):
-            elements = Point(elements)
         SampledField.__init__(self, elements, math.wrap(values), extrapolation, bounds)
         self._add_overlapping = add_overlapping
         color = '#0060ff' if color is None else color
@@ -49,16 +47,12 @@ class PointCloud(SampledField):
 
     @property
     def shape(self):
-        return self._elements.shape & self._values.shape.non_spatial
-
-    @property
-    def spatial_rank(self) -> int:
-        return self._elements.spatial_rank
+        return self._elements.shape.without('vector') & self._values.shape
 
     def __getitem__(self, item: dict):
         if not item:
             return self
-        elements = self.elements[item]
+        elements = self.elements[{dim: selection for dim, selection in item.items() if dim != 'vector'}]
         values = self._values[item]
         color = self._color[item]
         extrapolation = self._extrapolation[item]

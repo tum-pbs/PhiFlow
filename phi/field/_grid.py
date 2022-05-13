@@ -157,14 +157,14 @@ class CenteredGrid(Grid):
         if resolution is None and not resolution_:
             assert isinstance(values, math.Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
             resolution = values.shape.spatial
-            bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
+            bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel('vector')))
             elements = GridCell(resolution, bounds)
         else:
             if isinstance(resolution, int):
                 assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
                 resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
             resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
-            bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
+            bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
             elements = GridCell(resolution, bounds)
             if isinstance(values, math.Tensor):
                 values = math.expand(values, resolution)
@@ -225,7 +225,6 @@ class CenteredGrid(Grid):
         return data
 
     def closest_values(self, points: Geometry):
-        assert 'vector' not in points.shape
         local_points = self.box.global_to_local(points.center) * self.resolution - 0.5
         return math.closest_grid_values(self.values, local_points, self.extrapolation)
 
@@ -280,14 +279,14 @@ class StaggeredGrid(Grid):
             ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
             delta = int(ext_lower) + int(ext_upper) - 1
             resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
-            bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
+            bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
             if isinstance(resolution, int):
                 assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
                 resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
             resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
-            bounds = bounds or Box(0, math.wrap(resolution, channel('vector')))
+            bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution)))
             elements = staggered_elements(resolution, bounds, extrapolation)
             if isinstance(values, math.Tensor):
                 values = expand_staggered(values, resolution, extrapolation)
@@ -301,7 +300,7 @@ class StaggeredGrid(Grid):
                     assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
                 assert 'staggered_direction' in values.shape
                 if 'vector' in values.shape:
-                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(vector=resolution.names))
+                    values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(vector=resolution))
                 else:
                     values = values.staggered_direction.as_channel('vector')
             else:
@@ -334,7 +333,6 @@ class StaggeredGrid(Grid):
         return math.stack(channels, channel('vector'))
 
     def closest_values(self, points: Geometry):
-        assert 'vector' not in points.shape
         if 'staggered_direction' in points.shape:
             points = points.unstack('staggered_direction')
             channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
@@ -431,7 +429,7 @@ def staggered_elements(resolution: Shape, bounds: Box, extrapolation: Extrapolat
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: Extrapolation):
     """ Add missing spatial dimensions to `values` """
-    cells = GridCell(resolution, Box(0, math.wrap((1,) * resolution.rank, channel(vector=resolution.names))))
+    cells = GridCell(resolution, Box(math.const_vec(0, resolution), math.const_vec(1, resolution)))
     components = values.vector.unstack(resolution.spatial_rank)
     tensors = []
     for dim, component in zip(resolution.spatial.names, components):

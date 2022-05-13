@@ -3,7 +3,7 @@ from typing import TypeVar, Callable
 from phi import math
 from phi.math import Shape, Tensor, channel, spatial
 from phi.math.extrapolation import Extrapolation
-from phi.geom import Geometry, Box
+from phi.geom import Geometry, Box, Point
 from phi.math.magic import BoundDim
 
 
@@ -21,15 +21,6 @@ class Field:
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
 
-    def __init__(self, bounds: Box or None):
-        """
-        Args:
-            bounds: Bounds inside which the values of this `Field` are valid.
-                The bounds will also be used as axis limits for plots.
-        """
-        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
-        self._bounds = bounds
-
     @property
     def shape(self) -> Shape:
         """
@@ -39,7 +30,7 @@ class Field:
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @property
     def spatial_rank(self) -> int:
@@ -47,7 +38,7 @@ class Field:
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         This is equal to the spatial rank of the `data`.
         """
-        return self.shape.spatial.rank
+        raise NotImplementedError
 
     @property
     def bounds(self) -> Box:
@@ -56,8 +47,12 @@ class Field:
         The bounds will also be used as axis limits for plots.
 
         The bounds can be set manually in the constructor, otherwise default bounds will be generated.
+
+        For fields that are valid without bounds, the lower and upper limit of `bounds` is set to `-inf` and `inf`, respectively.
+
+        Fields whose spatial rank is determined only during sampling return an empty `Box`.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def _sample(self, geometry: Geometry) -> math.Tensor:
         """ For internal use only. Use `sample()` instead. """
@@ -152,16 +147,19 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or Extrapolation or Field or None, bounds: Box or None):
+    def __init__(self, elements: Geometry or Tensor, values: Tensor, extrapolation: float or Extrapolation or Field or None, bounds: Box or None):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
         """
-        super().__init__(bounds)
+        if isinstance(elements, Tensor):
+            elements = Point(elements)
         assert isinstance(elements, Geometry), elements
         assert isinstance(values, Tensor), f"Values must be a Tensor but got {values}."
+        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
+        self._bounds = bounds
         self._elements: Geometry = elements
         self._values: Tensor = values
         self._extrapolation: Extrapolation = as_extrapolation(extrapolation)
@@ -184,6 +182,10 @@ class SampledField(Field):
     @property
     def shape(self):
         raise NotImplementedError()
+
+    @property
+    def spatial_rank(self) -> int:
+        return self._elements.spatial_rank
 
     def __getitem__(self: 'FieldType', item: dict) -> 'FieldType':
         raise NotImplementedError(self)
@@ -294,24 +296,6 @@ class SampledField(Field):
             return self.with_values(values)
 
 
-def unstack(field: Field, dim: str) -> tuple:
-    """
-    Unstack `field` along one of its dimensions.
-    The dimension can be batch, spatial or channel.
-
-    Args:
-        field: `Field` to unstack.
-        dim: name of the dimension to unstack, must be part of `self.shape`
-
-    Returns:
-        `tuple` of `Fields`. The returned fields may be of different types than `field`.
-    """
-    size = field.shape.get_size(dim)
-    if isinstance(size, Tensor):
-        size = math.min(size)  # unstack StaggeredGrid along x or y
-    return tuple([field[{dim: i}] for i in range(size)])
-
-
 def sample(field: Field, geometry: Geometry) -> math.Tensor:
     """
     Computes the field value inside the volume of the (batched) `geometry`.
@@ -332,12 +316,13 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
     Returns:
         Sampled values as a `phi.math.Tensor`
     """
-    assert all(dim not in field.shape for dim in geometry.shape.channel)
-    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geometry.shape.channel:
+    geom_ch = channel(geometry).without('vector')
+    assert all(dim not in field.shape for dim in geom_ch)
+    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geom_ch:
         return field.values
-    if geometry.shape.channel:
-        sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
-        return math.stack(sampled, geometry.shape.channel)
+    if geom_ch:
+        sampled = [field._sample(p) for p in geometry.unstack(geom_ch.name)]
+        return math.stack(sampled, geom_ch)
     else:
         return field._sample(geometry)
 
@@ -360,14 +345,15 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
     """
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry):
         return field.values
-    if geometry.shape.channel:  # Reduce this dimension
-        assert geometry.shape.channel.rank == 1, "Only single-dimension reduction supported."
+    if channel(geometry).without('vector'):  # Reduce this dimension
+        geom_ch = channel(geometry).without('vector')
+        assert geom_ch.rank == 1, "Only single-dimension reduction supported."
         if field.shape.channel.volume > 1:
-            assert field.shape.channel.volume == geometry.shape.channel.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
-            components = unstack(field, field.shape.channel.name)
-            sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
+            assert field.shape.channel.volume == geom_ch.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
+            components = math.unstack(field, field.shape.channel.name)
+            sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geom_ch.name))]
         else:
-            sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
+            sampled = [field._sample(p) for p in geometry.unstack(channel(geometry).without('vector').name)]
         dim = dim._with_item_names(geometry.shape.channel.item_names)
         return math.stack(sampled, dim)
     else:  # Nothing to reduce

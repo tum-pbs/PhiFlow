@@ -148,9 +148,9 @@ class TestFieldMath(TestCase):
             self.assertEqual(converted.elements.radius.default_backend, backend)
 
     def test_center_of_mass(self):
-        density = CenteredGrid(HardGeometryMask(Box[0:1, 1:2]), x=4, y=3)
+        density = CenteredGrid(Box(x=1, y=(1, 2)), x=4, y=3)
         math.assert_close(field.center_of_mass(density), (0.5, 1.5))
-        density = CenteredGrid(HardGeometryMask(Box[:, 2:3]), x=4, y=3)
+        density = CenteredGrid(Box(x=None, y=(2, 3)), x=4, y=3)
         math.assert_close(field.center_of_mass(density), (2, 2.5))
 
     def test_curl_2d_centered_to_staggered(self):
