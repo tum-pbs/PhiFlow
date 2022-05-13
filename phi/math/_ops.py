@@ -1434,7 +1434,7 @@ def to_complex(x) -> Tensor or PhiTreeNode:
     return _backend_op1(x, Backend.to_complex)
 
 
-def isfinite(x) -> Tensor or PhiTreeNode:
+def is_finite(x) -> Tensor or PhiTreeNode:
     """ Returns a `Tensor` or `PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. """
     return _backend_op1(x, Backend.isfinite)
 

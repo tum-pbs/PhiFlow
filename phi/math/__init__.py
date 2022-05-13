@@ -46,7 +46,7 @@ from ._ops import (
     to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
     degrees,
     boolean_mask,
-    isfinite,
+    is_finite, is_finite as isfinite,
     closest_grid_values, grid_sample, scatter, gather,
     fft, ifft, convolve, cumulative_sum,
     dtype, cast,
