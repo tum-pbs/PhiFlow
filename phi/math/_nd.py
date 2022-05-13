@@ -1,7 +1,4 @@
-# Because division is different in Python 2 and 3
-from __future__ import division
-
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Optional
 
 import numpy as np
 
@@ -9,11 +6,37 @@ from . import _ops as math
 from . import extrapolation as extrapolation
 from ._config import GLOBAL_AXIS_ORDER
 from ._magic_ops import stack, rename_dims
-from ._shape import Shape, channel, batch, spatial, DimFilter
+from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order
 from ._tensors import Tensor, variable_values
 from .magic import PhiTreeNode
 from ._tensors import wrap
 from .extrapolation import Extrapolation
+
+
+def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):
+    """
+    Creates a single-dimension tensor with all values equal to `value`.
+    `value` is not converted to the default backend, even when it is a Python primitive.
+
+    Args:
+        value: Value for filling the vector.
+        dim: Either single-dimension non-spatial Shape or `Shape` consisting of any number of spatial dimensions.
+            In the latter case, a new channel dimension named `'vector'` will be created from the spatial shape.
+
+    Returns:
+        `Tensor`
+    """
+    if isinstance(dim, Shape):
+        if dim.spatial:
+            assert not dim.non_spatial, f"When creating a vector given spatial dimensions, the shape may only contain spatial dimensions but got {dims}"
+            shape = channel(vector=dim.names)
+        else:
+            assert dim.rank == 1, f"Cannot create vector from {dim}"
+            shape = dim
+    else:
+        dims = parse_dim_order(dim)
+        shape = channel(vector=dims)
+    return wrap([value] * shape.size, shape)
 
 
 def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: float or Tensor = None):
