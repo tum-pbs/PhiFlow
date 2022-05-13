@@ -166,7 +166,7 @@ def reshaped_native(value: Tensor,
     Returns a native representation of `value` where dimensions are laid out according to `groups`.
 
     See Also:
-        `native()`, `pack_dims()`, `reshaped_tensor()`.
+        `native()`, `pack_dims()`, `reshaped_tensor()`, `reshaped_numpy()`.
 
     Args:
         value: `Tensor`
@@ -193,6 +193,27 @@ def reshaped_native(value: Tensor,
             assert isinstance(group, str), f"Groups must be either str or Shape but got {group}"
             order.append(group)
     return value.numpy(order) if to_numpy else value.native(order)
+
+
+def reshaped_numpy(value: Tensor, groups: tuple or list, force_expand: Any = False):
+    """
+    Returns the NumPy representation of `value` where dimensions are laid out according to `groups`.
+
+    See Also:
+        `numpy()`, `reshaped_native()`, `pack_dims()`, `reshaped_tensor()`.
+
+    Args:
+        value: `Tensor`
+        groups: Sequence of dimension names as `str` or groups of dimensions to be packed_dim as `Shape`.
+        force_expand: `bool` or sequence of dimensions.
+            If `True`, repeats the tensor along missing dimensions.
+            If `False`, puts singleton dimensions where possible.
+            If a sequence of dimensions is provided, only forces the expansion for groups containing those dimensions.
+
+    Returns:
+        NumPy `ndarray` with dimensions matching `groups`.
+    """
+    return reshaped_native(value, groups, force_expand=force_expand, to_numpy=True)
 
 
 def reshaped_tensor(value: Any,
