@@ -317,11 +317,14 @@ class Tensor:
                         if isinstance(s, str):
                             assert s in item_names, f"Accessing tensor.{dim}['{s}'] failed. Item names are {item_names}."
                             selection_int[i] = item_names.index(s)
-                from ._magic_ops import stack
-                result = [sliced[{dim: i}] for i in selection_int]
-                item_names = [str(n) for n in selection]
-                stack_dim = self.shape[dim] if dim in self.shape else channel(dim)
-                sliced = stack({n: r for n, r in zip(item_names, result)}, stack_dim.with_size(None))
+                if not selection_int:  # empty
+                    selections[dim] = slice(0, 0)
+                else:
+                    from ._magic_ops import stack
+                    result = [sliced[{dim: i}] for i in selection_int]
+                    item_names = [str(n) for n in selection]
+                    stack_dim = self.shape[dim] if dim in self.shape else channel(dim)
+                    sliced = stack({n: r for n, r in zip(item_names, result)}, stack_dim.with_size(None))
             elif isinstance(selection, Tensor) and selection.dtype.kind == bool:
                 from ._ops import boolean_mask
                 sliced = boolean_mask(sliced, dim, selection)

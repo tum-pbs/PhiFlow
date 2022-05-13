@@ -861,8 +861,8 @@ class Shape:
                     result = result.with_sizes(gathered_sizes).without(name)
             elif isinstance(selection, slice):
                 step = selection.step or 1
-                start = selection.start or (0 if step > 0 else self.get_size(name)-1)
-                stop = selection.stop or (self.get_size(name) if step > 0 else -1)
+                start = selection.start if isinstance(selection.start, int) else (0 if step > 0 else self.get_size(name)-1)
+                stop = selection.stop if isinstance(selection.stop, int) else (self.get_size(name) if step > 0 else -1)
                 if stop < 0 and step > 0:
                     stop += self.get_size(name)
                     assert stop >= 0
