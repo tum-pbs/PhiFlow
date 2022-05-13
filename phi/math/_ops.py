@@ -1197,6 +1197,56 @@ def min_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     return _reduce(value, dim, native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
+def finite_min(value, dim: DimFilter = non_batch, default: complex or float = float('NaN')):
+    """
+    Finds the minimum along `dim` ignoring all non-finite values.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+        default: Value to use where no finite value was encountered.
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
+    value_inf = where(is_finite(value), value, float('inf'))
+    result_inf = min_(value_inf, dim)
+    return where(is_finite(result_inf), result_inf, default)
+
+
+def finite_max(value, dim: DimFilter = non_batch, default: complex or float = float('NaN')):
+    """
+    Finds the maximum along `dim` ignoring all non-finite values.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+        default: Value to use where no finite value was encountered.
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
+    value_inf = where(is_finite(value), value, float('-inf'))
+    result_inf = max_(value_inf, dim)
+    return where(is_finite(result_inf), result_inf, default)
+
+
 def quantile(value: Tensor,
              quantiles: float or tuple or list or Tensor,
              dim: DimFilter = non_batch):
