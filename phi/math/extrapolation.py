@@ -630,6 +630,9 @@ class _NoExtrapolation(Extrapolation):  # singleton
     def valid_outer_faces(self, dim):
         return True, True
 
+    def __value_attrs__(self):
+        return ()
+
     @property
     def is_flexible(self) -> bool:
         raise AssertionError(f"is_flexible not defined by {self.__class__}")
@@ -792,6 +795,9 @@ class _MixedExtrapolation(Extrapolation):
             'dims': {ax: (es[0].to_dict(), es[1].to_dict()) for ax, es in self.ext.items()}
         }
 
+    def __value_attrs__(self):
+        return 'ext',
+
     def __eq__(self, other):
         if isinstance(other, _MixedExtrapolation):
             return self.ext == other.ext
@@ -924,6 +930,9 @@ class _NormalTangentialExtrapolation(Extrapolation):
             'normal': self.normal.to_dict(),
             'tangential': self.tangential.to_dict(),
         }
+
+    def __value_attrs__(self):
+        return 'normal', 'tangential'
 
     def __repr__(self):
         return f"normal={self.normal}, tangential={self.tangential}"
