@@ -72,25 +72,28 @@ class TestMathNDNumpy(TestCase):
         math.print(same_size, 'Same size')
         math.assert_close(meshgrid.x[1:-1].y[1:-1], same_size.x[1:-1].y[1:-1])
 
-    def test_extrapolate_finite_3x3_sanity(self):
+    def test_finite_fill_3x3_sanity(self):
         values = tensor([[NAN, NAN, NAN],
                          [NAN, 1,   NAN],
                          [NAN, NAN, NAN]], spatial('x, y'))
-        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance_cells=1, diagonal=True))
-        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance_cells=2, diagonal=False))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance=1, diagonal=True))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance=2, diagonal=False))
+        values = tensor([[1, 1, 1], [1, NAN, 1], [1, 1, 1]], spatial('x,y'))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance=1, diagonal=False))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance=1, diagonal=True))
 
-    def test_extrapolate_finite_3x3(self):
+    def test_finite_fill_3x3(self):
         values = tensor([[NAN, NAN, NAN],
                          [NAN, NAN, 4  ],
                          [NAN, 2,   NAN]], spatial('x, y'))
         expected_diag = tensor([[NAN, 4,   4],
                                 [2,   3,   4],
                                 [2,   2,   3]], spatial('x, y'))
-        math.assert_close(expected_diag, math.finite_fill(values, distance_cells=1, diagonal=True))
+        math.assert_close(expected_diag, math.finite_fill(values, distance=1, diagonal=True))
         expected = tensor([[NAN, 3.5, 4],
                            [2.5, 3,   4],
                            [2,   2,   3]], spatial('x, y'))
-        math.assert_close(expected, math.finite_fill(values, distance_cells=2, diagonal=False))
+        math.assert_close(expected, math.finite_fill(values, distance=2, diagonal=False))
 
     def test_extrapolate_valid_3x3_sanity(self):
         values = tensor([[0, 0, 0],

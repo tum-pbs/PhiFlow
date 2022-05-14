@@ -340,11 +340,11 @@ def masked_fill(values: Tensor, valid: Tensor, distance: int = 1) -> Tuple[Tenso
     """
     def binarize(x):
         return math.divide_no_nan(x, x)
-    distance = min(distance, max(values.shape.sizes) - 1)
+    distance = min(distance, max(values.shape.sizes))
     for _ in range(distance):
         valid = binarize(valid)
         valid_values = valid * values
-        overlap = valid
+        overlap = valid  # count how many values we are adding
         for dim in values.shape.spatial.names:
             values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=extrapolation.ZERO)
             valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
@@ -373,19 +373,20 @@ def finite_fill(values: Tensor, dims: DimFilter = spatial, distance: int = 1, di
         `Tensor` of same shape as `values`.
     """
     if diagonal:
-        distance = min(distance, max(values.shape.sizes) - 1)
+        distance = min(distance, max(values.shape.sizes))
+        dims = values.shape.only(dims)
         for _ in range(distance):
             valid = math.is_finite(values)
             valid_values = math.where(valid, values, 0)
             overlap = valid
-            for dim in values.shape.spatial.names:
-                values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+            for dim in dims:
+                values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=padding)
                 valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
                 mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=extrapolation.ZERO)
                 overlap = math.sum_(mask_l + mask_r + overlap, dim='shift')
             values = math.where(valid, values, valid_values / overlap)
     else:
-        distance = min(distance, sum(values.shape.sizes) - 1)
+        distance = min(distance, sum(values.shape.sizes))
         for _ in range(distance):
             neighbors = concat(shift(values, (-1, 1), dims, padding=padding, stack_dim=channel('neighbors')), 'neighbors')
             finite = math.is_finite(neighbors)
