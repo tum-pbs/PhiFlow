@@ -465,6 +465,8 @@ class Tensor:
         return unpack_dim(self, dim, unpacked_dims)
 
     def __getattr__(self, name):
+        if name.startswith('__'):  # called by hasattr in magic ops
+            raise AttributeError
         if name.startswith('_'):
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
         if name == 'is_tensor_like':  # TensorFlow replaces abs() while tracing and checks for this attribute

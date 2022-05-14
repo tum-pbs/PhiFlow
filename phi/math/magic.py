@@ -25,7 +25,6 @@ class _ShapedType(type):
             return True
         if isinstance(instance, (int, float, complex, bool)):
             return True
-        from ._shape import Shape
         if hasattr(instance, 'shape') and isinstance(instance.shape, Shape):
             return True
         return False

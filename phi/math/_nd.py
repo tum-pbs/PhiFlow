@@ -5,12 +5,25 @@ import numpy as np
 from . import _ops as math
 from . import extrapolation as extrapolation
 from ._config import GLOBAL_AXIS_ORDER
-from ._magic_ops import stack, rename_dims
+from ._magic_ops import stack, rename_dims, concat
 from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order
-from ._tensors import Tensor, variable_values
+from ._tensors import Tensor, variable_values, wrap
 from .magic import PhiTreeNode
-from ._tensors import wrap
 from .extrapolation import Extrapolation
+
+
+def vec(name='vector', **components) -> Tensor:
+    """
+    Lay out the given values along a channel dimension without converting them to the current backend.
+
+    Args:
+        **components: Values by component name.
+        name: Dimension name.
+
+    Returns:
+        `Tensor`
+    """
+    return stack(components, channel(name))
 
 
 def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):
@@ -28,7 +41,7 @@ def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):
     """
     if isinstance(dim, Shape):
         if dim.spatial:
-            assert not dim.non_spatial, f"When creating a vector given spatial dimensions, the shape may only contain spatial dimensions but got {dims}"
+            assert not dim.non_spatial, f"When creating a vector given spatial dimensions, the shape may only contain spatial dimensions but got {dim}"
             shape = channel(vector=dim.names)
         else:
             assert dim.rank == 1, f"Cannot create vector from {dim}"
