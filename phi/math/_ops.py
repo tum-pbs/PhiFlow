@@ -1272,6 +1272,33 @@ def finite_sum(value, dim: DimFilter = non_batch, default: complex or float = fl
     return where(any_(finite, dim), summed, default)
 
 
+def finite_mean(value, dim: DimFilter = non_batch, default: complex or float = float('NaN')):
+    """
+    Computes the mean value of all finite values in `value` along `dim`.
+
+    Args:
+        value: `Tensor` or `list` / `tuple` of Tensors.
+        dim: Dimension or dimensions to be reduced. One of
+
+            * `None` to reduce all non-batch dimensions
+            * `str` containing single dimension or comma-separated list of dimensions
+            * `Tuple[str]` or `List[str]`
+            * `Shape`
+            * `batch`, `instance`, `spatial`, `channel` to select dimensions by type
+            * `'0'` when `isinstance(value, (tuple, list))` to add up the sequence of Tensors
+
+        default: Value to use where no finite value was encountered.
+
+    Returns:
+        `Tensor` without the reduced dimensions.
+    """
+    finite = is_finite(value)
+    summed = sum_(where(finite, value, 0), dim)
+    count = sum_(finite, dim)
+    mean_nan = summed / count
+    return where(is_finite(mean_nan), mean_nan, default)
+
+
 def quantile(value: Tensor,
              quantiles: float or tuple or list or Tensor,
              dim: DimFilter = non_batch):

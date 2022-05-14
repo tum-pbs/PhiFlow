@@ -77,6 +77,12 @@ class TestMathFunctions(TestCase):
         t = math.tensor([-math.INF, math.INF, math.NAN])
         math.assert_close(math.finite_sum(t), math.NAN)
 
+    def test_finite_mean(self):
+        t = math.tensor([0, 1, 1, -math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_mean(t), 2/3)
+        t = math.tensor([-math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_mean(t), math.NAN)
+
     def test_sum_collapsed(self):
         ones = math.ones(spatial(x=40000, y=30000))
         math.assert_close(40000 * 30000, math.sum(ones))
