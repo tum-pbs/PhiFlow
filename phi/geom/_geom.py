@@ -451,6 +451,7 @@ class Point(Geometry):
 
     def __init__(self, location: math.Tensor):
         assert 'vector' in location.shape, "location must have a vector dimension"
+        assert location.shape.get_item_names('vector') is not None, "Vector dimension needs to list spatial dimension as item names."
         self._location = location
 
     @property
@@ -507,6 +508,12 @@ class Point(Geometry):
 
     def __getitem__(self, item: dict):
         return Point(self._location[_keep_vector(item)])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(isinstance(v, Point) for v in values):
+            return Point(math.stack([v.center for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
 
 def assert_same_rank(rank1, rank2, error_message):

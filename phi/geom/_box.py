@@ -319,6 +319,16 @@ class Cuboid(BaseBox):
     def __hash__(self):
         return hash(self._center)
 
+    def __getitem__(self, item: dict):
+        item = _keep_vector(item)
+        return Cuboid(self._center[item], self._half_size[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(isinstance(v, Cuboid) for v in values):
+            return Cuboid(math.stack([v.center for v in values], dim, **kwargs), math.stack([v.half_size for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
+
     def __variable_attrs__(self):
         return '_center', '_half_size'
 
@@ -436,6 +446,9 @@ class GridCell(BaseBox):
                 gather_dict[dim] = slice(start, stop)
         resolution = self._resolution.after_gather(gather_dict)
         return GridCell(resolution, bounds)
+
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Cuboid':
+        return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
 
     def list_cells(self, dim_name):
         center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
