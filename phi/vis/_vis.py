@@ -279,10 +279,10 @@ def plot(*fields: SampledField or Tensor or Layout,
     if same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
-            max_val = float(max([abs(f.values).max for l in positioning.values() for f in l]))
+            max_val = float(max([abs(f.values).finite_max for l in positioning.values() for f in l]))
         else:
-            min_val = float(min([f.values.min for l in positioning.values() for f in l]))
-            max_val = float(max([f.values.max for l in positioning.values() for f in l]))
+            min_val = float(min([f.values.finite_min for l in positioning.values() for f in l]))
+            max_val = float(max([f.values.finite_max for l in positioning.values() for f in l]))
     else:
         min_val = max_val = None
     subplots = {pos: _space(fields, animate) for pos, fields in positioning.items()}

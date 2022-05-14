@@ -166,6 +166,12 @@ class Tensor:
         return mean(self, dim=self.shape).native()
 
     @property
+    def finite_mean(self):
+        """ Mean value of all finite values in this `Tensor` as a native scalar. """
+        from ._ops import finite_mean
+        return finite_mean(self, dim=self.shape).native()
+
+    @property
     def std(self):
         """ Standard deviation of this `Tensor` as a native scalar. """
         from ._ops import std
@@ -178,16 +184,34 @@ class Tensor:
         return sum_(self, dim=self.shape).native()
 
     @property
+    def finite_sum(self):
+        """ Sum of all finite values of this `Tensor` as a native scalar. """
+        from ._ops import finite_sum
+        return finite_sum(self, dim=self.shape).native()
+
+    @property
     def min(self):
         """ Minimum value of this `Tensor` as a native scalar. """
         from ._ops import min_
         return min_(self, dim=self.shape).native()
 
     @property
+    def finite_min(self):
+        """ Minimum finite value of this `Tensor` as a native scalar. """
+        from ._ops import finite_min
+        return finite_min(self, dim=self.shape).native()
+
+    @property
     def max(self):
         """ Maximum value of this `Tensor` as a native scalar. """
         from ._ops import max_
         return max_(self, dim=self.shape).native()
+
+    @property
+    def finite_max(self):
+        """ Maximum finite value of this `Tensor` as a native scalar. """
+        from ._ops import finite_max
+        return finite_max(self, dim=self.shape).native()
 
     @property
     def real(self):
@@ -315,6 +339,7 @@ class Tensor:
                     item_names = self.shape.get_item_names(dim, fallback_spatial=True)
                     for i, s in enumerate(selection):
                         if isinstance(s, str):
+                            assert item_names is not None, f"Accessing tensor.{dim}['{s}'] failed because no item names are present on tensor {self.shape}"
                             assert s in item_names, f"Accessing tensor.{dim}['{s}'] failed. Item names are {item_names}."
                             selection_int[i] = item_names.index(s)
                 if not selection_int:  # empty
