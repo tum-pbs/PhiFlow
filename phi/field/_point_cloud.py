@@ -130,12 +130,12 @@ class PointCloud(SampledField):
         Approximately samples this field on a regular grid using math.scatter().
 
         Args:
-          outside_handling: `str` passed to `phi.math.scatter()`.
-          bounds: physical dimensions of the grid
-          resolution: grid resolution
+            outside_handling: `str` passed to `phi.math.scatter()`.
+            bounds: physical dimensions of the grid
+            resolution: grid resolution
 
         Returns:
-          CenteredGrid
+            `CenteredGrid`
 
         """
         closest_index = bounds.global_to_local(self.points) * resolution - 0.5
@@ -145,6 +145,15 @@ class PointCloud(SampledField):
             base += self.extrapolation.value
         scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=outside_handling)
         return scattered
+
+    def mask(self):
+        """
+        Returns an equivalent `PointCloud` with `values=1` and `extrapolation=0`
+
+        Returns:
+            `PointCloud`
+        """
+        return PointCloud(self.elements, bounds=self.bounds, color=self.color)
 
     def __repr__(self):
         return "PointCloud[%s]" % (self.shape,)
@@ -191,7 +200,7 @@ def distribute_points(geometries: tuple or list or Geometry or float,
         from phi.field._field_math import data_bounds
         radius = math.mean(data_bounds(initial_points).size) * 0.005
     from phi.geom import Sphere
-    return PointCloud(Sphere(initial_points, radius=radius), color=color, bounds=geometries.bounds)
+    return PointCloud(Sphere(initial_points, radius=radius), extrapolation=geometries.extrapolation, color=color, bounds=geometries.bounds)
 
 
 def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool = False) -> math.Tensor:
