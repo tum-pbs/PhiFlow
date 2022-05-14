@@ -15,7 +15,7 @@ from matplotlib.transforms import Bbox
 from phi import math, field
 from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
 from phi.field._scene import _str
-from phi.geom import Sphere, BaseBox, Point
+from phi.geom import Sphere, BaseBox, Point, Box
 from phi.math import Tensor, batch, channel, spatial, instance
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name, PlottingLibrary
@@ -30,7 +30,7 @@ class MatplotlibPlots(PlottingLibrary):
                       size: tuple,
                       rows: int,
                       cols: int,
-                      subplots: Dict[Tuple[int, int], int],
+                      subplots: Dict[Tuple[int, int], Box],
                       titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         figure, axes = plt.subplots(rows, cols, figsize=size)
         self.current_figure = figure
@@ -38,13 +38,30 @@ class MatplotlibPlots(PlottingLibrary):
         axes_by_pos = {}
         for row in range(rows):
             for col in range(cols):
-                axes[row, col].set_title(titles.rows[row].cols[col].native())
+                axis = axes[row, col]
                 if (row, col) not in subplots:
-                    axes[row, col].remove()
+                    axis.remove()
                 else:
-                    if subplots[(row, col)] == 3:
-                        axes[row, col].remove()
-                        axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
+                    axis.set_title(titles.rows[row].cols[col].native())
+                    bounds = subplots[(row, col)]
+                    if bounds.spatial_rank == 1:
+                        axis.set_xlabel(bounds.vector.item_names[0])
+                        axis.set_xlim(_get_range(bounds, 0))
+                    elif bounds.spatial_rank == 2:
+                        axis.set_xlabel(bounds.vector.item_names[0])
+                        axis.set_ylabel(bounds.vector.item_names[1])
+                        axis.set_xlim(_get_range(bounds, 0))
+                        axis.set_ylim(_get_range(bounds, 1))
+                        axis.set_aspect('equal', adjustable='box')
+                    elif bounds.spatial_rank == 3:
+                        axis.remove()
+                        axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
+                        axis.set_xlabel(bounds.vector.item_names[0])
+                        axis.set_ylabel(bounds.vector.item_names[1])
+                        axis.set_zlabel(bounds.vector.item_names[2])
+                        axis.set_xlim(_get_range(bounds, 0))
+                        axis.set_ylim(_get_range(bounds, 1))
+                        axis.set_zlim(_get_range(bounds, 2))
                     axes_by_pos[(row, col)] = axes[row, col]
         return figure, axes_by_pos
 
@@ -111,51 +128,16 @@ class MatplotlibPlots(PlottingLibrary):
 MATPLOTLIB = MatplotlibPlots()
 
 
-# def animate(fields: SampledField,
-#             dim='frames',
-#             repeat=True,
-#             interval=200,
-#             title=False,
-#             size=(8, 6),
-#             show_color_bar=False,
-#             same_scale=True,
-#             **plt_args) -> animation.Animation:
-#     """
-#     Creates a Matplotlib animation from `fields`.
-#     `fields` may be a sequence of frames or a single `SampledField` instances with a `frames` dimension.
-#
-#     Args:
-#         fields: `SampledField` with `frames` dimension or `tuple` or `list` of `SampledField`.
-#         dim: Time dimension to animate (default=`'frames'`).
-#         repeat: Whether the video should loop.
-#         interval: Frame time in milliseconds.
-#         title: Figure/sub-figure title. If `str` or `tuple`/`list` of `str`. `True` to generate a title automatically.
-#         size: Figure size
-#         show_color_bar: Whether to show a color bar
-#         same_scale: Whether to use the same scale, both temporally and for all sub-figures.
-#         **plt_args: Further plotting arguments, see `plot()`.
-#
-#     Returns:
-#         Matplotlib `Animation`
-#     """
-#     assert isinstance(fields, SampledField)
-#     assert dim in fields.shape, f"Animation dimension {dim} not present in data."
-#     fields = list(fields.unstack(dim))
-#     fig, _ = _subplots(fields[0], size, None)
-#
-#     def func(frame: int):
-#         field = fields[frame]
-#         for axis in fig.axes:
-#             axis.clear()
-#         MATPLOTLIB.plot(field, fig, )
-#         plot(field, existing_figure=fig, title=title, show_color_bar=show_color_bar, same_scale=same_scale, **plt_args)
-#
-#     ani = animation.FuncAnimation(fig, func, init_func=lambda: fig.axes, repeat=repeat, frames=len(fields), interval=interval)
-#     plt.close(fig)
-#     return ani
+def _get_range(bounds: Box, index: int):
+    lower = bounds.lower.vector[index].numpy()
+    upper = bounds.upper.vector[index].numpy()
+    return lower, upper
 
 
-def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
+def _plot(axis, data: SampledField, show_color_bar, vmin, vmax, **plt_args):
+    dims = data.bounds.vector.item_names
+    vector = data.bounds.shape['vector']
+    extra_channels = data.shape.channel.without('vector')
     if isinstance(data, Grid) and data.spatial_rank == 1:
         x = data.points.staggered_direction[0].vector[0].numpy()
         requires_legend = False
@@ -183,67 +165,56 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
         extent = (float(left), float(right), float(bottom), float(top))
         im = axis.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
         if show_color_bar:
-            axis.figure.colorbar(im, ax=axis)  # adds a new Axis to the figure
-        axis.set_xlabel(dims.names[0])
-        axis.set_ylabel(dims.names[1])
+            figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in axis.figure.axes])
+            if vmin is None or vmax is None or not figure_has_color_bar:
+                axis.figure.colorbar(im, ax=axis)  # adds a new Axis to the figure
     elif isinstance(data, Grid) and data.spatial_rank == 2:  # vector field
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
-        x, y = [d.numpy('x,y') for d in data.points.vector.unstack_spatial('x,y')]
-        u, v = [d.numpy('x,y') for d in data.values.vector.unstack_spatial('x,y')]
+        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
+        u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
         color = axis.xaxis.label.get_color()
-        axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
-        axis.set_aspect('equal', adjustable='box')
-    elif isinstance(data, Grid) and channel(data).volume > 1 and data.spatial_rank == 3:
-        x, y, z = [d.numpy('x,y,z') for d in data.points.vector.unstack_spatial('x,y,z')]
-        u, v, w = [d.numpy('x,y,z') for d in data.values.vector.unstack_spatial('x,y,z')]
-        axis.quiver(x, y, z, u, v, w)
-        axis.set_xlabel('x')
-        axis.set_ylabel('y')
-        axis.set_zlabel('z')
-    elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 3:
-        x, y, z = [d.numpy('x,y,z') for d in data.points.vector.unstack_spatial('x,y,z')]
-        values = data.values.numpy('x,y,z')
+        for ch in range(u.shape[0]):
+            axis.quiver(x, y, u[ch], v[ch], color=color, units='xy', scale=1)
+    elif isinstance(data, Grid) and channel(data).volume > 1 and data.spatial_rank == 3:  # 3D vector field
+        if isinstance(data, StaggeredGrid):
+            data = data.at_centers()
+        x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
+        u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
+        for ch in range(u.shape[0]):
+            axis.quiver(x, y, z, u[ch], v[ch], w[ch])
+    elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 3:  # 3D heatmap
+        x, y, z = StaggeredGrid(lambda x: x, math.extrapolation.BOUNDARY, data.bounds, data.resolution).staggered_tensor().numpy(('vector',) + dims)
+        values = data.values.numpy(dims)
         cmap = plt.get_cmap('viridis')
         norm = matplotlib.colors.Normalize(vmin=np.min(values), vmax=np.max(values))
         colors = cmap(norm(values))
-        axis.voxels(values, facecolors=colors, edgecolor='k')
+        axis.voxels(x, y, z, values, facecolors=colors, edgecolor='k')
     elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):
         axis.set_aspect('equal', adjustable='box')
         vector = data.points.shape['vector']
-        x, y = math.reshaped_native(data.points, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
-        u, v = math.reshaped_native(data.values, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
-        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
-        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
-        axis.set_xlim((lower_x, upper_x))
-        axis.set_ylim((lower_y, upper_y))
+        x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
+        u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
         if data.color.shape:
             color = data.color.numpy(data.shape.non_channel).reshape(-1)
         else:
             color = data.color.native()
         axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
-        if data.points.vector.item_names:
-            axis.set_xlabel(data.points.vector.item_names[0])
-            axis.set_ylabel(data.points.vector.item_names[1])
     elif isinstance(data, PointCloud) and data.spatial_rank == 2:
         axis.set_aspect('equal', adjustable='box')
-        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
-        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
-        axis.set_xlim((lower_x, upper_x))
-        axis.set_ylim((lower_y, upper_y))
         if data.points.shape.non_channel.rank > 1:  # multiple instance / spatial dimensions
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
-                _plot_points(axis, d, **plt_args)
+                _plot_points(axis, d, dims, vector, **plt_args)
         else:
-            _plot_points(axis, data, **plt_args)
+            _plot_points(axis, data, dims, vector, **plt_args)
     elif isinstance(data, PointCloud) and data.spatial_rank == 3:
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
                 _plot(axis, d, show_color_bar, vmin, vmax, **plt_args)
         else:
-            x, y, z = [d.numpy() for d in data.points.vector.unstack_spatial('x,y,z')]
+            x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
             color = [d.native() for d in data.color.points.unstack(len(x))]
             M = axis.transData.get_matrix()
             x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
@@ -260,17 +231,12 @@ def _plot(axis, data, show_color_bar, vmin, vmax, **plt_args):
                 symbol = 'X'
                 size = data.elements.bounding_radius().numpy()
             axis.scatter(x, y, z, marker=symbol, color=color, s=(size * 0.5 * (x_scale+y_scale+z_scale)/3) ** 2)
-        lower_x, lower_y, lower_z = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y,z')]
-        upper_x, upper_y, upper_z = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y,z')]
-        axis.set_xlim((lower_x, upper_x))
-        axis.set_ylim((lower_y, upper_y))
-        axis.set_zlim((lower_z, upper_z))
     else:
         raise NotImplementedError(f"No figure recipe for {data}")
 
 
-def _plot_points(axis, data: PointCloud, **plt_args):
-    x, y = [d.numpy() for d in data.points.vector.unstack_spatial('x,y')]
+def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
+    x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
     color = [d.native() for d in data.color.points.unstack(len(x))]
     if isinstance(data.elements, Sphere):
         symbol = 'o'

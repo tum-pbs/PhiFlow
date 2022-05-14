@@ -7,6 +7,7 @@ from typing import Tuple, Any, Optional, Dict, Callable
 
 from phi import field, math
 from phi.field import SampledField, Scene
+from phi.geom import Box
 from phi.math import Shape, EMPTY_SHAPE, Tensor
 
 Control = namedtuple('Control', [
@@ -335,14 +336,15 @@ class PlottingLibrary:
                       size: tuple,
                       rows: int,
                       cols: int,
-                      subplots: Dict[Tuple[int, int], int],
+                      subplots: Dict[Tuple[int, int], Box],
                       titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         """
         Args:
             size: Figure size in inches.
             rows: Number of sub-figures laid out vertically.
             cols: Number of sub-figures laid out horizontally.
-            subplots: Dimensionality per plot: `(x,y) -> d`. Only subplot locations contained as keys will be plotted.
+            subplots: Axes and range per sub-plot: `(x,y) -> Box`. Only subplot locations contained as keys should be plotted.
+                To indicate automatic limit, the box will have a lower or upper limit of -inf or inf, respectively.
             titles: Subplot titles.
 
         Returns:

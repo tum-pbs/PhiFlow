@@ -11,10 +11,10 @@ from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, \
     PlottingLibrary
 from .. import math, field
-from ..field import SampledField, Scene, Field, PointCloud
+from ..field import SampledField, Scene, Field, PointCloud, Grid
 from ..field._scene import _slugify_filename
-from ..geom import Geometry
-from ..math import Tensor, layout, batch, Shape
+from ..geom import Geometry, Box, embed
+from ..math import Tensor, layout, batch, Shape, spatial, channel
 from ..math._tensors import Layout
 
 
@@ -285,7 +285,7 @@ def plot(*fields: SampledField or Tensor or Layout,
             max_val = float(max([f.values.max for l in positioning.values() for f in l]))
     else:
         min_val = max_val = None
-    subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
+    subplots = {pos: _space(fields, animate) for pos, fields in positioning.items()}
     if title is None or isinstance(title, str):
         title = layout(title)
     assert isinstance(title, Tensor), "title must be a Tensor or str"
@@ -373,18 +373,19 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         return row_shape.volume, col_shape.volume, non_reduced
 
 
-    # if len(plottable) > 1:
-    #     plottable
-    #
-    # return math.layout([], math.channel('cols, rows, overlay'))
-    # else:  # x, y, z
-    #     if channel in value.shape.spatial and 'vector' in value.shape:
-    #         return value.vector[channel]
-    #     elif 'vector' in value.shape:
-    #         raise ValueError(
-    #             f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
-    #     else:
-    #         return value
+def _space(fields: Tuple[Field, ...], ignore_dims: Shape) -> Box:
+    all_dims = []
+    for f in fields:
+        for dim in f.bounds.vector.item_names:
+            if dim not in all_dims and dim not in ignore_dims:
+                all_dims.append(dim)
+    all_bounds = [embed(f.bounds.without(ignore_dims.names), all_dims) for f in fields]
+    if len(all_bounds) == 1:
+        return all_bounds[0]
+    bounds: Box = math.stack(all_bounds, batch('_fields'))
+    lower = math.finite_min(bounds.lower, '_fields', default=-math.INF)
+    upper = math.finite_max(bounds.upper, '_fields', default=math.INF)
+    return Box(lower, upper)
 
 
 def overlay(*fields: SampledField or Tensor) -> Tensor:
