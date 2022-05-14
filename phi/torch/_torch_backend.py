@@ -97,9 +97,9 @@ class TorchBackend(Backend):
         else:
             return self.as_tensor(obj)
 
-    def auto_cast(self, *tensors) -> list:
+    def auto_cast(self, *tensors, **kwargs) -> list:
         tensors = [t if isinstance(t, (numbers.Number, bool)) else self.as_tensor(t, True) for t in tensors]
-        return Backend.auto_cast(self, *tensors)
+        return Backend.auto_cast(self, *tensors, **kwargs)
 
     def is_available(self, tensor) -> bool:
         # return True

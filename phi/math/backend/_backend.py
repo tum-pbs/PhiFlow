@@ -124,7 +124,7 @@ class Backend:
     def combine_types(self, *dtypes: DType) -> DType:
         return combine_types(*dtypes, fp_precision=self.precision)
 
-    def auto_cast(self, *tensors) -> list:
+    def auto_cast(self, *tensors, bool_to_int=False) -> list:
         """
         Determins the appropriate values type resulting from operations involving the tensors as input.
         
@@ -132,14 +132,17 @@ class Backend:
         Backends can override this method to prevent unnecessary casting.
 
         Args:
-          *tensors: tensors to cast and to consider when determining the common data type
+            *tensors: tensors to cast and to consider when determining the common data type
+            bool_to_int: Whether to convert boolean values to integers if all values are boolean.
 
         Returns:
             tensors cast to a common data type
         """
         dtypes = [self.dtype(t) for t in tensors]
         result_type = self.combine_types(*dtypes)
-        if result_type.kind in (int, float, complex, bool):
+        if result_type.kind == bool and bool_to_int:
+            result_type = DType(int, 32)
+        if result_type.kind in (int, float, complex, bool):  # do not cast everything to string!
             tensors = [self.cast(t, result_type) for t in tensors]
         return tensors
 
@@ -1210,11 +1213,11 @@ class Backend:
         return x >= y
 
     def add(self, a, b):
-        a, b = self.auto_cast(a, b)
+        a, b = self.auto_cast(a, b, bool_to_int=True)
         return a + b
 
     def sub(self, a, b):
-        a, b = self.auto_cast(a, b)
+        a, b = self.auto_cast(a, b, bool_to_int=True)
         return a - b
 
     def mul(self, a, b):
