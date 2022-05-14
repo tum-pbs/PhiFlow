@@ -5,7 +5,7 @@ import numpy as np
 
 from phi import math
 from ._geom import Geometry, _keep_vector
-from ..math import wrap, INF, Shape
+from ..math import wrap, INF, Shape, channel
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
 
@@ -304,11 +304,18 @@ class Cuboid(BaseBox):
                  center: Tensor = 0,
                  half_size: float or Tensor = None,
                  **size: float or Tensor):
-        self._center = wrap(center)
         if half_size is not None:
-            self._half_size = wrap(half_size)
+            assert isinstance(half_size, Tensor), "half_size must be a Tensor"
+            assert 'vector' in half_size.shape, f"Cuboid size must have a 'vector' dimension."
+            assert half_size.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Cuboid(x=x, y=y) to assign names."
+            self._half_size = half_size
         else:
             self._half_size = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys()))) * 0.5
+        center = wrap(center)
+        if 'vector' not in center.shape or center.shape.get_item_names('vector') is None:
+            center = math.expand(center, channel(self._half_size))
+        self._center = center
+
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\

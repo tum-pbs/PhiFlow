@@ -34,6 +34,7 @@ class Sphere(Geometry):
             self._center = wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
         assert radius is not None, "radius must be specified."
         self._radius = wrap(radius)
+        assert 'vector' not in self._radius.shape, f"Sphere radius must not vary along vector but got {radius}"
 
     @property
     def shape(self):
