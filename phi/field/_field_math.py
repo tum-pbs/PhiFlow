@@ -30,7 +30,7 @@ def bake_extrapolation(grid: GridType) -> GridType:
         for dim, value in zip(grid.shape.spatial.names, values):
             lower, upper = grid.extrapolation.valid_outer_faces(dim)
             padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation, bounds=grid.bounds))
-        return StaggeredGrid(math.stack(padded, channel('vector')), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
+        return StaggeredGrid(math.stack(padded, grid.shape['vector']), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
     elif isinstance(grid, CenteredGrid):
         return pad(grid, 1).with_extrapolation(math.extrapolation.NONE)
     else:
@@ -517,34 +517,28 @@ def vec_squared(field: SampledField):
     return field.with_values(math.vec_squared(field.values))
 
 
-def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tuple:
+def finite_fill(grid: GridType, distance=1, diagonal=True) -> GridType:
     """
     Extrapolates values of `grid` which are marked by nonzero values in `valid` using `phi.math.masked_fill().
     If `values` is a StaggeredGrid, its components get extrapolated independently.
 
     Args:
-        grid: Grid holding the values for extrapolation
-        valid: Grid (same type as `values`) marking the positions for extrapolation with nonzero values
-        distance_cells: Number of extrapolation steps
+        grid: Grid holding the values for extrapolation and possible non-finite values to be filled.
+        distance: Number of extrapolation steps, i.e. how far a cell can be from the closest finite value to get filled.
+        diagonal: Whether to extrapolate values to their diagonal neighbors per step.
 
     Returns:
         grid: Grid with extrapolated values.
         valid: binary Grid marking all valid values after extrapolation.
     """
-    assert isinstance(valid, type(grid)), 'Type of valid Grid must match type of grid.'
     if isinstance(grid, CenteredGrid):
-        new_values, new_valid = masked_fill(grid.values, valid.values, distance_cells)
-        return grid.with_values(new_values), valid.with_values(new_valid)
+        new_values = math.finite_fill(grid.values, distance=distance, diagonal=diagonal, padding=grid.extrapolation)
+        return grid.with_values(new_values)
     elif isinstance(grid, StaggeredGrid):
-        new_values = []
-        new_valid = []
-        for cgrid, cvalid in zip(unstack(grid, 'vector'), unstack(valid, 'vector')):
-            new_tensor, new_mask = extrapolate_valid(cgrid, valid=cvalid, distance_cells=distance_cells)
-            new_values.append(new_tensor.values)
-            new_valid.append(new_mask.values)
-        return grid.with_values(math.stack(new_values, channel(grid))), valid.with_values(math.stack(new_valid, channel(grid)))
+        new_values = [finite_fill(c, distance=distance, diagonal=diagonal).values for c in grid.vector]
+        return grid.with_values(math.stack(new_values, channel(grid)))
     else:
-        raise NotImplementedError()
+        raise ValueError(grid)
 
 
 def discretize(grid: Grid, filled_fraction=0.25):

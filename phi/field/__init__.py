@@ -41,7 +41,7 @@ from ._field_math import (
     where, maximum, minimum,
     vec_squared, vec_length as vec_abs, vec_length,
     downsample2x, upsample2x,
-    extrapolate_valid,
+    finite_fill,
     native_call,
     integrate,
     pack_dims,
