@@ -950,9 +950,15 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
     condition = tensor(condition)
     value_true = tensor(value_true)
     value_false = tensor(value_false)
-    shape, (c, vt, vf) = broadcastable_native_tensors(condition, value_true, value_false)
-    result = choose_backend(c, vt, vf).where(c, vt, vf)
-    return NativeTensor(result, shape)
+
+    def inner_where(c: Tensor, vt: Tensor, vf: Tensor):
+        if vt._is_tracer or vf._is_tracer or c._is_tracer:
+            return c * vt + (1 - c) * vf  # ToDo this does not take NaN into account
+        shape, (c, vt, vf) = broadcastable_native_tensors(c, vt, vf)
+        result = choose_backend(c, vt, vf).where(c, vt, vf)
+        return NativeTensor(result, shape)
+
+    return broadcast_op(inner_where, [condition, value_true, value_false])
 
 
 def nonzero(value: Tensor, list_dim: Shape or str = instance('nonzero'), index_dim: Shape = channel('vector')):

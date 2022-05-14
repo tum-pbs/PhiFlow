@@ -457,8 +457,8 @@ def where(mask: Field or Geometry or float, field_true: Field or float, field_fa
     Returns:
         `SampledField`
     """
-    mask, field_true, field_false = _auto_resample(mask, field_true, field_false)
-    values = mask.values * field_true.values + (1 - mask.values) * field_false.values
+    field_true, field_false, mask = _auto_resample(field_true, field_false, mask)
+    values = math.where(mask.values, field_true.values, field_false.values)
     return field_true.with_values(values)
 
 
@@ -497,6 +497,7 @@ def minimum(f1: Field or Geometry or float, f2: Field or Geometry or float):
 
 
 def _auto_resample(*fields: Field):
+    """ Prefers extrapolation from first SampledField """
     for sampled_field in fields:
         if isinstance(sampled_field, SampledField):
             return [f @ sampled_field for f in fields]
