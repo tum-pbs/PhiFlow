@@ -409,6 +409,8 @@ class BoundDim:
         """
         if name.startswith('_') or ',' in name or ' ' in name:
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
+        if name == 'shape':
+            raise AttributeError
         assert isinstance(obj, Sliceable) and isinstance(obj, Shaped)
         self.obj = obj
         self.name = name
