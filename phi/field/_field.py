@@ -282,6 +282,9 @@ class SampledField(Field):
         return self.with_values(values).with_extrapolation(extrapolation_)
 
     def _op2(self, other, operator) -> 'SampledField':
+        if isinstance(other, Geometry):
+            from ._mask import HardGeometryMask
+            other = HardGeometryMask(other)
         if isinstance(other, Field):
             other_values = reduce_sample(other, self._elements)
             values = operator(self._values, other_values)
