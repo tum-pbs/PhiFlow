@@ -7,7 +7,7 @@ from phi import math, field
 
 from phi.math._tensors import copy_with
 from .fluid import Obstacle, _pressure_extrapolation
-from phi.field import StaggeredGrid, PointCloud, Grid, extrapolate_valid, CenteredGrid
+from phi.field import StaggeredGrid, PointCloud, Grid, finite_fill, CenteredGrid
 from phi.geom import union, Sphere, Box
 from phi.math.extrapolation import Extrapolation, ZERO
 
@@ -48,7 +48,7 @@ def make_incompressible(velocity: StaggeredGrid,
     # which temporarily deform the `occupied_centered` mask when moving into a new cell). This would then
     # get compensated by the pressure. This is unwanted for falling liquids and therefore prevented by this
     # extrapolation. ---
-    velocity_field, _ = extrapolate_valid(velocity * occupied_staggered, occupied_staggered, 1)
+    velocity_field, _ = finite_fill(velocity * occupied_staggered, occupied_staggered, 1)
     velocity_field *= accessible  # Enforces boundary conditions after extrapolation
     div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve_linear
 
@@ -99,12 +99,12 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud,
     velocities = math.zeros_like(previous_particle_velocity.values)
     if viscosity > 0.:
         # --- PIC ---
-        velocity_grid, _ = extrapolate_valid(velocity_grid, occupation_mask)
+        velocity_grid, _ = finite_fill(velocity_grid, occupation_mask)
         velocities += viscosity * (velocity_grid @ previous_particle_velocity).values
     if viscosity < 1.:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
-        v_change_field, _ = extrapolate_valid(v_change_field, occupation_mask)
+        v_change_field, _ = finite_fill(v_change_field, occupation_mask)
         v_change = (v_change_field @ previous_particle_velocity).values
         velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
     return previous_particle_velocity.with_values(velocities)

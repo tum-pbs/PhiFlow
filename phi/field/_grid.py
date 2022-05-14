@@ -334,8 +334,8 @@ class StaggeredGrid(Grid):
 
     def closest_values(self, points: Geometry):
         if 'staggered_direction' in points.shape:
-            points = points.unstack('staggered_direction')
-            channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
+            points_ = points.unstack('staggered_direction')
+            channels = [component.closest_values(p) for p, component in zip(points_, self.vector.unstack())]
         else:
             channels = [component.closest_values(points) for component in self.vector.unstack()]
         return math.stack(channels, points.shape['vector'])

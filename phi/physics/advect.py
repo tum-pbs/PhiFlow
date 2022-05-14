@@ -10,7 +10,7 @@ Examples:
 import warnings
 
 from phi import math
-from phi.field import SampledField, Field, PointCloud, extrapolate_valid, Grid, sample, reduce_sample
+from phi.field import SampledField, Field, PointCloud, finite_fill, Grid, sample, reduce_sample
 from phi.field._field import FieldType
 from phi.field._field_math import GridType
 from phi.geom import Geometry
@@ -166,7 +166,7 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
     def extrapolation_helper(elements, t_shift, v_field, mask):
         shift = math.ceil(math.max(math.abs(elements.center - points.center))) - t_shift
         t_shift += shift
-        v_field, mask = extrapolate_valid(v_field, mask, int(shift))
+        v_field, mask = finite_fill(v_field, mask, int(shift))
         v_field *= accessible
         return v_field, mask, t_shift
 
@@ -178,7 +178,7 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
     # extrapolation to maximum shift of corresponding component ---
     if extrapolate:
         assert isinstance(occupied, type(velocity)), 'occupation mask must have same type as velocity.'
-        velocity, occupied = extrapolate_valid(velocity, occupied, 2)
+        velocity, occupied = finite_fill(velocity, occupied, 2)
         velocity *= accessible
     vel_k1 = sample(velocity, points)
 
