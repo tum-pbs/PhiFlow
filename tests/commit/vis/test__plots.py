@@ -50,17 +50,17 @@ class TestPlots(TestCase):
         self._test_plot(overlay(CenteredGrid(Noise(), x=10, y=10), CenteredGrid(Noise(), x=10, y=10, bounds=Box(x=(5, 15), y=(5, 15)))))
 
     def test_plot_spheres_2d(self):
-        spheres = Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel('vector')), radius=.1)
+        spheres = Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1)
         self._test_plot(spheres)
 
     def test_plot_point_cloud_2d(self):
-        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel('vector')), radius=.1))
+        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1))
         cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[.4:.6, .2:.4]).elements, 'x,y', instance('points')))
         cloud = field.stack([spheres, cells], instance('stack'))
         self._test_plot(cloud)
 
     def test_plot_point_cloud_2d_large(self):
-        spheres = PointCloud(Sphere(wrap([(2, 4), (9, 8), (7, 8)], instance('points'), channel('vector')), radius=1))
+        spheres = PointCloud(Sphere(wrap([(2, 4), (9, 8), (7, 8)], instance('points'), channel(vector='x,y')), radius=1))
         cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[4:6, 2:4]).elements, 'x,y', instance('points')))
         cloud = field.stack([spheres, cells], instance('stack'))
         self._test_plot(cloud)
@@ -69,7 +69,7 @@ class TestPlots(TestCase):
         self._test_plot(PointCloud(math.random_normal(instance(points=5), channel(vector='a,b'))))
 
     def test_plot_point_cloud_2d_bounded(self):
-        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
+        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel(vector='x,y'))
         self._test_plot(PointCloud(Sphere(points, radius=0.1), bounds=Box(x=1, y=1)))
 
     def test_plot_point_cloud_vector_field_2d_bounded(self):
@@ -80,14 +80,14 @@ class TestPlots(TestCase):
     def test_plot_multiple(self):
         grid = CenteredGrid(Noise(batch(b=2)), 0, Box[0:1, 0:1], x=50, y=10)
         grid2 = CenteredGrid(grid, 0, Box[0:2, 0:1], x=20, y=50)
-        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
+        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel(vector='x,y'))
         cloud = PointCloud(Sphere(points, radius=0.1), bounds=Box(x=1, y=1))
         titles = math.wrap([['b=0', 'b=0', 'points'], ['b=1', 'b=1', '']], spatial('rows,cols'))
         self._test_plot(grid, grid2, cloud, row_dims='b', title=titles)
 
     def test_overlay(self):
         grid = CenteredGrid(Noise(), extrapolation.ZERO, x=64, y=8, bounds=Box(x=1, y=1))
-        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel('vector'))
+        points = wrap([(.2, .4), (.9, .8)], instance('points'), channel(vector='x,y'))
         cloud = PointCloud(Sphere(points, radius=.1))
         self._test_plot(overlay(grid, grid * (0.1, 0.02), cloud), title='Overlay')
 

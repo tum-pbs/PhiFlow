@@ -194,8 +194,8 @@ class CenteredGrid(Grid):
         if geometry == self.bounds:
             return math.mean(self._values, self._resolution)
         if isinstance(geometry, GeometryStack):
-            sampled = [self.sample(g) for g in geometry.geometries]
-            return math.stack(sampled, geometry.stack_dim)
+            sampled = [self._sample(g) for g in geometry.geometries]
+            return math.stack(sampled, geometry.geometries.shape)
         if isinstance(geometry, GridCell):
             if self.elements == geometry:
                 return self.values

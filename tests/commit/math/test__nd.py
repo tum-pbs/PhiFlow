@@ -275,8 +275,8 @@ class TestMathNDNumpy(TestCase):
                 dx = params['dx']
                 padding = extrapolation.PERIODIC
                 ref = self.arakawa_reference_implementation(np.pad(d1.copy(), 1, mode='wrap'), np.pad(d2.copy(), 1, mode='wrap'), dx)[1:-1, 1:-1]
-                d1_tensor = field.CenteredGrid(values=math.tensor(d1, spatial('x,y')), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
-                d2_tensor = field.CenteredGrid(values=math.tensor(d2, spatial('x,y')), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
+                d1_tensor = field.CenteredGrid(values=math.tensor(d1, spatial('x,y')), bounds=geom.Box(x=grid_size[0], y=grid_size[1]), extrapolation=padding)
+                d2_tensor = field.CenteredGrid(values=math.tensor(d2, spatial('x,y')), bounds=geom.Box(x=grid_size[0], y=grid_size[1]), extrapolation=padding)
                 val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor.values, d2_tensor.values, dx)
                 # try:
                 math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)

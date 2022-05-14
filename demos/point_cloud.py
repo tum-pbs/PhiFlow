@@ -4,8 +4,8 @@ Demonstrates working with PointCloud objects and plotting them.
 from phi.flow import *
 
 
-points1 = PointCloud(wrap((1, 1)), color='#ba0a04')
-points2 = PointCloud(wrap((20, 20)), color='#ba0a04')
+points1 = PointCloud(math.vec(x=1, y=1), color='#ba0a04')
+points2 = PointCloud(math.vec(x=20, y=20), color='#ba0a04')
 # points = points1 & points2
 points = field.stack([points1, points2], instance('points'))
 

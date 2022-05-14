@@ -28,7 +28,7 @@ class PlotlyPlots(PlottingLibrary):
                       subplots: Dict[Tuple[int, int], Box],
                       titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         titles = [titles.rows[r].cols[c].native() for r in range(rows) for c in range(cols)]
-        specs = [[{'type': 'xy' if subplots.get((row, col), 0).spatial_rank < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
+        specs = [[{'type': 'xy' if subplots.get((row, col), Box()).spatial_rank < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
         fig = self.current_figure = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=specs)
         for (row, col), bounds in subplots.items():
             subplot = fig.get_subplot(row + 1, col + 1)
