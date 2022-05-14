@@ -4,7 +4,7 @@ from typing import Callable, List, Tuple
 from phi import geom
 from phi import math
 from phi.geom import Box, Geometry, Sphere
-from phi.math import Tensor, spatial, instance, tensor, extrapolate_valid_values, channel, Shape, batch, unstack
+from phi.math import Tensor, spatial, instance, tensor, masked_fill, channel, Shape, batch, unstack
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
@@ -519,7 +519,7 @@ def vec_squared(field: SampledField):
 
 def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tuple:
     """
-    Extrapolates values of `grid` which are marked by nonzero values in `valid` using `phi.math.extrapolate_valid_values().
+    Extrapolates values of `grid` which are marked by nonzero values in `valid` using `phi.math.masked_fill().
     If `values` is a StaggeredGrid, its components get extrapolated independently.
 
     Args:
@@ -533,7 +533,7 @@ def extrapolate_valid(grid: GridType, valid: GridType, distance_cells=1) -> tupl
     """
     assert isinstance(valid, type(grid)), 'Type of valid Grid must match type of grid.'
     if isinstance(grid, CenteredGrid):
-        new_values, new_valid = extrapolate_valid_values(grid.values, valid.values, distance_cells)
+        new_values, new_valid = masked_fill(grid.values, valid.values, distance_cells)
         return grid.with_values(new_values), valid.with_values(new_valid)
     elif isinstance(grid, StaggeredGrid):
         new_values = []

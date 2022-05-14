@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial, instance, channel
+from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial, instance, channel, NAN
 
 import numpy as np
 import os
@@ -72,12 +72,32 @@ class TestMathNDNumpy(TestCase):
         math.print(same_size, 'Same size')
         math.assert_close(meshgrid.x[1:-1].y[1:-1], same_size.x[1:-1].y[1:-1])
 
+    def test_extrapolate_finite_3x3_sanity(self):
+        values = tensor([[NAN, NAN, NAN],
+                         [NAN, 1,   NAN],
+                         [NAN, NAN, NAN]], spatial('x, y'))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance_cells=1, diagonal=True))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance_cells=2, diagonal=False))
+
+    def test_extrapolate_finite_3x3(self):
+        values = tensor([[NAN, NAN, NAN],
+                         [NAN, NAN, 4  ],
+                         [NAN, 2,   NAN]], spatial('x, y'))
+        expected_diag = tensor([[NAN, 4,   4],
+                                [2,   3,   4],
+                                [2,   2,   3]], spatial('x, y'))
+        math.assert_close(expected_diag, math.finite_fill(values, distance_cells=1, diagonal=True))
+        expected = tensor([[NAN, 3.5, 4],
+                           [2.5, 3,   4],
+                           [2,   2,   3]], spatial('x, y'))
+        math.assert_close(expected, math.finite_fill(values, distance_cells=2, diagonal=False))
+
     def test_extrapolate_valid_3x3_sanity(self):
         values = tensor([[0, 0, 0],
                          [0, 1, 0],
                          [0, 0, 0]], spatial('x, y'))
         valid = values
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid)
         expected_values = math.ones(spatial(x=3, y=3))
         expected_valid = extrapolated_values
         math.assert_close(extrapolated_values, expected_values)
@@ -96,7 +116,7 @@ class TestMathNDNumpy(TestCase):
         expected_values = tensor([[1, 4, 4],
                                   [2, 3, 4],
                                   [2, 3, 4]], spatial('x, y'))
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid)
         math.assert_close(extrapolated_values, expected_values)
         math.assert_close(extrapolated_valid, expected_valid)
 
@@ -117,7 +137,7 @@ class TestMathNDNumpy(TestCase):
                                   [2, 3, 4, 4],
                                   [2, 3, 4, 4],
                                   [2, 2, 3.25, 4]], spatial('x, y'))
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid, 2)
         math.assert_close(extrapolated_values, expected_values)
         math.assert_close(extrapolated_valid, expected_valid)
 
@@ -158,7 +178,7 @@ class TestMathNDNumpy(TestCase):
                                   [[0, 4, 4],
                                    [2, 3, 4],
                                    [2, 2, 0]]], spatial('x, y, z'))
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 1)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid, 1)
         math.assert_close(extrapolated_values, expected_values)
         math.assert_close(extrapolated_valid, expected_valid)
 
@@ -191,7 +211,7 @@ class TestMathNDNumpy(TestCase):
                                   [[3, 4, 4],
                                    [2, 3, 4],
                                    [2, 2, 3]]], spatial('x, y, z'))
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid, 2)
         math.assert_close(extrapolated_values, expected_values)
         math.assert_close(extrapolated_valid, expected_valid)
 

@@ -324,31 +324,24 @@ def shift(x: Tensor,
     return offset_tensors
 
 
-def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int = 1) -> Tuple[Tensor, Tensor]:
+def masked_fill(values: Tensor, valid: Tensor, distance: int = 1) -> Tuple[Tensor, Tensor]:
     """
-    Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all spatial directions.
+    Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance` steps in all spatial directions.
     Overlapping extrapolated values get averaged. Extrapolation also includes diagonals.
-
-    Examples (1-step extrapolation), x marks the values for extrapolation:
-        200   000    111        004   00x    044        102   000    144
-        010 + 0x0 => 111        000 + 000 => 234        004 + 00x => 234
-        040   000    111        200   x00    220        200   x00    234
 
     Args:
         values: Tensor which holds the values for extrapolation
         valid: Tensor with same size as `x` marking the values for extrapolation with nonzero values
-        distance_cells: Number of extrapolation steps
+        distance: Number of extrapolation steps
 
     Returns:
         values: Extrapolation result
         valid: mask marking all valid values after extrapolation
     """
-
     def binarize(x):
         return math.divide_no_nan(x, x)
-
-    distance_cells = min(distance_cells, max(values.shape.sizes))
-    for _ in range(distance_cells):
+    distance = min(distance, max(values.shape.sizes) - 1)
+    for _ in range(distance):
         valid = binarize(valid)
         valid_values = valid * values
         overlap = valid
@@ -361,6 +354,44 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
         values = math.where(valid, values, math.where(binarize(overlap), extp, values))
         valid = overlap
     return values, binarize(valid)
+
+
+def finite_fill(values: Tensor, dims: DimFilter = spatial, distance: int = 1, diagonal: bool = True, padding=extrapolation.BOUNDARY) -> Tuple[Tensor, Tensor]:
+    """
+    Fills non-finite (NaN, inf, -inf) values from nearby finite values.
+    Extrapolates the finite values of `values` for `distance` steps along `dims`.
+    Where multiple finite values could fill an invalid value, the average is computed.
+
+    Args:
+        values: Floating-point `Tensor`. All non-numeric values (`NaN`, `inf`, `-inf`) are interpreted as invalid.
+        dims: Dimensions along which to fill invalid values from finite ones.
+        distance: Number of extrapolation steps, each extrapolating one cell out.
+        diagonal: Whether to extrapolate values to their diagonal neighbors per step.
+        padding: Extrapolation of `values`. Determines whether to extrapolate from the edges as well.
+
+    Returns:
+        `Tensor` of same shape as `values`.
+    """
+    if diagonal:
+        distance = min(distance, max(values.shape.sizes) - 1)
+        for _ in range(distance):
+            valid = math.is_finite(values)
+            valid_values = math.where(valid, values, 0)
+            overlap = valid
+            for dim in values.shape.spatial.names:
+                values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+                valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
+                mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+                overlap = math.sum_(mask_l + mask_r + overlap, dim='shift')
+            values = math.where(valid, values, valid_values / overlap)
+    else:
+        distance = min(distance, sum(values.shape.sizes) - 1)
+        for _ in range(distance):
+            neighbors = concat(shift(values, (-1, 1), dims, padding=padding, stack_dim=channel('neighbors')), 'neighbors')
+            finite = math.is_finite(neighbors)
+            avg_neighbors = math.sum_(math.where(finite, neighbors, 0), 'neighbors') / math.sum_(finite, 'neighbors')
+            values = math.where(math.is_finite(values), values, avg_neighbors)
+    return values
 
 
 # Gradient
