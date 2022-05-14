@@ -27,7 +27,7 @@ class PointCloud(SampledField):
     def __init__(self,
                  elements: Tensor or Geometry,
                  values: Any = 1.,
-                 extrapolation: float or Extrapolation = 0,
+                 extrapolation: float or Extrapolation = 0.,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
@@ -175,6 +175,7 @@ def distribute_points(geometries: tuple or list or Geometry or float,
                       color: str = None,
                       center: bool = False,
                       radius: float = None,
+                      extrapolation: float or Extrapolation = math.NAN,
                       **domain) -> PointCloud:
     """
     Transforms `Geometry` objects into a PointCloud.
@@ -185,6 +186,7 @@ def distribute_points(geometries: tuple or list or Geometry or float,
         color (Optional): Color of PointCloud
         center: Set all points to the center of the grid cells.
         radius: Sphere radius.
+        extrapolation: Extrapolation for the `PointCloud`, default `NaN` used for FLIP.
 
     Returns:
          PointCloud representation of `geometries`.
@@ -194,7 +196,7 @@ def distribute_points(geometries: tuple or list or Geometry or float,
     if isinstance(geometries, (tuple, list, Geometry)):
         from phi.geom import union
         geometries = union(geometries)
-    geometries = CenteredGrid(geometries, **domain)
+    geometries = CenteredGrid(geometries, extrapolation, **domain)
     initial_points = _distribute_points(geometries.values, points_per_cell, center=center)
     if radius is None:
         from phi.field._field_math import data_bounds

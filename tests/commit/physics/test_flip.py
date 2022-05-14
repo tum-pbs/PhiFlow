@@ -5,12 +5,15 @@ from phi.field._point_cloud import distribute_points
 from phi.flow import *
 
 
-def step(particles: PointCloud, accessible: StaggeredGrid, dt: float):
-    velocity = particles @ accessible
-    div_free_velocity, _, occupied = flip.make_incompressible(velocity + dt * math.tensor([0, -9.81]), particles, accessible)
-    particles = flip.map_velocity_to_particles(particles, div_free_velocity, occupied, previous_velocity_grid=velocity, viscosity=0.9)
-    particles = advect.runge_kutta_4(particles, div_free_velocity, dt, accessible=accessible, occupied=occupied)
-    particles = flip.respect_boundaries(particles, [])
+def step(particles: PointCloud, obstacles: list, dt: float, **grid_resolution):
+    # --- Grid Operations ---
+    velocity = prev_velocity = field.finite_fill(StaggeredGrid(particles, 0, particles.bounds, **grid_resolution))
+    occupied = CenteredGrid(particles.mask(), velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
+    velocity, pressure = fluid.make_incompressible(velocity + (0, -9.81 * dt), obstacles, active=occupied)
+    # --- Particle Operations ---
+    particles = flip.map_velocity_to_particles(particles, velocity, prev_velocity)
+    particles = advect.points(particles, velocity * ~union(obstacles), dt, advect.finite_rk4)
+    particles = flip.respect_boundaries(particles, obstacles)
     return particles
 
 
@@ -18,11 +21,10 @@ class FlipTest(TestCase):
 
     def test_falling_block_short(self):
         """ Tests if a block of liquid has a constant shape during free fall for 4 steps. """
-        ACCESSIBLE_FACES = field.stagger(CenteredGrid(1, 0, x=32, y=128), math.minimum, 0)
         particles = initial_particles = distribute_points(union(Box[12:20, 110:120]), x=32, y=128) * (0, -10)
         initial_bounds = data_bounds(particles)
         for i in range(4):
-            particles = step(particles, ACCESSIBLE_FACES, dt=0.05)
+            particles = step(particles, [], dt=0.05, x=32, y=128)
             math.assert_close(data_bounds(particles).size, initial_bounds.size)  # shape of falling block stays the same
             assert math.max(particles.points, dim='points').vector['y'] < math.max(initial_particles.points, dim='points').vector['y']  # block really falls
 

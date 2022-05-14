@@ -5,7 +5,7 @@ from typing import Tuple
 
 from phi import math, field
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
-from phi.geom import union
+from phi.geom import union, Geometry
 from ..field._grid import GridType
 from ..math import extrapolation
 from ..math._tensors import copy_with
@@ -47,7 +47,8 @@ class Obstacle:
 
 def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
-                        solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5))) -> Tuple[GridType, CenteredGrid]:
+                        solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5)),
+                        active: CenteredGrid = None) -> Tuple[GridType, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -57,26 +58,39 @@ def make_incompressible(velocity: GridType,
         velocity: Vector field sampled on a grid
         obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
         solve: Parameters for the pressure solve as.
+        active: (Optional) Mask for which cells the pressure should be solved.
+            If given, the velocity may take `NaN` values where it does not contribute to the pressure.
+            Also, the total divergence will never be subtracted if active is given, even if all values are 1.
 
     Returns:
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     """
     assert isinstance(obstacles, (tuple, list)), f"obstacles must be a tuple or list but got {type(obstacles)}"
+    obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
     input_velocity = velocity
+    # --- Create masks ---
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
-    active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=extrapolation.NONE)
-    accessible = active.with_extrapolation(accessible_extrapolation)
+    accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
     hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
+    all_active = active is None
+    if active is None:
+        active = accessible.with_extrapolation(extrapolation.NONE)
+    else:
+        active *= accessible  # no pressure inside obstacles
+    # --- Linear solve ---
     velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity) * active
-    if not input_velocity.extrapolation.is_flexible:
+    if not all_active:  # NaN in velocity allowed
+        div = field.where(field.is_finite(div), div, 0)
+    if not input_velocity.extrapolation.is_flexible and all_active:
         assert solve.preprocess_y is None, "fluid.make_incompressible() does not support custom preprocessing"
         solve = copy_with(solve, preprocess_y=_balance_divergence, preprocess_y_args=(active,))
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
     pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
+    # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
     velocity = velocity - grad_pressure
     return velocity, pressure
@@ -110,6 +124,8 @@ def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
     """
     # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
+        if isinstance(obstacle, Geometry):
+            obstacle = Obstacle(obstacle)
         assert isinstance(obstacle, Obstacle)
         obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) @ velocity
         if obstacle.is_stationary:

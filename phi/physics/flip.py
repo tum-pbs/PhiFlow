@@ -8,7 +8,7 @@ from phi import math, field
 from phi.math._tensors import copy_with
 from .fluid import Obstacle, _pressure_extrapolation
 from phi.field import StaggeredGrid, PointCloud, Grid, finite_fill, CenteredGrid
-from phi.geom import union, Sphere, Box
+from phi.geom import union, Sphere, Box, Geometry
 from phi.math.extrapolation import Extrapolation, ZERO
 
 
@@ -34,13 +34,13 @@ def make_incompressible(velocity: StaggeredGrid,
       occupation_mask: StaggeredGrid
     """
     points = particles.with_values(math.tensor(1., convert=True))
-    occupied_centered = CenteredGrid(points, velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
+    active = CenteredGrid(points, velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)  # occupied centered
     occupied_staggered = StaggeredGrid(points, velocity.extrapolation, velocity.bounds, velocity.resolution)
 
     if isinstance(obstacles, StaggeredGrid):
-        accessible = obstacles
+        hard_bcs = obstacles
     else:
-        accessible = accessible_mask(union(*[obstacle.geometry for obstacle in obstacles]), type=StaggeredGrid)
+        hard_bcs = accessible_mask(union(*[obstacle.geometry for obstacle in obstacles]), velocity.extrapolation, velocity.bounds, velocity.resolution, type=StaggeredGrid)
 
     # --- Extrapolation is needed to exclude border divergence from the `occupied_centered` mask and thus
     # from the pressure solve_linear. If particles are randomly distributed, the `occupied_centered` mask
@@ -48,13 +48,14 @@ def make_incompressible(velocity: StaggeredGrid,
     # which temporarily deform the `occupied_centered` mask when moving into a new cell). This would then
     # get compensated by the pressure. This is unwanted for falling liquids and therefore prevented by this
     # extrapolation. ---
-    velocity_field, _ = finite_fill(velocity * occupied_staggered, occupied_staggered, 1)
-    velocity_field *= accessible  # Enforces boundary conditions after extrapolation
-    div = field.divergence(velocity_field) * occupied_centered  # Multiplication with `occupied_centered` excludes border divergence from pressure solve_linear
+    velocity_field = finite_fill(velocity / occupied_staggered)
+    velocity_field *= hard_bcs  # Enforces boundary conditions after extrapolation
+    div = field.divergence(velocity_field) * active  # Multiplication with `occupied_centered` excludes border divergence from pressure solve_linear
+    from phi import vis; vis.show(velocity_field, div, active)
 
     @field.jit_compile_linear
     def matrix_eq(p):
-        return field.where(occupied_centered, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * accessible), p)
+        return field.where(active, field.divergence(field.spatial_gradient(p, type=StaggeredGrid) * hard_bcs), p)
 
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(velocity.extrapolation)
@@ -62,18 +63,17 @@ def make_incompressible(velocity: StaggeredGrid,
     pressure = field.solve_linear(matrix_eq, div, solve)
 
     def pressure_backward(_p, _p_, dp):
-        return dp * occupied_centered.values,
+        return dp * active.values,
 
     add_mask_in_gradient = math.custom_gradient(lambda p: p, pressure_backward)
     pressure = pressure.with_values(add_mask_in_gradient(pressure.values))
 
-    gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * accessible
+    gradp = field.spatial_gradient(pressure, type=type(velocity_field)) * hard_bcs
     return velocity_field - gradp, pressure, occupied_staggered
 
 
 def map_velocity_to_particles(previous_particle_velocity: PointCloud,
                               velocity_grid: Grid,
-                              occupation_mask: Grid,
                               previous_velocity_grid: Grid = None,
                               viscosity: float = 0.) -> PointCloud:
     """
@@ -93,48 +93,42 @@ def map_velocity_to_particles(previous_particle_velocity: PointCloud,
     Returns:
         PointCloud with particle positions as elements and updated particle velocities as values.
     """
-    viscosity = min(max(0., viscosity), 1.)
-    if previous_velocity_grid is None:
-        viscosity = 1.
     velocities = math.zeros_like(previous_particle_velocity.values)
-    if viscosity > 0.:
+    if viscosity > 0:
         # --- PIC ---
-        velocity_grid, _ = finite_fill(velocity_grid, occupation_mask)
         velocities += viscosity * (velocity_grid @ previous_particle_velocity).values
-    if viscosity < 1.:
+    if viscosity < 1:
         # --- FLIP ---
         v_change_field = velocity_grid - previous_velocity_grid
-        v_change_field, _ = finite_fill(v_change_field, occupation_mask)
         v_change = (v_change_field @ previous_particle_velocity).values
         velocities += (1 - viscosity) * (previous_particle_velocity.values + v_change)
     return previous_particle_velocity.with_values(velocities)
 
 
-def respect_boundaries(particles: PointCloud, not_accessible: tuple or list, offset: float = 0.5) -> PointCloud:
+def respect_boundaries(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -> PointCloud:
     """
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of 
     obstacles or back into the domain.
     
     Args:
         particles: PointCloud holding particle positions as elements
-        not_accessible: List of `Obstacle` or `Geometry` objects where any particles inside should get shifted outwards
+        obstacles: List of `Obstacle` or `Geometry` objects where any particles inside should get shifted outwards
         offset: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
 
     Returns:
         PointCloud where all particles are inside the domain / outside of obstacles.
     """
-    assert particles._bounds is not None, "bounds property must be set for respect_boundaries()"
-    bounds = particles.bounds
-    new_positions = particles.elements.center
-    for obj in not_accessible:
-        if isinstance(obj, Obstacle):
-            obj = obj.geometry
-        new_positions = obj.push(new_positions, shift_amount=offset)
-    new_positions = (~bounds).push(new_positions, shift_amount=offset)
-    return particles.with_elements(Sphere(new_positions, math.mean(particles.bounds.size) * 0.005))
+    pos = particles.elements.center
+    for obj in obstacles:
+        geometry = obj.geometry if isinstance(obj, Obstacle) else obj
+        assert isinstance(geometry, Geometry), f"obstacles must be a list of Obstacle or Geometry objects but got {type(obj)}"
+        pos = geometry.push(pos, shift_amount=offset)
+    if particles._bounds is not None:
+        pos = (~particles.bounds).push(pos, shift_amount=offset)
+    return particles.with_elements(particles.elements @ pos)
 
 
-def accessible_mask(not_accessible: tuple or list, type: type = CenteredGrid, extrapolation: Extrapolation = ZERO) -> CenteredGrid or StaggeredGrid:
+def accessible_mask(not_accessible: tuple or list, extrapolation, bounds, resolution, type: type = CenteredGrid) -> CenteredGrid or StaggeredGrid:
     """
     Unifies domain and Obstacle or Geometry objects into a binary StaggeredGrid mask which can be used
     to enforce boundary conditions.
@@ -148,6 +142,6 @@ def accessible_mask(not_accessible: tuple or list, type: type = CenteredGrid, ex
         Binary mask indicating valid fields w.r.t. the boundary conditions.
     """
     warnings.warn("flip.accessible_mask() is deprecated. Use CenteredGrid(~union(not_accessible)) for centered grids and field.stagger(mask, math.minimum, extrapolation) for staggered grids.", DeprecationWarning)
-    assert isinstance(type, (CenteredGrid, StaggeredGrid))
-    mask = CenteredGrid(~union(not_accessible), extrapolation=extrapolation)
+    assert type in (CenteredGrid, StaggeredGrid)
+    mask = CenteredGrid(~union(not_accessible), extrapolation, bounds, resolution)
     return field.stagger(mask, math.minimum, extrapolation) if type is StaggeredGrid else mask
