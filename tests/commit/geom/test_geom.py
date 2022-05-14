@@ -8,7 +8,7 @@ class TestGeom(TestCase):
 
     def test_union_varying(self):
         box = Box(x=1, y=1)
-        sphere = Sphere((0, 0), radius=1)
+        sphere = Sphere(x=0, y=0, radius=1)
         union = geom.union(box, sphere)
         math.assert_close(union.approximate_signed_distance((1, 1)), union.approximate_signed_distance((0, -1)), 0)
 

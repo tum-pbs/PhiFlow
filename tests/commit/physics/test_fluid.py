@@ -19,7 +19,7 @@ class FluidTest(TestCase):
         result = None
         for i, backend in enumerate(BACKENDS):
             with backend:
-                smoke = CenteredGrid(Sphere(center=(math.random_uniform(batch(**batch_dims)) * 100, 10), radius=5), extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
+                smoke = CenteredGrid(Sphere(x=math.random_uniform(batch(**batch_dims)) * 100, y=10, radius=5), extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
                 velocity = grid_type(0, extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
                 for _ in range(2):
                     velocity += smoke * (0, 0.1) @ velocity

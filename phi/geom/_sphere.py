@@ -26,15 +26,12 @@ class Sphere(Geometry):
             **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
         """
         if center is not None:
-            if not isinstance(center, Tensor):
-                warnings.warn(f"constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.", DeprecationWarning)
-                self._center = wrap(center)
-            else:
-                self._center = center
-            assert 'vector' in self._center.shape, f"Sphere.center must have a 'vector' dimension. Use the syntax x=0.5."
+            assert isinstance(center, Tensor), "center must be a Tensor"
+            assert 'vector' in center.shape, f"Sphere center must have a 'vector' dimension."
+            assert center.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names."
+            self._center = center
         else:
-            self._center = math.wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
-            # self._center = wrap(math.spatial(**center_), math.channel('vector'))
+            self._center = wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
         assert radius is not None, "radius must be specified."
         self._radius = wrap(radius)
 

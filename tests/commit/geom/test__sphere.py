@@ -16,11 +16,11 @@ class TestSphere(TestCase):
         self.assertIsInstance(sphere, Shapable)
 
     def test_circle_area(self):
-        sphere = Sphere(math.tensor([(0, 0), (1, 1)], batch('batch'), channel('vector')), radius=math.tensor([1, 2], batch('batch')))
+        sphere = Sphere(math.tensor([(0, 0), (1, 1)], batch('batch'), channel(vector='x,y')), radius=math.tensor([1, 2], batch('batch')))
         math.assert_close(sphere.volume, [math.PI, 4 * math.PI])
 
     def test_sphere_volume(self):
-        sphere = Sphere(math.tensor([(0, 0, 0), (1, 1, 1)], batch('batch'), channel('vector')), radius=math.tensor([1, 2], batch('batch')))
+        sphere = Sphere(math.tensor([(0, 0, 0), (1, 1, 1)], batch('batch'), channel(vector='x,y,z')), radius=math.tensor([1, 2], batch('batch')))
         math.assert_close(sphere.volume, [4/3 * math.PI, 4/3 * 8 * math.PI])
 
     def test_sphere_constructor_kwargs(self):

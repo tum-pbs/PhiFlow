@@ -12,7 +12,7 @@ class ColabNotebookTest(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.jacobian):
                 with backend:
-                    INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel('vector'))
+                    INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel(vector='x,y'))
                     INFLOW = CenteredGrid(Sphere(center=INFLOW_LOCATION, radius=3), extrapolation.BOUNDARY, x=32, y=40) * 0.6
 
                     def simulate(velocity: StaggeredGrid, smoke: CenteredGrid):
@@ -37,7 +37,7 @@ class ColabNotebookTest(TestCase):
         for backend in BACKENDS:
             if backend.supports(Backend.jacobian):
                 with backend:
-                    INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel('vector'))
+                    INFLOW_LOCATION = math.tensor([(4., 5), (8., 5), (12., 5), (16., 5)], batch('inflow_loc'), channel(vector='x,y'))
                     INFLOW = CenteredGrid(Sphere(center=INFLOW_LOCATION, radius=3), extrapolation.BOUNDARY, x=32, y=40) * 0.6
 
                     @math.jit_compile
