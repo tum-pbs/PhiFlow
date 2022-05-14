@@ -325,12 +325,12 @@ class StaggeredGrid(Grid):
                 new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
                 widths = (new_lo - old_lo, new_hi - old_hi)
                 values.append(math.pad(component, {dim: widths}, self.extrapolation, bounds=self.bounds))
-            values = math.stack(values, channel('vector'))
+            values = math.stack(values, channel(vector=self.resolution))
             return StaggeredGrid(values, extrapolation, bounds=self.bounds)
 
     def _sample(self, geometry: Geometry) -> Tensor:
         channels = [sample(component, geometry) for component in self.vector.unstack()]
-        return math.stack(channels, channel('vector'))
+        return math.stack(channels, geometry.shape['vector'])
 
     def closest_values(self, points: Geometry):
         if 'staggered_direction' in points.shape:
@@ -338,7 +338,7 @@ class StaggeredGrid(Grid):
             channels = [component.closest_values(p) for p, component in zip(points, self.vector.unstack())]
         else:
             channels = [component.closest_values(points) for component in self.vector.unstack()]
-        return math.stack(channels, channel('vector'))
+        return math.stack(channels, points.shape['vector'])
 
     def at_centers(self) -> CenteredGrid:
         """
@@ -395,7 +395,7 @@ class StaggeredGrid(Grid):
             lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
             widths[dim] = (int(not lo_valid), int(not up_valid))
             padded.append(math.pad(component, widths, self.extrapolation, bounds=self.bounds))
-        result = math.stack(padded, channel('vector'))
+        result = math.stack(padded, channel(vector=self.resolution))
         assert result.shape.is_uniform
         return result
 
@@ -415,7 +415,7 @@ def unstack_staggered_tensor(data: Tensor, extrapolation: Extrapolation) -> Tens
         slices = {d: slice(0, -1) for d in data.shape.spatial.names}
         slices[dim] = slice(int(not lo_valid), - int(not up_valid) or None)
         sliced.append(component[slices])
-    return math.stack(sliced, channel('vector'))
+    return math.stack(sliced, channel(vector=spatial(data)))
 
 
 def staggered_elements(resolution: Shape, bounds: Box, extrapolation: Extrapolation):
