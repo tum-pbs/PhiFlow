@@ -26,13 +26,11 @@ class TestAdvect(TestCase):
     def test_mac_cormack(self):
         _test_advection(advect.mac_cormack)
 
-    def test_advect_points(self):
+    def test_advect_points_euler(self):
         v = distribute_points(1, points_per_cell=2, x=4, y=3) * (1, -1)
         field.assert_close(v, advect.points(v, v, 0), advect.points(v, v*0, 0))
 
-    def test_runge_kutta_4(self):
-        points = distribute_points(1, points_per_cell=2, x=4, y=3)
-        v = CenteredGrid(Noise(vector=2), x=4, y=3)
-        field.assert_close(points, advect.runge_kutta_4(points, v, 0), advect.runge_kutta_4(points, v*0, 0))
-        sv = StaggeredGrid(Noise(), x=4, y=3)
-        field.assert_close(points, advect.runge_kutta_4(points, sv, 0), advect.runge_kutta_4(points, sv*0, 0))
+    def test_advect_points_rk4(self):
+        v = distribute_points(1, points_per_cell=2, x=4, y=3) * (1, -1)
+        field.assert_close(v, advect.points(v, v, 0, advect.rk4), advect.points(v, v*0, 0, advect.rk4))
+        field.assert_close(v, advect.points(v, v, 0, advect.finite_rk4), advect.points(v, v*0, 0, advect.finite_rk4))
