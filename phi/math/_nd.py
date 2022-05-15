@@ -382,7 +382,7 @@ def finite_fill(values: Tensor, dims: DimFilter = spatial, distance: int = 1, di
             for dim in dims:
                 values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=padding)
                 valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
-                mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=extrapolation.ZERO)
+                mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=padding)
                 overlap = math.sum_(mask_l + mask_r + overlap, dim='shift')
             values = math.where(valid, values, valid_values / overlap)
     else:
