@@ -4,7 +4,6 @@ A liquid block collides with a rotated obstacle and falls into a liquid pool.
 """
 from phi.field._point_cloud import distribute_points
 from phi.torch.flow import *
-# from phi.torch.flow import *
 # from phi.tf.flow import *
 # from phi.jax.flow import *
 
@@ -27,13 +26,14 @@ def step(particles):
     occupied = CenteredGrid(particles.mask(), velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
     velocity, pressure = fluid.make_incompressible(velocity + GRAVITY * DT, [OBSTACLE], active=occupied)
     # --- Particle Operations ---
-    particles = flip.map_velocity_to_particles(particles, velocity, prev_velocity)
+    particles += (velocity - prev_velocity) @ particles  # FLIP update
+    # particles = velocity @ particles  # PIC update
     particles = advect.points(particles, velocity * ~OBSTACLE, DT, advect.finite_rk4)
-    particles = flip.respect_boundaries(particles, [OBSTACLE])
+    particles = fluid.boundary_push(particles, [OBSTACLE, ~particles.bounds])
     return particles, velocity, pressure
 
 
-for _ in view('scene,velocity', display='scene', play=False, namespace=globals()).range():
+for _ in view('scene,velocity,pressure', display='scene', play=False, namespace=globals()).range():
     particles, velocity, pressure = step(particles)
-    scene = vis.overlay(particles.with_values(1), _OBSTACLE_POINTS)  # velocity.vector['y'],
+    scene = vis.overlay(particles.with_values(1), _OBSTACLE_POINTS)
     # vis.show(scene, pressure)

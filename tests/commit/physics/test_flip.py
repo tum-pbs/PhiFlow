@@ -11,9 +11,10 @@ def step(particles: PointCloud, obstacles: list, dt: float, **grid_resolution):
     occupied = CenteredGrid(particles.mask(), velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
     velocity, pressure = fluid.make_incompressible(velocity + (0, -9.81 * dt), obstacles, active=occupied)
     # --- Particle Operations ---
-    particles = flip.map_velocity_to_particles(particles, velocity, prev_velocity)
+    particles += (velocity - prev_velocity) @ particles  # FLIP update
+    # particles = velocity @ particles  # PIC update
     particles = advect.points(particles, velocity * ~union(obstacles), dt, advect.finite_rk4)
-    particles = flip.respect_boundaries(particles, obstacles)
+    particles = fluid.boundary_push(particles, obstacles + [~particles.bounds])
     return particles
 
 
@@ -28,15 +29,13 @@ class FlipTest(TestCase):
             math.assert_close(data_bounds(particles).size, initial_bounds.size)  # shape of falling block stays the same
             assert math.max(particles.points, dim='points').vector['y'] < math.max(initial_particles.points, dim='points').vector['y']  # block really falls
 
-    def test_respect_boundaries(self):
+    def test_boundary_push(self):
         """ Tests if particles really get puhsed outside of obstacles and domain boundaries. """
         OBSTACLE = Box[20:40, 10:30]
         particles = distribute_points(union(Box[20:38, 20:50], Box[50:60, 10:50]), center=True, x=64, y=64) * (10, 0)
         particles = advect.points(particles, particles, 1)
         assert math.any(OBSTACLE.lies_inside(particles.points))
         assert math.any((~particles.bounds).lies_inside(particles.points))
-        particles = flip.respect_boundaries(particles, [OBSTACLE], offset=0.1)
+        particles = fluid.boundary_push(particles, [OBSTACLE, ~particles.bounds], offset=0.1)
         assert math.all(~OBSTACLE.lies_inside(particles.points))
         assert math.all(~(~particles.bounds).lies_inside(particles.points))
-
-

@@ -11,9 +11,10 @@ def step(particles: PointCloud, obstacles: list, dt: float, **grid_resolution):
     occupied = CenteredGrid(particles.mask(), velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
     velocity, pressure = fluid.make_incompressible(velocity + (0, -9.81 * dt), obstacles, active=occupied)
     # --- Particle Operations ---
-    particles = flip.map_velocity_to_particles(particles, velocity, prev_velocity)
+    particles += (velocity - prev_velocity) @ particles  # FLIP update
+    # particles = velocity @ particles  # PIC update
     particles = advect.points(particles, velocity * ~union(obstacles), dt, advect.finite_rk4)
-    particles = flip.respect_boundaries(particles, obstacles)
+    particles = fluid.boundary_push(particles, obstacles + [~particles.bounds])
     return particles
 
 

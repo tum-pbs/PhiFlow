@@ -15,7 +15,7 @@ import numpy as np
 import phi
 from . import math, geom, field, physics, vis
 from .math import extrapolation, backend
-from .physics import fluid, flip, advect, diffuse
+from .physics import fluid, advect, diffuse
 
 # Classes
 from .math import Tensor, DType, Solve

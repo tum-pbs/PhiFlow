@@ -1,10 +1,12 @@
 """
-Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
+Functions for simulating incompressible fluids, both grid-based and particle-based.
+
+The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 """
 from typing import Tuple
 
 from phi import math, field
-from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
+from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud
 from phi.geom import union, Geometry
 from ..field._grid import GridType
 from ..math import extrapolation
@@ -97,7 +99,22 @@ def make_incompressible(velocity: GridType,
 
 
 @math.jit_compile_linear
-def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid):
+def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid) -> CenteredGrid:
+    """
+    Computes the laplace of `pressure` in the presence of obstacles.
+
+    Args:
+        pressure: Pressure field.
+        hard_bcs: Mask encoding which cells are connected to each other.
+            One between fluid cells, zero inside and at the boundary of obstacles.
+            This should be of the same type as the velocity, i.e. `StaggeredGrid` or `CenteredGrid`.
+        active: Mask indicating for which cells the pressure value is valid.
+            Linear solves will only determine the pressure for these cells.
+            This is generally zero inside obstacles and in non-simulated regions.
+
+    Returns:
+        `CenteredGrid`
+    """
     grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
     valid_grad = grad * hard_bcs
     div = divergence(valid_grad)
@@ -109,7 +126,7 @@ def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
+def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or list):
     """
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -134,6 +151,27 @@ def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
             angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
             velocity = (1 - obs_mask) * velocity + obs_mask * (angular_velocity + obstacle.velocity)
     return velocity
+
+
+def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -> PointCloud:
+    """
+    Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of 
+    obstacles or back into the domain.
+    
+    Args:
+        particles: PointCloud holding particle positions as elements
+        obstacles: List of `Obstacle` or `Geometry` objects where any particles inside should get shifted outwards
+        offset: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
+
+    Returns:
+        PointCloud where all particles are inside the domain / outside of obstacles.
+    """
+    pos = particles.elements.center
+    for obj in obstacles:
+        geometry = obj.geometry if isinstance(obj, Obstacle) else obj
+        assert isinstance(geometry, Geometry), f"obstacles must be a list of Obstacle or Geometry objects but got {type(obj)}"
+        pos = geometry.push(pos, shift_amount=offset)
+    return particles.with_elements(particles.elements @ pos)
 
 
 def _pressure_extrapolation(vext: Extrapolation):
