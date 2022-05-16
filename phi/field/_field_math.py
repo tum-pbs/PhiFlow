@@ -202,7 +202,7 @@ def curl(field: Grid, type: type = CenteredGrid):
             y_padded = math.pad(values.vector['y'], {'x': (1, 1)}, field.extrapolation)
             vx_dy = math.spatial_gradient(x_padded, field.dx, 'forward', None, dims='y', stack_dim=None)
             vy_dx = math.spatial_gradient(y_padded, field.dx, 'forward', None, dims='x', stack_dim=None)
-            result = vx_dy - vy_dx
+            result = vy_dx - vx_dy
             return CenteredGrid(result, field.extrapolation.spatial_gradient(), bounds=field.bounds)
     raise NotImplementedError()
 
