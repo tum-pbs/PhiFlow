@@ -122,7 +122,7 @@ class Tensor:
         
         TensorStack prevents performing the actual stack operation if one of its component tensors is special.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
 
     def _to_dict(self):
         return cached(self)._to_dict()
@@ -769,12 +769,12 @@ class TensorDim(BoundDim):
 
     def flip(self):
         """ Flips the element order along this dimension and returns the result as a `Tensor`. """
-        warnings.warn("dim.flip() is deprecated. Use dim[::-1] instead", DeprecationWarning)
+        warnings.warn("dim.flip() is deprecated. Use dim[::-1] instead", DeprecationWarning, stacklevel=2)
         return self.tensor.flip(self.name)
 
     def split(self, split_dimensions: Shape):
         """ See `phi.math.unpack_dim()` """
-        warnings.warn("dim.split() is deprecated. Use math.split_dims() instead.")
+        warnings.warn("dim.split() is deprecated. Use math.split_dims() instead.", stacklevel=2)
         from ._magic_ops import unpack_dim
         return unpack_dim(self.tensor, self.name, split_dimensions)
 
@@ -875,6 +875,10 @@ class Layout(Tensor):
             for n in native:
                 Layout._as_list_recursive(n, dims - 1, result)
         return result
+
+    @property
+    def _is_tracer(self) -> bool:
+        return False
 
 
 class NativeTensor(Tensor):
