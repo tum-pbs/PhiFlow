@@ -8,6 +8,7 @@ from typing import Tuple
 from phi import math, field
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud
 from phi.geom import union, Geometry
+from ..field._embed import FieldEmbedding
 from ..field._grid import GridType
 from ..math import extrapolation
 from ..math._tensors import copy_with
@@ -155,9 +156,9 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or 
 
 def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -> PointCloud:
     """
-    Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of 
+    Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
     obstacles or back into the domain.
-    
+
     Args:
         particles: PointCloud holding particle positions as elements
         obstacles: List of `Obstacle` or `Geometry` objects where any particles inside should get shifted outwards
@@ -195,6 +196,8 @@ def _accessible_extrapolation(vext: Extrapolation):
         return extrapolation.ONE
     elif isinstance(vext, extrapolation.ConstantExtrapolation):
         return extrapolation.ZERO
+    elif isinstance(vext, FieldEmbedding):
+        return extrapolation.ONE
     elif isinstance(vext, extrapolation._MixedExtrapolation):
         return combine_sides(**{dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
     elif isinstance(vext, extrapolation._NormalTangentialExtrapolation):

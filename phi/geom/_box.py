@@ -5,7 +5,7 @@ import numpy as np
 
 from phi import math
 from ._geom import Geometry, _keep_vector
-from ..math import wrap, INF, Shape, channel
+from ..math import wrap, INF, Shape, channel, spatial
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
 
@@ -440,6 +440,8 @@ class GridCell(BaseBox):
                     stop = selection + 1
                 elif isinstance(selection, slice):
                     start = selection.start or 0
+                    if start < 0:
+                        start += self.resolution.get_size(dim)
                     stop = selection.stop or self.resolution.get_size(dim)
                     if stop < 0:
                         stop += self.resolution.get_size(dim)
@@ -467,6 +469,14 @@ class GridCell(BaseBox):
         bounds = Box(self.bounds.lower + unit * (-0.5 if lower else 0.5), self.bounds.upper + unit * (0.5 if upper else -0.5))
         ext_res = self.resolution.sizes + dim_mask * (int(lower) + int(upper) - 1)
         return GridCell(self.resolution.with_sizes(ext_res), bounds)
+
+    def padded(self, widths: dict):
+        resolution, bounds = self.resolution, self.bounds
+        for dim, (lower, upper) in widths.items():
+            masked_dx = self.dx * math.dim_mask(self.resolution, dim)
+            resolution = resolution.with_dim_size(dim, self.resolution.get_size(dim) + lower + upper)
+            bounds = Box(bounds.lower - masked_dx * lower, bounds.upper + masked_dx * upper)
+        return GridCell(resolution, bounds)
 
     # def face_centers(self, staggered_name='staggered'):
     #     face_centers = [self.extend_symmetric(dim).center for dim in self.shape.spatial.names]

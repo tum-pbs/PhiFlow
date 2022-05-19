@@ -21,3 +21,14 @@ class TestField(TestCase):
         math.assert_close(.2, z_stack.bounds.size.vector['z'])
         z_stack = math.stack(grids, spatial('z'))
         math.assert_close(2, z_stack.bounds.size.vector['z'])
+
+    def test_embedding(self):
+        grid = CenteredGrid(lambda x: math.vec_length(x), 1, x=4, y=4)
+        math.print(grid.values, "Base Grid")
+        inner = CenteredGrid(0, grid, x=2, y=2, bounds=Box(x=(1, 3), y=(1, 3)))
+        resampled = inner @ grid
+        math.assert_close(inner.values, resampled.values.x[1:-1].y[1:-1])
+        math.assert_close(grid.values.x[:1].y[1:-1], resampled.values.x[:1].y[1:-1])
+        math.assert_close(grid.values.x[-1:].y[1:-1], resampled.values.x[-1:].y[1:-1])
+        math.assert_close(grid.values.x[1:-1].y[:1], resampled.values.x[1:-1].y[:1])
+        math.assert_close(grid.values.x[1:-1].y[-1:], resampled.values.x[1:-1].y[-1:])

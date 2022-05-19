@@ -792,10 +792,9 @@ def _closest_grid_values(grid: Tensor,
                          pad_kwargs: dict):
     # alternative method: pad array for all 2^d combinations, then stack to simplify gather.
     # --- Pad tensor where transform is not possible ---
-    non_copy_pad = {dim: (0 if extrap[dim, 0].is_copy_pad else 1, 0 if extrap[dim, 1].is_copy_pad else 1)
-                    for dim in grid.shape.spatial.names}
+    non_copy_pad = {dim: (0 if extrap.is_copy_pad(dim, False) else 1, 0 if extrap.is_copy_pad(dim, True) else 1) for dim in grid.shape.spatial.names}
     grid = extrap.pad(grid, non_copy_pad, **pad_kwargs)
-    coordinates += wrap([not extrap[dim, 0].is_copy_pad for dim in grid.shape.spatial.names], channel('vector'))
+    coordinates += wrap([not extrap.is_copy_pad(dim, False) for dim in grid.shape.spatial.names], channel('vector'))
     # --- Transform coordiantes ---
     min_coords = to_int32(floor(coordinates))
     max_coords = extrap.transform_coordinates(min_coords + 1, grid.shape)

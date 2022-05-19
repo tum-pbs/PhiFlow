@@ -623,10 +623,10 @@ def sample_subgrid(grid: Tensor, start: Tensor, size: Shape) -> Tensor:
     assert start.shape.names == ('vector',)
     assert grid.shape.spatial.names == size.names
     assert math.all_available(start), "Cannot perform sample_subgrid() during tracing, 'start' must be known."
-    discard = {}
+    crop = {}
     for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size.sizes):
-        discard[dim] = slice(int(d_start), int(d_start) + d_size + (1 if d_start != 0 else 0))
-    grid = grid[discard]
+        crop[dim] = slice(int(d_start), int(d_start) + d_size + (0 if d_start % 1 in (0, 1) else 1))
+    grid = grid[crop]
     upper_weight = start % 1
     lower_weight = 1 - upper_weight
     for i, dim in enumerate(grid.shape.spatial.names):

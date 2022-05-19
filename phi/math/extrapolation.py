@@ -39,7 +39,12 @@ class Extrapolation:
         raise NotImplementedError()
 
     def spatial_gradient(self) -> 'Extrapolation':
-        """Returns the extrapolation for the spatial spatial_gradient of a tensor/field with this extrapolation."""
+        """
+        Returns the extrapolation for the spatial gradient of a tensor/field with this extrapolation.
+
+        Returns:
+            `Extrapolation` or `NotImplemented`
+        """
         raise NotImplementedError()
 
     def valid_outer_faces(self, dim) -> tuple:
@@ -114,8 +119,7 @@ class Extrapolation:
         """
         return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, channel('vector')))
 
-    @property
-    def is_copy_pad(self):
+    def is_copy_pad(self, dim: str, upper_edge: bool):
         """:return: True if all pad values are copies of existing values in the tensor to be padded"""
         return False
 
@@ -190,6 +194,15 @@ class ConstantExtrapolation(Extrapolation):
 
     def __value_attrs__(self):
         return 'value',
+
+    def __getitem__(self, item):
+        return ConstantExtrapolation(self.value[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'ConstantExtrapolation':
+        if all(isinstance(v, ConstantExtrapolation) for v in values):
+            return ConstantExtrapolation(stack([v.value for v in values], dim, **kwargs))
+        else:
+            return NotImplemented
 
     def spatial_gradient(self):
         return ZERO
@@ -347,8 +360,7 @@ class ConstantExtrapolation(Extrapolation):
 
 class _CopyExtrapolation(Extrapolation):
 
-    @property
-    def is_copy_pad(self):
+    def is_copy_pad(self, dim: str, upper_edge: bool):
         return True
 
     def to_dict(self) -> dict:
@@ -827,6 +839,9 @@ class _MixedExtrapolation(Extrapolation):
         e_lower, e_upper = self.ext[dim]
         return e_lower.valid_outer_faces(dim)[0], e_upper.valid_outer_faces(dim)[1]
 
+    def is_copy_pad(self, dim: str, upper_edge: bool):
+        return self.ext[dim][upper_edge].is_copy_pad(dim, upper_edge)
+
     @property
     def is_flexible(self) -> bool:
         result_by_dim = [lo.is_flexible or up.is_flexible for lo, up in self.ext.values()]
@@ -944,6 +959,9 @@ class _NormalTangentialExtrapolation(Extrapolation):
 
     def valid_outer_faces(self, dim) -> tuple:
         return self.normal.valid_outer_faces(dim)
+
+    def is_copy_pad(self, dim: str, upper_edge: bool):
+        return False  # normal and tangential might copy from different places, so no.
 
     @property
     def is_flexible(self) -> bool:
