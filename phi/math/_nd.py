@@ -137,6 +137,28 @@ def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
         raise NotImplementedError(f"Rotation in {vector.vector.size}D not yet implemented.")
 
 
+def dim_mask(all_dims: Shape or tuple or list, dims: DimFilter, mask_dim=channel('vector')) -> Tensor:
+    """
+    Creates a masked vector with 1 elements for `dims` and 0 for all other dimensions in `all_dims`.
+
+    Args:
+        all_dims: All dimensions for which the vector should have an entry.
+        dims: Dimensions marked as 1.
+        mask_dim: Dimension of the masked vector. Item names are assigned automatically.
+
+    Returns:
+        `Tensor`
+    """
+    assert isinstance(all_dims, (Shape, tuple, list)), f"all_dims must be a tuple or Shape but got {type(all_dims)}"
+    assert isinstance(mask_dim, Shape) and mask_dim.rank == 1, f"mask_dim must be a single-dimension Shape but got {mask_dim}"
+    if isinstance(all_dims, (tuple, list)):
+        all_dims = spatial(*all_dims)
+    dims = all_dims.only(dims)
+    mask = [1 if dim in dims else 0 for dim in all_dims]
+    mask_dim = mask_dim._with_item_names((all_dims.names,))
+    return wrap(mask, mask_dim)
+
+
 def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     """
     Multiplies the target so that its sum matches the source.

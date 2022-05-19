@@ -321,3 +321,7 @@ class TestMathNDNumpy(TestCase):
         math.assert_close(le, [0, 1.41421356237, 1])
         le = math.vec_length(v, eps=0.01)
         math.assert_close(le, [1e-1, 1.41421356237, 1])
+
+    def test_dim_mask(self):
+        math.assert_close((1, 0, 0), math.dim_mask(spatial('x,y,z'), 'x'))
+        math.assert_close((1, 0, 1), math.dim_mask(spatial('x,y,z'), 'x,z'))
