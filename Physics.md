@@ -1,7 +1,7 @@
 # Physics
 
 The module [`phi.physics`](phi/physics/) provides a library of common operations used to solve partial differential equations like [fluids](Fluid_Simulation.md).
-It builds on the [field](Fields.md), [geometry](Geometry.md) and [math](Math.md) modules and constitutes the highest-level API for physical simulations in Φ<sub>Flow</sub>.
+It builds on the [field](Fields.md), [geometry](Geometry.md) and [math](Math.html) modules and constitutes the highest-level API for physical simulations in Φ<sub>Flow</sub>.
 Similar to the field module, physics functions act on data structures represented by the [`Field`](phi/field/#phi.field.Field) class.
 
 
