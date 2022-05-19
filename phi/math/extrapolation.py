@@ -69,25 +69,27 @@ class Extrapolation:
         Returns:
 
         """
-        for dim in widths:
-            assert (w > 0 for w in widths[dim]), "Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead."
+        already_padded = {}
+        for dim, width in widths.items():
+            assert (w > 0 for w in width), "Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead."
             values = []
-            if widths[dim][False] > 0:
-                values.append(self.pad_values(value, widths[dim][False], dim, False, **kwargs))
+            if width[False] > 0:
+                values.append(self.pad_values(value, width[False], dim, False, already_padded=already_padded, **kwargs))
             values.append(value)
-            if widths[dim][True] > 0:
-                values.append(self.pad_values(value, widths[dim][True], dim, True, **kwargs))
+            if width[True] > 0:
+                values.append(self.pad_values(value, width[True], dim, True, already_padded=already_padded, **kwargs))
             value = concat(values, value.shape[dim])
+            already_padded[dim] = width
         return value
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         """
         Determines the values with which the given tensor would be padded at the specified using this extrapolation.
 
         Args:
             value: `Tensor` to be padded.
             width: `int > 0`: Number of cells to pad along `dimension`.
-            dimension: Dimension name as `str`.
+            dim: Dimension name as `str`.
             upper_edge: `True` for upper edge, `False` for lower edge.
 
         Returns:
@@ -250,8 +252,8 @@ class ConstantExtrapolation(Extrapolation):
         else:
             raise NotImplementedError()
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
-        shape = value.shape.after_gather({dimension: slice(0, width)})
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        shape = value.shape.after_gather({dim: slice(0, width)})
         return math.expand(self.value, shape)
 
     def __eq__(self, other):
@@ -471,12 +473,12 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
     def is_flexible(self) -> bool:
         return True
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         if upper_edge:
-            edge = value[{dimension: slice(-1, None)}]
+            edge = value[{dim: slice(-1, None)}]
         else:
-            edge = value[{dimension: slice(1)}]
-        return concat([edge] * width, value.shape[dimension])
+            edge = value[{dim: slice(1)}]
+        return concat([edge] * width, value.shape[dim])
 
     def _pad_linear_tracer(self, value: 'ShiftLinTracer', widths: dict) -> 'ShiftLinTracer':
         """
@@ -552,11 +554,11 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
         return coordinates % shape.spatial
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         if upper_edge:
-            return value[{dimension: slice(width)}]
+            return value[{dim: slice(width)}]
         else:
-            return value[{dimension: slice(-width, None)}]
+            return value[{dim: slice(-width, None)}]
 
     def _pad_linear_tracer(self, value: 'ShiftLinTracer', widths: dict) -> 'ShiftLinTracer':
         if value.shape.get_sizes(tuple(widths.keys())) != value.source.shape.get_sizes(tuple(widths.keys())):
@@ -586,11 +588,11 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
         coordinates = coordinates % (2 * shape)
         return ((2 * shape - 1) - abs((2 * shape - 1) - 2 * coordinates)) // 2
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         if upper_edge:
-            return value[{dimension: slice(-width, None)}].flip(dimension)
+            return value[{dim: slice(-width, None)}].flip(dim)
         else:
-            return value[{dimension: slice(0, width)}].flip(dimension)
+            return value[{dim: slice(0, width)}].flip(dim)
 
 
 class _ReflectExtrapolation(_CopyExtrapolation):
@@ -606,11 +608,11 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     def is_flexible(self) -> bool:
         return True
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         if upper_edge:
-            return value[{dimension: slice(-1-width, -1)}].flip(dimension)
+            return value[{dim: slice(-1-width, -1)}].flip(dim)
         else:
-            return value[{dimension: slice(1, width+1)}].flip(dimension)
+            return value[{dim: slice(1, width+1)}].flip(dim)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
         coordinates = coordinates % (2 * shape - 2)
@@ -637,8 +639,8 @@ class _NoExtrapolation(Extrapolation):  # singleton
     def is_flexible(self) -> bool:
         raise AssertionError(f"is_flexible not defined by {self.__class__}")
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
-        return math.zeros(value.shape._replace_single_size(dimension, 0))
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        return math.zeros(value.shape._replace_single_size(dim, 0))
 
     def __repr__(self):
         return "none"
@@ -701,7 +703,7 @@ class Undefined(Extrapolation):
     def is_flexible(self) -> bool:
         raise AssertionError("Undefined extrapolation")
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         raise AssertionError("Undefined extrapolation")
 
     def __repr__(self):
@@ -851,9 +853,9 @@ class _MixedExtrapolation(Extrapolation):
             value = ext.pad(value, ext_widths, **kwargs)
         return value
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
-        extrap: Extrapolation = self.ext[dimension][upper_edge]
-        return extrap.pad_values(value, width, dimension, upper_edge, **kwargs)
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        extrap: Extrapolation = self.ext[dim][upper_edge]
+        return extrap.pad_values(value, width, dim, upper_edge, **kwargs)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
         coordinates = coordinates.vector.unstack()
@@ -947,7 +949,7 @@ class _NormalTangentialExtrapolation(Extrapolation):
     def is_flexible(self) -> bool:
         return self.normal.is_flexible
 
-    def pad_values(self, value: Tensor, width: int, dimension: str, upper_edge: bool, **kwargs) -> Tensor:
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         if 'vector' not in value.shape:
             warnings.warn(f'{self} adding a vector dimension to tensor {value.shape}')
             from phi.math import expand
@@ -955,8 +957,8 @@ class _NormalTangentialExtrapolation(Extrapolation):
         assert value.vector.item_names is not None, "item_names must be present when padding with normal-tangential"
         result = []
         for dim, component in zip(value.vector.item_names, value.vector):
-            ext = self.normal if dim == dimension else self.tangential
-            result.append(ext.pad_values(component, width, dimension, upper_edge, **kwargs))
+            ext = self.normal if dim == dim else self.tangential
+            result.append(ext.pad_values(component, width, dim, upper_edge, **kwargs))
         from ._magic_ops import stack
         result = stack(result, value.shape.only('vector'))
         return result
