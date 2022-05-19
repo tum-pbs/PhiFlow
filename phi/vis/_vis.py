@@ -416,6 +416,9 @@ def write_image(path: str, figure=None, dpi=120.):
         dpi: Pixels per inch.
     """
     figure = figure or LAST_FIGURE[0]
+    if figure is None:
+        figure = default_plots().current_figure
+    assert figure is not None, "No figure to save."
     lib = get_plots_by_figure(figure)
     lib.save(figure, path, dpi)
 

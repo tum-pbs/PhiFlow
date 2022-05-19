@@ -330,6 +330,8 @@ class PlottingLibrary:
         return self.name
 
     def is_figure(self, obj):
+        if isinstance(obj, (tuple, list)):
+            return isinstance(obj[0], self.figure_classes)
         return isinstance(obj, self.figure_classes)
 
     def create_figure(self,

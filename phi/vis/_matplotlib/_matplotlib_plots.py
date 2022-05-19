@@ -17,6 +17,7 @@ from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
 from phi.field._scene import _str
 from phi.geom import Sphere, BaseBox, Point, Box
 from phi.math import Tensor, batch, channel, spatial, instance
+from phi.math.backend import PHI_LOGGER
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name, PlottingLibrary
 
@@ -352,15 +353,18 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
 
     cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
     fig, axes = plt.subplots(batches.only(down).volume, batches.without(down).volume, figsize=size)
-    axes = axes if isinstance(axes, numpy.ndarray) else [axes]
+    MATPLOTLIB.current_figure = fig
+    axes = axes if isinstance(axes, numpy.ndarray) else np.array(axes)
 
-    for b, axis in zip(batches.meshgrid(), axes):
+    for b, axis in zip(batches.meshgrid(), axes.flatten()):
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0
         if titles is not None and titles is not False:
             if isinstance(titles, str):
                 axis.set_title(titles)
+            elif isinstance(titles, Tensor):
+                axis.set_title(titles[b].native())
             elif names_equal:
                 axis.set_title(display_name(names[b].native()))
             elif paths_equal:
@@ -375,7 +379,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
             curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
 
         def single_plot(name, path, label, i, color, smooth):
-            logging.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
+            PHI_LOGGER.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
             if curve.ndim == 2:
                 x_values, values, *_ = curve.T
@@ -386,7 +390,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 pass
             else:
                 assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
-                logging.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
+                PHI_LOGGER.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
                 _, x_values, *_ = numpy.loadtxt(os.path.join(path, "log_step_time.txt")).T
                 values = values[:len(x_values)]
                 x_values = np.cumsum(x_values[:len(values)])
@@ -400,7 +404,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 pass
             if isinstance(color, Number):
                 color = cycle[int(color)]
-            logging.debug(f"Plotting curve {label}")
+            PHI_LOGGER.debug(f"Plotting curve {label}")
             axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
             curve = np.stack([x_values, values], -1)
             axis.plot(*smooth_uniform_curve(curve, smooth).T, color=color, linewidth=smooth_linewidth, label=label)
