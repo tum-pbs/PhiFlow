@@ -744,6 +744,13 @@ class Shape:
             assert len(sizes) == len(self.sizes), f"Cannot create shape from {self} with sizes {sizes}"
             return Shape(tuple(sizes), self.names, self.types, self.item_names)
 
+    def without_sizes(self):
+        """
+        Returns:
+            `Shape` with all sizes undefined (`None`)
+        """
+        return Shape((None,) * self.rank, self.names, self.types, self.item_names)
+
     def _replace_single_size(self, dim: str, size: int):
         new_sizes = list(self.sizes)
         new_sizes[self.index(dim)] = size
@@ -866,6 +873,9 @@ class Shape:
                 if stop < 0 and step > 0:
                     stop += self.get_size(name)
                     assert stop >= 0
+                if start < 0 and step > 0:
+                    start += self.get_size(name)
+                    assert start >= 0
                 new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
                 if new_size.rank == 0:
                     new_size = int(new_size)  # NumPy array not allowed because not hashable
@@ -906,29 +916,34 @@ class Shape:
                 return
 
     def __add__(self, other):
-        return self._op2(other, lambda s, o: s + o)
+        return self._op2(other, lambda s, o: s + o, 0)
 
     def __radd__(self, other):
-        return self._op2(other, lambda s, o: o + s)
+        return self._op2(other, lambda s, o: o + s, 0)
 
     def __sub__(self, other):
-        return self._op2(other, lambda s, o: s - o)
+        return self._op2(other, lambda s, o: s - o, 0)
 
     def __rsub__(self, other):
-        return self._op2(other, lambda s, o: o - s)
+        return self._op2(other, lambda s, o: o - s, 0)
 
     def __mul__(self, other):
-        return self._op2(other, lambda s, o: s * o)
+        return self._op2(other, lambda s, o: s * o, 1)
 
     def __rmul__(self, other):
-        return self._op2(other, lambda s, o: o * s)
+        return self._op2(other, lambda s, o: o * s, 1)
 
-    def _op2(self, other, fun):
+    def _op2(self, other, fun, default: int):
         if isinstance(other, int):
             return Shape(tuple([fun(s, other) for s in self.sizes]), self.names, self.types, (None,) * self.rank)
         elif isinstance(other, Shape):
-            assert self.names == other.names, f"{self.names, other.names}"
-            return Shape(tuple([fun(s, o) for s, o in zip(self.sizes, other.sizes)]), self.names, self.types, (None,) * self.rank)
+            merged = self.without_sizes() & other.without_sizes()
+            sizes = ()
+            for dim in merged.names:
+                self_val = self.get_size(dim) if dim in self else default
+                other_val = other.get_size(dim) if dim in other else default
+                sizes += (fun(self_val, other_val),)
+            return merged.with_sizes(sizes)
         else:
             return NotImplemented
 
