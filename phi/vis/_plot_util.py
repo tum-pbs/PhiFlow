@@ -8,8 +8,9 @@ def smooth_uniform_curve(curve, n: int):
     x = curve[..., 0]
     values = curve[..., 1]
     if n == -1 or curve.shape[0] <= n:  # mean value
-        mean = numpy.tile(numpy.mean(values, -1, keepdims=True), 2)
-        return numpy.array([numpy.min(x), numpy.max(x)]), mean
+        mean = numpy.mean(values, -1, keepdims=True)
+        const_curve = numpy.array([(numpy.min(x), mean), (numpy.max(x), mean)], dtype=np.float32)
+        return const_curve
     else:  # smooth kernel
         result = np.convolve(values, np.ones((n,)) / n, mode='valid')
         valid = x[n//2-1:-n//2 or None]
