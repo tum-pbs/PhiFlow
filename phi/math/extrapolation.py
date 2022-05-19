@@ -83,7 +83,7 @@ class Extrapolation:
             values.append(value)
             if width[True] > 0:
                 values.append(self.pad_values(value, width[True], dim, True, already_padded=already_padded, **kwargs))
-            value = concat(values, value.shape[dim])
+            value = concat(values, dim)
             already_padded[dim] = width
         return value
 
@@ -974,8 +974,8 @@ class _NormalTangentialExtrapolation(Extrapolation):
             value = expand(value, channel(vector=spatial(value).names))
         assert value.vector.item_names is not None, "item_names must be present when padding with normal-tangential"
         result = []
-        for dim, component in zip(value.vector.item_names, value.vector):
-            ext = self.normal if dim == dim else self.tangential
+        for component_name, component in zip(value.vector.item_names, value.vector):
+            ext = self.normal if component_name == dim else self.tangential
             result.append(ext.pad_values(component, width, dim, upper_edge, **kwargs))
         from ._magic_ops import stack
         result = stack(result, value.shape.only('vector'))
