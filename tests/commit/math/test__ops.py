@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes
+from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN
 from phi.math.backend import Backend
 
 
@@ -638,3 +638,12 @@ class TestMathFunctions(TestCase):
             self.fail()
         except IncompatibleShapes:
             pass
+
+    def test_where_nan(self):
+        for backend in BACKENDS:
+            with backend:
+                cond = math.linspace(0, 1, 2) > 0
+                x = math.tensor([-1, -2, -3], spatial('x'))
+                t = math.where(cond, x, NAN)
+                math.assert_close(t.linspace[0], NAN)
+                math.assert_close(t.linspace[1], x)

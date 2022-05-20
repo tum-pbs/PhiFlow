@@ -721,7 +721,7 @@ def stack(values: tuple or list or dict, dim: Shape):
     return result
 
 
-def concat(values: tuple or list, dim: Shape) -> Tensor:
+def concat(values: tuple or list, dim: str or Shape) -> Tensor:
     """
     Concatenates a sequence of tensors along one dimension.
     The shapes of all values must be equal, except for the size of the concat dimension.
@@ -735,7 +735,9 @@ def concat(values: tuple or list, dim: Shape) -> Tensor:
         Concatenated `Tensor`
     """
     assert len(values) > 0, "concat() got empty sequence"
-    assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got '{dim}' of type {type(dim)}"
+    if isinstance(dim, Shape):
+        dim = dim.name
+    assert isinstance(dim, str), f"dim must be a str or Shape but got '{dim}' of type {type(dim)}"
     broadcast_shape = merge_shapes(*[t.shape._with_item_name(dim, None).with_sizes([None] * t.shape.rank) for t in values])
     natives = [v.native(order=broadcast_shape.names) for v in values]
     backend = choose_backend(*natives)
