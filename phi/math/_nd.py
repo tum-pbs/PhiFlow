@@ -332,7 +332,7 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
 # Gradient
 
 def spatial_gradient(grid: Tensor,
-                     dx: float or int = 1,
+                     dx: float or Tensor = 1,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: str or Shape or tuple or list or Callable or None = spatial,
@@ -342,12 +342,13 @@ def spatial_gradient(grid: Tensor,
     The spatial_gradient vectors are in reverse order, lowest dimension first.
 
     Args:
-      grid: grid values
-      dims: (Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names
-      dx: physical distance between grid points (default 1)
-      difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
-      padding: tensor padding mode
-      stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
+        grid: grid values
+        dims: (Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names
+        dx: Physical distance between grid points, `float` or `Tensor`.
+            When passing a vector-valued `Tensor`, the dx values should be listed along `stack_dim`, matching `dims`.
+        difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
+        padding: tensor padding mode
+        stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
 
     Returns:
         `Tensor`
