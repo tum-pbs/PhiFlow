@@ -5703,7 +5703,8 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 <dt><strong><code>dims</code></strong></dt>
 <dd>(Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names</dd>
 <dt><strong><code>dx</code></strong></dt>
-<dd>physical distance between grid points (default 1)</dd>
+<dd>Physical distance between grid points, <code>float</code> or <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.
+When passing a vector-valued <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, the dx values should be listed along <code>stack_dim</code>, matching <code>dims</code>.</dd>
 <dt><strong><code>difference</code></strong></dt>
 <dd>type of difference, one of ('forward', 'backward', 'central') (default 'forward')</dd>
 <dt><strong><code>padding</code></strong></dt>
@@ -5718,7 +5719,7 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def spatial_gradient(grid: Tensor,
-                     dx: float or int = 1,
+                     dx: float or Tensor = 1,
                      difference: str = &#39;central&#39;,
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: str or Shape or tuple or list or Callable or None = spatial,
@@ -5728,12 +5729,13 @@ The spatial_gradient vectors are in reverse order, lowest dimension first.</p>
     The spatial_gradient vectors are in reverse order, lowest dimension first.
 
     Args:
-      grid: grid values
-      dims: (Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names
-      dx: physical distance between grid points (default 1)
-      difference: type of difference, one of (&#39;forward&#39;, &#39;backward&#39;, &#39;central&#39;) (default &#39;forward&#39;)
-      padding: tensor padding mode
-      stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
+        grid: grid values
+        dims: (Optional) Dimensions along which the spatial derivative will be computed. sequence of dimension names
+        dx: Physical distance between grid points, `float` or `Tensor`.
+            When passing a vector-valued `Tensor`, the dx values should be listed along `stack_dim`, matching `dims`.
+        difference: type of difference, one of (&#39;forward&#39;, &#39;backward&#39;, &#39;central&#39;) (default &#39;forward&#39;)
+        padding: tensor padding mode
+        stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
 
     Returns:
         `Tensor`
