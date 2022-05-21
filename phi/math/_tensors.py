@@ -377,6 +377,9 @@ class Tensor:
         """
         raise NotImplementedError()
 
+    def __setitem__(self, key, value):
+        raise NotImplementedError("Tensors are not editable to preserve the autodiff chain. This feature might be added in the future. To update part of a tensor, use math.where() or math.scatter()")
+
     def flip(self, *dims: str) -> 'Tensor':
         """
         Reverses the order of elements along one or multiple dimensions.

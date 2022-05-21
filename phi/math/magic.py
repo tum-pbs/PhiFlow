@@ -486,6 +486,9 @@ class BoundDim:
     def __getitem__(self, item):
         return self.obj[{self.name: item}]
 
+    def __setitem__(self, key, value):
+        self.obj[{self.name: key}] = value
+
     def unstack(self, size: int or None = None) -> tuple:
         """
         Lists the slices along this dimension as a `tuple`.
