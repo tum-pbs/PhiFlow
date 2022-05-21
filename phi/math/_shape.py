@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple, Callable, List, Union
+from typing import Tuple, Callable, List, Union, Any
 
 from phi import math
 from phi.math.backend import PHI_LOGGER
@@ -1257,7 +1257,7 @@ def instance(*args, **dims: int or str or tuple or list or Shape) -> Shape:
         raise AssertionError(f"instance() must be called either as a selector instance(Shape) or instance(Tensor) or as a constructor instance(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def merge_shapes(*shapes: Shape, order=(batch, instance, spatial, channel)):
+def merge_shapes(*shapes: Shape or Any, order=(batch, instance, spatial, channel)):
     """
     Combines `shapes` into a single `Shape`, grouping dimensions by type.
     If dimensions with equal names are present in multiple shapes, their types and sizes must match.
@@ -1269,11 +1269,6 @@ def merge_shapes(*shapes: Shape, order=(batch, instance, spatial, channel)):
 
     Args:
         *shapes: `Shape` objects to combine.
-        check_exact: Sequence of type filters, such as `channel`, `batch`, `spatial` or `instance`.
-            These types are checked for exact match, i.e. shapes must either contain all dimensions of that type or none.
-            The order of the dimensions does not matter.
-            For example, when checking `spatial`, the shapes `spatial(x=5)` and `spatial(y=4)` cannot be combined.
-            However, `spatial(x=5, y=4)` can be combined with `spatial(y=4, x=5)` and `channel('vector')`.
         order: Dimension type order as `tuple` of type filters (`channel`, `batch`, `spatial` or `instance`). Dimensions are grouped by type while merging.
 
     Returns:
@@ -1281,19 +1276,20 @@ def merge_shapes(*shapes: Shape, order=(batch, instance, spatial, channel)):
     """
     if not shapes:
         return EMPTY_SHAPE
+    shapes = [obj if isinstance(obj, Shape) else shape(obj) for obj in shapes]
     merged = []
     for dim_type in order:
         type_group = dim_type(shapes[0])
-        for shape in shapes[1:]:
-            shape = dim_type(shape)
-            for dim in shape:
+        for sh in shapes[1:]:
+            sh = dim_type(sh)
+            for dim in sh:
                 if dim not in type_group:
                     type_group = type_group._expand(dim, pos=-1)
                 else:  # check size match
                     if not _size_equal(dim.size, type_group.get_size(dim.name)):
                         raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
                     names1 = type_group.get_item_names(dim)
-                    names2 = shape.get_item_names(dim)
+                    names2 = sh.get_item_names(dim)
                     if names1 is not None and names2 is not None and len(names1) > 1:
                         if names1 != names2:
                             raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
@@ -1389,7 +1385,7 @@ def _size_equal(s1, s2):
         return math.close(s1, s2)
 
 
-def concat_shapes(*shapes: Shape) -> Shape:
+def concat_shapes(*shapes: Shape or Any) -> Shape:
     """
     Creates a `Shape` listing the dimensions of all `shapes` in the given order.
 
@@ -1402,6 +1398,7 @@ def concat_shapes(*shapes: Shape) -> Shape:
     Returns:
         Combined `Shape`.
     """
+    shapes = [obj if isinstance(obj, Shape) else shape(obj) for obj in shapes]
     names = sum([s.names for s in shapes], ())
     if len(set(names)) != len(names):
         raise IncompatibleShapes(f"Cannot concatenate shapes {list(shapes)}. Duplicate dimension names are not allowed.")

@@ -2,7 +2,12 @@ from unittest import TestCase
 
 from phi import math
 from phi.math import spatial, channel, batch, instance, non_instance, non_channel, non_spatial, non_batch
-from phi.math._shape import shape_stack, vector_add, EMPTY_SHAPE
+from phi.math._shape import shape_stack, vector_add, EMPTY_SHAPE, Shape
+
+
+class ShapedDummy:
+    def __init__(self, shape: Shape):
+        self.shape = shape
 
 
 class TestShape(TestCase):
@@ -117,3 +122,8 @@ class TestShape(TestCase):
             self.assertEqual(non_instance(obj), math.concat_shapes(b, s, c))
             self.assertEqual(non_channel(obj), math.concat_shapes(b, s, i))
 
+    def test_merge_shaped(self):
+        self.assertEqual(spatial(x=4, y=3, z=2), math.merge_shapes(ShapedDummy(spatial(x=4, y=3)), spatial(y=3, z=2)))
+
+    def test_concat_shaped(self):
+        self.assertEqual(spatial(x=4, y=3, z=2), math.concat_shapes(ShapedDummy(spatial(x=4, y=3)), spatial(z=2)))
