@@ -288,7 +288,7 @@ def plot(*fields: SampledField or Tensor or Layout,
     if isinstance(title, str):
         title = {pos: title for pos in positioning}
     elif isinstance(title, Tensor):
-        title = {(row, col): title.rows[row].cols[col] for (row, col) in positioning}
+        title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
     else:
         assert title is None, f"title must be a str or Tensor but got {title}"
         title = {pos: ", ".join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}

@@ -59,7 +59,7 @@ class GridTest(TestCase):
         s1 = g[{'vector': 0, 'batch': 1, 'x': 1}]
         s2 = g.vector[0].batch[1].x[1]
         self.assertIsInstance(s1, CenteredGrid)
-        self.assertEqual(s1.bounds, Box[1:2, 0:20])
+        self.assertEqual(s1.bounds, Box(y=20))
         field.assert_close(s1, s2)
 
     def test_staggered_grid_with_extrapolation(self):

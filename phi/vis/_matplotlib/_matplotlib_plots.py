@@ -82,12 +82,12 @@ class MatplotlibPlots(PlottingLibrary):
                     axis.remove()
                 else:
                     # axis.cla()  # this also clears titles and axis labels
-                    axis.lines = []
-                    axis.patches = []
-                    axis.texts = []
-                    axis.tables = []
-                    axis.artists = []
-                    axis.images = []
+                    axis.lines.clear()
+                    axis.patches.clear()
+                    axis.texts.clear()
+                    axis.tables.clear()
+                    axis.artists.clear()
+                    axis.images.clear()
 
                     box = Bbox(positions[axis])
                     axis.set_position(box, which='active')
