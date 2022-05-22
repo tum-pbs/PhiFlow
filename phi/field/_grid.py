@@ -184,9 +184,10 @@ class CenteredGrid(Grid):
         Grid.__init__(self, elements, values, extrapolation, values.shape.spatial, bounds)
 
     def __getitem__(self, item: dict):
-        values = self._values[{dim: slice(sel, sel + 1) if isinstance(sel, int) and dim in self.shape.spatial else sel for dim, sel in item.items()}]
+        values = self._values[item]
         extrapolation = self._extrapolation[item]
-        bounds = self.elements[item].bounds
+        keep_dims = [dim for dim in self.resolution.names if dim not in item or not isinstance(item[dim], int)]
+        bounds = self.elements[item].bounds[{'vector': keep_dims}]
         return CenteredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
     def _sample(self, geometry: Geometry) -> Tensor:
