@@ -786,11 +786,13 @@ class Shape:
         if isinstance(new, Shape):  # replace names and types
             names = list(self.names)
             types = list(self.types)
+            item_names = list(self.item_names)
             for old_name, new_dim in zip(dims, new):
                 if old_name in self:
                     names[self.index(old_name)] = new_dim.name
                     types[self.index(old_name)] = new_dim.type
-            return Shape(tuple(sizes), tuple(names), tuple(types), self.item_names)
+                    item_names[self.index(old_name)] = new_dim.item_names[0]
+            return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
         else:  # replace only names
             new = parse_dim_order(new)
             names = list(self.names)

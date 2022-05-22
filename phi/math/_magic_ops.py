@@ -69,7 +69,7 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     if isinstance(values, dict):
         dim_item_names = tuple(values.keys())
         values = tuple(values.values())
-        dim = dim._with_item_names((dim_item_names,) + (None,) * shape(values[0]).rank)
+        dim = dim._with_item_names((dim_item_names,))
     # if any value implements Shapable, use their implementation
     for v in values:
         if hasattr(v, '__stack__'):
