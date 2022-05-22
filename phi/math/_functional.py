@@ -1695,7 +1695,7 @@ def map_s2b(f: Callable) -> Callable:
     return map_types(f, spatial, batch)
 
 
-def iterate(f: Callable, iterations: int or Shape, x0, f_kwargs: dict = None):
+def iterate(f: Callable, iterations: int or Shape, *x0, f_kwargs: dict = None):
     """
     Repeatedly call `function`, passing the previous output as the next input.
 
@@ -1711,14 +1711,23 @@ def iterate(f: Callable, iterations: int or Shape, x0, f_kwargs: dict = None):
     Returns:
         Trajectory of final output of `f`, depending on `iterations`.
     """
+    if f_kwargs is None:
+        f_kwargs = {}
     if isinstance(iterations, int):
         x = x0
         for i in range(iterations):
-            x = f(x, **f_kwargs)
-        return x
+            x = f(*x, **f_kwargs)
+            if len(x0) > 1:
+                assert isinstance(x, (tuple, list)) and len(x) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {x}"
+        return x[0] if len(x0) == 1 else x
     elif isinstance(iterations, Shape):
         xs = [x0]
         for i in range(iterations.size):
-            xs.append(f(xs[-1], **f_kwargs))
-        xs = stack(xs, iterations.with_size(None))
-        return xs
+            xs.append(f(*xs[-1], **f_kwargs))
+            if len(x0) > 1:
+                assert isinstance(xs[-1], (tuple, list)) and len(xs[-1]) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {xs[-1]}"
+        if len(x0) == 1:
+            xs = stack(xs, iterations.with_size(None))
+        else:
+            xs = [stack(item, iterations.with_size(None)) for item in zip(*xs)]
+        return xs[0] if len(x0) == 1 else xs
