@@ -102,3 +102,13 @@ class GridTest(TestCase):
         self.assertEqual(2, len(slices))
         self.assertFalse(slices[0].shape.non_spatial)
         self.assertEqual(('x', 'y'), slices[0].bounds.size.vector.item_names)
+
+    def test_sample_function(self):
+        self.assertEqual(spatial(x=5), CenteredGrid(lambda x: x, x=5).shape)
+        self.assertEqual(spatial(x=5, y=4), CenteredGrid(lambda x, y=0: x+y, x=5, y=4).shape)
+        self.assertEqual(spatial(x=5, y=4) & channel(vector='x,y'), CenteredGrid(lambda pos: pos, x=5, y=4).shape)
+        try:
+            self.assertEqual(spatial(x=5, y=4), CenteredGrid(lambda a, b: a+b, x=5, y=4).shape)
+            raise RuntimeError
+        except AssertionError:
+            pass

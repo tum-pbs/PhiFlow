@@ -173,8 +173,7 @@ class CenteredGrid(Grid):
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
-                values = math.map_s2b(values)(elements.center)
-                assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
+                values = _sample_function(values, elements)
             else:
                 if isinstance(values, (tuple, list)) and len(values) == resolution.rank:
                     values = math.tensor(values, channel(vector=resolution.names))
@@ -295,7 +294,7 @@ class StaggeredGrid(Grid):
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
-                values = math.map_s2b(values)(elements.center)
+                values = _sample_function(values, elements)
                 if elements.shape.shape.rank > 1:  # Different number of X and Y faces
                     assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
                 assert 'staggered_direction' in values.shape
@@ -436,3 +435,28 @@ def expand_staggered(values: Tensor, resolution: Shape, extrapolation: Extrapola
         comp_cells = cells.stagger(dim, *extrapolation.valid_outer_faces(dim))
         tensors.append(math.expand(component, comp_cells.resolution))
     return math.stack(tensors, channel(vector=resolution.names))
+
+
+def _sample_function(f, elements: Geometry):
+    import inspect
+    try:
+        signature = inspect.signature(f)
+        params = dict(signature.parameters)
+        dims = elements.shape.get_size('vector')
+        names_match = tuple(params.keys())[:dims] == elements.shape.get_item_names('vector')
+        num_positional = 0
+        for n, p in params.items():
+            if p.default is p.empty:
+                num_positional += 1
+        assert num_positional <= dims, f"Cannot sample {f.__name__}{signature} on physical space {elements.shape.get_item_names('vector')}"
+        pass_varargs = names_match or num_positional > 1 or num_positional == dims
+        if num_positional > 1:
+            assert names_match, f"Positional arguments of {f.__name__}{signature} should match physical space {elements.shape.get_item_names('vector')}"
+    except ValueError as err:  # signature not available for all functions
+        pass_varargs = False
+    if pass_varargs:
+        values = math.map_s2b(f)(*elements.center.vector)
+    else:
+        values = math.map_s2b(f)(elements.center)
+    assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
+    return values
