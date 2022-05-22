@@ -1713,21 +1713,21 @@ def iterate(f: Callable, iterations: int or Shape, *x0, f_kwargs: dict = None):
     """
     if f_kwargs is None:
         f_kwargs = {}
+    x = x0
     if isinstance(iterations, int):
-        x = x0
         for i in range(iterations):
             x = f(*x, **f_kwargs)
-            if len(x0) > 1:
-                assert isinstance(x, (tuple, list)) and len(x) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {x}"
+            if not isinstance(x, tuple):
+                x = (x,)
+            assert len(x) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {x}"
         return x[0] if len(x0) == 1 else x
     elif isinstance(iterations, Shape):
         xs = [x0]
         for i in range(iterations.size):
-            xs.append(f(*xs[-1], **f_kwargs))
-            if len(x0) > 1:
-                assert isinstance(xs[-1], (tuple, list)) and len(xs[-1]) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {xs[-1]}"
-        if len(x0) == 1:
-            xs = stack(xs, iterations.with_size(None))
-        else:
-            xs = [stack(item, iterations.with_size(None)) for item in zip(*xs)]
+            x = f(*x, **f_kwargs)
+            if not isinstance(x, tuple):
+                x = (x,)
+            assert len(x) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {x}"
+            xs.append(x)
+        xs = [stack(item, iterations.with_size(None)) for item in zip(*xs)]
         return xs[0] if len(x0) == 1 else xs
