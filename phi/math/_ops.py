@@ -358,13 +358,14 @@ def print_(obj: Tensor or PhiTreeNode or Number or tuple or list or None = None,
         print(f"{wrap(obj):full}")
 
 
-def map_(function, *values) -> Tensor:
+def map_(function, *values, **kwargs) -> Tensor or None:
     """
     Calls `function` on all elements of `value`.
 
     Args:
         function: Function to be called on single elements contained in `value`. Must return a value that can be stored in tensors.
         values: Tensors to iterate over. Number of tensors must match `function` signature.
+        kwargs: Keyword arguments for `function`.
 
     Returns:
         `Tensor` of same shape as `value`.
@@ -375,10 +376,10 @@ def map_(function, *values) -> Tensor:
     flat = [flatten(v) for v in values_reshaped]
     result = []
     for items in zip(*flat):
-        result.append(function(*items))
+        result.append(function(*items, **kwargs))
     if None in result:
         assert all(r is None for r in result), f"map function returned None for some elements, {result}"
-        return
+        return None
     return wrap(result).vector.split(shape)
 
 
@@ -606,7 +607,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), assign_item_names=Tr
         return stack_tensors(channels, stack_dim)
 
 
-def linspace(start, stop, number: int, dim: Shape = channel('linspace')) -> Tensor:
+def linspace(start, stop, number: int or Shape, dim: Shape = channel('linspace')) -> Tensor:
     """
     Returns `number` evenly spaced numbers between `start` and `stop`.
 
@@ -622,9 +623,16 @@ def linspace(start, stop, number: int, dim: Shape = channel('linspace')) -> Tens
     Returns:
         `Tensor`
     """
-    assert dim.rank == 1
-    native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
-    return NativeTensor(native, dim.with_sizes([number]))
+    if isinstance(number, Shape):
+        dim = number
+        number = number.size
+    assert dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
+    assert isinstance(number, int), f"Number of points must be an int but got {number}"
+    if isinstance(start, Number) and isinstance(stop, Number):
+        native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
+        return NativeTensor(native, dim.with_sizes([number]))
+    else:
+        return map_(linspace, start, stop, number=number, dim=dim)
 
 
 def arange(dim: Shape, start_or_stop: int or None = None, stop: int or None = None, step=1):
