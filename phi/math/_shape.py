@@ -901,7 +901,7 @@ class Shape:
         Returns:
             `dict` iterator.
         """
-        assert self.is_uniform
+        assert self.is_uniform, f"Shape.meshgrid() is currently not supported for non-uniform tensors, {self}"
         indices = [0] * self.rank
         while True:
             if names:

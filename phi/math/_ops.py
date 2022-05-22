@@ -345,55 +345,17 @@ def print_(obj: Tensor or PhiTreeNode or Number or tuple or list or None = None,
         else:
             raise ValueError(f"Not PhiTreeNode: {type(obj)}")
 
+    if name:
+        print(" " * 12 + name)
     if obj is None:
-        print()
+        print("None")
     elif isinstance(obj, Tensor):
-        _print_tensor(obj, name)
+        print(f"{obj:full}")
     elif isinstance(obj, PhiTreeNode):
         for n, val in variables(obj).items():
             print_(val, name + n)
     else:
-        value = wrap(obj)
-        _print_tensor(value, name)
-
-
-def _print_tensor(value: Tensor, name: str or None, color=True):
-    if color:
-        v = '\033[94m'  # value
-        s = '\033[92m'  # shape
-        e = '\033[0m'   # end
-        d = '\033[93m'  # dtype
-        g = '\033[37m'  # grey (additional)
-        # BOLD = '\033[1m'
-        # UNDERLINE = '\033[4m'
-    else:
-        v, s, d, e, g = '', '', '', '', ''
-
-    if name:
-        print(" " * 16 + f"{d}{name}{e}")
-    dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
-    if value.shape.spatial_rank == 0:
-        print(f"{s}{value.shape}{e}")
-        if value.shape.rank <= 1:
-            text = np.array2string(value.numpy(), precision=2, separator=', ', max_line_width=np.inf)
-            print(' ' + re.sub('[\\[\\]]', '', text))
-        else:
-            text = np.array2string(value.numpy(value.shape), precision=2, separator=', ', max_line_width=np.inf)
-            print(text)
-    elif value.shape.spatial_rank == 1:
-        for index_dict in value.shape.non_spatial.meshgrid(names=True):
-            if value.shape.non_spatial.volume > 1:
-                print(f"---{s} {', '.join(f'{name}={idx}' for name, idx in index_dict.items())} {e}---")
-            text = np.array2string(value[index_dict].numpy(dim_order), precision=2, separator=', ', max_line_width=np.inf)
-            print(' ' + re.sub('[\\[\\]]', '', text))
-    elif value.shape.spatial_rank == 2:
-        for index_dict in value.shape.non_spatial.meshgrid(names=True):
-            if value.shape.non_spatial.volume > 1:
-                print(f"---{s} {', '.join(f'{name}={idx}' for name, idx in index_dict.items())} {e}---")
-            text = np.array2string(value[index_dict].numpy(dim_order)[::-1], precision=2, separator=', ', max_line_width=np.inf)
-            print(' ' + re.sub('[\\[\\]]', '', re.sub('\\],', '', text)))
-    else:
-        raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
+        print(f"{wrap(obj):full}")
 
 
 def map_(function, *values) -> Tensor:
@@ -431,7 +393,7 @@ def _initialize(uniform_initializer, shapes: tuple) -> Tensor:
         return uniform_initializer(shape)
 
 
-def zeros(*shape: Shape, dtype: DType = None) -> Tensor:
+def zeros(*shape: Shape, dtype=None) -> Tensor:
     """
     Define a tensor with specified shape with value `0.0` / `0` / `False` everywhere.
     
@@ -447,7 +409,7 @@ def zeros(*shape: Shape, dtype: DType = None) -> Tensor:
     Returns:
         `Tensor`
     """
-    return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=dtype), EMPTY_SHAPE), shape), shape)
+    return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=DType.as_dtype(dtype)), EMPTY_SHAPE), shape), shape)
 
 
 def zeros_like(obj: Tensor or PhiTreeNode) -> Tensor or PhiTreeNode:
@@ -461,7 +423,7 @@ def zeros_like(obj: Tensor or PhiTreeNode) -> Tensor or PhiTreeNode:
     return assemble_tree(nest, zeros_)
 
 
-def ones(*shape: Shape, dtype: DType = None) -> Tensor:
+def ones(*shape: Shape, dtype=None) -> Tensor:
     """
     Define a tensor with specified shape with value `1.0`/ `1` / `True` everywhere.
     
@@ -477,7 +439,7 @@ def ones(*shape: Shape, dtype: DType = None) -> Tensor:
     Returns:
         `Tensor`
     """
-    return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=dtype), EMPTY_SHAPE), shape), shape)
+    return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=DType.as_dtype(dtype)), EMPTY_SHAPE), shape), shape)
 
 
 def ones_like(value: Tensor) -> Tensor:
@@ -485,7 +447,7 @@ def ones_like(value: Tensor) -> Tensor:
     return zeros_like(value) + 1
 
 
-def random_normal(*shape: Shape, dtype: DType = None) -> Tensor:
+def random_normal(*shape: Shape, dtype=None) -> Tensor:
     """
     Creates a `Tensor` with the specified shape, filled with random values sampled from a normal / Gaussian distribution.
 

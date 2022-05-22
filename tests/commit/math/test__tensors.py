@@ -210,6 +210,28 @@ class TestTensors(TestCase):
                 with backend:
                     math.jit_compile(tracable)(math.ones(channel(vector=3)))
 
+    def test_format(self):
+        for value in [
+            math.random_normal(channel(vector='x,y'), dtype=(float, 32)),
+            math.random_normal(channel(vector='x,y'), dtype=(float, 64)),
+            math.random_normal(channel(vector='x,y'), dtype=(int, 32)),
+            math.random_normal(batch(b=6), channel(vector='x,y'), dtype=(int, 64)),
+            math.random_normal(batch(b=6), channel(vector='x,y'), dtype=(float, 64)),
+            math.ones(),
+            math.ones(spatial(x=4, y=3)),
+        ]:
+            for layout in [
+                'auto',
+                'row',
+                'numpy',
+                'full',
+                'summary'
+            ]:
+                print(f"#  {layout}")
+                print(f"{value:{layout}:color:no-shape:no-dtype:threshold=1:.1f}")
+                print(f"{value:{layout}:shape:dtype:no-color:threshold=1:.8f}")
+                print(f"{value:{layout}}")
+                print()
 
     def test_tensor_like(self):
 

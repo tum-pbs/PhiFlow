@@ -1,9 +1,10 @@
 import copy
 import numbers
-import traceback
 import warnings
+from collections import namedtuple
 from typing import Tuple, Callable, List, TypeVar
 
+import numpy
 import numpy as np
 
 from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, instance
@@ -223,6 +224,11 @@ class Tensor:
         from ._ops import imag
         return imag(self)
 
+    @property
+    def available(self):
+        from ._ops import all_available
+        return all_available(self)
+
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
 
@@ -237,69 +243,30 @@ class Tensor:
         assert self.dtype.kind == int, f"Only int tensors can be converted to index but dtype is {self.dtype}"
         return int(self.native())
 
-    def _summary_str(self) -> str:
-        if should_use_color():
-            v = '\033[94m'  # value
-            s = '\033[92m'  # shape
-            e = '\033[0m'   # end
-            d = '\033[93m'  # dtype
-            g = '\033[37m'  # grey (additional)
-            # BOLD = '\033[1m'
-            # UNDERLINE = '\033[4m'
-        else:
-            v, s, d, e, g = '', '', '', '', ''
-
-        try:
-            from ._ops import all_available
-            if all_available(self):
-                if self.rank == 0:
-                    return f"{v}{str(self.numpy())}{e}"
-                elif self.shape.volume is not None and self.shape.volume <= 6:
-                    content = list(np.reshape(self.numpy(self.shape.names), [-1]))
-                    if self.shape.rank == 1 and self.shape.get_item_names(0) is not None:
-                        content = ", ".join([f"{item}={v}{number}{e}" for number, item in zip(content, self.shape.get_item_names(0))])
-                    else:
-                        content = ', '.join([f"{v}{number}{e}" for number in content])
-                    if self.shape.rank == 1 and (self.dtype.kind in (bool, int) or self.dtype.precision == get_precision()):
-                        if self.shape.name == 'vector' and self.shape.type == CHANNEL_DIM:
-                            return f"({content})"
-                        return f"({content}) along {s}{self.shape.name}{TYPE_ABBR[self.shape.type]}{e}"
-                    return f"{s}{self.shape}{e} {d}{self.dtype}{e}  {content}"
-                else:
-                    if self.dtype.kind in (float, int):
-                        min_val, max_val, mean, std = [float(f) for f in [self.min, self.max, self.mean, self.std]]
-                        if std == 0:
-                            return f"{s}{self.shape}{e} {d}{self.dtype}{e} const {v}{mean}{e}"
-                        if any([abs(val) < 0.001 or abs(val) > 1000 for val in [mean, std]]):
-                            return f"{s}{self.shape}{e} {d}{self.dtype}{e}  {v}{mean:.2e} ± {std:.1e}{e} {g}({min_val:.0e}...{max_val:.0e}){e}"
-                        else:
-                            return f"{s}{self.shape}{e} {d}{self.dtype}{e}  {v}{mean:.3f} ± {std:.3f}{e} {g}({min_val:.0e}...{max_val:.0e}){e}"
-                    elif self.dtype.kind == complex:
-                        max_val = abs(self).max
-                        return f"{s}{self.shape}{e} {d}{self.dtype}{e} {v}|...| < {max_val}{e}"
-                    elif self.dtype.kind == bool:
-                        return f"{s}{self.shape}{e} {v}{self.sum} / {self.shape.volume} True{e}"
-                    else:
-                        return f"{s}{self.shape}{e} {d}{self.dtype}{e}"
-            else:
-                if self.rank == 0:
-                    return f"{self.default_backend} scalar {d}{self.dtype}{e}"
-                else:
-                    return f"{self.default_backend} {s}{self.shape}{e} {d}{self.dtype}{e}"
-        except BaseException as err:
-            return f"{self.shape}, failed to fetch values: {err}"
-
     def __repr__(self):
-        return self._summary_str()
+        return format_tensor(self, PrintOptions())
 
-    def __format__(self, format_spec):
-        from ._ops import all_available
-        if not all_available(self):
-            return self._summary_str()
-        if self.shape.volume > 1:
-            return self._summary_str()
-        val = self.numpy()
-        return format(val, format_spec)
+    def _repr_pretty_(self, printer, cycle):
+        printer.text(format_tensor(self, PrintOptions(colors=DEFAULT_COLORS)))
+
+    def __format__(self, format_spec: str):
+        specs = format_spec.split(':')
+        layout_ = 'auto'
+        for possible_layout in ['summary', 'full', 'row', 'numpy']:
+            if possible_layout in specs:
+                assert layout_ == 'auto', f"Two layout identifiers encountered in '{format_spec}'"
+                layout_ = possible_layout
+        include_shape = 'shape' in specs or (False if 'no-shape' in specs else None)
+        include_dtype = 'dtype' in specs or (False if 'no-dtype' in specs else None)
+        color = 'color' in specs or (False if 'no-color' in specs else None)
+        threshold = 8
+        float_format = None
+        for spec in specs:
+            if spec.startswith('threshold='):
+                threshold = int(spec[len('threshold='):])
+            elif '.' in spec:
+                float_format = spec
+        return format_tensor(self, PrintOptions(layout_, float_format, threshold, color, include_shape, include_dtype))
 
     def __getitem__(self, item) -> 'Tensor':
         if isinstance(item, Tensor):
@@ -2038,3 +2005,235 @@ def from_dict(dict_: dict, convert=False):
         return tensor(dict_['data'], shape, convert=convert)
     else:
         return shape
+
+
+class Color:
+    def __init__(self, name: str, console_foreground_begin: str):
+        self.name = name
+        self.console_foreground_begin = console_foreground_begin
+
+    def __call__(self, obj, **kwargs):
+        text = str(obj).replace(CONSOLE_END, self.console_foreground_begin)
+        return f"{self.console_foreground_begin}{text}{CONSOLE_END if self.console_foreground_begin else ''}"
+
+
+DEFAULT = Color("Default", '')
+BLUE = Color("Blue", '\033[94m')
+GREEN = Color("Green", '\033[92m')
+YELLOW = Color("Yellow", '\033[93m')
+GREY = Color("Grey", '\033[37m')
+CONSOLE_END = '\033[0m'
+
+
+ColorScheme = namedtuple('ColorScheme', ['value', 'shape', 'dtype', 'fine'])
+DEFAULT_COLORS = ColorScheme(BLUE, GREEN, YELLOW, GREY)
+NO_COLORS = ColorScheme(DEFAULT, DEFAULT, DEFAULT, DEFAULT)
+
+
+class PrintOptions:
+
+    def __init__(self, layout='auto', float_format: str = None, threshold=8, colors=None, include_shape: bool = None, include_dtype: bool = None):
+        self.layout = layout
+        self.float_format = float_format
+        self.threshold = threshold
+        self._colors = colors
+        self.include_shape = include_shape
+        self.include_dtype = include_dtype
+
+    def get_colors(self):
+        if self._colors is True:
+            return DEFAULT_COLORS
+        elif self._colors is False:
+            return NO_COLORS
+        elif self._colors is not None:
+            return self._colors
+        else:  # None
+            return DEFAULT_COLORS if check_is_printing() else NO_COLORS
+
+
+def check_is_printing():
+    import traceback, sys
+    stack = traceback.extract_stack()
+    for frame in stack:
+        if frame.line.strip().startswith('print('):
+            return True
+    if 'ipykernel' in sys.modules:
+        return True
+    return False
+
+
+def format_summary(self: Tensor, options: PrintOptions) -> str:
+    """
+    Returns shape + dtype + content summary
+
+    * `bool`: n / N True
+    * `float`: mean ± std (min...max)
+    """
+    if not self.available:
+        return format_tracer(self, options)
+    colors = options.get_colors()
+    result = []
+    if self.shape if options.include_shape is None else options.include_shape:
+        result.append(f"{colors.shape(self.shape)}")
+    if is_unexpected_dtype(self.dtype) if options.include_dtype is None else options.include_dtype:
+        result.append(f"{colors.dtype(self.dtype)}")
+    try:
+        if self.rank == 0:
+            result.append(colors.value(self.numpy()))
+        elif self.dtype.kind == bool:
+            result.append(colors.value(f"{self.sum} / {self.shape.volume} True"))
+        elif self.dtype.kind in (float, int):
+            min_val, max_val, mean, std = [float(f) for f in [self.finite_min, self.finite_max, self.finite_mean, self.std]]
+            if std == 0:
+                result.append(colors.value(f"const {mean:{options.float_format or ''}}"))
+            else:
+                if any([abs(val) < 0.001 or abs(val) > 1000 for val in [mean, std]]):
+                    result.append(colors.value(f"{mean:{options.float_format or '.2e'}} ± {std:{options.float_format or '.1e'}}"))
+                else:
+                    result.append(colors.value(f"{mean:{options.float_format or '.3f'}} ± {std:{options.float_format or '.3f'}}"))
+                result.append(colors.fine(f"({min_val:{options.float_format or '.0e'}}...{max_val:{options.float_format or '.0e'}})"))
+        elif self.dtype.kind == complex:
+            result.append(colors.value(f"|...| < {abs(self).max}"))
+    except BaseException as err:
+        result.append(f"failed to fetch values: {err}")
+    return " ".join(result)
+
+
+def is_unexpected_dtype(dtype: DType):
+    if dtype in [DType(bool), DType(int, 32)]:
+        return False
+    if dtype.kind == float and dtype.precision == get_precision():
+        return False
+    return True
+
+
+def format_tracer(self: Tensor, options: PrintOptions) -> str:
+    colors = options.get_colors()
+    e = '\033[0m'
+    return f"{colors.shape}{self.shape}{e} {colors.dtype}{self.dtype}{e} {colors.value}{self.default_backend} tracer{e}"
+
+
+def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line content
+    if not value.available:
+        return format_tracer(value, options)
+    import re
+    colors = options.get_colors()
+    dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
+    lines = []
+    formatter = {}
+    if options.float_format:
+        formatter['float_kind'] = ('{:' + options.float_format + '}').format
+    with numpy.printoptions(threshold=np.inf, formatter=formatter):
+        if value.shape.spatial_rank == 0:
+            if options.include_shape is not None:
+                lines.append(colors.shape(value.shape))
+            if value.shape.rank <= 1:
+                text = np.array2string(value.numpy(), separator=', ', max_line_width=np.inf)
+                lines.append(' ' + re.sub('[\\[\\]]', '', text))
+            else:
+                text = np.array2string(value.numpy(value.shape), separator=', ', max_line_width=np.inf)
+                lines.append(text)
+        elif value.shape.spatial_rank == 1:
+            for index_dict in value.shape.non_spatial.meshgrid(names=True):
+                if value.shape.non_spatial.volume > 1:
+                    lines.append(f"--- {colors.shape(', '.join(f'{name}={idx}' for name, idx in index_dict.items()))} ---")
+                text = np.array2string(value[index_dict].numpy(dim_order), separator=', ', max_line_width=np.inf)
+                lines.append(' ' + re.sub('[\\[\\]]', '', text))
+        elif value.shape.spatial_rank == 2:
+            for index_dict in value.shape.non_spatial.meshgrid(names=True):
+                if value.shape.non_spatial.volume > 1:
+                    lines.append(f"--- {colors.shape(', '.join(f'{name}={idx}' for name, idx in index_dict.items()))} ---")
+                text = np.array2string(value[index_dict].numpy(dim_order)[::-1], separator=', ', max_line_width=np.inf)
+                lines.append(' ' + re.sub('[\\[\\]]', '', re.sub('\\],', '', text)))
+        else:
+            raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
+    return "\n".join(lines)
+
+
+def format_row(self: Tensor, options: PrintOptions) -> str:  # all values in a single line
+    """
+    Including shape:  (x=5, y=4) along vector
+    Without shape: (5, 4)
+    Auto: don't show if 'vector' but show item names
+
+    Args:
+        self:
+        options:
+
+    Returns:
+
+    """
+    if not self.available:
+        return format_tracer(self, options)
+    colors = options.get_colors()
+    if self.shape.rank == 1:
+        content = _format_vector(self, options)
+        if self.shape.name != 'vector' or self.shape.non_channel if options.include_shape is None else options.include_shape:
+            content += f" along {colors.shape(f'{self.shape.name}{TYPE_ABBR[self.shape.type]}')}"
+    else:
+        if channel(self):
+            rows = [_format_vector(self[b], options) for b in self.shape.non_channel.meshgrid()]
+        else:
+            rows = [_format_number(self[b].numpy(), options, self.dtype) for b in self.shape.non_channel.meshgrid()]
+        content = "; ".join(rows)
+        if options.include_shape is not False:
+            content += " " + colors.shape(self.shape)
+    if is_unexpected_dtype(self.dtype) if options.include_dtype is None else options.include_dtype:
+        content += f" {colors.dtype(self.dtype)}"
+    return content
+
+
+def format_numpy(self: Tensor, options: PrintOptions) -> str:
+    header = []
+    colors = options.get_colors()
+    if options.include_shape:
+        header.append(colors.shape(self.shape))
+    if options.include_dtype:
+        header.append(colors.dtype(self.dtype))
+    numpy_array = self.numpy(self.shape)
+    formatter = {}
+    if options.float_format:
+        formatter['float_kind'] = ('{:' + options.float_format + '}').format
+    with numpy.printoptions(threshold=options.threshold, formatter=formatter):
+        content = colors.value(numpy_array)
+    return " ".join(header) + "\n" + content if header else content
+
+
+def _format_vector(self: Tensor, options: PrintOptions) -> str:
+    assert self.shape.rank == 1
+    colors = options.get_colors()
+    if self.shape.get_item_names(0) is not None and options.include_shape is not False:
+        content = ", ".join([f"{item}={_format_number(number, options, self.dtype)}" for number, item in zip(self, self.shape.get_item_names(0))])
+    else:
+        content = ", ".join([_format_number(num, options, self.dtype) for num in self])
+    return colors.value(f"({content})")
+
+
+def _format_number(num, options: PrintOptions, dtype: DType):
+    if options.float_format is not None:
+        return format(num, options.float_format)
+    if dtype.kind in (bool, int):
+        return str(num)
+    if dtype.kind == float:
+        return format(num, options.float_format or '.3f')
+    return str(num)
+
+
+def format_tensor(self: Tensor, options: PrintOptions) -> str:
+    if options.layout == 'auto':
+        if not self.shape:
+            return format_summary(self, options)
+        if self.shape.volume is not None and self.shape.volume < options.threshold:
+            return format_row(self, options)
+        else:
+            return format_summary(self, options)
+    elif options.layout == 'summary':
+        return format_summary(self, options)
+    elif options.layout == 'full':
+        return format_full(self, options)
+    elif options.layout == 'row':
+        return format_row(self, options)
+    elif options.layout == 'numpy':
+        return format_numpy(self, options)
+    else:
+        raise NotImplementedError(f"Layout '{options.layout}' is not supported.")
