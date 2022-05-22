@@ -123,14 +123,12 @@ def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
     """
     assert 'vector' in vector.shape, "vector must have 'vector' dimension."
     if vector.vector.size == 2:
-        sin = math.sin(angle)
-        cos = math.cos(angle)
-        y, x = vector.vector.unstack()
-        if GLOBAL_AXIS_ORDER.is_x_first:
-            x, y = y, x
+        sin = wrap(math.sin(angle))
+        cos = wrap(math.cos(angle))
+        x, y = vector.vector
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
-        return math.stack_tensors([rot_x, rot_y], channel('vector'))
+        return math.stack_tensors([rot_x, rot_y], channel(vector=vector.vector.item_names))
     elif vector.vector.size == 1:
         raise AssertionError(f"Cannot rotate a 1D vector. shape={vector.shape}")
     else:
