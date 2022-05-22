@@ -16,7 +16,7 @@ class Noise(Field):
     Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
     """
 
-    def __init__(self, *shape: math.Shape, scale=10, smoothness=1.0, **channel_dims):
+    def __init__(self, *shape: math.Shape, scale=10., smoothness=1.0, **channel_dims):
         """
         Args:
           shape: Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.
@@ -46,13 +46,14 @@ class Noise(Field):
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
         with math.NUMPY:
             k = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
-            k = math.vec_squared(k)
+            k2 = math.vec_squared(k)
         lowest_frequency = 0.1
-        weight_mask = math.to_float(k > lowest_frequency)
+        weight_mask = math.to_float(k2 > lowest_frequency)
         # --- Compute 1/k ---
-        k._native[(0,) * len(k.shape)] = np.inf
-        inv_k = 1 / k
-        inv_k._native[(0,) * len(k.shape)] = 0
+        batch_dim_mask = tuple([slice(None) if dim.batch else 0 for dim in k2.shape])
+        k2._native[batch_dim_mask] = np.inf
+        inv_k = 1 / k2
+        inv_k._native[batch_dim_mask] = 0
         # --- Compute result ---
         fft = rndj * inv_k ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))
