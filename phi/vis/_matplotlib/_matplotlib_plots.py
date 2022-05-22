@@ -88,6 +88,7 @@ class MatplotlibPlots(PlottingLibrary):
                     axis.tables.clear()
                     axis.artists.clear()
                     axis.images.clear()
+                    axis.collections.clear()
 
                     box = Bbox(positions[axis])
                     axis.set_position(box, which='active')
@@ -144,8 +145,8 @@ MATPLOTLIB = MatplotlibPlots()
 
 
 def _get_range(bounds: Box, index: int):
-    lower = bounds.lower.vector[index].numpy()
-    upper = bounds.upper.vector[index].numpy()
+    lower = float(bounds.lower.vector[index].min)
+    upper = float(bounds.upper.vector[index].max)
     return lower, upper
 
 

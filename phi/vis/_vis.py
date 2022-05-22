@@ -243,7 +243,7 @@ def plot(*fields: SampledField or Tensor or Layout,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
-         frame_time=200,
+         frame_time=100,
          repeat=True,
          **plt_args):
     """
