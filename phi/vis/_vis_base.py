@@ -339,7 +339,7 @@ class PlottingLibrary:
                       rows: int,
                       cols: int,
                       subplots: Dict[Tuple[int, int], Box],
-                      titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         """
         Args:
             size: Figure size in inches.

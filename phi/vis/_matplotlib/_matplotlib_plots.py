@@ -8,7 +8,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy
 import numpy as np
-from matplotlib import animation
+from matplotlib import animation, cbook
 from matplotlib import rc
 from matplotlib.transforms import Bbox
 
@@ -25,14 +25,14 @@ from phi.vis._vis_base import display_name, PlottingLibrary
 class MatplotlibPlots(PlottingLibrary):
 
     def __init__(self):
-        super().__init__('matplotlib', [plt.Figure])
+        super().__init__('matplotlib', [plt.Figure, animation.Animation])
 
     def create_figure(self,
                       size: tuple,
                       rows: int,
                       cols: int,
                       subplots: Dict[Tuple[int, int], Box],
-                      titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         figure, axes = plt.subplots(rows, cols, figsize=size)
         self.current_figure = figure
         axes = np.reshape(axes, (rows, cols))
@@ -43,7 +43,7 @@ class MatplotlibPlots(PlottingLibrary):
                 if (row, col) not in subplots:
                     axis.remove()
                 else:
-                    axis.set_title(titles.rows[row].cols[col].native())
+                    axis.set_title(titles.get((row, col), None))
                     bounds = subplots[(row, col)]
                     if bounds.spatial_rank == 1:
                         axis.set_xlabel(bounds.vector.item_names[0])
@@ -72,6 +72,7 @@ class MatplotlibPlots(PlottingLibrary):
 
         base_axes = tuple(fig.axes)
         positions = {a: (a.figbox.p0, a.figbox.p1) for a in base_axes}
+        titles = {a: a.get_title() for a in base_axes}
         specs = {a: a.get_subplotspec() for a in base_axes}
 
         def clear_and_plot(frame: int):
@@ -80,10 +81,18 @@ class MatplotlibPlots(PlottingLibrary):
                 if axis not in base_axes:  # colorbar etc.
                     axis.remove()
                 else:
-                    axis.cla()  # clear
+                    # axis.cla()  # this also clears titles and axis labels
+                    axis.lines = []
+                    axis.patches = []
+                    axis.texts = []
+                    axis.tables = []
+                    axis.artists = []
+                    axis.images = []
+
                     box = Bbox(positions[axis])
                     axis.set_position(box, which='active')
                     axis.set_subplotspec(specs[axis])
+                    # axis.set_title(titles[axis])
             # plt.tight_layout()
             plot_frame_function(frame)
 
@@ -122,8 +131,13 @@ class MatplotlibPlots(PlottingLibrary):
             else:
                 figure._fig.show()
 
-    def save(self, figure: plt.Figure, path: str, dpi: float):
-        figure.savefig(path, dpi=dpi)
+    def save(self, figure, path: str, dpi: float):
+        if isinstance(figure, plt.Figure):
+            figure.savefig(path, dpi=dpi)
+        elif isinstance(figure, animation.Animation):
+            figure.save(path, dpi=dpi)
+        else:
+            raise ValueError(figure)
 
 
 MATPLOTLIB = MatplotlibPlots()

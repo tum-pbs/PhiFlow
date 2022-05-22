@@ -271,8 +271,7 @@ def plot(*fields: SampledField or Tensor or Layout,
         If all batch dimensions are reduced by `rows` and `cols`, returns a single figure created for `data`.
         Otherwise returns a `Tensor` of figures (not yet supported).
     """
-    positioning = {}
-    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, 0, 0, positioning)
+    nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, 0, 0, {}, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
@@ -286,9 +285,13 @@ def plot(*fields: SampledField or Tensor or Layout,
     else:
         min_val = max_val = None
     subplots = {pos: _space(fields, animate) for pos, fields in positioning.items()}
-    if title is None or isinstance(title, str):
-        title = layout(title)
-    assert isinstance(title, Tensor), "title must be a Tensor or str"
+    if isinstance(title, str):
+        title = {pos: title for pos in positioning}
+    elif isinstance(title, Tensor):
+        title = {(row, col): title.rows[row].cols[col] for (row, col) in positioning}
+    else:
+        assert title is None, f"title must be a str or Tensor but got {title}"
+        title = {pos: ", ".join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
         plots.plotting_done(figure, axes)
@@ -319,19 +322,23 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
                        animate: str or Shape or tuple or list or Callable,  # do not reduce these dims, has priority
                        offset_row: int,
                        offset_col: int,
-                       positioning: Dict[Tuple[int, int], List]) -> Tuple[int, int, Shape]:  # rows, cols
+                       positioning: Dict[Tuple[int, int], List],
+                       base_index: Dict[str, int or str]) -> Tuple[int, int, Shape, dict, dict]:  # rows, cols
     if data is None:
         raise ValueError(f"Cannot layout figure for '{data}'")
     if isinstance(data, list):
         data = math.layout(data, batch('list'))
     elif isinstance(data, tuple):
         data = math.layout(data, batch('tuple'))
+    elif isinstance(data, dict):
+        data = math.layout(data, batch('dict'))
     if isinstance(data, Layout):
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
+        indices = {}
         if not batch(data):  # overlay
             for d in data:  # overlay these fields
-                e_rows, e_cols, d_non_reduced = layout_sub_figures(d, row_dims, col_dims, animate, offset_row, offset_col, positioning)
+                e_rows, e_cols, d_non_reduced, positioning, indices = layout_sub_figures(d, row_dims, col_dims, animate, offset_row, offset_col, positioning, base_index)
                 rows = max(rows, e_rows)
                 cols = max(cols, e_cols)
                 non_reduced &= d_non_reduced
@@ -339,23 +346,25 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
             dim0 = data.shape[0]
             if dim0.only(animate):
                 data = math.stack(data.native(), batch('_animate'))
-                return layout_sub_figures(data, row_dims, col_dims, animate, offset_row, offset_col, positioning)
+                return layout_sub_figures(data, row_dims, col_dims, animate, offset_row, offset_col, positioning, base_index)
             elements = data.unstack(dim0.name)
-            for e in elements:
+            for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
+                index = dict(base_index, **{dim0.name: item_name})
                 if dim0.only(row_dims):
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row + rows, offset_col, positioning)
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row + rows, offset_col, positioning, index)
                     rows += e_rows
                     cols = max(cols, e_cols)
                 elif dim0.only(col_dims):
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col + cols, positioning)
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col + cols, positioning, index)
                     cols += e_cols
                     rows = max(rows, e_rows)
                 else:
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col, positioning)
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col, positioning, index)
                     cols = max(cols, e_cols)
                     rows = max(rows, e_rows)
                 non_reduced &= e_non_reduced
-        return rows, cols, non_reduced
+                indices.update(e_indices)
+        return rows, cols, non_reduced, positioning, indices
     else:
         if isinstance(data, Tensor):
             data = field.tensor_as_field(data)
@@ -366,11 +375,13 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         row_shape = batch(data).only(row_dims).without(animate)
         col_shape = batch(data).only(col_dims).without(row_dims).without(animate)
         non_reduced: Shape = batch(data).without(row_dims).without(col_dims) & animate
-        for ri, r in enumerate(row_shape.meshgrid()):
-            for ci, c in enumerate(col_shape.meshgrid()):
+        indices = {}
+        for ri, r in enumerate(row_shape.meshgrid(names=True)):
+            for ci, c in enumerate(col_shape.meshgrid(names=True)):
+                indices[(offset_row + ri, offset_col + ci)] = dict(base_index, **r, **c)
                 sub_data = data[r][c]
                 positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
-        return row_shape.volume, col_shape.volume, non_reduced
+        return row_shape.volume, col_shape.volume, non_reduced, positioning, indices
 
 
 def _space(fields: Tuple[Field, ...], ignore_dims: Shape) -> Box:
