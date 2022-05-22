@@ -2200,8 +2200,10 @@ def format_numpy(self: Tensor, options: PrintOptions) -> str:
 
 
 def _format_vector(self: Tensor, options: PrintOptions) -> str:
-    assert self.shape.rank == 1
     colors = options.get_colors()
+    if self.shape.rank > 1:
+        from ._ops import flatten
+        self = flatten(self, channel('flat'))
     if self.shape.get_item_names(0) is not None and options.include_shape is not False:
         content = ", ".join([f"{item}={_format_number(number, options, self.dtype)}" for number, item in zip(self, self.shape.get_item_names(0))])
     else:
