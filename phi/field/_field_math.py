@@ -124,8 +124,8 @@ def stagger(field: CenteredGrid,
             lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
             width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
             width_upper = {dim: (int(lo_valid or up_valid) - 1, int(lo_valid and up_valid))}
-            all_lower.append(math.pad(field.values, width_lower, field.extrapolation))
-            all_upper.append(math.pad(field.values, width_upper, field.extrapolation))
+            all_lower.append(math.pad(field.values, width_lower, field.extrapolation, bounds=field.bounds))
+            all_upper.append(math.pad(field.values, width_upper, field.extrapolation, bounds=field.bounds))
         all_upper = math.stack(all_upper, channel('vector'))
         all_lower = math.stack(all_lower, channel('vector'))
         values = face_function(all_lower, all_upper)

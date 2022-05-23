@@ -66,6 +66,10 @@ class FieldEmbedding(Extrapolation):
             op = getattr(other, op.__name__)
             result = op(self)
             return Undefined(self) if result is NotImplemented else result
+        elif isinstance(other, FieldEmbedding):
+            if other.field is self.field:
+                return self
+            return Undefined(self)
         else:
             return Undefined(self)
 
