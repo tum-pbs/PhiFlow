@@ -10,7 +10,9 @@ def get_undocumented_wildcards(modulename):
         if (key[0] != "_") and (key not in {"_", "In", "Out", "get_ipython", "exit", "quit", "join", "S", }):
             description = val.__doc__
             if not description:
-                undocumented.append(key)
+                import inspect
+                if inspect.getdoc(val) is None:
+                    undocumented.append(key)
     return undocumented, len(loc.items())
 
 

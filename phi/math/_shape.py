@@ -957,15 +957,18 @@ EMPTY_SHAPE = Shape((), (), (), ())
 """ Empty shape, `()` """
 
 DimFilter = Union[str, tuple, list, Shape, Callable]
-DimFilter.__doc__ = """Dimension filters can be used with `Shape.only()` and `Shype.without()`, making them the standard tool for specifying sets of dimensions.
-
-The following types can be used as dimension filters:
-
-* `Shape` instances
-* `tuple` or `list` objects containing dimension names as `str`
-* Single `str` listing comma-separated dimension names
-* Any function `filter(Shape) -> Shape`, such as `math.batch()`, `math.non_batch()`, `math.spatial()`, etc.
-"""  # docstring must be set explicitly
+try:
+    DimFilter.__doc__ = """Dimension filters can be used with `Shape.only()` and `Shype.without()`, making them the standard tool for specifying sets of dimensions.
+    
+    The following types can be used as dimension filters:
+    
+    * `Shape` instances
+    * `tuple` or `list` objects containing dimension names as `str`
+    * Single `str` listing comma-separated dimension names
+    * Any function `filter(Shape) -> Shape`, such as `math.batch()`, `math.non_batch()`, `math.spatial()`, etc.
+    """  # docstring must be set explicitly
+except AttributeError:  # on older Python versions, this is not possible
+    pass
 
 
 class IncompatibleShapes(ValueError):
