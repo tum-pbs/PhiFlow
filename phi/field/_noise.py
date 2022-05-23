@@ -44,18 +44,14 @@ class Noise(Field):
                 warnings.warn(f"Please provide item names for Noise dim {dim} using {dim}='x,y,z'", FutureWarning)
                 shape &= channel(**{dim.name: resolution.names})
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
-        with math.NUMPY:
-            k = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
-            k2 = math.vec_squared(k)
+        # --- Compute 1 / k^2 ---
+        k_vec = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
+        k2 = math.vec_squared(k_vec)
         lowest_frequency = 0.1
         weight_mask = math.to_float(k2 > lowest_frequency)
-        # --- Compute 1/k ---
-        batch_dim_mask = tuple([slice(None) if dim.batch else 0 for dim in k2.shape])
-        k2._native[batch_dim_mask] = np.inf
-        inv_k = 1 / k2
-        inv_k._native[batch_dim_mask] = 0
+        inv_k2 = math.divide_no_nan(1, k2)
         # --- Compute result ---
-        fft = rndj * inv_k ** self.smoothness * weight_mask
+        fft = rndj * inv_k2 ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))
         array /= math.std(array, dim=array.shape.non_batch)
         array -= math.mean(array, dim=array.shape.non_batch)
