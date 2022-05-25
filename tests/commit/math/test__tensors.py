@@ -6,7 +6,7 @@ import phi
 from phi import math
 from phi.math import channel, batch, DType
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
-from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached
+from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors
 from phi.math.backend import Backend
 from phi.math.magic import PhiTreeNode
 
@@ -441,3 +441,13 @@ class TestTensors(TestCase):
         self.assertEqual(spatial(x=0), nothing.shape)
         nothing = math.zeros(spatial(x=5)).x[:0]
         self.assertEqual(spatial(x=0), nothing.shape)
+
+    def test_disassemble_assemble(self):
+        for t in [
+            math.zeros(batch(b=2, c=2)),
+            math.ones(batch(b=10)) * wrap((1, 2), channel('vector')),
+        ]:
+            natives, shapes, native_dims = disassemble_tensors(t, expand=False)
+            restored = assemble_tensors(natives, shapes, native_dims)
+            math.assert_close(t, restored)
+            print(restored)

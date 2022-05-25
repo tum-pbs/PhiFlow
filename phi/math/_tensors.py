@@ -1600,28 +1600,41 @@ def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_func
     return result
 
 
-def disassemble_tensors(obj: Tensor or tuple or list, expand=True) -> tuple:
+def disassemble_tensors(obj: Tensor or Tuple[Tensor, ...] or List[Tensor], expand: bool) -> tuple:
+    """
+    Args:
+        obj: Tuple or list of Tensors.
+        expand: Whether to add collapsed dimensions to the native tensors.
+
+    Returns:
+        natives: tuple of native tensors
+        shapes: tuple of Shapes encoding the tensor dimensions including collapsed dims.
+        native_dims: tuple of Shapes representing the dimensions of the natives in the correct order.
+    """
     assert isinstance(obj, (Tensor, tuple, list)), f"jit-compiled function returned {type(obj)} but must return either a 'phi.math.Tensor' or tuple/list of tensors."
     if isinstance(obj, Tensor):
         if expand:
             obj._expand()
-        return obj._natives(), obj.shape
+        if isinstance(obj, CollapsedTensor) and obj._inner is not None:
+            native_dims = obj._inner.shape
+        else:
+            native_dims = EMPTY_SHAPE
+        return obj._natives(), obj.shape, native_dims
     else:
-        if expand:
-            for t in obj:
-                t._expand()
-        return sum([t._natives() for t in obj], ()), tuple(t.shape for t in obj)
+        assert isinstance(obj, (tuple, list))
+        dis = [disassemble_tensors(t, expand=expand) for t in obj]
+        return sum([i[0] for i in dis], ()), tuple(i[1] for i in dis), tuple(i[2] for i in dis)
 
 
-def assemble_tensors(natives: tuple, shapes: Shape or Tuple[Shape]):
+def assemble_tensors(natives: tuple, shapes: Shape or Tuple[Shape], native_dims: Tuple[Shape, ...] or None):
     natives = list(natives)
     if isinstance(shapes, Shape):
-        return _assemble_pop(natives, shapes)
+        return _assemble_pop(natives, shapes, native_dims)
     else:
-        return [_assemble_pop(natives, shape) for shape in shapes]
+        return [_assemble_pop(natives, shape, None if native_dims is None else native_dims[i]) for i, shape in enumerate(shapes)]
 
 
-def _assemble_pop(natives: list, shape: Shape):
+def _assemble_pop(natives: list, shape: Shape, native_dims: Shape or None):
     if shape.is_uniform:
         native = natives.pop(0)
         ndim = choose_backend(native).ndims(native)
@@ -1630,7 +1643,9 @@ def _assemble_pop(natives: list, shape: Shape):
                 inner = NativeTensor(native, EMPTY_SHAPE)
                 return CollapsedTensor(inner, shape)
             else:
-                raise NotImplementedError("Cannot restore CollapsedTensor from native and shape")
+                assert native_dims is not None, "Cannot restore CollapsedTensor from native and shape when native_dims are not specified."
+                inner = NativeTensor(native, native_dims)
+                return CollapsedTensor(inner, shape)
         return NativeTensor(native, shape)
     else:
         s2 = shape.shape.without('dims')

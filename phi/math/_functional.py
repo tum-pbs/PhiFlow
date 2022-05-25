@@ -26,6 +26,7 @@ class SignatureKey:
                  source_function: Callable or None,
                  tree,
                  shapes: Shape or Tuple[Shape],
+                 native_dims: Tuple[Shape] or None,
                  kwargs: dict or None,
                  backend: Backend,
                  tracing: bool):
@@ -38,6 +39,7 @@ class SignatureKey:
         self.kwargs = kwargs
         self.backend = backend
         self.tracing = tracing
+        self.native_dims = native_dims
         self.spatial_derivative_order = get_spatial_derivative_order()
 
     def __repr__(self):
@@ -57,7 +59,7 @@ class SignatureKey:
     def extrapolate(self, rec_in: 'SignatureKey', new_in: 'SignatureKey') -> 'SignatureKey':
         assert self.source_function is not None, "extrapolate() must be called on output keys"
         shapes = [self._extrapolate_shape(s, rec_in, new_in) for s in self.shapes]
-        return SignatureKey(self.source_function, self.tree, shapes, self.kwargs, self.backend)
+        return SignatureKey(self.source_function, self.tree, shapes, self.native_dims, self.kwargs, self.backend, self.tracing)
 
     @staticmethod
     def _extrapolate_shape(shape_: Shape, rec_in: 'SignatureKey', new_in: 'SignatureKey') -> Shape:
@@ -92,8 +94,8 @@ def key_from_args(*args, cache=False, **kwargs) -> Tuple[SignatureKey, list]:
     # if tracing and cache:
     #     cache = False
     #     warnings.warn("Cannot cache a tensor while tracing.", RuntimeWarning)
-    natives, shapes = disassemble_tensors(tensors, expand=cache)
-    key = SignatureKey(None, nest, shapes, kwargs, backend, tracing)
+    natives, shapes, native_dims = disassemble_tensors(tensors, expand=cache)
+    key = SignatureKey(None, nest, shapes, native_dims, kwargs, backend, tracing)
     return key, natives
 
 
@@ -107,9 +109,9 @@ def key_from_args_pack_batch(*args, cache=False, **kwargs) -> Tuple[SignatureKey
     batch_shape = merge_shapes(*[t.shape.batch for t in tensors])
     # tensors = [math.pack_dims(t, batch_shape, batch('batch'), pos=0) for t in tensors]
     natives = [math.reshaped_native(t, [batch_shape, *t.shape.non_batch], force_expand=True) for t in tensors]
-    # natives, shapes = disassemble_tensors(tensors, expand=cache)
+    # natives, shapes, native_dims = disassemble_tensors(tensors, expand=cache)
     shapes = tuple([math.concat_shapes(batch(batch=batch_shape.volume), *t.shape.non_batch) for t in tensors])
-    key = SignatureKey(None, nest, shapes, kwargs, backend, tracing)
+    key = SignatureKey(None, nest, shapes, None, kwargs, backend, tracing)
     return key, natives, batch_shape
 
 
@@ -127,13 +129,13 @@ class JitFunction:
         def jit_f_native(*natives, **kwargs):
             PHI_LOGGER.debug(f"Φ-jit: Tracing '{self.f.__name__}'")
             assert not kwargs
-            in_tensors = assemble_tensors(natives, in_key.shapes)
+            in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
-            result_natives, result_shapes = disassemble_tensors(out_tensors)
-            self.recorded_mappings[in_key] = SignatureKey(jit_f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
+            result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
+            self.recorded_mappings[in_key] = SignatureKey(jit_f_native, nest, result_shapes, None, None, in_key.backend, in_key.tracing)
             return result_natives
 
         jit_f_native.__name__ = f"native({self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)})"
@@ -150,7 +152,7 @@ class JitFunction:
             self.traces[key] = self._jit_compile(key)
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings, self)
-        output_tensors = assemble_tensors(native_result, output_key.shapes)
+        output_tensors = assemble_tensors(native_result, output_key.shapes, output_key.native_dims)
         return assemble_tree(output_key.tree, output_tensors)
 
     def __repr__(self):
@@ -338,7 +340,7 @@ class GradientFunction:
         def f_native(*natives, **kwargs):
             PHI_LOGGER.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
             assert not kwargs
-            in_tensors = assemble_tensors(natives, in_key.shapes)
+            in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             with functional_derivative_evaluation(order=1):
@@ -348,8 +350,8 @@ class GradientFunction:
             loss_reduced = math.sum_(loss, batch)
             loss_native = loss_reduced.native(loss_reduced.shape.names)
             nest, out_tensors = disassemble_tree(result)
-            result_natives, result_shapes = disassemble_tensors(out_tensors)
-            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
+            result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
+            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, None, in_key.backend, in_key.tracing)
             return loss_native, result_natives
         jacobian_generator = in_key.backend.jit_compile_grad if self.jit else in_key.backend.jacobian
         return jacobian_generator(f_native, wrt=wrt_natives, get_output=self.get_output)
@@ -372,11 +374,11 @@ class GradientFunction:
         wrt_shapes = [math.concat_shapes(jac_shape, key.shapes[i]) for i in wrt_tensors]
         if self.get_output:
             result_shapes = list(output_key.shapes) + wrt_shapes
-            output_tensors = assemble_tensors(native_result, result_shapes)
+            output_tensors = assemble_tensors(native_result, result_shapes, None)
             output_structure, grad_tuple = assemble_tree((output_key.tree, [key.tree[i] for i in self.wrt]), output_tensors)
             return output_structure, grad_tuple
         else:
-            output_tensors = assemble_tensors(native_result, wrt_shapes)
+            output_tensors = assemble_tensors(native_result, wrt_shapes, None)
             return assemble_tree([key.tree[i] for i in wrt_tensors], output_tensors)
 
     def __repr__(self):
@@ -459,14 +461,14 @@ class HessianFunction:
         def f_native(*natives, **kwargs):
             PHI_LOGGER.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
             assert not kwargs
-            in_tensors = assemble_tensors(natives, in_key.shapes)
+            in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             with functional_derivative_evaluation(order=2):
                 result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
-            result_natives, result_shapes = disassemble_tensors(out_tensors)
-            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
+            result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
+            self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, None, in_key.backend, in_key.tracing)
             return result_natives
         hessian_generator = in_key.backend.jit_compile_hessian if self.jit else in_key.backend.hessian
         return hessian_generator(f_native, wrt=wrt_natives, get_output=self.get_output, get_gradient=self.get_gradient)
@@ -488,12 +490,12 @@ class HessianFunction:
         output_key = match_output_signature(key, self.recorded_mappings, self)
         result = ()
         if self.get_output:
-            output_tensors = assemble_tensors(native_result[0], output_key.shapes)
+            output_tensors = assemble_tensors(native_result[0], output_key.shapes, output_key.native_dims)
             output_tensors = [unpack_dim(t, 'batch', batch_shape) for t in output_tensors]
             # output_tensors = [math.reshaped_tensor(n, [batch_shape, *shape.non_batch]) for n, shape in zip(native_result[0], output_key.shapes)]
             result += assemble_tree(output_key.tree, output_tensors),
         if self.get_gradient:
-            grad_tensors = assemble_tensors(native_result[int(self.get_output)], [key.shapes[i] for i in wrt_tensors])
+            grad_tensors = assemble_tensors(native_result[int(self.get_output)], [key.shapes[i] for i in wrt_tensors], None)
             grad_tensors = [unpack_dim(t, 'batch', batch_shape) for t in grad_tensors]
             grads = assemble_tree([key.tree[i] for i in wrt_tensors], grad_tensors)
             if len(grads) == 1:
@@ -594,21 +596,21 @@ class CustomGradientFunction:
     def _trace(self, in_key: SignatureKey):
         def forward_native(*natives, **kwargs):
             assert not kwargs
-            in_tensors = assemble_tensors(natives, in_key.shapes)
+            in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             values = assemble_tree(in_key.tree, in_tensors)
             assert isinstance(values, tuple)  # was disassembled from *args
             result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
-            result_natives, result_shapes = disassemble_tensors(out_tensors)
-            self.recorded_mappings[in_key] = SignatureKey(forward_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
+            result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
+            self.recorded_mappings[in_key] = SignatureKey(forward_native, nest, result_shapes, None, None, in_key.backend, in_key.tracing)
             return result_natives
 
         def backward_native(x_natives, y_natives, dy_natives):
             out_key = self.recorded_mappings[in_key]
             # del self.recorded_mappings[in_key]  # this may be required multiple times
-            x_tensors = assemble_tensors(x_natives, in_key.shapes)
-            y_tensors = assemble_tensors(y_natives, out_key.shapes)
-            dy_tensors = assemble_tensors(dy_natives, out_key.shapes)
+            x_tensors = assemble_tensors(x_natives, in_key.shapes, in_key.native_dims)
+            y_tensors = assemble_tensors(y_natives, out_key.shapes, out_key.native_dims)
+            dy_tensors = assemble_tensors(dy_natives, out_key.shapes, out_key.native_dims)
             x = assemble_tree(in_key.tree, x_tensors)
             assert isinstance(x, tuple)
             y = assemble_tree(out_key.tree, y_tensors)
@@ -636,7 +638,7 @@ class CustomGradientFunction:
                 warnings.warn(f"{self.__name__} has been traced {len(self.traces)} times. To avoid memory leaks, call {self.f.__name__}.traces.clear(), {self.f.__name__}.recorded_mappings.clear()", RuntimeWarning, stacklevel=2)
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings, self)
-        output_tensors = assemble_tensors(native_result, output_key.shapes)
+        output_tensors = assemble_tensors(native_result, output_key.shapes, output_key.native_dims)
         return assemble_tree(output_key.tree, output_tensors)
 
     def __repr__(self):
