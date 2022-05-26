@@ -150,6 +150,11 @@ def _get_range(bounds: Box, index: int):
     return lower, upper
 
 
+def _default_color(i: int):
+    default_colors = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+    return default_colors[i % len(default_colors)]
+
+
 def _plot(axis, data: SampledField, show_color_bar, vmin, vmax, **plt_args):
     dims = data.bounds.vector.item_names
     vector = data.bounds.shape['vector']
@@ -160,12 +165,13 @@ def _plot(axis, data: SampledField, show_color_bar, vmin, vmax, **plt_args):
         for c in channel(data).meshgrid(names=True):
             label = ", ".join([i for dim, i in c.items() if isinstance(i, str)])
             values = data.values[c].numpy()
+            color = _default_color(len(axis.lines))
             if values.dtype in (np.complex64, np.complex128):
-                axis.plot(x, values.real, label=f"real({label})" if label else "real")
-                axis.plot(x, values.imag, label=f"imag({label})" if label else "real")
+                axis.plot(x, values.real, label=f"real({label})" if label else "real", color=color)
+                axis.plot(x, values.imag, '--', label=f"imag({label})" if label else "imag", color=color)
                 requires_legend = True
             else:
-                axis.plot(x, values, label=label)
+                axis.plot(x, values, label=label, color=color)
                 requires_legend = requires_legend or label
         if requires_legend:
             axis.legend()
