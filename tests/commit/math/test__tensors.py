@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+import numpy
 import numpy as np
 
 import phi
@@ -451,3 +452,13 @@ class TestTensors(TestCase):
             restored = assemble_tensors(natives, shapes, native_dims)
             math.assert_close(t, restored)
             print(restored)
+
+    def test_is_number(self):
+        self.assertTrue(math.is_scalar(1.))
+        self.assertTrue(math.is_scalar(-3))
+        self.assertTrue(math.is_scalar(True))
+        self.assertTrue(math.is_scalar(1j))
+        self.assertTrue(math.is_scalar(math.zeros()))
+        self.assertTrue(math.is_scalar(numpy.zeros(())))
+        self.assertFalse(math.is_scalar(math.zeros(spatial(x=4))))
+        self.assertFalse(math.is_scalar(numpy.zeros((1,))))

@@ -2254,3 +2254,22 @@ def format_tensor(self: Tensor, options: PrintOptions) -> str:
         return format_numpy(self, options)
     else:
         raise NotImplementedError(f"Layout '{options.layout}' is not supported.")
+
+
+def is_scalar(value) -> bool:
+    """
+    Checks whether `value` has no dimensions.
+
+    Args:
+        value: `Tensor` or Python primitive or native tensor.
+
+    Returns:
+        `bool`
+    """
+    if isinstance(value, Tensor):
+        return value.shape.rank == 0
+    elif isinstance(value, numbers.Number):
+        return True
+    else:
+        shape = choose_backend(value).staticshape(value)
+        return len(shape) == 0

@@ -1,25 +1,23 @@
 import functools
 import math
-import re
 import warnings
-from contextlib import contextmanager
 from numbers import Number
 from typing import Tuple, Callable, Any
 
 import numpy as np
 
 from . import extrapolation as e_
+from ._magic_ops import expand, pack_dims, flatten, unpack_dim
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch)
-from .magic import PhiTreeNode, Sliceable
-from ._magic_ops import expand, pack_dims, flatten, unpack_dim
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
-    value_attributes, Layout, layout, cached
+    value_attributes, cached, is_scalar
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
     NoBackendFound
 from .backend._dtype import DType, combine_types
+from .magic import PhiTreeNode
 
 
 def choose_backend_t(*values, prefer_default=False) -> Backend:
@@ -380,7 +378,7 @@ def map_(function, *values, **kwargs) -> Tensor or None:
     if None in result:
         assert all(r is None for r in result), f"map function returned None for some elements, {result}"
         return None
-    return wrap(result).vector.split(shape)
+    return unpack_dim(wrap(result), 'vector', shape)
 
 
 def _initialize(uniform_initializer, shapes: tuple) -> Tensor:
@@ -607,7 +605,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), assign_item_names=Tr
         return stack_tensors(channels, stack_dim)
 
 
-def linspace(start, stop, number: int or Shape, dim: Shape = channel('linspace')) -> Tensor:
+def linspace(start: int or Tensor, stop, number: int or Shape, dim: Shape = channel('linspace')) -> Tensor:
     """
     Returns `number` evenly spaced numbers between `start` and `stop`.
 
@@ -615,8 +613,8 @@ def linspace(start, stop, number: int or Shape, dim: Shape = channel('linspace')
         `arange()`, `meshgrid()`.
 
     Args:
-        start: First value.
-        stop: Last value.
+        start: First value, `int` or `Tensor`.
+        stop: Last value, `int` or `Tensor`.
         number: How many numbers to return, `int`.
         dim: Dimension name and type as `Shape` object. The `size` of `dim` is ignored.
 
@@ -628,7 +626,7 @@ def linspace(start, stop, number: int or Shape, dim: Shape = channel('linspace')
         number = number.size
     assert dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
     assert isinstance(number, int), f"Number of points must be an int but got {number}"
-    if isinstance(start, Number) and isinstance(stop, Number):
+    if is_scalar(start) and is_scalar(stop):
         native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
         return NativeTensor(native, dim.with_sizes([number]))
     else:
