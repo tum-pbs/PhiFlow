@@ -4,6 +4,7 @@ from numbers import Number
 from phi import math
 
 from ._field import Field
+from .numerical import Scheme
 from ..geom import Geometry
 from ..math import Shape, GLOBAL_AXIS_ORDER, spatial
 
@@ -33,7 +34,7 @@ class AngularVelocity(Field):
         spatial_names = [GLOBAL_AXIS_ORDER.axis_name(i, location.vector.size) for i in range(location.vector.size)]
         self._shape = location.shape & spatial(**{dim: 1 for dim in spatial_names})
 
-    def _sample(self, geometry: Geometry) -> math.Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
         points = geometry.center
         distances = points - self.location
         strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)

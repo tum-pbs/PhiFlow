@@ -1,6 +1,7 @@
 from phi import math
 from phi.geom import Geometry
 from ._field import Field
+from .numerical import Scheme
 from ..math import Tensor
 
 
@@ -18,7 +19,7 @@ class HardGeometryMask(Field):
     def shape(self):
         return self.geometry.shape.non_channel
 
-    def _sample(self, geometry: Geometry) -> Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
         return math.to_float(self.geometry.lies_inside(geometry.center))
 
     def __getitem__(self, item: dict):
@@ -33,7 +34,7 @@ class SoftGeometryMask(HardGeometryMask):
         super().__init__(geometry)
         self.balance = balance
 
-    def _sample(self, geometry: Geometry) -> Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
         return self.geometry.approximate_fraction_inside(geometry, self.balance)
 
     def __getitem__(self, item: dict):

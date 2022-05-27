@@ -4,6 +4,7 @@ from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
 from . import HardGeometryMask
 from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation
+from .numerical import Scheme
 from ..geom._stack import GeometryStack
 from ..math import Shape, NUMPY
 from ..math._shape import spatial, channel, parse_dim_order
@@ -43,7 +44,7 @@ class Grid(SampledField):
         """
         raise NotImplementedError(self)
 
-    def _sample(self, geometry: Geometry) -> math.Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
         raise NotImplementedError(self)
 
     def with_values(self, values):
@@ -134,6 +135,7 @@ class CenteredGrid(Grid):
                  extrapolation: Any = 0.,
                  bounds: Box = None,
                  resolution: int or Shape = None,
+                 scheme: Scheme = Scheme(),
                  **resolution_: int or Tensor):
         """
         Args:
@@ -169,9 +171,9 @@ class CenteredGrid(Grid):
             if isinstance(values, math.Tensor):
                 values = math.expand(values, resolution)
             elif isinstance(values, Geometry):
-                values = reduce_sample(HardGeometryMask(values), elements)
+                values = reduce_sample(HardGeometryMask(values), elements, scheme=scheme)
             elif isinstance(values, Field):
-                values = reduce_sample(values, elements)
+                values = reduce_sample(values, elements, scheme=scheme)
             elif callable(values):
                 values = _sample_function(values, elements)
             else:
@@ -190,7 +192,7 @@ class CenteredGrid(Grid):
         bounds = self.elements[item].bounds[{'vector': keep_dims}]
         return CenteredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
-    def _sample(self, geometry: Geometry) -> Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
         if geometry == self.bounds:
             return math.mean(self._values, self._resolution)
         if isinstance(geometry, GeometryStack):
@@ -249,6 +251,7 @@ class StaggeredGrid(Grid):
                  extrapolation: float or Extrapolation = 0,
                  bounds: Box = None,
                  resolution: Shape = None,
+                 scheme: Scheme = Scheme(),
                  **resolution_: int or Tensor):
         """
         Args:
@@ -291,9 +294,9 @@ class StaggeredGrid(Grid):
             if isinstance(values, math.Tensor):
                 values = expand_staggered(values, resolution, extrapolation)
             elif isinstance(values, Geometry):
-                values = reduce_sample(HardGeometryMask(values), elements)
+                values = reduce_sample(HardGeometryMask(values), elements, scheme=scheme)
             elif isinstance(values, Field):
-                values = reduce_sample(values, elements)
+                values = reduce_sample(values, elements, scheme=scheme)
             elif callable(values):
                 values = _sample_function(values, elements)
                 if elements.shape.shape.rank > 1:  # Different number of X and Y faces
@@ -328,7 +331,7 @@ class StaggeredGrid(Grid):
             values = math.stack(values, channel(vector=self.resolution))
             return StaggeredGrid(values, extrapolation, bounds=self.bounds)
 
-    def _sample(self, geometry: Geometry) -> Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
         channels = [sample(component, geometry) for component in self.vector.unstack()]
         return math.stack(channels, geometry.shape['vector'])
 

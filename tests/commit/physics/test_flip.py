@@ -7,7 +7,7 @@ from phi.flow import *
 
 def step(particles: PointCloud, obstacles: list, dt: float, **grid_resolution):
     # --- Grid Operations ---
-    velocity = prev_velocity = field.finite_fill(StaggeredGrid(particles, 0, particles.bounds, **grid_resolution))
+    velocity = prev_velocity = field.finite_fill(StaggeredGrid(particles, 0, particles.bounds, scheme=Scheme(outside_points='clamp'), **grid_resolution))
     occupied = CenteredGrid(particles.mask(), velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
     velocity, pressure = fluid.make_incompressible(velocity + (0, -9.81 * dt), obstacles, active=occupied)
     # --- Particle Operations ---

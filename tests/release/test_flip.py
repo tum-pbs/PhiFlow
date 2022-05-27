@@ -7,7 +7,7 @@ from phi.flow import *
 
 def step(particles: PointCloud, obstacles: list, dt: float, **grid_resolution):
     # --- Grid Operations ---
-    velocity = prev_velocity = field.finite_fill(StaggeredGrid(particles, 0, particles.bounds, **grid_resolution))
+    velocity = prev_velocity = field.finite_fill(StaggeredGrid(particles, 0, particles.bounds, scheme=Scheme(outside_points='clamp'), **grid_resolution))
     occupied = CenteredGrid(particles.mask(), velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
     velocity, pressure = fluid.make_incompressible(velocity + (0, -9.81 * dt), obstacles, active=occupied)
     # --- Particle Operations ---
@@ -67,6 +67,7 @@ class FlipTest(TestCase):
         particles_per_cell = 8
         total = x_num * y_num
         for i in range(100):
+            print(i)
             particles = step(particles, OBSTACLES, x=64, y=64, dt=0.05)
             left = particles.points.points[particles.points.vector[0] < 32]
             right = particles.points.points[particles.points.vector[0] > 32]
@@ -83,4 +84,5 @@ class FlipTest(TestCase):
             if i < 45:
                 assert mse == 0  # block is still falling, hits obstacles at step 46
             else:
+                # ToDo this currently fails
                 assert mse <= 1e-3  # error increases gradually after block and obstacles collide

@@ -1,10 +1,11 @@
 from typing import TypeVar, Callable
 
 from phi import math
-from phi.math import Shape, Tensor, channel, spatial
+from phi.math import Shape, Tensor, channel
 from phi.math.extrapolation import Extrapolation
 from phi.geom import Geometry, Box, Point
 from phi.math.magic import BoundDim
+from .numerical import Scheme
 
 
 class Field:
@@ -54,11 +55,11 @@ class Field:
         """
         raise NotImplementedError
 
-    def _sample(self, geometry: Geometry) -> math.Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
         """ For internal use only. Use `sample()` instead. """
         raise NotImplementedError(self)
 
-    def at(self, representation: 'SampledField', keep_extrapolation=False) -> 'SampledField':
+    def at(self, representation: 'SampledField', keep_extrapolation=False, scheme: Scheme = Scheme()) -> 'SampledField':
         """
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
@@ -76,11 +77,12 @@ class Field:
             keep_extrapolation: Only available if `self` is a `SampledField`.
                 If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
                 This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
+            scheme: Numerical scheme for resampling.
 
         Returns:
             Field object of same type as `representation`
         """
-        resampled = reduce_sample(self, representation.elements)
+        resampled = reduce_sample(self, representation.elements, scheme=scheme)
         extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
@@ -168,7 +170,7 @@ class SampledField(Field):
     def bounds(self) -> Box:
         raise NotImplementedError(self.__class__)
 
-    def _sample(self, geometry: Geometry) -> math.Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
         raise NotImplementedError(self.__class__)
 
     def with_values(self, values):
@@ -299,7 +301,7 @@ class SampledField(Field):
             return self.with_values(values)
 
 
-def sample(field: Field, geometry: Geometry) -> math.Tensor:
+def sample(field: Field, geometry: Geometry, scheme: Scheme = Scheme()) -> math.Tensor:
     """
     Computes the field value inside the volume of the (batched) `geometry`.
 
@@ -315,6 +317,7 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
     Args:
         field: Source `Field` to sample.
         geometry: Single or batched `phi.geom.Geometry`.
+        scheme: Numerical scheme.
 
     Returns:
         Sampled values as a `phi.math.Tensor`
@@ -324,13 +327,13 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geom_ch:
         return field.values
     if geom_ch:
-        sampled = [field._sample(p) for p in geometry.unstack(geom_ch.name)]
+        sampled = [field._sample(p, scheme=scheme) for p in geometry.unstack(geom_ch.name)]
         return math.stack(sampled, geom_ch)
     else:
-        return field._sample(geometry)
+        return field._sample(geometry, scheme=scheme)
 
 
-def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> math.Tensor:
+def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector'), scheme: Scheme = Scheme()) -> math.Tensor:
     """
     Similar to `sample()`, but matches channel dimensions of `geometry` with channel dimensions of this field.
     Currently, `geometry` may have at most one channel dimension.
@@ -342,6 +345,7 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
         field: Source `Field` to sample.
         geometry: Single or batched `phi.geom.Geometry`.
         dim: Dimension of result, resulting from reduction of channel dimensions.
+        scheme: Numerical scheme.
 
     Returns:
         Sampled values as a `phi.math.Tensor`
@@ -354,13 +358,13 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
         if field.shape.channel.volume > 1:
             assert field.shape.channel.volume == geom_ch.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
             components = math.unstack(field, field.shape.channel.name)
-            sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geom_ch.name))]
+            sampled = [c._sample(p, scheme=scheme) for c, p in zip(components, geometry.unstack(geom_ch.name))]
         else:
-            sampled = [field._sample(p) for p in geometry.unstack(channel(geometry).without('vector').name)]
+            sampled = [field._sample(p, scheme=scheme) for p in geometry.unstack(channel(geometry).without('vector').name)]
         dim = dim._with_item_names(geometry.shape.channel.item_names)
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
-        return field._sample(geometry)
+        return field._sample(geometry, scheme=scheme)
 
 
 FieldType = TypeVar('FieldType', bound=Field)

@@ -4,6 +4,7 @@ from typing import Any
 from phi import math
 from phi.geom import Geometry, GridCell, Box, Point
 from ._field import SampledField
+from .numerical import Scheme
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance
 from ..math.extrapolation import Extrapolation
@@ -114,13 +115,13 @@ class PointCloud(SampledField):
     def color(self) -> Tensor:
         return self._color
 
-    def _sample(self, geometry: Geometry, outside_handling='discard') -> Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
         if geometry == self.elements:
             return self.values
         elif isinstance(geometry, GridCell):
-            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
+            return self.grid_scatter(geometry.bounds, geometry.resolution, scheme.outside_points)
         elif isinstance(geometry, GeometryStack):
-            sampled = [self._sample(g) for g in geometry.geometries]
+            sampled = [self._sample(g, scheme) for g in geometry.geometries]
             return math.stack(sampled, geometry.geometries.shape)
         else:
             raise NotImplementedError()
