@@ -8,6 +8,7 @@ from phi.math import Tensor, spatial, instance, tensor, masked_fill, channel, Sh
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
+from .numerical import Scheme
 from ..math.extrapolation import Extrapolation
 
 
@@ -554,7 +555,7 @@ def discretize(grid: Grid, filled_fraction=0.25):
     return grid.with_values(filled_t)
 
 
-def integrate(field: Field, region: Geometry) -> Tensor:
+def integrate(field: Field, region: Geometry, scheme: Scheme = Scheme()) -> Tensor:
     """
     Computes *∫<sub>R</sub> f(x) dx<sup>d</sup>* , where *f* denotes the `Field`, *R* the `region` and *d* the number of spatial dimensions (`d=field.shape.spatial_rank`).
     Depending on the `sample` implementation for `field`, the integral may be a rough approximation.
@@ -564,13 +565,14 @@ def integrate(field: Field, region: Geometry) -> Tensor:
     Args:
         field: `Field` to integrate.
         region: Region to integrate over.
+        scheme: Numerical scheme.
 
     Returns:
         Integral as `phi.Tensor`
     """
     if not isinstance(field, CenteredGrid):
         raise NotImplementedError()
-    return field._sample(region) * region.volume
+    return field._sample(region, scheme=scheme) * region.volume
 
 
 def tensor_as_field(t: Tensor):

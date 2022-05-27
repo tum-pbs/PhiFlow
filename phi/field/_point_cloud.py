@@ -121,7 +121,7 @@ class PointCloud(SampledField):
         elif isinstance(geometry, GridCell):
             return self.grid_scatter(geometry.bounds, geometry.resolution, scheme.outside_points)
         elif isinstance(geometry, GeometryStack):
-            sampled = [self._sample(g, scheme) for g in geometry.geometries]
+            sampled = [self._sample(g, scheme=scheme) for g in geometry.geometries]
             return math.stack(sampled, geometry.geometries.shape)
         else:
             raise NotImplementedError()

@@ -1,3 +1,6 @@
+"""
+This module contains the `Scheme` class for specifying properties of the numerical scheme of a simulation or individual operations.
+"""
 from ..math import Solve
 
 
