@@ -262,20 +262,20 @@ def _plot(axis, data: SampledField, show_color_bar, vmin, vmax, **plt_args):
 def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
     x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
     color = [d.native() for d in data.color.points.unstack(len(x))]
-    if isinstance(data.elements, Sphere):
-        symbol = 'o'
-        size = data.elements.bounding_radius().numpy() * 1.41
-    elif isinstance(data.elements, BaseBox):
-        symbol = 's'
-        size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy()
-    elif isinstance(data.elements, Point):
-        symbol = 'x'
-        size = 6 / _get_pixels_per_unit(axis.figure, axis)
+    if isinstance(data.elements, Point):
+        axis.scatter(x, y, marker='x', color=color, s=6 ** 2, alpha=0.8)
     else:
-        symbol = '*'
-        size = data.elements.bounding_radius().numpy()
-    size_px = size * _get_pixels_per_unit(axis.figure, axis)
-    axis.scatter(x, y, marker=symbol, color=color, s=size_px ** 2, alpha=0.8)
+        if isinstance(data.elements, Sphere):
+            rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
+            shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8) for xi, yi, ri in zip(x, y, rad)]
+        elif isinstance(data.elements, BaseBox):
+            w2, h2 = math.reshaped_numpy(data.elements.bounding_half_extent(), ['vector', data.shape.non_channel], force_expand=True)
+            shapes = [plt.Rectangle((xi-w2i, yi-h2i), w2i*2, h2i*2, linewidth=1, edgecolor='white', alpha=0.8) for xi, yi, w2i, h2i in zip(x, y, w2, h2)]
+        else:
+            rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
+            shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8) for xi, yi, ri in zip(x, y, rad)]
+        c = matplotlib.collections.PatchCollection(shapes)
+        axis.add_collection(c)
     _annotate_points(axis, data.points, instance(data))
 
 
