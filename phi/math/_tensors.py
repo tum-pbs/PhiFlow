@@ -2070,6 +2070,9 @@ def check_is_printing():
     import traceback, sys
     stack = traceback.extract_stack()
     for frame in stack:
+        if "_pydevd_bundle\\pydevd_xml.py" in frame.filename:
+            return False
+    for frame in stack:
         if frame.line.strip().startswith('print('):
             return True
     if 'ipykernel' in sys.modules:
