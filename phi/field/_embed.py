@@ -1,6 +1,5 @@
 from phi.geom import GridCell, Box
 from phi.math import Tensor, spatial, Extrapolation, Shape, stack
-from . import spatial_gradient
 from ._field import Field, sample
 from ..math.extrapolation import Undefined, ConstantExtrapolation
 
@@ -28,6 +27,7 @@ class FieldEmbedding(Extrapolation):
 
     def spatial_gradient(self) -> 'Extrapolation':
         return NotImplemented
+        from ._field_math import spatial_gradient
         return FieldEmbedding(spatial_gradient(self.field))  # this is not supported for all fields
 
     def valid_outer_faces(self, dim) -> tuple:

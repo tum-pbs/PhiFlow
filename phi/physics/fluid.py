@@ -99,7 +99,7 @@ def make_incompressible(velocity: GridType,
     return velocity, pressure
 
 
-@math.jit_compile_linear
+@math.jit_compile_linear  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
 def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid) -> CenteredGrid:
     """
     Computes the laplace of `pressure` in the presence of obstacles.
@@ -119,8 +119,8 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid)
     grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
     valid_grad = grad * hard_bcs
     div = divergence(valid_grad)
-    lap = where(active, div, pressure)
-    return lap
+    laplace = where(active, div, pressure)
+    return laplace
 
 
 def _balance_divergence(div, active):

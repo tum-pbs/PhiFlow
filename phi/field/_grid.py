@@ -3,6 +3,7 @@ from typing import TypeVar, Any
 from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
 from . import HardGeometryMask
+from ._embed import FieldEmbedding
 from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation
 from .numerical import Scheme
 from ..geom._stack import GeometryStack
@@ -207,7 +208,16 @@ class CenteredGrid(Grid):
                     return fast_resampled
         points = geometry.center
         local_points = self.box.global_to_local(points) * self.resolution - 0.5
-        return math.grid_sample(self.values, local_points, self.extrapolation, bounds=self.bounds)
+        resampled_values = math.grid_sample(self.values, local_points, self.extrapolation, bounds=self.bounds)
+        if isinstance(self._extrapolation, FieldEmbedding):
+            if isinstance(geometry, GridCell) and ((geometry.bounds.upper <= self.bounds.upper).all or (geometry.bounds.lower >= self.bounds.lower).all):
+                # geometry is a subgrid of self
+                return resampled_values
+            else:  # otherwise we also sample the extrapolation Field
+                ext_values = self._extrapolation.field._sample(geometry, scheme)
+                inside = self.bounds.lies_inside(points)
+                return math.where(inside, resampled_values, ext_values)
+        return resampled_values
 
     def _shift_resample(self, resolution: Shape, bounds: Box, threshold=1e-5, max_padding=20):
         assert math.all_available(bounds.lower, bounds.upper), "Shift resampling requires 'bounds' to be available."
