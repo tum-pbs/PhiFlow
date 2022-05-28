@@ -704,10 +704,6 @@ def custom_gradient(f: Callable, gradient: Callable):
     return CustomGradientFunction(f, gradient)
 
 
-def is_tracer(t: Tensor):
-    return isinstance(t, ShiftLinTracer)
-
-
 def simplify_add(val: dict) -> Dict[Shape, Tensor]:
     result = {}
     for shift, values in val.items():
@@ -928,8 +924,13 @@ class ShiftLinTracer(Tensor):
     def __neg__(self):
         return ShiftLinTracer(self.source, {shift: -values for shift, values in self.val.items()}, self._shape, -self.bias)
 
-    def _op1(self, native_function):  # only __neg__ is linear
-        raise NotImplementedError('Only linear operations are supported')
+    def _op1(self, native_function):
+        # __neg__ is the only proper linear op1 and is implemented above.
+        if native_function.__name__ == 'isfinite':
+            test_output = self.apply(math.ones_like(self.source))
+            return math.is_finite(test_output)
+        else:
+            raise NotImplementedError('Only linear operations are supported')
 
     def _op2(self, other: Tensor,
              operator: Callable,

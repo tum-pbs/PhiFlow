@@ -81,9 +81,9 @@ def all_available(*values: Tensor) -> bool:
     Returns:
         `True` if no value is a placeholder or being traced, `False` otherwise.
     """
-    from phi.math._functional import is_tracer
+    from phi.math._functional import ShiftLinTracer
     for value in values:
-        if is_tracer(value):
+        if isinstance(value, ShiftLinTracer):
             return False
         natives = value._natives()
         natives_available = [choose_backend(native).is_available(native) for native in natives]
@@ -1397,7 +1397,10 @@ def dot(x: Tensor,
 
 def _backend_op1(x, unbound_method) -> Tensor or PhiTreeNode:
     if isinstance(x, Tensor):
-        return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
+        def apply_op(native_tensor):
+            return getattr(choose_backend(native_tensor), unbound_method.__name__)(native_tensor)
+        apply_op.__name__ = unbound_method.__name__
+        return x._op1(apply_op)
     elif isinstance(x, PhiTreeNode):
         return copy_with(x, **{a: _backend_op1(getattr(x, a), unbound_method) for a in value_attributes(x)})
     else:
