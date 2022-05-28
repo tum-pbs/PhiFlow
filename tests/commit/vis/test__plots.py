@@ -54,8 +54,8 @@ class TestPlots(TestCase):
         self._test_plot(spheres)
 
     def test_plot_point_cloud_2d(self):
-        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1))
-        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[.4:.6, .2:.4]).elements, 'x,y', instance('points')))
+        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1), color='#994444')
+        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[.4:.6, .2:.4]).elements, 'x,y', instance('points')), color='#000000')
         cloud = field.stack([spheres, cells], instance('stack'))
         self._test_plot(cloud)
 

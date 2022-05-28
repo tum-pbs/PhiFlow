@@ -267,14 +267,14 @@ def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
     else:
         if isinstance(data.elements, Sphere):
             rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
-            shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8) for xi, yi, ri in zip(x, y, rad)]
+            shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, color)]
         elif isinstance(data.elements, BaseBox):
             w2, h2 = math.reshaped_numpy(data.elements.bounding_half_extent(), ['vector', data.shape.non_channel], force_expand=True)
-            shapes = [plt.Rectangle((xi-w2i, yi-h2i), w2i*2, h2i*2, linewidth=1, edgecolor='white', alpha=0.8) for xi, yi, w2i, h2i in zip(x, y, w2, h2)]
+            shapes = [plt.Rectangle((xi-w2i, yi-h2i), w2i*2, h2i*2, linewidth=1, edgecolor='white', alpha=0.8, facecolor=ci) for xi, yi, w2i, h2i, ci in zip(x, y, w2, h2, color)]
         else:
             rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
-            shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8) for xi, yi, ri in zip(x, y, rad)]
-        c = matplotlib.collections.PatchCollection(shapes)
+            shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, color)]
+        c = matplotlib.collections.PatchCollection(shapes, match_original=True)
         axis.add_collection(c)
     _annotate_points(axis, data.points, instance(data))
 
