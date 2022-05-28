@@ -788,7 +788,10 @@ def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation', *
     """
     Samples values of `grid` at the locations referenced by `coordinates`.
     Values lying in between sample points are determined via linear interpolation.
+
     For values outside the valid bounds of `grid` (`coord < 0 or coord > grid.shape - 1`), `extrap` is used to determine the neighboring grid values.
+    If the extrapolation does not support resampling, the grid is padded by one cell layer before resampling.
+    In that case, values lying further outside will not be sampled according to the extrapolation.
 
     Args:
         grid: Grid with at least one spatial dimension and no instance dimensions.

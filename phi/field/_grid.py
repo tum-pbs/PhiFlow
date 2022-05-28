@@ -214,7 +214,7 @@ class CenteredGrid(Grid):
         lower = math.to_int32(math.ceil(math.maximum(0, self.box.lower - bounds.lower) / self.dx - threshold))
         upper = math.to_int32(math.ceil(math.maximum(0, bounds.upper - self.box.upper) / self.dx - threshold))
         total_padding = (math.sum(lower) + math.sum(upper)).numpy()
-        if total_padding > max_padding:
+        if total_padding > max_padding and self.extrapolation.native_grid_sample_mode:
             return NotImplemented
         elif total_padding > 0:
             from phi.field import pad
