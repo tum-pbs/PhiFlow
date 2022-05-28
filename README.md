@@ -15,11 +15,12 @@ or [TensorFlow](https://www.tensorflow.org/).
 The close integration with these machine learning frameworks allows it to leverage their automatic differentiation functionality,
 making it easy to build end-to-end differentiable functions involving both learning models and physics simulations.
 
-This is major version 2 of Φ<sub>Flow</sub>.
-Version 1 is available in the [branch `1.5`](https://github.com/tum-pbs/PhiFlow/tree/1.5) but will not receive new features anymore.
-Older versions are available through the [release history](https://github.com/tum-pbs/PhiFlow/releases).
+[//]: # (![Gui]&#40;https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png&#41;)
 
-![Gui](https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png)
+| [<img src="docs/figures/RenderedSmoke.gif">](https://github.com/intergalactic-mammoth/phiflow2blender)        | [<img src="docs/figures/Animations.gif">](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/2.2-develop/docs/Animations.ipynb)                                                                                                                                                                                                                                      |
+|---------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Fluids Tutorial](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) • [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) | [Animation Gallery](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/2.2-develop/docs/Animations.ipynb) • [Planets Tutorial](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Planets_Tutorial.ipynb) • [Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Learn_to_Throw_Tutorial.ipynb) |
+
 
 ## Features
 
@@ -30,11 +31,6 @@ Older versions are available through the [release history](https://github.com/tu
 * Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
 * High-level linear equation solver with automated sparse matrix generation.
 
-## Publications
-
-* [Learning to Control PDEs with Differentiable Physics](https://ge.in.tum.de/publications/2020-iclr-holl/), *Philipp Holl, Vladlen Koltun, Nils Thuerey*, ICLR 2020.
-* [Solver-in-the-Loop: Learning from Differentiable Physics to Interact with Iterative PDE-Solvers](https://arxiv.org/abs/2007.00016), *Kiwon Um, Raymond Fei, Philipp Holl, Robert Brand, Nils Thuerey*, NeurIPS 2020.
-* [Φ<sub>Flow</sub>: A Differentiable PDE Solving Framework for Deep Learning via Physical Simulations](https://montrealrobotics.ca/diffcvgp/), *Nils Thuerey, Kiwon Um, Philipp Holl*, DiffCVGP workshop at NeurIPS 2020.
 
 ## Installation
 
@@ -46,21 +42,32 @@ Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine
 See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html) on how to compile the custom CUDA operators and verify your installation.
 
 ## Documentation and Guides
-[**Documentation**](https://tum-pbs.github.io/PhiFlow/)
-&nbsp;&nbsp;&nbsp; [**API**](https://tum-pbs.github.io/PhiFlow/phi/)
-&nbsp;&nbsp;&nbsp; [**Demos**](https://github.com/tum-pbs/PhiFlow/tree/develop/demos)
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> **Playground**](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)
+[**Documentation Overview**](https://tum-pbs.github.io/PhiFlow/)
+&nbsp; • &nbsp; [**▶ YouTube Tutorials**](https://www.youtube.com/playlist?list=PLYLhRkuWBmZ5R6hYzusA2JBIUPFEE755O)
+&nbsp; • &nbsp; [**API**](https://tum-pbs.github.io/PhiFlow/phi/)
+&nbsp; • &nbsp; [**Demos**](https://github.com/tum-pbs/PhiFlow/tree/develop/demos)
+&nbsp; • &nbsp; [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> **Playground**](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)
 
-An overview of all available documentation can be found [here](https://tum-pbs.github.io/PhiFlow/).
+To get started, check out our YouTube tutorial series and the following Jupyter notebooks:
 
-If you would like to get right into it and have a look at some code, check out the
-[tutorial notebook on Google Colab](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb).
-It lets you run fluid simulations with Φ<sub>Flow</sub> in the browser.
+* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb): Introduction to core classes and fluid-related functions.
+* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Solar System](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Planets_Tutorial.ipynb): Visualize a many-body system with Newtonian gravity.
+* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Learn_to_Throw_Tutorial.ipynb): Train a neural network to hit a target, comparing supervised and differentiable physics losses.
 
-The following introductory demos are also helpful to get started with writing your own scripts using Φ<sub>Flow</sub>:
+If you like to work with an IDE, like PyCharm or VS Code, the following demos will also be helpful:
 
 * [smoke_plume.py](demos/smoke_plume.py) runs a smoke simulation and displays it in the web interface.
 * [optimize_pressure.py](demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field and displays it in the web interface.
+
+## Publications
+
+We have recently submitted a whitepaper.
+In the meantime, please cite the ICLR 2020 paper.
+
+* [Learning to Control PDEs with Differentiable Physics](https://ge.in.tum.de/publications/2020-iclr-holl/), *Philipp Holl, Vladlen Koltun, Nils Thuerey*, ICLR 2020.
+* [Solver-in-the-Loop: Learning from Differentiable Physics to Interact with Iterative PDE-Solvers](https://arxiv.org/abs/2007.00016), *Kiwon Um, Raymond Fei, Philipp Holl, Robert Brand, Nils Thuerey*, NeurIPS 2020.
+* [Φ<sub>Flow</sub>: A Differentiable PDE Solving Framework for Deep Learning via Physical Simulations](https://montrealrobotics.ca/diffcvgp/), *Nils Thuerey, Kiwon Um, Philipp Holl*, DiffCVGP workshop at NeurIPS 2020.
+* [Half-Inverse Gradients for Physical Deep Learning](https://arxiv.org/abs/2203.10131), *Patrick Schnell, Philipp Holl, Nils Thuerey*, ICLR 2022.
 
 ## Version History
 
