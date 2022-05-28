@@ -159,7 +159,7 @@ def _plot(axis, data: SampledField, show_color_bar, vmin, vmax, **plt_args):
     dims = data.bounds.vector.item_names
     vector = data.bounds.shape['vector']
     extra_channels = data.shape.channel.without('vector')
-    if isinstance(data, Grid) and data.spatial_rank == 1:
+    if isinstance(data, Grid) and data.spatial_rank == 1:  # Line plot
         x = data.points.staggered_direction[0].vector[0].numpy()
         requires_legend = False
         for c in channel(data).meshgrid(names=True):
@@ -175,6 +175,8 @@ def _plot(axis, data: SampledField, show_color_bar, vmin, vmax, **plt_args):
                 requires_legend = requires_legend or label
         if requires_legend:
             axis.legend()
+        if vmin is not None and vmax is not None:
+            axis.set_ylim((vmin - .02 * (vmax - vmin), vmax + .02 * (vmax - vmin)))
     elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
         dims = spatial(data)
         if data.bounds.upper.vector.item_names is not None:

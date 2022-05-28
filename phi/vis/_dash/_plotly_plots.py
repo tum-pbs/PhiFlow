@@ -49,7 +49,7 @@ class PlotlyPlots(PlottingLibrary):
 
     def plot(self, data: SampledField, figure: graph_objects.Figure, subplot, min_val: float = None, max_val: float = None,
              show_color_bar: bool = True, **plt_args):
-        _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar)
+        _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val)
 
     def plotting_done(self, figure, subfigures):
         pass
@@ -79,13 +79,15 @@ def _plot(data: SampledField,
           size: tuple,
           colormap: str or None,
           show_color_bar: bool,
-          row: int = None, col: int = None,
-          ):
+          vmin,
+          vmax,
+          row: int = None,
+          col: int = None):
     subplot = fig.get_subplot(row, col)
     dims = data.bounds.vector.item_names
     vector = data.bounds.shape['vector']
     extra_channels = data.shape.channel.without('vector')
-    if data.spatial_rank == 1 and isinstance(data, Grid):
+    if data.spatial_rank == 1 and isinstance(data, Grid):  # Line plot
         x = data.points.vector[0].numpy().flatten()
         channels = data.values.shape.channel
         if channels.rank == 1 and channels.get_item_names(0) is not None:
@@ -98,6 +100,8 @@ def _plot(data: SampledField,
                 y = math.reshaped_native(real_values(data[ch_idx]), [data.shape.spatial], to_numpy=True)
                 fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Multi-channel'), row=row, col=col)
             fig.update_layout(showlegend=False)
+        if vmin is not None and vmax is not None:
+            subplot.yaxis.update(range=(vmin - .02 * (vmax - vmin), vmax + .02 * (vmax - vmin)))
     elif data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape:  # heatmap
         dims = spatial(data)
         values = real_values(data).numpy(dims.reversed)
@@ -164,7 +168,7 @@ def _plot(data: SampledField,
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
-                _plot(d, fig, size, colormap, show_color_bar, row, col)
+                _plot(d, fig, size, colormap, show_color_bar, vmin, vmax, row=row, col=col)
         else:
             x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
             color = data.color.native()
@@ -190,7 +194,7 @@ def _plot(data: SampledField,
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
-                _plot(d, fig, size, colormap, show_color_bar, row, col)
+                _plot(d, fig, size, colormap, show_color_bar, vmin, vmax, row=row, col=col)
         else:
             x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
             color = data.color.native()
