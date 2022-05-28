@@ -42,9 +42,9 @@ class FieldEmbedding(Extrapolation):
         else:
             value_grid = GridCell(spatial(value), bounds)
         if upper_edge:
-            pad_grid = value_grid.padded({dim: (0, 1)})[{dim: slice(-width, None)}]
+            pad_grid = value_grid.padded({dim: (0, width)})[{dim: slice(-width, None)}]
         else:
-            pad_grid = value_grid.padded({dim: (1, 0)})[{dim: slice(0, width)}]
+            pad_grid = value_grid.padded({dim: (width, 0)})[{dim: slice(0, width)}]
         result = sample(self.field, pad_grid)
         return result
     

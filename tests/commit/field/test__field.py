@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi import math
-from phi.field import CenteredGrid, Noise
+from phi.field import CenteredGrid, Noise, assert_close
 from phi.geom import Box
 from phi.math import batch, spatial
 
@@ -32,3 +32,9 @@ class TestField(TestCase):
         math.assert_close(grid.values.x[-1:].y[1:-1], resampled.values.x[-1:].y[1:-1])
         math.assert_close(grid.values.x[1:-1].y[:1], resampled.values.x[1:-1].y[:1])
         math.assert_close(grid.values.x[1:-1].y[-1:], resampled.values.x[1:-1].y[-1:])
+
+    def test_embedding_resample(self):
+        p = CenteredGrid(Noise(), x=10, y=10, bounds=Box(x=100, y=100))
+        p_emb_x0 = CenteredGrid(p, p, x=5, y=5, bounds=Box(x=(10, 60), y=(10, 60)))
+        p_back = CenteredGrid(p_emb_x0, p.extrapolation, p.bounds, p.resolution)
+        assert_close(0, p_back - p)
