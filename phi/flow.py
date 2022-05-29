@@ -29,7 +29,12 @@ from .physics.fluid import Obstacle
 from .math import PI, INF, NAN
 
 # Functions
-from .math import wrap, tensor, spatial, channel, batch, instance
+from .math import (
+    wrap, tensor, vec,  # Tensor creation
+    shape, spatial, channel, batch, instance, non_spatial, non_channel, non_batch, non_instance,  # Shape functions (magic)
+    unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten,  # Magic Ops
+    jit_compile, jit_compile_linear, minimize, functional_gradient, solve_linear, solve_nonlinear, iterate,  # jacobian, hessian, custom_gradient # Functional magic
+)
 from .geom import union
 from .vis import show
 
