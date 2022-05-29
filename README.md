@@ -17,9 +17,9 @@ making it easy to build end-to-end differentiable functions involving both learn
 
 [//]: # (![Gui]&#40;https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png&#41;)
 
-| [<img src="docs/figures/RenderedSmoke.gif">](https://github.com/intergalactic-mammoth/phiflow2blender)        | [<img src="docs/figures/Animations.gif">](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/2.2-develop/docs/Animations.ipynb)                                                                                                                                                                                                                                      |
-|---------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Fluids Tutorial](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) • [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) | [Animation Gallery](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/2.2-develop/docs/Animations.ipynb) • [Planets Tutorial](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Planets_Tutorial.ipynb) • [Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Learn_to_Throw_Tutorial.ipynb) |
+| <img src="docs/figures/RenderedSmoke.gif">  | <img src="docs/figures/Animations.gif">                                                                                                                                                                                                                                                                                                                                                                |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Fluids Tutorial](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) &nbsp; • &nbsp; [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) | [Animation Gallery](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/2.2-develop/docs/Animations.ipynb) &nbsp; • &nbsp; [Solar System](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Planets_Tutorial.ipynb) &nbsp; • &nbsp; [Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Learn_to_Throw_Tutorial.ipynb) |
 
 
 ## Features
@@ -34,14 +34,14 @@ making it easy to build end-to-end differentiable functions involving both learn
 
 ## Installation
 
-Installation with pip on Python 3.6 and above:
+Installation with [pip](https://pypi.org/project/pip/) on [Python 3.6](https://www.python.org/downloads/) and above:
 ``` bash
 $ pip install phiflow dash
 ```
-Install TensorFlow or PyTorch in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
+Install PyTorch, TensorFlow or Jax in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
 See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html) on how to compile the custom CUDA operators and verify your installation.
 
-## Documentation and Guides
+## Documentation and Tutorials
 [**Documentation Overview**](https://tum-pbs.github.io/PhiFlow/)
 &nbsp; • &nbsp; [**▶ YouTube Tutorials**](https://www.youtube.com/playlist?list=PLYLhRkuWBmZ5R6hYzusA2JBIUPFEE755O)
 &nbsp; • &nbsp; [**API**](https://tum-pbs.github.io/PhiFlow/phi/)
