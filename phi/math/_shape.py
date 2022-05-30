@@ -1150,11 +1150,7 @@ def channel(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
-        result = _construct_shape(CHANNEL_DIM, *args, **dims)
-        for s, n, t, item_name in result._dimensions:
-            if item_name is None and s is not None and not n.startswith('_'):
-                warnings.warn(f"Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}='x,y,z') to assign names or use math.stack(dict, dim)", SyntaxWarning, stacklevel=2)
-        return result
+        return _construct_shape(CHANNEL_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
     elif len(args) == 1 and isinstance(args[0], Shaped):
