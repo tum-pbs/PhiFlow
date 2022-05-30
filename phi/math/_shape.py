@@ -165,16 +165,7 @@ class Shape:
         return tuple([self.get_size(dim) for dim in dims])
 
     def get_type(self, dim: str or 'Shape') -> str:
-        """
-        See Also:
-            `Shape.get_types()`, `Shape.type`.
-
-        Args:
-            dim: Dimension, either as name `str` or single-dimension `Shape`.
-
-        Returns:
-            Dimension type as `str`.
-        """
+        # undocumented, use get_dim_type() instead.
         if isinstance(dim, str):
             return self.types[self.names.index(dim)]
         elif isinstance(dim, Shape):
@@ -183,17 +174,18 @@ class Shape:
         else:
             raise ValueError(dim)
 
-    def get_types(self, dims: tuple or list or 'Shape') -> tuple:
+    def get_dim_type(self, dim: str or 'Shape') -> Callable:
         """
-        See Also:
-            `Shape.get_type()`
-
         Args:
-            dims: Dimensions as `tuple`, `list` or `Shape`.
+            dim: Dimension, either as name `str` or single-dimension `Shape`.
 
         Returns:
-            `tuple`
+            Dimension type, one of `batch`, `spatial`, `instance`, `channel`.
         """
+        return {BATCH_DIM: batch, SPATIAL_DIM: spatial, INSTANCE_DIM: instance, CHANNEL_DIM: channel}[self.get_type(dim)]
+
+    def get_types(self, dims: tuple or list or 'Shape') -> tuple:
+        # undocumented, do not use
         if isinstance(dims, (tuple, list)):
             return tuple(self.get_type(n) for n in dims)
         elif isinstance(dims, Shape):

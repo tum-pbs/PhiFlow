@@ -15,8 +15,8 @@ Instance checks can be performed via `isinstance(obj, <MagicClass>)`.
 This is analogous to interfaces defined in the built-in `collections` package, such as `Sized, Iterable, Hashable, Callable`.
 To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`.
 """
-from typing import Tuple, Dict, Any
-from ._shape import Shape
+from typing import Tuple, Dict, Any, Callable
+from ._shape import Shape, shape, batch, spatial, instance, channel
 
 
 class _ShapedType(type):
@@ -96,6 +96,7 @@ class Sliceable(metaclass=_SliceableType):
         Args:
             item: `dict` mapping dimension names to the corresponding selections.
                 Selections can be slices, indices, tuples, item names, bool tensors, int tensors or other custom types.
+                All Sliceable object must support indexing by `int`, `slice`, `tuple`, `list`, `str`.
 
         Returns:
             Instance of the same class (or a compatible class) as `self`.
@@ -432,7 +433,7 @@ class BoundDim:
         else:
             size_repr = self.size
         from ._shape import TYPE_ABBR
-        return f"{type(self.obj).__name__}.{self.name}{TYPE_ABBR.get(self.dim_type, '?')}={size_repr}"
+        return f"{type(self.obj).__name__}.{self.name}{TYPE_ABBR.get(self.type.__name__, '?')}={size_repr}"
 
     @property
     def size(self):
@@ -440,48 +441,18 @@ class BoundDim:
         return self.obj.shape.get_size(self.name) if self.exists else None
 
     @property
-    def dim_type(self):
-        return self.obj.shape.get_type(self.name)
+    def type(self) -> Callable:
+        """
+        The dimension type of this bound dimension. Must be one of `batch`, `spatial`, `instance`, `channel`.
 
-    @property
-    def _dim_type(self):
-        return self.obj.shape.get_type(self.name)
+        Returns:
 
-    @property
-    def is_batch(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *batch*. Only defined for existing dimensions. """
-        from ._shape import BATCH_DIM
-        return self._dim_type == BATCH_DIM
-
-    @property
-    def is_spatial(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *spatial*. Only defined for existing dimensions. """
-        from ._shape import SPATIAL_DIM
-        return self._dim_type == SPATIAL_DIM
-
-    @property
-    def is_instance(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *instance*. Only defined for existing dimensions. """
-        from ._shape import INSTANCE_DIM
-        return self._dim_type == INSTANCE_DIM
-
-    @property
-    def is_channel(self):
-        """ Whether the type of this dimension as listed in the `Shape` is *channel*. Only defined for existing dimensions. """
-        from ._shape import CHANNEL_DIM
-        return self._dim_type == CHANNEL_DIM
+        """
+        return self.obj.shape.get_dim_type(self.name)
 
     @property
     def item_names(self):
         return self.obj.shape.get_item_names(self.name)
-
-    @property
-    def index(self):
-        """ The index of this dimension in the `Shape` of the bound object. """
-        return self.obj.shape.index(self.name)
-
-    def __int__(self):
-        return self.index
 
     def __getitem__(self, item):
         return self.obj[{self.name: item}]
@@ -520,6 +491,52 @@ class BoundDim:
 
     def __call__(self, *args, **kwargs):
         raise TypeError(f"Method {type(self.obj).__name__}.{self.name}() does not exist.")
+
+    def rename(self, name: str, **kwargs):
+        """
+        Returns a shallow copy of the `Tensor` where this dimension has the specified name.
+
+        See Also:
+            `phi.math.rename_dims()`
+        """
+        if not self.exists:
+            return self.obj
+        from ._magic_ops import rename_dims
+        return rename_dims(self.obj, self.name, name, **kwargs)
+
+    def retype(self, dim_type: Callable, **kwargs):
+        """
+        Returns a shallow copy of the `Tensor` where this dimension has the specified type.
+
+        See Also:
+            `phi.math.rename_dims()`
+        """
+        if self.item_names is not None:
+            new_dim = dim_type(**{self.name: self.item_names})
+        else:
+            new_dim = dim_type(**{self.name: self.size})
+        from ._magic_ops import rename_dims
+        return rename_dims(self.obj, self.name, new_dim, **kwargs)
+
+    def replace(self, dim: Shape, **kwargs):
+        """
+        Returns a shallow copy of the `Tensor` where this dimension has been replaced by `dim`.
+
+        See Also:
+            `phi.math.rename_dims()`
+        """
+        from ._magic_ops import rename_dims
+        return rename_dims(self.obj, self.name, dim, **kwargs)
+
+    def unpack(self, dims: Shape, **kwargs):
+        """
+        Returns a shallow copy of the `Tensor` where this dimension has been unpacked into `dims`.
+
+        See Also:
+            `phi.math.unpack_dim()`
+        """
+        from ._magic_ops import unpack_dim
+        return unpack_dim(self.obj, self.name, dims, **kwargs)
 
 
 __pdoc__ = {}  # Show all magic functions in pdoc3

@@ -3,6 +3,7 @@ from unittest import TestCase
 
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
     pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE
+from phi.math.magic import BoundDim
 
 
 class Stackable:
@@ -116,5 +117,14 @@ class TestMagicOps(TestCase):
         for test_class in TEST_CLASSES:
             a = test_class(spatial(x=5) & batch(b=2))
             self.assertEqual(instance(points=10), flatten(a, instance('points')).shape)
+
+    def test_bound_dim(self):
+        for test_class in TEST_CLASSES:
+            a = test_class(spatial(x=5) & batch(b=2))
+            x = BoundDim(a, 'x')
+            self.assertEqual(spatial(y=5) & batch(b=2), x.rename('y').shape)
+            self.assertEqual(instance(x=5) & batch(b=2), x.retype(instance).shape)
+            self.assertEqual(instance(y=5) & batch(b=2), x.replace(instance('y')).shape)
+            self.assertEqual(instance(y=5) & batch(b=2), x.unpack(instance('y')).shape)
 
 
