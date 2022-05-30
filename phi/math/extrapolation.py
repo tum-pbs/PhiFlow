@@ -6,7 +6,7 @@ Extrapolations are an important part of sampled fields such as grids.
 See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
 import warnings
-from typing import Union, Dict
+from typing import Union, Dict, Callable
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
@@ -1094,3 +1094,25 @@ def order_by_shape(shape: Shape, sequence, default=None) -> tuple or list:
         return sequence
     else:  # just a constant
         return sequence
+
+
+def map(f: Callable[[Extrapolation], Extrapolation], extrapolation):
+    """
+    Applies a function to all leaf extrapolations in `extrapolation`.
+    Non-leaves are those created by `combine_sides()` and `combine_by_direction()`.
+
+    The tree will be collapsed if possible.
+
+    Args:
+        f: Function mapping a leaf `Extrapolation` to another `Extrapolation`.
+        extrapolation: Input tree for `f`.
+
+    Returns:
+        `Extrapolation`
+    """
+    if isinstance(extrapolation, _MixedExtrapolation):
+        return combine_sides(**{dim: (map(f, lo), map(f, up)) for dim, (lo, up) in extrapolation.ext.items()})
+    elif isinstance(extrapolation, _NormalTangentialExtrapolation):
+        return combine_by_direction(map(f, extrapolation.normal), map(f, extrapolation.tangential))
+    else:
+        return f(extrapolation)
