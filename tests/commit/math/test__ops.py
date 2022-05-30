@@ -238,7 +238,7 @@ class TestMathFunctions(TestCase):
                 with backend:
                     t = math.tensor([(1, 2, 3, 4), (1, 2, 3, 4), (6, 7, 8, 9)], batch('batch'), instance('list'))
                     q = math.quantile(t, 0.5)
-                    math.assert_close(q, (2.5, 2.5, 7.5), msg=backend.name)
+                    math.assert_close(q, [2.5, 2.5, 7.5], msg=backend.name)
                     q = math.quantile(t, [0.5, 0.6])
                     math.assert_close(q, [(2.5, 2.5, 7.5), (2.8, 2.8, 7.8)], msg=backend.name)
 

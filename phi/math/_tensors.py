@@ -1539,6 +1539,19 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
             raise ValueError(e)
         if len(shape) == 0:
             return NativeTensor(other_tensor, EMPTY_SHAPE)
+        elif isinstance(data, tuple):  # always channel, add vector if not available
+            ch = channel(compat_shape)
+            if ch:
+                if ch.rank == 1:
+                    assert ch.volume == len(data), f"Cannot match {data} to channel shape {ch}"
+                    return wrap(other_tensor, ch)
+                elif 'vector' in ch:
+                    assert ch.get_size('vector') == len(data), f"Cannot match {data} to vector dim of {compat_shape}"
+                    return wrap(other_tensor, ch['vector'])
+                else:
+                    raise AssertionError(f"Cannot match {data} to channel dims of {compat_shape}. Please specify the dimensions explicitly.")
+            else:
+                return wrap(data)
         elif len(shape) == compat_shape.rank:
             return NativeTensor(other_tensor, compat_shape.with_sizes(shape))  # TODO this can lead to errors, remove?
         elif len(shape) == compat_shape.channel.rank:

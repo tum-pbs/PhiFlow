@@ -35,7 +35,7 @@ class TestFieldMath(TestCase):
     def test_divergence_centered(self):
         v = CenteredGrid(1, extrapolation.ZERO, bounds=Box[0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
         div = field.divergence(v).values
-        math.assert_close(div.y[0], (1.5, 0, -1.5))
+        math.assert_close(div.y[0], [1.5, 0, -1.5])
 
     def test_trace_function(self):
         def f(x: StaggeredGrid, y: CenteredGrid):
@@ -157,8 +157,8 @@ class TestFieldMath(TestCase):
         pot = CenteredGrid(Box[1:2, 1:2], x=4, y=3)
         curl = field.curl(pot, type=StaggeredGrid)
         math.assert_close(field.mean(curl), 0)
-        math.assert_close(curl.values.vector[0].x[1], (1, -1))
-        math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))
+        math.assert_close(curl.values.vector[0].x[1], [1, -1])
+        math.assert_close(curl.values.vector[1].y[1], [-1, 1, 0])
 
     def test_curl_2d_staggered_to_centered(self):
         velocity = StaggeredGrid((2, 0), extrapolation.BOUNDARY, x=2, y=2)

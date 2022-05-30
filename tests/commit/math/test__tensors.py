@@ -6,7 +6,7 @@ import numpy as np
 import phi
 from phi import math
 from phi.math import channel, batch, DType
-from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
+from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial, instance
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors
 from phi.math.backend import Backend
 from phi.math.magic import PhiTreeNode
@@ -302,7 +302,7 @@ class TestTensors(TestCase):
     def test_slice_by_int_tensor(self):
         indices = math.meshgrid(x=2, y=2)
         sel = indices.x[wrap((1, 0), spatial('x'))]
-        math.assert_close((1, 0), sel.vector['x'].y[0])
+        math.assert_close([1, 0], sel.vector['x'].y[0])
 
     def test_serialize_tensor(self):
         t = math.random_normal(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
@@ -462,3 +462,9 @@ class TestTensors(TestCase):
         self.assertTrue(math.is_scalar(numpy.zeros(())))
         self.assertFalse(math.is_scalar(math.zeros(spatial(x=4))))
         self.assertFalse(math.is_scalar(numpy.zeros((1,))))
+
+    def test_compatible_tensor(self):
+        a = wrap([1, 2], instance('points')) * (0, 1)
+        self.assertEqual(instance(points=2) & channel(vector=2), a.shape)
+        b = wrap([1, 2], instance('points')) * [0, 1]
+        self.assertEqual(instance(points=2), b.shape)
