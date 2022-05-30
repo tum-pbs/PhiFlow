@@ -4,7 +4,6 @@ import numpy as np
 
 from . import _ops as math
 from . import extrapolation as extrapolation
-from ._config import GLOBAL_AXIS_ORDER
 from ._magic_ops import stack, rename_dims, concat
 from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order
 from ._tensors import Tensor, variable_values, wrap
@@ -92,18 +91,12 @@ def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
     if spatial_rank == 2:  # Curl in 2D
         assert vec2.vector.exists
         if vec1.vector.exists:
-            v1_x, v1_y = vec1.vector.unstack()
-            v2_x, v2_y = vec2.vector.unstack()
-            if GLOBAL_AXIS_ORDER.is_x_first:
-                return v1_x * v2_y - v1_y * v2_x
-            else:
-                return - v1_x * v2_y + v1_y * v2_x
+            v1_x, v1_y = vec1.vector
+            v2_x, v2_y = vec2.vector
+            return v1_x * v2_y - v1_y * v2_x
         else:
-            v2_x, v2_y = vec2.vector.unstack()
-            if GLOBAL_AXIS_ORDER.is_x_first:
-                return vec1 * math.stack_tensors([-v2_y, v2_x], channel('vector'))
-            else:
-                return vec1 * math.stack_tensors([v2_y, -v2_x], channel('vector'))
+            v2_x, v2_y = vec2.vector
+            return vec1 * math.stack_tensors([-v2_y, v2_x], channel('vector'))
     elif spatial_rank == 3:  # Curl in 3D
         raise NotImplementedError(f'spatial_rank={spatial_rank} not yet implemented')
     else:

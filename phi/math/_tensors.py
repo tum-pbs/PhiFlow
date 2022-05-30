@@ -7,8 +7,7 @@ from typing import Tuple, Callable, List, TypeVar
 import numpy
 import numpy as np
 
-from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, instance
-from ._config import GLOBAL_AXIS_ORDER, should_use_color
+from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape
 from .magic import BoundDim, PhiTreeNode
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
@@ -652,48 +651,6 @@ class TensorDim(BoundDim):
     def __init__(self, tensor: Tensor, name: str):
         super().__init__(tensor, name)
         self.tensor = tensor
-
-    def optional_unstack(self):
-        """
-        Unstacks the `Tensor` along this dimension if the dimension is listed in the `Shape`.
-        Otherwise returns the original `Tensor`.
-
-        Returns:
-            `tuple` of sliced tensors or original `Tensor`
-        """
-        warnings.warn("optional_unstack() is deprecated.", DeprecationWarning)
-        if self.exists:
-            return self.unstack()
-        else:
-            return self.tensor
-
-    def unstack_spatial(self, components: str or tuple or list or Shape) -> tuple:
-        """
-        Deprecated.
-        Use item names instead.
-
-        Slices the tensor along this dimension, returning only the selected components in the specified order.
-
-        Args:
-            components: Spatial dimension names as comma-separated `str` or sequence of `str`.
-
-        Returns:
-            selected components
-        """
-        # warnings.warn(f"unstack_spatial() is deprecated. Use tensor.dim[order].dim")
-        if isinstance(components, (Shape, str)):
-            components = parse_dim_order(components)
-        if self.exists:
-            spatial = self.tensor.shape.spatial
-            result = []
-            if spatial.is_empty:
-                spatial = [GLOBAL_AXIS_ORDER.axis_name(i, len(components)) for i in range(len(components))]
-            for dim in components:
-                component_index = spatial.index(dim)
-                result.append(self.tensor[{self.name: component_index}])
-        else:
-            result = [self.tensor] * len(components)
-        return tuple(result)
 
     def __len__(self):
         warnings.warn("Use Tensor.dim.size instead of len(Tensor.dim). len() only supports with integer sizes.", DeprecationWarning)

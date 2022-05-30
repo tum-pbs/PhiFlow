@@ -47,7 +47,6 @@ class TestFunctional(TestCase):
                 math.assert_close(scalar_mul(x, fac=1), 1, msg=backend)
 
     def test_jit_compile_linear(self):
-        math.GLOBAL_AXIS_ORDER.x_last()
         x = math.random_normal(batch(batch=3) & spatial(x=4, y=3))  # , vector=2
 
         def linear_function(val):

@@ -25,7 +25,7 @@ class Geometry:
     @property
     def center(self) -> Tensor:
         """
-        Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
+        Center location in single channel dimension.
         """
         raise NotImplementedError(self)
 
