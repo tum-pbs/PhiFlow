@@ -686,13 +686,17 @@ class TensorDim(BoundDim):
             return self.tensor
         shape = self.tensor.shape
         new_types = list(shape.types)
-        new_types[self.index] = dim_type
+        new_types[shape.index(self.name)] = dim_type
         new_names = shape.names
         if name is not None:
             new_names = list(new_names)
-            new_names[self.index] = name
+            new_names[shape.index(self.name)] = name
         new_shape = Shape(shape.sizes, tuple(new_names), tuple(new_types), shape.item_names)
         return self.tensor._with_shape_replaced(new_shape)
+
+    @property
+    def index(self):
+        return self.tensor.shape.index(self.name)
 
     def flip(self):
         """ Flips the element order along this dimension and returns the result as a `Tensor`. """
