@@ -17,9 +17,9 @@ making it easy to build end-to-end differentiable functions involving both learn
 
 [//]: # (![Gui]&#40;https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png&#41;)
 
-| <img src="docs/figures/RenderedSmoke.gif">  | <img src="docs/figures/Animations.gif">                                                                                                                                                                                                                                                                                                                                                                |
-|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Fluids Tutorial](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) &nbsp; • &nbsp; [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) | [Animation Gallery](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/2.2-develop/docs/Animations.ipynb) &nbsp; • &nbsp; [Solar System](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Planets_Tutorial.ipynb) &nbsp; • &nbsp; [Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Learn_to_Throw_Tutorial.ipynb) |
+| <img src="docs/figures/RenderedSmoke.gif">  | <img src="docs/figures/Animations.gif">                                                                                                                                                                                                                                                                                                                                                              |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Fluids Tutorial](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) &nbsp; • &nbsp; [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) | [Animation Gallery](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/2.2-develop/docs/Animations.ipynb) &nbsp; • &nbsp; [Solar System](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Planets_Tutorial.ipynb) &nbsp; • &nbsp; [Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Learn_to_Throw_Tutorial.ipynb) |
 
 
 ## Features
@@ -51,8 +51,8 @@ See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/I
 To get started, check out our YouTube tutorial series and the following Jupyter notebooks:
 
 * [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Fluids](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb): Introduction to core classes and fluid-related functions.
-* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Solar System](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Planets_Tutorial.ipynb): Visualize a many-body system with Newtonian gravity.
-* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/demos/Learn_to_Throw_Tutorial.ipynb): Train a neural network to hit a target, comparing supervised and differentiable physics losses.
+* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Solar System](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Planets_Tutorial.ipynb): Visualize a many-body system with Newtonian gravity.
+* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Learn_to_Throw_Tutorial.ipynb): Train a neural network to hit a target, comparing supervised and differentiable physics losses.
 
 If you like to work with an IDE, like PyCharm or VS Code, the following demos will also be helpful:
 
