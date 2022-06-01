@@ -2,8 +2,8 @@ from typing import Tuple
 from unittest import TestCase
 
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
-    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE
-from phi.math.magic import BoundDim
+    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict
+from phi.math.magic import BoundDim, Shaped, Sliceable, Shapable, PhiTreeNode
 
 
 class Stackable:
@@ -62,6 +62,23 @@ class TestMagicOps(TestCase):
         t = unstack(TestClass(True), 'dim1,dim2')
         self.assertIsInstance(t, tuple)
         self.assertEqual(6, len(t))
+
+    def test_subclasscheck(self):
+        self.assertTrue(issubclass(Stackable, Shaped))
+        self.assertTrue(issubclass(Stackable, Sliceable))
+        self.assertTrue(issubclass(Stackable, Shapable))
+        self.assertFalse(issubclass(object, Shapable))
+        self.assertFalse(issubclass(object, Sliceable))
+        self.assertTrue(issubclass(ConcatExpandable, Shaped))
+        self.assertTrue(issubclass(ConcatExpandable, Sliceable))
+        self.assertTrue(issubclass(ConcatExpandable, Shapable))
+
+    def test_instancecheck(self):
+        for test_class in TEST_CLASSES:
+            a = test_class(spatial(x=5) & batch(b=2))
+            self.assertIsInstance(a, Shaped)
+            self.assertIsInstance(a, Sliceable)
+            self.assertIsInstance(a, Shapable)
 
     def test_shape(self):
         for test_class in TEST_CLASSES:
@@ -132,3 +149,12 @@ class TestMagicOps(TestCase):
             self.assertEqual(instance(x=5) & batch(b=2), x.retype(instance).shape)
             self.assertEqual(instance(y=5) & batch(b=2), x.replace(instance('y')).shape)
             self.assertEqual(instance(y=5) & batch(b=2), x.unpack(instance('y')).shape)
+
+    def test_phi_tree_subclasscheck(self):
+        self.assertTrue(issubclass(Tensor, PhiTreeNode))
+        self.assertTrue(issubclass(tuple, PhiTreeNode))
+        self.assertTrue(issubclass(list, PhiTreeNode))
+        self.assertTrue(issubclass(dict, PhiTreeNode))
+        self.assertTrue(issubclass(Dict, PhiTreeNode))
+        from phi.field import CenteredGrid
+        self.assertTrue(issubclass(CenteredGrid, PhiTreeNode))

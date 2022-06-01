@@ -29,6 +29,9 @@ class _ShapedType(type):
             return True
         return False
 
+    def __subclasscheck__(self, subclass):
+        return True
+
 
 class Shaped(metaclass=_ShapedType):
     """
@@ -71,6 +74,9 @@ class Shaped(metaclass=_ShapedType):
 class _SliceableType(type):
     def __instancecheck__(self, instance):
         return isinstance(instance, Shaped) and hasattr(instance, '__getitem__')
+
+    def __subclasscheck__(self, subclass):
+        return hasattr(subclass, '__getitem__')
 
 
 class Sliceable(metaclass=_SliceableType):
@@ -123,6 +129,10 @@ class _ShapableType(type):
     def __instancecheck__(self, instance):
         return isinstance(instance, Sliceable) and isinstance(instance, Shaped) and\
                (hasattr(instance, '__stack__') or (hasattr(instance, '__concat__') and hasattr(instance, '__expand__')))
+
+    def __subclasscheck__(self, subclass):
+        return issubclass(subclass, Sliceable) and\
+               (hasattr(subclass, '__stack__') or (hasattr(subclass, '__concat__') and hasattr(subclass, '__expand__')))
 
 
 class Shapable(metaclass=_ShapableType):
@@ -296,6 +306,17 @@ class _PhiTreeNodeType(type):
             return all(isinstance(name, str) for name in instance.keys()) and all(isinstance(val, PhiTreeNode) for val in instance.values())
         else:
             return hasattr(instance, '__variable_attrs__') or hasattr(instance, '__value_attrs__')
+
+    def __subclasscheck__(self, subclass):
+        from ._tensors import Tensor, MISSING_TENSOR, NATIVE_TENSOR, Dict
+        if issubclass(subclass, Tensor):
+            return True
+        if subclass in (tuple, list, dict):
+            return True
+        elif issubclass(subclass, Dict):
+            return True
+        else:
+            return hasattr(subclass, '__variable_attrs__') or hasattr(subclass, '__value_attrs__')
 
 
 class PhiTreeNode(metaclass=_PhiTreeNodeType):
