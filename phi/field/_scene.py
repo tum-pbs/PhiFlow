@@ -10,7 +10,7 @@ from os.path import join, isfile, isdir, abspath, expanduser, basename, split
 from phi import math, __version__ as phi_version
 from ._field import SampledField
 from ._field_io import read, write
-from ..math import Shape, batch
+from ..math import Shape, batch, stack, unpack_dim
 from ..math.magic import BoundDim
 
 
@@ -66,6 +66,12 @@ class Scene:
 
     def __getattr__(self, name: str) -> BoundDim:
         return BoundDim(self, name)
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Scene':
+        if all(isinstance(v, Scene) for v in values):
+            return Scene(stack([v.paths for v in values], dim, **kwargs))
+        else:
+            return NotImplemented
 
     @property
     def shape(self):
@@ -225,15 +231,31 @@ class Scene:
     def _init_properties(self):
         if self._properties is not None:
             return
-        json_file = join(next(iter(math.flatten(self._paths))), "description.json")
-        if isfile(json_file):
-            with open(json_file) as stream:
-                self._properties = json.load(stream)
-            if '__tensors__' in self._properties:
-                for key in self._properties['__tensors__']:
-                    self._properties[key] = math.from_dict(self._properties[key])
+
+        def read_json(path: str) -> dict:
+            json_file = join(path, "description.json")
+            if isfile(json_file):
+                with open(json_file) as stream:
+                    props = json.load(stream)
+                if '__tensors__' in props:
+                    for key in props['__tensors__']:
+                        props[key] = math.from_dict(props[key])
+                return props
+            else:
+                return {}
+
+        if self._paths.shape.volume == 1:
+            self._properties = read_json(self._paths.native())
         else:
             self._properties = {}
+            dicts = [read_json(p) for p in self._paths]
+            keys = set(sum([tuple(d.keys()) for d in dicts], ()))
+            for key in keys:
+                assert all(key in d for d in dicts), f"Failed to create batched Scene because property '{key}' is present in some scenes but not all."
+                if all([math.all(d[key] == dicts[0][key]) for d in dicts]):
+                    self._properties[key] = dicts[0][key]
+                else:
+                    self._properties[key] = stack([d[key] for d in dicts], self._paths.shape)
 
     def exist_properties(self):
         """
@@ -284,8 +306,17 @@ class Scene:
         self._write_properties()
 
     def _get_properties(self, index: dict):
-        tensor_names = {key for key, value in self._properties.items() if isinstance(value, math.Tensor)}
-        result = {key: math.to_dict(value[index]) if isinstance(value, math.Tensor) else value for key, value in self._properties.items()}
+        result = dict(self._properties)
+        tensor_names = []
+        for key, value in self._properties.items():
+            if isinstance(value, math.Tensor):
+                value = value[index]
+                if value.rank == 0:
+                    value = value.dtype.kind(value)
+                else:
+                    value = math.to_dict(value)
+                    tensor_names.append(key)
+                result[key] = value
         if tensor_names:
             result['__tensors__'] = tuple(tensor_names)
         return result
