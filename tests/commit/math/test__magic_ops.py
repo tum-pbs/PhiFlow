@@ -31,7 +31,7 @@ class ConcatExpandable:
         return ConcatExpandable(values[0].shape.with_dim_size(dim, new_size))
 
     def __expand__(self, dims: Shape, **kwargs) -> 'ConcatExpandable':
-        return ConcatExpandable(merge_shapes(self.shape, dims))
+        return ConcatExpandable(merge_shapes(dims, self.shape))
 
 
 TEST_CLASSES = [Stackable, ConcatExpandable, random_normal]
@@ -83,6 +83,12 @@ class TestMagicOps(TestCase):
             self.assertEqual(spatial(x=5) & batch(b=2), stack([a, a], batch('b')).shape)
             self.assertEqual(spatial(x=5) & batch(b='a1,a2'), stack({'a1': a, 'a2': a}, batch('b')).shape)
 
+    def test_multi_dim_stack(self):
+        for test_class in TEST_CLASSES:
+            a = test_class(spatial(x=5))
+            self.assertEqual(spatial(x=5) & batch(a=3, b=2), stack([a]*6, batch(a=3, b=2)).shape)
+
+
     def test_concat(self):
         for test_class in TEST_CLASSES:
             a = test_class(spatial(x=5) & batch(b=2))
@@ -126,5 +132,3 @@ class TestMagicOps(TestCase):
             self.assertEqual(instance(x=5) & batch(b=2), x.retype(instance).shape)
             self.assertEqual(instance(y=5) & batch(b=2), x.replace(instance('y')).shape)
             self.assertEqual(instance(y=5) & batch(b=2), x.unpack(instance('y')).shape)
-
-

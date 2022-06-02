@@ -581,7 +581,7 @@ class Tensor:
         elif self.rank == 0:
             return iter([self.native()])
         else:
-            from ._ops import flatten
+            from ._magic_ops import flatten
             return iter(flatten(self))
 
     def _tensor(self, other):
