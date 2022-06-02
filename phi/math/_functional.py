@@ -1332,7 +1332,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
     Additionally a gradient descent solver with adaptive step size can be used with `method='GD'`.
 
-    `math.minimize()` is limited to backends that support `jacobian()`, currently PyTorch, TensorFlow and Jax.
+    `math.minimize()` is limited to backends that support `jacobian()`, i.e. PyTorch, TensorFlow and Jax.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 
@@ -1342,6 +1342,8 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     Args:
         f: Function whose output is subject to minimization.
             All positional arguments of `f` are optimized and must be `Tensor` or `PhiTreeNode`.
+            If `solve.x0` is a `tuple` or `list`, it will be passed to *f* as varargs, `f(*x0)`.
+            To minimize a subset of the positional arguments, define a new (lambda) function depending only on those.
             The first return value of `f` must be a scalar float `Tensor` or `PhiTreeNode`.
         solve: `Solve` object to specify method type, parameters and initial guess for `x`.
 
