@@ -1131,7 +1131,11 @@ class TensorStack(Tensor):
             assert stack_dim.name not in t.shape, f"Cannot stack along '{stack_dim.name}' because the dimension already exists."
         self.tensors = tuple(components)
         self.stack_dim = stack_dim.with_sizes([len(components)])
-        self._varying_shapes = any([v.shape != components[0].shape for v in components[1:]])
+        try:
+            merge_shapes(*self.tensors)
+            self._varying_shapes = False
+        except IncompatibleShapes:
+            self._varying_shapes = True
         self._shape = shape_stack(self.stack_dim, *[t.shape for t in self.tensors])
         self._cached = None
 

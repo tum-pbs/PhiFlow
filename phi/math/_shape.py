@@ -1265,6 +1265,9 @@ def merge_shapes(*shapes: Shape or Any, order=(batch, instance, spatial, channel
 
     Returns:
         Merged `Shape`
+
+    Raises:
+        IncompatibleShapes if the shapes are not compatible
     """
     if not shapes:
         return EMPTY_SHAPE
