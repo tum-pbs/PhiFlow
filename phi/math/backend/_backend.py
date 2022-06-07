@@ -369,6 +369,7 @@ class Backend:
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):
+        """ Transposes the dimensions of `tensor` given the new axes order. The tensor will be cast to the default precision in the process. """
         raise NotImplementedError()
 
     def random_uniform(self, shape, low, high, dtype: DType or None):

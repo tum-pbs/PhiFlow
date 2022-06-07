@@ -270,7 +270,7 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
     """
     Calls `f` with the native representations of the `inputs` tensors in standard layout and returns the result as a `Tensor`.
 
-    All inputs are converted to native tensors depending on `channels_last`:
+    All inputs are converted to native tensors (including precision cast) depending on `channels_last`:
 
     * `channels_last=True`: Dimension layout `(total_batch_size, spatial_dims..., total_channel_size)`
     * `channels_last=False`: Dimension layout `(total_batch_size, total_channel_size, spatial_dims...)`

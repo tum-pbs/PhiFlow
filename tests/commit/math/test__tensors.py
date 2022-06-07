@@ -468,3 +468,9 @@ class TestTensors(TestCase):
         self.assertEqual(instance(points=2) & channel(vector=2), a.shape)
         b = wrap([1, 2], instance('points')) * [0, 1]
         self.assertEqual(instance(points=2), b.shape)
+
+    def test_numpy_cast(self):
+        for t in [math.zeros(spatial(x=4)), math.random_uniform(spatial(x=4))]:
+            self.assertEqual(numpy.float32, t.numpy().dtype)
+            with math.precision(64):
+                self.assertEqual(numpy.float64, t.numpy().dtype)

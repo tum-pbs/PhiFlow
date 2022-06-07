@@ -92,7 +92,7 @@ class Tensor:
         raise NotImplementedError()
 
     @property
-    def default_backend(self):
+    def default_backend(self) -> Backend:
         from ._ops import choose_backend_t
         return choose_backend_t(self)
 
@@ -825,18 +825,20 @@ class NativeTensor(Tensor):
     def native(self, order: str or tuple or list or Shape = None):
         order = parse_dim_order(order, check_rank=self.rank)
         if order is None or tuple(order) == self.shape.names:
-            return self._native
+            if self.dtype.precision in [None, get_precision()]:
+                return self._native
+            else:
+                return self.default_backend.cast(self._native, DType(self.dtype.kind, precision=get_precision()))
         # --- Insert missing dims ---
         native = self._native
-        backend = choose_backend(native)
         shape = self.shape
         for name in order:
             if name not in self.shape:
-                native = backend.expand_dims(native, axis=-1)
+                native = self.default_backend.expand_dims(native, axis=-1)
                 shape = concat_shapes(shape, _construct_shape('tmp_perm', **{name: 1}))
         # --- Transpose ---
         perm = shape._perm(order)
-        native = backend.transpose(native, perm)
+        native = self.default_backend.transpose(native, perm)  # this will cast automatically
         return native
 
     @property
@@ -846,6 +848,10 @@ class NativeTensor(Tensor):
     @property
     def shape(self):
         return self._shape
+
+    @property
+    def default_backend(self) -> Backend:
+        return choose_backend(self._native)
 
     def _with_shape_replaced(self, new_shape):
         if new_shape.rank != self._shape.rank:
