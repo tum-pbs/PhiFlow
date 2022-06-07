@@ -34,3 +34,22 @@ class TestDType(TestCase):
         except ValueError:
             pass
 
+    def test_create_by_precision(self):
+        self.assertEqual(DType(float, precision=16), DType(float, 16))
+        self.assertEqual(DType(complex, precision=32), DType(complex, 64))
+        try:
+            DType(bool, precision=16)
+            raise RuntimeError
+        except AssertionError:
+            pass
+        try:
+            DType(int, precision=16)
+            raise RuntimeError
+        except AssertionError:
+            pass
+        try:
+            DType(object, precision=16)
+            raise RuntimeError
+        except AssertionError:
+            pass
+

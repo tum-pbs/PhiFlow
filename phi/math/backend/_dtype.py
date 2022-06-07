@@ -19,7 +19,7 @@ class DType:
     Instead, data types can simply be instantiated as needed.
     """
 
-    def __init__(self, kind: type, bits: int = 8):
+    def __init__(self, kind: type, bits: int = None, precision: int = None):
         """
         Args:
             kind: Python type, one of `(bool, int, float, complex, str)`
@@ -27,9 +27,20 @@ class DType:
         """
         assert kind in (bool, int, float, complex, str, object)
         if kind is bool:
-            assert bits == 8
+            assert bits is None, "Bits may not be set for bool or object"
+            assert precision is None, f"Precision may only be specified for float or complex but got {kind}, precision={precision}"
+            bits = 8
         elif kind == object:
+            assert bits is None, "bits may not be set for bool or object"
+            assert precision is None, f"Precision may only be specified for float or complex but got {kind}, precision={precision}"
             bits = int(np.round(np.log2(sys.maxsize))) + 1
+        elif precision is not None:
+            assert bits is None, "Specify either bits or precision when creating a DType but not both."
+            assert kind in [float, complex], f"Precision may only be specified for float or complex but got {kind}, precision={precision}"
+            if kind == float:
+                bits = precision
+            else:
+                bits = precision * 2
         else:
             assert isinstance(bits, int)
         self.kind = kind
