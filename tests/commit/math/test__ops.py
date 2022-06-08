@@ -105,6 +105,12 @@ class TestMathFunctions(TestCase):
         a = math.ones(spatial(x=3, y=4), batch(b=10), instance(i=2), channel(vector=2))
         math.assert_close(math.sum(a, spatial), 12)
 
+    def test_sum_bool(self):
+        for backend in BACKENDS:
+            with backend:
+                a = math.tensor([True, False, True, False], spatial('x'))
+                math.assert_close(2, math.sum(a))
+
     def test_unstack(self):
         a = math.random_uniform(batch(b=10), spatial(x=4, y=3), channel(vector=2))
         u = math.unstack(a, 'vector')

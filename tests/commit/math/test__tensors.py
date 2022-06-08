@@ -473,3 +473,8 @@ class TestTensors(TestCase):
             self.assertEqual(numpy.float32, t.numpy().dtype)
             with math.precision(64):
                 self.assertEqual(numpy.float64, t.numpy().dtype)
+
+    def test_change_dims(self):
+        t = math.expand(math.random_normal(spatial(x=4)), batch(b=10))
+        self.assertEqual(batch(b=10, a=4), t.x.as_batch('a').shape)
+        self.assertEqual(t.shape, t.nodim.as_batch('a').shape)
