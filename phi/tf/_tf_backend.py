@@ -178,6 +178,8 @@ class TFBackend(Backend):
 
     def sum(self, value, axis=None, keepdims=False):
         with tf.device(value.device):
+            if self.dtype(value).kind == bool:
+                value = self.to_int32(value)
             if axis is not None:
                 if not isinstance(axis, int):
                     axis = list(axis)
