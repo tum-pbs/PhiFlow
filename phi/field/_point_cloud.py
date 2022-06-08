@@ -8,6 +8,7 @@ from .numerical import Scheme
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance
 from ..math.extrapolation import Extrapolation
+from ..math.magic import slicing_dict
 
 
 class PointCloud(SampledField):
@@ -50,7 +51,8 @@ class PointCloud(SampledField):
     def shape(self):
         return self._elements.shape.without('vector') & self._values.shape
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
         if not item:
             return self
         elements = self.elements[{dim: selection for dim, selection in item.items() if dim != 'vector'}]

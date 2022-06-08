@@ -5,7 +5,7 @@ import numpy as np
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE
 from phi.math._tensors import variable_attributes
-from phi.math.magic import BoundDim
+from phi.math.magic import BoundDim, slicing_dict
 
 
 class Geometry:
@@ -95,7 +95,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_signed_distance(self, location: Tensor) -> Tensor:
+    def approximate_signed_distance(self, location: Tensor or tuple) -> Tensor:
         """
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -323,7 +323,7 @@ class Geometry:
     def __repr__(self):
         return f"{self.__class__.__name__}{self.shape}"
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
         raise NotImplementedError
         # assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
         # item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
@@ -468,7 +468,7 @@ class Point(Geometry):
     def lies_inside(self, location: Tensor) -> Tensor:
         return math.wrap(False)
 
-    def approximate_signed_distance(self, location: Tensor) -> Tensor:
+    def approximate_signed_distance(self, location: Tensor or tuple) -> Tensor:
         return math.vec_abs(location - self._location)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
@@ -506,8 +506,8 @@ class Point(Geometry):
     def scaled(self, factor: float or Tensor) -> 'Geometry':
         return self
 
-    def __getitem__(self, item: dict):
-        return Point(self._location[_keep_vector(item)])
+    def __getitem__(self, item):
+        return Point(self._location[_keep_vector(slicing_dict(self, item))])
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Point) for v in values):

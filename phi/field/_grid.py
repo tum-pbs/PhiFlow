@@ -11,6 +11,7 @@ from ..math import Shape, NUMPY
 from ..math._shape import spatial, channel, parse_dim_order
 from ..math._tensors import TensorStack, Tensor
 from ..math.extrapolation import Extrapolation
+from ..math.magic import slicing_dict
 
 
 class Grid(SampledField):
@@ -83,7 +84,7 @@ class Grid(SampledField):
                 return self.values.shape == other.values.shape
         return bool((self.values == other.values).all)
 
-    def __getitem__(self, item: dict) -> 'Grid':
+    def __getitem__(self, item) -> 'Grid':
         raise NotImplementedError(self)
 
     @property
@@ -186,7 +187,10 @@ class CenteredGrid(Grid):
         assert resolution.spatial_rank == bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
         Grid.__init__(self, elements, values, extrapolation, values.shape.spatial, bounds)
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        if not item:
+            return self
         values = self._values[item]
         extrapolation = self._extrapolation[item]
         keep_dims = [dim for dim in self.resolution.names if dim not in item or not isinstance(item[dim], int)]
@@ -362,7 +366,10 @@ class StaggeredGrid(Grid):
         """
         return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        if not item:
+            return self
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
         for dim, sel in item.items():
             if dim in self.shape.spatial:

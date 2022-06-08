@@ -7,14 +7,13 @@ from typing import Tuple, Callable, List, TypeVar
 import numpy
 import numpy as np
 
-from phi.math._shape import TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape
-from .magic import BoundDim, PhiTreeNode
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
-                     parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes)
-from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
-    Backend
+                     parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
+                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape)
+from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, Backend
 from .backend._dtype import DType
+from .magic import BoundDim, PhiTreeNode, slicing_dict
 
 
 class Tensor:
@@ -271,19 +270,7 @@ class Tensor:
         if isinstance(item, Tensor):
             from ._ops import gather
             return gather(self, item)
-        if isinstance(item, (int, slice)):
-            assert self.rank == 1
-            item = {self.shape.names[0]: item}
-        if isinstance(item, (tuple, list)):
-            if item[0] == Ellipsis:
-                assert len(item) - 1 == self.shape.channel.rank
-                item = {name: selection for name, selection in zip(self.shape.channel.names, item[1:])}
-            elif len(item) == self.shape.channel.rank:
-                item = {name: selection for name, selection in zip(self.shape.channel.names, item)}
-            elif len(item) == self.shape.rank:  # legacy indexing
-                warnings.warn("Slicing a Tensor with a tuple or list should only be used for channel dimensions. Use a dict or the special slicing syntax tensor.dim[slice] instead", SyntaxWarning, stacklevel=2)
-                item = {name: selection for name, selection in zip(self.shape.names, item)}
-        assert isinstance(item, dict)  # dict mapping name -> slice/int
+        item = slicing_dict(self, item)
         selections = {}
         sliced = self
         for dim, selection in item.items():

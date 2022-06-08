@@ -61,7 +61,7 @@ class Scene:
         self._paths = math.wrap(paths)
         self._properties: dict or None = None
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
         return Scene(self._paths[item])
 
     def __getattr__(self, name: str) -> BoundDim:

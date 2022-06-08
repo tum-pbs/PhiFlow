@@ -38,3 +38,9 @@ class TestField(TestCase):
         p_emb_x0 = CenteredGrid(p, p, x=5, y=5, bounds=Box(x=(10, 60), y=(10, 60)))
         p_back = CenteredGrid(p_emb_x0, p.extrapolation, p.bounds, p.resolution)
         assert_close(0, p_back - p)
+
+    def test_slice_str(self):
+        vgrid = CenteredGrid(Noise(col='r,g,b'), x=4, y=3)
+        math.assert_close(vgrid.col[0], vgrid['r'])
+        matrix_grid = CenteredGrid(Noise(col='r,g,b', vec='x,y'), x=4, y=3)
+        math.assert_close(matrix_grid.col[(0, 1)].vec['y'], matrix_grid['r,g', 'y'])

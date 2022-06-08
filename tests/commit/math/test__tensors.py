@@ -303,6 +303,16 @@ class TestTensors(TestCase):
         sel = indices.x[wrap((1, 0), spatial('x'))]
         math.assert_close([1, 0], sel.vector['x'].y[0])
 
+    def test_slice_str(self):
+        x = math.random_normal(batch(b=2), channel(c='x,y,z'))
+        math.assert_close(x.c[0], x['x'])
+        math.assert_close(x.c[(0, 1)], x['x,y'])
+
+    def test_slice_int(self):
+        x = math.random_normal(batch(b=2), channel(c='x,y,z'))
+        math.assert_close(x.c[0], x[0])
+        math.assert_close(x.c[(0, 1)], x[[0, 1]])
+
     def test_serialize_tensor(self):
         t = math.random_normal(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
         math.assert_close(t, math.from_dict(math.to_dict(t)))

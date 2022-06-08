@@ -8,6 +8,7 @@ from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, spatial
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
+from ..math.magic import slicing_dict
 
 
 class BaseBox(Geometry):  # not a Subwoofer
@@ -80,7 +81,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
         return bool_inside
 
-    def approximate_signed_distance(self, location):
+    def approximate_signed_distance(self, location: Tensor or tuple):
         """
         Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
         For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
@@ -215,8 +216,8 @@ class Box(BaseBox, metaclass=BoxType):
         if self.size.vector.item_names is None:
             warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
-    def __getitem__(self, item: dict):
-        item = _keep_vector(item)
+    def __getitem__(self, item):
+        item = _keep_vector(slicing_dict(self, item))
         return Box(self._lower[item], self._upper[item])
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
@@ -326,8 +327,8 @@ class Cuboid(BaseBox):
     def __hash__(self):
         return hash(self._center)
 
-    def __getitem__(self, item: dict):
-        item = _keep_vector(item)
+    def __getitem__(self, item):
+        item = _keep_vector(slicing_dict(self, item))
         return Cuboid(self._center[item], self._half_size[item])
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
@@ -429,7 +430,8 @@ class GridCell(BaseBox):
     def half_size(self):
         return self.bounds.size / self.resolution.sizes / 2
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
         bounds = self._bounds
         dx = self.size
         gather_dict = {}

@@ -15,8 +15,9 @@ Instance checks can be performed via `isinstance(obj, <MagicClass>)`.
 This is analogous to interfaces defined in the built-in `collections` package, such as `Sized, Iterable, Hashable, Callable`.
 To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`.
 """
+import warnings
 from typing import Tuple, Dict, Any, Callable
-from ._shape import Shape, shape, batch, spatial, instance, channel
+from ._shape import Shape, shape, batch, spatial, instance, channel, non_batch
 
 
 class _ShapedType(type):
@@ -95,9 +96,11 @@ class Sliceable(metaclass=_SliceableType):
         `Shapable`, `Shaped`
     """
 
-    def __getitem__(self, item: Dict[str, Any]) -> 'Sliceable':
+    def __getitem__(self, item) -> 'Sliceable':
         """
         Slice this object along one or multiple existing or non-existing dimensions.
+
+        When overriding this function, make sure to first call `slicing_dict(self, item)` to sort slices by dimension.
 
         Args:
             item: `dict` mapping dimension names to the corresponding selections.
@@ -558,6 +561,44 @@ class BoundDim:
         """
         from ._magic_ops import unpack_dim
         return unpack_dim(self.obj, self.name, dims, **kwargs)
+
+
+def slicing_dict(obj, item) -> dict:
+    """
+    Creates a slicing `dict` from `item` where `item` is an arbitrary value passed to `__getitem__()`.
+
+    `Sliceable` objects should call this function inside `__getitem__()`, passing `self` and `item`.
+
+    Args:
+        obj: Object to be sliced.
+        item: Slices.
+
+    Returns:
+        `dict` mapping dimension names to slices.
+    """
+    if isinstance(item, dict):
+        assert all(isinstance(key, str) for key in item.keys()), f"All slice dimensions must be given as str but got keys {tuple(item.keys())}"
+        return item
+    if isinstance(item, tuple):
+        if item[0] == Ellipsis:
+            assert len(item) - 1 == shape(obj).channel_rank
+            item = {name: selection for name, selection in zip(channel(obj).names, item[1:])}
+        elif len(item) == shape(obj).channel_rank:
+            warnings.warn("NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html", SyntaxWarning, stacklevel=3)
+            item = {name: selection for name, selection in zip(channel(obj).names, item)}
+        elif len(item) == shape(obj).rank:  # legacy indexing
+            warnings.warn("NumPy-style slicing for non-channel dimensions is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html", SyntaxWarning, stacklevel=3)
+            item = {name: selection for name, selection in zip(obj.shape.names, item)}
+        else:
+            raise AssertionError(f"Cannot slice {obj}[{item}]. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html")
+    else:
+        if shape(obj).channel_rank == 1:
+            item = {channel(obj).name: item}
+        elif non_batch(obj).rank == 1:
+            item = {non_batch(obj).name: item}
+        else:
+            raise AssertionError(f"Slicing {type(obj).__name__}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}")
+    return item
 
 
 __pdoc__ = {}  # Show all magic functions in pdoc3

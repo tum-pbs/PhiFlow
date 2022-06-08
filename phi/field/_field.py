@@ -105,13 +105,13 @@ class Field:
             return self.with_values(other)
         return NotImplemented
 
-    def __getitem__(self, item: dict) -> 'Field':
+    def __getitem__(self, item) -> 'Field':
         """
         Access a slice of the Field.
         The returned `Field` may be of a different type than `self`.
 
         Args:
-            item: `dict` mapping dimensions (`str`) to selections (`int` or `slice`)
+            item: `dict` mapping dimensions (`str`) to selections (`int` or `slice`) or other supported type, such as `int` or `str`.
 
         Returns:
             Sliced `Field`.
@@ -189,7 +189,7 @@ class SampledField(Field):
     def spatial_rank(self) -> int:
         return self._elements.spatial_rank
 
-    def __getitem__(self: 'FieldType', item: dict) -> 'FieldType':
+    def __getitem__(self: 'FieldType', item) -> 'FieldType':
         raise NotImplementedError(self)
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'FieldType':

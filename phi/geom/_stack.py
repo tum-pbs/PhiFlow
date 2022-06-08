@@ -6,6 +6,7 @@ from ._geom import Geometry
 from ..math import Tensor
 from ..math._shape import shape_stack, Shape, INSTANCE_DIM
 from ..math._tensors import variable_attributes, copy_with
+from ..math.magic import slicing_dict
 
 
 class GeometryStack(Geometry):
@@ -94,8 +95,8 @@ class GeometryStack(Geometry):
     def __hash__(self):
         return hash(self.geometries)
     
-    def __getitem__(self, item: dict):
-        selected = self.geometries[item]
+    def __getitem__(self, item):
+        selected = self.geometries[slicing_dict(self, item)]
         if selected.shape.volume > 1:
             return GeometryStack(selected)
         else:

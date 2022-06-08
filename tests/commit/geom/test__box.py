@@ -54,6 +54,7 @@ class TestBox(TestCase):
         box = Box(x=4, y=3)
         self.assertEqual(Box(x=4), box.vector['x'])
         self.assertEqual(box, box.vector['x,y'])
+        self.assertEqual(Box(x=4), box['x'])
 
     def test_without(self):
         box = Box(x=4, y=3)
