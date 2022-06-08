@@ -22,7 +22,6 @@ class TestTensors(TestCase):
                 for const in (1, 1.5, True, 1+1j):
                     tens = math.wrap(const)
                     self.assertEqual(math.NUMPY, tens.default_backend)
-                    self.assertTrue(isinstance(tens.native(), (int, float, bool, complex)), msg=backend)
                     math.assert_close(tens, const)
                     tens = math.tensor(const)
                     self.assertEqual(backend, math.choose_backend(tens), f'{const} was not converted to the specified backend')

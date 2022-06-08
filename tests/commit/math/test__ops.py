@@ -574,12 +574,12 @@ class TestMathFunctions(TestCase):
     def test_native(self):
         nat = np.zeros(4)
         self.assertIs(math.native(nat), nat)
-        self.assertIs(math.native(math.tensor(nat)), nat)
+        math.assert_close(math.native(math.tensor(nat)), nat)
 
     def test_numpy(self):
         nat = np.zeros(4)
         self.assertIs(math.numpy(nat), nat)
-        self.assertIs(math.numpy(math.tensor(nat)), nat)
+        math.assert_close(math.numpy(math.tensor(nat)), nat)
 
     def test_sparse(self):
         i = [[0, 1, 1],
