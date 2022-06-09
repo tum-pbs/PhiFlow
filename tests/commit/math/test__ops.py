@@ -678,7 +678,7 @@ class TestMathFunctions(TestCase):
     def test_where_nan(self):
         for backend in BACKENDS:
             with backend:
-                cond = math.linspace(0, 1, 2) > 0
+                cond = math.linspace(0, 1, channel(linspace=2)) > 0
                 x = math.tensor([-1, -2, -3], spatial('x'))
                 t = math.where(cond, x, NAN)
                 math.assert_close(t.linspace[0], NAN)

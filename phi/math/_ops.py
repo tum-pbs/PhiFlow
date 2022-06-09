@@ -605,7 +605,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), assign_item_names=Tr
         return stack_tensors(channels, stack_dim)
 
 
-def linspace(start: int or Tensor, stop, number: int or Shape, dim: Shape = channel('linspace')) -> Tensor:
+def linspace(start: int or Tensor, stop, dim: Shape) -> Tensor:
     """
     Returns `number` evenly spaced numbers between `start` and `stop`.
 
@@ -615,22 +615,19 @@ def linspace(start: int or Tensor, stop, number: int or Shape, dim: Shape = chan
     Args:
         start: First value, `int` or `Tensor`.
         stop: Last value, `int` or `Tensor`.
-        number: How many numbers to return, `int`.
-        dim: Dimension name and type as `Shape` object. The `size` of `dim` is ignored.
+        dim: Linspace dimension of integer size.
+            The size determines how many values to linearly space between `start` and `stop`.
+            The values will be laid out along `dim`.
 
     Returns:
         `Tensor`
     """
-    if isinstance(number, Shape):
-        dim = number
-        number = number.size
-    assert dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
-    assert isinstance(number, int), f"Number of points must be an int but got {number}"
+    assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
     if is_scalar(start) and is_scalar(stop):
-        native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
-        return NativeTensor(native, dim.with_sizes([number]))
+        native_linspace = choose_backend(start, stop, prefer_default=True).linspace(start, stop, dim.size)
+        return NativeTensor(native_linspace, dim)
     else:
-        return map_(linspace, start, stop, number=number, dim=dim)
+        return map_(linspace, start, stop, dim=dim)
 
 
 def arange(dim: Shape, start_or_stop: int or None = None, stop: int or None = None, step=1):
