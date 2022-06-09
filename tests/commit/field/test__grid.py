@@ -112,3 +112,8 @@ class GridTest(TestCase):
             raise RuntimeError
         except AssertionError:
             pass
+        # Varargs
+        grid = CenteredGrid(lambda *x: x[0], x=10, y=10)
+        math.assert_close(grid.points['x'], grid.values)
+        grid = CenteredGrid(lambda t, *x: t, t=5, x=10, y=10)
+        math.assert_close(grid.points['t'], grid.values)

@@ -1,3 +1,4 @@
+from inspect import _ParameterKind
 from typing import TypeVar, Any
 
 from phi import math, geom
@@ -466,12 +467,15 @@ def _sample_function(f, elements: Geometry):
         dims = elements.shape.get_size('vector')
         names_match = tuple(params.keys())[:dims] == elements.shape.get_item_names('vector')
         num_positional = 0
+        has_varargs = False
         for n, p in params.items():
             if p.default is p.empty:
                 num_positional += 1
+            if p.kind == _ParameterKind.VAR_POSITIONAL:
+                has_varargs = True
         assert num_positional <= dims, f"Cannot sample {f.__name__}{signature} on physical space {elements.shape.get_item_names('vector')}"
-        pass_varargs = names_match or num_positional > 1 or num_positional == dims
-        if num_positional > 1:
+        pass_varargs = has_varargs or names_match or num_positional > 1 or num_positional == dims
+        if num_positional > 1 and not has_varargs:
             assert names_match, f"Positional arguments of {f.__name__}{signature} should match physical space {elements.shape.get_item_names('vector')}"
     except ValueError as err:  # signature not available for all functions
         pass_varargs = False
