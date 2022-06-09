@@ -276,36 +276,13 @@ class Tensor:
         for dim, selection in item.items():
             if dim not in self.shape:
                 continue
-            if isinstance(selection, Shape):
-                selection = selection.name if selection.rank == 1 else selection.names
-            if isinstance(selection, str) and ',' in selection:
-                selection = parse_dim_order(selection)
-            if isinstance(selection, str):  # single item name
-                item_names = self.shape.get_item_names(dim, fallback_spatial=True)
-                assert item_names is not None, f"No item names defined for dim '{dim}' in tensor {self.shape} and dimension size does not match spatial rank."
-                assert selection in item_names, f"Accessing tensor.{dim}['{selection}'] failed. Item names are {item_names}."
-                selection = item_names.index(selection)
+            selection = self.shape.prepare_gather(dim, selection)
             # Either handle slicing directly or add it to the dict
             if isinstance(selection, (tuple, list)):
-                selection_int = list(selection)
-                if any([isinstance(s, str) for s in selection]):
-                    item_names = self.shape.get_item_names(dim, fallback_spatial=True)
-                    for i, s in enumerate(selection):
-                        if isinstance(s, str):
-                            assert item_names is not None, f"Accessing tensor.{dim}['{s}'] failed because no item names are present on tensor {self.shape}"
-                            assert s in item_names, f"Accessing tensor.{dim}['{s}'] failed. Item names are {item_names}."
-                            selection_int[i] = item_names.index(s)
-                if not selection_int:  # empty
-                    selections[dim] = slice(0, 0)
-                else:
-                    from ._magic_ops import stack
-                    result = [sliced[{dim: i}] for i in selection_int]
-                    if all(isinstance(n, str) for n in selection) or self.shape.get_item_names(dim) is not None:
-                        item_names = [i if isinstance(i, str) else self.shape.get_item_names(dim)[i] for i in selection]
-                        stack_dim = self.shape[dim].with_size(len(selection))._with_item_names((tuple(item_names),)) if dim in self.shape else channel(**{dim: item_names})
-                    else:
-                        stack_dim = self.shape[dim].with_size(len(selection)) if dim in self.shape else channel(dim)
-                    sliced = stack(result, stack_dim)
+                from ._magic_ops import stack
+                result = [sliced[{dim: i}] for i in selection]
+                stack_dim = sliced.shape[dim].after_gather({dim: selection})
+                sliced = stack(result, stack_dim)
             elif isinstance(selection, Tensor) and selection.dtype.kind == bool:
                 from ._ops import boolean_mask
                 sliced = boolean_mask(sliced, dim, selection)

@@ -848,11 +848,35 @@ class Shape:
             item_names[self.index(dim)] = None
         return Shape(tuple(sizes), self.names, self.types, tuple(item_names))
 
+    def prepare_gather(self, dim: str, selection):
+        if isinstance(selection, Shape):
+            selection = selection.name if selection.rank == 1 else selection.names
+        if isinstance(selection, str) and ',' in selection:
+            selection = parse_dim_order(selection)
+        if isinstance(selection, str):  # single item name
+            item_names = self.get_item_names(dim, fallback_spatial=True)
+            assert item_names is not None, f"No item names defined for dim '{dim}' in tensor {self.shape} and dimension size does not match spatial rank."
+            assert selection in item_names, f"Accessing tensor.{dim}['{selection}'] failed. Item names are {item_names}."
+            selection = item_names.index(selection)
+        if isinstance(selection, (tuple, list)):
+            selection = list(selection)
+            if any([isinstance(s, str) for s in selection]):
+                item_names = self.get_item_names(dim, fallback_spatial=True)
+                for i, s in enumerate(selection):
+                    if isinstance(s, str):
+                        assert item_names is not None, f"Accessing tensor.{dim}['{s}'] failed because no item names are present on tensor {self.shape}"
+                        assert s in item_names, f"Accessing tensor.{dim}['{s}'] failed. Item names are {item_names}."
+                        selection[i] = item_names.index(s)
+            if not selection:  # empty
+                selection = slice(0, 0)
+        return selection
+
     def after_gather(self, selection: dict) -> 'Shape':
         result = self
         for name, selection in selection.items():
             if name not in self.names:
                 continue
+            selection = self.prepare_gather(name, selection)
             if isinstance(selection, int):
                 if result.is_uniform:
                     result = result.without(name)
@@ -876,6 +900,10 @@ class Shape:
                 result = result._replace_single_size(name, new_size)
                 if step < 0:
                     result = result.flipped([name])
+            elif isinstance(selection, (tuple, list)):
+                result = result._replace_single_size(name, len(selection))
+                if self.get_item_names(name) is not None:
+                    result = result._with_item_name(name, tuple([self.get_item_names(name)[i] for i in selection]))
             else:
                 raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allowed.")
         return result
