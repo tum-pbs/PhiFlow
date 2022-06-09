@@ -1,3 +1,4 @@
+import warnings
 from typing import TypeVar, Callable
 
 from phi import math
@@ -99,6 +100,18 @@ class Field:
         return self.at(other, keep_extrapolation=False)
 
     def __rmatmul__(self, other):  # values @ representation
+        if not isinstance(self, SampledField):
+            return NotImplemented
+        if isinstance(other, (Geometry, float, int, complex, tuple, list)):
+            return self.with_values(other)
+        return NotImplemented
+
+    def __rshift__(self, other):
+        warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
+        return self.at(other, keep_extrapolation=False)
+
+    def __rrshift__(self, other):
+        warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
         if not isinstance(self, SampledField):
             return NotImplemented
         if isinstance(other, (Geometry, float, int, complex, tuple, list)):

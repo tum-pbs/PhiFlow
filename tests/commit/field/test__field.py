@@ -1,9 +1,9 @@
 from unittest import TestCase
 
 from phi import math
-from phi.field import CenteredGrid, Noise, assert_close
-from phi.geom import Box
-from phi.math import batch, spatial
+from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity
+from phi.geom import Box, Sphere
+from phi.math import batch, spatial, vec
 
 
 class TestField(TestCase):
@@ -44,3 +44,8 @@ class TestField(TestCase):
         math.assert_close(vgrid.col[0], vgrid['r'])
         matrix_grid = CenteredGrid(Noise(col='r,g,b', vec='x,y'), x=4, y=3)
         math.assert_close(matrix_grid.col[(0, 1)].vec['y'], matrix_grid['r,g', 'y'])
+
+    def test_legacy_resampling(self):
+        for obj in [AngularVelocity(location=vec(x=0, y=0)), Sphere(x=0, y=0, radius=1)]:
+            resampled = obj >> CenteredGrid(0, x=4, y=3)
+            self.assertIsInstance(resampled, CenteredGrid)
