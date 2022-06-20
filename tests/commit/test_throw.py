@@ -33,7 +33,7 @@ class TestThrow(TestCase):
         math.assert_close(10 + math.sqrt(2), simulate_hit(10, 1, 1, 0)[0])
 
     def test_sample_trajectory(self):
-        sample_trajectory(tensor(10), 1, 1, math.linspace(-math.PI / 4, 1.5, 7))
+        sample_trajectory(tensor(10), 1, 1, math.linspace(-math.PI / 4, 1.5, channel(linspace=7)))
 
     def test_gradient_descent(self):
         def loss_function(vel):
