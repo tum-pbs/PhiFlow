@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from os.path import dirname, abspath, join, basename
 
+import phi
 from phi import math
 from phi import field
 from phi.field import Scene, CenteredGrid, StaggeredGrid
@@ -107,6 +108,9 @@ class TestScene(TestCase):
         smoke__, vel__ = scene.read('smoke', 'vel')
         field.assert_close(smoke, smoke__)
         field.assert_close(vel, vel__)
+        # read without Scene
+        smoke_ = phi.field.read(join(scene.path, "smoke_000000.npz"))
+        field.assert_close(smoke, smoke_)
         scene.remove()
 
     def test_write_read_batch_matching(self):

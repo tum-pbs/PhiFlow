@@ -1,13 +1,13 @@
 import numpy as np
 
-from phi import math, geom
+from phi import geom
 from ._field import SampledField
 from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor
 from ._field_math import stack
-from ..math._tensors import NativeTensor
+from ..math import extrapolation, wrap, tensor, Shape, channel, Tensor
 
 
-def write(field: SampledField, file: str or math.Tensor):
+def write(field: SampledField, file: str or Tensor):
     """
     Writes a field to disc using a NumPy file format.
     Depending on `file`, the data may be split up into multiple files.
@@ -26,7 +26,7 @@ def write(field: SampledField, file: str or math.Tensor):
     """
     if isinstance(file, str):
         write_single_field(field, file)
-    elif isinstance(file, math.Tensor):
+    elif isinstance(file, Tensor):
         if file.rank == 0:
             write_single_field(field, file.native())
         else:
@@ -64,7 +64,7 @@ def write_single_field(field: SampledField, file: str):
         raise NotImplementedError(f"{type(field)} not implemented. Only Grid allowed.")
 
 
-def read(file: str or math.Tensor, convert_to_backend=True) -> SampledField:
+def read(file: str or Tensor, convert_to_backend=True) -> SampledField:
     """
     Loads a previously saved `SampledField` from disc.
 
@@ -81,7 +81,7 @@ def read(file: str or math.Tensor, convert_to_backend=True) -> SampledField:
     """
     if isinstance(file, str):
         return read_single_field(file, convert_to_backend=convert_to_backend)
-    if isinstance(file, math.Tensor):
+    if isinstance(file, Tensor):
         if file.rank == 0:
             return read_single_field(file.native(), convert_to_backend=convert_to_backend)
         else:
@@ -98,18 +98,18 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
     ftype = stored['field_type']
     implemented_types = ('CenteredGrid', 'StaggeredGrid')
     if ftype in implemented_types:
-        data = stored['data']
-        dim_item_names = stored.get('dim_item_names', (None,) * len(data.shape))
-        data = NativeTensor(data, math.Shape(data.shape, tuple(stored['dim_names']), tuple(stored['dim_types']), tuple(dim_item_names)))
-        if convert_to_backend:
-            data = math.tensor(data, convert=convert_to_backend)
-        bounds_item_names = stored.get('bounds_item_names', (None,) * len(stored['lower'] + stored['upper']))
-        lower = math.wrap(stored['lower'], math.channel(vector=tuple(bounds_item_names))) if stored['lower'].ndim > 0 else math.wrap(stored['lower'])
-        upper = math.wrap(stored['upper'], math.channel(vector=tuple(bounds_item_names)))
-        extrapolation = math.extrapolation.from_dict(stored['extrapolation'][()])
+        data_arr = stored['data']
+        dim_item_names = stored.get('dim_item_names', (None,) * len(data_arr.shape))
+        data = tensor(data_arr, Shape(data_arr.shape, tuple(stored['dim_names']), tuple(stored['dim_types']), tuple(dim_item_names)), convert=convert_to_backend)
+        bounds_item_names = stored.get('bounds_item_names', None)
+        if bounds_item_names is None or bounds_item_names.shape == ():  # None or empty array
+            bounds_item_names = tuple(stored['dim_names'])
+        lower = wrap(stored['lower'], channel(vector=tuple(bounds_item_names))) if stored['lower'].ndim > 0 else wrap(stored['lower'])
+        upper = wrap(stored['upper'], channel(vector=tuple(bounds_item_names)))
+        extr = extrapolation.from_dict(stored['extrapolation'][()])
         if ftype == 'CenteredGrid':
-            return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extrapolation)
+            return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extr)
         elif ftype == 'StaggeredGrid':
-            data_ = unstack_staggered_tensor(data, extrapolation)
-            return StaggeredGrid(data_, bounds=geom.Box(lower, upper), extrapolation=extrapolation)
+            data_ = unstack_staggered_tensor(data, extr)
+            return StaggeredGrid(data_, bounds=geom.Box(lower, upper), extrapolation=extr)
     raise NotImplementedError(f"{ftype} not implemented ({implemented_types})")
