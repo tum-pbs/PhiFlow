@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from phi import struct, math
+from phi import math
 from phi.geom import Sphere, Box
 from phi.math import batch, channel
 from phi.physics._boundaries import Domain, Obstacle
