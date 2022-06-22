@@ -628,7 +628,7 @@ class TFBackend(Backend):
             a, b = self.auto_cast(a, b)
             return a // b
 
-    def jacobian(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         @wraps(f)
         def eval_grad(*args):
             args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]

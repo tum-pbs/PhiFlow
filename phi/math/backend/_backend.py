@@ -314,21 +314,19 @@ class Backend:
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         """
         Args:
             f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
             wrt: Argument indices for which to compute the gradient.
             get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
+            is_f_scalar: Whether `f` is guaranteed to return a scalar output.
 
         Returns:
             A function `g` with the same arguments as `f`.
             If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
             The gradients retain the dimensions of `reduced_loss` in order as outer (first) dimensions.
         """
-        raise NotImplementedError(self)
-
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
 
     def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -> tuple:
@@ -362,10 +360,10 @@ class Backend:
         """
         return NotImplemented
 
-    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+    def jit_compile_grad(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         raise NotImplementedError()
 
-    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def jit_compile_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):

@@ -83,7 +83,7 @@ class TestFunctional(TestCase):
                 with backend:
                     x_data = math.tensor(2.)
                     y_data = math.tensor(1.)
-                    dx, = math.functional_gradient(f, wrt=[0], get_output=False)(x_data, y_data)
+                    dx = math.functional_gradient(f, wrt=0, get_output=False)(x_data, y_data)
                     math.assert_close(dx, 1, msg=backend.name)
                     dx, dy = math.functional_gradient(f, [0, 1], get_output=False)(x_data, y_data)
                     math.assert_close(dx, 1, msg=backend.name)
@@ -331,7 +331,7 @@ class TestFunctional(TestCase):
         def loss_function(x):
             return math.l2_loss(x)
 
-        gradient_function = math.functional_gradient(loss_function)
+        gradient_function = math.functional_gradient(loss_function, wrt=0)
 
         for backend in BACKENDS:
             if backend.supports(Backend.jacobian):

@@ -329,10 +329,11 @@ def jit_compile_linear(f: Callable[[X], Y]) -> 'LinearFunction[X, Y]':  # TODO a
 class GradientFunction:
     """ Jacobian or Gradient of a function. """
 
-    def __init__(self, f: Callable, wrt: tuple, get_output: bool, jit=False):
+    def __init__(self, f: Callable, wrt: int or tuple, get_output: bool, is_f_scalar: bool, jit=False):
         self.f = f
-        self.wrt = wrt
+        self.wrt = tuple(wrt) if isinstance(wrt, list) else wrt
         self.get_output = get_output
+        self.is_f_scalar = is_f_scalar
         self.traces: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
         self.jit = jit
@@ -354,8 +355,10 @@ class GradientFunction:
             result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, None, in_key.backend, in_key.tracing)
             return loss_native, result_natives
-        jacobian_generator = in_key.backend.jit_compile_grad if self.jit else in_key.backend.jacobian
-        return jacobian_generator(f_native, wrt=wrt_natives, get_output=self.get_output)
+        if self.jit:
+            return in_key.backend.jit_compile_grad(f_native, wrt=wrt_natives, get_output=self.get_output, is_f_scalar=self.is_f_scalar)
+        else:
+            return in_key.backend.jacobian(f_native, wrt=wrt_natives, get_output=self.get_output, is_f_scalar=self.is_f_scalar)
 
     def __call__(self, *args, **kwargs):
         key, natives = key_from_args(*args, cache=True, **kwargs)
@@ -376,11 +379,12 @@ class GradientFunction:
         if self.get_output:
             result_shapes = list(output_key.shapes) + wrt_shapes
             output_tensors = assemble_tensors(native_result, result_shapes, None)
-            output_structure, grad_tuple = assemble_tree((output_key.tree, [key.tree[i] for i in self.wrt]), output_tensors)
-            return output_structure, grad_tuple
+            output_structure, grad_tuple = assemble_tree((output_key.tree, [key.tree[i] for i in self._wrt_tuple()]), output_tensors)
+            return output_structure, grad_tuple if isinstance(self.wrt, tuple) else grad_tuple[0]
         else:
             output_tensors = assemble_tensors(native_result, wrt_shapes, None)
-            return assemble_tree([key.tree[i] for i in wrt_tensors], output_tensors)
+            grad_tuple = assemble_tree([key.tree[i] for i in wrt_tensors], output_tensors)
+            return grad_tuple if isinstance(self.wrt, tuple) else grad_tuple[0]
 
     def __repr__(self):
         return f"grad({self.f.__name__})"
@@ -394,7 +398,7 @@ class GradientFunction:
         for i, arg in enumerate(args):
             _, tensors = disassemble_tree(arg)
             wrt_tensors.extend([i] * len(tensors))
-        return [t_i for t_i, arg_i in enumerate(wrt_tensors) if arg_i in self.wrt]
+        return [t_i for t_i, arg_i in enumerate(wrt_tensors) if arg_i in self._wrt_tuple()]
 
     @staticmethod
     def _track_wrt_natives(wrt_tensors, values):
@@ -403,8 +407,57 @@ class GradientFunction:
             wrt_natives.extend([i] * len(value._natives()))
         return [n_i for n_i, t_i in enumerate(wrt_natives) if t_i in wrt_tensors]
 
+    def _wrt_tuple(self):
+        if isinstance(self.wrt, int):
+            return (self.wrt,)
+        assert isinstance(self.wrt, tuple), f"wrt must be an int or tuple but got {type(self.wrt)}"
+        return self.wrt
+
 
 def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callable:
+    """
+    Creates a function which computes the Jacobian matrix of `f`.
+    For scalar functions, consider using `functional_gradient()` instead.
+
+    Example:
+    ```python
+    def f(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+
+    (loss, prediction), (dx, dy) = jacobian(loss_function,
+                                        wrt=(0, 1), get_output=True)(x, y)
+    ```
+
+    Functional gradients are implemented for the following backends:
+
+    * PyTorch: [`torch.autograd.grad`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.grad) / [`torch.autograd.backward`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.backward)
+    * TensorFlow: [`tf.GradientTape`](https://www.tensorflow.org/api_docs/python/tf/GradientTape)
+    * Jax: [`jax.grad`](https://jax.readthedocs.io/en/latest/jax.html#jax.grad)
+
+    When the gradient function is invoked, `f` is called with tensors that track the gradient.
+    For PyTorch, `arg.requires_grad = True` for all positional arguments of `f`.
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        get_output: Whether the gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Either `tuple` or `int`.
+            Example: `wrt_indices=(0,)` computes the Jacobian with respect to the first argument of `f` but returns the Jacobian as a single-entry tuple.
+
+    Returns:
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and Jacobian of `f` if `get_output=True`, else just the Jacobian of `f`.
+    """
+    return GradientFunction(f, wrt, get_output, False)
+
+
+def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callable:
     """
     Creates a function which computes the gradient of `f`.
 
@@ -437,12 +490,13 @@ def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callabl
             All arguments for which the gradient is computed must be of dtype float or complex.
         get_output: Whether the gradient function should also return the return values of `f`.
         wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+            Either `tuple` or `int`.
+            Example: `wrt_indices=(0,)` computes the gradient with respect to the first argument of `f` but returns the gradient as a single-entry tuple.
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     """
-    return GradientFunction(f, wrt, get_output)
+    return GradientFunction(f, wrt, get_output, True)
 
 
 class HessianFunction:
