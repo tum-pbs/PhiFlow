@@ -1,7 +1,7 @@
 import warnings
 from numbers import Number
 
-from phi import math, struct, field
+from phi import math, field
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, HardGeometryMask
 from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
 from phi.geom import Geometry
