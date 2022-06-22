@@ -123,7 +123,8 @@ class Extrapolation:
         Returns:
             Transformed coordinates
         """
-        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, channel('vector')))
+        res = shape.spatial[coordinates.shape.get_item_names('vector')]
+        return math.clip(coordinates, 0, math.wrap(res - 1, channel('vector')))
 
     def is_copy_pad(self, dim: str, upper_edge: bool):
         """:return: True if all pad values are copies of existing values in the tensor to be padded"""

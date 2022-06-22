@@ -293,7 +293,6 @@ class Tensor:
                 selections[dim] = selection
         return sliced._getitem(selections) if selections else sliced
 
-
     def _getitem(self, selection: dict) -> 'Tensor':
         """
         Slice the tensor along specified dimensions.
@@ -1466,6 +1465,7 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
         assert data.rank == compat_shape.channel.volume
         return wrap(data.spatial.sizes, *compat_shape.channel._with_item_names((data.names,)))
     else:
+        data_type = type(data)
         backend = choose_backend(*compat_natives, data)
         try:
             other_tensor = backend.as_tensor(data, convert_external=convert)
@@ -1474,28 +1474,16 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
             raise ValueError(e)
         if len(shape) == 0:
             return NativeTensor(other_tensor, EMPTY_SHAPE)
-        elif isinstance(data, tuple):  # always channel, add vector if not available
-            ch = channel(compat_shape)
-            if ch:
-                if ch.rank == 1:
-                    assert ch.volume == len(data), f"Cannot match {data} to channel shape {ch}"
-                    return wrap(other_tensor, ch)
-                elif 'vector' in ch:
-                    assert ch.get_size('vector') == len(data), f"Cannot match {data} to vector dim of {compat_shape}"
-                    return wrap(other_tensor, ch['vector'])
-                else:
-                    raise AssertionError(f"Cannot match {data} to channel dims of {compat_shape}. Please specify the dimensions explicitly.")
-            else:
-                return wrap(data)
-        elif len(shape) == compat_shape.rank:
-            return NativeTensor(other_tensor, compat_shape.with_sizes(shape))  # TODO this can lead to errors, remove?
-        elif len(shape) == compat_shape.channel.rank:
+        elif isinstance(data, (tuple, list)):  # always channel, add vector if not available
+            data = backend.as_tensor(data)
+        if len(shape) == compat_shape.channel_rank:
             other_tensor = wrap(data, compat_shape.channel)
             return other_tensor
-        elif len(shape) == 1:
-            return NativeTensor(other_tensor, Shape(shape, ('vector',), (CHANNEL_DIM,), (None,)))
+        elif len(shape) == compat_shape.rank:
+            warnings.warn(f"Combining a phi.math.Tensor with a {data_type} of same shape is not invariant under shape permutations. Please convert the {data_type} to a phi.math.Tensor first. Shapes: {shape} and {compat_shape}", SyntaxWarning, stacklevel=5)
+            return NativeTensor(other_tensor, compat_shape.with_sizes(shape))
         else:
-            raise ValueError("Cannot broadcast object of rank %d to tensor with shape %s" % (backend.ndims(data), compat_shape))
+            raise ValueError(f"Cannot combine native tensor of shape {shape} with tensor of shape {compat_shape}")
 
 
 def broadcastable_native_tensors(*tensors):

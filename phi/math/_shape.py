@@ -64,7 +64,8 @@ class Shape:
     def _from_dict(dict_: dict):
         names = tuple(dict_['names'])
         sizes = tuple(dict_['sizes']) if 'sizes' in dict_ else (None,) * len(names)
-        return Shape(sizes, names, tuple(dict_['types']), tuple(dict_['item_names']))
+        item_names = tuple([None if n is None else tuple(n) for n in dict_['item_names']])
+        return Shape(sizes, names, tuple(dict_['types']), item_names)
 
     @property
     def _named_sizes(self):
@@ -239,6 +240,7 @@ class Shape:
                 selection = self.index(selection)
             return self[selection]
         elif isinstance(selection, (tuple, list)):
+            selection = [self.index(s) if isinstance(s, str) else s for s in selection]
             return Shape(tuple([self.sizes[i] for i in selection]), tuple([self.names[i] for i in selection]), tuple([self.types[i] for i in selection]), tuple([self.item_names[i] for i in selection]))
         raise AssertionError("Can only access shape elements as shape[int] or shape[slice]")
 

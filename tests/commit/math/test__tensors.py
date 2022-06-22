@@ -5,7 +5,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import channel, batch, DType
+from phi.math import channel, batch, DType, vec
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial, instance
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors
 from phi.math.backend import Backend
@@ -473,10 +473,8 @@ class TestTensors(TestCase):
         self.assertFalse(math.is_scalar(numpy.zeros((1,))))
 
     def test_compatible_tensor(self):
-        a = wrap([1, 2], instance('points')) * (0, 1)
-        self.assertEqual(instance(points=2) & channel(vector=2), a.shape)
-        b = wrap([1, 2], instance('points')) * [0, 1]
-        self.assertEqual(instance(points=2), b.shape)
+        a = wrap([1, 2, 3], instance('points')) * vec(x=0, y=1)
+        self.assertEqual(instance(points=3) & channel(vector='x,y'), a.shape)
 
     def test_numpy_cast(self):
         for t in [math.zeros(spatial(x=4)), math.random_uniform(spatial(x=4))]:

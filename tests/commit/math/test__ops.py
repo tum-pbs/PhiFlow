@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN
+from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN, vec
 from phi.math.backend import Backend
 
 
@@ -140,7 +140,7 @@ class TestMathFunctions(TestCase):
 
     def test_grid_sample_backend_equality_2d(self):
         grid = math.random_normal(spatial(y=10, x=7))
-        coords = math.random_uniform(batch(mybatch=10) & spatial(x=3, y=2)) * (12, 9)
+        coords = math.random_uniform(batch(mybatch=10) & spatial(x=3, y=2)) * vec(y=12, x=9)
         grid_ = math.tensor(grid.native('x,y'), spatial('x,y'))
         coords_ = coords.vector.flip()
         for extrap in (extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC):
@@ -157,7 +157,7 @@ class TestMathFunctions(TestCase):
 
     def test_grid_sample_backend_equality_2d_batched(self):
         grid = math.random_normal(batch(mybatch=10) & spatial(y=10, x=7))
-        coords = math.random_uniform(batch(mybatch=10) & spatial(x=3, y=2)) * (12, 9)
+        coords = math.random_uniform(batch(mybatch=10) & spatial(x=3, y=2)) * vec(y=12, x=9)
         grid_ = math.tensor(grid.native('mybatch,x,y'), batch('mybatch'), spatial('x,y'))
         coords_ = coords.vector.flip()
         for extrap in (extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC):

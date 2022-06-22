@@ -6,7 +6,7 @@ import phi
 from phi import math
 from phi import field
 from phi.field import Scene, CenteredGrid, StaggeredGrid
-from phi.math import batch, extrapolation, wrap, stack
+from phi.math import batch, extrapolation, wrap, stack, vec
 
 DIR = join(dirname(dirname(dirname(dirname(abspath(__file__))))), 'test_data')
 
@@ -41,8 +41,8 @@ class TestScene(TestCase):
         batched = wrap([0, 1], batch(scenes=2))
         scenes.put_properties(batched=batched,
                               non_batched=-1.,
-                              batched_tensor=batched * (2, 3),
-                              non_batched_tensor=wrap((2, 3)))
+                              batched_tensor=batched * vec(x=2, y=3),
+                              non_batched_tensor=vec(x=2, y=3))
         s0, s1 = scenes.scenes
         self.assertIsNone(s0._properties)
         self.assertEqual(0, s0.properties['batched'])
@@ -56,8 +56,8 @@ class TestScene(TestCase):
         scenes = stack([s0, s1], scenes.shape)
         math.assert_close(batched, scenes.properties['batched'])
         math.assert_close(-1, scenes.properties['non_batched'])
-        math.assert_close(batched * (2, 3), scenes.properties['batched_tensor'])
-        math.assert_close((2, 3), scenes.properties['non_batched_tensor'])
+        math.assert_close(batched * vec(x=2, y=3), scenes.properties['batched_tensor'])
+        math.assert_close(vec(x=2, y=3), scenes.properties['non_batched_tensor'])
         scenes.remove()
 
 
