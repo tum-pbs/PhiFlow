@@ -841,7 +841,7 @@ class Backend:
         atol = self.numpy(atol)
         max_iter = self.numpy(max_iter)
         batch_size = x0.shape[0]
-        fg = self.jacobian(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
         method_description = f"SciPy {method} with {self.name}"
 
         iterations = [0] * batch_size
@@ -941,7 +941,7 @@ class Backend:
         assert self.supports(Backend.jacobian)
         assert len(self.staticshape(x0)) == 2  # (batch, parameters)
         batch_size = self.staticshape(x0)[0]
-        fg = self.jacobian(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
         method = f"Gradient descent with {self.name}"
 
         iterations = self.zeros([batch_size], DType(int, 32))
