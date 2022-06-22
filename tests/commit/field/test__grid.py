@@ -97,6 +97,15 @@ class GridTest(TestCase):
             self.assertEqual(('x', 'y'), grid.values.vector.item_names)
             self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
 
+    def test_staggered_grid_from_uniform_values(self):
+        for ext in [0, extrapolation.PERIODIC, extrapolation.BOUNDARY]:
+            print(ext)
+            grid = StaggeredGrid(1, ext, x=10, y=10)
+            grid_ = StaggeredGrid(grid.uniform_values(), ext, x=10, y=10)
+            self.assertEqual(grid.shape, grid_.shape)
+            grid_ = StaggeredGrid(grid.uniform_values(), ext)
+            self.assertEqual(grid.shape, grid_.shape)
+
     def test_iter_dim(self):
         slices = tuple(StaggeredGrid(0, x=4, y=3).vector)
         self.assertEqual(2, len(slices))

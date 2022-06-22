@@ -40,12 +40,9 @@ def write(field: SampledField, file: str or Tensor):
 
 
 def write_single_field(field: SampledField, file: str):
-    if isinstance(field, StaggeredGrid):
-        data = field.staggered_tensor().numpy(field.values.shape.names)
-    else:
-        data = field.values.numpy(field.values.shape.names)
-    dim_names = field.values.shape.names
     if isinstance(field, Grid):
+        data = field.uniform_values().numpy(field.values.shape.names)
+        dim_names = field.values.shape.names
         lower = field.bounds.lower.numpy()
         upper = field.bounds.upper.numpy()
         bounds_item_names = field.bounds.size.vector.item_names
@@ -110,6 +107,9 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
         if ftype == 'CenteredGrid':
             return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extr)
         elif ftype == 'StaggeredGrid':
-            data_ = unstack_staggered_tensor(data, extr)
+            if all(extr.valid_outer_faces(d)[0] != extr.valid_outer_faces(d)[1] for d in bounds_item_names):  # uniform shape
+                data_ = data
+            else:
+                data_ = unstack_staggered_tensor(data, extr)
             return StaggeredGrid(data_, bounds=geom.Box(lower, upper), extrapolation=extr)
     raise NotImplementedError(f"{ftype} not implemented ({implemented_types})")
