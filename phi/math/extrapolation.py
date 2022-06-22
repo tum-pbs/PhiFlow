@@ -123,7 +123,7 @@ class Extrapolation:
         Returns:
             Transformed coordinates
         """
-        res = shape.spatial[coordinates.shape.get_item_names('vector')]
+        res = shape.spatial[coordinates.shape.get_item_names('vector')] if 'vector' in coordinates.shape and coordinates.shape.get_item_names('vector') else shape.spatial
         return math.clip(coordinates, 0, math.wrap(res - 1, channel('vector')))
 
     def is_copy_pad(self, dim: str, upper_edge: bool):

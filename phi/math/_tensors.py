@@ -1479,6 +1479,8 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
         if len(shape) == compat_shape.channel_rank:
             other_tensor = wrap(data, compat_shape.channel)
             return other_tensor
+        if compat_shape.channel_rank > 1 and len(shape) == 1 and 'vector' in compat_shape.channel:
+            return wrap(data, compat_shape['vector'].without_sizes())
         elif len(shape) == compat_shape.rank:
             warnings.warn(f"Combining a phi.math.Tensor with a {data_type} of same shape is not invariant under shape permutations. Please convert the {data_type} to a phi.math.Tensor first. Shapes: {shape} and {compat_shape}", SyntaxWarning, stacklevel=5)
             return NativeTensor(other_tensor, compat_shape.with_sizes(shape))
