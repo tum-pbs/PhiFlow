@@ -72,6 +72,20 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
         return plots.show(fig)
 
 
+def close(figure=None):
+    """
+    Close and destroy a figure.
+
+    Args:
+        figure: (Optional) A figure that was created using `plot()`.
+            If not specified, closes the figure created most recently.
+    """
+    if figure is None:
+        figure = LAST_FIGURE[0]
+    plots = get_plots_by_figure(figure)
+    plots.close(figure)
+
+
 RECORDINGS = {}
 
 
@@ -294,7 +308,6 @@ def plot(*fields: SampledField or Tensor or Layout,
         title = {pos: ", ".join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
-        plots.plotting_done(figure, axes)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
@@ -303,14 +316,12 @@ def plot(*fields: SampledField or Tensor or Layout,
                         plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
-            plots.plotting_done(figure, axes)
             return anim
         else:
             for pos, fields in positioning.items():
                 for f in fields:
                     plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             LAST_FIGURE[0] = figure
-            plots.plotting_done(figure, axes)
             return figure
     else:
         raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")

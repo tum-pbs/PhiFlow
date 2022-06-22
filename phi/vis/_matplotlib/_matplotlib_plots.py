@@ -116,7 +116,7 @@ class MatplotlibPlots(PlottingLibrary):
         plt.tight_layout()
         return figure
 
-    def plotting_done(self, figure, subfigures):
+    def close(self, figure):
         if isinstance(figure, plt.Figure):
             plt.close(figure)
         elif isinstance(figure, animation.FuncAnimation):

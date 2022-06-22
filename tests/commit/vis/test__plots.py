@@ -6,7 +6,7 @@ from phi import geom, field, math
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, SoftGeometryMask
 from phi.geom import Sphere, Box
 from phi.math import extrapolation, wrap, instance, channel, batch, spatial
-from phi.vis import show, overlay, plot
+from phi.vis import show, overlay, plot, close
 import matplotlib.pyplot as plt
 
 
@@ -123,3 +123,8 @@ class TestPlots(TestCase):
         anim = plot(values, animate='time', show_color_bar=False, frame_time=100, lib='matplotlib')
         anim.to_html5_video()
         # anim.save('animation.mp4')
+
+    def test_close(self):
+        fig = plot(Sphere(x=0, y=0, radius=5))
+        close(fig)
+        close()
