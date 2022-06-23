@@ -10,7 +10,7 @@ DOMAIN = dict(x=64, y=64, bounds=Box(x=100, y=100))
 velocity = StaggeredGrid((0, 0), extrapolation.ZERO, **DOMAIN)  # or use CenteredGrid
 temperature = CenteredGrid(297.15, extrapolation.BOUNDARY, **DOMAIN)
 humidity = 1 * temperature
-WINDOW = Box[30:45, 80:95]
+WINDOW = Box(x=(30, 45), y=(80, 95))
 # WINDOW = CenteredGrid(, extrapolation.ZERO, **DOMAIN)
 pressure = None
 fog = None

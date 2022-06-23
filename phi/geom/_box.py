@@ -6,6 +6,7 @@ import numpy as np
 from phi import math
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, spatial
+from ..math._shape import parse_dim_order
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
 from ..math.magic import slicing_dict
@@ -144,17 +145,18 @@ class BoxType(type):
     """ Deprecated. Does not support item names. """
 
     def __getitem__(self, item):
-        if not isinstance(item, (tuple, list)):
-            item = [item]
+        assert isinstance(item, tuple) and isinstance(item[0], str), "The Box constructor was updated in Φ-Flow version 2.2. Please add the dimension order as a comma-separated string as the first argument, e.g. Box['x,y', 0:1, 1:2] or use the kwargs constructor Box(x=1, y=(1, 2))"
         assert len(item) <= 3, f"Box[...] can only be used for x, y, z but got {len(item)} elements"
+        dim_order = parse_dim_order(item[0])
+        assert len(dim_order) == len(item) - 1, f"Dimension order '{item[0]}' does not match number of slices, {len(item) - 1}"
         lower = []
         upper = []
-        for dim in item:
+        for dim_name, dim in zip(dim_order, item[1:]):
             assert isinstance(dim, slice)
             assert dim.step is None or dim.step == 1, "Box: step must be 1 but is %s" % dim.step
             lower.append(dim.start if dim.start is not None else -np.inf)
             upper.append(dim.stop if dim.stop is not None else np.inf)
-        vec = math.channel(vector=tuple('xyz'[:len(item)]))
+        vec = math.channel(vector=dim_order)
         lower = math.stack(lower, vec)
         upper = math.stack(upper, vec)
         return Box(lower, upper)
@@ -171,6 +173,13 @@ class Box(BaseBox, metaclass=BoxType):
     ```python
     Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
     Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
+    ```
+
+    The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.
+
+    ```python
+    Box['x,y', 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+    Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     ```
     """
 

@@ -22,7 +22,7 @@ class FlipTest(TestCase):
 
     def test_falling_block_short(self):
         """ Tests if a block of liquid has a constant shape during free fall for 4 steps. """
-        particles = initial_particles = distribute_points(union(Box[12:20, 110:120]), x=32, y=128) * (0, -10)
+        particles = initial_particles = distribute_points(union(Box['x,y', 12:20, 110:120]), x=32, y=128) * (0, -10)
         initial_bounds = data_bounds(particles)
         for i in range(4):
             particles = step(particles, [], dt=0.05, x=32, y=128)
@@ -31,8 +31,8 @@ class FlipTest(TestCase):
 
     def test_boundary_push(self):
         """ Tests if particles really get puhsed outside of obstacles and domain boundaries. """
-        OBSTACLE = Box[20:40, 10:30]
-        particles = distribute_points(union(Box[20:38, 20:50], Box[50:60, 10:50]), center=True, x=64, y=64) * (10, 0)
+        OBSTACLE = Box['x,y', 20:40, 10:30]
+        particles = distribute_points(union(Box['x,y', 20:38, 20:50], Box['x,y', 50:60, 10:50]), center=True, x=64, y=64) * (10, 0)
         particles = advect.points(particles, particles, 1)
         assert math.any(OBSTACLE.lies_inside(particles.points))
         assert math.any((~particles.bounds).lies_inside(particles.points))

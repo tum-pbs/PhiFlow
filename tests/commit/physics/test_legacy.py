@@ -12,3 +12,9 @@ class TestLegacyPhysics(TestCase):
         dom = Domain(x=16, y=16)
         dom.scalar_grid(0)
 
+    def test_domain_yx(self):
+        try:
+            box = Box[0:1, 0:1]
+            raise RuntimeError
+        except AssertionError:
+            pass

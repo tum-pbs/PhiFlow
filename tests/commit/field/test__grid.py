@@ -52,7 +52,7 @@ class GridTest(TestCase):
     #     x3 = field.unstack(v, 'x')[1]
     #     self.assertIsInstance(x1, StaggeredGrid)
     #     field.assert_close(x1, x2, x3)
-    #     self.assertEqual(x1.bounds, Box[1:2, 0:20])
+    #     self.assertEqual(x1.bounds, Box['x,y', 1:2, 0:20])
 
     def test_slice_centered_grid(self):
         g = CenteredGrid(Noise(batch(batch=10), channel(vector=2)), x=10, y=20)
@@ -74,11 +74,11 @@ class GridTest(TestCase):
         math.assert_close(grid_.values.vector['y'].y[-1], 0)
 
     def test_grid_constant_extrapolation(self):
-        grid = CenteredGrid(math.random_uniform(spatial(x=50, y=10)), 0., Box[0:1, 0:1])
+        grid = CenteredGrid(math.random_uniform(spatial(x=50, y=10)), 0., Box['x,y', 0:1, 0:1])
         self.assertEqual(grid.extrapolation, extrapolation.ZERO)
-        grid = CenteredGrid(0, 0, Box[0:1, 0:1], x=50, y=10)
+        grid = CenteredGrid(0, 0, Box['x,y', 0:1, 0:1], x=50, y=10)
         self.assertEqual(grid.extrapolation, extrapolation.ZERO)
-        grid = StaggeredGrid(0, 0, Box[0:1, 0:1], x=50, y=10)
+        grid = StaggeredGrid(0, 0, Box['x,y', 0:1, 0:1], x=50, y=10)
         self.assertEqual(grid.extrapolation, extrapolation.ZERO)
 
     def test_infinite_cylinder_to_grid(self):
