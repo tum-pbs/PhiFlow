@@ -521,7 +521,7 @@ class TestMathFunctions(TestCase):
         for backend in BACKENDS:
             with backend:
                 # only values batched
-                x = math.tensor([[1, 2, 3], [11, 12, 13]], batch('batch'), spatial('x')) * (2, -1)
+                x = math.tensor([[1, 2, 3], [11, 12, 13]], batch('batch'), spatial('x')) * vec(x=2, y=-1)
                 identity_kernel1 = math.ones(spatial(x=1))
                 identity_kernel2 = math.tensor([0, 1], spatial('x'))
                 identity_kernel3 = math.tensor([0, 1, 0], spatial('x'))

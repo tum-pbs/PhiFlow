@@ -439,6 +439,9 @@ class TorchBackend(Backend):
         value = self.as_tensor(value)
         kernel = self.as_tensor(kernel)
         value, kernel = self.auto_cast(value, kernel)
+        if self.dtype(value).kind in (bool, int):
+            value = self.to_float(value)
+            kernel = self.to_float(kernel)
         if zero_padding:
             if all(s % 2 == 1 for s in kernel.shape[3:]):
                 padding = [s // 2 for s in kernel.shape[3:]]
