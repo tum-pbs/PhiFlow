@@ -635,12 +635,6 @@ class TensorDim(BoundDim):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
         return self._as(INSTANCE_DIM, name)
 
-    def rename(self, name: str):
-        """ Returns a shallow copy of the `Tensor` where this dimension has the specified name. """
-        if not self.exists:
-            return self.tensor
-        return self._as(self._dim_type, name)
-
     def as_type(self, dim_type: Callable or str):
         return self._as(dim_type('d').type if callable(dim_type) else dim_type, None)
 
