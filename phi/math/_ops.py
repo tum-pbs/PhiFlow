@@ -1362,6 +1362,14 @@ def dot(x: Tensor,
     """
     x_dims = x.shape.only(x_dims)
     y_dims = y.shape.only(y_dims)
+    if not x_dims:
+        assert y_dims.volume == 1, f"Cannot compute dot product between dimensions {x_dims} on {x.shape} and {y_dims} on {y.shape}"
+        y = y[{d: 0 for d in y_dims.names}]
+        return x * y
+    if not y_dims:
+        assert x_dims.volume == 1, f"Cannot compute dot product between dimensions {x_dims} on {x.shape} and {y_dims} on {y.shape}"
+        x = x[{d: 0 for d in x_dims.names}]
+        return x * y
     x_native = x.native(x.shape)
     y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)

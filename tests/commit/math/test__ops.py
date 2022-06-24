@@ -328,6 +328,12 @@ class TestMathFunctions(TestCase):
                 self.assertEqual(set(spatial(x=2, y=3) & batch(batch=10)), set(dot.shape), msg=backend.name)
                 math.assert_close(dot, 4, msg=backend.name)
 
+    def test_dot_missing_multiply(self):
+        w1 = math.random_uniform(channel(neurons=64, input=1), low=-1, high=1)
+        x = math.random_uniform(batch(batch=100), low=-2, high=2)
+        y = x.neurons * w1.input
+        self.assertEqual(batch(batch=100) & channel(neurons=64), y.shape)
+
     def test_range(self):
         for backend in BACKENDS:
             with backend:
