@@ -1087,12 +1087,12 @@ def shape(obj) -> Shape:
     Returns:
         `Shape`
     """
-    if hasattr(obj, '__shape__'):
+    if isinstance(obj, Shape):
+        return obj
+    elif hasattr(obj, '__shape__'):
         return obj.__shape__()
     elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
         return obj.shape
-    elif isinstance(obj, Shape):
-        return obj
     elif isinstance(obj, (int, float, complex, bool)):
         return EMPTY_SHAPE
     else:
