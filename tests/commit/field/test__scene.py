@@ -153,3 +153,8 @@ class TestScene(TestCase):
         field.assert_close(smoke, smoke_)
         field.assert_close(vel, vel_)
         scene.remove()
+
+    def test_read_legacy_centered_grid(self):
+        path = join(dirname(abspath(__file__)), 'dens_001000.npz')
+        grid = field.read(path)
+        assert isinstance(grid, CenteredGrid)
