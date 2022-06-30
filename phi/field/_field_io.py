@@ -4,7 +4,7 @@ from phi import geom
 from ._field import SampledField
 from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor
 from ._field_math import stack
-from ..math import extrapolation, wrap, tensor, Shape, channel, Tensor
+from ..math import extrapolation, wrap, tensor, Shape, channel, Tensor, spatial
 
 
 def write(field: SampledField, file: str or Tensor):
@@ -103,7 +103,7 @@ def read_single_field(file: str, convert_to_backend=True) -> SampledField:
         data = tensor(data_arr, Shape(data_arr.shape, tuple(stored['dim_names']), tuple(stored['dim_types']), tuple(dim_item_names)), convert=convert_to_backend)
         bounds_item_names = stored.get('bounds_item_names', None)
         if bounds_item_names is None or bounds_item_names.shape == ():  # None or empty array
-            bounds_item_names = tuple(stored['dim_names'])
+            bounds_item_names = spatial(data).names
         lower = wrap(stored['lower'], channel(vector=tuple(bounds_item_names))) if stored['lower'].ndim > 0 else wrap(stored['lower'])
         upper = wrap(stored['upper'], channel(vector=tuple(bounds_item_names)))
         extr = extrapolation.from_dict(stored['extrapolation'][()])
