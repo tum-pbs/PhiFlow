@@ -71,6 +71,8 @@ def make_incompressible(velocity: GridType,
     """
     assert isinstance(obstacles, (tuple, list)), f"obstacles must be a tuple or list but got {type(obstacles)}"
     obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
+    for obstacle in obstacles:
+        assert obstacle.geometry.vector.item_names == velocity.vector.item_names, f"Obstacles must live in the same physical space as the velocity field {velocity.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}"
     input_velocity = velocity
     # --- Create masks ---
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
