@@ -243,7 +243,8 @@ def u_net(in_channels: int,
           filters: int or tuple or list = 16,
           batch_norm: bool = True,
           activation='ReLU',
-          in_spatial: tuple or int = 2) -> StaxNet:
+          in_spatial: tuple or int = 2,
+          use_res_blocks: bool = False) -> StaxNet:
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
@@ -256,9 +257,15 @@ def u_net(in_channels: int,
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
     # Create layers
-    inc_init, inc_apply = create_double_conv(d, filters[0], filters[0], batch_norm, activation)
+    if use_res_blocks:
+        inc_init, inc_apply = resnet_block(in_channels, filters[0], batch_norm, activation, d)
+    else:
+        inc_init, inc_apply = create_double_conv(d, filters[0], filters[0], batch_norm, activation)
     init_functions, apply_functions = {}, {}
     for i in range(1, levels):
+        if use_res_blocks:
+            init_functions[f'down{i}'], apply_functions[f'down{i}'] = resnet_block(filters[i-1], filters[i], batch_norm, activation, d)
+            init_functions[f'up{i}'], apply_functions[f'up{i}'] = resnet_block(in_channels if (i-2<0) else filters[i-2], filters[i-1], batch_norm, activation)
         init_functions[f'down{i}'], apply_functions[f'down{i}'] = create_double_conv(d, filters[i], filters[i], batch_norm, activation)
         init_functions[f'up{i}'], apply_functions[f'up{i}'] = create_double_conv(d, filters[i - 1], filters[i - 1], batch_norm, activation)
     outc_init, outc_apply = CONV[d](out_channels, (1,) * d, padding='same')
@@ -303,7 +310,7 @@ def u_net(in_channels: int,
     return net
 
 
-ACTIVATIONS = {'ReLU': stax.Relu, 'Sigmoid': stax.Sigmoid, 'tanh': stax.Tanh}
+ACTIVATIONS = {'ReLU': stax.Relu, 'Sigmoid': stax.Sigmoid, 'tanh': stax.Tanh, 'SiLU' : stax.Selu}
 CONV = [None,
         functools.partial(stax.GeneralConv, ('NWC', 'WIO', 'NWC')),
         functools.partial(stax.GeneralConv, ('NWHC', 'WHIO', 'NWHC')),

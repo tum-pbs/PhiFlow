@@ -151,7 +151,8 @@ def u_net(in_channels: int,
           filters: int or tuple or list = 16,
           batch_norm: bool = True,
           activation: str or Callable = 'ReLU',
-          in_spatial: tuple or int = 2) -> keras.Model:
+          in_spatial: tuple or int = 2,
+          use_res_blocks: bool = False) -> keras.Model:
     if isinstance(in_spatial, int):
         d = in_spatial
         in_spatial = (None,) * d
@@ -165,16 +166,16 @@ def u_net(in_channels: int,
         filters = (filters,) * levels
     # --- Construct the U-Net ---
     x = inputs = keras.Input(shape=in_spatial + (in_channels,))
-    x = double_conv(x, d, filters[0], filters[0], batch_norm, activation)
+    x = resnet_block(in_channels, out_channels, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[0], filters[0], batch_norm, activation)
     xs = [x]
     for i in range(1, levels):
         x = MAX_POOL[d](2, padding="same")(x)
-        x = double_conv(x, d, filters[i], filters[i], batch_norm, activation)
+        x = resnet_block(x.shape[-1], out_channels, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i], filters[i], batch_norm, activation)
         xs.insert(0, x)
     for i in range(1, levels):
         x = UPSAMPLE[d](2)(x)
         x = kl.Concatenate()([x, xs[i]])
-        x = double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
+        x = resnet_block(x.shape[-1], out_channels, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
     x = CONV[d](out_channels, 1)(x)
     return keras.Model(inputs, x)
 
@@ -182,7 +183,7 @@ def u_net(in_channels: int,
 CONV = [None, kl.Conv1D, kl.Conv2D, kl.Conv3D]
 MAX_POOL = [None, kl.MaxPool1D, kl.MaxPool2D, kl.MaxPool3D]
 UPSAMPLE = [None, kl.UpSampling1D, kl.UpSampling2D, kl.UpSampling3D]
-ACTIVATIONS = {'tanh': keras.activations.tanh, 'ReLU': keras.activations.relu, 'Sigmoid': keras.activations.sigmoid}
+ACTIVATIONS = {'tanh': keras.activations.tanh, 'ReLU': keras.activations.relu, 'Sigmoid': keras.activations.sigmoid, 'SiLU': keras.activations.selu}
 
 
 def pad_periodic(x:Tensor):
@@ -241,6 +242,13 @@ def resnet_block(in_channels : int,
                  activation: str or Callable = 'ReLU',
                  in_spatial : int or tuple = 2) -> keras.Model:
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    if isinstance(in_spatial, int):
+        d = (None,) * in_spatial
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = in_spatial
+        in_spatial = len(d)
+
     d = (None,) * in_spatial
     x = inputs = keras.Input(d + (in_channels,))
 
