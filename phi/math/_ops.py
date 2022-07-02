@@ -245,7 +245,7 @@ def copy(value: Tensor):
     return value._op1(lambda native: choose_backend(native).copy(native))
 
 
-def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='vector'):
+def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='vector', spatial_dim=None):
     """
     Calls `f` with the native representations of the `inputs` tensors in standard layout and returns the result as a `Tensor`.
 
@@ -261,15 +261,18 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
 
     Args:
         f: Function to be called on native tensors of `inputs`.
-            The function output must have the same dimension layout as the inputs and the batch size must be identical.
+            The function output must have the same dimension layout as the inputs, unless overridden by `spatial_dim`,
+            and the batch size must be identical.
         *inputs: Uniform `Tensor` arguments
         channels_last: (Optional) Whether to put channels as the last dimension of the native representation.
             If `None`, the channels are put in the default position associated with the current backend,
             see `phi.math.backend.Backend.prefers_channels_last()`.
         channel_dim: Name of the channel dimension of the result.
+        spatial_dim: Name of the spatial dimension of the result.
 
     Returns:
-        `Tensor` with batch and spatial dimensions of `inputs` and single channel dimension `channel_dim`.
+        `Tensor` with batch and spatial dimensions of `inputs`, unless overridden by `spatial_dim`,
+        and single channel dimension `channel_dim`.
     """
     if channels_last is None:
         try:
@@ -290,7 +293,13 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
     if isinstance(output, (tuple, list)):
         raise NotImplementedError()
     else:
-        groups = (batch, *spatial, channel_dim) if channels_last else (batch, channel_dim, *spatial)
+        if spatial_dim is None:
+            groups = (batch, *spatial, channel_dim) if channels_last else (batch, channel_dim, *spatial)
+        else:
+            if isinstance(spatial_dim, str):
+                spatial_dim = spatial(spatial_dim)
+            assert isinstance(spatial_dim, Shape), "spatial_dim must be a Shape or str"
+            groups = (batch, *spatial_dim, channel_dim) if channels_last else (batch, channel_dim, *spatial_dim)
         result = reshaped_tensor(output, groups, convert=False)
         if result.shape.get_size(channel_dim.name) == 1:
             result = result.dimension(channel_dim.name)[0]  # remove vector dim if not required
