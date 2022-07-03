@@ -465,6 +465,10 @@ class BoundDim:
         return self.obj.shape.get_size(self.name) if self.exists else None
 
     @property
+    def size_or_1(self):
+        return self.obj.shape.get_size(self.name) if self.exists else 1
+
+    @property
     def type(self) -> Callable:
         """
         The dimension type of this bound dimension. Must be one of `batch`, `spatial`, `instance`, `channel`.
