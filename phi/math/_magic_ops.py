@@ -72,6 +72,8 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
             dim_item_names = tuple(values.keys())
             values = tuple(values.values())
             dim = dim._with_item_names((dim_item_names,))
+        for v in values[1:]:
+            assert set(shape(v).names) == set(shape(values[0]).names), f"Stacked objects must have the same dimensions but got shapes {values[0].shape} and {v.shape}"
         # if any value implements Shapable, use their implementation
         for v in values:
             if hasattr(v, '__stack__'):
