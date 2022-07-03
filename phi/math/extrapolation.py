@@ -6,7 +6,7 @@ Extrapolations are an important part of sampled fields such as grids.
 See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
 import warnings
-from typing import Union, Dict
+from typing import Union, Dict, Callable
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
@@ -63,17 +63,23 @@ class Extrapolation:
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
         """
-        Pads a tensor using values from self.pad_values()
+        Pads a tensor using values from `self.pad_values()`.
+
+        If `value` is a linear tracer, assume pad_values() to produce constant values, independent of `value`.
+        To change this behavior, override this method.
 
         Args:
-          value: tensor to be padded
-          widths: name: str -> (lower: int, upper: int)}
-          value: Tensor: 
-          widths: dict: 
+            value: `Tensor` to be padded
+            widths: `dict` mapping `dim: str -> (lower: int, upper: int)`
+            kwargs: Additional keyword arguments for padding, passed on to `pad_values()`.
 
         Returns:
-
+            Padded `Tensor`
         """
+        from phi.math._functional import ShiftLinTracer
+        if isinstance(value, ShiftLinTracer):
+            lower = {dim: -lo for dim, (lo, _) in widths.items()}
+            return value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths, **kwargs), bias_fun=lambda b: self.pad(b, widths, **kwargs))
         already_padded = {}
         for dim, width in widths.items():
             assert (w > 0 for w in width), "Negative widths not allowed in Extrapolation.pad(). Use math.pad() instead."
@@ -117,7 +123,8 @@ class Extrapolation:
         Returns:
             Transformed coordinates
         """
-        return math.clip(coordinates, 0, math.wrap(shape.spatial - 1, channel('vector')))
+        res = shape.spatial[coordinates.shape.get_item_names('vector')] if 'vector' in coordinates.shape and coordinates.shape.get_item_names('vector') else shape.spatial
+        return math.clip(coordinates, 0, math.wrap(res - 1, channel('vector')))
 
     def is_copy_pad(self, dim: str, upper_edge: bool):
         """:return: True if all pad values are copies of existing values in the tensor to be padded"""
@@ -230,7 +237,6 @@ class ConstantExtrapolation(Extrapolation):
         derivative = get_spatial_derivative_order()
         pad_value = self.value if derivative == 0 else math.zeros()
         value = value._simplify()
-        from phi.math._functional import is_tracer
         if isinstance(value, NativeTensor):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
@@ -251,19 +257,14 @@ class ConstantExtrapolation(Extrapolation):
                         new_sizes.append(size + int(delta))
                 new_shape = value.shape.with_sizes(new_sizes)
                 return CollapsedTensor(value._inner, new_shape)
-        # elif isinstance(value, SparseLinearOperation):
-        #     return pad_operator(value, pad_width, mode)
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim)
-        elif is_tracer(value):
-            lower = {dim: -lo for dim, (lo, _) in widths.items()}
-            return value.shift(lower, value.shape.after_pad(widths), lambda v: ZERO.pad(v, widths), lambda b: self.pad(b, widths))
         else:
-            raise NotImplementedError()
+            return Extrapolation.pad(self, value, widths, **kwargs)
 
     def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         shape = value.shape.after_gather({dim: slice(0, width)})
@@ -374,7 +375,7 @@ class _CopyExtrapolation(Extrapolation):
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
         value = value._simplify()
-        from phi.math._functional import is_tracer
+        from phi.math._functional import ShiftLinTracer
         if isinstance(value, NativeTensor):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
@@ -405,7 +406,7 @@ class _CopyExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
             tensors = [self.pad(t, inner_widths) for t in value.tensors]
             return TensorStack(tensors, value.stack_dim)
-        elif is_tracer(value):
+        elif isinstance(value, ShiftLinTracer):
             return self._pad_linear_tracer(value, widths)
         else:
             raise NotImplementedError(f'{type(value)} not supported')
@@ -507,18 +508,18 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
 
         """
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
-        result = value.shift(lower, value.shape.after_pad(widths), lambda v: ZERO.pad(v, widths), lambda b: ZERO.pad(b, widths))  # inner values  ~half the computation time
+        result = value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths), bias_fun=lambda b: ZERO.pad(b, widths))  # inner values  ~half the computation time
         for bound_dim, (bound_lo, bound_hi) in widths.items():
             for i in range(bound_lo):  # i=0 means outer
                 # this sets corners to 0
                 lower = {dim: -i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
                 mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
-                boundary = value.shift(lower, result.shape, lambda v: self.pad(v, widths) * mask, lambda b: ZERO.pad(b, widths))
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))
                 result += boundary
             for i in range(bound_hi):
                 lower = {dim: i - lo - hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
                 mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
-                boundary = value.shift(lower, result.shape, lambda v: self.pad(v, widths) * mask, lambda b: ZERO.pad(b, widths))  # ~ half the computation time
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))  # ~ half the computation time
                 result += boundary  # this does basically nothing if value is the identity
         return result
 
@@ -576,7 +577,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
         if value.shape.get_sizes(tuple(widths.keys())) != value.source.shape.get_sizes(tuple(widths.keys())):
             raise NotImplementedError("Periodicity does not match input: %s but input has %s. This can happen when padding an already padded or sliced tensor." % (value.shape.only(tuple(widths.keys())), value.source.shape.only(tuple(widths.keys()))))
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
-        return value.shift(lower, value.shape.after_pad(widths), lambda v: self.pad(v, widths), lambda b: ZERO.pad(b, widths))
+        return value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: self.pad(v, widths), bias_fun=lambda b: ZERO.pad(b, widths))
 
     def shortest_distance(self, start: Tensor, end: Tensor, domain_size: Tensor):
         dx = end - start
@@ -1094,3 +1095,25 @@ def order_by_shape(shape: Shape, sequence, default=None) -> tuple or list:
         return sequence
     else:  # just a constant
         return sequence
+
+
+def map(f: Callable[[Extrapolation], Extrapolation], extrapolation):
+    """
+    Applies a function to all leaf extrapolations in `extrapolation`.
+    Non-leaves are those created by `combine_sides()` and `combine_by_direction()`.
+
+    The tree will be collapsed if possible.
+
+    Args:
+        f: Function mapping a leaf `Extrapolation` to another `Extrapolation`.
+        extrapolation: Input tree for `f`.
+
+    Returns:
+        `Extrapolation`
+    """
+    if isinstance(extrapolation, _MixedExtrapolation):
+        return combine_sides(**{dim: (map(f, lo), map(f, up)) for dim, (lo, up) in extrapolation.ext.items()})
+    elif isinstance(extrapolation, _NormalTangentialExtrapolation):
+        return combine_by_direction(map(f, extrapolation.normal), map(f, extrapolation.tangential))
+    else:
+        return f(extrapolation)

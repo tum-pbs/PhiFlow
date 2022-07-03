@@ -351,7 +351,8 @@ def conv_net(in_channels:int,
 
 class ResNet_Block(nn.Module):
 
-    def __init__(self, in_spatial: int, in_channels: int, out_channels: int, batch_norm: bool, activation:str or type):
+
+    def __init__(self, in_spatial, in_channels, out_channels, batch_norm, activation):
         #Since in_channels and out_channels might be different
         # we need a sampling layer for up/down sampling input
         # in order to add it as a skip connection
@@ -402,7 +403,7 @@ class ResNet(nn.Module):
             x = getattr(self, f'Res{i}')(x)
         x = getattr(self, 'Res_out')(x)
         return x
-
+      
 def res_net(in_channels : int,
             out_channels : int,
             layers : tuple,

@@ -587,6 +587,7 @@ def tensor_as_field(t: Tensor):
     Returns:
         `CenteredGrid` or `PointCloud`
     """
+    assert isinstance(t, Tensor), f"Tensor required but got {type(t).__name__}"
     if spatial(t):
         assert not instance(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
         bounds = Box(math.const_vec(-0.5, spatial(t)), math.wrap(spatial(t), channel('vector')) - 0.5)
@@ -594,10 +595,11 @@ def tensor_as_field(t: Tensor):
     if instance(t):
         assert not spatial(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
         assert 'vector' in t.shape, f"Cannot interpret tensor as PointCloud because it has not vector dimension."
-        point_count = instance(t).volume
-        bounds = data_bounds(t)
-        radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
-        return PointCloud(Sphere(t, radius=radius))
+        # point_count = instance(t).volume
+        # bounds = data_bounds(t)
+        # radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
+        return PointCloud(t)
+    raise ValueError(f"Tensor with shape {t.shape} cannot be converted to a Field because it has not spatial or instance dimensions.")
 
 
 def pack_dims(field: SampledFieldType,

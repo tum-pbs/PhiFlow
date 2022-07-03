@@ -72,6 +72,20 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
         return plots.show(fig)
 
 
+def close(figure=None):
+    """
+    Close and destroy a figure.
+
+    Args:
+        figure: (Optional) A figure that was created using `plot()`.
+            If not specified, closes the figure created most recently.
+    """
+    if figure is None:
+        figure = LAST_FIGURE[0]
+    plots = get_plots_by_figure(figure)
+    plots.close(figure)
+
+
 RECORDINGS = {}
 
 
@@ -239,7 +253,7 @@ def plot(*fields: SampledField or Tensor or Layout,
          row_dims: str or Shape or tuple or list or Callable = None,
          col_dims: str or Shape or tuple or list or Callable = batch,
          animate: str or Shape or tuple or list or Callable = None,
-         title: Tensor = None,
+         title: str or Tensor = None,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
@@ -294,7 +308,6 @@ def plot(*fields: SampledField or Tensor or Layout,
         title = {pos: ", ".join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
-        plots.plotting_done(figure, axes)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
@@ -303,14 +316,12 @@ def plot(*fields: SampledField or Tensor or Layout,
                         plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
-            plots.plotting_done(figure, axes)
             return anim
         else:
             for pos, fields in positioning.items():
                 for f in fields:
                     plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             LAST_FIGURE[0] = figure
-            plots.plotting_done(figure, axes)
             return figure
     else:
         raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
@@ -345,7 +356,7 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         else:
             dim0 = data.shape[0]
             if dim0.only(animate):
-                data = math.stack(data.native(), batch('_animate'))
+                data = math.stack(data.native(), dim0)
                 return layout_sub_figures(data, row_dims, col_dims, animate, offset_row, offset_col, positioning, base_index)
             elements = data.unstack(dim0.name)
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
@@ -370,7 +381,7 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
             data = field.tensor_as_field(data)
         elif isinstance(data, Geometry):
             data = PointCloud(data)
-        assert isinstance(data, Field), data
+        assert isinstance(data, Field), f"Cannot plot {type(data)}. Only tensors, geometries and fields can be plotted."
         animate = data.shape.only(animate)
         row_shape = batch(data).only(row_dims).without(animate)
         col_shape = batch(data).only(col_dims).without(row_dims).without(animate)

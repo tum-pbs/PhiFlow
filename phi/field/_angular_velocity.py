@@ -6,7 +6,7 @@ from phi import math
 from ._field import Field
 from .numerical import Scheme
 from ..geom import Geometry
-from ..math import Shape, GLOBAL_AXIS_ORDER, spatial
+from ..math import Shape, spatial
 
 
 class AngularVelocity(Field):
@@ -31,7 +31,8 @@ class AngularVelocity(Field):
         self.strength = strength
         self.falloff = falloff
         self.component = component
-        spatial_names = [GLOBAL_AXIS_ORDER.axis_name(i, location.vector.size) for i in range(location.vector.size)]
+        spatial_names = location.vector.item_names
+        assert spatial_names is not None, "location.vector must list spatial dimensions as item names"
         self._shape = location.shape & spatial(**{dim: 1 for dim in spatial_names})
 
     def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:

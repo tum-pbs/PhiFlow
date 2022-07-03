@@ -47,7 +47,6 @@ class TestFunctional(TestCase):
                 math.assert_close(scalar_mul(x, fac=1), 1, msg=backend)
 
     def test_jit_compile_linear(self):
-        math.GLOBAL_AXIS_ORDER.x_last()
         x = math.random_normal(batch(batch=3) & spatial(x=4, y=3))  # , vector=2
 
         def linear_function(val):
@@ -84,7 +83,7 @@ class TestFunctional(TestCase):
                 with backend:
                     x_data = math.tensor(2.)
                     y_data = math.tensor(1.)
-                    dx, = math.functional_gradient(f, wrt=[0], get_output=False)(x_data, y_data)
+                    dx = math.functional_gradient(f, wrt=0, get_output=False)(x_data, y_data)
                     math.assert_close(dx, 1, msg=backend.name)
                     dx, dy = math.functional_gradient(f, [0, 1], get_output=False)(x_data, y_data)
                     math.assert_close(dx, 1, msg=backend.name)
@@ -151,8 +150,8 @@ class TestFunctional(TestCase):
                     math.assert_close(x, 1, abs_tolerance=1e-3, msg=backend.name)
                     math.assert_close(y, -1, abs_tolerance=1e-3, msg=backend.name)
                     math.assert_close(solves[0].residual, 0, abs_tolerance=1e-4)
-                    assert (solves[0].iterations <= (4, 0)).all
-                    assert (solves[0].function_evaluations <= (30, 1)).all
+                    assert (solves[0].iterations <= [4, 0]).all
+                    assert (solves[0].function_evaluations <= [30, 1]).all
 
                     with math.SolveTape(record_trajectories=True) as trajectories:
                         x, y = math.minimize(loss, math.Solve('L-BFGS-B', 0, 1e-3, x0=x0))
@@ -230,7 +229,7 @@ class TestFunctional(TestCase):
             math.assert_close(solves[solve].residual.values, 0, abs_tolerance=1e-3)
 
     def test_solve_diverge(self):
-        y = math.ones(spatial(x=2)) * (1, 2)
+        y = math.ones(spatial(x=2)) * [1, 2]
         x0 = math.zeros(spatial(x=2))
         for method in ['CG']:
             solve = Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
@@ -314,7 +313,7 @@ class TestFunctional(TestCase):
                     x = math.tensor([(0.01, 1, 2)], channel('vector', 'v'))
                     y = math.tensor([1., 2.], batch('batch'))
                     (L, x, y), g, H, = eval_hessian(x, y)
-                    math.assert_close(L, (5.0001, 10.0002), msg=backend.name)
+                    math.assert_close(L, [5.0001, 10.0002], msg=backend.name)
                     math.assert_close(g.batch[0].vector[0], (0.02, 2, 4), msg=backend.name)
                     math.assert_close(g.batch[1].vector[0], (0.04, 4, 8), msg=backend.name)
                     math.assert_close(2, H.v1[0].v2[0].batch[0], H.v1[1].v2[1].batch[0], H.v1[2].v2[2].batch[0], msg=backend.name)
@@ -332,7 +331,7 @@ class TestFunctional(TestCase):
         def loss_function(x):
             return math.l2_loss(x)
 
-        gradient_function = math.functional_gradient(loss_function)
+        gradient_function = math.functional_gradient(loss_function, wrt=0)
 
         for backend in BACKENDS:
             if backend.supports(Backend.jacobian):

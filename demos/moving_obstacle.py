@@ -13,7 +13,7 @@ def move_obstacle(obs: Obstacle):
     return obs.copied_with(geometry=new_geometry)
 
 
-obstacle = Obstacle((Box[5:11, 10:16]), velocity=[1., 0], angular_velocity=tensor(0,))
+obstacle = Obstacle(Box(x=(5, 11), y=(10, 16)), velocity=[1., 0], angular_velocity=tensor(0,))
 velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 obstacle_mask = CenteredGrid(HardGeometryMask(obstacle.geometry), extrapolation.BOUNDARY, **DOMAIN)
 pressure = None

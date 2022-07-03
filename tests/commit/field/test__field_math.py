@@ -21,21 +21,21 @@ class TestFieldMath(TestCase):
         self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
 
     def test_spatial_gradient_batched(self):
-        bounds = geom.stack([Box[0:1, 0:1], Box[0:10, 0:10]], batch('batch'))
+        bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
         grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
         grad = field.spatial_gradient(grid)
         self.assertIsInstance(grad, CenteredGrid)
 
     def test_laplace_batched(self):
-        bounds = geom.stack([Box[0:1, 0:1], Box[0:10, 0:10]], batch('batch'))
+        bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
         grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
         lap = field.laplace(grid)
         self.assertIsInstance(lap, CenteredGrid)
 
     def test_divergence_centered(self):
-        v = CenteredGrid(1, extrapolation.ZERO, bounds=Box[0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
+        v = CenteredGrid(1, extrapolation.ZERO, bounds=Box['x,y', 0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
         div = field.divergence(v).values
-        math.assert_close(div.y[0], (1.5, 0, -1.5))
+        math.assert_close(div.y[0], [1.5, 0, -1.5])
 
     def test_trace_function(self):
         def f(x: StaggeredGrid, y: CenteredGrid):
@@ -154,11 +154,11 @@ class TestFieldMath(TestCase):
         math.assert_close(field.center_of_mass(density), (2, 2.5))
 
     def test_curl_2d_centered_to_staggered(self):
-        pot = CenteredGrid(Box[1:2, 1:2], x=4, y=3)
+        pot = CenteredGrid(Box['x,y', 1:2, 1:2], x=4, y=3)
         curl = field.curl(pot, type=StaggeredGrid)
         math.assert_close(field.mean(curl), 0)
-        math.assert_close(curl.values.vector[0].x[1], (1, -1))
-        math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))
+        math.assert_close(curl.values.vector[0].x[1], [1, -1])
+        math.assert_close(curl.values.vector[1].y[1], [-1, 1, 0])
 
     def test_curl_2d_staggered_to_centered(self):
         velocity = StaggeredGrid((2, 0), extrapolation.BOUNDARY, x=2, y=2)
@@ -166,9 +166,9 @@ class TestFieldMath(TestCase):
         self.assertEqual(spatial(x=3, y=3), curl.resolution)
 
     def test_integrate_all(self):
-        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:10, 0:10])
+        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box['x,y', 0:10, 0:10])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y'))
-        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:1, 0:1])
+        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box['x,y', 0:1, 0:1])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y') / 100)
 
     def test_tensor_as_field(self):
@@ -179,5 +179,4 @@ class TestFieldMath(TestCase):
         math.assert_close(grid.points.x[0].y[0], 0)
         t = math.random_normal(instance(points=5), channel(vector='x,y'))
         points = field.tensor_as_field(t)
-        self.assertTrue((points.elements.bounding_radius() > 0).all)
         self.assertIsInstance(points, PointCloud)

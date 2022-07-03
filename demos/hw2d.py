@@ -45,8 +45,7 @@ def diffuse(arr, N, dx):
 def step_gradient_2d(plasma, phi, N=0, nu=0, c1=0, arak=0, kappa=0, dt=0):
     """time gradient of model"""
     # Calculate Gradients
-    grad_phi = field.spatial_gradient(phi, stack_dim=channel("gradient"))
-    dx_p, dy_p = grad_phi.values.gradient.unstack_spatial("x,y")
+    dx_p, dy_p = field.spatial_gradient(phi, stack_dim=channel("grad")).grad
     # Get difference
     diff = phi - plasma.density
     # Step 2.1: New Omega.

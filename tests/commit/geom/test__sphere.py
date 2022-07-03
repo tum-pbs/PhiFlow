@@ -37,6 +37,12 @@ class TestSphere(TestCase):
         self.assertEqual(s1, u.union[0])
         self.assertEqual(s2, u.union[1])
 
+    def test_project(self):
+        sphere = Sphere(x=4, y=3, radius=1)
+        self.assertEqual(Sphere(x=4, radius=1), sphere.vector['x'])
+        self.assertEqual(sphere, sphere.vector['x,y'])
+        self.assertEqual(Sphere(x=4, radius=1), sphere['x'])
+
     # def test_box_constructor(self):
     #     try:
     #         Box(0, (1, 1))
@@ -56,15 +62,6 @@ class TestSphere(TestCase):
     #     u = union(b1, b2)
     #     self.assertEqual(b1, u.union[0])
     #     self.assertEqual(b2, u.union[1])
-    #
-    # def test_project(self):
-    #     box = Box(x=4, y=3)
-    #     self.assertEqual(Box(x=4), box.project('x'))
-    #     self.assertEqual(box, box.project('x', 'y'))
-    #     # Slicing vector
-    #     box = Box(x=4, y=3)
-    #     self.assertEqual(Box(x=4), box.vector['x'])
-    #     self.assertEqual(box, box.vector['x,y'])
     #
     # def test_without(self):
     #     box = Box(x=4, y=3)

@@ -81,9 +81,9 @@ def all_available(*values: Tensor) -> bool:
     Returns:
         `True` if no value is a placeholder or being traced, `False` otherwise.
     """
-    from phi.math._functional import is_tracer
+    from phi.math._functional import ShiftLinTracer
     for value in values:
-        if is_tracer(value):
+        if isinstance(value, ShiftLinTracer):
             return False
         natives = value._natives()
         natives_available = [choose_backend(native).is_available(native) for native in natives]
@@ -270,7 +270,7 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
     """
     Calls `f` with the native representations of the `inputs` tensors in standard layout and returns the result as a `Tensor`.
 
-    All inputs are converted to native tensors depending on `channels_last`:
+    All inputs are converted to native tensors (including precision cast) depending on `channels_last`:
 
     * `channels_last=True`: Dimension layout `(total_batch_size, spatial_dims..., total_channel_size)`
     * `channels_last=False`: Dimension layout `(total_batch_size, total_channel_size, spatial_dims...)`
@@ -605,7 +605,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), assign_item_names=Tr
         return stack_tensors(channels, stack_dim)
 
 
-def linspace(start: int or Tensor, stop, number: int or Shape, dim: Shape = channel('linspace')) -> Tensor:
+def linspace(start: int or Tensor, stop, dim: Shape) -> Tensor:
     """
     Returns `number` evenly spaced numbers between `start` and `stop`.
 
@@ -615,22 +615,19 @@ def linspace(start: int or Tensor, stop, number: int or Shape, dim: Shape = chan
     Args:
         start: First value, `int` or `Tensor`.
         stop: Last value, `int` or `Tensor`.
-        number: How many numbers to return, `int`.
-        dim: Dimension name and type as `Shape` object. The `size` of `dim` is ignored.
+        dim: Linspace dimension of integer size.
+            The size determines how many values to linearly space between `start` and `stop`.
+            The values will be laid out along `dim`.
 
     Returns:
         `Tensor`
     """
-    if isinstance(number, Shape):
-        dim = number
-        number = number.size
-    assert dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
-    assert isinstance(number, int), f"Number of points must be an int but got {number}"
+    assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
     if is_scalar(start) and is_scalar(stop):
-        native = choose_backend(start, stop, number, prefer_default=True).linspace(start, stop, number)
-        return NativeTensor(native, dim.with_sizes([number]))
+        native_linspace = choose_backend(start, stop, prefer_default=True).linspace(start, stop, dim.size)
+        return NativeTensor(native_linspace, dim)
     else:
-        return map_(linspace, start, stop, number=number, dim=dim)
+        return map_(linspace, start, stop, dim=dim)
 
 
 def arange(dim: Shape, start_or_stop: int or None = None, stop: int or None = None, step=1):
@@ -788,7 +785,10 @@ def grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation', *
     """
     Samples values of `grid` at the locations referenced by `coordinates`.
     Values lying in between sample points are determined via linear interpolation.
+
     For values outside the valid bounds of `grid` (`coord < 0 or coord > grid.shape - 1`), `extrap` is used to determine the neighboring grid values.
+    If the extrapolation does not support resampling, the grid is padded by one cell layer before resampling.
+    In that case, values lying further outside will not be sampled according to the extrapolation.
 
     Args:
         grid: Grid with at least one spatial dimension and no instance dimensions.
@@ -1362,6 +1362,14 @@ def dot(x: Tensor,
     """
     x_dims = x.shape.only(x_dims)
     y_dims = y.shape.only(y_dims)
+    if not x_dims:
+        assert y_dims.volume == 1, f"Cannot compute dot product between dimensions {x_dims} on {x.shape} and {y_dims} on {y.shape}"
+        y = y[{d: 0 for d in y_dims.names}]
+        return x * y
+    if not y_dims:
+        assert x_dims.volume == 1, f"Cannot compute dot product between dimensions {x_dims} on {x.shape} and {y_dims} on {y.shape}"
+        x = x[{d: 0 for d in x_dims.names}]
+        return x * y
     x_native = x.native(x.shape)
     y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)
@@ -1394,7 +1402,10 @@ def dot(x: Tensor,
 
 def _backend_op1(x, unbound_method) -> Tensor or PhiTreeNode:
     if isinstance(x, Tensor):
-        return x._op1(lambda native: getattr(choose_backend(native), unbound_method.__name__)(native))
+        def apply_op(native_tensor):
+            return getattr(choose_backend(native_tensor), unbound_method.__name__)(native_tensor)
+        apply_op.__name__ = unbound_method.__name__
+        return x._op1(apply_op)
     elif isinstance(x, PhiTreeNode):
         return copy_with(x, **{a: _backend_op1(getattr(x, a), unbound_method) for a in value_attributes(x)})
     else:

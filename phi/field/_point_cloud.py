@@ -6,8 +6,9 @@ from phi.geom import Geometry, GridCell, Box, Point
 from ._field import SampledField
 from .numerical import Scheme
 from ..geom._stack import GeometryStack
-from ..math import Tensor, instance
+from ..math import Tensor, instance, Shape
 from ..math.extrapolation import Extrapolation
+from ..math.magic import slicing_dict
 
 
 class PointCloud(SampledField):
@@ -50,7 +51,8 @@ class PointCloud(SampledField):
     def shape(self):
         return self._elements.shape.without('vector') & self._values.shape
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
         if not item:
             return self
         elements = self.elements[{dim: selection for dim, selection in item.items() if dim != 'vector'}]
@@ -172,6 +174,7 @@ def nonzero(field: SampledField):
 
 
 def distribute_points(geometries: tuple or list or Geometry or float,
+                      dim: Shape = instance('points'),
                       points_per_cell: int = 8,
                       color: str = None,
                       center: bool = False,
@@ -183,6 +186,7 @@ def distribute_points(geometries: tuple or list or Geometry or float,
 
     Args:
         geometries: Geometry objects marking the cells which should contain points
+        dim: Dimension along which the points are listed.
         points_per_cell: Number of points for each cell of `geometries`
         color (Optional): Color of PointCloud
         center: Set all points to the center of the grid cells.
@@ -198,7 +202,7 @@ def distribute_points(geometries: tuple or list or Geometry or float,
         from phi.geom import union
         geometries = union(geometries)
     geometries = CenteredGrid(geometries, extrapolation, **domain)
-    initial_points = _distribute_points(geometries.values, points_per_cell, center=center)
+    initial_points = _distribute_points(geometries.values, dim, points_per_cell, center=center)
     if radius is None:
         from phi.field._field_math import data_bounds
         radius = math.mean(data_bounds(initial_points).size) * 0.005
@@ -206,7 +210,7 @@ def distribute_points(geometries: tuple or list or Geometry or float,
     return PointCloud(Sphere(initial_points, radius=radius), extrapolation=geometries.extrapolation, color=color, bounds=geometries.bounds)
 
 
-def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool = False) -> math.Tensor:
+def _distribute_points(mask: math.Tensor, dim: Shape, points_per_cell: int = 1, center: bool = False) -> math.Tensor:
     """
     Generates points (either uniformly distributed or at the cell centers) according to the given tensor mask.
 
@@ -219,11 +223,11 @@ def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool
     Returns:
         A tensor containing the positions of the generated points.
     """
-    indices = math.to_float(math.nonzero(mask, list_dim=instance('points')))
+    indices = math.to_float(math.nonzero(mask, list_dim=dim))
     temp = []
     for _ in range(points_per_cell):
         if center:
             temp.append(indices + 0.5)
         else:
             temp.append(indices + (math.random_uniform(indices.shape)))
-    return math.concat(temp, dim=instance('points'))
+    return math.concat(temp, dim=dim)

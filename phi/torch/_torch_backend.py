@@ -439,6 +439,9 @@ class TorchBackend(Backend):
         value = self.as_tensor(value)
         kernel = self.as_tensor(kernel)
         value, kernel = self.auto_cast(value, kernel)
+        if self.dtype(value).kind in (bool, int):
+            value = self.to_float(value)
+            kernel = self.to_float(kernel)
         if zero_padding:
             if all(s % 2 == 1 for s in kernel.shape[3:]):
                 padding = [s // 2 for s in kernel.shape[3:]]
@@ -647,7 +650,7 @@ class TorchBackend(Backend):
             assert t.requires_grad
         return args, wrt_args
 
-    def jacobian(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         @wraps(f)
         def eval_grad(*args):
             args, wrt_args = self._prepare_graph_inputs(args, wrt)
@@ -746,9 +749,9 @@ class TorchBackend(Backend):
 
         return eval_hessian
 
-    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         jit = self.jit_compile(f)
-        return self.jacobian(jit, wrt, get_output)
+        return self.jacobian(jit, wrt, get_output, is_f_scalar)
 
     def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
         jit = self.jit_compile(f)

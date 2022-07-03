@@ -52,8 +52,9 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     Args:
         values: Sequence of `Shapable` objects to be stacked.
             If a `dict`, keys must be of type `str` and are used as item names along `dim`.
-        dim: Single-dimension `Shape`. This dimension must not be present with any of the `values`.
-            The size along `dim` is determined from `len(values)` and can be set to undefined (`None`).
+        dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
+            If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
+            If `dim` is a multi-dimension shape, its volume must be equal to `len(values)`.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -62,38 +63,63 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
         `Tensor` containing `values` stacked along `dim`.
     """
     assert len(values) > 0, f"stack() got empty sequence {values}"
-    assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got '{dim}'"
-    assert dim.size == len(values) or dim.size is None, f"dim size must match len(values) or be undefined but got {dim} for {len(values)} values"
-    if dim.size is None:
-        dim = dim.with_size(len(values))
-    if isinstance(values, dict):
-        dim_item_names = tuple(values.keys())
-        values = tuple(values.values())
-        dim = dim._with_item_names((dim_item_names,))
-    # if any value implements Shapable, use their implementation
-    for v in values:
-        if hasattr(v, '__stack__'):
-            result = v.__stack__(values, dim, **kwargs)
-            if result is not NotImplemented:
-                assert isinstance(result, Shapable), "__stack__ must return a Shapable object"
-                return result
-    # Fallback: use expand and concat
-    for v in values:
-        if not hasattr(v, '__stack__') and hasattr(v, '__concat__') and hasattr(v, '__expand__'):
-            exp_values = tuple([expand(v, dim.with_size(1), **kwargs) for v in values])
-            if len(exp_values) > 8:
-                warnings.warn(f"stack() default implementation is slow on large dimensions ({dim.name}={len(exp_values)}). Please implement __stack__()", RuntimeWarning, stacklevel=2)
-            result = v.__concat__(exp_values, dim.name, **kwargs)
-            if result is not NotImplemented:
-                assert isinstance(result, Shapable), "__concat__ must return a Shapable object"
-                return result
-    # else maybe all values are native scalars
-    from ._tensors import wrap
-    try:
-        values = tuple([wrap(v) for v in values])
-    except ValueError:
-        raise MagicNotImplemented(f"At least one item in values must be Shapable but got types {[type(v) for v in values]}")
-    return values[0].__stack__(values, dim, **kwargs)
+    assert isinstance(dim, Shape)
+    if dim.rank == 1:
+        assert dim.size == len(values) or dim.size is None, f"stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values"
+        if dim.size is None:
+            dim = dim.with_size(len(values))
+        if isinstance(values, dict):
+            dim_item_names = tuple(values.keys())
+            values = tuple(values.values())
+            dim = dim._with_item_names((dim_item_names,))
+        for v in values[1:]:
+            assert set(shape(v).names) == set(shape(values[0]).names), f"Stacked objects must have the same dimensions but got shapes {values[0].shape} and {v.shape}"
+        # if any value implements Shapable, use their implementation
+        for v in values:
+            if hasattr(v, '__stack__'):
+                result = v.__stack__(values, dim, **kwargs)
+                if result is not NotImplemented:
+                    assert isinstance(result, Shapable), "__stack__ must return a Shapable object"
+                    return result
+        # Fallback: use expand and concat
+        for v in values:
+            if not hasattr(v, '__stack__') and hasattr(v, '__concat__') and hasattr(v, '__expand__'):
+                exp_values = tuple([expand(v, dim.with_size(1), **kwargs) for v in values])
+                if len(exp_values) > 8:
+                    warnings.warn(f"stack() default implementation is slow on large dimensions ({dim.name}={len(exp_values)}). Please implement __stack__()", RuntimeWarning, stacklevel=2)
+                result = v.__concat__(exp_values, dim.name, **kwargs)
+                if result is not NotImplemented:
+                    assert isinstance(result, Shapable), "__concat__ must return a Shapable object"
+                    return result
+        # else maybe all values are native scalars
+        from ._tensors import wrap
+        try:
+            values = tuple([wrap(v) for v in values])
+        except ValueError:
+            raise MagicNotImplemented(f"At least one item in values must be Shapable but got types {[type(v) for v in values]}")
+        return values[0].__stack__(values, dim, **kwargs)
+    else:
+        assert dim.volume == len(values), f"When passing multiple stack dims, their volume must equal len(values) but got {dim} for {len(values)} values"
+        if isinstance(values, dict):
+            warnings.warn(f"When stacking a dict along multiple dimensions, the key names are discarded. Got keys {tuple(values.keys())}", RuntimeWarning, stacklevel=2)
+            values = tuple(values.values())
+        # if any value implements Shapable, use stack and unpack_dim
+        for v in values:
+            if hasattr(v, '__stack__') and hasattr(v, '__unpack_dim__'):
+                stack_dim = batch('_stack')
+                stacked = v.__stack__(values, stack_dim, **kwargs)
+                if stacked is not NotImplemented:
+                    assert isinstance(stacked, Shapable), "__stack__ must return a Shapable object"
+                    assert hasattr(stacked, '__unpack_dim__'), "If a value supports __unpack_dim__, the result of __stack__ must also support it."
+                    reshaped = stacked.__unpack_dim__(stack_dim.name, dim, **kwargs)
+                    if kwargs is NotImplemented:
+                        warnings.warn("__unpack_dim__ is overridden but returned NotImplemented during multi-dimensional stack. This results in unnecessary stack operations.", RuntimeWarning, stacklevel=2)
+                    else:
+                        return reshaped
+        # Fallback: multi-level stack
+        for dim_ in reversed(dim):
+            values = [stack(values[i:i + dim_.size], dim_, **kwargs) for i in range(0, len(values), dim_.size)]
+        return values[0]
 
 
 def concat(values: tuple or list, dim: str or Shape, **kwargs):

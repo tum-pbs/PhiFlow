@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 import phi
-from phi.math import NUMPY, spatial, batch
+from phi.math import NUMPY, spatial, batch, extrapolation
 from phi.math.extrapolation import *
 from phi import math
 
@@ -167,3 +167,8 @@ class TestExtrapolation(TestCase):
         self.assertEqual(ZERO, ext * ZERO)
         self.assertEqual(ext, abs(ext))
 
+    def test_map(self):
+        ext = combine_by_direction(normal=ONE, tangential=PERIODIC)
+        self.assertEqual(ext, extrapolation.map(lambda e: e, ext))
+        ext = combine_sides(x=PERIODIC, y=(ONE, BOUNDARY))
+        self.assertEqual(ext, extrapolation.map(lambda e: e, ext))

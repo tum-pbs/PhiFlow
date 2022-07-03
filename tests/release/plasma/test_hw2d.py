@@ -108,7 +108,7 @@ with math.precision(64):
                 dx=dx,
             )
             # Phi version
-            domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box[0:L, 0:L])
+            domain = Domain(x=x, y=y, boundaries=PERIODIC, bounds=Box['x,y', 0:L, 0:L])
             hw_state_phi = Namespace(
                 density=domain.grid(
                     math.tensor(init_values * density_coeff, spatial('x, y'))

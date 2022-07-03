@@ -54,6 +54,7 @@ class TestBox(TestCase):
         box = Box(x=4, y=3)
         self.assertEqual(Box(x=4), box.vector['x'])
         self.assertEqual(box, box.vector['x,y'])
+        self.assertEqual(Box(x=4), box['x'])
 
     def test_without(self):
         box = Box(x=4, y=3)
@@ -100,3 +101,8 @@ class TestBox(TestCase):
     def test_cuboid_constructor_kwargs(self):
         c = Cuboid(x=2., y=1.)
         math.assert_close(c.lower, -c.upper, (-1, -.5))
+
+    def test_slicing_constructor(self):
+        box = Box(x=(1, 2), y=(2, None))
+        self.assertEqual(box, Box['x,y', 1:2, 2:])
+

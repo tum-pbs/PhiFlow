@@ -160,7 +160,7 @@ class TestPoissonSolvers(TestCase):
             sine = get_2d_sine((x, y), L)
             # Define
             init_values = sine  # rnd_noise
-            domain = dict(x=x, y=y, extrapolation=extrapolation.PERIODIC, bounds=Box[0:L, 0:L])
+            domain = dict(x=x, y=y, extrapolation=extrapolation.PERIODIC, bounds=Box['x,y', 0:L, 0:L])
             sine_grid = CenteredGrid(math.tensor(init_values, spatial('x, y')), **domain)
             reference = FFT_solve_numpy(sine_grid.values.numpy(order='z,y,x')[0], dx)
             solver_dict = {
