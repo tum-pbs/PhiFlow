@@ -356,7 +356,7 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         else:
             dim0 = data.shape[0]
             if dim0.only(animate):
-                data = math.stack(data.native(), batch('_animate'))
+                data = math.stack(data.native(), dim0)
                 return layout_sub_figures(data, row_dims, col_dims, animate, offset_row, offset_col, positioning, base_index)
             elements = data.unstack(dim0.name)
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
