@@ -179,5 +179,4 @@ class TestFieldMath(TestCase):
         math.assert_close(grid.points.x[0].y[0], 0)
         t = math.random_normal(instance(points=5), channel(vector='x,y'))
         points = field.tensor_as_field(t)
-        self.assertTrue((points.elements.bounding_radius() > 0).all)
         self.assertIsInstance(points, PointCloud)
