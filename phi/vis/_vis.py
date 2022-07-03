@@ -253,7 +253,7 @@ def plot(*fields: SampledField or Tensor or Layout,
          row_dims: str or Shape or tuple or list or Callable = None,
          col_dims: str or Shape or tuple or list or Callable = batch,
          animate: str or Shape or tuple or list or Callable = None,
-         title: Tensor = None,
+         title: str or Tensor = None,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
@@ -381,7 +381,7 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
             data = field.tensor_as_field(data)
         elif isinstance(data, Geometry):
             data = PointCloud(data)
-        assert isinstance(data, Field), data
+        assert isinstance(data, Field), f"Cannot plot {type(data)}. Only tensors, geometries and fields can be plotted."
         animate = data.shape.only(animate)
         row_shape = batch(data).only(row_dims).without(animate)
         col_shape = batch(data).only(col_dims).without(row_dims).without(animate)
