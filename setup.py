@@ -144,7 +144,7 @@ setup(
               'phi.vis._console',
               'phi.vis._dash',
               'phi.vis._matplotlib',
-              'phi.vis._widgets'],
+          ],
     cmdclass={
         'tf_cuda': CudaCommand,
     },
