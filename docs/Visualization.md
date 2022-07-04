@@ -8,7 +8,6 @@ They allow you to see neural network predictions as the network is being trained
 The following interfaces are currently available:
 
 - [`dash`](Web_Interface.md) web interface hosts a web server
-- [`widgets`](Widgets.md) for Jupyter notebooks
 - [`console`](ConsoleUI.md) for command line applications
 
 ### Viewing Data
@@ -22,7 +21,7 @@ data = Domain(x=32, y=32).scalar_grid(Noise())
 view(data, gui=None)
 ```
 With `gui=None` (default) an appropriate interface is automatically selected based on the environment and installed packages.
-Otherwise, the type of interface can be specified with `gui='dash'`, `gui='widgets'` or `gui='console'`.
+Otherwise, the type of interface can be specified with `gui='dash'` or `gui='console'`.
 
 ### Batch Selection
 When the viewed data are batched, the GUI will try to plot all examples at once which may result in crowded plots.

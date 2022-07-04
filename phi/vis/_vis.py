@@ -25,7 +25,7 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
          **config):
     """
     If `model` is a user interface model, launches the registered user interface.
-    This will typically be the widgets interface for Jupyter or Colab notebooks, the Dash web interface for scripts or the console interface if the above are not available.
+    This will typically be the Dash web interface or the console interface if dash is not available.
     This method prepares the `model` before showing it. No more fields should be added to the vis after this method is invoked.
 
     See Also:
@@ -127,7 +127,7 @@ def view(*fields: str or SampledField,
             If not provided, the user namespace is searched for Field variables.
         play: Whether to immediately start executing loops.
         gui: (Optional) Name of GUI as `str` or GUI class.
-            Built-in GUIs can be selected via `'dash'`, `'console'` and `'widgets'`.
+            Built-in GUIs can be selected via `'dash'`, `'console'`.
             See https://tum-pbs.github.io/PhiFlow/Visualization.html
         name: (Optional) Name to display in GUI and use for the output directory if `scene=True`.
             Will be generated from the top-level script if not provided.
@@ -449,7 +449,7 @@ def default_gui() -> Gui:
     if GUI_OVERRIDES:
         return GUI_OVERRIDES[-1]
     if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
-        options = ['widgets']
+        raise NotImplementedError("There is currently no GUI support for Python notebooks. Use `vis.plot()` to display plots or animations instead.")
     else:
         options = ['dash', 'console']
     for option in options:
@@ -470,12 +470,6 @@ def get_gui(gui: str or Gui) -> Gui:
         elif gui == 'console':
             from ._console import ConsoleGui
             return ConsoleGui()
-        # elif gui == 'matplotlib':
-        #     from ._matplotlib.matplotlib_gui import MatplotlibGui
-        #     return MatplotlibGui()
-        elif gui == 'widgets':
-            from ._widgets import WidgetsGui
-            return WidgetsGui()
         else:
             raise NotImplementedError(f"No display available with name {gui}")
     elif isinstance(gui, Gui):
