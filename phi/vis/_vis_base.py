@@ -338,14 +338,14 @@ class PlottingLibrary:
                       size: tuple,
                       rows: int,
                       cols: int,
-                      subplots: Dict[Tuple[int, int], Box],
+                      spaces: Dict[Tuple[int, int], Box],
                       titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         """
         Args:
             size: Figure size in inches.
             rows: Number of sub-figures laid out vertically.
             cols: Number of sub-figures laid out horizontally.
-            subplots: Axes and range per sub-plot: `(x,y) -> Box`. Only subplot locations contained as keys should be plotted.
+            spaces: Axes and range per sub-plot: `(x,y) -> Box`. Only subplot locations contained as keys should be plotted.
                 To indicate automatic limit, the box will have a lower or upper limit of -inf or inf, respectively.
             titles: Subplot titles.
 
@@ -362,6 +362,7 @@ class PlottingLibrary:
              data: SampledField,
              figure,
              subplot,
+             space: Box,
              min_val: float = None,
              max_val: float = None,
              show_color_bar: bool = True,

@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib import animation, cbook
 from matplotlib import rc
 from matplotlib.transforms import Bbox
+from mpl_toolkits.mplot3d import Axes3D
 
 from phi import math, field
 from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
@@ -31,7 +32,7 @@ class MatplotlibPlots(PlottingLibrary):
                       size: tuple,
                       rows: int,
                       cols: int,
-                      subplots: Dict[Tuple[int, int], Box],
+                      spaces: Dict[Tuple[int, int], Box],
                       titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         figure, axes = plt.subplots(rows, cols, figsize=size)
         self.current_figure = figure
@@ -40,11 +41,11 @@ class MatplotlibPlots(PlottingLibrary):
         for row in range(rows):
             for col in range(cols):
                 axis = axes[row, col]
-                if (row, col) not in subplots:
+                if (row, col) not in spaces:
                     axis.remove()
                 else:
                     axis.set_title(titles.get((row, col), None))
-                    bounds = subplots[(row, col)]
+                    bounds = spaces[(row, col)]
                     if bounds.spatial_rank == 1:
                         axis.set_xlabel(bounds.vector.item_names[0])
                         axis.set_xlim(_get_range(bounds, 0))
@@ -103,6 +104,7 @@ class MatplotlibPlots(PlottingLibrary):
              data: SampledField,
              figure,
              subplot,
+             space: Box,
              min_val: float = None,
              max_val: float = None,
              show_color_bar: bool = True,
@@ -112,7 +114,7 @@ class MatplotlibPlots(PlottingLibrary):
             [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
         """
         # plt.tight_layout()
-        _plot(subplot, data, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
+        _plot(subplot, data, space, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
         plt.tight_layout()
         return figure
 
@@ -155,8 +157,9 @@ def _default_color(i: int):
     return default_colors[i % len(default_colors)]
 
 
-def _plot(axis, data: SampledField, show_color_bar, vmin, vmax, **plt_args):
-    dims = data.bounds.vector.item_names
+def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **plt_args):
+    dims = space.vector.item_names
+    # dims = data.bounds.vector.item_names
     vector = data.bounds.shape['vector']
     extra_channels = data.shape.channel.without('vector')
     if isinstance(data, Grid) and data.spatial_rank == 1:  # Line plot
@@ -187,7 +190,12 @@ def _plot(axis, data: SampledField, show_color_bar, vmin, vmax, **plt_args):
             left, bottom = data.bounds.lower.vector[dim_indices]
             right, top = data.bounds.upper.vector[dim_indices]
         extent = (float(left), float(right), float(bottom), float(top))
-        im = axis.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
+        if space.spatial_rank == 3:  # surface plot
+            z = data.values.numpy(dims)
+            x, y = math.reshaped_numpy(data.points, [vector, *spatial(data)])
+            im = axis.plot_surface(x, y, z, **plt_args)
+        else:  # heatmap
+            im = axis.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
         if show_color_bar:
             figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in axis.figure.axes])
             if vmin is None or vmax is None or not figure_has_color_bar:

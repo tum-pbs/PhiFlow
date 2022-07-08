@@ -47,7 +47,7 @@ class PlotlyPlots(PlottingLibrary):
     def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
         raise NotImplementedError()
 
-    def plot(self, data: SampledField, figure: graph_objects.Figure, subplot, min_val: float = None, max_val: float = None,
+    def plot(self, data: SampledField, figure: graph_objects.Figure, subplot, space: Box, min_val: float = None, max_val: float = None,
              show_color_bar: bool = True, **plt_args):
         _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val)
 

@@ -313,14 +313,14 @@ def plot(*fields: SampledField or Tensor or Layout,
                 for pos, fields in positioning.items():
                     for f in fields:
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
             return anim
         else:
             for pos, fields in positioning.items():
                 for f in fields:
-                    plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             LAST_FIGURE[0] = figure
             return figure
     else:
