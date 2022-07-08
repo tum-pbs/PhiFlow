@@ -257,6 +257,7 @@ class TFBackend(Backend):
 
     def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
         with self._device_for(a, b):
+            a, b = self.auto_cast(a, b, bool_to_int=True)
             return tf.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
