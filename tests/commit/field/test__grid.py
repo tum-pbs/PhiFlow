@@ -15,6 +15,12 @@ class GridTest(TestCase):
         g = StaggeredGrid(0, 0, Box(x=4, y=3), resolution=10)
         self.assertEqual(spatial(g), spatial(x=10, y=10))
 
+    def test_create_grid_float_bounds(self):
+        g = CenteredGrid(0, 0, 2, x=10, y=20)
+        math.assert_close(2, g.bounds.size)
+        self.assertEqual(('x', 'y'), g.bounds.vector.item_names)
+        math.assert_close((0.2, 0.1), g.dx)
+
     def test_staggered_grid_sizes_by_extrapolation(self):
         s = spatial(x=20, y=10)
         for initializer in [0, Noise(vector=2), (0, 1), Sphere(x=0, y=0, radius=1)]:

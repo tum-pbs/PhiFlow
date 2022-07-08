@@ -19,7 +19,9 @@ class Grid(SampledField):
     Base class for `CenteredGrid` and `StaggeredGrid`.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or Extrapolation, resolution: Shape, bounds: Box):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or Extrapolation, resolution: Shape or int, bounds: Box or float):
+        assert isinstance(bounds, Box)
+        assert isinstance(resolution, Shape)
         if bounds.size.vector.item_names is None:
             with NUMPY:
                 bounds = bounds.shifted(math.zeros(channel(vector=spatial(values).names)))
@@ -144,7 +146,7 @@ class CenteredGrid(Grid):
     def __init__(self,
                  values: Any,
                  extrapolation: Any = 0.,
-                 bounds: Box = None,
+                 bounds: Box or float = None,
                  resolution: int or Shape = None,
                  scheme: Scheme = Scheme(),
                  **resolution_: int or Tensor):
@@ -164,20 +166,22 @@ class CenteredGrid(Grid):
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
                 Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid as `phi.geom.Box`.
+                If the resolution is determined through `resolution` of `values`, a `float` can be passed for `bounds` to create a unit box.
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
+                If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         """
         if resolution is None and not resolution_:
             assert isinstance(values, math.Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
             resolution = values.shape.spatial
-            bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel('vector')))
+            bounds = _get_bounds(bounds, resolution)
             elements = GridCell(resolution, bounds)
         else:
             if isinstance(resolution, int):
                 assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
                 resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
             resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
-            bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
+            bounds = _get_bounds(bounds, resolution)
             elements = GridCell(resolution, bounds)
             if isinstance(values, math.Tensor):
                 values = math.expand(values, resolution)
@@ -272,8 +276,8 @@ class StaggeredGrid(Grid):
     def __init__(self,
                  values: Any,
                  extrapolation: float or Extrapolation = 0,
-                 bounds: Box = None,
-                 resolution: Shape = None,
+                 bounds: Box or float = None,
+                 resolution: Shape or int = None,
                  scheme: Scheme = Scheme(),
                  **resolution_: int or Tensor):
         """
@@ -293,8 +297,10 @@ class StaggeredGrid(Grid):
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
                 Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
-            bounds: Physical size and location of the grid.
+            bounds: Physical size and location of the grid as `phi.geom.Box`.
+                If the resolution is determined through `resolution` of `values`, a `float` can be passed for `bounds` to create a unit box.
             resolution: Grid resolution as purely spatial `phi.math.Shape`.
+                If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         """
         extrapolation = as_extrapolation(extrapolation)
@@ -310,6 +316,7 @@ class StaggeredGrid(Grid):
                 resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
             else:
                 resolution = spatial(values)
+            bounds = _get_bounds(bounds, resolution)
             bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
@@ -317,7 +324,7 @@ class StaggeredGrid(Grid):
                 assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
                 resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
             resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
-            bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution)))
+            bounds = _get_bounds(bounds, resolution)
             elements = staggered_elements(resolution, bounds, extrapolation)
             if isinstance(values, math.Tensor):
                 if not spatial(values):
@@ -508,3 +515,14 @@ def _sample_function(f, elements: Geometry):
         values = math.map_s2b(f)(elements.center)
     assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
     return values
+
+
+def _get_bounds(bounds: Box or float or None, resolution: Shape):
+    if bounds is None:
+        return Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
+    if isinstance(bounds, Box):
+        assert set(bounds.vector.item_names) == set(resolution.names), f"bounds dimensions {bounds.vector.item_names} must match resolution {resolution}"
+        return bounds
+    if isinstance(bounds, (int, float)):
+        return Box(math.const_vec(0, resolution), math.const_vec(bounds, resolution))
+    raise ValueError(f"bounds must be a Box, float or None but got {type(bounds).__name__}")
