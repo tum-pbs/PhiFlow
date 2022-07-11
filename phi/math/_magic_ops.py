@@ -73,7 +73,7 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
             values = tuple(values.values())
             dim = dim._with_item_names((dim_item_names,))
         for v in values[1:]:
-            assert set(shape(v).names) == set(shape(values[0]).names), f"Stacked objects must have the same dimensions but got shapes {values[0].shape} and {v.shape}"
+            assert set(shape(v).names) == set(shape(values[0]).names), f"Stacked values must have the same shape but got {values[0].shape} and {v.shape}"
         # if any value implements Shapable, use their implementation
         for v in values:
             if hasattr(v, '__stack__'):
@@ -142,6 +142,8 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
     if isinstance(dim, Shape):
         dim = dim.name
     assert isinstance(dim, str), f"dim must be a str or Shape but got '{dim}' of type {type(dim)}"
+    for v in values[1:]:
+        assert set(shape(v).names) == set(shape(values[0]).names), f"Concatenated values must have the same shape but got {values[0].shape} and {v.shape}"
     # First try __concat__
     for v in values:
         if isinstance(v, Shapable):

@@ -105,6 +105,8 @@ class Shape:
         if dim is None:
             return None
         elif isinstance(dim, str):
+            if dim not in self.names:
+                raise ValueError(f"Shape {self} has no dimension '{dim}'")
             return self.names.index(dim)
         elif isinstance(dim, Shape):
             assert dim.rank == 1, f"index() requires a single dimension as input but got {dim}. Use indices() for multiple dimensions."
@@ -206,7 +208,7 @@ class Shape:
         if isinstance(dim, int):
             result = self.item_names[dim]
         elif isinstance(dim, str):
-            result = self.item_names[self.names.index(dim)]
+            result = self.item_names[self.index(dim)]
         elif isinstance(dim, Shape):
             assert dim.rank == 1, f"Shape.get_type() only accepts single-dimension Shapes but got {dim}"
             result = self.item_names[self.names.index(dim.name)]
