@@ -150,3 +150,25 @@ class GeometryMovement(Physics):
             with struct.ALL_ITEMS:
                 next_field = struct.map(lambda x: x.copied_with(geometries=next_geometry) if isinstance(x, GeometryMask) else x, obj.field, leaf_condition=lambda x: isinstance(x, GeometryMask))
             return obj.copied_with(field=next_field, age=obj.age + dt)
+
+
+def buoyancy(density: CenteredGrid, gravity, buoyancy_factor):
+    """ Deprecated. Computes the buoyancy force proportional to the density. """
+    warnings.warn('buoyancy() is deprecated. Use (density * -gravity * buoyancy_factor).at(target_grid) instead.', DeprecationWarning, stacklevel=2)
+    if isinstance(gravity, (int, float)):
+        gravity = math.to_float(math.tensor([-gravity * buoyancy_factor] + ([0] * (density.spatial_rank - 1)), math.channel(vector=density.resolution.names)))
+    return StaggeredGrid(density.values * gravity, density.extrapolation, density.bounds)
+
+
+def divergence_free(velocity, domain=None, obstacles=(), pressure_solver=None, return_info=False, gradient='implicit'):
+    """ **Deprecated.** Projects the given velocity field by solving for and subtracting the pressure. """
+    warnings.warn('divergence_free() is deprecated. Use make_incompressible() instead.', DeprecationWarning, stacklevel=2)
+    assert gradient == 'implicit', "Only implicit gradient supported"
+    assert pressure_solver is None, "Custom pressure solvers not supported"
+    with math.SolveTape() as solves:
+        v, p = make_incompressible(velocity, obstacles)
+    if return_info:
+        divergence_field = field.divergence(velocity)  # before solve
+        return v, {'pressure': p, 'iterations': solves[0].iterations, 'divergence': divergence_field}
+    else:
+        return v
