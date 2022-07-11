@@ -64,7 +64,7 @@ PERIODIC = {
 
 class Domain:
 
-    def __init__(self, boundaries: dict or tuple or list = OPEN, resolution: math.Shape = math.EMPTY_SHAPE, bounds: Box = None, **resolution_):
+    def __init__(self, resolution: math.Shape or tuple or list = math.EMPTY_SHAPE, boundaries: dict or tuple or list = OPEN, bounds: Box = None, **resolution_):
         """
         The Domain specifies the grid resolution, physical size and boundary conditions of a simulation.
 
@@ -82,6 +82,10 @@ class Domain:
         """
         warnings.warn("Domain is deprecated and will be removed in a future release. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", DeprecationWarning, stacklevel=2)
         warnings.warn("Domain is deprecated and will be removed in a future release. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", FutureWarning, stacklevel=2)
+        if isinstance(resolution, (tuple, list)):
+            from ..math._config import GLOBAL_AXIS_ORDER
+            dims = [GLOBAL_AXIS_ORDER.axis_name(i, len(resolution)) for i in range(len(resolution))]
+            resolution = spatial(**{dim: val for dim, val in zip(dims, resolution)})
         self.resolution: math.Shape = spatial(resolution) & spatial(**resolution_)
         assert self.resolution.rank > 0, "Cannot create Domain because no dimensions were specified."
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """

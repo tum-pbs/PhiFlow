@@ -350,6 +350,10 @@ class StaggeredGrid(Grid):
         """
         return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
+    @property
+    def data(self):
+        return math.unstack(self, 'vector')
+
     def __getitem__(self, item: dict):
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
         for dim, sel in item.items():
