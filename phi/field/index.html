@@ -5749,6 +5749,10 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
         &#34;&#34;&#34;
         return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
+    @property
+    def data(self):
+        return math.unstack(self, &#39;vector&#39;)
+
     def __getitem__(self, item: dict):
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
         for dim, sel in item.items():
@@ -5826,6 +5830,18 @@ Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../mat
 <pre><code class="python">@property
 def cells(self):
     return GridCell(self.resolution, self.bounds)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.StaggeredGrid.data"><code class="name">var <span class="ident">data</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def data(self):
+    return math.unstack(self, &#39;vector&#39;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -6145,10 +6161,11 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
 </li>
 <li>
 <h4><code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="phi.field.StaggeredGrid.at_centers" href="#phi.field.StaggeredGrid.at_centers">at_centers</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.cells" href="#phi.field.StaggeredGrid.cells">cells</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.closest_values" href="#phi.field.StaggeredGrid.closest_values">closest_values</a></code></li>
+<li><code><a title="phi.field.StaggeredGrid.data" href="#phi.field.StaggeredGrid.data">data</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.staggered_tensor" href="#phi.field.StaggeredGrid.staggered_tensor">staggered_tensor</a></code></li>
 <li><code><a title="phi.field.StaggeredGrid.with_extrapolation" href="#phi.field.StaggeredGrid.with_extrapolation">with_extrapolation</a></code></li>
 </ul>

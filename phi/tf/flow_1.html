@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>phi.flow_1 API documentation</title>
-<meta name="description" content="*Compatibility import for PhiFlow 1 projects:* `from phi.flow_1 import *`" />
+<title>phi.tf.flow_1 API documentation</title>
+<meta name="description" content="Standard import for TensorFlow mode …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -19,35 +19,48 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>phi.flow_1</code></h1>
+<h1 class="title">Module <code>phi.tf.flow_1</code></h1>
 </header>
 <section id="section-intro">
-<p><em>Compatibility import for PhiFlow 1 projects:</em> <code>from phi.flow_1 import *</code></p>
+<p>Standard import for TensorFlow mode.</p>
+<p>Extends the import <code>from phi.flow import *</code> by TensorFlow-related functions and modules.</p>
+<p>The following TensorFlow modules are included: <code>tensorflow</code> / <code>tf</code>, <code>keras</code>, <code>layers</code>.</p>
+<p>Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
+New tensors created via <code><a title="phi.math" href="../math/index.html">phi.math</a></code> functions will be backed by TensorFlow tensors.</p>
+<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.torch.flow" href="../torch/flow.html">phi.torch.flow</a></code>, <code><a title="phi.jax.flow" href="../jax/flow.html">phi.jax.flow</a></code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python"># pylint: disable-msg = unused-import
+<pre><code class="python"># pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
 &#34;&#34;&#34;
-*Compatibility import for PhiFlow 1 projects:* `from phi.flow_1 import *`
+Standard import for TensorFlow mode.
+
+Extends the import `from phi.flow import *` by TensorFlow-related functions and modules.
+
+The following TensorFlow modules are included: `tensorflow` / `tf`, `keras`, `layers`.
+
+Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
+New tensors created via `phi.math` functions will be backed by TensorFlow tensors.
+
+See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 &#34;&#34;&#34;
 
-from .flow import *
-from .physics._boundaries import Obstacle, OPEN, STICKY, PERIODIC, Domain
-from .physics._effect import FieldEffect, GROW, ADD, FIX, Inflow, Accelerator, ConstantVelocity, HeatSource, ColdSource, Fan, Gravity
-from .physics._world import World, world, obstacle_mask
-from .physics._fluid_legacy import Fluid, IncompressibleFlow, GeometryMovement, divergence_free, buoyancy
-from .physics.diffuse import _explicit_legacy as diffuse
-from .field._scene import write_sim_frame
+from phi.flow_1 import *
+from . import TENSORFLOW
+from .nets import parameter_count, dense_net, u_net, save_state, load_state, update_weights, adam
+import tensorflow
+from tensorflow import keras
+from tensorflow.keras import layers
 
-physics_config = math.GLOBAL_AXIS_ORDER
-physics_config.x_last()
-box = Box
-SampledField = PointCloud
+from ..math.backend import PHI_LOGGER as _LOGGER
 
-NO_SLIP = STICKY
-# NO_STICK = SLIPPERY
-# CLOSED = SLIPPERY</code></pre>
+tf = tensorflow
+
+if not backend.context_backend():
+    backend.set_global_default_backend(TENSORFLOW)
+else:
+    _LOGGER.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -67,7 +80,7 @@ NO_SLIP = STICKY
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="phi" href="index.html">phi</a></code></li>
+<li><code><a title="phi.tf" href="index.html">phi.tf</a></code></li>
 </ul>
 </li>
 </ul>
