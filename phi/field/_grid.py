@@ -309,11 +309,7 @@ class StaggeredGrid(Grid):
             if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in spatial(values).names):  # non-uniform values required
                 if values.shape.is_uniform:
                     values = unstack_staggered_tensor(values, extrapolation)
-                any_dim = values.shape.spatial.names[0]
-                x = values.vector[any_dim]
-                ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
-                delta = int(ext_lower) + int(ext_upper) - 1
-                resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
+                resolution = resolution_from_staggered_tensor(values, extrapolation)
             else:
                 resolution = spatial(values)
             bounds = _get_bounds(bounds, resolution)
@@ -332,6 +328,8 @@ class StaggeredGrid(Grid):
                 if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in resolution.names):  # non-uniform values required
                     if values.shape.is_uniform:
                         values = unstack_staggered_tensor(values, extrapolation)
+                    else:
+                        assert resolution_from_staggered_tensor(values, extrapolation) == resolution, f"Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html"
             elif isinstance(values, Geometry):
                 values = reduce_sample(HardGeometryMask(values), elements, scheme=scheme)
             elif isinstance(values, Field):
@@ -487,6 +485,15 @@ def expand_staggered(values: Tensor, resolution: Shape, extrapolation: Extrapola
         comp_cells = cells.stagger(dim, *extrapolation.valid_outer_faces(dim))
         tensors.append(math.expand(component, comp_cells.resolution))
     return math.stack(tensors, channel(vector=resolution.names))
+
+
+def resolution_from_staggered_tensor(values: Tensor, extrapolation: Extrapolation):
+    any_dim = values.shape.spatial.names[0]
+    x = values.vector[any_dim]
+    ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
+    delta = int(ext_lower) + int(ext_upper) - 1
+    resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
+    return resolution
 
 
 def _sample_function(f, elements: Geometry):
