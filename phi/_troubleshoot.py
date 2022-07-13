@@ -66,9 +66,9 @@ def troubleshoot_tensorflow():
         else:
             import platform
             if platform.system().lower() != 'linux':
-                cuda_str = f"CUDA kernels not available and compilation not recommended on {platform.system()}."
+                cuda_str = f"Optional CUDA kernels not available and compilation not recommended on {platform.system()}. GPU will be used nevertheless."
             else:
-                cuda_str = f"CUDA kernels not available. Clone the phiflow source from GitHub and run 'python setup.py tf_cuda' to compile them."
+                cuda_str = f"Optional CUDA kernels not available. GPU will be used nevertheless. Clone the phiflow source from GitHub and run 'python setup.py tf_cuda' to compile them."
         return f"Installed ({tensorflow.__version__}), {gpu_count} GPUs available. {cuda_str}"
 
 
