@@ -13,7 +13,7 @@ from jax.interpreters.xla import DeviceArray
 
 from phi.math import DType
 from phi.math.backend import Backend, ComputeDevice
-from phi.math.backend._backend import combined_dim, SolveResult, PHI_LOGGER
+from phi.math.backend._backend import combined_dim, SolveResult, PHI_LOGGER, TensorType
 from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
 
 
@@ -24,9 +24,14 @@ config.update("jax_enable_x64", True)
 class JaxBackend(Backend):
 
     def __init__(self):
-        gpus = self.list_devices('GPU')
-        cpus = self.list_devices('CPU')
-        Backend.__init__(self, "Jax", default_device=gpus[0] if gpus else cpus[0])
+        devices = []
+        for device_type in ['cpu', 'gpu', 'tpu']:
+            try:
+                for jax_dev in jax.devices(device_type):
+                    devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev.platform.upper(), -1, -1, f"id={jax_dev.id}", jax_dev))
+            except RuntimeError as err:
+                pass  # this is just Jax not finding anything. jaxlib.xla_client._get_local_backends() could help but isn't currently available on GitHub actions
+        Backend.__init__(self, "Jax", devices, devices[-1])
         try:
             self.rnd_key = jax.random.PRNGKey(seed=0)
         except RuntimeError as err:
@@ -35,21 +40,6 @@ class JaxBackend(Backend):
 
     def prefers_channels_last(self) -> bool:
         return True
-
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        types = ['cpu', 'gpu', 'tpu'] if device_type is None else [device_type.lower()]
-        devices = []
-        for device_type in types:
-            try:
-                for jax_dev in jax.devices(device_type):
-                    devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev.platform.upper(), -1, -1, f"id={jax_dev.id}", jax_dev))
-            except RuntimeError as err:
-                pass  # this is just Jax not finding anything. jaxlib.xla_client._get_local_backends() could help but isn't currently available on GitHub actions
-        return devices
-
-    # def set_default_device(self, device: ComputeDevice or str):
-    #     Backend.set_default_device(self, device)
-    #     jax.config.update('jax_platform_name', self._default_device.device_type.lower())  # this does not work
 
     def _check_float64(self):
         if self.precision == 64:
@@ -112,6 +102,12 @@ class JaxBackend(Backend):
 
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
+
+    def get_device(self, tensor: TensorType) -> ComputeDevice:
+        return self.get_device_by_ref(tensor.device())
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        return jax.device_put(tensor, device.ref)
 
     sqrt = staticmethod(jnp.sqrt)
     exp = staticmethod(jnp.exp)

@@ -11,7 +11,7 @@ from scipy.sparse import issparse
 from scipy.sparse.linalg import cg, spsolve
 
 from . import Backend, ComputeDevice
-from ._backend import combined_dim, SolveResult
+from ._backend import combined_dim, SolveResult, TensorType
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
 
@@ -24,14 +24,11 @@ class NumPyBackend(Backend):
         else:
             mem_bytes = -1
         processors = os.cpu_count()
-        self.cpu = ComputeDevice(self, "CPU", 'CPU', mem_bytes, processors, "")
-        Backend.__init__(self, "NumPy", self.cpu)
+        cpu = ComputeDevice(self, "CPU", 'CPU', mem_bytes, processors, "", 'CPU')
+        Backend.__init__(self, "NumPy", [cpu], cpu)
 
     def prefers_channels_last(self) -> bool:
         return True
-
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        return [self.cpu]
 
     seed = np.random.seed
     clip = staticmethod(np.clip)
@@ -113,6 +110,13 @@ class NumPyBackend(Backend):
 
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)
+
+    def get_device(self, tensor) -> ComputeDevice:
+        return self._default_device
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        assert device == self._default_device, f"NumPy Can only allocate on the CPU but got device {device}"
+        return tensor
 
     def equal(self, x, y):
         if isinstance(x, np.ndarray) and x.dtype.char == 'U':  # string comparison

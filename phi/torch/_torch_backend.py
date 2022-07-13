@@ -11,35 +11,21 @@ import torch.nn.functional as torchf
 
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice, PHI_LOGGER
-from phi.math.backend._backend import combined_dim, SolveResult, get_functional_derivative_order
+from phi.math.backend._backend import combined_dim, SolveResult, get_functional_derivative_order, TensorType
 
 
 class TorchBackend(Backend):
 
     def __init__(self):
-        cpu = NUMPY.cpu
-        self.cpu = ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')
-        gpus = self.list_devices('GPU')
-        Backend.__init__(self, 'PyTorch', default_device=gpus[0] if gpus else cpu)
+        cpu = NUMPY.get_default_device()
+        devices = [ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')]
+        for index in range(torch.cuda.device_count()):
+            properties = torch.cuda.get_device_properties(index)
+            devices.append(ComputeDevice(self, properties.name, 'GPU', properties.total_memory, properties.multi_processor_count, f"compute capability {properties.major}.{properties.minor}", f'cuda:{index}'))
+        Backend.__init__(self, 'PyTorch', devices, devices[1 if len(devices) > 1 else 0])
 
     def prefers_channels_last(self) -> bool:
         return False
-
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        devices = []
-        if device_type in (None, 'CPU'):
-            devices.append(self.cpu)
-        if device_type in (None, 'GPU'):
-            for index in range(torch.cuda.device_count()):
-                properties = torch.cuda.get_device_properties(index)
-                devices.append(ComputeDevice(self,
-                                             properties.name,
-                                             'GPU',
-                                             properties.total_memory,
-                                             properties.multi_processor_count,
-                                             f"compute capability {properties.major}.{properties.minor}",
-                                             ref=f'cuda:{index}'))
-        return devices
 
     def is_module(self, obj):
         return isinstance(obj, (JITFunction, torch.nn.Module))
@@ -124,6 +110,12 @@ class TorchBackend(Backend):
 
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
+
+    def get_device(self, tensor: TensorType) -> ComputeDevice:
+        return self.get_device_by_ref(str(tensor.device))
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        return self.as_tensor(tensor).to(device.ref)
 
     def multi_slice(self, tensor, slices: tuple):
         neg_slices = [i for i, s in enumerate(slices) if isinstance(s, slice) and s.step is not None and s.step < 0]

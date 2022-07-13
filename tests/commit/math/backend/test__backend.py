@@ -26,3 +26,11 @@ class TestBackends(TestCase):
                 np1 = source_backend.numpy(data)
                 np2 = target_backend.numpy(converted)
                 numpy.testing.assert_equal(np1, np2)
+
+    def test_allocate_on_device(self):
+        for backend in BACKENDS:
+            t = backend.zeros(())
+            assert backend.get_device(t) == backend.get_default_device()
+            t_ = backend.allocate_on_device(t, backend.get_default_device())
+            assert backend.get_device(t_) == backend.get_default_device()
+

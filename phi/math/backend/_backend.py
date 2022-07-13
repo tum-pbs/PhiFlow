@@ -3,7 +3,7 @@ import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from threading import Barrier
-from typing import List, Callable
+from typing import List, Callable, TypeVar
 
 import logging
 import numpy
@@ -15,13 +15,16 @@ SolveResult = namedtuple('SolveResult', [
     'method', 'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
 ])
 
+TensorType = TypeVar('TensorType')
+
 
 class ComputeDevice:
     """
     A physical device that can be selected to perform backend computations.
     """
 
-    def __init__(self, backend: 'Backend', name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None):
+    def __init__(self, backend: 'Backend', name: str, device_type: str, memory: int, processor_count: int, description: str, ref):
+        assert device_type in ('CPU', 'GPU', 'TPU')
         self.name: str = name
         """ Name of the compute device. CPUs are typically called `'CPU'`. """
         self.device_type: str = device_type
@@ -33,7 +36,7 @@ class ComputeDevice:
         self.description: str = description
         """ Further information about the device such as driver version. """
         self.ref = ref
-        """ (Optional) Reference to the internal device representation. """
+        """ Reference to the internal device representation. Two devices are equal if their refs are equal. """
         self.backend: 'Backend' = backend
         """ Backend that this device belongs to. Different backends represent the same device with different objects. """
 
@@ -46,10 +49,16 @@ class ComputeDevice:
             descr = descr[:28] + "..."
         return f"{self.backend} device '{self.name}' ({self.device_type}{ref}) | {mem} | {pro} | {descr}"
 
+    def __eq__(self, other):
+        return isinstance(other, ComputeDevice) and other.ref == self.ref
+
+    def __hash__(self):
+        return hash(self.ref)
+
 
 class Backend:
 
-    def __init__(self, name: str, default_device: ComputeDevice):
+    def __init__(self, name: str, devices: List[ComputeDevice], default_device: ComputeDevice):
         """
         Backends delegate low-level operations to a compute library or emulate them.
 
@@ -62,6 +71,7 @@ class Backend:
             default_device: `ComputeDevice` being used by default
         """
         self._name = name
+        self._devices = tuple(devices)
         self._default_device = default_device
 
     def __enter__(self):
@@ -172,7 +182,11 @@ class Backend:
         Returns:
             `list` of all currently available devices.
         """
-        raise NotImplementedError()
+        if device_type is None:
+            return list(self._devices)
+        else:
+            assert device_type in ('CPU', 'GPU', 'TPU'), "Device"
+            return [d for d in self._devices if d.device_type == device_type]
 
     def get_default_device(self) -> ComputeDevice:
         return self._default_device
@@ -200,6 +214,26 @@ class Backend:
         assert device.backend is self, f"Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}"
         self._default_device = device
         return True
+
+    def get_device(self, tensor: TensorType) -> ComputeDevice:
+        """ Returns the device `tensor` is located on. """
+        raise NotImplementedError()
+
+    def get_device_by_ref(self, ref):
+        for device in self._devices:
+            if device.ref == ref:
+                return device
+        raise KeyError(f"{self.name} has no device with ref '{ref}'. Available: {[d.ref for d in self._devices]}")
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        """
+        Moves `tensor` to `device`. May copy the tensor if it is already on the device.
+
+        Args:
+            tensor: Existing tensor native to this backend.
+            device: Target device, associated with this backend.
+        """
+        raise NotImplementedError()
 
     def seed(self, seed: int):
         raise NotImplementedError()
