@@ -14,9 +14,9 @@ class TestPlots(TestCase):
 
     def _test_plot(self, *plottable, show_=True, **kwargs):
         fig = plot(*plottable, lib='matplotlib', **kwargs)
-        self.assertIsInstance(fig, plt.Figure)
+        self.assertIsInstance(fig.native(), plt.Figure)
         fig = plot(*plottable, lib='plotly', **kwargs)
-        self.assertIsInstance(fig, plotly.graph_objs.Figure)
+        self.assertIsInstance(fig.native(), plotly.graph_objs.Figure)
         if show_:
             show(gui='matplotlib')
             show(gui='plotly')

@@ -21,6 +21,7 @@ from ..math._tensors import Layout
 def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry,
          play=True,
          gui: Gui or str = None,
+         lib: Gui or str = None,
          keep_alive=True,
          **config):
     """
@@ -45,15 +46,17 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
       model: (Optional) `VisModel`, the application or plottable object to display.
         If unspecified, shows the most recently plotted figure.
       play: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
-      gui: (optional) class of GUI to use
+      gui: Deprecated. Use `lib` instead. (optional) class of GUI to use
+      lib: Gui class or plotting library as `str`, e.g. `'matplotlib'` or `'plotly'`
       keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     """
+    lib = lib if lib is not None else gui
     if len(model) == 1 and isinstance(model[0], VisModel):
         model[0].prepare()
         # --- Setup Gui ---
-        gui = default_gui() if gui is None else get_gui(gui)
+        gui = default_gui() if lib is None else get_gui(lib)
         gui.configure(config)
         gui.setup(model[0])
         if play:  # this needs to be done even if model cannot progress right now
@@ -64,10 +67,10 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
         else:
             gui.show(True)  # may be blocking call
     elif len(model) == 0:
-        plots = default_plots() if gui is None else get_plots(gui)
+        plots = default_plots() if lib is None else get_plots(lib)
         return plots.show(plots.current_figure)
     else:
-        plots = default_plots() if gui is None else get_plots(gui)
+        plots = default_plots() if lib is None else get_plots(lib)
         fig = plot(*model, lib=plots, **config)
         return plots.show(fig)
 
@@ -82,8 +85,13 @@ def close(figure=None):
     """
     if figure is None:
         figure = LAST_FIGURE[0]
-    plots = get_plots_by_figure(figure)
-    plots.close(figure)
+    if isinstance(figure, Tensor):
+        for fig in figure:
+            close(fig)
+    else:
+        plots = get_plots_by_figure(figure)
+        plots.close(figure)
+
 
 
 RECORDINGS = {}
@@ -245,7 +253,16 @@ def action(fun):
     return fun
 
 
-LAST_FIGURE = [None]
+LAST_FIGURE = [None]  # reference to last figure (1-element list)
+
+
+def get_current_figure():
+    """
+    Returns the figure that was most recently created using `plot()`.
+
+    The type of the figure depends on which library was used, e.g. `matplotlib.figure.Figure` or `plotly.graph_objs.Figure`.
+    """
+    return LAST_FIGURE[0]
 
 
 def plot(*fields: SampledField or Tensor or Layout,
@@ -282,8 +299,11 @@ def plot(*fields: SampledField or Tensor or Layout,
         repeat: Whether the animation should loop.
 
     Returns:
-        If all batch dimensions are reduced by `rows` and `cols`, returns a single figure created for `data`.
-        Otherwise returns a `Tensor` of figures (not yet supported).
+        `Tensor` of figure objects.
+        The tensor contains those dimensions of `fields` that were not reduced by `row_dims`, `col_dims` or `animate`.
+        Currently, only single-figure plots are supported.
+
+        In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     """
     nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, 0, 0, {}, {})
     animate = fig_shape.only(animate)
@@ -316,13 +336,14 @@ def plot(*fields: SampledField or Tensor or Layout,
                         plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
+            plots.close(figure)
             return anim
         else:
             for pos, fields in positioning.items():
                 for f in fields:
                     plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             LAST_FIGURE[0] = figure
-            return figure
+            return layout(figure)
     else:
         raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
 
