@@ -1550,6 +1550,9 @@ def real(x) -> Tensor or PhiTreeNode:
 
 def imag(x) -> Tensor or PhiTreeNode:
     """
+    Returns the imaginary part of `x`.
+    If `x` does not store complex numbers, returns a zero tensor with the same shape and dtype as this tensor.
+
     See Also:
         `real()`, `conjugate()`.
 

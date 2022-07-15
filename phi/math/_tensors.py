@@ -214,17 +214,38 @@ class Tensor:
         return finite_max(self, dim=self.shape).native()
 
     @property
-    def real(self):
+    def real(self) -> 'Tensor':
+        """
+        Returns the real part of this tensor.
+
+        See Also:
+            `phi.math.real()`
+        """
         from ._ops import real
         return real(self)
 
     @property
-    def imag(self):
+    def imag(self) -> 'Tensor':
+        """
+        Returns the imaginary part of this tensor.
+        If this tensor does not store complex numbers, returns a zero tensor with the same shape and dtype as this tensor.
+
+        See Also:
+            `phi.math.imag()`
+        """
         from ._ops import imag
         return imag(self)
 
     @property
-    def available(self):
+    def available(self) -> bool:
+        """
+        A tensor is available if it stores concrete values and these can currently be read.
+
+        Tracers used inside jit compilation are typically not available.
+
+        See Also:
+            `phi.math.jit_compile()`.
+        """
         from ._ops import all_available
         return all_available(self)
 
