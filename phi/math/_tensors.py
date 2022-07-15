@@ -11,7 +11,8 @@ from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
                      TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape)
-from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, Backend
+from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
+    Backend, ComputeDevice
 from .backend._dtype import DType
 from .magic import BoundDim, PhiTreeNode, slicing_dict
 
@@ -226,6 +227,20 @@ class Tensor:
     def available(self):
         from ._ops import all_available
         return all_available(self)
+
+    @property
+    def device(self) -> ComputeDevice or None:
+        """
+        Returns the `ComputeDevice` that this tensor is allocated on.
+        The device belongs to this tensor's `default_backend`.
+
+        See Also:
+            `Tensor.default_backend`.
+        """
+        natives = self._natives()
+        if not natives:
+            return None
+        return self.default_backend.get_device(natives[0])
 
     def __int__(self):
         return int(self.native()) if self.shape.volume == 1 else NotImplemented
