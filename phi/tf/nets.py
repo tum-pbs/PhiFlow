@@ -166,16 +166,16 @@ def u_net(in_channels: int,
         filters = (filters,) * levels
     # --- Construct the U-Net ---
     x = inputs = keras.Input(shape=in_spatial + (in_channels,))
-    x = resnet_block(in_channels, out_channels, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[0], filters[0], batch_norm, activation)
+    x = resnet_block(x, x.shape[-1], filters[0], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[0], filters[0], batch_norm, activation)
     xs = [x]
     for i in range(1, levels):
         x = MAX_POOL[d](2, padding="same")(x)
-        x = resnet_block(x.shape[-1], out_channels, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i], filters[i], batch_norm, activation)
+        x = resnet_block(x, x.shape[-1], filters[i], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i], filters[i], batch_norm, activation)
         xs.insert(0, x)
     for i in range(1, levels):
         x = UPSAMPLE[d](2)(x)
         x = kl.Concatenate()([x, xs[i]])
-        x = resnet_block(x.shape[-1], out_channels, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
+        x = resnet_block(x, x.shape[-1], filters[i-1], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
     x = CONV[d](out_channels, 1)(x)
     return keras.Model(inputs, x)
 
@@ -236,11 +236,11 @@ def conv_net(in_channels: int,
     x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
     return keras.Model(inputs, x)
 
-def resnet_block(in_channels : int,
+def resnet_block(x,in_channels : int,
                  out_channels : int,
                  batch_norm : bool = False,
                  activation: str or Callable = 'ReLU',
-                 in_spatial : int or tuple = 2) -> keras.Model:
+                 in_spatial : int or tuple = 2):
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
@@ -250,30 +250,32 @@ def resnet_block(in_channels : int,
         in_spatial = len(d)
 
     d = (None,) * in_spatial
-    x = inputs = keras.Input(d + (in_channels,))
+    #x = inputs = keras.Input(d + (in_channels,))
 
-    out = pad_periodic(x)
+    x_1 = x
+    x = pad_periodic(x)
 
-    out = CONV[in_spatial](out_channels, 3, padding='valid')(out)
+    x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
     if batch_norm:
-        out = kl.BatchNormalization()(out)
-    out = activation(out)
+        x = kl.BatchNormalization()(x)
+    x = activation(x)
 
-    out = pad_periodic(out)
+    x = pad_periodic(x)
 
-    out = CONV[in_spatial](out_channels, 3, padding='valid')(out)
+    x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
     if batch_norm:
-        out = kl.BatchNormalization()(out)
-    out = activation(out)
+        x = kl.BatchNormalization()(x)
+    x = activation(x)
 
     if in_channels != out_channels:
-        x = CONV[in_spatial](out_channels, 1)(x)
+        x_1 = CONV[in_spatial](out_channels, 1)(x_1)
         if batch_norm:
-            x = kl.BatchNormalization()(x)
+            x_1 = kl.BatchNormalization()(x_1)
 
-    out = kl.Add()([x, out])
+    x = kl.Add()([x, x_1])
     #out = activation(out)
-    return keras.Model(inputs, out)
+    return x
+    #return keras.Model(inputs, out)
 
 def res_net(in_channels: int,
             out_channels: int,
@@ -291,12 +293,12 @@ def res_net(in_channels: int,
 
     x = inputs = keras.Input(shape=d + (in_channels,))
     #print('X shape : ', x.shape)
-    out = resnet_block(in_channels, layers[0], batch_norm, activation, in_spatial)(x)
+    out = resnet_block(x, in_channels, layers[0], batch_norm, activation, in_spatial)
 
     for i in range(1, len(layers)):
-        out = resnet_block(layers[i-1], layers[i], batch_norm, activation, in_spatial)(out)
+        out = resnet_block(out, layers[i-1], layers[i], batch_norm, activation, in_spatial)
 
-    out = resnet_block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial)(out)
+    out = resnet_block(out, layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial)
     return keras.Model(inputs, out)
 
 

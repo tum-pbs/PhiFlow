@@ -287,7 +287,6 @@ class Up(nn.Module):
             if use_res_blocks:
                 conv = ResNet_Block(d, in_channels, out_channels, batch_norm, activation)
             else:
-                print('Not Using Resnet!!')
                 conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation)
         else:
             up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
@@ -358,10 +357,10 @@ class ResNet_Block(nn.Module):
         super(ResNet_Block, self).__init__()
         if in_channels != out_channels:
             self.sample_input = CONV[in_spatial](in_channels, out_channels, kernel_size=1, padding=0)
+            self.bn_sample = NORM[in_spatial](out_channels) if batch_norm else nn.Identity()
         else:
             self.sample_input = nn.Identity()
-
-        self.bn_sample = NORM[in_spatial](out_channels) if batch_norm else nn.Identity()
+            self.bn_sample = nn.Identity()
 
         self.activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
 

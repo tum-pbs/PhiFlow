@@ -265,9 +265,10 @@ def u_net(in_channels: int,
     for i in range(1, levels):
         if use_res_blocks:
             init_functions[f'down{i}'], apply_functions[f'down{i}'] = resnet_block(filters[i-1], filters[i], batch_norm, activation, d)
-            init_functions[f'up{i}'], apply_functions[f'up{i}'] = resnet_block(in_channels if (i-2<0) else filters[i-2], filters[i-1], batch_norm, activation)
-        init_functions[f'down{i}'], apply_functions[f'down{i}'] = create_double_conv(d, filters[i], filters[i], batch_norm, activation)
-        init_functions[f'up{i}'], apply_functions[f'up{i}'] = create_double_conv(d, filters[i - 1], filters[i - 1], batch_norm, activation)
+            init_functions[f'up{i}'], apply_functions[f'up{i}'] = resnet_block(filters[i] + filters[i-1], filters[i-1], batch_norm, activation, d)
+        else:
+            init_functions[f'down{i}'], apply_functions[f'down{i}'] = create_double_conv(d, filters[i], filters[i], batch_norm, activation)
+            init_functions[f'up{i}'], apply_functions[f'up{i}'] = create_double_conv(d, filters[i - 1], filters[i - 1], batch_norm, activation)
     outc_init, outc_apply = CONV[d](out_channels, (1,) * d, padding='same')
     max_pool_init, max_pool_apply = stax.MaxPool((2,) * d, padding='same', strides=(2,) * d)
     _, up_apply = create_upsample()
@@ -331,6 +332,7 @@ def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm:
 def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
 
     init_fn, apply_fn = {}, {}
+
     init_fn['conv1'], apply_fn['conv1'] = stax.serial(CONV[d](mid_channels, (3,) * d, padding='valid'),
                                           stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
                                           activation)
@@ -351,7 +353,7 @@ def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm:
     def net_apply(params, inputs):
         x = inputs
 
-        pad_tuple = [[0,0]] + [[1,1] for i in range(d)] + [[0,0]]
+        pad_tuple = [[0, 0]] + [[1, 1] for i in range(d)] + [[0, 0]]
 
         out = jnp.pad(x, pad_width=pad_tuple, mode='wrap')
         out = apply_fn['conv1'](params['conv1'], out)
@@ -599,9 +601,9 @@ def resnet_block(in_channels : int,
         pad_tuple = [[0, 0]] + [[1, 1] for i in range(in_spatial)] + [[0, 0]]
 
         out = jnp.pad(x, pad_width=pad_tuple, mode='wrap')
-        out = apply_fn['conv1'](params['conv1'], out, **kwargs)
+        out = apply_fn['conv1'](params['conv1'], out)
         out = jnp.pad(out, pad_width=pad_tuple, mode='wrap')
-        out = apply_fn['conv2'](params['conv2'], out, **kwargs)
+        out = apply_fn['conv2'](params['conv2'], out)
         skip_x = apply_fn['sample_conv'](params['sample_conv'], x, **kwargs)
         out = jnp.add(out, skip_x)
         #out = apply_activation(params['activation'], out)
