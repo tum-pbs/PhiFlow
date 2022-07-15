@@ -165,7 +165,7 @@ class JaxBackend(Backend):
             for v in values:
                 self.block_until_ready(v)
 
-    def jacobian(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         if get_output:
             jax_grad_f = jax.value_and_grad(f, argnums=wrt, has_aux=True)
             @wraps(f)

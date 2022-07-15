@@ -2,10 +2,11 @@ from unittest import TestCase
 
 from os.path import dirname, abspath, join, basename
 
+import phi
 from phi import math
 from phi import field
 from phi.field import Scene, CenteredGrid, StaggeredGrid
-from phi.math import batch, extrapolation
+from phi.math import batch, extrapolation, wrap, stack, vec
 
 DIR = join(dirname(dirname(dirname(dirname(abspath(__file__))))), 'test_data')
 
@@ -34,6 +35,31 @@ class TestScene(TestCase):
         scene = Scene.at(scene.path)
         self.assertEqual(4, len(scene.properties))
         scene.remove()
+
+    def test_batched_properties(self):
+        scenes = Scene.create(DIR, batch(scenes=2))
+        batched = wrap([0, 1], batch(scenes=2))
+        scenes.put_properties(batched=batched,
+                              non_batched=-1.,
+                              batched_tensor=batched * vec(x=2, y=3),
+                              non_batched_tensor=vec(x=2, y=3))
+        s0, s1 = scenes.scenes
+        self.assertIsNone(s0._properties)
+        self.assertEqual(0, s0.properties['batched'])
+        self.assertEqual(1, s1.properties['batched'])
+        self.assertEqual(-1, s0.properties['non_batched'])
+        self.assertEqual(-1, s1.properties['non_batched'])
+        math.assert_close((0, 0), s0.properties['batched_tensor'])
+        math.assert_close((2, 3), s1.properties['batched_tensor'])
+        math.assert_close((2, 3), s0.properties['non_batched_tensor'])
+        math.assert_close((2, 3), s1.properties['non_batched_tensor'])
+        scenes = stack([s0, s1], scenes.shape)
+        math.assert_close(batched, scenes.properties['batched'])
+        math.assert_close(-1, scenes.properties['non_batched'])
+        math.assert_close(batched * vec(x=2, y=3), scenes.properties['batched_tensor'])
+        math.assert_close(vec(x=2, y=3), scenes.properties['non_batched_tensor'])
+        scenes.remove()
+
 
     def test_create_remove_at_equality_batch(self):
         scene = Scene.create(DIR, batch=2, config=3)
@@ -82,6 +108,9 @@ class TestScene(TestCase):
         smoke__, vel__ = scene.read('smoke', 'vel')
         field.assert_close(smoke, smoke__)
         field.assert_close(vel, vel__)
+        # read without Scene
+        smoke_ = phi.field.read(join(scene.path, "smoke_000000.npz"))
+        field.assert_close(smoke, smoke_)
         scene.remove()
 
     def test_write_read_batch_matching(self):
@@ -124,3 +153,10 @@ class TestScene(TestCase):
         field.assert_close(smoke, smoke_)
         field.assert_close(vel, vel_)
         scene.remove()
+
+    def test_read_legacy_centered_grid(self):
+        path = join(dirname(abspath(__file__)))
+        density = field.read(join(path, 'dens_001000.npz'))
+        assert isinstance(density, CenteredGrid)
+        velocity = field.read(join(path, 'velo_001000.npz'))
+        assert isinstance(velocity, StaggeredGrid)

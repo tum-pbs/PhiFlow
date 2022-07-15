@@ -8,13 +8,13 @@ from phi.flow import *
 
 DOMAIN = dict(x=128, y=128, bounds=Box(x=100, y=100))
 
-OBSTACLE_GEOMETRIES = [Box[15 + x * 7:15 + (x + 1) * 7, 41:83] for x in range(1, 10, 2)] + [Box[43:50, 41:48], Box[15:43, 83:90], Box[50:85, 83:90]]
+OBSTACLE_GEOMETRIES = [Box(x=(15 + x * 7, 15 + (x + 1) * 7), y=(41, 83)) for x in range(1, 10, 2)] + [Box['x,y', 43:50, 41:48], Box['x,y', 15:43, 83:90], Box['x,y', 50:85, 83:90]]
 OBSTACLE = Obstacle(union(OBSTACLE_GEOMETRIES))
 OBSTACLE_MASK = HardGeometryMask(OBSTACLE.geometry) @ CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 
-INFLOW = CenteredGrid(Box[14:21, 6:10], extrapolation.BOUNDARY, **DOMAIN) + \
-         CenteredGrid(Box[81:88, 6:10], extrapolation.BOUNDARY, **DOMAIN) * 0.9 + \
-         CenteredGrid(Box[44:47, 49:51], extrapolation.BOUNDARY, **DOMAIN) * 0.4
+INFLOW = CenteredGrid(Box['x,y', 14:21, 6:10], extrapolation.BOUNDARY, **DOMAIN) + \
+         CenteredGrid(Box['x,y', 81:88, 6:10], extrapolation.BOUNDARY, **DOMAIN) * 0.9 + \
+         CenteredGrid(Box['x,y', 44:47, 49:51], extrapolation.BOUNDARY, **DOMAIN) * 0.4
 velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 smoke = pressure = divergence = remaining_divergence = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 

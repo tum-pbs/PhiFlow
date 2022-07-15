@@ -16,7 +16,7 @@ from phi import math, field
 from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
 from phi.field._scene import _str
 from phi.geom import Sphere, BaseBox, Point, Box
-from phi.math import Tensor, batch, channel, spatial, instance
+from phi.math import Tensor, batch, channel, spatial, instance, non_channel
 from phi.math.backend import PHI_LOGGER
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name, PlottingLibrary
@@ -116,7 +116,7 @@ class MatplotlibPlots(PlottingLibrary):
         plt.tight_layout()
         return figure
 
-    def plotting_done(self, figure, subfigures):
+    def close(self, figure):
         if isinstance(figure, plt.Figure):
             plt.close(figure)
         elif isinstance(figure, animation.FuncAnimation):
@@ -276,7 +276,8 @@ def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
             shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, color)]
         c = matplotlib.collections.PatchCollection(shapes, match_original=True)
         axis.add_collection(c)
-    _annotate_points(axis, data.points, instance(data))
+    if non_channel(data).rank == 1 and non_channel(data).item_names[0]:
+        _annotate_points(axis, data.points, non_channel(data))
 
 
 def _annotate_points(axis, points: math.Tensor, labelled_dim: math.Shape):

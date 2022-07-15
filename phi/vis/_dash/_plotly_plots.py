@@ -51,7 +51,7 @@ class PlotlyPlots(PlottingLibrary):
              show_color_bar: bool = True, **plt_args):
         _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val)
 
-    def plotting_done(self, figure, subfigures):
+    def close(self, figure):
         pass
 
     def show(self, figure: graph_objects.Figure):

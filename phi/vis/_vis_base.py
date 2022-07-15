@@ -368,7 +368,7 @@ class PlottingLibrary:
              **plt_args):
         raise NotImplementedError()
 
-    def plotting_done(self, figure, subfigures):
+    def close(self, figure):
         raise NotImplementedError()
 
     def show(self, figure):

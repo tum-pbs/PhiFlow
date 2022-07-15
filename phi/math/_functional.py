@@ -10,7 +10,8 @@ import numpy as np
 from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, to_float
 from ._magic_ops import stack, unpack_dim
-from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes
+from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, \
+    concat_shapes, non_batch, shape
 from ._tensors import Tensor, NativeTensor, disassemble_tree, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
 from .magic import PhiTreeNode
 from .backend import choose_backend, Backend
@@ -243,7 +244,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             if not key.tracing:
                 self.tracers[key] = tracer
                 if len(self.tracers) >= 4:
-                    warnings.warn(f"Φ-lin: The compiled linear function '{self.f.__name__}' was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. A trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().", RuntimeWarning)
+                    warnings.warn(f"Φ-lin: The compiled linear function '{self.f.__name__}' was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. Keyword arguments are taken as constant and are not jit-compiled, so a trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().", RuntimeWarning)
             return tracer
 
     def __call__(self, *args: X, **kwargs) -> Y:
@@ -328,10 +329,11 @@ def jit_compile_linear(f: Callable[[X], Y]) -> 'LinearFunction[X, Y]':  # TODO a
 class GradientFunction:
     """ Jacobian or Gradient of a function. """
 
-    def __init__(self, f: Callable, wrt: tuple, get_output: bool, jit=False):
+    def __init__(self, f: Callable, wrt: int or tuple, get_output: bool, is_f_scalar: bool, jit=False):
         self.f = f
-        self.wrt = wrt
+        self.wrt = tuple(wrt) if isinstance(wrt, list) else wrt
         self.get_output = get_output
+        self.is_f_scalar = is_f_scalar
         self.traces: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
         self.jit = jit
@@ -353,8 +355,10 @@ class GradientFunction:
             result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, None, in_key.backend, in_key.tracing)
             return loss_native, result_natives
-        jacobian_generator = in_key.backend.jit_compile_grad if self.jit else in_key.backend.jacobian
-        return jacobian_generator(f_native, wrt=wrt_natives, get_output=self.get_output)
+        if self.jit:
+            return in_key.backend.jit_compile_grad(f_native, wrt=wrt_natives, get_output=self.get_output, is_f_scalar=self.is_f_scalar)
+        else:
+            return in_key.backend.jacobian(f_native, wrt=wrt_natives, get_output=self.get_output, is_f_scalar=self.is_f_scalar)
 
     def __call__(self, *args, **kwargs):
         key, natives = key_from_args(*args, cache=True, **kwargs)
@@ -375,11 +379,12 @@ class GradientFunction:
         if self.get_output:
             result_shapes = list(output_key.shapes) + wrt_shapes
             output_tensors = assemble_tensors(native_result, result_shapes, None)
-            output_structure, grad_tuple = assemble_tree((output_key.tree, [key.tree[i] for i in self.wrt]), output_tensors)
-            return output_structure, grad_tuple
+            output_structure, grad_tuple = assemble_tree((output_key.tree, [key.tree[i] for i in self._wrt_tuple()]), output_tensors)
+            return output_structure, grad_tuple if isinstance(self.wrt, tuple) else grad_tuple[0]
         else:
             output_tensors = assemble_tensors(native_result, wrt_shapes, None)
-            return assemble_tree([key.tree[i] for i in wrt_tensors], output_tensors)
+            grad_tuple = assemble_tree([key.tree[i] for i in wrt_tensors], output_tensors)
+            return grad_tuple if isinstance(self.wrt, tuple) else grad_tuple[0]
 
     def __repr__(self):
         return f"grad({self.f.__name__})"
@@ -393,7 +398,7 @@ class GradientFunction:
         for i, arg in enumerate(args):
             _, tensors = disassemble_tree(arg)
             wrt_tensors.extend([i] * len(tensors))
-        return [t_i for t_i, arg_i in enumerate(wrt_tensors) if arg_i in self.wrt]
+        return [t_i for t_i, arg_i in enumerate(wrt_tensors) if arg_i in self._wrt_tuple()]
 
     @staticmethod
     def _track_wrt_natives(wrt_tensors, values):
@@ -402,8 +407,57 @@ class GradientFunction:
             wrt_natives.extend([i] * len(value._natives()))
         return [n_i for n_i, t_i in enumerate(wrt_natives) if t_i in wrt_tensors]
 
+    def _wrt_tuple(self):
+        if isinstance(self.wrt, int):
+            return (self.wrt,)
+        assert isinstance(self.wrt, tuple), f"wrt must be an int or tuple but got {type(self.wrt)}"
+        return self.wrt
+
 
 def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callable:
+    """
+    Creates a function which computes the Jacobian matrix of `f`.
+    For scalar functions, consider using `functional_gradient()` instead.
+
+    Example:
+    ```python
+    def f(x, y):
+        prediction = f(x)
+        loss = math.l2_loss(prediction - y)
+        return loss, prediction
+
+    dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+
+    (loss, prediction), (dx, dy) = jacobian(loss_function,
+                                        wrt=(0, 1), get_output=True)(x, y)
+    ```
+
+    Functional gradients are implemented for the following backends:
+
+    * PyTorch: [`torch.autograd.grad`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.grad) / [`torch.autograd.backward`](https://pytorch.org/docs/stable/autograd.html#torch.autograd.backward)
+    * TensorFlow: [`tf.GradientTape`](https://www.tensorflow.org/api_docs/python/tf/GradientTape)
+    * Jax: [`jax.grad`](https://jax.readthedocs.io/en/latest/jax.html#jax.grad)
+
+    When the gradient function is invoked, `f` is called with tensors that track the gradient.
+    For PyTorch, `arg.requires_grad = True` for all positional arguments of `f`.
+
+    Args:
+        f: Function to be differentiated.
+            `f` must return a floating point `Tensor` with rank zero.
+            It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
+            All arguments for which the gradient is computed must be of dtype float or complex.
+        get_output: Whether the gradient function should also return the return values of `f`.
+        wrt: Arguments of `f` with respect to which the gradient should be computed.
+            Either `tuple` or `int`.
+            Example: `wrt_indices=(0,)` computes the Jacobian with respect to the first argument of `f` but returns the Jacobian as a single-entry tuple.
+
+    Returns:
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and Jacobian of `f` if `get_output=True`, else just the Jacobian of `f`.
+    """
+    return GradientFunction(f, wrt, get_output, False)
+
+
+def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callable:
     """
     Creates a function which computes the gradient of `f`.
 
@@ -436,12 +490,13 @@ def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -> Callabl
             All arguments for which the gradient is computed must be of dtype float or complex.
         get_output: Whether the gradient function should also return the return values of `f`.
         wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+            Either `tuple` or `int`.
+            Example: `wrt_indices=(0,)` computes the gradient with respect to the first argument of `f` but returns the gradient as a single-entry tuple.
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     """
-    return GradientFunction(f, wrt, get_output)
+    return GradientFunction(f, wrt, get_output, True)
 
 
 class HessianFunction:
@@ -704,10 +759,6 @@ def custom_gradient(f: Callable, gradient: Callable):
     return CustomGradientFunction(f, gradient)
 
 
-def is_tracer(t: Tensor):
-    return isinstance(t, ShiftLinTracer)
-
-
 def simplify_add(val: dict) -> Dict[Shape, Tensor]:
     result = {}
     for shift, values in val.items():
@@ -928,8 +979,13 @@ class ShiftLinTracer(Tensor):
     def __neg__(self):
         return ShiftLinTracer(self.source, {shift: -values for shift, values in self.val.items()}, self._shape, -self.bias)
 
-    def _op1(self, native_function):  # only __neg__ is linear
-        raise NotImplementedError('Only linear operations are supported')
+    def _op1(self, native_function):
+        # __neg__ is the only proper linear op1 and is implemented above.
+        if native_function.__name__ == 'isfinite':
+            test_output = self.apply(math.ones_like(self.source))
+            return math.is_finite(test_output)
+        else:
+            raise NotImplementedError('Only linear operations are supported')
 
     def _op2(self, other: Tensor,
              operator: Callable,
@@ -1330,7 +1386,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html .
     Additionally a gradient descent solver with adaptive step size can be used with `method='GD'`.
 
-    `math.minimize()` is limited to backends that support `jacobian()`, currently PyTorch, TensorFlow and Jax.
+    `math.minimize()` is limited to backends that support `jacobian()`, i.e. PyTorch, TensorFlow and Jax.
 
     To obtain additional information about the performed solve, use a `SolveTape`.
 
@@ -1340,6 +1396,8 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     Args:
         f: Function whose output is subject to minimization.
             All positional arguments of `f` are optimized and must be `Tensor` or `PhiTreeNode`.
+            If `solve.x0` is a `tuple` or `list`, it will be passed to *f* as varargs, `f(*x0)`.
+            To minimize a subset of the positional arguments, define a new (lambda) function depending only on those.
             The first return value of `f` must be a scalar float `Tensor` or `PhiTreeNode`.
         solve: `Solve` object to specify method type, parameters and initial guess for `x`.
 
@@ -1381,6 +1439,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
+        assert not non_batch(y_tensors[0]), f"Failed to minimize '{f.__name__}' because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()"
         return y_tensors[0].sum, (reshaped_native(y_tensors[0], [batch_dims]), )
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))

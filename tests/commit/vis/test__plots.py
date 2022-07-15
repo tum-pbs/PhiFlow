@@ -6,7 +6,7 @@ from phi import geom, field, math
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, SoftGeometryMask
 from phi.geom import Sphere, Box
 from phi.math import extrapolation, wrap, instance, channel, batch, spatial
-from phi.vis import show, overlay, plot
+from phi.vis import show, overlay, plot, close
 import matplotlib.pyplot as plt
 
 
@@ -41,7 +41,7 @@ class TestPlots(TestCase):
         self._test_plot(CenteredGrid(Noise(vector='b,a'), extrapolation.ZERO, a=64, b=8, bounds=Box(a=1, b=1)) * 0.1)
 
     def test_plot_vector_2d_batch(self):
-        self._test_plot(CenteredGrid(Noise(batch(b=2), vector=2), extrapolation.ZERO, bounds=Box[0:1, 0:1], x=10, y=10))
+        self._test_plot(CenteredGrid(Noise(batch(b=2), vector=2), extrapolation.ZERO, bounds=Box['x,y', 0:1, 0:1], x=10, y=10))
 
     def test_plot_staggered_grid_2d(self):
         self._test_plot(StaggeredGrid(Noise(), extrapolation.ZERO, x=16, y=10, bounds=Box(x=1, y=1)) * 0.1)
@@ -49,19 +49,25 @@ class TestPlots(TestCase):
     def test_plot_multi_grid(self):
         self._test_plot(overlay(CenteredGrid(Noise(), x=10, y=10), CenteredGrid(Noise(), x=10, y=10, bounds=Box(x=(5, 15), y=(5, 15)))))
 
+    def test_plot_sphere(self):
+        self._test_plot(Sphere(x=1, y=0, radius=.5))
+
+    def test_plot_box(self):
+        self._test_plot(Box(x=(1, 2), y=1))
+
     def test_plot_spheres_2d(self):
         spheres = Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1)
         self._test_plot(spheres)
 
     def test_plot_point_cloud_2d(self):
         spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1), color='#994444')
-        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[.4:.6, .2:.4]).elements, 'x,y', instance('points')), color='#000000')
+        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box['x,y', .4:.6, .2:.4]).elements, 'x,y', instance('points')), color='#000000')
         cloud = field.stack([spheres, cells], instance('stack'))
         self._test_plot(cloud)
 
     def test_plot_point_cloud_2d_large(self):
         spheres = PointCloud(Sphere(wrap([(2, 4), (9, 8), (7, 8)], instance('points'), channel(vector='x,y')), radius=1))
-        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box[4:6, 2:4]).elements, 'x,y', instance('points')))
+        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box['x,y', 4:6, 2:4]).elements, 'x,y', instance('points')))
         cloud = field.stack([spheres, cells], instance('stack'))
         self._test_plot(cloud)
 
@@ -78,8 +84,8 @@ class TestPlots(TestCase):
         self._test_plot(velocity * (.05, 0))
 
     def test_plot_multiple(self):
-        grid = CenteredGrid(Noise(batch(b=2)), 0, Box[0:1, 0:1], x=50, y=10)
-        grid2 = CenteredGrid(grid, 0, Box[0:2, 0:1], x=20, y=50)
+        grid = CenteredGrid(Noise(batch(b=2)), 0, Box['x,y', 0:1, 0:1], x=50, y=10)
+        grid2 = CenteredGrid(grid, 0, Box['x,y', 0:2, 0:1], x=20, y=50)
         points = wrap([(.2, .4), (.9, .8)], instance('points'), channel(vector='x,y'))
         cloud = PointCloud(Sphere(points, radius=0.1), bounds=Box(x=1, y=1))
         titles = math.wrap([['b=0', 'b=0', 'points'], ['b=1', 'b=1', '']], spatial('rows,cols'))
@@ -117,3 +123,8 @@ class TestPlots(TestCase):
         anim = plot(values, animate='time', show_color_bar=False, frame_time=100, lib='matplotlib')
         anim.to_html5_video()
         # anim.save('animation.mp4')
+
+    def test_close(self):
+        fig = plot(Sphere(x=0, y=0, radius=5))
+        close(fig)
+        close()

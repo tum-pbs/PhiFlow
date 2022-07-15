@@ -3,6 +3,7 @@ from typing import TypeVar, Any
 from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
 from . import HardGeometryMask
+from ._embed import FieldEmbedding
 from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation
 from .numerical import Scheme
 from ..geom._stack import GeometryStack
@@ -10,6 +11,7 @@ from ..math import Shape, NUMPY
 from ..math._shape import spatial, channel, parse_dim_order
 from ..math._tensors import TensorStack, Tensor
 from ..math.extrapolation import Extrapolation
+from ..math.magic import slicing_dict
 
 
 class Grid(SampledField):
@@ -82,7 +84,7 @@ class Grid(SampledField):
                 return self.values.shape == other.values.shape
         return bool((self.values == other.values).all)
 
-    def __getitem__(self, item: dict) -> 'Grid':
+    def __getitem__(self, item) -> 'Grid':
         raise NotImplementedError(self)
 
     @property
@@ -110,6 +112,15 @@ class Grid(SampledField):
             return f"{self.__class__.__name__}[{self.shape.non_spatial & self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]"
         else:
             return f"{self.__class__.__name__}[{self.resolution}, size={self.box.size}, extrapolation={self._extrapolation}]"
+
+    def uniform_values(self):
+        """
+        Returns a uniform tensor containing `values`.
+
+        For periodic grids, which always have a uniform value tensor, `values' is returned directly.
+        If `values` is not uniform, it is padded as in `StaggeredGrid.staggered_tensor()`.
+        """
+        return self.values
 
 
 GridType = TypeVar('GridType', bound=Grid)
@@ -185,7 +196,10 @@ class CenteredGrid(Grid):
         assert resolution.spatial_rank == bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
         Grid.__init__(self, elements, values, extrapolation, values.shape.spatial, bounds)
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        if not item:
+            return self
         values = self._values[item]
         extrapolation = self._extrapolation[item]
         keep_dims = [dim for dim in self.resolution.names if dim not in item or not isinstance(item[dim], int)]
@@ -207,14 +221,23 @@ class CenteredGrid(Grid):
                     return fast_resampled
         points = geometry.center
         local_points = self.box.global_to_local(points) * self.resolution - 0.5
-        return math.grid_sample(self.values, local_points, self.extrapolation, bounds=self.bounds)
+        resampled_values = math.grid_sample(self.values, local_points, self.extrapolation, bounds=self.bounds)
+        if isinstance(self._extrapolation, FieldEmbedding):
+            if isinstance(geometry, GridCell) and ((geometry.bounds.upper <= self.bounds.upper).all or (geometry.bounds.lower >= self.bounds.lower).all):
+                # geometry is a subgrid of self
+                return resampled_values
+            else:  # otherwise we also sample the extrapolation Field
+                ext_values = self._extrapolation.field._sample(geometry, scheme)
+                inside = self.bounds.lies_inside(points)
+                return math.where(inside, resampled_values, ext_values)
+        return resampled_values
 
     def _shift_resample(self, resolution: Shape, bounds: Box, threshold=1e-5, max_padding=20):
         assert math.all_available(bounds.lower, bounds.upper), "Shift resampling requires 'bounds' to be available."
         lower = math.to_int32(math.ceil(math.maximum(0, self.box.lower - bounds.lower) / self.dx - threshold))
         upper = math.to_int32(math.ceil(math.maximum(0, bounds.upper - self.box.upper) / self.dx - threshold))
         total_padding = (math.sum(lower) + math.sum(upper)).numpy()
-        if total_padding > max_padding:
+        if total_padding > max_padding and self.extrapolation.native_grid_sample_mode:
             return NotImplemented
         elif total_padding > 0:
             from phi.field import pad
@@ -277,11 +300,16 @@ class StaggeredGrid(Grid):
         extrapolation = as_extrapolation(extrapolation)
         if resolution is None and not resolution_:
             assert isinstance(values, Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
-            any_dim = values.shape.spatial.names[0]
-            x = values.vector[any_dim]
-            ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
-            delta = int(ext_lower) + int(ext_upper) - 1
-            resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
+            if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in spatial(values).names):  # non-uniform values required
+                if values.shape.is_uniform:
+                    values = unstack_staggered_tensor(values, extrapolation)
+                any_dim = values.shape.spatial.names[0]
+                x = values.vector[any_dim]
+                ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
+                delta = int(ext_lower) + int(ext_upper) - 1
+                resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
+            else:
+                resolution = spatial(values)
             bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
@@ -292,7 +320,11 @@ class StaggeredGrid(Grid):
             bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution)))
             elements = staggered_elements(resolution, bounds, extrapolation)
             if isinstance(values, math.Tensor):
-                values = expand_staggered(values, resolution, extrapolation)
+                if not spatial(values):
+                    values = expand_staggered(values, resolution, extrapolation)
+                if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in resolution.names):  # non-uniform values required
+                    if values.shape.is_uniform:
+                        values = unstack_staggered_tensor(values, extrapolation)
             elif isinstance(values, Geometry):
                 values = reduce_sample(HardGeometryMask(values), elements, scheme=scheme)
             elif isinstance(values, Field):
@@ -352,7 +384,10 @@ class StaggeredGrid(Grid):
         """
         return CenteredGrid(self, resolution=self.resolution, bounds=self.bounds, extrapolation=self.extrapolation)
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        if not item:
+            return self
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
         for dim, sel in item.items():
             if dim in self.shape.spatial:
@@ -382,6 +417,12 @@ class StaggeredGrid(Grid):
             else:
                 assert isinstance(selection, slice) and not selection.start and not selection.stop
         return StaggeredGrid(values, bounds=bounds, extrapolation=extrapolation)
+
+    def uniform_values(self):
+        if self.values.shape.is_uniform:
+            return self.values
+        else:
+            return self.staggered_tensor()
 
     def staggered_tensor(self) -> Tensor:
         """
@@ -449,12 +490,15 @@ def _sample_function(f, elements: Geometry):
         dims = elements.shape.get_size('vector')
         names_match = tuple(params.keys())[:dims] == elements.shape.get_item_names('vector')
         num_positional = 0
+        has_varargs = False
         for n, p in params.items():
             if p.default is p.empty:
                 num_positional += 1
+            if p.kind == 2:  # _ParameterKind.VAR_POSITIONAL
+                has_varargs = True
         assert num_positional <= dims, f"Cannot sample {f.__name__}{signature} on physical space {elements.shape.get_item_names('vector')}"
-        pass_varargs = names_match or num_positional > 1 or num_positional == dims
-        if num_positional > 1:
+        pass_varargs = has_varargs or names_match or num_positional > 1 or num_positional == dims
+        if num_positional > 1 and not has_varargs:
             assert names_match, f"Positional arguments of {f.__name__}{signature} should match physical space {elements.shape.get_item_names('vector')}"
     except ValueError as err:  # signature not available for all functions
         pass_varargs = False

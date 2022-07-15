@@ -2,7 +2,8 @@ from typing import Tuple
 from unittest import TestCase
 
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
-    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE
+    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel
+from phi.math.magic import BoundDim, Shaped, Sliceable, Shapable, PhiTreeNode, slicing_dict
 
 
 class Stackable:
@@ -11,7 +12,7 @@ class Stackable:
         self.shape = shape
 
     def __getitem__(self, item: dict):
-        return Stackable(self.shape.after_gather(item))
+        return Stackable(self.shape.after_gather(slicing_dict(self, item)))
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Stackable':
         return Stackable(merge_shapes(dim, *[v.shape for v in values]))
@@ -23,14 +24,14 @@ class ConcatExpandable:
         self.shape = shape
 
     def __getitem__(self, item: dict):
-        return ConcatExpandable(self.shape.after_gather(item))
+        return ConcatExpandable(self.shape.after_gather(slicing_dict(self, item)))
 
     def __concat__(self, values: tuple, dim: str, **kwargs) -> 'ConcatExpandable':
         new_size = sum([v.shape.get_size(dim) for v in values])
         return ConcatExpandable(values[0].shape.with_dim_size(dim, new_size))
 
     def __expand__(self, dims: Shape, **kwargs) -> 'ConcatExpandable':
-        return ConcatExpandable(merge_shapes(self.shape, dims))
+        return ConcatExpandable(merge_shapes(dims, self.shape))
 
 
 TEST_CLASSES = [Stackable, ConcatExpandable, random_normal]
@@ -62,10 +63,33 @@ class TestMagicOps(TestCase):
         self.assertIsInstance(t, tuple)
         self.assertEqual(6, len(t))
 
+    def test_subclasscheck(self):
+        self.assertTrue(issubclass(Stackable, Shaped))
+        self.assertTrue(issubclass(Stackable, Sliceable))
+        self.assertTrue(issubclass(Stackable, Shapable))
+        self.assertFalse(issubclass(object, Shapable))
+        self.assertFalse(issubclass(object, Sliceable))
+        self.assertTrue(issubclass(ConcatExpandable, Shaped))
+        self.assertTrue(issubclass(ConcatExpandable, Sliceable))
+        self.assertTrue(issubclass(ConcatExpandable, Shapable))
+
+    def test_instancecheck(self):
+        for test_class in TEST_CLASSES:
+            a = test_class(spatial(x=5) & batch(b=2))
+            self.assertIsInstance(a, Shaped)
+            self.assertIsInstance(a, Sliceable)
+            self.assertIsInstance(a, Shapable)
+
     def test_shape(self):
         for test_class in TEST_CLASSES:
             a = test_class(spatial(x=5) & batch(b=2))
             self.assertEqual(spatial(x=5) & batch(b=2), shape(a))
+
+    def test_slice(self):
+        for test_class in TEST_CLASSES:
+            a = test_class(spatial(x=5) & channel(vector='x,y,z') & batch(b=2))
+            self.assertEqual(spatial(x=5) & batch(b=2), a['x'].shape)
+            self.assertEqual(spatial(x=5) & batch(b=2) & channel(vector='y,z'), a['y,z'].shape)
 
     def test_unstack(self):
         for test_class in TEST_CLASSES:
@@ -81,6 +105,11 @@ class TestMagicOps(TestCase):
             a = test_class(spatial(x=5))
             self.assertEqual(spatial(x=5) & batch(b=2), stack([a, a], batch('b')).shape)
             self.assertEqual(spatial(x=5) & batch(b='a1,a2'), stack({'a1': a, 'a2': a}, batch('b')).shape)
+
+    def test_multi_dim_stack(self):
+        for test_class in TEST_CLASSES:
+            a = test_class(spatial(x=5))
+            self.assertEqual(spatial(x=5) & batch(a=3, b=2), stack([a]*6, batch(a=3, b=2)).shape)
 
     def test_concat(self):
         for test_class in TEST_CLASSES:
@@ -117,4 +146,20 @@ class TestMagicOps(TestCase):
             a = test_class(spatial(x=5) & batch(b=2))
             self.assertEqual(instance(points=10), flatten(a, instance('points')).shape)
 
+    def test_bound_dim(self):
+        for test_class in TEST_CLASSES:
+            a = test_class(spatial(x=5) & batch(b=2))
+            x = BoundDim(a, 'x')
+            self.assertEqual(spatial(y=5) & batch(b=2), x.rename('y').shape)
+            self.assertEqual(instance(x=5) & batch(b=2), x.retype(instance).shape)
+            self.assertEqual(instance(y=5) & batch(b=2), x.replace(instance('y')).shape)
+            self.assertEqual(instance(y=5) & batch(b=2), x.unpack(instance('y')).shape)
 
+    def test_phi_tree_subclasscheck(self):
+        self.assertTrue(issubclass(Tensor, PhiTreeNode))
+        self.assertTrue(issubclass(tuple, PhiTreeNode))
+        self.assertTrue(issubclass(list, PhiTreeNode))
+        self.assertTrue(issubclass(dict, PhiTreeNode))
+        self.assertTrue(issubclass(Dict, PhiTreeNode))
+        from phi.field import CenteredGrid
+        self.assertTrue(issubclass(CenteredGrid, PhiTreeNode))

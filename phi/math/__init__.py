@@ -16,7 +16,6 @@ See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
-from ._config import GLOBAL_AXIS_ORDER
 from ._shape import (
     shape, Shape, EMPTY_SHAPE, DimFilter,
     spatial, channel, batch, instance,
@@ -65,7 +64,7 @@ from ._nd import (
 )
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
-    jacobian, jacobian as gradient, jacobian as functional_gradient, custom_gradient, print_gradient, hessian,
+    jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient, hessian,
     solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
     map_types, map_s2b,
     iterate,

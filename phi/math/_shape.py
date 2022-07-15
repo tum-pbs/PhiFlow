@@ -64,7 +64,8 @@ class Shape:
     def _from_dict(dict_: dict):
         names = tuple(dict_['names'])
         sizes = tuple(dict_['sizes']) if 'sizes' in dict_ else (None,) * len(names)
-        return Shape(sizes, names, tuple(dict_['types']), tuple(dict_['item_names']))
+        item_names = tuple([None if n is None else tuple(n) for n in dict_['item_names']])
+        return Shape(sizes, names, tuple(dict_['types']), item_names)
 
     @property
     def _named_sizes(self):
@@ -165,16 +166,7 @@ class Shape:
         return tuple([self.get_size(dim) for dim in dims])
 
     def get_type(self, dim: str or 'Shape') -> str:
-        """
-        See Also:
-            `Shape.get_types()`, `Shape.type`.
-
-        Args:
-            dim: Dimension, either as name `str` or single-dimension `Shape`.
-
-        Returns:
-            Dimension type as `str`.
-        """
+        # undocumented, use get_dim_type() instead.
         if isinstance(dim, str):
             return self.types[self.names.index(dim)]
         elif isinstance(dim, Shape):
@@ -183,17 +175,18 @@ class Shape:
         else:
             raise ValueError(dim)
 
-    def get_types(self, dims: tuple or list or 'Shape') -> tuple:
+    def get_dim_type(self, dim: str or 'Shape') -> Callable:
         """
-        See Also:
-            `Shape.get_type()`
-
         Args:
-            dims: Dimensions as `tuple`, `list` or `Shape`.
+            dim: Dimension, either as name `str` or single-dimension `Shape`.
 
         Returns:
-            `tuple`
+            Dimension type, one of `batch`, `spatial`, `instance`, `channel`.
         """
+        return {BATCH_DIM: batch, SPATIAL_DIM: spatial, INSTANCE_DIM: instance, CHANNEL_DIM: channel}[self.get_type(dim)]
+
+    def get_types(self, dims: tuple or list or 'Shape') -> tuple:
+        # undocumented, do not use
         if isinstance(dims, (tuple, list)):
             return tuple(self.get_type(n) for n in dims)
         elif isinstance(dims, Shape):
@@ -247,6 +240,7 @@ class Shape:
                 selection = self.index(selection)
             return self[selection]
         elif isinstance(selection, (tuple, list)):
+            selection = [self.index(s) if isinstance(s, str) else s for s in selection]
             return Shape(tuple([self.sizes[i] for i in selection]), tuple([self.names[i] for i in selection]), tuple([self.types[i] for i in selection]), tuple([self.item_names[i] for i in selection]))
         raise AssertionError("Can only access shape elements as shape[int] or shape[slice]")
 
@@ -856,11 +850,35 @@ class Shape:
             item_names[self.index(dim)] = None
         return Shape(tuple(sizes), self.names, self.types, tuple(item_names))
 
+    def prepare_gather(self, dim: str, selection):
+        if isinstance(selection, Shape):
+            selection = selection.name if selection.rank == 1 else selection.names
+        if isinstance(selection, str) and ',' in selection:
+            selection = parse_dim_order(selection)
+        if isinstance(selection, str):  # single item name
+            item_names = self.get_item_names(dim, fallback_spatial=True)
+            assert item_names is not None, f"No item names defined for dim '{dim}' in tensor {self.shape} and dimension size does not match spatial rank."
+            assert selection in item_names, f"Accessing tensor.{dim}['{selection}'] failed. Item names are {item_names}."
+            selection = item_names.index(selection)
+        if isinstance(selection, (tuple, list)):
+            selection = list(selection)
+            if any([isinstance(s, str) for s in selection]):
+                item_names = self.get_item_names(dim, fallback_spatial=True)
+                for i, s in enumerate(selection):
+                    if isinstance(s, str):
+                        assert item_names is not None, f"Accessing tensor.{dim}['{s}'] failed because no item names are present on tensor {self.shape}"
+                        assert s in item_names, f"Accessing tensor.{dim}['{s}'] failed. Item names are {item_names}."
+                        selection[i] = item_names.index(s)
+            if not selection:  # empty
+                selection = slice(0, 0)
+        return selection
+
     def after_gather(self, selection: dict) -> 'Shape':
         result = self
         for name, selection in selection.items():
             if name not in self.names:
                 continue
+            selection = self.prepare_gather(name, selection)
             if isinstance(selection, int):
                 if result.is_uniform:
                     result = result.without(name)
@@ -884,6 +902,10 @@ class Shape:
                 result = result._replace_single_size(name, new_size)
                 if step < 0:
                     result = result.flipped([name])
+            elif isinstance(selection, (tuple, list)):
+                result = result._replace_single_size(name, len(selection))
+                if self.get_item_names(name) is not None:
+                    result = result._with_item_name(name, tuple([self.get_item_names(name)[i] for i in selection]))
             else:
                 raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allowed.")
         return result
@@ -1065,12 +1087,12 @@ def shape(obj) -> Shape:
     Returns:
         `Shape`
     """
-    if hasattr(obj, '__shape__'):
+    if isinstance(obj, Shape):
+        return obj
+    elif hasattr(obj, '__shape__'):
         return obj.__shape__()
     elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
         return obj.shape
-    elif isinstance(obj, Shape):
-        return obj
     elif isinstance(obj, (int, float, complex, bool)):
         return EMPTY_SHAPE
     else:
@@ -1158,11 +1180,7 @@ def channel(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
-        result = _construct_shape(CHANNEL_DIM, *args, **dims)
-        for s, n, t, item_name in result._dimensions:
-            if item_name is None and s is not None and not n.startswith('_'):
-                warnings.warn(f"Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}='x,y,z') to assign names or use math.stack(dict, dim)", SyntaxWarning, stacklevel=2)
-        return result
+        return _construct_shape(CHANNEL_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
     elif len(args) == 1 and isinstance(args[0], Shaped):
@@ -1277,6 +1295,9 @@ def merge_shapes(*shapes: Shape or Any, order=(batch, instance, spatial, channel
 
     Returns:
         Merged `Shape`
+
+    Raises:
+        IncompatibleShapes if the shapes are not compatible
     """
     if not shapes:
         return EMPTY_SHAPE

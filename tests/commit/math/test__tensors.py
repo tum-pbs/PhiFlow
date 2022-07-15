@@ -5,8 +5,8 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import channel, batch, DType
-from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
+from phi.math import channel, batch, DType, vec
+from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial, instance
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors
 from phi.math.backend import Backend
 from phi.math.magic import PhiTreeNode
@@ -22,7 +22,6 @@ class TestTensors(TestCase):
                 for const in (1, 1.5, True, 1+1j):
                     tens = math.wrap(const)
                     self.assertEqual(math.NUMPY, tens.default_backend)
-                    self.assertTrue(isinstance(tens.native(), (int, float, bool, complex)), msg=backend)
                     math.assert_close(tens, const)
                     tens = math.tensor(const)
                     self.assertEqual(backend, math.choose_backend(tens), f'{const} was not converted to the specified backend')
@@ -302,7 +301,17 @@ class TestTensors(TestCase):
     def test_slice_by_int_tensor(self):
         indices = math.meshgrid(x=2, y=2)
         sel = indices.x[wrap((1, 0), spatial('x'))]
-        math.assert_close((1, 0), sel.vector['x'].y[0])
+        math.assert_close([1, 0], sel.vector['x'].y[0])
+
+    def test_slice_str(self):
+        x = math.random_normal(batch(b=2), channel(c='x,y,z'))
+        math.assert_close(x.c[0], x['x'])
+        math.assert_close(x.c[(0, 1)], x['x,y'])
+
+    def test_slice_int(self):
+        x = math.random_normal(batch(b=2), channel(c='x,y,z'))
+        math.assert_close(x.c[0], x[0])
+        math.assert_close(x.c[(0, 1)], x[[0, 1]])
 
     def test_serialize_tensor(self):
         t = math.random_normal(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
@@ -462,3 +471,18 @@ class TestTensors(TestCase):
         self.assertTrue(math.is_scalar(numpy.zeros(())))
         self.assertFalse(math.is_scalar(math.zeros(spatial(x=4))))
         self.assertFalse(math.is_scalar(numpy.zeros((1,))))
+
+    def test_compatible_tensor(self):
+        a = wrap([1, 2, 3], instance('points')) * vec(x=0, y=1)
+        self.assertEqual(instance(points=3) & channel(vector='x,y'), a.shape)
+
+    def test_numpy_cast(self):
+        for t in [math.zeros(spatial(x=4)), math.random_uniform(spatial(x=4))]:
+            self.assertEqual(numpy.float32, t.numpy().dtype)
+            with math.precision(64):
+                self.assertEqual(numpy.float64, t.numpy().dtype)
+
+    def test_change_dims(self):
+        t = math.expand(math.random_normal(spatial(x=4)), batch(b=10))
+        self.assertEqual(batch(b=10, a=4), t.x.as_batch('a').shape)
+        self.assertEqual(t.shape, t.nodim.as_batch('a').shape)

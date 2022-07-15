@@ -314,21 +314,19 @@ class Backend:
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         """
         Args:
             f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
             wrt: Argument indices for which to compute the gradient.
             get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
+            is_f_scalar: Whether `f` is guaranteed to return a scalar output.
 
         Returns:
             A function `g` with the same arguments as `f`.
             If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
             The gradients retain the dimensions of `reduced_loss` in order as outer (first) dimensions.
         """
-        raise NotImplementedError(self)
-
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
 
     def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -> tuple:
@@ -362,13 +360,14 @@ class Backend:
         """
         return NotImplemented
 
-    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+    def jit_compile_grad(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         raise NotImplementedError()
 
-    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def jit_compile_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):
+        """ Transposes the dimensions of `tensor` given the new axes order. The tensor will be cast to the default precision in the process. """
         raise NotImplementedError()
 
     def random_uniform(self, shape, low, high, dtype: DType or None):
@@ -842,7 +841,7 @@ class Backend:
         atol = self.numpy(atol)
         max_iter = self.numpy(max_iter)
         batch_size = x0.shape[0]
-        fg = self.jacobian(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
         method_description = f"SciPy {method} with {self.name}"
 
         iterations = [0] * batch_size
@@ -942,7 +941,7 @@ class Backend:
         assert self.supports(Backend.jacobian)
         assert len(self.staticshape(x0)) == 2  # (batch, parameters)
         batch_size = self.staticshape(x0)[0]
-        fg = self.jacobian(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
         method = f"Gradient descent with {self.name}"
 
         iterations = self.zeros([batch_size], DType(int, 32))
@@ -1068,7 +1067,7 @@ class Backend:
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-            diverged = self.any(residual_squared / rsq0 > 100, axis=(1,)) & (iterations >= 8)
+            diverged = self.any(residual_squared / rsq0 > 1e5, axis=(1,)) & (iterations >= 8)
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
@@ -1116,7 +1115,7 @@ class Backend:
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
             with spatial_derivative_evaluation(1):
                 dy = self.linear(lin, dx); function_evaluations += continue_1
-            diverged = self.any(residual_squared / rsq0 > 100, axis=(1,)) & (iterations >= 8)
+            diverged = self.any(residual_squared / rsq0 > 1e5, axis=(1,)) & (iterations >= 8)
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))

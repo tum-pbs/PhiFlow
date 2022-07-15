@@ -6,8 +6,10 @@ import numpy as np
 from phi import math
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, spatial
+from ..math._shape import parse_dim_order
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
+from ..math.magic import slicing_dict
 
 
 class BaseBox(Geometry):  # not a Subwoofer
@@ -80,7 +82,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
         return bool_inside
 
-    def approximate_signed_distance(self, location):
+    def approximate_signed_distance(self, location: Tensor or tuple):
         """
         Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
         For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
@@ -143,17 +145,18 @@ class BoxType(type):
     """ Deprecated. Does not support item names. """
 
     def __getitem__(self, item):
-        if not isinstance(item, (tuple, list)):
-            item = [item]
+        assert isinstance(item, tuple) and isinstance(item[0], str), "The Box constructor was updated in Φ-Flow version 2.2. Please add the dimension order as a comma-separated string as the first argument, e.g. Box['x,y', 0:1, 1:2] or use the kwargs constructor Box(x=1, y=(1, 2))"
         assert len(item) <= 3, f"Box[...] can only be used for x, y, z but got {len(item)} elements"
+        dim_order = parse_dim_order(item[0])
+        assert len(dim_order) == len(item) - 1, f"Dimension order '{item[0]}' does not match number of slices, {len(item) - 1}"
         lower = []
         upper = []
-        for dim in item:
+        for dim_name, dim in zip(dim_order, item[1:]):
             assert isinstance(dim, slice)
             assert dim.step is None or dim.step == 1, "Box: step must be 1 but is %s" % dim.step
             lower.append(dim.start if dim.start is not None else -np.inf)
             upper.append(dim.stop if dim.stop is not None else np.inf)
-        vec = math.channel(vector=tuple('xyz'[:len(item)]))
+        vec = math.channel(vector=dim_order)
         lower = math.stack(lower, vec)
         upper = math.stack(upper, vec)
         return Box(lower, upper)
@@ -170,6 +173,13 @@ class Box(BaseBox, metaclass=BoxType):
     ```python
     Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
     Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
+    ```
+
+    The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.
+
+    ```python
+    Box['x,y', 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+    Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     ```
     """
 
@@ -215,8 +225,8 @@ class Box(BaseBox, metaclass=BoxType):
         if self.size.vector.item_names is None:
             warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
-    def __getitem__(self, item: dict):
-        item = _keep_vector(item)
+    def __getitem__(self, item):
+        item = _keep_vector(slicing_dict(self, item))
         return Box(self._lower[item], self._upper[item])
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
@@ -326,8 +336,8 @@ class Cuboid(BaseBox):
     def __hash__(self):
         return hash(self._center)
 
-    def __getitem__(self, item: dict):
-        item = _keep_vector(item)
+    def __getitem__(self, item):
+        item = _keep_vector(slicing_dict(self, item))
         return Cuboid(self._center[item], self._half_size[item])
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
@@ -401,7 +411,7 @@ class GridCell(BaseBox):
 
     @property
     def center(self):
-        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
+        local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
         points = self.bounds.local_to_global(local_coords)
         return points
 
@@ -429,7 +439,8 @@ class GridCell(BaseBox):
     def half_size(self):
         return self.bounds.size / self.resolution.sizes / 2
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
         bounds = self._bounds
         dx = self.size
         gather_dict = {}

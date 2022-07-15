@@ -3,9 +3,10 @@ from typing import List, Tuple
 from phi import math
 from . import GridCell
 from ._geom import Geometry
-from ..math import Tensor
-from ..math._shape import shape_stack, Shape, INSTANCE_DIM
+from ..math import Tensor, expand
+from ..math._shape import shape_stack, Shape, INSTANCE_DIM, non_channel
 from ..math._tensors import variable_attributes, copy_with
+from ..math.magic import slicing_dict
 
 
 class GeometryStack(Geometry):
@@ -57,11 +58,11 @@ class GeometryStack(Geometry):
         raise NotImplementedError()
 
     def bounding_radius(self):
-        radii = [g.bounding_radius() for g in self.geometries]
+        radii = [expand(g.bounding_radius(), non_channel(g)) for g in self.geometries]
         return math.stack(radii, self.geometries.shape)
 
     def bounding_half_extent(self):
-        values = [g.bounding_half_extent() for g in self.geometries]
+        values = [expand(g.bounding_half_extent(), non_channel(g)) for g in self.geometries]
         return math.stack(values, self.geometries.shape)
 
     def shifted(self, delta: math.Tensor):
@@ -94,8 +95,8 @@ class GeometryStack(Geometry):
     def __hash__(self):
         return hash(self.geometries)
     
-    def __getitem__(self, item: dict):
-        selected = self.geometries[item]
+    def __getitem__(self, item):
+        selected = self.geometries[slicing_dict(self, item)]
         if selected.shape.volume > 1:
             return GeometryStack(selected)
         else:

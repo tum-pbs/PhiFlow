@@ -104,3 +104,6 @@ class TestDemos(TestCase):
 
     def test_taylor_green(self):
         demo_run('taylor_green')
+
+    def test_smoke_embedded_mesh(self):
+        demo_run('smoke_embedded_mesh')

@@ -19,8 +19,8 @@ class FluidTest(TestCase):
         result = None
         for i, backend in enumerate(BACKENDS):
             with backend:
-                smoke = CenteredGrid(Sphere(x=math.random_uniform(batch(**batch_dims)) * 100, y=10, radius=5), extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
-                velocity = grid_type(0, extrapolation, x=16, y=20, bounds=Box[0:100, 0:100])
+                smoke = CenteredGrid(Sphere(x=math.random_uniform(batch(**batch_dims)) * 100, y=10, radius=5), extrapolation, x=16, y=20, bounds=Box['x,y', 0:100, 0:100])
+                velocity = grid_type(0, extrapolation, x=16, y=20, bounds=Box['x,y', 0:100, 0:100])
                 for _ in range(2):
                     velocity += smoke * (0, 0.1) @ velocity
                     velocity, _ = fluid.make_incompressible(velocity)
@@ -60,7 +60,7 @@ class FluidTest(TestCase):
 
         sim_grad = math.jacobian(sim, get_output=False)
 
-        velocity0 = StaggeredGrid(Noise(), ZERO, x=16, y=16, bounds=Box[0:100, 0:100])
+        velocity0 = StaggeredGrid(Noise(), ZERO, x=16, y=16, bounds=Box['x,y', 0:100, 0:100])
         grads = []
         for backend in BACKENDS:
             if backend.supports(Backend.jacobian):
