@@ -923,9 +923,9 @@ def where(condition: Tensor or float or int, value_true: Tensor or float or int,
     Returns:
         `Tensor` containing dimensions of all inputs.
     """
-    condition = tensor(condition)
-    value_true = tensor(value_true)
-    value_false = tensor(value_false)
+    condition = wrap(condition)
+    value_true = wrap(value_true)
+    value_false = wrap(value_false)
 
     def inner_where(c: Tensor, vt: Tensor, vf: Tensor):
         if vt._is_tracer or vf._is_tracer or c._is_tracer:

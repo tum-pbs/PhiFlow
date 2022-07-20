@@ -10,7 +10,7 @@ from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spati
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType
-from ..math import extrapolation
+from ..math import extrapolation, NUMPY
 from ..math._tensors import copy_with
 from ..math.extrapolation import combine_sides, Extrapolation
 
@@ -76,8 +76,9 @@ def make_incompressible(velocity: GridType,
     input_velocity = velocity
     # --- Create masks ---
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
-    accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
-    hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
+    with NUMPY:
+        accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
+        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
     all_active = active is None
     if active is None:
         active = accessible.with_extrapolation(extrapolation.NONE)

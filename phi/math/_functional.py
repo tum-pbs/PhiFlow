@@ -14,7 +14,7 @@ from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shape
     concat_shapes, non_batch, shape
 from ._tensors import Tensor, NativeTensor, disassemble_tree, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached
 from .magic import PhiTreeNode
-from .backend import choose_backend, Backend
+from .backend import choose_backend, Backend, NUMPY
 from .backend._backend import SolveResult, get_spatial_derivative_order, functional_derivative_evaluation, PHI_LOGGER
 
 X = TypeVar('X')
@@ -220,9 +220,9 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         self.tracers: Dict[SignatureKey, ShiftLinTracer] = {}
         self.nl_jit = JitFunction(f)  # for backends that do not support sparse matrices
 
-    def _trace(self, in_key: SignatureKey) -> 'ShiftLinTracer':
+    def _trace(self, in_key: SignatureKey, prefer_numpy: bool) -> 'ShiftLinTracer':
         assert in_key.shapes[0].is_uniform, f"math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}"
-        with in_key.backend:
+        with NUMPY if prefer_numpy else in_key.backend:
             x = math.ones(in_key.shapes[0])
             tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
         f_input = assemble_tree(in_key.tree, [tracer])
@@ -236,11 +236,11 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         assert isinstance(result_tensor, ShiftLinTracer), f"Tracing linear function '{self.f.__name__}' failed. Make sure only linear operations are used."
         return result_tensor
 
-    def _get_or_trace(self, key: SignatureKey):
+    def _get_or_trace(self, key: SignatureKey, prefer_numpy: bool):
         if not key.tracing and key in self.tracers:
             return self.tracers[key]
         else:
-            tracer = self._trace(key)
+            tracer = self._trace(key, prefer_numpy=prefer_numpy)
             if not key.tracing:
                 self.tracers[key] = tracer
                 if len(self.tracers) >= 4:
@@ -263,18 +263,18 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
                 return self.nl_jit(*args, **kwargs)
         x, *condition_args = args
         key = self._condition_key(x, condition_args, kwargs)
-        tracer = self._get_or_trace(key)
+        tracer = self._get_or_trace(key, prefer_numpy=False)
         return tracer.apply(tensors[0])
 
-    def sparse_matrix(self, x, *condition_args, format: str = None, **kwargs):
+    def sparse_matrix(self, x, *condition_args, format: str = None, prefer_numpy=False, **kwargs):
         key = self._condition_key(x, condition_args, kwargs)
-        tracer = self._get_or_trace(key)
+        tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         assert math.close(tracer.bias, 0), "This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead."
         return tracer.get_sparse_matrix(format)
 
-    def sparse_matrix_and_bias(self, x, *condition_args, format: str = None, **kwargs):
+    def sparse_matrix_and_bias(self, x, *condition_args, format: str = None, prefer_numpy=False, **kwargs):
         key = self._condition_key(x, condition_args, kwargs)
-        tracer = self._get_or_trace(key)
+        tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         return tracer.get_sparse_matrix(format), tracer.bias
 
     def _condition_key(self, x, condition_args, kwargs):
@@ -285,9 +285,9 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         # assert key.backend.supports(Backend.sparse_coo_tensor)
         return key
 
-    def stencil_inspector(self, *args, **kwargs):
+    def stencil_inspector(self, *args, prefer_numpy=True, **kwargs):
         key, _ = key_from_args(*args, cache=True, **kwargs)
-        tracer = self._get_or_trace(key)
+        tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
 
         def print_stencil(**indices):
             pos = spatial(**indices)
