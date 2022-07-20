@@ -689,3 +689,13 @@ class TestMathFunctions(TestCase):
                 t = math.where(cond, x, NAN)
                 math.assert_close(t.linspace[0], NAN)
                 math.assert_close(t.linspace[1], x)
+
+    def test_fit_hyperplane(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.random_normal(instance(batch=20), channel(vector='x0,x1')) + (1, 1)
+                y = math.stack([0.8 * x[0] - x[1] + 1, -0.8 * x[0]], channel(features='y0,y1'))
+                from phi.math._fit import fit_hyperplane
+                w, b = fit_hyperplane(x, y, 'batch')
+                math.assert_close(w, math.wrap([(0.8, -1), (-0.8, 0)], channel(y), channel(x)), abs_tolerance=1e-5)
+                math.assert_close(b, math.wrap((1, 0), channel(y)), abs_tolerance=1e-5)
