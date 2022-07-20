@@ -1,7 +1,7 @@
 import numbers
 from contextlib import contextmanager
 from functools import wraps, partial
-from typing import List, Callable
+from typing import List, Callable, Tuple
 
 import keras
 import numpy as np
@@ -652,6 +652,10 @@ class TFBackend(Backend):
 
     def stop_gradient(self, value):
         return tf.stop_gradient(value)
+
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
+        solution = tf.linalg.lstsq(matrix, rhs)
+        return solution, None, None, None
 
 
 _TAPES = []

@@ -1,7 +1,7 @@
 import numbers
 import warnings
 from functools import wraps
-from typing import List, Callable
+from typing import List, Callable, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -425,3 +425,10 @@ class JaxBackend(Backend):
             return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
         else:
             return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
+
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
+        solution, residuals, rank, singular_values = lstsq_batched(matrix, rhs)
+        return solution, residuals, rank, singular_values
+
+
+lstsq_batched = jax.vmap(jnp.linalg.lstsq)  # map first dimension, required for JaxBackend.matrix_solve_least_squares()

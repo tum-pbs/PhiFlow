@@ -1292,7 +1292,7 @@ def merge_shapes(*shapes: Shape or Any, order=(batch, instance, spatial, channel
         `concat_shapes()`.
 
     Args:
-        *shapes: `Shape` objects to combine.
+        *shapes: `Shape` or `Shaped` objects to combine.
         order: Dimension type order as `tuple` of type filters (`channel`, `batch`, `spatial` or `instance`). Dimensions are grouped by type while merging.
 
     Returns:

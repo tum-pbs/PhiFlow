@@ -459,3 +459,13 @@ class NumPyBackend(Backend):
         x = np.stack(xs)
         f_eval = [i + 1 for i in iterations]
         return SolveResult(f'scipy.sparse.linalg.{scipy_function.__name__}', x, None, iterations, f_eval, converged, diverged, "")
+
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> TensorType:
+        solution, residuals, rank, singular_values = [], [], [], []
+        for b in range(self.shape(rhs)[0]):
+            solution_b, residual_b, rnk_b, s_b = np.linalg.lstsq(matrix[b], rhs[b], rcond=None)
+            solution.append(solution_b)
+            residuals.append(residual_b)
+            rank.append(rnk_b)
+            singular_values.append(s_b)
+        return np.stack(solution), np.stack(residuals), np.stack(rank), np.stack(singular_values)

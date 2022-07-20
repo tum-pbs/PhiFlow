@@ -2,12 +2,13 @@ import numbers
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Callable, Optional, Set
+from typing import List, Callable, Optional, Set, Tuple
 
 import numpy as np
 import torch
 import torch.fft
 import torch.nn.functional as torchf
+from packaging import version
 
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice, PHI_LOGGER
@@ -231,6 +232,7 @@ class TorchBackend(Backend):
             raise NotImplementedError()  # TODO transpose to get (0, 0) to the front
         pad_width_spatial = [item for sublist in reversed(pad_width_reordered) for item in sublist]  # flatten
         try:
+            constant_values = self.dtype(value).kind(constant_values)
             result = torchf.pad(reordered, pad_width_spatial, mode, value=constant_values)  # supports 3D to 5D (2 + 1D to 3D)
         except RuntimeError as err:
             warnings.warn(f"PyTorch error {err}", RuntimeWarning)
@@ -623,6 +625,12 @@ class TorchBackend(Backend):
         max_iter = self.as_tensor(max_iter)
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
+
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
+        assert version.parse(torch.__version__) >= version.parse('1.9.0'), "least squares requires PyTorch >= 1.9.0"
+        matrix, rhs = self.auto_cast(matrix, rhs)
+        solution, residuals, rank, singular_values = torch.linalg.lstsq(matrix, rhs)
+        return solution, residuals, rank, singular_values
 
     def _prepare_graph_inputs(self, args: tuple, wrt: tuple or list):
         args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]

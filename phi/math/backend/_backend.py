@@ -3,7 +3,7 @@ import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from threading import Barrier
-from typing import List, Callable, TypeVar
+from typing import List, Callable, TypeVar, Tuple
 
 import logging
 import numpy
@@ -1173,6 +1173,20 @@ class Backend:
             lin_shape = self.staticshape(lin)
             assert len(lin_shape) == 2, f"A must be a matrix but got shape {lin_shape}"
             return self.matmul(lin, vector)
+
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
+        """
+        Args:
+            matrix: Shape (batch, vec, constraints)
+            rhs: Shape (batch, vec, batch_per_matrix)
+
+        Returns:
+            solution: Solution vector of Shape (batch, constraints, batch_per_matrix)
+            residuals: Optional, can be `None`
+            rank: Optional, can be `None`
+            singular_values: Optional, can be `None`
+        """
+        raise NotImplementedError(self)
 
     def stop_gradient(self, value):
         raise NotImplementedError(self)
