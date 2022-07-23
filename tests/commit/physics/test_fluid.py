@@ -60,7 +60,7 @@ class FluidTest(TestCase):
 
         sim_grad = math.jacobian(sim, get_output=False)
 
-        velocity0 = StaggeredGrid(Noise(), ZERO, x=16, y=16, bounds=Box['x,y', 0:100, 0:100])
+        velocity0 = StaggeredGrid(Noise(), x=16, y=16, bounds=Box['x,y', 0:100, 0:100])
         grads = []
         for backend in BACKENDS:
             if backend.supports(Backend.jacobian):

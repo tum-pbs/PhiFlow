@@ -153,6 +153,7 @@ class TorchBackend(Backend):
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         """ See PyTorch_Jit.md """
         def select_jit(*args):
+            args = [self.as_tensor(arg) for arg in args]
             if not CURRENT_JIT_CALLS:
                 return torch_function.apply(*args)
             jit = CURRENT_JIT_CALLS[-1]
