@@ -44,7 +44,6 @@ class MatplotlibPlots(PlottingLibrary):
                 if (row, col) not in spaces:
                     axis.remove()
                 else:
-                    axis.set_title(titles.get((row, col), None))
                     bounds = spaces[(row, col)]
                     if bounds.spatial_rank == 1:
                         axis.set_xlabel(bounds.vector.item_names[0])
@@ -64,6 +63,7 @@ class MatplotlibPlots(PlottingLibrary):
                         axis.set_xlim(_get_range(bounds, 0))
                         axis.set_ylim(_get_range(bounds, 1))
                         axis.set_zlim(_get_range(bounds, 2))
+                    axis.set_title(titles.get((row, col), None))
                     axes_by_pos[(row, col)] = axes[row, col]
         return figure, axes_by_pos
 
