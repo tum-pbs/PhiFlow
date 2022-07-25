@@ -46,7 +46,7 @@ def build_viewer(app: DashApp, height: int, initial_field_name: str, id: str, vi
         value = app.model.get_field(field, selection['select'])
         try:
             value = select_channel(value, selection.get('component', None))
-            return plot(value, lib='plotly', size=(height, height), same_scale=False, colormap=app.config.get('colormap', None))
+            return plot(value, lib='plotly', size=(height, height), same_scale=False, colormap=app.config.get('colormap', None)).native()
         except ValueError as err:
             fig = graph_objects.Figure()
             fig.update_layout(title_text=str(value), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
