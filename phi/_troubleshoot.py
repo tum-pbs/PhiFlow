@@ -68,7 +68,7 @@ def troubleshoot_tensorflow():
             if platform.system().lower() != 'linux':
                 cuda_str = f"Optional CUDA kernels not available and compilation not recommended on {platform.system()}. GPU will be used nevertheless."
             else:
-                cuda_str = f"Optional CUDA kernels not available. GPU will be used nevertheless. Clone the phiflow source from GitHub and run 'python setup.py tf_cuda' to compile them."
+                cuda_str = f"Optional CUDA kernels not available. GPU will be used nevertheless. Clone the phiflow source from GitHub and run 'python setup.py tf_cuda' to compile them. See https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html"
         return f"Installed ({tensorflow.__version__}), {gpu_count} GPUs available. {cuda_str}"
 
 
@@ -105,20 +105,21 @@ def troubleshoot_jax():
         import jaxlib
     except ImportError:
         return "Not installed."
+    version = f"jax {jax.__version__}, jaxlib {jaxlib.__version__}"
     try:
         from phi import jax as phi_jax
     except BaseException as err:
-        return f"Installed ({jax.__version__}) but not available due to internal error: {err}"
+        return f"Installed ({version}) but not available due to internal error: {err}"
     try:
         gpu_count = len(phi_jax.JAX.list_devices('GPU'))
     except BaseException as err:
-        return f"Installed ({jax.__version__}) but device initialization failed with error: {err}"
+        return f"Installed ({version}) but device initialization failed with error: {err}"
     with phi_jax.JAX:
         try:
             math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
         except BaseException as err:
-            return f"Installed ({jax.__version__}) but tests failed with error: {err}"
-    return f"Installed ({jax.__version__}), {gpu_count} GPUs available."
+            return f"Installed ({version}) but tests failed with error: {err}"
+    return f"Installed ({version}), {gpu_count} GPUs available."
 
 
 def troubleshoot_dash():
