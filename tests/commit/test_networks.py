@@ -13,49 +13,61 @@ LIBRARIES = [tf_nets, torch_nets, stax_nets]
 
 class TestNetworks(TestCase):
 
-    def test_u_net_2d_network_sizes(self):
+    def test_u_net_resd_network_sizes(self):
         for lib in LIBRARIES:
             net = lib.u_net(2, 3, levels=3, filters=8, batch_norm=False, activation='ReLU', in_spatial=(64, 32))
             self.assertEqual(6587, lib.parameter_count(net))
+            net_res = lib.u_net(2, 3, batch_norm=False, activation='SiLU', in_spatial=2, use_res_blocks=True)
+            self.assertEqual(39059, lib.parameter_count(net_res))
 
     def test_u_net_3d_norm_network_sizes(self):
         for lib in LIBRARIES:
             net = lib.u_net(2, 3, levels=3, filters=8, batch_norm=True, activation='Sigmoid', in_spatial=3)
             self.assertEqual(19707, lib.parameter_count(net))
+            net_res = lib.u_net(2, 3, batch_norm=True, activation='SiLU', in_spatial=3, use_res_blocks=True)
+            self.assertEqual(113939, lib.parameter_count(net_res))
 
-    def test_u_net_1d_norm_network_sizes(self):
+    def test_u_netd_norm_network_sizes(self):
         for lib in LIBRARIES:
             net = lib.u_net(2, 3, levels=2, filters=16, batch_norm=True, activation='tanh', in_spatial=1)
             self.assertEqual(5043, lib.parameter_count(net))
+            net_res = lib.u_net(2, 3, batch_norm=True, activation='SiLU', in_spatial=1, use_res_blocks=True)
+            self.assertEqual(14867, lib.parameter_count(net_res))
 
     def test_optimize_u_net(self):
         for lib in LIBRARIES:
             net = lib.u_net(1, 1, levels=2)
             optimizer = lib.adam(net, 1e-3)
+            net_res = lib.u_net(1, 1, levels=2, use_res_blocks=True, activation='SiLU')
+            optimizer_2 = lib.adam(net_res, 1e-3)
 
-            def loss_function(x):
+            def loss_function(x, net):
                 print("Running loss_function")
                 assert isinstance(x, math.Tensor)
                 pred = math.native_call(net, x)
                 return math.l2_loss(pred)
 
             for i in range(2):
-                lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
+                lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)), net)
+                lib.update_weights(net_res, optimizer_2, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)), net_res)
 
     def test_optimize_u_net_jit(self):
         for lib in LIBRARIES:
             net = lib.u_net(1, 1, levels=2)
             optimizer = lib.adam(net, 1e-3)
+            net_res = lib.u_net(1, 1, levels=2, use_res_blocks=True, activation='SiLU')
+            optimizer_2 = lib.adam(net_res, 1e-3)
 
             @math.jit_compile
-            def loss_function(x):
+            def loss_function(x, net):
                 print("Tracing loss_function")
                 assert isinstance(x, math.Tensor)
                 pred = math.native_call(net, x)
                 return math.l2_loss(pred)
 
             for i in range(2):
-                lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
+                lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)), net)
+                lib.update_weights(net_res, optimizer_2, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)), net_res)
 
     def test_dense_net_network_sizes(self):
         for lib in LIBRARIES:
