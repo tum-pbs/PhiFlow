@@ -41,15 +41,21 @@ class TestNetworks(TestCase):
             net_res = lib.u_net(1, 1, levels=2, use_res_blocks=True, activation='SiLU')
             optimizer_2 = lib.adam(net_res, 1e-3)
 
-            def loss_function(x, net):
+            def loss_function(x):
                 print("Running loss_function")
                 assert isinstance(x, math.Tensor)
                 pred = math.native_call(net, x)
                 return math.l2_loss(pred)
 
+            def loss_function_res(x):
+                print("Running loss_function")
+                assert isinstance(x, math.Tensor)
+                pred = math.native_call(net_res, x)
+                return math.l2_loss(pred)
+
             for i in range(2):
-                lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)), net)
-                lib.update_weights(net_res, optimizer_2, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)), net_res)
+                lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
+                lib.update_weights(net_res, optimizer_2, loss_function_res, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
 
     def test_optimize_u_net_jit(self):
         for lib in LIBRARIES:
@@ -59,15 +65,22 @@ class TestNetworks(TestCase):
             optimizer_2 = lib.adam(net_res, 1e-3)
 
             @math.jit_compile
-            def loss_function(x, net):
+            def loss_function(x):
                 print("Tracing loss_function")
                 assert isinstance(x, math.Tensor)
                 pred = math.native_call(net, x)
                 return math.l2_loss(pred)
 
+            @math.jit_compile
+            def loss_function_res(x):
+                print("Tracing loss_function")
+                assert isinstance(x, math.Tensor)
+                pred = math.native_call(net_res, x)
+                return math.l2_loss(pred)
+
             for i in range(2):
-                lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)), net)
-                lib.update_weights(net_res, optimizer_2, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)), net_res)
+                lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
+                lib.update_weights(net_res, optimizer_2, loss_function_res, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
 
     def test_dense_net_network_sizes(self):
         for lib in LIBRARIES:
