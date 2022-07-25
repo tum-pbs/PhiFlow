@@ -13,7 +13,7 @@ LIBRARIES = [tf_nets, torch_nets, stax_nets]
 
 class TestNetworks(TestCase):
 
-    def test_u_net_resd_network_sizes(self):
+    def test_u_net_2d_network_sizes(self):
         for lib in LIBRARIES:
             net = lib.u_net(2, 3, levels=3, filters=8, batch_norm=False, activation='ReLU', in_spatial=(64, 32))
             self.assertEqual(6587, lib.parameter_count(net))
@@ -27,7 +27,7 @@ class TestNetworks(TestCase):
             net_res = lib.u_net(2, 3, batch_norm=True, activation='SiLU', in_spatial=3, use_res_blocks=True)
             self.assertEqual(113939, lib.parameter_count(net_res))
 
-    def test_u_netd_norm_network_sizes(self):
+    def test_u_net_1d_norm_network_sizes(self):
         for lib in LIBRARIES:
             net = lib.u_net(2, 3, levels=2, filters=16, batch_norm=True, activation='tanh', in_spatial=1)
             self.assertEqual(5043, lib.parameter_count(net))
