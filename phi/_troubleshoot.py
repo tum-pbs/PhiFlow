@@ -1,6 +1,5 @@
 from contextlib import contextmanager
-
-from phi.math import batch, spatial
+from os.path import dirname
 
 
 def assert_minimal_config():  # raises AssertionError
@@ -18,13 +17,13 @@ def assert_minimal_config():  # raises AssertionError
     from phi import flow
     from phi import math
     with math.NUMPY:
-        a = math.ones(batch(batch=8) & spatial(x=64))
+        a = math.ones()
         math.assert_close(a + a, 2)
 
 
 def troubleshoot():
     import phi
-    return f"PhiFlow version {phi.__version__}\n"\
+    return f"PhiFlow {phi.__version__} at {dirname(__file__)}\n"\
            f"Web interface: {troubleshoot_dash()}\n"\
            f"PyTorch: {troubleshoot_torch()}\n"\
            f"Jax: {troubleshoot_jax()}\n"\
@@ -39,26 +38,27 @@ def troubleshoot_tensorflow():
         import tensorflow
     except ImportError:
         return "Not installed."
+    tf_version = f"{tensorflow.__version__} at {dirname(tensorflow.__file__)}"
     try:
         import tensorflow_probability
     except ImportError:
-        return f"Installed ({tensorflow.__version__}) but module 'tensorflow_probability' missing. Some functions may be unavailable, such as math.median() and math.quantile(). To install it, run  $ pip install tensorflow-probability"
+        return f"Installed ({tf_version}) but module 'tensorflow_probability' missing. Some functions may be unavailable, such as math.median() and math.quantile(). To install it, run  $ pip install tensorflow-probability"
     try:
         from phi import tf
     except BaseException as err:
-        return f"Installed ({tensorflow.__version__}) but not available due to internal error: {err}"
+        return f"Installed ({tf_version}) but not available due to internal error: {err}"
     try:
         gpu_count = len(tf.TENSORFLOW.list_devices('GPU'))
     except BaseException as err:
-        return f"Installed ({tensorflow.__version__}) but device initialization failed with error: {err}"
+        return f"Installed ({tf_version}) but device initialization failed with error: {err}"
     with tf.TENSORFLOW:
         try:
-            math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
+            math.assert_close(math.ones() + math.ones(), 2)
             # TODO cuDNN math.convolve(math.ones(batch=8, x=64), math.ones(x=4))
         except BaseException as err:
-            return f"Installed ({tensorflow.__version__}) but tests failed with error: {err}"
+            return f"Installed ({tf_version}) but tests failed with error: {err}"
     if gpu_count == 0:
-        return f"Installed ({tensorflow.__version__}), {gpu_count} GPUs available."
+        return f"Installed ({tf_version}), {gpu_count} GPUs available."
     else:
         from phi.tf._tf_cuda_resample import librariesLoaded
         if librariesLoaded:
@@ -66,10 +66,10 @@ def troubleshoot_tensorflow():
         else:
             import platform
             if platform.system().lower() != 'linux':
-                cuda_str = f"Optional CUDA kernels not available and compilation not recommended on {platform.system()}. GPU will be used nevertheless."
+                cuda_str = f"Optional TensorFlow CUDA kernels not available and compilation not recommended on {platform.system()}. GPU will be used nevertheless."
             else:
-                cuda_str = f"Optional CUDA kernels not available. GPU will be used nevertheless. Clone the phiflow source from GitHub and run 'python setup.py tf_cuda' to compile them. See https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html"
-        return f"Installed ({tensorflow.__version__}), {gpu_count} GPUs available. {cuda_str}"
+                cuda_str = f"Optional TensorFlow CUDA kernels not available. GPU will be used nevertheless. Clone the phiflow source from GitHub and run 'python setup.py tf_cuda' to compile them. See https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html"
+        return f"Installed ({tf_version}), {gpu_count} GPUs available.\n{cuda_str}"
 
 
 def troubleshoot_torch():
@@ -78,24 +78,25 @@ def troubleshoot_torch():
         import torch
     except ImportError:
         return "Not installed."
+    torch_version = f"{torch.__version__} at {dirname(torch.__file__)}"
     try:
         from phi import torch as phi_torch
     except BaseException as err:
-        return f"Installed ({torch.__version__}) but not available due to internal error: {err}"
+        return f"Installed ({torch_version}) but not available due to internal error: {err}"
     try:
         gpu_count = len(phi_torch.TORCH.list_devices('GPU'))
     except BaseException as err:
-        return f"Installed ({torch.__version__}) but device initialization failed with error: {err}"
+        return f"Installed ({torch_version}) but device initialization failed with error: {err}"
     with phi_torch.TORCH:
         try:
-            math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
+            math.assert_close(math.ones() + math.ones(), 2)
         except BaseException as err:
-            return f"Installed ({torch.__version__}) but tests failed with error: {err}"
-    if torch.__version__.startswith('1.10.'):
-        return f"Installed ({torch.__version__}), {gpu_count} GPUs available. This version has known bugs with JIT compilation. Recommended: 1.11+ or 1.8.2 LTS"
-    if torch.__version__.startswith('1.9.'):
-        return f"Installed ({torch.__version__}), {gpu_count} GPUs available. You may encounter problems importing torch.fft. Recommended: 1.11+ or 1.8.2 LTS"
-    return f"Installed ({torch.__version__}), {gpu_count} GPUs available."
+            return f"Installed ({torch_version}) but tests failed with error: {err}"
+    if torch_version.startswith('1.10.'):
+        return f"Installed ({torch_version}), {gpu_count} GPUs available. This version has known bugs with JIT compilation. Recommended: 1.11+ or 1.8.2 LTS"
+    if torch_version.startswith('1.9.'):
+        return f"Installed ({torch_version}), {gpu_count} GPUs available. You may encounter problems importing torch.fft. Recommended: 1.11+ or 1.8.2 LTS"
+    return f"Installed ({torch_version}), {gpu_count} GPUs available."
 
 
 def troubleshoot_jax():
@@ -105,7 +106,7 @@ def troubleshoot_jax():
         import jaxlib
     except ImportError:
         return "Not installed."
-    version = f"jax {jax.__version__}, jaxlib {jaxlib.__version__}"
+    version = f"jax {jax.__version__} at {dirname(jax.__file__)}, jaxlib {jaxlib.__version__}"
     try:
         from phi import jax as phi_jax
     except BaseException as err:
@@ -116,7 +117,7 @@ def troubleshoot_jax():
         return f"Installed ({version}) but device initialization failed with error: {err}"
     with phi_jax.JAX:
         try:
-            math.assert_close(math.ones(batch(batch=8) & spatial(x=64)) + math.ones(batch(batch=8) & spatial(x=64)), 2)
+            math.assert_close(math.ones() + math.ones(), 2)
         except BaseException as err:
             return f"Installed ({version}) but tests failed with error: {err}"
     return f"Installed ({version}), {gpu_count} GPUs available."
