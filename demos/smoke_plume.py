@@ -14,7 +14,7 @@ INFLOW = 0.2 * CenteredGrid(SoftGeometryMask(Sphere(x=50, y=9.5, radius=5)), 0, 
 pressure = None
 
 
-# @math.jit_compile  # Only for PyTorch, TensorFlow and Jax
+# @jit_compile  # Only for PyTorch, TensorFlow and Jax
 def step(v, s, p, dt=1.):
     s = advect.mac_cormack(s, v, dt) + INFLOW
     buoyancy = s * (0, 0.1) @ v  # resamples smoke to velocity sample points

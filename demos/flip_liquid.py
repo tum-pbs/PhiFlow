@@ -8,7 +8,7 @@ from phi.torch.flow import *
 # from phi.jax.flow import *
 
 
-GRAVITY = math.tensor([0, -9.81])
+GRAVITY = tensor([0, -9.81])
 DT = .2
 OBSTACLE = Box(x=(1, 25), y=(30, 33)).rotated(-20)
 ACCESSIBLE_CELLS = CenteredGrid(~OBSTACLE, 0, x=64, y=64)
@@ -18,7 +18,7 @@ particles = distribute_points(union(Box(x=(15, 30), y=(50, 60)), Box(x=None, y=(
 scene = vis.overlay(particles, _OBSTACLE_POINTS)  # only for plotting
 
 
-# @math.jit_compile
+# @jit_compile
 def step(particles):
     # --- Grid Operations ---
     velocity = prev_velocity = field.finite_fill(StaggeredGrid(particles, 0, x=64, y=64, scheme=Scheme(outside_points='clamp')))

@@ -10,13 +10,13 @@ def taylor_green_pressure(x):
 def taylor_green_velocity(x):
     sin = math.sin(VORTEX_COUNT * x)
     cos = math.cos(VORTEX_COUNT * x)
-    return math.exp(-2 * VORTEX_COUNT ** 2 * t / RE) * math.stack({
+    return math.exp(-2 * VORTEX_COUNT ** 2 * t / RE) * stack({
         'x': -cos.vector['x'] * sin.vector['y'],
         'y': sin.vector['x'] * cos.vector['y']},
         dim=channel('vector'))
 
 
-DOMAIN = dict(x=64, y=64, bounds=Box(x=2*math.pi, y=2*math.pi), extrapolation=extrapolation.PERIODIC)
+DOMAIN = dict(x=64, y=64, bounds=Box(x=2*PI, y=2*PI), extrapolation=extrapolation.PERIODIC)
 VORTEX_COUNT = 1
 RE = vis.control(60.)  # Reynolds number for analytic function
 dt = vis.control(0.1)

@@ -9,7 +9,7 @@ INFLOW = 0.2 * CenteredGrid(SoftGeometryMask(Sphere(x=50, y=9.5, radius=5)), 0, 
 pressure = None
 
 
-# @math.jit_compile  # Only for PyTorch, TensorFlow and Jax
+# @jit_compile  # Only for PyTorch, TensorFlow and Jax
 def step(v, v_emb, s, p, dt=1.):
     s = advect.mac_cormack(s, v_emb, dt) + INFLOW
     buoyancy = s * (0, 0.1)
