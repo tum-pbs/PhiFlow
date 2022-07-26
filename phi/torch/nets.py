@@ -154,7 +154,8 @@ def u_net(in_channels: int,
           filters: int or tuple or list = 16,
           batch_norm: bool = True,
           activation: str or type = 'ReLU',
-          in_spatial: tuple or int = 2) -> nn.Module:
+          in_spatial: tuple or int = 2,
+          use_res_blocks : bool = False) -> nn.Module:
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
@@ -165,7 +166,7 @@ def u_net(in_channels: int,
     else:
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
-    net = UNet(d, in_channels, out_channels, filters, batch_norm, activation)
+    net = UNet(d, in_channels, out_channels, filters, batch_norm, activation, use_res_blocks)
     net = net.to(TORCH.get_default_device().ref)
     # net = torch.jit.trace_module(net, {'forward': torch.zeros((1, in_channels) + (32,) * d, device=TORCH.get_default_device().ref)})
     return net
@@ -173,14 +174,17 @@ def u_net(in_channels: int,
 
 class UNet(nn.Module):
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, filters: tuple, batch_norm: bool, activation: type):
+    def __init__(self, d: int, in_channels: int, out_channels: int, filters: tuple, batch_norm: bool, activation: type, use_res_blocks: bool):
         super(UNet, self).__init__()
         self._levels = len(filters)
         self._spatial_rank = d
-        self.add_module('inc', DoubleConv(d, in_channels, filters[0], filters[0], batch_norm, activation))
+        if use_res_blocks:
+            self.add_module('inc', ResNet_Block(d, in_channels, filters[0], batch_norm, activation))
+        else:
+            self.add_module('inc', DoubleConv(d, in_channels, filters[0], filters[0], batch_norm, activation))
         for i in range(1, self._levels):
-            self.add_module(f'down{i}', Down(d, filters[i - 1], filters[i], batch_norm, activation))
-            self.add_module(f'up{i}', Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation))
+            self.add_module(f'down{i}', Down(d, filters[i - 1], filters[i], batch_norm, activation, use_res_blocks))
+            self.add_module(f'up{i}', Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation, use_res_blocks= use_res_blocks))
         self.add_module('outc', CONV[d](filters[0], out_channels, kernel_size=1))
 
     def forward(self, x):
@@ -230,7 +234,7 @@ class UNet(nn.Module):
 
 CONV = [None, nn.Conv1d, nn.Conv2d, nn.Conv3d]
 NORM = [None, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]
-ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh}
+ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh, 'SiLU': nn.SiLU}
 
 
 class DoubleConv(nn.Module):
@@ -255,12 +259,15 @@ MAX_POOL = [None, nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]
 
 
 class Down(nn.Module):
-    """Downscaling with maxpool then double conv"""
+    """Downscaling with maxpool then double conv or resnet_block"""
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type):
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: str or type, use_res_blocks: bool):
         super().__init__()
         self.add_module('maxpool', MAX_POOL[d](2))
-        self.add_module('conv', DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation))
+        if use_res_blocks:
+            self.add_module('conv', ResNet_Block(d, in_channels, out_channels, batch_norm, activation))
+        else:
+            self.add_module('conv', DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation))
 
     def forward(self, x):
         x = self.maxpool(x)
@@ -272,15 +279,21 @@ class Up(nn.Module):
 
     _MODES = [None, 'linear', 'bilinear', 'trilinear']
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, linear=True):
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, linear=True, use_res_blocks: bool = False):
         super().__init__()
         if linear:
             # if bilinear, use the normal convolutions to reduce the number of channels
             up = nn.Upsample(scale_factor=2, mode=Up._MODES[d])
-            conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation)
+            if use_res_blocks:
+                conv = ResNet_Block(d, in_channels, out_channels, batch_norm, activation)
+            else:
+                conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation)
         else:
             up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
+            if use_res_blocks:
+                conv = ResNet_Block(d, in_channels, out_channels, batch_norm, activation)
+            else:
+                conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation)
         self.add_module('up', up)
         self.add_module('conv', conv)
 
@@ -337,6 +350,7 @@ def conv_net(in_channels:int,
 
 class ResNet_Block(nn.Module):
 
+
     def __init__(self, in_spatial, in_channels, out_channels, batch_norm, activation):
         #Since in_channels and out_channels might be different
         # we need a sampling layer for up/down sampling input
@@ -344,12 +358,12 @@ class ResNet_Block(nn.Module):
         super(ResNet_Block, self).__init__()
         if in_channels != out_channels:
             self.sample_input = CONV[in_spatial](in_channels, out_channels, kernel_size=1, padding=0)
+            self.bn_sample = NORM[in_spatial](out_channels) if batch_norm else nn.Identity()
         else:
             self.sample_input = nn.Identity()
+            self.bn_sample = nn.Identity()
 
-        self.bn_sample = NORM[in_spatial](out_channels) if batch_norm else nn.Identity()
-
-        self.activation = ACTIVATIONS[activation]
+        self.activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
 
         self.bn1 = NORM[in_spatial](out_channels) if batch_norm else nn.Identity()
         self.conv1 = CONV[in_spatial](in_channels, out_channels, kernel_size=3, padding=1, padding_mode='circular')
@@ -388,8 +402,7 @@ class ResNet(nn.Module):
             x = getattr(self, f'Res{i}')(x)
         x = getattr(self, 'Res_out')(x)
         return x
-
-
+      
 def res_net(in_channels : int,
             out_channels : int,
             layers : tuple,
