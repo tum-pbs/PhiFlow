@@ -507,11 +507,11 @@ def upsample2x(grid: Tensor,
       double-size grid
 
     """
-    for i, dim in enumerate(grid.shape.only(dims)):
+    for dim in grid.shape.only(dims):
         left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
-        stacked = math.stack([interp_left, interp_right], spatial('_interleave'))
+        stacked = math.stack([interp_left, interp_right], channel(_interleave='left,right'))
         grid = math.pack_dims(stacked, (dim.name, '_interleave'), dim)
     return grid
 
