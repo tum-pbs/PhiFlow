@@ -317,6 +317,8 @@ class TorchBackend(Backend):
     def where(self, condition, x=None, y=None):
         condition = self.as_tensor(condition).bool()
         x, y = self.auto_cast(x, y)
+        x = self.as_tensor(x)
+        y = self.as_tensor(y)
         return torch.where(condition, x, y)
 
     def mean(self, value, axis=None, keepdims=False):
@@ -562,7 +564,7 @@ class TorchBackend(Backend):
 
     def cast(self, x, dtype: DType):
         if isinstance(x, (numbers.Number, bool)):
-            return x  # Creating a Tensor here would raise warnings during tracing.
+            return dtype.kind(x)  # Creating a Tensor here would raise warnings during tracing.
         if not self.is_tensor(x, only_native=True):
             x = self.as_tensor(x)
         if self.dtype(x) == dtype:
