@@ -125,7 +125,6 @@ class JaxBackend(Backend):
     round = staticmethod(jnp.round)
     ceil = staticmethod(jnp.ceil)
     floor = staticmethod(jnp.floor)
-    nonzero = staticmethod(jnp.nonzero)
     flip = staticmethod(jnp.flip)
     stop_gradient = staticmethod(jax.lax.stop_gradient)
     transpose = staticmethod(jnp.transpose)
@@ -143,6 +142,10 @@ class JaxBackend(Backend):
     conj = staticmethod(jnp.conjugate)
     einsum = staticmethod(jnp.einsum)
     cumsum = staticmethod(jnp.cumsum)
+
+    def nonzero(self, values):
+        result = jnp.nonzero(values)
+        return jnp.stack(result, -1)
 
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):
