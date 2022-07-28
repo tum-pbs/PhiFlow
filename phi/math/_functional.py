@@ -5,6 +5,7 @@ import warnings
 from functools import wraps
 from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any
 
+import numpy
 import numpy as np
 
 from . import _ops as math
@@ -1421,13 +1422,13 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         x0_natives.append(reshaped_native(t, [batch_dims, t.shape.non_batch], force_expand=True))
     x0_flat = backend.concat(x0_natives, -1)
 
-    def unflatten_assemble(x_flat, additional_dims: Shape = EMPTY_SHAPE):
+    def unflatten_assemble(x_flat, additional_dims: Shape = EMPTY_SHAPE, convert=True):
         i = 0
         x_tensors = []
         for x0_native, x0_tensor in zip(x0_natives, x0_tensors):
             vol = backend.shape(x0_native)[-1]
             flat_native = x_flat[..., i:i + vol]
-            x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch_dims, x0_tensor.shape.non_batch]))
+            x_tensors.append(reshaped_tensor(flat_native, [*additional_dims, batch_dims, x0_tensor.shape.non_batch], convert=convert))
             i += vol
         x = assemble_tree(x0_nest, x_tensors)
         return x
@@ -1462,7 +1463,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         converged = reshaped_tensor(ret[-1].converged, [batch_dims])
         diverged = reshaped_tensor(ret[-1].diverged, [batch_dims])
         x = unflatten_assemble(ret[-1].x)
-        x_ = unflatten_assemble(backend.stack([r.x for r in ret]), additional_dims=batch('trajectory'))
+        x_ = unflatten_assemble(numpy.stack([r.x for r in ret]), additional_dims=batch('trajectory'), convert=False)
         residual = stack([reshaped_tensor(r.residual, [batch_dims]) for r in ret], batch('trajectory'))
         iterations = reshaped_tensor(ret[-1].iterations, [batch_dims])
         function_evaluations = stack([reshaped_tensor(r.function_evaluations, [batch_dims]) for r in ret], batch('trajectory'))

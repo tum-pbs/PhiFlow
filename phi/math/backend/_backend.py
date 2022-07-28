@@ -911,7 +911,7 @@ class Backend:
                     if final_losses[b] is None:  # first evaluation
                         final_losses[b] = f_b_losses[b]
                         if trajectories is not None:
-                            trajectories[b].append(SolveResult(method_description, x0[b], f_b_losses[b], 0, 1, False, False, ""))
+                            trajectories[b].append(SolveResult(method_description, x0[b], self.numpy(f_b_losses[b]), 0, 1, False, False, ""))
                     return f_b_losses_np[b], f_grad_np[b]
 
                 def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
@@ -920,7 +920,7 @@ class Backend:
                     recent_b_losses.clear()
                     final_losses[b] = loss
                     if trajectories is not None:
-                        trajectories[b].append(SolveResult(method_description, x, loss, iterations[b], function_evaluations[b], False, False, ""))
+                        trajectories[b].append(SolveResult(method_description, x, self.numpy(loss), iterations[b], function_evaluations[b], False, False, ""))
 
                 res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={'maxiter': max_iter[b]}, callback=callback)
                 assert isinstance(res, OptimizeResult)
@@ -954,12 +954,12 @@ class Backend:
 
         if trj:
             max_trajectory_length = max([len(t) for t in trajectories])
-            last_points = [SolveResult(method_description, xs[b], final_losses[b], iterations[b], function_evaluations[b], converged[b], diverged[b], "") for b in range(batch_size)]
+            last_points = [SolveResult(method_description, xs[b], self.numpy(final_losses[b]), iterations[b], function_evaluations[b], converged[b], diverged[b], "") for b in range(batch_size)]
             trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
             trajectory = []
             for states in zip(*trajectories):
-                x = self.stack([self.to_float(state.x) for state in states])
-                residual = self.stack([state.residual for state in states])
+                x = numpy.stack([state.x for state in states])
+                residual = numpy.stack([state.residual for state in states])
                 iterations = [state.iterations for state in states]
                 function_evaluations = [state.function_evaluations for state in states]
                 converged = [state.converged for state in states]
