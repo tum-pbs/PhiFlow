@@ -40,6 +40,7 @@ Otherwise, finite differencing is used to approximate the
             amount = math.batch_align(amount, 0, data)
         for i in range(substeps):
             data += amount / substeps * field.laplace().data
+            field = field.with_data(data)
     return field.with_data(data)
 
 
