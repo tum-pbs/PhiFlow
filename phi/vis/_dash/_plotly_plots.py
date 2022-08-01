@@ -371,5 +371,5 @@ def split_curve(curve: np.ndarray) -> List[np.ndarray]:
 
 
 def join_curves(curves: List[np.ndarray]) -> np.ndarray:
-    curves = [np.append(np.array(c, numpy.float), numpy.nan, -2) for c in curves[:-1]] + [curves[-1]]
+    curves = [np.append(np.array(c, numpy.float), [[numpy.nan, numpy.nan]], -2) for c in curves[:-1]] + [curves[-1]]
     return np.concatenate(curves, -2)
