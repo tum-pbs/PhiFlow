@@ -332,7 +332,8 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  labels: math.Tensor = None,
                  xlabel: str = None,
                  ylabel: str = None,
-                 colors: math.Tensor = 'default'):
+                 colors: math.Tensor = 'default',
+                 dashed: math.Tensor = False):
     """
 
     Args:
@@ -375,8 +376,8 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         names = math.wrap(names, batch('names'))
     else:
         assert isinstance(names, math.Tensor), f"Invalid argument 'names': {type(names)}"
-    if not isinstance(colors, math.Tensor):
-        colors = math.wrap(colors)
+    colors = math.wrap(colors)
+    dashed = math.wrap(dashed)
     if xlabel is None:
         xlabel = 'Iterations' if x == 'steps' else 'Time (s)'
 
@@ -388,7 +389,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
     MATPLOTLIB.current_figure = fig
     axes = axes if isinstance(axes, numpy.ndarray) else np.array(axes)
 
-    for b, axis in zip(batches.meshgrid(), axes.flatten()):
+    for b, axis in zip(math.concat_shapes(batches.only(down), batches.without(down)).meshgrid(), axes.flatten()):
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0
@@ -410,7 +411,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
         else:
             curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
 
-        def single_plot(name, path, label, i, color, smooth):
+        def single_plot(name, path, label, i, color, dashed_, smooth):
             PHI_LOGGER.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
             if curve.ndim == 2:
@@ -424,8 +425,9 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
                 PHI_LOGGER.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
                 _, x_values, *_ = numpy.loadtxt(os.path.join(path, "log_step_time.txt")).T
-                values = values[:len(x_values)]
-                x_values = np.cumsum(x_values[:len(values)])
+                values = values[:len(x_values+1)]
+                x_values = np.cumsum(x_values[:len(values)-1])
+                x_values = np.concatenate([[0.], x_values])
             if transform:
                 x_values, values = transform(np.stack([x_values, values]))
             if color == 'default':
@@ -437,9 +439,12 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
             if isinstance(color, Number):
                 color = cycle[int(color)]
             PHI_LOGGER.debug(f"Plotting curve {label}")
-            axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
-            curve = np.stack([x_values, values], -1)
-            axis.plot(*smooth_uniform_curve(curve, smooth).T, color=color, linewidth=smooth_linewidth, label=label)
+            if smooth > 1:
+                axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
+                curve = np.stack([x_values, values], -1)
+                axis.plot(*smooth_uniform_curve(curve, smooth).T, *(['--'] if dashed_ else []), color=color, linewidth=smooth_linewidth, label=label)
+            else:
+                axis.plot(x_values, values, *(['--'] if dashed_ else []), color=color, linewidth=1, label=label)
             if grid:
                 if isinstance(grid, dict):
                     axis.grid(**grid)
@@ -460,7 +465,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                 axis.set_ylabel(ylabel)
             return name
 
-        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors, smooth)
+        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors, dashed, smooth)
         if legend:
             axis.legend(loc=legend)
     # Final touches
