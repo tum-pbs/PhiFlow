@@ -252,7 +252,7 @@ def u_net(in_channels: int,
     activation = ACTIVATIONS[activation]
     if isinstance(in_spatial, int):
         d = in_spatial
-        in_spatial = (-1,) * d
+        in_spatial = (1,) * d
     else:
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
@@ -306,7 +306,7 @@ def u_net(in_channels: int,
         x = outc_apply(params['outc'], x, **kwargs)
         return x
 
-    net = StaxNet(net_init, net_apply, (-1,) + in_spatial + (in_channels,))
+    net = StaxNet(net_init, net_apply, (1,) + in_spatial + (in_channels,))
     net.initialize()
     return net
 
@@ -376,7 +376,7 @@ def create_upsample():
 def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, in_spatial: int or tuple):
     if isinstance(in_spatial, int):
         d = in_spatial
-        in_spatial = (-1,) * d
+        in_spatial = (1,) * d
     else:
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
@@ -455,7 +455,7 @@ def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, 
                 init_fn[f'{net_list[i]}'](rngs[i], shape)
 
         shape, params['flatten'] = init_fn['flatten'](rngs[N], shape)
-        shape, params['dense'] = dense_init(rngs[N+1], (-1,) + (flattened_input_dim,))
+        shape, params['dense'] = dense_init(rngs[N+1], (1,) + (flattened_input_dim,))
 
         return shape, params
 
@@ -473,7 +473,7 @@ def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, 
         out = dense_apply(params['dense'], x, **kwargs)
         return out
 
-    net = StaxNet(net_init, net_apply, (-1,) + in_spatial + (in_channels,))
+    net = StaxNet(net_init, net_apply, (1,) + in_spatial + (in_channels,))
     net.initialize()
     return net
 
@@ -487,8 +487,7 @@ def conv_net(in_channels : int,
         d = in_spatial
         in_spatial = len(in_spatial)
     else:
-        d = (-1,) * in_spatial
-
+        d = (1,) * in_spatial
     if isinstance(activation, str):
         activation = ACTIVATIONS[activation]
 
@@ -525,7 +524,7 @@ def conv_net(in_channels : int,
             out = apply_fn[f'conv{i+1}'](params[f'conv{i+1}'], out)
         return out
 
-    net = StaxNet(net_init, net_apply, (-1,) + d + (in_channels,))
+    net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
     net.initialize()
     return net
 
@@ -539,7 +538,7 @@ def res_net(in_channels : int,
         d = in_spatial
         in_spatial = len(in_spatial)
     else:
-        d = (-1,) * in_spatial
+        d = (1,) * in_spatial
 
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     stax_layers = []
@@ -551,7 +550,7 @@ def res_net(in_channels : int,
 
     stax_layers.append(resnet_block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial))
     net_init, net_apply = stax.serial(*stax_layers)
-    net = StaxNet(net_init, net_apply, (-1,) + d + (in_channels,))
+    net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
     net.initialize()
     return net
 
@@ -563,7 +562,7 @@ def resnet_block(in_channels : int,
                 in_spatial : int or tuple = 2):
 
     if isinstance(in_spatial, int):
-        d = (-1,) * in_spatial
+        d = (1,) * in_spatial
     else:
         d = in_spatial
         in_spatial = len(in_spatial)
