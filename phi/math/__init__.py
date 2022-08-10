@@ -66,7 +66,7 @@ from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
     jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient, hessian,
     solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
-    map_types, map_s2b,
+    map_types, map_s2b, map_i2b,
     iterate,
 )
 

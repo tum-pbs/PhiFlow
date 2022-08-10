@@ -1757,6 +1757,11 @@ def map_s2b(f: Callable) -> Callable:
     return map_types(f, spatial, batch)
 
 
+def map_i2b(f: Callable) -> Callable:
+    """ Map instance dimensions to batch dimensions. Short for `map_types(f, instance, batch)`. """
+    return map_types(f, instance, batch)
+
+
 def iterate(f: Callable, iterations: int or Shape, *x0, f_kwargs: dict = None):
     """
     Repeatedly call `function`, passing the previous output as the next input.
