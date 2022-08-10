@@ -36,6 +36,10 @@ def explicit(field: FieldType,
     return field
 
 
+def _explicit_legacy(field, amount, substeps: int = 1):
+    return explicit(field, amount, dt=1., substeps=substeps)
+
+
 def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
