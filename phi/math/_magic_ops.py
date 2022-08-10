@@ -73,7 +73,7 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
             values = tuple(values.values())
             dim = dim._with_item_names((dim_item_names,))
         for v in values[1:]:
-            assert set(shape(v).names) == set(shape(values[0]).names), f"Stacked values must have the same dimensions but got {values[0].shape} and {v.shape}"
+            assert set(shape(v).names) == set(shape(values[0]).names), f"Stacked values must have the same dimensions but got {shape(values[0])} and {shape(v)}"
         # if any value implements Shapable, use their implementation
         for v in values:
             if hasattr(v, '__stack__'):
@@ -203,12 +203,12 @@ def expand(value, dims: Shape, **kwargs):
             assert value is not NotImplemented, "Value must implement either __expand__ or __stack__"
         return value
     try:  # value may be a native scalar
-        from ._ops import expand_tensors
+        from ._ops import expand_tensor
         from ._tensors import wrap
         value = wrap(value)
     except ValueError:
         raise AssertionError(f"Cannot expand non-shapable object {type(value)}")
-    return expand_tensors(value, dims)
+    return expand_tensor(value, dims)
 
 
 def rename_dims(value,
