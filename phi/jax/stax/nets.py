@@ -1,15 +1,14 @@
 import functools
-from copy import copy
+from typing import Callable
 
 import numpy
 import jax
 import jax.numpy as jnp
 from jax import random
-from jax.experimental import stax  # from jax.example_libraries import stax
-from jax.experimental import optimizers as optim
-from typing import Callable
+from jax.example_libraries import stax
+import jax.example_libraries.optimizers as optim
+from jax.example_libraries.optimizers import OptimizerState
 
-from jax.experimental.optimizers import OptimizerState
 
 from phi import math
 from .. import JAX
