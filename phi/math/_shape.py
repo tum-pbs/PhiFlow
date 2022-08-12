@@ -1319,7 +1319,10 @@ def merge_shapes(*shapes: Shape or Any, order=(batch, instance, spatial, channel
                     names2 = sh.get_item_names(dim)
                     if names1 is not None and names2 is not None and len(names1) > 1:
                         if names1 != names2:
-                            raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
+                            if set(names1) == set(names2):
+                                raise IncompatibleShapes(f"Inconsistent component order: '{','.join(names1)}' vs '{','.join(names2)}' in dimension '{dim.name}'. Failed to merge shapes {shapes}", *shapes)
+                            else:
+                                raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
                     elif names1 is None and names2 is not None:
                         type_group = type_group._with_item_name(dim, tuple(names2))
         merged.append(type_group)
