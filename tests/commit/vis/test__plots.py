@@ -34,7 +34,7 @@ class TestPlots(TestCase):
         self._test_plot(CenteredGrid(Noise(), 0, dim1=64, dim2=8, bounds=Box(dim1=1, dim2=1)).values)
 
     def test_plot_point_tensor(self):
-        self._test_plot(wrap((1, 1)))
+        self._test_plot(math.vec(x=1, y=1))
 
     def test_plot_collection_tensor(self):
         self._test_plot(math.wrap([(0, 0), (1, 1)], instance('points'), channel(vector='x,y')))

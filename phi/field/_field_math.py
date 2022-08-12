@@ -3,8 +3,8 @@ from typing import Callable, List, Tuple
 
 from phi import geom
 from phi import math
-from phi.geom import Box, Geometry, Sphere
-from phi.math import Tensor, spatial, instance, tensor, masked_fill, channel, Shape, batch, unstack
+from phi.geom import Box, Geometry, Sphere, Cuboid
+from phi.math import Tensor, spatial, instance, tensor, masked_fill, channel, Shape, batch, unstack, wrap, vec
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
@@ -587,19 +587,14 @@ def tensor_as_field(t: Tensor):
     Returns:
         `CenteredGrid` or `PointCloud`
     """
-    assert isinstance(t, Tensor), f"Tensor required but got {type(t).__name__}"
-    if spatial(t):
-        assert not instance(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
-        bounds = Box(math.const_vec(-0.5, spatial(t)), math.wrap(spatial(t), channel('vector')) - 0.5)
-        return CenteredGrid(t, 0, bounds=bounds)
     if instance(t):
-        assert not spatial(t), f"Cannot interpret tensor as Field because it has both spatial and instance dimensions: {t.shape}"
-        assert 'vector' in t.shape, f"Cannot interpret tensor as PointCloud because it has not vector dimension."
-        # point_count = instance(t).volume
-        # bounds = data_bounds(t)
-        # radius = math.vec_length(bounds.size) / (1 + point_count**(1/t.vector.size))
         return PointCloud(t)
-    raise ValueError(f"Tensor with shape {t.shape} cannot be converted to a Field because it has not spatial or instance dimensions.")
+    elif spatial(t):
+        return CenteredGrid(t, 0, bounds=Box(math.const_vec(-0.5, spatial(t)), wrap(spatial(t), channel('vector')) - 0.5))
+    elif 'vector' in t.shape:
+        return PointCloud(math.expand(t, instance(points=1)), bounds=Cuboid(t, half_size=math.const_vec(1, t.shape['vector'])).corner_representation())
+    else:
+        raise ValueError(f"Cannot create field from tensor with shape {t.shape}. Requires at least one spatial, instance or vector dimension.")
 
 
 def pack_dims(field: SampledFieldType,
