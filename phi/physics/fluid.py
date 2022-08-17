@@ -10,7 +10,7 @@ from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spati
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType
-from ..math import extrapolation, NUMPY
+from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
 from ..math._tensors import copy_with
 from ..math.extrapolation import combine_sides, Extrapolation
 
@@ -31,6 +31,7 @@ class Obstacle:
         self.geometry = geometry
         self.velocity = velocity
         self.angular_velocity = angular_velocity
+        self.shape = shape(geometry) & non_channel(velocity) & non_channel(angular_velocity)
 
     @property
     def is_stationary(self):
@@ -95,6 +96,8 @@ def make_incompressible(velocity: GridType,
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
+    if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
+        solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
     pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
     # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
