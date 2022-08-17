@@ -62,7 +62,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         return math.tensor('B')
 
     def bounding_radius(self):
-        return math.max(self.size, 'vector') * 1.414214
+        return math.vec_length(self.half_size)
 
     def bounding_half_extent(self):
         return self.size * 0.5
