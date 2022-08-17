@@ -10,7 +10,7 @@ from os.path import join, isfile, isdir, abspath, expanduser, basename, split
 from phi import math, __version__ as phi_version
 from ._field import SampledField
 from ._field_io import read, write
-from ..math import Shape, batch, stack, unpack_dim
+from ..math import Shape, batch, stack, unpack_dim, wrap
 from ..math.magic import BoundDim
 
 
@@ -130,7 +130,7 @@ class Scene:
         else:
             indices = [int(f[len(name)+1:]) for f in os.listdir(abs_dir) if f.startswith(f"{name}_")]
             next_id = max([-1] + indices) + 1
-        ids = math.wrap(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
+        ids = unpack_dim(wrap(tuple(range(next_id, next_id + shape.volume))), 'vector', shape)
         paths = math.map(lambda id_: join(parent_directory, f"{name}_{id_:06d}"), ids)
         scene = Scene(paths)
         scene.mkdir()
@@ -423,7 +423,7 @@ class Scene:
         return get_frames(self.path, mode=set.intersection)
 
     def __repr__(self):
-        return repr(self.paths)
+        return f"{self.paths:no-dtype}"
 
     def __eq__(self, other):
         return isinstance(other, Scene) and (other._paths == self._paths).all
