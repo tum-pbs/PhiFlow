@@ -496,8 +496,8 @@ def slugify(value):
     """
     for greek_letter, name in greek.items():
         value = value.replace(greek_letter, name)
-    value = re.sub('[^\w\s-]', '', value).strip().lower()
-    value = re.sub('[-\s]+', '-', value)
+    value = re.sub('[^\\w\\s-]', '', value).strip().lower()
+    value = re.sub('[-\\s]+', '-', value)
     return value
 
 
