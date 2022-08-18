@@ -1,14 +1,22 @@
 import functools
+import warnings
 from typing import Callable
 
 import numpy
 import jax
 import jax.numpy as jnp
 from jax import random
-from jax.example_libraries import stax
-import jax.example_libraries.optimizers as optim
-from jax.example_libraries.optimizers import OptimizerState
 
+from packaging import version
+if version.parse(jax.__version__) >= version.parse('0.2.25'):  # Stax and Optimizers were moved to jax.example_libraries on Oct 20, 2021
+    from jax.example_libraries import stax
+    import jax.example_libraries.optimizers as optim
+    from jax.example_libraries.optimizers import OptimizerState
+else:
+    from jax.experimental import stax
+    import jax.experimental.optimizers as optim
+    from jax.experimental.optimizers import OptimizerState
+    warnings.warn(f"Found Jax version {jax.__version__}. Using legacy imports.", FutureWarning)
 
 from phi import math
 from .. import JAX
