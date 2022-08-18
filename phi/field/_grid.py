@@ -328,8 +328,8 @@ class StaggeredGrid(Grid):
                 if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in resolution.names):  # non-uniform values required
                     if values.shape.is_uniform:
                         values = unstack_staggered_tensor(values, extrapolation)
-                    else:
-                        assert resolution_from_staggered_tensor(values, extrapolation) == resolution, f"Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html"
+                    else:  # Keep dim order from data and check it matches resolution
+                        assert set(resolution_from_staggered_tensor(values, extrapolation)) == set(resolution), f"Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html"
             elif isinstance(values, Geometry):
                 values = reduce_sample(HardGeometryMask(values), elements, scheme=scheme)
             elif isinstance(values, Field):
