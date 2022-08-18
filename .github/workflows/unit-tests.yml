@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --quiet tensorflow tensorflow-probability torch "jax==0.3.14" "jaxlib==0.3.14" plotly nbformat ipython pylint coverage pytest
+          pip install --quiet tensorflow tensorflow-probability torch "jax<=0.3.14" "jaxlib<=0.3.14" plotly nbformat ipython pylint coverage pytest
           pip install .
 
       - name: Test with pytest
