@@ -6,7 +6,7 @@ Extrapolations are an important part of sampled fields such as grids.
 See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
 import warnings
-from typing import Union, Dict, Callable
+from typing import Union, Dict, Callable, Tuple
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
@@ -780,21 +780,31 @@ def combine_sides(**extrapolations: Extrapolation or tuple) -> Extrapolation:
         `Extrapolation`
     """
     values = set()
-    for ext in extrapolations.values():
+    proper_dict = {}
+    for dim, ext in extrapolations.items():
         if isinstance(ext, Extrapolation):
             values.add(ext)
+            proper_dict[dim] = (ext, ext)
+        elif isinstance(ext, tuple):
+            assert len(tuple) == 2, "Tuple must contain exactly two elements, (lower, upper)"
+            lower = ext[0] if isinstance(ext[0], Extrapolation) else ConstantExtrapolation(ext[0])
+            upper = ext[1] if isinstance(ext[1], Extrapolation) else ConstantExtrapolation(ext[1])
+            values.add(lower)
+            values.add(upper)
+            proper_dict[dim] = (lower, upper)
         else:
-            values.add(ext[0])
-            values.add(ext[1])
-    if len(values) == 1:
+            proper_ext = ext if isinstance(ext, Extrapolation) else ConstantExtrapolation(ext)
+            values.add(proper_ext)
+            proper_dict[dim] = (proper_ext, proper_ext)
+    if len(values) == 1:  # All equal -> return any
         return next(iter(values))
     else:
-        return _MixedExtrapolation(extrapolations)
+        return _MixedExtrapolation(proper_dict)
 
 
 class _MixedExtrapolation(Extrapolation):
 
-    def __init__(self, extrapolations: dict):
+    def __init__(self, extrapolations: Dict[str, Tuple[Extrapolation, Extrapolation]]):
         """
         A mixed extrapolation uses different extrapolations for different sides.
 
@@ -802,7 +812,7 @@ class _MixedExtrapolation(Extrapolation):
           extrapolations: axis: str -> (lower: Extrapolation, upper: Extrapolation) or Extrapolation
         """
         super().__init__(pad_rank=None)
-        self.ext = {dim: (e, e) if isinstance(e, Extrapolation) else tuple(e) for dim, e in extrapolations.items()}
+        self.ext = extrapolations
 
     def to_dict(self) -> dict:
         return {
@@ -1022,7 +1032,7 @@ class _NormalTangentialExtrapolation(Extrapolation):
         return combine_by_direction(normal=-self.normal, tangential=-self.tangential)
 
 
-def combine_by_direction(normal: Extrapolation, tangential: Extrapolation) -> Extrapolation:
+def combine_by_direction(normal: Extrapolation or float or Tensor, tangential: Extrapolation or float or Tensor) -> Extrapolation:
     """
     Use a different extrapolation for the normal component of vector-valued tensors.
 
@@ -1033,6 +1043,8 @@ def combine_by_direction(normal: Extrapolation, tangential: Extrapolation) -> Ex
     Returns:
         `Extrapolation`
     """
+    normal = normal if isinstance(normal, Extrapolation) else ConstantExtrapolation(normal)
+    tangential = tangential if isinstance(tangential, Extrapolation) else ConstantExtrapolation(tangential)
     return normal if normal == tangential else _NormalTangentialExtrapolation(normal, tangential)
 
 
