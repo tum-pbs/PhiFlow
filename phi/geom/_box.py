@@ -126,6 +126,8 @@ class BaseBox(Geometry):  # not a Subwoofer
     def corner_representation(self) -> 'Box':
         return Box(self.lower, self.upper)
 
+    box = corner_representation
+
     def center_representation(self) -> 'Cuboid':
         return Cuboid(self.center, self.half_size)
 
