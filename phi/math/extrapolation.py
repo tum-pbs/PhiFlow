@@ -786,7 +786,7 @@ def combine_sides(**extrapolations: Extrapolation or tuple) -> Extrapolation:
             values.add(ext)
             proper_dict[dim] = (ext, ext)
         elif isinstance(ext, tuple):
-            assert len(tuple) == 2, "Tuple must contain exactly two elements, (lower, upper)"
+            assert len(ext) == 2, "Tuple must contain exactly two elements, (lower, upper)"
             lower = ext[0] if isinstance(ext[0], Extrapolation) else ConstantExtrapolation(ext[0])
             upper = ext[1] if isinstance(ext[1], Extrapolation) else ConstantExtrapolation(ext[1])
             values.add(lower)
