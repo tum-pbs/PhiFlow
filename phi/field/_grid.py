@@ -177,10 +177,7 @@ class CenteredGrid(Grid):
             bounds = _get_bounds(bounds, resolution)
             elements = GridCell(resolution, bounds)
         else:
-            if isinstance(resolution, int):
-                assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
-                resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
-            resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
+            resolution = _get_resolution(resolution, resolution_, bounds)
             bounds = _get_bounds(bounds, resolution)
             elements = GridCell(resolution, bounds)
             if isinstance(values, math.Tensor):
@@ -316,10 +313,7 @@ class StaggeredGrid(Grid):
             bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel('vector')))
             elements = staggered_elements(resolution, bounds, extrapolation)
         else:
-            if isinstance(resolution, int):
-                assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
-                resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
-            resolution = (resolution or math.EMPTY_SHAPE) & spatial(**resolution_)
+            resolution = _get_resolution(resolution, resolution_, bounds)
             bounds = _get_bounds(bounds, resolution)
             elements = staggered_elements(resolution, bounds, extrapolation)
             if isinstance(values, math.Tensor):
@@ -533,3 +527,15 @@ def _get_bounds(bounds: Box or float or None, resolution: Shape):
     if isinstance(bounds, (int, float)):
         return Box(math.const_vec(0, resolution), math.const_vec(bounds, resolution))
     raise ValueError(f"bounds must be a Box, float or None but got {type(bounds).__name__}")
+
+
+def _get_resolution(resolution: Shape, resolution_: dict, bounds: Box):
+    assert 'boundaries' not in resolution_, "'boundaries' is not a valid grid argument. Use 'extrapolation' instead, passing a value or math.extrapolation.Extrapolation object. See https://tum-pbs.github.io/PhiFlow/phi/math/extrapolation.html"
+    if isinstance(resolution, int):
+        assert not resolution_, "Cannot specify keyword resolution and integer resolution at the same time."
+        resolution = spatial(**{dim: resolution for dim in bounds.size.shape.get_item_names('vector')})
+    try:
+        resolution_ = spatial(**resolution_)
+    except AssertionError as err:
+        raise ValueError(f"Invalid grid resolution: {', '.join(f'{dim}={size}' for dim, size in resolution_.items())}. Pass an int for all sizes.") from err
+    return (resolution or math.EMPTY_SHAPE) & resolution_
