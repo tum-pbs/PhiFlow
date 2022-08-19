@@ -6,7 +6,7 @@ from phi import math
 from ._field import Field
 from .numerical import Scheme
 from ..geom import Geometry
-from ..math import Shape, spatial
+from ..math import Shape, spatial, instance
 
 
 class AngularVelocity(Field):
@@ -27,6 +27,7 @@ class AngularVelocity(Field):
         strength = math.wrap(strength)
         assert location.shape.channel.names == ('vector',), "location must have a single channel dimension called 'vector'"
         assert location.shape.spatial.is_empty, "location tensor cannot have any spatial dimensions"
+        assert not instance(location), "AngularVelocity does not support instance dimensions"
         self.location = location
         self.strength = strength
         self.falloff = falloff

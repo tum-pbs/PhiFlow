@@ -30,7 +30,7 @@ class Obstacle:
             angular_velocity: Rotation speed of the obstacle. Scalar value in 2D, vector in 3D.
         """
         self.geometry = geometry
-        self.velocity = wrap(velocity, channel(geometry)) if isinstance(velocity, (tuple, list)) else wrap(velocity)
+        self.velocity = wrap(velocity, channel(geometry)) if isinstance(velocity, (tuple, list)) else velocity
         self.angular_velocity = angular_velocity
         self.shape = shape(geometry) & non_channel(self.velocity) & non_channel(angular_velocity)
 
