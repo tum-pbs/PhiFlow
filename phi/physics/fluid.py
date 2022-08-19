@@ -6,6 +6,7 @@ The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is 
 from typing import Tuple
 
 from phi import math, field
+from phi.math import wrap, channel
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
@@ -29,9 +30,9 @@ class Obstacle:
             angular_velocity: Rotation speed of the obstacle. Scalar value in 2D, vector in 3D.
         """
         self.geometry = geometry
-        self.velocity = velocity
+        self.velocity = wrap(velocity, channel(geometry)) if isinstance(velocity, (tuple, list)) else wrap(velocity)
         self.angular_velocity = angular_velocity
-        self.shape = shape(geometry) & non_channel(velocity) & non_channel(angular_velocity)
+        self.shape = shape(geometry) & non_channel(self.velocity) & non_channel(angular_velocity)
 
     @property
     def is_stationary(self):
