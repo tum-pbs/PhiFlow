@@ -260,6 +260,8 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
     The type of the new dimension will be equal to the types of `dims`.
     If `dims` have varying types, the new dimension will be a batch dimension.
 
+    If none of `dims` exist on `value`, `packed_dim` will be added only if it is given with a definite size.
+
     See Also:
         `unpack_dim()`
 
@@ -277,8 +279,10 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
     """
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     dims = shape(value).only(dims)
-    if len(dims) == 0 or all(dim not in value.shape for dim in dims):
-        return expand(value, packed_dim, **kwargs)
+    if packed_dim in shape(value):
+        assert packed_dim in dims, f"Cannot pack dims into new dimension {packed_dim} because it already exists on value {value} and is not packed."
+    if len(dims) == 0 or all(dim not in shape(value) for dim in dims):
+        return value if packed_dim.size is None else expand(value, packed_dim, **kwargs)  # Inserting size=1 can cause shape errors
     elif len(dims) == 1:
         return rename_dims(value, dims, packed_dim, **kwargs)
     if dims.rank == shape(value).rank and hasattr(value, '__flatten__'):
