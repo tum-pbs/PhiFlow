@@ -379,7 +379,7 @@ def map_(function, *values, **kwargs) -> Tensor or None:
     """
     values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
-    values_reshaped = [CollapsedTensor(v, shape) for v in values]
+    values_reshaped = [expand(v, shape) for v in values]
     flat = [flatten(v) for v in values_reshaped]
     result = []
     for items in zip(*flat):
@@ -387,7 +387,7 @@ def map_(function, *values, **kwargs) -> Tensor or None:
     if None in result:
         assert all(r is None for r in result), f"map function returned None for some elements, {result}"
         return None
-    return unpack_dim(wrap(result), 'vector', shape)
+    return unpack_dim(wrap(result, channel('_c')), '_c', shape)
 
 
 def _initialize(uniform_initializer, shapes: tuple) -> Tensor:

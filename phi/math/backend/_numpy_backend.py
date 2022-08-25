@@ -83,7 +83,7 @@ class NumPyBackend(Backend):
         return False
 
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, np.ndarray) and x.dtype != object:
+        if isinstance(x, np.ndarray) and x.dtype != object and x.dtype != str:
             return True
         if issparse(x):
             return True
@@ -93,7 +93,7 @@ class NumPyBackend(Backend):
         if only_native:
             return False
         # --- Non-native types
-        if isinstance(x, (numbers.Number, bool, str)):
+        if isinstance(x, (numbers.Number, bool)):
             return True
         if isinstance(x, (tuple, list)):
             return all([self.is_tensor(item, False) for item in x])

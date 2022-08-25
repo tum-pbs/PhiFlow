@@ -7,7 +7,8 @@ import phi
 from phi import math
 from phi.math import channel, batch, DType, vec
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial, instance
-from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors
+from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors, \
+    Layout
 from phi.math.backend import Backend
 from phi.math.magic import PhiTreeNode
 
@@ -493,3 +494,23 @@ class TestTensors(TestCase):
                 t = math.zeros()
                 self.assertEqual(t.device, t.default_backend.get_default_device())
                 self.assertEqual(backend.get_default_device(), t.device)
+
+    def test_wrap_layout(self):
+        for a in ['abc', ('a', 'b', 'c'), math.layout('a')]:
+            t = wrap(a)
+            self.assertIsInstance(t, Layout, type(t))
+
+    def test_expand_layout(self):
+        layout = math.layout(['a', 'b'], spatial('alphabet'))
+        exp = math.expand(layout, batch(b=10))
+        self.assertEqual(batch(b=10) & spatial(alphabet=2), exp.shape)
+        self.assertEqual(exp.native('b,alphabet'), [['a', 'b']] * 10)
+        # self.assertEqual(exp.native('alphabet,b'), [['a'] * 10, ['b'] * 10])
+
+    def test_layout_equality(self):
+        l1 = wrap(['a', 'b'])
+        l2 = wrap(['a', 'c'])
+        math.assert_close(wrap([True, False]), l1 == l2)
+        self.assertIsInstance(l1 == l2, math.Tensor)
+        math.assert_close(wrap([False, True]), l1 != l2)
+        self.assertIsInstance(l1 != l2, math.Tensor)

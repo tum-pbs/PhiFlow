@@ -724,6 +724,11 @@ class TensorDim(BoundDim):
 
 
 class Layout(Tensor):
+    """
+    Tensor representation of a PyTree consisting of only lists, tuples and leaves.
+    Leaves can be any Python object or primitive, including tuples and lists.
+    The PyTree may be deeper but only the outer `shape.rank` levels are represented as a tensor.
+    """
 
     def __init__(self, obj, shape: Shape):
         self._obj = obj
@@ -787,9 +792,6 @@ class Layout(Tensor):
     def _as_list(self):
         return self._as_list_recursive(self._obj, self._shape.rank, [])
 
-    def __flatten__(self, flat_dim: Shape):
-        return layout(self._as_list(), flat_dim)
-
     @staticmethod
     def _as_list_recursive(native, dims: int, result: list):
         if dims == 0:
@@ -803,6 +805,63 @@ class Layout(Tensor):
     @property
     def _is_tracer(self) -> bool:
         return False
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Shapable':
+        obj = [v.native(self._shape) for v in values]
+        new_shape = concat_shapes(dim, self._shape)
+        return Layout(obj, new_shape)
+
+    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Shapable':
+        return NotImplemented
+
+    def __flatten__(self, flat_dim: Shape):
+        return layout(self._as_list(), flat_dim)
+
+    def __expand__(self, dims: Shape, **kwargs) -> 'Tensor':
+        new_dims = dims.without(self._shape)
+        if not new_dims:
+            return self
+        obj = self
+        for dim in reversed(new_dims):
+            assert isinstance(dim.size, int), "Can only expand layouts by integer-sized dimensions"
+            obj = [self._obj] * dim.size
+        return Layout(obj, concat_shapes(new_dims, self._shape))
+
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Tensor':
+        new_shape = self._shape.replace(dims, new_dims)
+        return Layout(self._obj, new_shape)
+
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Shapable':
+        return NotImplemented
+
+    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Shapable':
+        return NotImplemented
+
+    def __eq__(self, other):
+        if isinstance(other, Layout):
+            assert self._shape == other._shape, "Cannot compare Layouts with different dimensions (not implemented yet)."
+            obj = Layout._compare_recursive(self._obj, other._obj, self._shape)
+            return wrap(obj, self._shape)
+        elif isinstance(other, Tensor):
+            raise NotImplementedError
+        else:  # compare all independently to constant
+            flat = [v == other for v in self._as_list()]
+            raise NotImplementedError
+
+    def __ne__(self, other):
+        return ~(self == other)
+
+    def _op2(self, other: 'Tensor', operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
+        raise NotImplementedError("Mathematical operations not supported between Layouts. Use Tensors instead.")
+
+    @staticmethod
+    def _compare_recursive(obj1, obj2, shape: Shape):
+        if not shape:
+            return obj1 == obj2
+        assert type(obj1) == type(obj2), f"Cannot check element-wise equality between {obj1} and {obj2} because they have different types"
+        assert len(obj1) == len(obj2), f"Cannot check element-wise equality between {obj1} and {obj2} because they have different lengths"
+        equal_elements = [Layout._compare_recursive(o1, o2, shape[1:]) for o1, o2 in zip(obj1, obj2)]
+        return type(obj1)(equal_elements)  # list or tuple
 
 
 class NativeTensor(Tensor):
@@ -1378,16 +1437,23 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             assert shape.rank == 1, "Can only convert 1D shapes to Tensors"
         shape = shape._with_item_names((data.names,))
         data = data.sizes
-    elif isinstance(data, (numbers.Number, bool, str)):
+    elif isinstance(data, str):
+        return layout(data)
+    elif isinstance(data, (numbers.Number, bool)):
         assert not shape, f"Trying to create a zero-dimensional Tensor from value '{data}' but shape={shape}"
         if convert:
             data = default_backend().as_tensor(data, convert_external=True)
         return NativeTensor(data, EMPTY_SHAPE)
     if isinstance(data, (tuple, list)):
-        if all([isinstance(d, (bool, int, float, complex, str)) for d in data]):
+        if all(isinstance(d, (bool, int, float, complex)) for d in data):
             array = np.array(data)
             assert array.dtype != object
             data = array
+        elif all(isinstance(d, str) for d in data):
+            if shape:
+                return layout(data, shape)
+            else:
+                return layout(data, channel('vector'))
         else:
             inner_shape = [] if shape is None else [shape[1:]]
             tensors = [d if isinstance(d, Tensor) else tensor(d, *inner_shape, convert=convert) for d in data]
