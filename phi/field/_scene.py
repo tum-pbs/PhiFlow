@@ -256,6 +256,8 @@ class Scene:
                     self._properties[key] = dicts[0][key]
                 else:
                     self._properties[key] = stack([d[key] for d in dicts], self._paths.shape)
+        if '__tensors__' in self._properties:
+            del self._properties['__tensors__']
 
     def exist_properties(self):
         """
