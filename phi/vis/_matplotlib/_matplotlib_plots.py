@@ -136,7 +136,7 @@ class MatplotlibPlots(PlottingLibrary):
 
     def save(self, figure, path: str, dpi: float):
         if isinstance(figure, plt.Figure):
-            figure.savefig(path, dpi=dpi)
+            figure.savefig(path, dpi=dpi, transparent=True)
         elif isinstance(figure, animation.Animation):
             figure.save(path, dpi=dpi)
         else:
@@ -178,7 +178,9 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
                 requires_legend = requires_legend or label
         if requires_legend:
             axis.legend()
-        if vmin is not None and vmax is not None:
+        if data.values.dtype.kind != complex and data.values.min > 0 and data.values.max > 100 * data.values.min:
+            axis.set_yscale('log')
+        elif vmin is not None and vmax is not None:
             axis.set_ylim((vmin - .02 * (vmax - vmin), vmax + .02 * (vmax - vmin)))
     elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
         dims = spatial(data)
