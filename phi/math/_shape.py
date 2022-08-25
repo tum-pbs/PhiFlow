@@ -777,6 +777,20 @@ class Shape:
     def _replace_names_and_types(self,
                                  dims: 'Shape' or str or tuple or list,
                                  new: 'Shape' or str or tuple or list) -> 'Shape':
+        """
+        Returns a copy of `self` with `dims` replaced by `new`.
+        Dimensions that are not present in `self` are ignored.
+
+        The dimension order is preserved.
+
+        Args:
+            dims: Dimensions to replace.
+            new: New dimensions, must have same length as `dims`.
+                If a `Shape` is given, replaces the dimension types and item names as well.
+
+        Returns:
+            `Shape` with same rank and dimension order as `self`.
+        """
         dims = parse_dim_order(dims)
         sizes = [math.rename_dims(s, dims, new) if isinstance(s, math.Tensor) else s for s in self.sizes]
         if isinstance(new, Shape):  # replace names and types
@@ -796,6 +810,8 @@ class Shape:
                 if old_name in self:
                     names[self.index(old_name)] = new_name
             return Shape(tuple(sizes), tuple(names), self.types, self.item_names)
+
+    replace = _replace_names_and_types
 
     def _with_types(self, types: 'Shape'):
         return Shape(self.sizes, self.names, tuple([types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)]), self.item_names)
