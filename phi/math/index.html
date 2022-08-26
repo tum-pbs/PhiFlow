@@ -6084,8 +6084,23 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
         return obj.shape
     elif isinstance(obj, (int, float, complex, bool)):
         return EMPTY_SHAPE
+    elif isinstance(obj, (tuple, list)):
+        return channel(&#39;vector&#39;)
+    elif isinstance(obj, (Number, bool)):
+        return EMPTY_SHAPE
     else:
-        raise ValueError(f&#39;shape() requires Shaped or Shape argument but got {obj}&#39;)</code></pre>
+        from .backend import choose_backend, NoBackendFound
+        try:
+            backend = choose_backend(obj)
+            shape_tuple = backend.staticshape(obj)
+            if len(shape_tuple) == 0:
+                return EMPTY_SHAPE
+            elif len(shape_tuple) == 1:
+                return channel(&#39;vector&#39;)
+            else:
+                raise ValueError(f&#34;Cannot auto-complete shape of {backend} tensor with shape {shape_tuple}. Only 0D and 1D tensors have a Φ-Flow shape by default.&#34;)
+        except NoBackendFound:
+            raise ValueError(f&#39;shape() requires Shaped or Shape argument but got {type(obj)}&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.shift"><code class="name flex">

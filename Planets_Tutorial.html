@@ -14685,33 +14685,17 @@ We stack the position vectors of the planets a long a new <a href="https://tum-p
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[3]:</div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">ValueError</span>                                Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [3]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 1&gt;</span><span class="ansi-blue-fg">()</span>
-<span class="ansi-green-fg">----&gt; 1</span> x <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">stack</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">{</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">Sun</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">Earth</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">10</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">Mars</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">12</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">}</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">instance</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">planets</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">      2</span> x
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/math/_magic_ops.py:76</span>, in <span class="ansi-cyan-fg">stack</span><span class="ansi-blue-fg">(values, dim, **kwargs)</span>
-<span class="ansi-green-intense-fg ansi-bold">     74</span>     dim <span style="color: rgb(98,98,98)">=</span> dim<span style="color: rgb(98,98,98)">.</span>_with_item_names((dim_item_names,))
-<span class="ansi-green-intense-fg ansi-bold">     75</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> v <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> values[<span style="color: rgb(98,98,98)">1</span>:]:
-<span class="ansi-green-fg">---&gt; 76</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">set</span>(<span class="ansi-yellow-bg">shape</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">v</span><span class="ansi-yellow-bg">)</span><span style="color: rgb(98,98,98)">.</span>names) <span style="color: rgb(98,98,98)">==</span> <span style="color: rgb(0,135,0)">set</span>(shape(values[<span style="color: rgb(98,98,98)">0</span>])<span style="color: rgb(98,98,98)">.</span>names), <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Stacked values must have the same dimensions but got </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>shape(values[<span style="color: rgb(98,98,98)">0</span>])<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)"> and </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>shape(v)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">     77</span> <span style="color: rgb(95,135,135)"># if any value implements Shapable, use their implementation</span>
-<span class="ansi-green-intense-fg ansi-bold">     78</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> v <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> values:
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/math/_shape.py:1117</span>, in <span class="ansi-cyan-fg">shape</span><span class="ansi-blue-fg">(obj)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1115</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> EMPTY_SHAPE
-<span class="ansi-green-intense-fg ansi-bold">   1116</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
-<span class="ansi-green-fg">-&gt; 1117</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">ValueError</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">shape() requires Shaped or Shape argument but got </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>obj<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span>)
-
-<span class="ansi-red-fg">ValueError</span>: shape() requires Shaped or Shape argument but got (10, 0)</pre>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre><span class="ansi-blue-intense-fg">(0, 0)</span>; <span class="ansi-blue-intense-fg">(10, 0)</span>; <span class="ansi-blue-intense-fg">(0, 12)</span> <span class="ansi-green-intense-fg">(planetsⁱ=Sun,Earth,Mars, vectorᶜ=2)</span> <span class="ansi-yellow-intense-fg">int64</span></pre>
 </div>
+
 </div>
 
 </div>
@@ -14760,11 +14744,46 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/pyth
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
+<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
 Input <span class="ansi-green-fg">In [4]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 1&gt;</span><span class="ansi-blue-fg">()</span>
-<span class="ansi-green-fg">----&gt; 1</span> vis<span style="color: rgb(98,98,98)">.</span>plot(PointCloud(<span class="ansi-yellow-bg">x</span>, bounds<span style="color: rgb(98,98,98)">=</span>Box(x<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">12</span>), y<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">13</span>))))
+<span class="ansi-green-fg">----&gt; 1</span> vis<span style="color: rgb(98,98,98)">.</span>plot(<span class="ansi-yellow-bg">PointCloud</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">Box</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">-</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">2</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">12</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">-</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">1</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">13</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span>)
 
-<span class="ansi-red-fg">NameError</span>: name &#39;x&#39; is not defined</pre>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/field/_point_cloud.py:45</span>, in <span class="ansi-cyan-fg">PointCloud.__init__</span><span class="ansi-blue-fg">(self, elements, values, extrapolation, add_overlapping, bounds, color)</span>
+<span class="ansi-green-intense-fg ansi-bold">     29</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>,
+<span class="ansi-green-intense-fg ansi-bold">     30</span>              elements: Tensor <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> Geometry,
+<span class="ansi-green-intense-fg ansi-bold">     31</span>              values: Any <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(98,98,98)">1.</span>,
+<span class="ansi-green-fg">   (...)</span>
+<span class="ansi-green-intense-fg ansi-bold">     34</span>              bounds: Box <span style="color: rgb(98,98,98)">=</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>,
+<span class="ansi-green-intense-fg ansi-bold">     35</span>              color: <span style="color: rgb(0,135,0)">str</span> <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> Tensor <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">tuple</span> <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">list</span> <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span style="color: rgb(98,98,98)">=</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>):
+<span class="ansi-green-intense-fg ansi-bold">     36</span>     <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">     37</span> <span style="color: rgb(175,0,0)">    Args:</span>
+<span class="ansi-green-intense-fg ansi-bold">     38</span> <span style="color: rgb(175,0,0)">      elements: `Tensor` or `Geometry` object specifying the sample points and sizes</span>
+<span class="ansi-green-fg">   (...)</span>
+<span class="ansi-green-intense-fg ansi-bold">     43</span> <span style="color: rgb(175,0,0)">      color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.</span>
+<span class="ansi-green-intense-fg ansi-bold">     44</span> <span style="color: rgb(175,0,0)">    &#34;&#34;&#34;</span>
+<span class="ansi-green-fg">---&gt; 45</span>     <span class="ansi-yellow-bg">SampledField</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">elements</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">wrap</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">extrapolation</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     46</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_add_overlapping <span style="color: rgb(98,98,98)">=</span> add_overlapping
+<span class="ansi-green-intense-fg ansi-bold">     47</span>     color <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">#0060ff</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> color <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> color
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/field/_field.py:173</span>, in <span class="ansi-cyan-fg">SampledField.__init__</span><span class="ansi-blue-fg">(self, elements, values, extrapolation, bounds)</span>
+<span class="ansi-green-intense-fg ansi-bold">    166</span> <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    167</span> <span style="color: rgb(175,0,0)">Args:</span>
+<span class="ansi-green-intense-fg ansi-bold">    168</span> <span style="color: rgb(175,0,0)">  elements: Geometry object specifying the sample points and sizes</span>
+<span class="ansi-green-intense-fg ansi-bold">    169</span> <span style="color: rgb(175,0,0)">  values: values corresponding to elements</span>
+<span class="ansi-green-intense-fg ansi-bold">    170</span> <span style="color: rgb(175,0,0)">  extrapolation: values outside elements</span>
+<span class="ansi-green-intense-fg ansi-bold">    171</span> <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    172</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(elements, Tensor):
+<span class="ansi-green-fg">--&gt; 173</span>     elements <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">Point</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">elements</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    174</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(elements, Geometry), elements
+<span class="ansi-green-intense-fg ansi-bold">    175</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(values, Tensor), <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Values must be a Tensor but got </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>values<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">.</span><span style="color: rgb(175,0,0)">&#34;</span>
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/geom/_geom.py:454</span>, in <span class="ansi-cyan-fg">Point.__init__</span><span class="ansi-blue-fg">(self, location)</span>
+<span class="ansi-green-intense-fg ansi-bold">    452</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, location: math<span style="color: rgb(98,98,98)">.</span>Tensor):
+<span class="ansi-green-intense-fg ansi-bold">    453</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> location<span style="color: rgb(98,98,98)">.</span>shape, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">location must have a vector dimension</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-fg">--&gt; 454</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> location<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>get_item_names(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span>) <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Vector dimension needs to list spatial dimension as item names.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    455</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_location <span style="color: rgb(98,98,98)">=</span> location
+
+<span class="ansi-red-fg">AssertionError</span>: Vector dimension needs to list spatial dimension as item names.</pre>
 </div>
 </div>
 
@@ -14817,13 +14836,48 @@ For a nice plot, we pass the vector-valued velocities as the <code>values</code>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [5]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 1&gt;</span><span class="ansi-blue-fg">()</span>
-<span class="ansi-green-fg">----&gt; 1</span> v <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>rotate_vector(<span class="ansi-yellow-bg">x</span>, PI<span style="color: rgb(98,98,98)">/</span><span style="color: rgb(98,98,98)">2</span>)
+<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
+Input <span class="ansi-green-fg">In [5]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 3&gt;</span><span class="ansi-blue-fg">()</span>
+<span class="ansi-green-intense-fg ansi-bold">      1</span> v <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>rotate_vector(x, PI<span style="color: rgb(98,98,98)">/</span><span style="color: rgb(98,98,98)">2</span>)
 <span class="ansi-green-intense-fg ansi-bold">      2</span> v <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>divide_no_nan(v, math<span style="color: rgb(98,98,98)">.</span>vec_length(v))
-<span class="ansi-green-intense-fg ansi-bold">      3</span> vis<span style="color: rgb(98,98,98)">.</span>plot(PointCloud(x, values<span style="color: rgb(98,98,98)">=</span>v, bounds<span style="color: rgb(98,98,98)">=</span>Box(x<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">12</span>), y<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">13</span>))))
+<span class="ansi-green-fg">----&gt; 3</span> vis<span style="color: rgb(98,98,98)">.</span>plot(<span class="ansi-yellow-bg">PointCloud</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">v</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">Box</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">-</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">2</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">12</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">-</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">1</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">13</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span>)
 
-<span class="ansi-red-fg">NameError</span>: name &#39;x&#39; is not defined</pre>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/field/_point_cloud.py:45</span>, in <span class="ansi-cyan-fg">PointCloud.__init__</span><span class="ansi-blue-fg">(self, elements, values, extrapolation, add_overlapping, bounds, color)</span>
+<span class="ansi-green-intense-fg ansi-bold">     29</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>,
+<span class="ansi-green-intense-fg ansi-bold">     30</span>              elements: Tensor <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> Geometry,
+<span class="ansi-green-intense-fg ansi-bold">     31</span>              values: Any <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(98,98,98)">1.</span>,
+<span class="ansi-green-fg">   (...)</span>
+<span class="ansi-green-intense-fg ansi-bold">     34</span>              bounds: Box <span style="color: rgb(98,98,98)">=</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>,
+<span class="ansi-green-intense-fg ansi-bold">     35</span>              color: <span style="color: rgb(0,135,0)">str</span> <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> Tensor <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">tuple</span> <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">list</span> <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span style="color: rgb(98,98,98)">=</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>):
+<span class="ansi-green-intense-fg ansi-bold">     36</span>     <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">     37</span> <span style="color: rgb(175,0,0)">    Args:</span>
+<span class="ansi-green-intense-fg ansi-bold">     38</span> <span style="color: rgb(175,0,0)">      elements: `Tensor` or `Geometry` object specifying the sample points and sizes</span>
+<span class="ansi-green-fg">   (...)</span>
+<span class="ansi-green-intense-fg ansi-bold">     43</span> <span style="color: rgb(175,0,0)">      color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.</span>
+<span class="ansi-green-intense-fg ansi-bold">     44</span> <span style="color: rgb(175,0,0)">    &#34;&#34;&#34;</span>
+<span class="ansi-green-fg">---&gt; 45</span>     <span class="ansi-yellow-bg">SampledField</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">elements</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">wrap</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">extrapolation</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     46</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_add_overlapping <span style="color: rgb(98,98,98)">=</span> add_overlapping
+<span class="ansi-green-intense-fg ansi-bold">     47</span>     color <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">#0060ff</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> color <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> color
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/field/_field.py:173</span>, in <span class="ansi-cyan-fg">SampledField.__init__</span><span class="ansi-blue-fg">(self, elements, values, extrapolation, bounds)</span>
+<span class="ansi-green-intense-fg ansi-bold">    166</span> <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    167</span> <span style="color: rgb(175,0,0)">Args:</span>
+<span class="ansi-green-intense-fg ansi-bold">    168</span> <span style="color: rgb(175,0,0)">  elements: Geometry object specifying the sample points and sizes</span>
+<span class="ansi-green-intense-fg ansi-bold">    169</span> <span style="color: rgb(175,0,0)">  values: values corresponding to elements</span>
+<span class="ansi-green-intense-fg ansi-bold">    170</span> <span style="color: rgb(175,0,0)">  extrapolation: values outside elements</span>
+<span class="ansi-green-intense-fg ansi-bold">    171</span> <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    172</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(elements, Tensor):
+<span class="ansi-green-fg">--&gt; 173</span>     elements <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">Point</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">elements</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    174</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(elements, Geometry), elements
+<span class="ansi-green-intense-fg ansi-bold">    175</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(values, Tensor), <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Values must be a Tensor but got </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>values<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">.</span><span style="color: rgb(175,0,0)">&#34;</span>
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/geom/_geom.py:454</span>, in <span class="ansi-cyan-fg">Point.__init__</span><span class="ansi-blue-fg">(self, location)</span>
+<span class="ansi-green-intense-fg ansi-bold">    452</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, location: math<span style="color: rgb(98,98,98)">.</span>Tensor):
+<span class="ansi-green-intense-fg ansi-bold">    453</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> location<span style="color: rgb(98,98,98)">.</span>shape, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">location must have a vector dimension</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-fg">--&gt; 454</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> location<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>get_item_names(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span>) <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Vector dimension needs to list spatial dimension as item names.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    455</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_location <span style="color: rgb(98,98,98)">=</span> location
+
+<span class="ansi-red-fg">AssertionError</span>: Vector dimension needs to list spatial dimension as item names.</pre>
 </div>
 </div>
 
@@ -14875,12 +14929,19 @@ These also allow us to make our plot prettier by passing a <code>Sphere</code> a
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
+<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
 Input <span class="ansi-green-fg">In [6]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 2&gt;</span><span class="ansi-blue-fg">()</span>
 <span class="ansi-green-intense-fg ansi-bold">      1</span> masses <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>stack({<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">Sun</span><span style="color: rgb(175,0,0)">&#39;</span>: <span style="color: rgb(98,98,98)">1000</span>, <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">Earth</span><span style="color: rgb(175,0,0)">&#39;</span>: <span style="color: rgb(98,98,98)">10</span>, <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">Mars</span><span style="color: rgb(175,0,0)">&#39;</span>: <span style="color: rgb(98,98,98)">10</span>}, instance(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">planets</span><span style="color: rgb(175,0,0)">&#39;</span>))
-<span class="ansi-green-fg">----&gt; 2</span> vis<span style="color: rgb(98,98,98)">.</span>plot(PointCloud(Sphere(<span class="ansi-yellow-bg">x</span>, radius<span style="color: rgb(98,98,98)">=</span>masses<span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">0.333</span> <span style="color: rgb(98,98,98)">*</span> <span style="color: rgb(98,98,98)">.2</span>), bounds<span style="color: rgb(98,98,98)">=</span>Box(x<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">12</span>), y<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">13</span>))))
+<span class="ansi-green-fg">----&gt; 2</span> vis<span style="color: rgb(98,98,98)">.</span>plot(PointCloud(<span class="ansi-yellow-bg">Sphere</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">radius</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">masses</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0.333</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.2</span><span class="ansi-yellow-bg">)</span>, bounds<span style="color: rgb(98,98,98)">=</span>Box(x<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">2</span>, <span style="color: rgb(98,98,98)">12</span>), y<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">1</span>, <span style="color: rgb(98,98,98)">13</span>))))
 
-<span class="ansi-red-fg">NameError</span>: name &#39;x&#39; is not defined</pre>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/geom/_sphere.py:32</span>, in <span class="ansi-cyan-fg">Sphere.__init__</span><span class="ansi-blue-fg">(self, center, radius, **center_)</span>
+<span class="ansi-green-intense-fg ansi-bold">     30</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(center, Tensor), <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">center must be a Tensor</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">     31</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> center<span style="color: rgb(98,98,98)">.</span>shape, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Sphere center must have a </span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> dimension.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-fg">---&gt; 32</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> center<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>get_item_names(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span>) <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">     33</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_center <span style="color: rgb(98,98,98)">=</span> center
+<span class="ansi-green-intense-fg ansi-bold">     34</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+
+<span class="ansi-red-fg">AssertionError</span>: Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names.</pre>
 </div>
 </div>
 
@@ -14902,7 +14963,7 @@ When combining tensors with different dimensions in an operation, they will be r
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -14925,36 +14986,6 @@ When combining tensors with different dimensions in an operation, they will be r
      </div>
 </div>
 </div>
-</div>
-
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-
-
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-    
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-
-
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [7]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 6&gt;</span><span class="ansi-blue-fg">()</span>
-<span class="ansi-green-intense-fg ansi-bold">      3</span>     a <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(98,98,98)">-</span> <span style="color: rgb(98,98,98)">.01</span> <span style="color: rgb(98,98,98)">*</span> math<span style="color: rgb(98,98,98)">.</span>sum(math<span style="color: rgb(98,98,98)">.</span>divide_no_nan(math<span style="color: rgb(98,98,98)">.</span>rename_dims(masses, <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">planets</span><span style="color: rgb(175,0,0)">&#39;</span>, <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">others</span><span style="color: rgb(175,0,0)">&#39;</span>) <span style="color: rgb(98,98,98)">*</span> dx, math<span style="color: rgb(98,98,98)">.</span>vec_squared(dx) <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span> <span style="color: rgb(98,98,98)">1.5</span>), <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">others</span><span style="color: rgb(175,0,0)">&#39;</span>)
-<span class="ansi-green-intense-fg ansi-bold">      4</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> x <span style="color: rgb(98,98,98)">+</span> v <span style="color: rgb(98,98,98)">*</span> dt, v <span style="color: rgb(98,98,98)">+</span> a <span style="color: rgb(98,98,98)">*</span> dt
-<span class="ansi-green-fg">----&gt; 6</span> xs, vs <span style="color: rgb(98,98,98)">=</span> [<span class="ansi-yellow-bg">x</span>], [v]
-<span class="ansi-green-intense-fg ansi-bold">      7</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> i <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">range</span>(<span style="color: rgb(98,98,98)">100</span>):
-<span class="ansi-green-intense-fg ansi-bold">      8</span>     x, v <span style="color: rgb(98,98,98)">=</span> simulate(x, v)
-
-<span class="ansi-red-fg">NameError</span>: name &#39;x&#39; is not defined</pre>
-</div>
-</div>
-
-</div>
-
 </div>
 
 </div>
@@ -14994,22 +15025,17 @@ First, we need to define a dimension which will list our animation frames.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[8]:</div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Input <span class="ansi-green-fg">In [8]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 1&gt;</span><span class="ansi-blue-fg">()</span>
-<span class="ansi-green-fg">----&gt; 1</span> xs <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>stack(<span class="ansi-yellow-bg">xs</span>, batch(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">time</span><span style="color: rgb(175,0,0)">&#39;</span>))
-<span class="ansi-green-intense-fg ansi-bold">      2</span> vs <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>stack(vs, batch(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">time</span><span style="color: rgb(175,0,0)">&#39;</span>))
-<span class="ansi-green-intense-fg ansi-bold">      3</span> xs
 
-<span class="ansi-red-fg">NameError</span>: name &#39;xs&#39; is not defined</pre>
+
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre><span class="ansi-green-intense-fg">(timeᵇ=101, planetsⁱ=Sun,Earth,Mars, vectorᶜ=2)</span> <span class="ansi-blue-intense-fg">-2.464 ± 7.704</span> <span class="ansi-white-fg">(-2e+01...1e+01)</span></pre>
 </div>
+
 </div>
 
 </div>
@@ -15061,13 +15087,20 @@ Using <code>vis.overlay</code> additionally allows us to plot multiple fields in
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
+<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
 Input <span class="ansi-green-fg">In [9]</span>, in <span class="ansi-cyan-fg">&lt;cell line: 1&gt;</span><span class="ansi-blue-fg">()</span>
 <span class="ansi-green-intense-fg ansi-bold">      1</span> vis<span style="color: rgb(98,98,98)">.</span>plot(vis<span style="color: rgb(98,98,98)">.</span>overlay(
-<span class="ansi-green-fg">----&gt; 2</span>     PointCloud(Sphere(<span class="ansi-yellow-bg">xs</span>, radius<span style="color: rgb(98,98,98)">=</span>masses <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span> <span style="color: rgb(98,98,98)">0.333</span> <span style="color: rgb(98,98,98)">/</span> <span style="color: rgb(98,98,98)">5</span>), bounds<span style="color: rgb(98,98,98)">=</span>Box(x<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">20</span>, <span style="color: rgb(98,98,98)">20</span>), y<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">20</span>, <span style="color: rgb(98,98,98)">20</span>))),
+<span class="ansi-green-fg">----&gt; 2</span>     PointCloud(<span class="ansi-yellow-bg">Sphere</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">xs</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">radius</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">masses</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0.333</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">/</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">5</span><span class="ansi-yellow-bg">)</span>, bounds<span style="color: rgb(98,98,98)">=</span>Box(x<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">20</span>, <span style="color: rgb(98,98,98)">20</span>), y<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">20</span>, <span style="color: rgb(98,98,98)">20</span>))),
 <span class="ansi-green-intense-fg ansi-bold">      3</span>     PointCloud(xs, vs <span style="color: rgb(98,98,98)">*</span> <span style="color: rgb(98,98,98)">2</span>, bounds<span style="color: rgb(98,98,98)">=</span>Box(x<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">20</span>, <span style="color: rgb(98,98,98)">20</span>), y<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">20</span>, <span style="color: rgb(98,98,98)">20</span>)))), animate<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">time</span><span style="color: rgb(175,0,0)">&#39;</span>, frame_time<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">100</span>)
 
-<span class="ansi-red-fg">NameError</span>: name &#39;xs&#39; is not defined</pre>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.13/x64/lib/python3.8/site-packages/phi/geom/_sphere.py:32</span>, in <span class="ansi-cyan-fg">Sphere.__init__</span><span class="ansi-blue-fg">(self, center, radius, **center_)</span>
+<span class="ansi-green-intense-fg ansi-bold">     30</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(center, Tensor), <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">center must be a Tensor</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">     31</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> center<span style="color: rgb(98,98,98)">.</span>shape, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Sphere center must have a </span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> dimension.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-fg">---&gt; 32</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> center<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>get_item_names(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span>) <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">     33</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_center <span style="color: rgb(98,98,98)">=</span> center
+<span class="ansi-green-intense-fg ansi-bold">     34</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+
+<span class="ansi-red-fg">AssertionError</span>: Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names.</pre>
 </div>
 </div>
 
