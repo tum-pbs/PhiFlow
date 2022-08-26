@@ -41,7 +41,7 @@ See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visual
 &#34;&#34;&#34;
 from ._viewer import Viewer
 from ._matplotlib import plot_scalars
-from ._vis import view, control, show, action, plot, overlay, write_image, write_image as savefig
+from ._vis import view, control, show, close, action, plot, overlay, write_image, write_image as savefig
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 
@@ -86,6 +86,39 @@ __pdoc__ = {
     doc = inspect.getdoc(fun)
     ACTIONS[Action(fun.__name__, doc)] = fun
     return fun</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.close"><code class="name flex">
+<span>def <span class="ident">close</span></span>(<span>figure=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Close and destroy a figure.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>figure</code></strong></dt>
+<dd>(Optional) A figure that was created using <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.
+If not specified, closes the figure created most recently.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def close(figure=None):
+    &#34;&#34;&#34;
+    Close and destroy a figure.
+
+    Args:
+        figure: (Optional) A figure that was created using `plot()`.
+            If not specified, closes the figure created most recently.
+    &#34;&#34;&#34;
+    if figure is None:
+        figure = LAST_FIGURE[0]
+    if isinstance(figure, Tensor):
+        for fig in figure:
+            close(fig)
+    else:
+        plots = get_plots_by_figure(figure)
+        plots.close(figure)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.control"><code class="name flex">
@@ -191,7 +224,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: str = None, col_dims: str = &lt;function batch&gt;, animate: str = None, title: phi.math._tensors.Tensor = None, size=(12, 5), same_scale=True, show_color_bar=True, frame_time=200, repeat=True, **plt_args)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: str = None, col_dims: str = &lt;function batch&gt;, animate: str = None, title: str = None, size=(12, 5), same_scale=True, show_color_bar=True, frame_time=100, repeat=True, **plt_args)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
@@ -225,8 +258,10 @@ If not present in the data, will produce a regular plot instead.</dd>
 <dd>Whether the animation should loop.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>If all batch dimensions are reduced by <code>rows</code> and <code>cols</code>, returns a single figure created for <code>data</code>.
-Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div>
+<p><code>Tensor</code> of figure objects.
+The tensor contains those dimensions of <code>fields</code> that were not reduced by <code>row_dims</code>, <code>col_dims</code> or <code>animate</code>.
+Currently, only single-figure plots are supported.</p>
+<p>In case of an animation, a displayable animation object will be returned instead of a <code>Tensor</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -236,11 +271,11 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
          row_dims: str or Shape or tuple or list or Callable = None,
          col_dims: str or Shape or tuple or list or Callable = batch,
          animate: str or Shape or tuple or list or Callable = None,
-         title: Tensor = None,
+         title: str or Tensor = None,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
-         frame_time=200,
+         frame_time=100,
          repeat=True,
          **plt_args):
     &#34;&#34;&#34;
@@ -265,53 +300,57 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
         repeat: Whether the animation should loop.
 
     Returns:
-        If all batch dimensions are reduced by `rows` and `cols`, returns a single figure created for `data`.
-        Otherwise returns a `Tensor` of figures (not yet supported).
+        `Tensor` of figure objects.
+        The tensor contains those dimensions of `fields` that were not reduced by `row_dims`, `col_dims` or `animate`.
+        Currently, only single-figure plots are supported.
+
+        In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     &#34;&#34;&#34;
-    positioning = {}
-    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, 0, 0, positioning)
+    nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, 0, 0, {}, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
     if same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
-            max_val = float(max([abs(f.values).max for l in positioning.values() for f in l]))
+            max_val = float(max([abs(f.values).finite_max for l in positioning.values() for f in l]))
         else:
-            min_val = float(min([f.values.min for l in positioning.values() for f in l]))
-            max_val = float(max([f.values.max for l in positioning.values() for f in l]))
+            min_val = float(min([f.values.finite_min for l in positioning.values() for f in l]))
+            max_val = float(max([f.values.finite_max for l in positioning.values() for f in l]))
     else:
         min_val = max_val = None
-    subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
-    if title is None or isinstance(title, str):
-        title = layout(title)
-    assert isinstance(title, Tensor), &#34;title must be a Tensor or str&#34;
+    subplots = {pos: _space(fields, animate) for pos, fields in positioning.items()}
+    if isinstance(title, str):
+        title = {pos: title for pos in positioning}
+    elif isinstance(title, Tensor):
+        title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
+    else:
+        assert title is None, f&#34;title must be a str or Tensor but got {title}&#34;
+        title = {pos: &#34;, &#34;.join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
-        plots.plotting_done(figure, axes)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
                     for f in fields:
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
-            plots.plotting_done(figure, axes)
+            plots.close(figure)
             return anim
         else:
             for pos, fields in positioning.items():
                 for f in fields:
-                    plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             LAST_FIGURE[0] = figure
-            plots.plotting_done(figure, axes)
-            return figure
+            return layout(figure)
     else:
         raise NotImplementedError(f&#34;Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: str = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default')</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: str = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default', dashed: phi.math._tensors.Tensor = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -374,7 +413,8 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
                  labels: math.Tensor = None,
                  xlabel: str = None,
                  ylabel: str = None,
-                 colors: math.Tensor = &#39;default&#39;):
+                 colors: math.Tensor = &#39;default&#39;,
+                 dashed: math.Tensor = False):
     &#34;&#34;&#34;
 
     Args:
@@ -417,8 +457,8 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
         names = math.wrap(names, batch(&#39;names&#39;))
     else:
         assert isinstance(names, math.Tensor), f&#34;Invalid argument &#39;names&#39;: {type(names)}&#34;
-    if not isinstance(colors, math.Tensor):
-        colors = math.wrap(colors)
+    colors = math.wrap(colors)
+    dashed = math.wrap(dashed)
     if xlabel is None:
         xlabel = &#39;Iterations&#39; if x == &#39;steps&#39; else &#39;Time (s)&#39;
 
@@ -427,17 +467,20 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
 
     cycle = list(plt.rcParams[&#39;axes.prop_cycle&#39;].by_key()[&#39;color&#39;])
     fig, axes = plt.subplots(batches.only(down).volume, batches.without(down).volume, figsize=size)
-    axes = axes if isinstance(axes, numpy.ndarray) else [axes]
+    MATPLOTLIB.current_figure = fig
+    axes = axes if isinstance(axes, numpy.ndarray) else np.array(axes)
 
-    for b, axis in zip(batches.meshgrid(), axes):
+    for b, axis in zip(math.concat_shapes(batches.only(down), batches.without(down)).meshgrid(), axes.flatten()):
         assert isinstance(axis, plt.Axes)
         names_equal = names[b].rank == 0
         paths_equal = scene.paths[b].rank == 0
         if titles is not None and titles is not False:
             if isinstance(titles, str):
                 axis.set_title(titles)
+            elif isinstance(titles, Tensor):
+                axis.set_title(titles[b].native())
             elif names_equal:
-                axis.set_title(display_name(str(names[b])))
+                axis.set_title(display_name(names[b].native()))
             elif paths_equal:
                 axis.set_title(os.path.basename(scene.paths[b].native()))
         if labels is not None:
@@ -449,8 +492,8 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
         else:
             curve_labels = math.map(lambda p, n: f&#34;{os.path.basename(p)} - {n}&#34;, scene.paths[b], names[b])
 
-        def single_plot(name, path, label, i, color, smooth):
-            logging.debug(f&#34;Reading {os.path.join(path, f&#39;log_{name}.txt&#39;)}&#34;)
+        def single_plot(name, path, label, i, color, dashed_, smooth):
+            PHI_LOGGER.debug(f&#34;Reading {os.path.join(path, f&#39;log_{name}.txt&#39;)}&#34;)
             curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
             if curve.ndim == 2:
                 x_values, values, *_ = curve.T
@@ -461,10 +504,11 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
                 pass
             else:
                 assert x == &#39;time&#39;, f&#34;x must be &#39;steps&#39; or &#39;time&#39; but got {x}&#34;
-                logging.debug(f&#34;Reading {os.path.join(path, &#39;log_step_time.txt&#39;)}&#34;)
+                PHI_LOGGER.debug(f&#34;Reading {os.path.join(path, &#39;log_step_time.txt&#39;)}&#34;)
                 _, x_values, *_ = numpy.loadtxt(os.path.join(path, &#34;log_step_time.txt&#34;)).T
-                values = values[:len(x_values)]
-                x_values = np.cumsum(x_values[:len(values)])
+                values = values[:len(x_values+1)]
+                x_values = np.cumsum(x_values[:len(values)-1])
+                x_values = np.concatenate([[0.], x_values])
             if transform:
                 x_values, values = transform(np.stack([x_values, values]))
             if color == &#39;default&#39;:
@@ -475,10 +519,13 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
                 pass
             if isinstance(color, Number):
                 color = cycle[int(color)]
-            logging.debug(f&#34;Plotting curve {label}&#34;)
-            axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
-            curve = np.stack([x_values, values], -1)
-            axis.plot(*smooth_uniform_curve(curve, smooth), color=color, linewidth=smooth_linewidth, label=label)
+            PHI_LOGGER.debug(f&#34;Plotting curve {label}&#34;)
+            if smooth &gt; 1:
+                axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
+                curve = np.stack([x_values, values], -1)
+                axis.plot(*smooth_uniform_curve(curve, smooth).T, *([&#39;--&#39;] if dashed_ else []), color=color, linewidth=smooth_linewidth, label=label)
+            else:
+                axis.plot(x_values, values, *([&#39;--&#39;] if dashed_ else []), color=color, linewidth=1, label=label)
             if grid:
                 if isinstance(grid, dict):
                     axis.grid(**grid)
@@ -499,7 +546,7 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
                 axis.set_ylabel(ylabel)
             return name
 
-        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors, smooth)
+        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors, dashed, smooth)
         if legend:
             axis.legend(loc=legend)
     # Final touches
@@ -536,16 +583,19 @@ Otherwise returns a <code>Tensor</code> of figures (not yet supported).</p></div
         dpi: Pixels per inch.
     &#34;&#34;&#34;
     figure = figure or LAST_FIGURE[0]
+    if figure is None:
+        figure = default_plots().current_figure
+    assert figure is not None, &#34;No figure to save.&#34;
     lib = get_plots_by_figure(figure)
     lib.save(figure, path, dpi)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
-<span>def <span class="ident">show</span></span>(<span>*model: phi.vis._vis_base.VisModel, play=True, gui: phi.vis._vis_base.Gui = None, keep_alive=True, **config)</span>
+<span>def <span class="ident">show</span></span>(<span>*model: phi.vis._vis_base.VisModel, play=True, gui: phi.vis._vis_base.Gui = None, lib: phi.vis._vis_base.Gui = None, keep_alive=True, **config)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>If <code>model</code> is a user interface model, launches the registered user interface.
-This will typically be the widgets interface for Jupyter or Colab notebooks, the Dash web interface for scripts or the console interface if the above are not available.
+This will typically be the Dash web interface or the console interface if dash is not available.
 This method prepares the <code>model</code> before showing it. No more fields should be added to the vis after this method is invoked.</p>
 <p>See Also:
 <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
@@ -563,7 +613,9 @@ If unspecified, shows the most recently plotted figure.</dd>
 <dt><strong><code>play</code></strong></dt>
 <dd>If true, invokes <code>App.play()</code>. The default value is False unless "autorun" is passed as a command line argument.</dd>
 <dt><strong><code>gui</code></strong></dt>
-<dd>(optional) class of GUI to use</dd>
+<dd>Deprecated. Use <code>lib</code> instead. (optional) class of GUI to use</dd>
+<dt><strong><code>lib</code></strong></dt>
+<dd>Gui class or plotting library as <code>str</code>, e.g. <code>'matplotlib'</code> or <code>'plotly'</code></dd>
 <dt><strong><code>keep_alive</code></strong></dt>
 <dd>Whether the GUI keeps the vis alive. If <code>False</code>, the program will exit when the main script is finished.</dd>
 <dt><strong><code>**config</code></strong></dt>
@@ -577,11 +629,12 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 <pre><code class="python">def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry,
          play=True,
          gui: Gui or str = None,
+         lib: Gui or str = None,
          keep_alive=True,
          **config):
     &#34;&#34;&#34;
     If `model` is a user interface model, launches the registered user interface.
-    This will typically be the widgets interface for Jupyter or Colab notebooks, the Dash web interface for scripts or the console interface if the above are not available.
+    This will typically be the Dash web interface or the console interface if dash is not available.
     This method prepares the `model` before showing it. No more fields should be added to the vis after this method is invoked.
 
     See Also:
@@ -601,15 +654,17 @@ For a full list of parameters, see the respective GUI documentation at <a href="
       model: (Optional) `VisModel`, the application or plottable object to display.
         If unspecified, shows the most recently plotted figure.
       play: If true, invokes `App.play()`. The default value is False unless &#34;autorun&#34; is passed as a command line argument.
-      gui: (optional) class of GUI to use
+      gui: Deprecated. Use `lib` instead. (optional) class of GUI to use
+      lib: Gui class or plotting library as `str`, e.g. `&#39;matplotlib&#39;` or `&#39;plotly&#39;`
       keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     &#34;&#34;&#34;
+    lib = lib if lib is not None else gui
     if len(model) == 1 and isinstance(model[0], VisModel):
         model[0].prepare()
         # --- Setup Gui ---
-        gui = default_gui() if gui is None else get_gui(gui)
+        gui = default_gui() if lib is None else get_gui(lib)
         gui.configure(config)
         gui.setup(model[0])
         if play:  # this needs to be done even if model cannot progress right now
@@ -620,10 +675,10 @@ For a full list of parameters, see the respective GUI documentation at <a href="
         else:
             gui.show(True)  # may be blocking call
     elif len(model) == 0:
-        plots = default_plots() if gui is None else get_plots(gui)
+        plots = default_plots() if lib is None else get_plots(lib)
         return plots.show(plots.current_figure)
     else:
-        plots = default_plots() if gui is None else get_plots(gui)
+        plots = default_plots() if lib is None else get_plots(lib)
         fig = plot(*model, lib=plots, **config)
         return plots.show(fig)</code></pre>
 </details>
@@ -648,7 +703,7 @@ If not provided, the user namespace is searched for Field variables.</dd>
 <dd>Whether to immediately start executing loops.</dd>
 <dt><strong><code>gui</code></strong></dt>
 <dd>(Optional) Name of GUI as <code>str</code> or GUI class.
-Built-in GUIs can be selected via <code>'dash'</code>, <code>'console'</code> and <code>'widgets'</code>.
+Built-in GUIs can be selected via <code>'dash'</code>, <code>'console'</code>.
 See <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></dd>
 <dt><strong><code>name</code></strong></dt>
 <dd>(Optional) Name to display in GUI and use for the output directory if <code>scene=True</code>.
@@ -706,7 +761,7 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
             If not provided, the user namespace is searched for Field variables.
         play: Whether to immediately start executing loops.
         gui: (Optional) Name of GUI as `str` or GUI class.
-            Built-in GUIs can be selected via `&#39;dash&#39;`, `&#39;console&#39;` and `&#39;widgets&#39;`.
+            Built-in GUIs can be selected via `&#39;dash&#39;`, `&#39;console&#39;`.
             See https://tum-pbs.github.io/PhiFlow/Visualization.html
         name: (Optional) Name to display in GUI and use for the output directory if `scene=True`.
             Will be generated from the top-level script if not provided.
@@ -780,6 +835,9 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
         dpi: Pixels per inch.
     &#34;&#34;&#34;
     figure = figure or LAST_FIGURE[0]
+    if figure is None:
+        figure = default_plots().current_figure
+    assert figure is not None, &#34;No figure to save.&#34;
     lib = get_plots_by_figure(figure)
     lib.save(figure, path, dpi)</code></pre>
 </details>
@@ -1174,6 +1232,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="phi.vis.action" href="#phi.vis.action">action</a></code></li>
+<li><code><a title="phi.vis.close" href="#phi.vis.close">close</a></code></li>
 <li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
 <li><code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay</a></code></li>
 <li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>

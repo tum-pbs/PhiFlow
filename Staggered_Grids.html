@@ -36,6 +36,7 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 .highlight .m { color: var(--jp-mirror-editor-number-color) } /* Literal.Number */
 .highlight .s { color: var(--jp-mirror-editor-string-color) } /* Literal.String */
 .highlight .ow { color: var(--jp-mirror-editor-operator-color); font-weight: bold } /* Operator.Word */
+.highlight .pm { color: var(--jp-mirror-editor-punctuation-color) } /* Punctuation.Marker */
 .highlight .w { color: var(--jp-mirror-editor-variable-color) } /* Text.Whitespace */
 .highlight .mb { color: var(--jp-mirror-editor-number-color) } /* Literal.Number.Bin */
 .highlight .mf { color: var(--jp-mirror-editor-number-color) } /* Literal.Number.Float */
@@ -14464,10 +14465,6 @@ a.anchor-link {
   display: none;
 }
 
-.highlight  {
-  margin: 0.4em;
-}
-
 /* Input area styling */
 .jp-InputArea {
   overflow: hidden;
@@ -14477,9 +14474,26 @@ a.anchor-link {
   overflow: hidden;
 }
 
-.CodeMirror pre {
+.CodeMirror.cm-s-jupyter .highlight pre {
+/* weird, but --jp-code-padding defined to be 5px but 4px horizontal padding is hardcoded for pre.CodeMirror-line */
+  padding: var(--jp-code-padding) 4px;
   margin: 0;
-  padding: 0;
+
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+
+}
+
+.jp-OutputArea-output pre {
+  line-height: inherit;
+  font-family: inherit;
+}
+
+.jp-RenderedText pre {
+  color: var(--jp-content-font-color1);
+  font-size: var(--jp-code-font-size);
 }
 
 /* Using table instead of flexbox so that we can use break-inside property */
@@ -14579,14 +14593,14 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<h1 id="Staggered-grids">Staggered grids<a class="anchor-link" href="#Staggered-grids">&#182;</a></h1><p><a href="https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Staggered_Grids.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Google Collab Book"></a></p>
+<h1 id="Staggered-grids">Staggered grids<a class="anchor-link" href="#Staggered-grids">&#182;</a></h1><p><a href="https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Staggered_Grids.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Google Collab Book" /></a></p>
 <p>Staggered grids are a key component of the marker-and-cell (MAC) method [Harlow and Welch 1965].
 They sample the velocity components not at the cell centers but in staggered form at the corresponding face centers.
 Their main advantage is that the divergence of a cell can be computed exactly.</p>
 <p>Φ<sub>Flow</sub> only stores valid velocity values in memory.
 This may require non-uniform tensors for the values since the numbers of horizontal and vertical faces are generally not equal.
 Depending on the boundary conditions, the outer-most values may also be redundant and, thus, not stored.</p>
-<p><img src="./figures/Staggered.png" alt="image"></p>
+<p><img src="./figures/Staggered.png" alt="image" /></p>
 <p>Φ<sub>Flow</sub> represents staggered grids as instances of <a href="phi/field/#phi.field.StaggeredGrid"><code>StaggeredGrid</code></a>.
 They have the same properties as <code>CenteredGrid</code> but the <code>values</code> field may reference a
 <a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">non-uniform tensor</a>
@@ -14621,9 +14635,7 @@ to reflect the varying number of x, y and z sample points.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[1]:</div>
 
@@ -14631,7 +14643,7 @@ to reflect the varying number of x, y and z sample points.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=(x=</span><span class="ansi-blue-intense-fg">11</span>, y=<span class="ansi-blue-intense-fg">10</span>), yˢ=(x=<span class="ansi-blue-intense-fg">10</span>, y=<span class="ansi-blue-intense-fg">11</span>), vectorᶜ=x,y) <span class="ansi-yellow-intense-fg">float32</span> const <span class="ansi-blue-intense-fg">0.0</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=11, y=10)</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=11)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">const 0.0</span></pre>
 </div>
 
 </div>
@@ -14688,13 +14700,74 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">Noise</span><span class="p">(),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># sample analytic field</span>
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># resample existing field</span>
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># function value(location)</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">Sphere</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># no anti-aliasing</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">SoftGeometryMask</span><span class="p">(</span><span class="n">Sphere</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># with anti-aliasing</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># no anti-aliasing</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">SoftGeometryMask</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># with anti-aliasing</span>
 </pre></div>
 
      </div>
 </div>
 </div>
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>To construct a <code>StaggeredGrid</code> from NumPy arrays (or TensorFlow/PyTorch/Jax tensors), the tensors first need to be converted to Φ<sub>Flow</sub> tensors using <code>tensor()</code> or <code>wrap()</code>.</p>
+
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">vx</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">33</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">))</span>
+<span class="n">vy</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">33</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">))</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">'vector'</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">)</span>
+
+<span class="n">vx</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">))</span>
+<span class="n">vy</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">))</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">'vector'</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">PERIODIC</span><span class="p">)</span>
+
+<span class="n">vx</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">31</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">))</span>
+<span class="n">vy</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">31</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">))</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">'vector'</span><span class="p">)),</span> <span class="mi">0</span><span class="p">)</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[3]:</div>
+
+
+
+
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre>StaggeredGrid[(xˢ=32, yˢ=32, vectorᶜ=2), size=<span class="ansi-blue-intense-fg">(x=32, y=32)</span> <span class="ansi-yellow-intense-fg">int64</span>, extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
+</div>
+
+</div>
+
+</div>
+
 </div>
 
 </div>
@@ -14723,8 +14796,59 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <h2 id="Values-Tensor">Values Tensor<a class="anchor-link" href="#Values-Tensor">&#182;</a></h2><p>For non-periodic staggered grids, the <code>values</code> tensor is <a href="https://tum-pbs.github.io/PhiFlow/Math.html#non-uniform-tensors">non-uniform</a>
 to reflect the different number of sample points for each component.</p>
+
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
+
+
+
+
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=9, y=10)</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">const 0.8081634640693665</span></pre>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <p>Functions to get a uniform tensor:</p>
 <ul>
+<li><a href="phi/field/#phi.field.StaggeredGrid.uniform_values"><code>uniform_values()</code></a> interpolates the staggered values to the cell centers and returns a <code>CenteredGrid</code></li>
 <li><a href="phi/field/#phi.field.StaggeredGrid.at_centers"><code>at_centers()</code></a> interpolates the staggered values to the cell centers and returns a <code>CenteredGrid</code></li>
 <li><a href="phi/field/#phi.field.StaggeredGrid.staggered_tensor"><code>staggered_tensor()</code></a> pads the internal tensor to an invariant shape with n+1 entries along all dimensions.</li>
 </ul>
@@ -14732,6 +14856,45 @@ to reflect the different number of sample points for each component.</p>
 </div>
 </div>
 </div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[5]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+     <div class="CodeMirror cm-s-jupyter">
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">uniform_values</span><span class="p">()</span>
+</pre></div>
+
+     </div>
+</div>
+</div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[5]:</div>
+
+
+
+
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre><span class="ansi-green-intense-fg">(xˢ=11, yˢ=11, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.601 ± 0.480</span> <span class="ansi-white-fg">(0e+00...1e+00)</span></pre>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
 </div>
 <div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
 <div class="jp-Cell-inputWrapper">
@@ -14750,10 +14913,10 @@ When selecting a vector component, such as <code>x</code> or <code>y</code>, the
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[6]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>  <span class="c1"># select component</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">'x'</span><span class="p">]</span>  <span class="c1"># select component</span>
 </pre></div>
 
      </div>
@@ -14767,17 +14930,15 @@ When selecting a vector component, such as <code>x</code> or <code>y</code>, the
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[3]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[6]:</div>
 
 
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>CenteredGrid[(xˢ=9, yˢ=10), size=(x=<span class="ansi-blue-intense-fg">0.8999999761581421</span>, y=<span class="ansi-blue-intense-fg">1.0</span>), extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
+<pre>CenteredGrid[(xˢ=9, yˢ=10), size=<span class="ansi-blue-intense-fg">(x=0.900, y=1.000)</span>, extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
 </div>
 
 </div>
@@ -14804,7 +14965,7 @@ Instead, slice the <code>values</code> directly.</p>
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[7]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
@@ -14821,17 +14982,15 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[7]:</div>
 
 
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=1, yˢ=(x=</span><span class="ansi-blue-intense-fg">10</span>, y=<span class="ansi-blue-intense-fg">9</span>), vectorᶜ=x,y) <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.946 ± 0.067</span> <span class="ansi-white-fg">(3e-01...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=1, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.950 ± 0.138</span> <span class="ansi-white-fg">(6e-02...1e+00)</span></pre>
 </div>
 
 </div>
@@ -14845,7 +15004,7 @@ Instead, slice the <code>values</code> directly.</p>
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[5]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[8]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
@@ -14862,17 +15021,15 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[5]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[8]:</div>
 
 
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=(x=</span><span class="ansi-blue-intense-fg">10</span>, y=<span class="ansi-blue-intense-fg">9</span>), vectorᶜ=x,y) <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.991 ± 0.028</span> <span class="ansi-white-fg">(8e-01...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">const 1.0</span></pre>
 </div>
 
 </div>
@@ -14898,7 +15055,7 @@ Instead, slice the <code>values</code> directly.</p>
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[6]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[9]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># batch slice</span>
@@ -14915,17 +15072,15 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[6]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[9]:</div>
 
 
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>StaggeredGrid[(xˢ=10, yˢ=10, vectorᶜ=x,y), size=(x=<span class="ansi-blue-intense-fg">1</span>, y=<span class="ansi-blue-intense-fg">1</span>), extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
+<pre>StaggeredGrid[(xˢ=10, yˢ=10, vectorᶜ=x,y), size=<span class="ansi-blue-intense-fg">(x=1, y=1)</span> <span class="ansi-yellow-intense-fg">int64</span>, extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
 </div>
 
 </div>

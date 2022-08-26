@@ -45,13 +45,11 @@ Classes:
 
 See the `phi.geom` module documentation at https://tum-pbs.github.io/PhiFlow/Geometry.html
 &#34;&#34;&#34;
-
-from ._geom import Geometry, Point, assert_same_rank
+from ..math import stack, concat, pack_dims  # for compatibility
+from ._geom import Geometry, Point, assert_same_rank, invert
 from ._union import union
 from ._box import Box, GridCell, BaseBox, Cuboid
 from ._sphere import Sphere
-from ._stack import stack
-from ._geom_math import concat, invert, pack_dims
 from ._transform import embed, infinite_cylinder
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</code></pre>
@@ -81,51 +79,71 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.geom.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>geometries: tuple, dim: phi.math._shape.Shape, sizes: tuple = None)</span>
+<span>def <span class="ident">concat</span></span>(<span>values: tuple, dim: str, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Concatenates multiple geometries of the same type.</p>
+<div class="desc"><p>Concatenates a sequence of tensors along one dimension.
+The shapes of all values must be equal, except for the size of the concat dimension.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>geometries</code></strong></dt>
-<dd>sequence of <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> objects of the same type</dd>
-<dt><strong><code>sizes</code></strong></dt>
-<dd>implicit</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Tensors to concatenate</dd>
 <dt><strong><code>dim</code></strong></dt>
-<dd>dimension to concatenate</dd>
+<dd>Concatenation dimension, must be present in all <code>values</code>.
+The size along <code>dim</code> is determined from <code>values</code> and can be set to undefined (<code>None</code>).</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional keyword arguments required by specific implementations.
+Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
+Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>New <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> object</p></div>
+<p>Concatenated <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat(geometries: tuple or list,
-           dim: Shape,
-           sizes: tuple or list or None = None):
+<pre><code class="python">def concat(values: tuple or list, dim: str or Shape, **kwargs):
     &#34;&#34;&#34;
-    Concatenates multiple geometries of the same type.
+    Concatenates a sequence of tensors along one dimension.
+    The shapes of all values must be equal, except for the size of the concat dimension.
 
     Args:
-        geometries: sequence of `phi.geom.Geometry` objects of the same type
-        sizes: implicit
-        dim: dimension to concatenate
+        values: Tensors to concatenate
+        dim: Concatenation dimension, must be present in all `values`.
+            The size along `dim` is determined from `values` and can be set to undefined (`None`).
+        **kwargs: Additional keyword arguments required by specific implementations.
+            Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+            Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        New `phi.geom.Geometry` object
+        Concatenated `Tensor`
     &#34;&#34;&#34;
-    if all(isinstance(g, type(geometries[0])) for g in geometries):
-        characteristics = [{a: getattr(g, a) for a in variable_attributes(g)} for g in geometries]
-        new_attributes = {}
-        for c in characteristics[0].keys():
-            if any([item[c].shape.volume &gt; 1 for item in characteristics]) or any([not math.close(item[c], characteristics[0][c]) for item in characteristics]):
-                for item, size in zip(characteristics, sizes):
-                    item[c] = math.expand(item[c], dim.with_size(size))
-                concatenated = math.concat([item[c] for item in characteristics], dim)
-                new_attributes[c] = concatenated
-        return copy_with(geometries[0], **new_attributes)
-    else:
-        raise NotImplementedError()</code></pre>
+    assert len(values) &gt; 0, f&#34;concat() got empty sequence {values}&#34;
+    if isinstance(dim, Shape):
+        dim = dim.name
+    assert isinstance(dim, str), f&#34;dim must be a str or Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
+    for v in values[1:]:
+        assert set(shape(v).names) == set(shape(values[0]).names), f&#34;Concatenated values must have the same dimensions but got {values[0].shape} and {v.shape}&#34;
+    # First try __concat__
+    for v in values:
+        if isinstance(v, Shapable):
+            if hasattr(v, &#39;__concat__&#39;):
+                result = v.__concat__(values, dim, **kwargs)
+                if result is not NotImplemented:
+                    assert isinstance(result, Shapable), &#34;__concat__ must return a Shapable object&#34;
+                    return result
+    # Fallback: slice and __stack__
+    try:
+        unstacked = sum([unstack(v, dim) for v in values], ())
+    except MagicNotImplemented:
+        raise MagicNotImplemented(f&#34;concat: No value implemented __concat__ and not all values were Sliceable along {dim}. values = {[type(v) for v in values]}&#34;)
+    if len(unstacked) &gt; 8:
+        warnings.warn(f&#34;concat() default implementation is slow on large dimensions ({dim}={len(unstacked)}). Please implement __concat__()&#34;, RuntimeWarning, stacklevel=2)
+    dim = shape(values[0])[dim].with_size(None)
+    try:
+        return stack(unstacked, dim, **kwargs)
+    except MagicNotImplemented:
+        raise MagicNotImplemented(f&#34;concat: No value implemented __concat__ and slices could not be stacked. values = {[type(v) for v in values]}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.embed"><code class="name flex">
@@ -134,6 +152,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dd>
 <div class="desc"><p>Adds fake spatial dimensions to a geometry.
 The geometry value will be constant along the added dimensions, as if it had infinite length in these directions.</p>
+<p>Dimensions that are already present with <code>geometry</code> are ignored.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>geometry</code></strong></dt>
@@ -147,10 +166,12 @@ The geometry value will be constant along the added dimensions, as if it had inf
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list) -&gt; Geometry:
+<pre><code class="python">def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list or None) -&gt; Geometry:
     &#34;&#34;&#34;
     Adds fake spatial dimensions to a geometry.
     The geometry value will be constant along the added dimensions, as if it had infinite length in these directions.
+
+    Dimensions that are already present with `geometry` are ignored.
 
     Args:
         geometry: `Geometry`
@@ -163,6 +184,12 @@ The geometry value will be constant along the added dimensions, as if it had inf
         return geometry
     if not isinstance(projected_dims, Shape):
         projected_dims = math.spatial(*parse_dim_order(projected_dims))
+    projected_dims = projected_dims.without(geometry.shape.get_item_names(&#39;vector&#39;))  # avoid dim duplication
+    if not projected_dims:
+        return geometry
+    if isinstance(geometry, BaseBox):
+        box = geometry.corner_representation()
+        return box * Box(**{dim: None for dim in projected_dims.names})
     return _EmbeddedGeometry(geometry, projected_dims) if projected_dims.rank &gt; 0 else geometry</code></pre>
 </details>
 </dd>
@@ -244,77 +271,193 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 </details>
 </dd>
 <dt id="phi.geom.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>value: phi.geom._geom.Geometry, dims: phi.math._shape.Shape, packed_dim: phi.math._shape.Shape, pos: int = None) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, phi.math._shape.Shape, Callable], packed_dim: phi.math._shape.Shape, pos: int = None, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Reshapes dimensions of a geometry.</p>
+<div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
+Elements along the new dimensions are laid out according to the order of <code>dims</code>.
+If the order of <code>dims</code> differs from the current dimension order, the tensor is transposed accordingly.
+This function replaces the traditional <code>reshape</code> for these cases.</p>
+<p>The type of the new dimension will be equal to the types of <code>dims</code>.
+If <code>dims</code> have varying types, the new dimension will be a batch dimension.</p>
+<p>If none of <code>dims</code> exist on <code>value</code>, <code>packed_dim</code> will be added only if it is given with a definite size.</p>
 <p>See Also:
-<code><a title="phi.math.pack_dims" href="../math/index.html#phi.math.pack_dims">pack_dims()</a></code>.</p>
+<code>unpack_dim()</code></p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> containing <code>dims</code></dd>
+<dd>Tensor containing the dimensions <code>dims</code>.</dd>
 <dt><strong><code>dims</code></strong></dt>
-<dd>Dimensions to pack into a single dimension.</dd>
+<dd>Dimensions to be compressed in the specified order.</dd>
 <dt><strong><code>packed_dim</code></strong></dt>
-<dd>The new dimension.</dd>
+<dd>Single-dimension <code>Shape</code>.</dd>
 <dt><strong><code>pos</code></strong></dt>
-<dd>(Optional) Position of the new dimension.</dd>
+<dd>Index of new dimension. <code>None</code> for automatic, <code>-1</code> for last, <code>0</code> for first.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional keyword arguments required by specific implementations.
+Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
+Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with <code>packed_dim</code> instead of <code>dims</code>.</p></div>
+<p><code>Tensor</code> with compressed shape.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pack_dims(value: Geometry,
-              dims: Shape or tuple or list or str,
-              packed_dim: Shape,
-              pos: int or None = None) -&gt; Geometry:
+<pre><code class="python">def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None, **kwargs):
     &#34;&#34;&#34;
-    Reshapes dimensions of a geometry.
+    Compresses multiple dimensions into a single dimension by concatenating the elements.
+    Elements along the new dimensions are laid out according to the order of `dims`.
+    If the order of `dims` differs from the current dimension order, the tensor is transposed accordingly.
+    This function replaces the traditional `reshape` for these cases.
+
+    The type of the new dimension will be equal to the types of `dims`.
+    If `dims` have varying types, the new dimension will be a batch dimension.
+
+    If none of `dims` exist on `value`, `packed_dim` will be added only if it is given with a definite size.
 
     See Also:
-        `phi.math.pack_dims()`.
+        `unpack_dim()`
 
     Args:
-        value: `Geometry` containing `dims`
-        dims: Dimensions to pack into a single dimension.
-        packed_dim: The new dimension.
-        pos: (Optional) Position of the new dimension.
+        value: Tensor containing the dimensions `dims`.
+        dims: Dimensions to be compressed in the specified order.
+        packed_dim: Single-dimension `Shape`.
+        pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
+        **kwargs: Additional keyword arguments required by specific implementations.
+            Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+            Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        `Geometry` with `packed_dim` instead of `dims`.
+        `Tensor` with compressed shape.
     &#34;&#34;&#34;
-    if isinstance(value, GridCell):
-        value = value.corner_representation()
-    dims = parse_dim_order(dims)
-    new_attrs = {}
-    for a in variable_attributes(value):
-        v = getattr(value, a)
-        if all(d in v.shape for d in dims):
-            new_attrs[a] = math.pack_dims(v, dims, packed_dim, pos=pos)
-        else:
-            assert all(d not in v.shape for d in dims), f&#34;Cannot pack_dims for attribute {a} of {value}&#34;
-    return copy_with(value, **new_attrs)</code></pre>
+    assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
+    dims = shape(value).only(dims)
+    if packed_dim in shape(value):
+        assert packed_dim in dims, f&#34;Cannot pack dims into new dimension {packed_dim} because it already exists on value {value} and is not packed.&#34;
+    if len(dims) == 0 or all(dim not in shape(value) for dim in dims):
+        return value if packed_dim.size is None else expand(value, packed_dim, **kwargs)  # Inserting size=1 can cause shape errors
+    elif len(dims) == 1:
+        return rename_dims(value, dims, packed_dim, **kwargs)
+    if dims.rank == shape(value).rank and hasattr(value, &#39;__flatten__&#39;):
+        result = value.__flatten__(packed_dim, **kwargs)
+        if result is not NotImplemented:
+            return result
+    if hasattr(value, &#39;__pack_dims__&#39;):
+        result = value.__pack_dims__(dims.names, packed_dim, pos, **kwargs)
+        if result is not NotImplemented:
+            return result
+    # Fallback: unstack and stack
+    if shape(value).only(dims).volume &gt; 8:
+        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__()&#34;, RuntimeWarning, stacklevel=2)
+    return stack(unstack(value, dims), packed_dim, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>geometries: List[phi.geom._geom.Geometry], dim: phi.math._shape.Shape)</span>
+<span>def <span class="ident">stack</span></span>(<span>values: tuple, dim: phi.math._shape.Shape, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Stacks <code>geometries</code> along <code>dim</code>. The size of <code>dim</code> is ignored.</p></div>
+<div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.</p>
+<p>Stacking tensors is performed lazily, i.e. the memory is allocated only when needed.
+This makes repeated stacking and slicing along the same dimension very efficient.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>Sequence of <code>Shapable</code> objects to be stacked.
+If a <code>dict</code>, keys must be of type <code>str</code> and are used as item names along <code>dim</code>.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd><code>Shape</code> with a least one dimension. None of these dimensions can be present with any of the <code>values</code>.
+If <code>dim</code> is a single-dimension shape, its size is determined from <code>len(values)</code> and can be left undefined (<code>None</code>).
+If <code>dim</code> is a multi-dimension shape, its volume must be equal to <code>len(values)</code>.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional keyword arguments required by specific implementations.
+Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
+Adding batch dimensions must always work without keyword arguments.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> containing <code>values</code> stacked along <code>dim</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(geometries: List[Geometry], dim: Shape):
-    &#34;&#34;&#34; Stacks `geometries` along `dim`. The size of `dim` is ignored. &#34;&#34;&#34;
-    if all(type(g) == type(geometries[0]) and not isinstance(g, GridCell) for g in geometries):
-        attrs = variable_attributes(geometries[0])
-        new_attributes = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
-        return copy_with(geometries[0], **new_attributes)
-    return GeometryStack(math.layout(geometries, dim))</code></pre>
+<pre><code class="python">def stack(values: tuple or list or dict, dim: Shape, **kwargs):
+    &#34;&#34;&#34;
+    Stacks `values` along the new dimension `dim`.
+
+    Stacking tensors is performed lazily, i.e. the memory is allocated only when needed.
+    This makes repeated stacking and slicing along the same dimension very efficient.
+
+    Args:
+        values: Sequence of `Shapable` objects to be stacked.
+            If a `dict`, keys must be of type `str` and are used as item names along `dim`.
+        dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
+            If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
+            If `dim` is a multi-dimension shape, its volume must be equal to `len(values)`.
+        **kwargs: Additional keyword arguments required by specific implementations.
+            Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+            Adding batch dimensions must always work without keyword arguments.
+
+    Returns:
+        `Tensor` containing `values` stacked along `dim`.
+    &#34;&#34;&#34;
+    assert len(values) &gt; 0, f&#34;stack() got empty sequence {values}&#34;
+    assert isinstance(dim, Shape)
+    if dim.rank == 1:
+        assert dim.size == len(values) or dim.size is None, f&#34;stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values&#34;
+        if dim.size is None:
+            dim = dim.with_size(len(values))
+        if isinstance(values, dict):
+            dim_item_names = tuple(values.keys())
+            values = tuple(values.values())
+            dim = dim._with_item_names((dim_item_names,))
+        for v in values[1:]:
+            assert set(shape(v).names) == set(shape(values[0]).names), f&#34;Stacked values must have the same dimensions but got {shape(values[0])} and {shape(v)}&#34;
+        # if any value implements Shapable, use their implementation
+        for v in values:
+            if hasattr(v, &#39;__stack__&#39;):
+                result = v.__stack__(values, dim, **kwargs)
+                if result is not NotImplemented:
+                    assert isinstance(result, Shapable), &#34;__stack__ must return a Shapable object&#34;
+                    return result
+        # Fallback: use expand and concat
+        for v in values:
+            if not hasattr(v, &#39;__stack__&#39;) and hasattr(v, &#39;__concat__&#39;) and hasattr(v, &#39;__expand__&#39;):
+                exp_values = tuple([expand(v, dim.with_size(1), **kwargs) for v in values])
+                if len(exp_values) &gt; 8:
+                    warnings.warn(f&#34;stack() default implementation is slow on large dimensions ({dim.name}={len(exp_values)}). Please implement __stack__()&#34;, RuntimeWarning, stacklevel=2)
+                result = v.__concat__(exp_values, dim.name, **kwargs)
+                if result is not NotImplemented:
+                    assert isinstance(result, Shapable), &#34;__concat__ must return a Shapable object&#34;
+                    return result
+        # else maybe all values are native scalars
+        from ._tensors import wrap
+        try:
+            values = tuple([wrap(v) for v in values])
+        except ValueError:
+            raise MagicNotImplemented(f&#34;At least one item in values must be Shapable but got types {[type(v) for v in values]}&#34;)
+        return values[0].__stack__(values, dim, **kwargs)
+    else:
+        assert dim.volume == len(values), f&#34;When passing multiple stack dims, their volume must equal len(values) but got {dim} for {len(values)} values&#34;
+        if isinstance(values, dict):
+            warnings.warn(f&#34;When stacking a dict along multiple dimensions, the key names are discarded. Got keys {tuple(values.keys())}&#34;, RuntimeWarning, stacklevel=2)
+            values = tuple(values.values())
+        # if any value implements Shapable, use stack and unpack_dim
+        for v in values:
+            if hasattr(v, &#39;__stack__&#39;) and hasattr(v, &#39;__unpack_dim__&#39;):
+                stack_dim = batch(&#39;_stack&#39;)
+                stacked = v.__stack__(values, stack_dim, **kwargs)
+                if stacked is not NotImplemented:
+                    assert isinstance(stacked, Shapable), &#34;__stack__ must return a Shapable object&#34;
+                    assert hasattr(stacked, &#39;__unpack_dim__&#39;), &#34;If a value supports __unpack_dim__, the result of __stack__ must also support it.&#34;
+                    reshaped = stacked.__unpack_dim__(stack_dim.name, dim, **kwargs)
+                    if kwargs is NotImplemented:
+                        warnings.warn(&#34;__unpack_dim__ is overridden but returned NotImplemented during multi-dimensional stack. This results in unnecessary stack operations.&#34;, RuntimeWarning, stacklevel=2)
+                    else:
+                        return reshaped
+        # Fallback: multi-level stack
+        for dim_ in reversed(dim):
+            values = [stack(values[i:i + dim_.size], dim_, **kwargs) for i in range(0, len(values), dim_.size)]
+        return values[0]</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.union"><code class="name flex">
@@ -355,7 +498,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         return NO_GEOMETRY
     elif len(geometries) == 1:
         return geometries[0]
-    elif all(type(g) == type(geometries[0]) for g in geometries):
+    elif all(type(g) == type(geometries[0]) and isinstance(g, PhiTreeNode) for g in geometries):
         attrs = variable_attributes(geometries[0])
         values = {a: math.stack([getattr(g, a) for g in geometries], math.instance(&#39;union&#39;)) for a in attrs}
         return copy_with(geometries[0], **values)
@@ -430,7 +573,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         return math.tensor(&#39;B&#39;)
 
     def bounding_radius(self):
-        return math.max(self.size, &#39;vector&#39;) * 1.414214
+        return math.vec_length(self.half_size)
 
     def bounding_half_extent(self):
         return self.size * 0.5
@@ -450,7 +593,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
         return bool_inside
 
-    def approximate_signed_distance(self, location):
+    def approximate_signed_distance(self, location: Tensor or tuple):
         &#34;&#34;&#34;
         Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
         For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
@@ -484,12 +627,8 @@ A point lies inside the union if it lies within at least one of the geometries.<
 
     def project(self, *dimensions: str):
         &#34;&#34;&#34; Project this box into a lower-dimensional space. &#34;&#34;&#34;
-        if self.size.vector.item_names is None:
-            assert len(dimensions) == self.spatial_rank, &#34;Cannot project a Box if item names not available&#34;
-            return self
-        lower = self.lower.vector[dimensions]
-        upper = self.upper.vector[dimensions]
-        return Box(lower, upper)
+        warnings.warn(&#34;Box.project(dims) is deprecated. Use Box.vector[dims] instead&#34;, DeprecationWarning, stacklevel=2)
+        return self.vector[dimensions]
 
     def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
         uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
@@ -497,6 +636,8 @@ A point lies inside the union if it lies within at least one of the geometries.<
 
     def corner_representation(self) -&gt; &#39;Box&#39;:
         return Box(self.lower, self.upper)
+
+    box = corner_representation
 
     def center_representation(self) -&gt; &#39;Cuboid&#39;:
         return Cuboid(self.center, self.half_size)
@@ -506,6 +647,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         return np.all(other.lower &gt;= self.lower) and np.all(other.upper &lt;= self.upper)
 
     def rotated(self, angle) -&gt; Geometry:
+        from ._transform import rotate
         return rotate(self, angle)
 
     def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
@@ -525,7 +667,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
 <dl>
 <dt id="phi.geom.BaseBox.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
-<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -561,7 +703,13 @@ def lower(self) -&gt; Tensor:
 </dd>
 <dt id="phi.geom.BaseBox.shape"><code class="name">var <span class="ident">shape</span></code></dt>
 <dd>
-<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -574,7 +722,7 @@ def shape(self):
 <dt id="phi.geom.BaseBox.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
-Boxes return <code>'B'</code> and spheres return <code>'S'</code>.
+Boxes return <code>'B'</code>, spheres return <code>'S'</code>, points return <code>'P'</code>.
 Returns <code>'?'</code> for unknown types, e.g. a union over multiple types.
 Custom types can return their own identifiers.</p>
 <h2 id="returns">Returns</h2>
@@ -629,7 +777,7 @@ def volume(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.BaseBox.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location)</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
@@ -646,7 +794,7 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_signed_distance(self, location):
+<pre><code class="python">def approximate_signed_distance(self, location: Tensor or tuple):
     &#34;&#34;&#34;
     Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
     For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
@@ -700,7 +848,20 @@ The sphere is centered at the center of this geometry.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bounding_radius(self):
-    return math.max(self.size, &#39;vector&#39;) * 1.414214</code></pre>
+    return math.vec_length(self.half_size)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.BaseBox.box"><code class="name flex">
+<span>def <span class="ident">box</span></span>(<span>self) ‑> phi.geom._box.Box</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def corner_representation(self) -&gt; &#39;Box&#39;:
+    return Box(self.lower, self.upper)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.center_representation"><code class="name flex">
@@ -807,12 +968,8 @@ The sphere is centered at the center of this geometry.</p>
 </summary>
 <pre><code class="python">def project(self, *dimensions: str):
     &#34;&#34;&#34; Project this box into a lower-dimensional space. &#34;&#34;&#34;
-    if self.size.vector.item_names is None:
-        assert len(dimensions) == self.spatial_rank, &#34;Cannot project a Box if item names not available&#34;
-        return self
-    lower = self.lower.vector[dimensions]
-    upper = self.upper.vector[dimensions]
-    return Box(lower, upper)</code></pre>
+    warnings.warn(&#34;Box.project(dims) is deprecated. Use Box.vector[dims] instead&#34;, DeprecationWarning, stacklevel=2)
+    return self.vector[dimensions]</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.push"><code class="name flex">
@@ -866,6 +1023,7 @@ The geometry is rotated about its center point.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def rotated(self, angle) -&gt; Geometry:
+    from ._transform import rotate
     return rotate(self, angle)</code></pre>
 </details>
 </dd>
@@ -947,6 +1105,10 @@ Returns:</p></div>
 <pre><code class="language-python">Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
 Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
 </code></pre>
+<p>The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.</p>
+<pre><code class="language-python">Box['x,y', 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
+</code></pre>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>lower</code></strong></dt>
@@ -954,7 +1116,7 @@ Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=
 <dt><strong><code>upper</code></strong></dt>
 <dd>physical location of upper corner</dd>
 <dt><strong><code>**size</code></strong></dt>
-<dd>Upper l</dd>
+<dd>Specify size by dimension, either as <code>int</code> or <code>tuple</code> containing (lower, upper).</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -972,22 +1134,32 @@ Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=
     Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
     Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     ```
+
+    The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.
+
+    ```python
+    Box[&#39;x,y&#39;, 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+    Box[&#39;x,y&#39;, :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
+    ```
     &#34;&#34;&#34;
 
-    def __init__(self,
-                 lower: Tensor or float or int = None,
-                 upper: Tensor or float or int = None,
-                 **size: int or Tensor):
+    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: int or Tensor):
         &#34;&#34;&#34;
         Args:
           lower: physical location of lower corner
           upper: physical location of upper corner
-          **size: Upper l
+          **size: Specify size by dimension, either as `int` or `tuple` containing (lower, upper).
         &#34;&#34;&#34;
         if lower is not None:
-            self._lower = wrap(lower)
+            assert isinstance(lower, Tensor)
+            assert &#39;vector&#39; in lower.shape, &#34;lower must have a vector dimension&#34;
+            assert lower.vector.item_names is not None, &#34;vector dimension of lower must list spatial dimension order&#34;
+            self._lower = lower
         if upper is not None:
-            self._upper = wrap(upper)
+            assert isinstance(upper, Tensor)
+            assert &#39;vector&#39; in upper.shape, &#34;lower must have a vector dimension&#34;
+            assert upper.vector.item_names is not None, &#34;vector dimension of lower must list spatial dimension order&#34;
+            self._upper = upper
         else:
             lower = []
             upper = []
@@ -1013,11 +1185,15 @@ Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=
         if self.size.vector.item_names is None:
             warnings.warn(&#34;Creating a Box without item names prevents certain operations like project()&#34;, DeprecationWarning, stacklevel=2)
 
-    def unstack(self, dimension):
-        size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
-        lowers = self._lower.dimension(dimension).unstack(size)
-        uppers = self._upper.dimension(dimension).unstack(size)
-        return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))
+    def __getitem__(self, item):
+        item = _keep_vector(slicing_dict(self, item))
+        return Box(self._lower[item], self._upper[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        if all(isinstance(v, Box) for v in values):
+            return Box(math.stack([v.lower for v in values], dim, **kwargs), math.stack([v.upper for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
@@ -1025,6 +1201,13 @@ Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=
                and self.size.shape.get_size(&#39;vector&#39;) == other.size.shape.get_size(&#39;vector&#39;)\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
+
+    def without(self, dims: Tuple[str, ...]):
+        remaining = list(self.shape.get_item_names(&#39;vector&#39;))
+        for dim in dims:
+            if dim in remaining:
+                remaining.remove(dim)
+        return self.vector[remaining]
 
     def __hash__(self):
         return hash(self._upper)
@@ -1036,7 +1219,7 @@ Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=
     def shape(self):
         if self._lower is None or self._upper is None:
             return None
-        return (self._lower.shape &amp; self._upper.shape).non_channel
+        return self._lower.shape &amp; self._upper.shape
 
     @property
     def lower(self):
@@ -1064,8 +1247,8 @@ Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=
     def __mul__(self, other):
         if not isinstance(other, Box):
             return NotImplemented
-        lower = self._lower.vector.unstack(self.spatial_rank) + other._lower.vector.unstack(self.spatial_rank)
-        upper = self._upper.vector.unstack(self.spatial_rank) + other._upper.vector.unstack(self.spatial_rank)
+        lower = self._lower.vector.unstack(self.spatial_rank) + other._lower.vector.unstack(other.spatial_rank)
+        upper = self._upper.vector.unstack(self.spatial_rank) + other._upper.vector.unstack(other.spatial_rank)
         names = self._upper.vector.item_names + other._upper.vector.item_names
         lower = math.stack(lower, math.channel(vector=names))
         upper = math.stack(upper, math.channel(vector=names))
@@ -1079,7 +1262,7 @@ Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=
             else:  # deprecated
                 return &#39;Box[%s at %s]&#39; % (&#39;x&#39;.join([str(x) for x in self.size.numpy().flatten()]), &#39;,&#39;.join([str(x) for x in self.lower.numpy().flatten()]))
         else:
-            return &#39;Box[shape=%s]&#39; % self.shape</code></pre>
+            return f&#39;Box[shape={self.shape}]&#39;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1090,7 +1273,7 @@ Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=
 <dl>
 <dt id="phi.geom.Box.center"><code class="name">var <span class="ident">center</span></code></dt>
 <dd>
-<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1126,7 +1309,13 @@ def lower(self):
 </dd>
 <dt id="phi.geom.Box.shape"><code class="name">var <span class="ident">shape</span></code></dt>
 <dd>
-<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1135,7 +1324,7 @@ def lower(self):
 def shape(self):
     if self._lower is None or self._upper is None:
         return None
-    return (self._lower.shape &amp; self._upper.shape).non_channel</code></pre>
+    return self._lower.shape &amp; self._upper.shape</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Box.size"><code class="name">var <span class="ident">size</span></code></dt>
@@ -1192,31 +1381,21 @@ def upper(self):
     return Box(self.lower + delta, self.upper + delta)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Box.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension)</span>
+<dt id="phi.geom.Box.without"><code class="name flex">
+<span>def <span class="ident">without</span></span>(<span>self, dims: Tuple[str, ...])</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Unstacks this Geometry along the given dimension.
-The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>dimension along which to unstack</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>geometries</code></dt>
-<dd>tuple of length equal to <code>geometry.shape.get_size(dimension)</code></dd>
-</dl></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(self, dimension):
-    size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
-    lowers = self._lower.dimension(dimension).unstack(size)
-    uppers = self._upper.dimension(dimension).unstack(size)
-    return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))</code></pre>
+<pre><code class="python">def without(self, dims: Tuple[str, ...]):
+    remaining = list(self.shape.get_item_names(&#39;vector&#39;))
+    for dim in dims:
+        if dim in remaining:
+            remaining.remove(dim)
+    return self.vector[remaining]</code></pre>
 </details>
 </dd>
 </dl>
@@ -1240,11 +1419,18 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
                  center: Tensor = 0,
                  half_size: float or Tensor = None,
                  **size: float or Tensor):
-        self._center = wrap(center)
         if half_size is not None:
-            self._half_size = wrap(half_size)
+            assert isinstance(half_size, Tensor), &#34;half_size must be a Tensor&#34;
+            assert &#39;vector&#39; in half_size.shape, f&#34;Cuboid size must have a &#39;vector&#39; dimension.&#34;
+            assert half_size.shape.get_item_names(&#39;vector&#39;) is not None, f&#34;Vector dimension must list spatial dimensions as item names. Use the syntax Cuboid(x=x, y=y) to assign names.&#34;
+            self._half_size = half_size
         else:
             self._half_size = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys()))) * 0.5
+        center = wrap(center)
+        if &#39;vector&#39; not in center.shape or center.shape.get_item_names(&#39;vector&#39;) is None:
+            center = math.expand(center, channel(self._half_size))
+        self._center = center
+
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
@@ -1254,6 +1440,16 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 
     def __hash__(self):
         return hash(self._center)
+
+    def __getitem__(self, item):
+        item = _keep_vector(slicing_dict(self, item))
+        return Cuboid(self._center[item], self._half_size[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        if all(isinstance(v, Cuboid) for v in values):
+            return Cuboid(math.stack([v.center for v in values], dim, **kwargs), math.stack([v.half_size for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
     def __variable_attrs__(self):
         return &#39;_center&#39;, &#39;_half_size&#39;
@@ -1270,7 +1466,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     def shape(self):
         if self._center is None or self._half_size is None:
             return None
-        return (self._center.shape &amp; self._half_size.shape).without(&#39;vector&#39;)
+        return self._center.shape &amp; self._half_size.shape
 
     @property
     def size(self):
@@ -1296,7 +1492,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <dl>
 <dt id="phi.geom.Cuboid.center"><code class="name">var <span class="ident">center</span></code></dt>
 <dd>
-<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1332,7 +1528,13 @@ def lower(self):
 </dd>
 <dt id="phi.geom.Cuboid.shape"><code class="name">var <span class="ident">shape</span></code></dt>
 <dd>
-<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1341,7 +1543,7 @@ def lower(self):
 def shape(self):
     if self._center is None or self._half_size is None:
         return None
-    return (self._center.shape &amp; self._half_size.shape).without(&#39;vector&#39;)</code></pre>
+    return self._center.shape &amp; self._half_size.shape</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Cuboid.size"><code class="name">var <span class="ident">size</span></code></dt>
@@ -1434,14 +1636,19 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     @property
     def center(self) -&gt; Tensor:
         &#34;&#34;&#34;
-        Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
+        Center location in single channel dimension.
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     @property
     def shape(self) -&gt; Shape:
         &#34;&#34;&#34;
-        Specifies the number of copies of the geometry as batch and spatial dimensions.
+        The `shape` of a `Geometry` consists of the following dimensions:
+
+        * A single *channel* dimension called `&#39;vector&#39;` specifying the physical space
+        * Instance dimensions denote that this geometry consists of multiple copies in the same space
+        * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
+        * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
         &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -1457,7 +1664,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def shape_type(self) -&gt; Tensor:
         &#34;&#34;&#34;
         Returns the type (or types) of this geometry as a string `Tensor`
-        Boxes return `&#39;B&#39;` and spheres return `&#39;S&#39;`.
+        Boxes return `&#39;B&#39;`, spheres return `&#39;S&#39;`, points return `&#39;P&#39;`.
         Returns `&#39;?&#39;` for unknown types, e.g. a union over multiple types.
         Custom types can return their own identifiers.
 
@@ -1477,8 +1684,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         &#34;&#34;&#34;
-        attrs = {a: getattr(self, a) for a in variable_attributes(self)}
-        return tuple([copy_with(self, **{a: v[{dimension: i}] for a, v in attrs.items() if dimension in v.shape}) for i in range(self.shape.get_size(dimension))])
+        return math.unstack(self, dimension)
 
     @property
     def spatial_rank(self) -&gt; int:
@@ -1500,7 +1706,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
+    def approximate_signed_distance(self, location: Tensor or tuple) -&gt; Tensor:
         &#34;&#34;&#34;
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -1728,11 +1934,19 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def __repr__(self):
         return f&#34;{self.__class__.__name__}{self.shape}&#34;
 
-    def __getitem__(self, item: dict):
-        assert isinstance(item, dict), &#34;Index must be dict of type {dim: slice/int}.&#34;
-        item = {dim: sel for dim, sel in item.items() if dim != &#39;vector&#39;}
-        attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
-        return copy_with(self, **attrs)</code></pre>
+    def __getitem__(self, item):
+        raise NotImplementedError
+        # assert isinstance(item, dict), &#34;Index must be dict of type {dim: slice/int}.&#34;
+        # item = {dim: sel for dim, sel in item.items() if dim != &#39;vector&#39;}
+        # attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
+        # return copy_with(self, **attrs)
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        from ._stack import GeometryStack
+        return GeometryStack(math.layout(values, dim))
+
+    def __getattr__(self, name: str) -&gt; BoundDim:
+        return BoundDim(self, name)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1750,7 +1964,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 <dl>
 <dt id="phi.geom.Geometry.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
-<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1758,14 +1972,20 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 <pre><code class="python">@property
 def center(self) -&gt; Tensor:
     &#34;&#34;&#34;
-    Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
+    Center location in single channel dimension.
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1773,7 +1993,12 @@ def center(self) -&gt; Tensor:
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
-    Specifies the number of copies of the geometry as batch and spatial dimensions.
+    The `shape` of a `Geometry` consists of the following dimensions:
+
+    * A single *channel* dimension called `&#39;vector&#39;` specifying the physical space
+    * Instance dimensions denote that this geometry consists of multiple copies in the same space
+    * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
+    * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -1781,7 +2006,7 @@ def shape(self) -&gt; Shape:
 <dt id="phi.geom.Geometry.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
-Boxes return <code>'B'</code> and spheres return <code>'S'</code>.
+Boxes return <code>'B'</code>, spheres return <code>'S'</code>, points return <code>'P'</code>.
 Returns <code>'?'</code> for unknown types, e.g. a union over multiple types.
 Custom types can return their own identifiers.</p>
 <h2 id="returns">Returns</h2>
@@ -1794,7 +2019,7 @@ Custom types can return their own identifiers.</p>
 def shape_type(self) -&gt; Tensor:
     &#34;&#34;&#34;
     Returns the type (or types) of this geometry as a string `Tensor`
-    Boxes return `&#39;B&#39;` and spheres return `&#39;S&#39;`.
+    Boxes return `&#39;B&#39;`, spheres return `&#39;S&#39;`, points return `&#39;P&#39;`.
     Returns `&#39;?&#39;` for unknown types, e.g. a union over multiple types.
     Custom types can return their own identifiers.
 
@@ -1921,7 +2146,7 @@ This also holds for negative distances.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
+<pre><code class="python">def approximate_signed_distance(self, location: Tensor or tuple) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the approximate distance from location to the surface of the geometry.
     Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -2302,8 +2527,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     Returns:
         geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
     &#34;&#34;&#34;
-    attrs = {a: getattr(self, a) for a in variable_attributes(self)}
-    return tuple([copy_with(self, **{a: v[{dimension: i}] for a, v in attrs.items() if dimension in v.shape}) for i in range(self.shape.get_size(dimension))])</code></pre>
+    return math.unstack(self, dimension)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2344,7 +2568,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 
     @property
     def center(self):
-        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
+        local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
         points = self.bounds.local_to_global(local_coords)
         return points
 
@@ -2355,6 +2579,10 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     @property
     def size(self):
         return self.bounds.size / math.wrap(self.resolution.sizes)
+
+    @property
+    def dx(self):
+        return self.bounds.size / self.resolution
 
     @property
     def lower(self):
@@ -2368,7 +2596,8 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     def half_size(self):
         return self.bounds.size / self.resolution.sizes / 2
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
         bounds = self._bounds
         dx = self.size
         gather_dict = {}
@@ -2379,6 +2608,8 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
                     stop = selection + 1
                 elif isinstance(selection, slice):
                     start = selection.start or 0
+                    if start &lt; 0:
+                        start += self.resolution.get_size(dim)
                     stop = selection.stop or self.resolution.get_size(dim)
                     if stop &lt; 0:
                         stop += self.resolution.get_size(dim)
@@ -2393,6 +2624,9 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         resolution = self._resolution.after_gather(gather_dict)
         return GridCell(resolution, bounds)
 
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Cuboid&#39;:
+        return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
+
     def list_cells(self, dim_name):
         center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
@@ -2403,6 +2637,14 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         bounds = Box(self.bounds.lower + unit * (-0.5 if lower else 0.5), self.bounds.upper + unit * (0.5 if upper else -0.5))
         ext_res = self.resolution.sizes + dim_mask * (int(lower) + int(upper) - 1)
         return GridCell(self.resolution.with_sizes(ext_res), bounds)
+
+    def padded(self, widths: dict):
+        resolution, bounds = self.resolution, self.bounds
+        for dim, (lower, upper) in widths.items():
+            masked_dx = self.dx * math.dim_mask(self.resolution, dim)
+            resolution = resolution.with_dim_size(dim, self.resolution.get_size(dim) + lower + upper)
+            bounds = Box(bounds.lower - masked_dx * lower, bounds.upper + masked_dx * upper)
+        return GridCell(resolution, bounds)
 
     # def face_centers(self, staggered_name=&#39;staggered&#39;):
     #     face_centers = [self.extend_symmetric(dim).center for dim in self.shape.spatial.names]
@@ -2421,10 +2663,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
             return Cuboid(center, self.half_size)
 
     def rotated(self, angle) -&gt; Geometry:
-        raise NotImplementedError()
-
-    def unstack(self, dimension):
-        raise NotImplementedError()
+        raise NotImplementedError(&#34;Grids cannot be rotated. Use center_representation() to convert it to Cuboids first.&#34;)
 
     def __eq__(self, other):
         return isinstance(other, GridCell) and self._bounds == other._bounds and self._resolution == other._resolution
@@ -2473,16 +2712,28 @@ def bounds(self):
 </dd>
 <dt id="phi.geom.GridCell.center"><code class="name">var <span class="ident">center</span></code></dt>
 <dd>
-<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def center(self):
-    local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
+    local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
     points = self.bounds.local_to_global(local_coords)
     return points</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.dx"><code class="name">var <span class="ident">dx</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def dx(self):
+    return self.bounds.size / self.resolution</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.GridCell.grid_size"><code class="name">var <span class="ident">grid_size</span></code></dt>
@@ -2535,7 +2786,13 @@ def resolution(self):
 </dd>
 <dt id="phi.geom.GridCell.shape"><code class="name">var <span class="ident">shape</span></code></dt>
 <dd>
-<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2598,6 +2855,24 @@ def upper(self):
     return Cuboid(center, self.half_size)</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.GridCell.padded"><code class="name flex">
+<span>def <span class="ident">padded</span></span>(<span>self, widths: dict)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def padded(self, widths: dict):
+    resolution, bounds = self.resolution, self.bounds
+    for dim, (lower, upper) in widths.items():
+        masked_dx = self.dx * math.dim_mask(self.resolution, dim)
+        resolution = resolution.with_dim_size(dim, self.resolution.get_size(dim) + lower + upper)
+        bounds = Box(bounds.lower - masked_dx * lower, bounds.upper + masked_dx * upper)
+    return GridCell(resolution, bounds)</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.GridCell.rotated"><code class="name flex">
 <span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
@@ -2616,7 +2891,7 @@ The geometry is rotated about its center point.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def rotated(self, angle) -&gt; Geometry:
-    raise NotImplementedError()</code></pre>
+    raise NotImplementedError(&#34;Grids cannot be rotated. Use center_representation() to convert it to Cuboids first.&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.GridCell.shallow_equals"><code class="name flex">
@@ -2684,30 +2959,6 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
     return GridCell(self.resolution.with_sizes(ext_res), bounds)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.GridCell.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstacks this Geometry along the given dimension.
-The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>dimension along which to unstack</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>geometries</code></dt>
-<dd>tuple of length equal to <code>geometry.shape.get_size(dimension)</code></dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension):
-    raise NotImplementedError()</code></pre>
-</details>
-</dd>
 </dl>
 </dd>
 <dt id="phi.geom.Point"><code class="flex name class">
@@ -2728,6 +2979,8 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
     &#34;&#34;&#34;
 
     def __init__(self, location: math.Tensor):
+        assert &#39;vector&#39; in location.shape, &#34;location must have a vector dimension&#34;
+        assert location.shape.get_item_names(&#39;vector&#39;) is not None, &#34;Vector dimension needs to list spatial dimension as item names.&#34;
         self._location = location
 
     @property
@@ -2736,7 +2989,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
 
     @property
     def shape(self) -&gt; Shape:
-        return self._location.shape.without(&#39;vector&#39;)
+        return self._location.shape
 
     def unstack(self, dimension: str) -&gt; tuple:
         return tuple(Point(loc) for loc in self._location.unstack(dimension))
@@ -2744,7 +2997,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
     def lies_inside(self, location: Tensor) -&gt; Tensor:
         return math.wrap(False)
 
-    def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
+    def approximate_signed_distance(self, location: Tensor or tuple) -&gt; Tensor:
         return math.vec_abs(location - self._location)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
@@ -2766,7 +3019,30 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
         return hash(self._location)
 
     def __variable_attrs__(self):
-        return &#39;_location&#39;,</code></pre>
+        return &#39;_location&#39;,
+
+    @property
+    def volume(self) -&gt; Tensor:
+        return math.wrap(0)
+
+    @property
+    def shape_type(self) -&gt; Tensor:
+        return math.tensor(&#39;P&#39;)
+
+    def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
+        raise NotImplementedError
+
+    def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+        return self
+
+    def __getitem__(self, item):
+        return Point(self._location[_keep_vector(slicing_dict(self, item))])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        if all(isinstance(v, Point) for v in values):
+            return Point(math.stack([v.center for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2776,7 +3052,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
 <dl>
 <dt id="phi.geom.Point.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
-<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2788,14 +3064,50 @@ def center(self) -&gt; Tensor:
 </dd>
 <dt id="phi.geom.Point.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
 <dd>
-<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
-    return self._location.shape.without(&#39;vector&#39;)</code></pre>
+    return self._location.shape</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
+Boxes return <code>'B'</code>, spheres return <code>'S'</code>, points return <code>'P'</code>.
+Returns <code>'?'</code> for unknown types, e.g. a union over multiple types.
+Custom types can return their own identifiers.</p>
+<h2 id="returns">Returns</h2>
+<p>String <code>Tensor</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape_type(self) -&gt; Tensor:
+    return math.tensor(&#39;P&#39;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+The result retains all batch dimensions while instance dimensions are summed over.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def volume(self) -&gt; Tensor:
+    return math.wrap(0)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2825,7 +3137,7 @@ This also holds for negative distances.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
+<pre><code class="python">def approximate_signed_distance(self, location: Tensor or tuple) -&gt; Tensor:
     return math.vec_abs(location - self._location)</code></pre>
 </details>
 </dd>
@@ -2931,6 +3243,43 @@ The geometry is rotated about its center point.</p>
     return self</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.Point.sample_uniform"><code class="name flex">
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*shape</code></strong></dt>
+<dd>How many points to sample per individual geometry.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> containing all dimensions from <code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">Geometry.shape</a></code>, <code>shape</code> as well as a <code>channel</code> dimension <code>vector</code> matching the dimensionality of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.scaled"><code class="name flex">
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: float) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Scales each individual geometry by <code>factor</code>.
+The individual <code>center</code> points act as pivots for the operation.</p>
+<h2 id="args">Args</h2>
+<p>factor:
+Returns:</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+    return self</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Point.shifted"><code class="name flex">
 <span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
@@ -3023,23 +3372,21 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
             **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
         &#34;&#34;&#34;
         if center is not None:
-            if not isinstance(center, Tensor):
-                warnings.warn(f&#34;constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.&#34;, DeprecationWarning)
-                self._center = wrap(center)
-            else:
-                self._center = center
-            assert &#39;vector&#39; in self._center.shape, f&#34;Sphere.center must have a &#39;vector&#39; dimension. Use the syntax x=0.5.&#34;
+            assert isinstance(center, Tensor), &#34;center must be a Tensor&#34;
+            assert &#39;vector&#39; in center.shape, f&#34;Sphere center must have a &#39;vector&#39; dimension.&#34;
+            assert center.shape.get_item_names(&#39;vector&#39;) is not None, f&#34;Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names.&#34;
+            self._center = center
         else:
-            self._center = math.wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
-            # self._center = wrap(math.spatial(**center_), math.channel(&#39;vector&#39;))
+            self._center = wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
         assert radius is not None, &#34;radius must be specified.&#34;
         self._radius = wrap(radius)
+        assert &#39;vector&#39; not in self._radius.shape, f&#34;Sphere radius must not vary along vector but got {radius}&#34;
 
     @property
     def shape(self):
         if self._center is None or self._radius is None:
             return None
-        return (self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)
+        return self._center.shape &amp; self._radius.shape
 
     @property
     def radius(self):
@@ -3070,7 +3417,7 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
         return math.any(distance_squared &lt;= self.radius ** 2, self.shape.instance)  # union for instance dimensions
 
-    def approximate_signed_distance(self, location):
+    def approximate_signed_distance(self, location: Tensor or tuple):
         &#34;&#34;&#34;
         Computes the exact distance from location to the closest point on the sphere.
         Very close to the sphere center, the distance takes a constant value.
@@ -3108,10 +3455,15 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
     def __variable_attrs__(self):
         return &#39;_radius&#39;, &#39;_center&#39;
 
-    def unstack(self, dimension: str) -&gt; tuple:
-        center = self.center.dimension(dimension).unstack(self.shape.get_size(dimension))
-        radius = self.radius.dimension(dimension).unstack(self.shape.get_size(dimension))
-        return tuple([Sphere(c, r) for c, r in zip(center, radius)])
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        return Sphere(self._center[_keep_vector(item)], self._radius[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        if all(isinstance(v, Sphere) for v in values):
+            return Sphere(math.stack([v.center for v in values], dim, **kwargs), radius=math.stack([v.radius for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
         raise NotImplementedError()
@@ -3127,7 +3479,7 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
 <dl>
 <dt id="phi.geom.Sphere.center"><code class="name">var <span class="ident">center</span></code></dt>
 <dd>
-<div class="desc"><p>Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER</p></div>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3151,7 +3503,13 @@ def radius(self):
 </dd>
 <dt id="phi.geom.Sphere.shape"><code class="name">var <span class="ident">shape</span></code></dt>
 <dd>
-<div class="desc"><p>Specifies the number of copies of the geometry as batch and spatial dimensions.</p></div>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3160,13 +3518,13 @@ def radius(self):
 def shape(self):
     if self._center is None or self._radius is None:
         return None
-    return (self._center.shape &amp; self._radius.shape).without(&#39;vector&#39;)</code></pre>
+    return self._center.shape &amp; self._radius.shape</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
-Boxes return <code>'B'</code> and spheres return <code>'S'</code>.
+Boxes return <code>'B'</code>, spheres return <code>'S'</code>, points return <code>'P'</code>.
 Returns <code>'?'</code> for unknown types, e.g. a union over multiple types.
 Custom types can return their own identifiers.</p>
 <h2 id="returns">Returns</h2>
@@ -3206,7 +3564,7 @@ def volume(self) -&gt; math.Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Sphere.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location)</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phi.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the exact distance from location to the closest point on the sphere.
@@ -3222,7 +3580,7 @@ Very close to the sphere center, the distance takes a constant value.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_signed_distance(self, location):
+<pre><code class="python">def approximate_signed_distance(self, location: Tensor or tuple):
     &#34;&#34;&#34;
     Computes the exact distance from location to the closest point on the sphere.
     Very close to the sphere center, the distance takes a constant value.
@@ -3407,32 +3765,6 @@ Returns:</p></div>
     return Sphere(self._center + delta, self._radius)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Sphere.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, dimension: str) ‑> tuple</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Unstacks this Geometry along the given dimension.
-The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>dimension</code></strong></dt>
-<dd>dimension along which to unstack</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>geometries</code></dt>
-<dd>tuple of length equal to <code>geometry.shape.get_size(dimension)</code></dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unstack(self, dimension: str) -&gt; tuple:
-    center = self.center.dimension(dimension).unstack(self.shape.get_size(dimension))
-    radius = self.radius.dimension(dimension).unstack(self.shape.get_size(dimension))
-    return tuple([Sphere(c, r) for c, r in zip(center, radius)])</code></pre>
-</details>
-</dd>
 </dl>
 </dd>
 </dl>
@@ -3469,6 +3801,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.BaseBox.approximate_signed_distance" href="#phi.geom.BaseBox.approximate_signed_distance">approximate_signed_distance</a></code></li>
 <li><code><a title="phi.geom.BaseBox.bounding_half_extent" href="#phi.geom.BaseBox.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.BaseBox.bounding_radius" href="#phi.geom.BaseBox.bounding_radius">bounding_radius</a></code></li>
+<li><code><a title="phi.geom.BaseBox.box" href="#phi.geom.BaseBox.box">box</a></code></li>
 <li><code><a title="phi.geom.BaseBox.center" href="#phi.geom.BaseBox.center">center</a></code></li>
 <li><code><a title="phi.geom.BaseBox.center_representation" href="#phi.geom.BaseBox.center_representation">center_representation</a></code></li>
 <li><code><a title="phi.geom.BaseBox.contains" href="#phi.geom.BaseBox.contains">contains</a></code></li>
@@ -3500,8 +3833,8 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.Box.shape" href="#phi.geom.Box.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Box.shifted" href="#phi.geom.Box.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.Box.size" href="#phi.geom.Box.size">size</a></code></li>
-<li><code><a title="phi.geom.Box.unstack" href="#phi.geom.Box.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.Box.upper" href="#phi.geom.Box.upper">upper</a></code></li>
+<li><code><a title="phi.geom.Box.without" href="#phi.geom.Box.without">without</a></code></li>
 </ul>
 </li>
 <li>
@@ -3544,10 +3877,12 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <ul class="two-column">
 <li><code><a title="phi.geom.GridCell.bounds" href="#phi.geom.GridCell.bounds">bounds</a></code></li>
 <li><code><a title="phi.geom.GridCell.center" href="#phi.geom.GridCell.center">center</a></code></li>
+<li><code><a title="phi.geom.GridCell.dx" href="#phi.geom.GridCell.dx">dx</a></code></li>
 <li><code><a title="phi.geom.GridCell.grid_size" href="#phi.geom.GridCell.grid_size">grid_size</a></code></li>
 <li><code><a title="phi.geom.GridCell.half_size" href="#phi.geom.GridCell.half_size">half_size</a></code></li>
 <li><code><a title="phi.geom.GridCell.list_cells" href="#phi.geom.GridCell.list_cells">list_cells</a></code></li>
 <li><code><a title="phi.geom.GridCell.lower" href="#phi.geom.GridCell.lower">lower</a></code></li>
+<li><code><a title="phi.geom.GridCell.padded" href="#phi.geom.GridCell.padded">padded</a></code></li>
 <li><code><a title="phi.geom.GridCell.resolution" href="#phi.geom.GridCell.resolution">resolution</a></code></li>
 <li><code><a title="phi.geom.GridCell.rotated" href="#phi.geom.GridCell.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.GridCell.shallow_equals" href="#phi.geom.GridCell.shallow_equals">shallow_equals</a></code></li>
@@ -3556,7 +3891,6 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.GridCell.size" href="#phi.geom.GridCell.size">size</a></code></li>
 <li><code><a title="phi.geom.GridCell.spatial_rank" href="#phi.geom.GridCell.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.geom.GridCell.stagger" href="#phi.geom.GridCell.stagger">stagger</a></code></li>
-<li><code><a title="phi.geom.GridCell.unstack" href="#phi.geom.GridCell.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.GridCell.upper" href="#phi.geom.GridCell.upper">upper</a></code></li>
 </ul>
 </li>
@@ -3570,9 +3904,13 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.Point.lies_inside" href="#phi.geom.Point.lies_inside">lies_inside</a></code></li>
 <li><code><a title="phi.geom.Point.push" href="#phi.geom.Point.push">push</a></code></li>
 <li><code><a title="phi.geom.Point.rotated" href="#phi.geom.Point.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.Point.sample_uniform" href="#phi.geom.Point.sample_uniform">sample_uniform</a></code></li>
+<li><code><a title="phi.geom.Point.scaled" href="#phi.geom.Point.scaled">scaled</a></code></li>
 <li><code><a title="phi.geom.Point.shape" href="#phi.geom.Point.shape">shape</a></code></li>
+<li><code><a title="phi.geom.Point.shape_type" href="#phi.geom.Point.shape_type">shape_type</a></code></li>
 <li><code><a title="phi.geom.Point.shifted" href="#phi.geom.Point.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.Point.unstack" href="#phi.geom.Point.unstack">unstack</a></code></li>
+<li><code><a title="phi.geom.Point.volume" href="#phi.geom.Point.volume">volume</a></code></li>
 </ul>
 </li>
 <li>
@@ -3591,7 +3929,6 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 <li><code><a title="phi.geom.Sphere.shape" href="#phi.geom.Sphere.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Sphere.shape_type" href="#phi.geom.Sphere.shape_type">shape_type</a></code></li>
 <li><code><a title="phi.geom.Sphere.shifted" href="#phi.geom.Sphere.shifted">shifted</a></code></li>
-<li><code><a title="phi.geom.Sphere.unstack" href="#phi.geom.Sphere.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.Sphere.volume" href="#phi.geom.Sphere.volume">volume</a></code></li>
 </ul>
 </li>

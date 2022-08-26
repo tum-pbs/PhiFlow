@@ -36,6 +36,7 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 .highlight .m { color: var(--jp-mirror-editor-number-color) } /* Literal.Number */
 .highlight .s { color: var(--jp-mirror-editor-string-color) } /* Literal.String */
 .highlight .ow { color: var(--jp-mirror-editor-operator-color); font-weight: bold } /* Operator.Word */
+.highlight .pm { color: var(--jp-mirror-editor-punctuation-color) } /* Punctuation.Marker */
 .highlight .w { color: var(--jp-mirror-editor-variable-color) } /* Text.Whitespace */
 .highlight .mb { color: var(--jp-mirror-editor-number-color) } /* Literal.Number.Bin */
 .highlight .mf { color: var(--jp-mirror-editor-number-color) } /* Literal.Number.Float */
@@ -14464,10 +14465,6 @@ a.anchor-link {
   display: none;
 }
 
-.highlight  {
-  margin: 0.4em;
-}
-
 /* Input area styling */
 .jp-InputArea {
   overflow: hidden;
@@ -14477,9 +14474,26 @@ a.anchor-link {
   overflow: hidden;
 }
 
-.CodeMirror pre {
+.CodeMirror.cm-s-jupyter .highlight pre {
+/* weird, but --jp-code-padding defined to be 5px but 4px horizontal padding is hardcoded for pre.CodeMirror-line */
+  padding: var(--jp-code-padding) 4px;
   margin: 0;
-  padding: 0;
+
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+
+}
+
+.jp-OutputArea-output pre {
+  line-height: inherit;
+  font-family: inherit;
+}
+
+.jp-RenderedText pre {
+  color: var(--jp-content-font-color1);
+  font-size: var(--jp-code-font-size);
 }
 
 /* Using table instead of flexbox so that we can use break-inside property */
@@ -14616,36 +14630,12 @@ This eliminates the need for manual reshaping or the use of singleton dimensions
 <h2 id="Shapes">Shapes<a class="anchor-link" href="#Shapes">&#182;</a></h2><p>The shape of a <code>Tensor</code> is represented by a <a href="phi/math/#phi.math.Shape"><code>Shape</code></a> object which can be accessed as <code>tensor.shape</code>.
 In addition to the dimension sizes, the shape also stores the dimension names which determine their types.</p>
 <p>There are four types of dimensions</p>
-<table>
-<thead><tr>
-<th>Dimension type</th>
-<th style="text-align:right">Description</th>
-<th>Examples</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="phi/math/#phi.math.spatial"><code>spatial</code></a></td>
-<td style="text-align:right">Spans a grid with equidistant sample points.</td>
-<td><code>x</code>, <code>y</code>, <code>z</code></td>
-</tr>
-<tr>
-<td><a href="phi/math/#phi.math.channel"><code>channel</code></a></td>
-<td style="text-align:right">Set of properties sampled at per sample point per instance.</td>
-<td><code>vector</code>, <code>color</code></td>
-</tr>
-<tr>
-<td><a href="phi/math/#phi.math.instance"><code>instance</code></a></td>
-<td style="text-align:right">Collection of (interacting) objects belonging to one instance.</td>
-<td><code>points</code>, <code>particles</code></td>
-</tr>
-<tr>
-<td><a href="phi/math/#phi.math.batch"><code>batch</code></a></td>
-<td style="text-align:right">Lists non-interacting instances.</td>
-<td><code>batch</code>, <code>frames</code></td>
-</tr>
-</tbody>
-</table>
+<p>| Dimension type                                 |                                                    Description | Examples              |
+|------------------------------------------------|---------------------------------------------------------------:|-----------------------|
+| <a href="phi/math/#phi.math.spatial"><code>spatial</code></a>        |                   Spans a grid with equidistant sample points. | <code>x</code>, <code>y</code>, <code>z</code>         |
+| <a href="phi/math/#phi.math.channel"><code>channel</code></a>        |    Set of properties sampled at per sample point per instance. | <code>vector</code>, <code>color</code>     |
+| <a href="phi/math/#phi.math.instance"><code>instance</code></a>  | Collection of (interacting) objects belonging to one instance. | <code>points</code>, <code>particles</code> |
+| <a href="phi/math/#phi.math.batch"><code>batch</code></a>            |                               Lists non-interacting instances. | <code>batch</code>, <code>frames</code>     |</p>
 <p>The default dimension order is <code>(batch, instance, channel, spatial)</code>.
 When a dimension is not present on a tensor, values are assumed to be constant along that dimension.
 Based on these rules rule, operators and functions may add dimensions to tensors as needed.</p>
@@ -14655,46 +14645,12 @@ The result is equal to calling the function on each slice.</p>
 <p>Spatial operations, such as <code>spatial_gradient()</code> or <code>divergence()</code> operate on spatial dimensions by default, ignoring all others.
 When operating on multiple spatial tensors, these tensors are typically required to have the same spatial dimensions, else an <code>IncompatibleShapes</code> error may be raised.
 The function <code>join_spaces()</code> can be used to add the missing spatial dimensions so that these errors are avoided.</p>
-<table>
-<thead><tr>
-<th>Operation</th>
-<th style="text-align:center">Batch</th>
-<th style="text-align:center">instance</th>
-<th style="text-align:center">Spatial</th>
-<th style="text-align:center">Channel</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>convolve</td>
-<td style="text-align:center">-</td>
-<td style="text-align:center">-</td>
-<td style="text-align:center">★</td>
-<td style="text-align:center">⟷</td>
-</tr>
-<tr>
-<td>nonzero</td>
-<td style="text-align:center">-</td>
-<td style="text-align:center">★/⟷</td>
-<td style="text-align:center">★/⟷</td>
-<td style="text-align:center">⟷</td>
-</tr>
-<tr>
-<td>scatter (grid)<br>scatter (indices)<br>scatter (values)</td>
-<td style="text-align:center">-<br>-<br>-</td>
-<td style="text-align:center">🗙<br>⟷<br>⟷</td>
-<td style="text-align:center">★<br>🗙<br>🗙</td>
-<td style="text-align:center">-<br>⟷/🗙<br>-</td>
-</tr>
-<tr>
-<td>gather/sample (grid)<br>gather/sample (indices)</td>
-<td style="text-align:center">-<br>-</td>
-<td style="text-align:center">🗙<br>-</td>
-<td style="text-align:center">★/⟷<br>-</td>
-<td style="text-align:center">-<br>⟷/🗙</td>
-</tr>
-</tbody>
-</table>
+<p>| Operation                                               |    Batch    |  instance |   Spatial   |    Channel    |
+|---------------------------------------------------------|:-----------:|:-----------:|:-----------:|:-------------:|
+| convolve                                                |      -      |      -      |      ★      |       ⟷       |
+| nonzero                                                 |      -      |     ★/⟷     |     ★/⟷     |       ⟷       |
+| scatter (grid)<br>scatter (indices)<br>scatter (values) | -<br>-<br>- | 🗙<br>⟷<br>⟷ | ★<br>🗙<br>🗙 | -<br>⟷/🗙<br>- |
+| gather/sample (grid)<br>gather/sample (indices)         |    -<br>-   |    🗙<br>-   |   ★/⟷<br>-  |    -<br>⟷/🗙   |</p>
 <p>In the above table, <code>-</code> denotes batch-type dimensions, 🗙 are not allowed, ⟷ are reduced in the operation, ★ are active</p>
 <p>The preferred way to define a <code>Shape</code> is via the <code>shape()</code> function.
 It takes the dimension sizes as keyword arguments.</p>
@@ -14726,7 +14682,7 @@ It takes the dimension sizes as keyword arguments.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">)</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y'</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -14740,9 +14696,7 @@ It takes the dimension sizes as keyword arguments.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[3]:</div>
 
@@ -14781,9 +14735,7 @@ It takes the dimension sizes as keyword arguments.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
 
@@ -14822,9 +14774,7 @@ It takes the dimension sizes as keyword arguments.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[5]:</div>
 
@@ -14863,9 +14813,7 @@ It takes the dimension sizes as keyword arguments.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[6]:</div>
 
@@ -14954,9 +14902,7 @@ Otherwise, they are determined automatically.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[7]:</div>
 
@@ -14964,7 +14910,7 @@ Otherwise, they are determined automatically.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>(<span class="ansi-blue-intense-fg">1</span>, <span class="ansi-blue-intense-fg">2</span>, <span class="ansi-blue-intense-fg">3</span>)</pre>
+<pre><span class="ansi-blue-intense-fg">(1, 2, 3)</span> <span class="ansi-yellow-intense-fg">int64</span></pre>
 </div>
 
 </div>
@@ -14982,7 +14928,7 @@ Otherwise, they are determined automatically.</p>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython2"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span>
-<span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">batch</span><span class="p">(</span><span class="s1">&#39;batch&#39;</span><span class="p">),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">batch</span><span class="p">(</span><span class="s1">'batch'</span><span class="p">),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y'</span><span class="p">))</span>
 </pre></div>
 
      </div>
@@ -14996,9 +14942,7 @@ Otherwise, they are determined automatically.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[8]:</div>
 
@@ -15006,7 +14950,7 @@ Otherwise, they are determined automatically.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(batchᵇ=1, xˢ=5, yˢ=4, vectorᶜ=x,y)</span> <span class="ansi-yellow-intense-fg">float64</span> const <span class="ansi-blue-intense-fg">0.0</span></pre>
+<pre><span class="ansi-green-intense-fg">(batchᵇ=1, xˢ=5, yˢ=4, vectorᶜ=x,y)</span> <span class="ansi-yellow-intense-fg">float64</span> <span class="ansi-blue-intense-fg">const 0.0</span></pre>
 </div>
 
 </div>
@@ -15023,7 +14967,7 @@ Otherwise, they are determined automatically.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[9]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">math</span><span class="o">.</span><span class="n">reshaped_tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="p">[</span><span class="n">batch</span><span class="p">(),</span> <span class="o">*</span><span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">)])</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">math</span><span class="o">.</span><span class="n">reshaped_tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="p">[</span><span class="n">batch</span><span class="p">(),</span> <span class="o">*</span><span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y'</span><span class="p">)])</span>
 </pre></div>
 
      </div>
@@ -15037,9 +14981,7 @@ Otherwise, they are determined automatically.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[9]:</div>
 
@@ -15047,7 +14989,7 @@ Otherwise, they are determined automatically.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=5, yˢ=4, vectorᶜ=2)</span> <span class="ansi-yellow-intense-fg">float64</span> const <span class="ansi-blue-intense-fg">0.0</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=5, yˢ=4, vectorᶜ=x,y)</span> <span class="ansi-yellow-intense-fg">float64</span> <span class="ansi-blue-intense-fg">const 0.0</span></pre>
 </div>
 
 </div>
@@ -15100,9 +15042,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[10]:</div>
 
@@ -15110,7 +15050,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=5, yˢ=4)</span> <span class="ansi-yellow-intense-fg">float32</span> const <span class="ansi-blue-intense-fg">0.0</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=5, yˢ=4)</span> <span class="ansi-blue-intense-fg">const 0.0</span></pre>
 </div>
 
 </div>
@@ -15127,7 +15067,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[11]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">math</span><span class="o">.</span><span class="n">random_uniform</span><span class="p">(</span><span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">math</span><span class="o">.</span><span class="n">random_uniform</span><span class="p">(</span><span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y'</span><span class="p">))</span>
 </pre></div>
 
      </div>
@@ -15141,9 +15081,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[11]:</div>
 
@@ -15151,7 +15089,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>(x=<span class="ansi-blue-intense-fg">0.6762423515319824</span>, y=<span class="ansi-blue-intense-fg">0.9430761337280273</span>)</pre>
+<pre><span class="ansi-blue-intense-fg">(x=0.548, y=0.728)</span></pre>
 </div>
 
 </div>
@@ -15182,9 +15120,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[12]:</div>
 
@@ -15192,7 +15128,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>(<span class="ansi-blue-intense-fg">1</span>, <span class="ansi-blue-intense-fg">-1</span>, <span class="ansi-blue-intense-fg">0</span>, <span class="ansi-blue-intense-fg">1</span>, <span class="ansi-blue-intense-fg">0</span>, <span class="ansi-blue-intense-fg">-1</span>) along <span class="ansi-green-intense-fg">examplesᵇ</span></pre>
+<pre><span class="ansi-blue-intense-fg">(-1, 0, 0, 0, 0, 0)</span> along <span class="ansi-green-intense-fg">examplesᵇ</span></pre>
 </div>
 
 </div>
@@ -15213,10 +15149,10 @@ Currently, it supports three such libraries: NumPy/SciPy, TensorFlow and PyTorch
 These are referred to as <em>backends</em>.</p>
 <p>The easiest way to use a certain backend is via the import statement:</p>
 <ul>
-<li><a href="phi/flow.html"><code>phi.flow</code></a> &rarr; NumPy/SciPy</li>
-<li><a href="phi/tf/flow.html"><code>phi.tf.flow</code></a> &rarr; TensorFlow</li>
-<li><a href="phi/torch/flow.html"><code>phi.torch.flow</code></a> &rarr; PyTorch</li>
-<li><a href="phi/torch/flow.html"><code>phi.jax.flow</code></a> &rarr; Jax</li>
+<li><a href="phi/flow.html"><code>phi.flow</code></a> → NumPy/SciPy</li>
+<li><a href="phi/tf/flow.html"><code>phi.tf.flow</code></a> → TensorFlow</li>
+<li><a href="phi/torch/flow.html"><code>phi.torch.flow</code></a> → PyTorch</li>
+<li><a href="phi/torch/flow.html"><code>phi.jax.flow</code></a> → Jax</li>
 </ul>
 <p>This determines what backend is used to create new tensors.
 Existing tensors created with a different backend will keep using that backend.
@@ -15268,9 +15204,7 @@ e.g. NumPy arrays will be converted to TensorFlow or PyTorch tensors.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[14]:</div>
 
@@ -15311,9 +15245,7 @@ e.g. NumPy arrays will be converted to TensorFlow or PyTorch tensors.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
 <div class="jp-OutputArea-child">
-
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
@@ -15371,8 +15303,8 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[17]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">random_uniform</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y,z&#39;</span><span class="p">))</span>
-<span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">random_uniform</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y,z'</span><span class="p">))</span>
+<span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">'x'</span><span class="p">]</span>
 </pre></div>
 
      </div>
@@ -15386,9 +15318,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[17]:</div>
 
@@ -15396,7 +15326,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.536 ± 0.296</span> <span class="ansi-white-fg">(3e-02...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.513 ± 0.281</span> <span class="ansi-white-fg">(4e-02...1e+00)</span></pre>
 </div>
 
 </div>
@@ -15425,7 +15355,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[18]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">data</span><span class="p">[{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="s1">&#39;vector&#39;</span><span class="p">:</span> <span class="s1">&#39;x&#39;</span><span class="p">}]</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">data</span><span class="p">[{</span><span class="s1">'x'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="s1">'vector'</span><span class="p">:</span> <span class="s1">'x'</span><span class="p">}]</span>
 </pre></div>
 
      </div>
@@ -15439,9 +15369,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[18]:</div>
 
@@ -15449,7 +15377,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.536 ± 0.296</span> <span class="ansi-white-fg">(3e-02...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.513 ± 0.281</span> <span class="ansi-white-fg">(4e-02...1e+00)</span></pre>
 </div>
 
 </div>
@@ -15493,24 +15421,22 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
 <div class="jp-OutputArea-child">
-
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.515 ± 0.280</span> <span class="ansi-white-fg">(2e-05...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.488 ± 0.287</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.527 ± 0.288</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.495 ± 0.289</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.475 ± 0.273</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.517 ± 0.284</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.491 ± 0.289</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.513 ± 0.294</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.510 ± 0.299</span> <span class="ansi-white-fg">(7e-04...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.492 ± 0.289</span> <span class="ansi-white-fg">(6e-04...1e+00)</span>
+<pre><span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.489 ± 0.294</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.501 ± 0.296</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.520 ± 0.288</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.493 ± 0.290</span> <span class="ansi-white-fg">(6e-04...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.476 ± 0.286</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.491 ± 0.291</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.293</span> <span class="ansi-white-fg">(7e-04...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.483 ± 0.286</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.511 ± 0.281</span> <span class="ansi-white-fg">(9e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.292</span> <span class="ansi-white-fg">(2e-02...1e+00)</span>
 </pre>
 </div>
 </div>
@@ -15541,9 +15467,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[20]:</div>
 
@@ -15551,16 +15475,16 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>(<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.515 ± 0.280</span> <span class="ansi-white-fg">(2e-05...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.488 ± 0.287</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.527 ± 0.288</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.495 ± 0.289</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.475 ± 0.273</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.517 ± 0.284</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.491 ± 0.289</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.513 ± 0.294</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.510 ± 0.299</span> <span class="ansi-white-fg">(7e-04...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-yellow-intense-fg">float32</span>  <span class="ansi-blue-intense-fg">0.492 ± 0.289</span> <span class="ansi-white-fg">(6e-04...1e+00)</span>)</pre>
+<pre>(<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.489 ± 0.294</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.501 ± 0.296</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.520 ± 0.288</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.493 ± 0.290</span> <span class="ansi-white-fg">(6e-04...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.476 ± 0.286</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.491 ± 0.291</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.293</span> <span class="ansi-white-fg">(7e-04...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.483 ± 0.286</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.511 ± 0.281</span> <span class="ansi-white-fg">(9e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.292</span> <span class="ansi-white-fg">(2e-02...1e+00)</span>)</pre>
 </div>
 
 </div>
@@ -15593,7 +15517,7 @@ This tensor then has dimension sizes of type <code>Tensor</code> where the sourc
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython2"><pre><span></span><span class="n">t0</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
 <span class="n">t1</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">b</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
-<span class="n">stacked</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">))</span>
+<span class="n">stacked</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">'c'</span><span class="p">))</span>
 <span class="n">stacked</span>
 </pre></div>
 
@@ -15608,9 +15532,7 @@ This tensor then has dimension sizes of type <code>Tensor</code> where the sourc
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[21]:</div>
 
@@ -15618,7 +15540,7 @@ This tensor then has dimension sizes of type <code>Tensor</code> where the sourc
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(aˢ=(</span><span class="ansi-blue-intense-fg">4</span>, <span class="ansi-blue-intense-fg">5</span>) along <span class="ansi-green-intense-fg">cᶜ</span>, bˢ=2, cᶜ=2) <span class="ansi-yellow-intense-fg">float32</span> const <span class="ansi-blue-intense-fg">0.5</span></pre>
+<pre><span class="ansi-green-intense-fg">(aˢ=</span><span class="ansi-blue-intense-fg">(4, 5)</span><span class="ansi-green-intense-fg"> along </span><span class="ansi-green-intense-fg">cᶜ</span><span class="ansi-green-intense-fg">, bˢ=2, cᶜ=2)</span> <span class="ansi-blue-intense-fg">const 0.5555555820465088</span></pre>
 </div>
 
 </div>
@@ -15649,9 +15571,7 @@ This tensor then has dimension sizes of type <code>Tensor</code> where the sourc
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[22]:</div>
 
@@ -15719,9 +15639,7 @@ There are no global variables for common data types; instead you can create one 
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[24]:</div>
 
@@ -15760,9 +15678,7 @@ There are no global variables for common data types; instead you can create one 
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[25]:</div>
 
@@ -15801,9 +15717,7 @@ There are no global variables for common data types; instead you can create one 
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-
-<div class="jp-OutputArea-child">
-
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[26]:</div>
 
@@ -15833,15 +15747,27 @@ There are no global variables for common data types; instead you can create one 
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="Printing-Options">Printing Options<a class="anchor-link" href="#Printing-Options">&#182;</a></h2><p>Tensors can be printed in a variety of ways. These options can be specified in the format string, separated by colons. Here is an example:</p>
+
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[27]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span> 
+<div class=" highlight hl-ipython2"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">math</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">6</span><span class="p">))</span><span class="si">:</span><span class="s2">summary:color:shape:dtype:.5e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -15849,6 +15775,50 @@ There are no global variables for common data types; instead you can create one 
 </div>
 </div>
 
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre><span class="ansi-green-intense-fg">(xˢ=8, yˢ=6)</span> <span class="ansi-yellow-intense-fg">float32</span> <span class="ansi-blue-intense-fg">const 0.00000e+00</span>
+</pre>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<p>The order of the arguments is not important.</p>
+<h3 id="Layout">Layout<a class="anchor-link" href="#Layout">&#182;</a></h3><p>The layout determines what is printed and where. The following options are available:</p>
+<ul>
+<li><code>summary</code> Summarizes the values by mean, standard deviation, minimum and maximum value.</li>
+<li><code>row</code> Prints the tensor as a single-line vector.</li>
+<li><code>full</code> Prints all values in the tensors as a multi-line string.</li>
+<li><code>numpy</code> Uses the formatting of NumPy</li>
+</ul>
+<h3 id="Additional-Information">Additional Information<a class="anchor-link" href="#Additional-Information">&#182;</a></h3><p>The keywords <code>shape</code>, <code>no-shape</code>, <code>dtype</code> and <code>no-dtype</code> can be used to show or hide additional properties of the tensor.</p>
+<h3 id="Color">Color<a class="anchor-link" href="#Color">&#182;</a></h3><p>Use the keywords <code>color</code> or <code>no-color</code>.
+Currently <code>color</code> will use ANSI color codes which are supported by most terminals, IDEs as well as Jupyter notebooks.</p>
+<h3 id="Number-Format">Number Format<a class="anchor-link" href="#Number-Format">&#182;</a></h3><p>You can additionally specify a format string for floating-point numbers like <code>.3f</code> or <code>.2e</code>.</p>
+
+</div>
+</div>
+</div>
 </div>
 </body>
 

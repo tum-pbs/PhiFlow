@@ -491,7 +491,7 @@ The output of math operations has the same precision as its inputs.</p>
 <dl>
 <dt id="phi.math.backend.Backend"><code class="flex name class">
 <span>class <span class="ident">Backend</span></span>
-<span>(</span><span>name: str, default_device: phi.math.backend._backend.ComputeDevice)</span>
+<span>(</span><span>name: str, devices: List[phi.math.backend._backend.ComputeDevice], default_device: phi.math.backend._backend.ComputeDevice)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Backends delegate low-level operations to a compute library or emulate them.</p>
@@ -510,7 +510,7 @@ The output of math operations has the same precision as its inputs.</p>
 </summary>
 <pre><code class="python">class Backend:
 
-    def __init__(self, name: str, default_device: ComputeDevice):
+    def __init__(self, name: str, devices: List[ComputeDevice], default_device: ComputeDevice):
         &#34;&#34;&#34;
         Backends delegate low-level operations to a compute library or emulate them.
 
@@ -523,6 +523,7 @@ The output of math operations has the same precision as its inputs.</p>
             default_device: `ComputeDevice` being used by default
         &#34;&#34;&#34;
         self._name = name
+        self._devices = tuple(devices)
         self._default_device = default_device
 
     def __enter__(self):
@@ -585,7 +586,7 @@ The output of math operations has the same precision as its inputs.</p>
     def combine_types(self, *dtypes: DType) -&gt; DType:
         return combine_types(*dtypes, fp_precision=self.precision)
 
-    def auto_cast(self, *tensors) -&gt; list:
+    def auto_cast(self, *tensors, bool_to_int=False) -&gt; list:
         &#34;&#34;&#34;
         Determins the appropriate values type resulting from operations involving the tensors as input.
         
@@ -593,14 +594,17 @@ The output of math operations has the same precision as its inputs.</p>
         Backends can override this method to prevent unnecessary casting.
 
         Args:
-          *tensors: tensors to cast and to consider when determining the common data type
+            *tensors: tensors to cast and to consider when determining the common data type
+            bool_to_int: Whether to convert boolean values to integers if all values are boolean.
 
         Returns:
             tensors cast to a common data type
         &#34;&#34;&#34;
         dtypes = [self.dtype(t) for t in tensors]
         result_type = self.combine_types(*dtypes)
-        if result_type.kind in (int, float, complex, bool):
+        if result_type.kind == bool and bool_to_int:
+            result_type = DType(int, 32)
+        if result_type.kind in (int, float, complex, bool):  # do not cast everything to string!
             tensors = [self.cast(t, result_type) for t in tensors]
         return tensors
 
@@ -630,7 +634,11 @@ The output of math operations has the same precision as its inputs.</p>
         Returns:
             `list` of all currently available devices.
         &#34;&#34;&#34;
-        raise NotImplementedError()
+        if device_type is None:
+            return list(self._devices)
+        else:
+            assert device_type in (&#39;CPU&#39;, &#39;GPU&#39;, &#39;TPU&#39;), &#34;Device&#34;
+            return [d for d in self._devices if d.device_type == device_type]
 
     def get_default_device(self) -&gt; ComputeDevice:
         return self._default_device
@@ -658,6 +666,26 @@ The output of math operations has the same precision as its inputs.</p>
         assert device.backend is self, f&#34;Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}&#34;
         self._default_device = device
         return True
+
+    def get_device(self, tensor: TensorType) -&gt; ComputeDevice:
+        &#34;&#34;&#34; Returns the device `tensor` is located on. &#34;&#34;&#34;
+        raise NotImplementedError()
+
+    def get_device_by_ref(self, ref):
+        for device in self._devices:
+            if device.ref == ref:
+                return device
+        raise KeyError(f&#34;{self.name} has no device with ref &#39;{ref}&#39;. Available: {[d.ref for d in self._devices]}&#34;)
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -&gt; TensorType:
+        &#34;&#34;&#34;
+        Moves `tensor` to `device`. May copy the tensor if it is already on the device.
+
+        Args:
+            tensor: Existing tensor native to this backend.
+            device: Target device, associated with this backend.
+        &#34;&#34;&#34;
+        raise NotImplementedError()
 
     def seed(self, seed: int):
         raise NotImplementedError()
@@ -772,20 +800,19 @@ The output of math operations has the same precision as its inputs.</p>
     def jit_compile(self, f: Callable) -&gt; Callable:
         return NotImplemented
 
-    def functional_gradient(self, f: Callable, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         &#34;&#34;&#34;
         Args:
-            f: Function to differentiate.
+            f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
             wrt: Argument indices for which to compute the gradient.
             get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
+            is_f_scalar: Whether `f` is guaranteed to return a scalar output.
 
         Returns:
             A function `g` with the same arguments as `f`.
             If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
+            The gradients retain the dimensions of `reduced_loss` in order as outer (first) dimensions.
         &#34;&#34;&#34;
-        raise NotImplementedError(self)
-
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
 
     def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -&gt; tuple:
@@ -819,13 +846,14 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         return NotImplemented
 
-    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+    def jit_compile_grad(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         raise NotImplementedError()
 
-    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def jit_compile_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):
+        &#34;&#34;&#34; Transposes the dimensions of `tensor` given the new axes order. The tensor will be cast to the default precision in the process. &#34;&#34;&#34;
         raise NotImplementedError()
 
     def random_uniform(self, shape, low, high, dtype: DType or None):
@@ -1293,13 +1321,13 @@ The output of math operations has the same precision as its inputs.</p>
         from scipy.optimize import OptimizeResult, minimize
         from threading import Thread
 
-        assert self.supports(Backend.functional_gradient)
+        assert self.supports(Backend.jacobian)
         x0 = self.numpy(x0)
         assert x0.ndim == 2  # (batch, parameters)
         atol = self.numpy(atol)
         max_iter = self.numpy(max_iter)
         batch_size = x0.shape[0]
-        fg = self.functional_gradient(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
         method_description = f&#34;SciPy {method} with {self.name}&#34;
 
         iterations = [0] * batch_size
@@ -1335,7 +1363,7 @@ The output of math operations has the same precision as its inputs.</p>
                     if final_losses[b] is None:  # first evaluation
                         final_losses[b] = f_b_losses[b]
                         if trajectories is not None:
-                            trajectories[b].append(SolveResult(method_description, x0[b], f_b_losses[b], 0, 1, False, False, &#34;&#34;))
+                            trajectories[b].append(SolveResult(method_description, x0[b], self.numpy(f_b_losses[b]), 0, 1, False, False, &#34;&#34;))
                     return f_b_losses_np[b], f_grad_np[b]
 
                 def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
@@ -1344,7 +1372,7 @@ The output of math operations has the same precision as its inputs.</p>
                     recent_b_losses.clear()
                     final_losses[b] = loss
                     if trajectories is not None:
-                        trajectories[b].append(SolveResult(method_description, x, loss, iterations[b], function_evaluations[b], False, False, &#34;&#34;))
+                        trajectories[b].append(SolveResult(method_description, x, self.numpy(loss), iterations[b], function_evaluations[b], False, False, &#34;&#34;))
 
                 res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={&#39;maxiter&#39;: max_iter[b]}, callback=callback)
                 assert isinstance(res, OptimizeResult)
@@ -1368,7 +1396,7 @@ The output of math operations has the same precision as its inputs.</p>
                 all_finished = True
                 f_output_available.wait()
                 break
-            _, f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
+            f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
             f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
             f_grad_np = self.numpy(f_grad).astype(numpy.float64)
             f_output_available.wait()
@@ -1378,12 +1406,12 @@ The output of math operations has the same precision as its inputs.</p>
 
         if trj:
             max_trajectory_length = max([len(t) for t in trajectories])
-            last_points = [SolveResult(method_description, xs[b], final_losses[b], iterations[b], function_evaluations[b], converged[b], diverged[b], &#34;&#34;) for b in range(batch_size)]
+            last_points = [SolveResult(method_description, xs[b], self.numpy(final_losses[b]), iterations[b], function_evaluations[b], converged[b], diverged[b], &#34;&#34;) for b in range(batch_size)]
             trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
             trajectory = []
             for states in zip(*trajectories):
-                x = self.stack([self.to_float(state.x) for state in states])
-                residual = self.stack([state.residual for state in states])
+                x = numpy.stack([state.x for state in states])
+                residual = numpy.stack([state.residual for state in states])
                 iterations = [state.iterations for state in states]
                 function_evaluations = [state.function_evaluations for state in states]
                 converged = [state.converged for state in states]
@@ -1396,10 +1424,10 @@ The output of math operations has the same precision as its inputs.</p>
             return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
 
     def _minimize_gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size=&#39;adaptive&#39;):
-        assert self.supports(Backend.functional_gradient)
+        assert self.supports(Backend.jacobian)
         assert len(self.staticshape(x0)) == 2  # (batch, parameters)
         batch_size = self.staticshape(x0)[0]
-        fg = self.functional_gradient(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
         method = f&#34;Gradient descent with {self.name}&#34;
 
         iterations = self.zeros([batch_size], DType(int, 32))
@@ -1409,7 +1437,7 @@ The output of math operations has the same precision as its inputs.</p>
         if adaptive_step_size:
             step_size = self.zeros([batch_size]) + 0.1
 
-        _, loss, grad = fg(x0)  # Evaluate function and gradient
+        loss, grad = fg(x0)  # Evaluate function and gradient
         diverged = self.any(~self.isfinite(x0), axis=(1,))
         converged = self.zeros([batch_size], DType(bool))
         trajectory = [SolveResult(method, x0, loss, iterations, function_evaluations, converged, diverged, [&#34;&#34;] * batch_size)] if trj else None
@@ -1424,7 +1452,7 @@ The output of math operations has the same precision as its inputs.</p>
                     dx = - grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
                     next_x = x + dx
                     predicted_loss_decrease = - self.sum(grad * dx, -1)  # &gt;= 0
-                    _, next_loss, next_grad = fg(next_x); function_evaluations += continue_1
+                    next_loss, next_grad = fg(next_x); function_evaluations += continue_1
                     converged = converged | (self.sum(next_grad ** 2, axis=-1) &lt; atol ** 2)
                     PHI_LOGGER.debug(f&#34;Gradient: {self.numpy(next_grad)} with step_size={self.numpy(step_size)}&#34;)
                     actual_loss_decrease = loss - next_loss  # we want &gt; 0
@@ -1444,7 +1472,7 @@ The output of math operations has the same precision as its inputs.</p>
                 x, loss, grad = next_x, next_loss, next_grad
             else:
                 x -= grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
-                _, loss, grad = fg(x); function_evaluations += continue_1
+                loss, grad = fg(x); function_evaluations += continue_1
                 diverged = self.any(~self.isfinite(x), axis=(1,)) | (loss &gt; prev_loss)
                 converged = ~diverged &amp; (prev_loss - loss &lt; atol)
             if trj:
@@ -1525,7 +1553,7 @@ The output of math operations has the same precision as its inputs.</p>
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-            diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
+            diverged = self.any(residual_squared / rsq0 &gt; 1e5, axis=(1,)) &amp; (iterations &gt;= 8)
             converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
@@ -1573,7 +1601,7 @@ The output of math operations has the same precision as its inputs.</p>
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
             with spatial_derivative_evaluation(1):
                 dy = self.linear(lin, dx); function_evaluations += continue_1
-            diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
+            diverged = self.any(residual_squared / rsq0 &gt; 1e5, axis=(1,)) &amp; (iterations &gt;= 8)
             converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
@@ -1598,10 +1626,18 @@ The output of math operations has the same precision as its inputs.</p>
             assert len(lin_shape) == 2, f&#34;A must be a matrix but got shape {lin_shape}&#34;
             return self.matmul(lin, vector)
 
-    def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
-        raise NotImplementedError(self)
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -&gt; Tuple[TensorType, TensorType, TensorType, TensorType]:
+        &#34;&#34;&#34;
+        Args:
+            matrix: Shape (batch, vec, constraints)
+            rhs: Shape (batch, vec, batch_per_matrix)
 
-    def record_gradients(self, xs: tuple or list, persistent=False):
+        Returns:
+            solution: Solution vector of Shape (batch, constraints, batch_per_matrix)
+            residuals: Optional, can be `None`
+            rank: Optional, can be `None`
+            singular_values: Optional, can be `None`
+        &#34;&#34;&#34;
         raise NotImplementedError(self)
 
     def stop_gradient(self, value):
@@ -1676,11 +1712,11 @@ The output of math operations has the same precision as its inputs.</p>
         return x &gt;= y
 
     def add(self, a, b):
-        a, b = self.auto_cast(a, b)
+        a, b = self.auto_cast(a, b, bool_to_int=True)
         return a + b
 
     def sub(self, a, b):
-        a, b = self.auto_cast(a, b)
+        a, b = self.auto_cast(a, b, bool_to_int=True)
         return a - b
 
     def mul(self, a, b):
@@ -1815,7 +1851,7 @@ def precision(self) -&gt; int:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def add(self, a, b):
-    a, b = self.auto_cast(a, b)
+    a, b = self.auto_cast(a, b, bool_to_int=True)
     return a + b</code></pre>
 </details>
 </dd>
@@ -1830,6 +1866,33 @@ def precision(self) -&gt; int:
 </summary>
 <pre><code class="python">def all(self, boolean_tensor, axis=None, keepdims=False):
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.allocate_on_device"><code class="name flex">
+<span>def <span class="ident">allocate_on_device</span></span>(<span>self, tensor: ~TensorType, device: phi.math.backend._backend.ComputeDevice) ‑> ~TensorType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Moves <code>tensor</code> to <code>device</code>. May copy the tensor if it is already on the device.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>tensor</code></strong></dt>
+<dd>Existing tensor native to this backend.</dd>
+<dt><strong><code>device</code></strong></dt>
+<dd>Target device, associated with this backend.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -&gt; TensorType:
+    &#34;&#34;&#34;
+    Moves `tensor` to `device`. May copy the tensor if it is already on the device.
+
+    Args:
+        tensor: Existing tensor native to this backend.
+        device: Target device, associated with this backend.
+    &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.and_"><code class="name flex">
@@ -1926,7 +1989,7 @@ If x is a Python number (numbers.Number instance), <code>convert_numbers</code> 
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.auto_cast"><code class="name flex">
-<span>def <span class="ident">auto_cast</span></span>(<span>self, *tensors) ‑> list</span>
+<span>def <span class="ident">auto_cast</span></span>(<span>self, *tensors, bool_to_int=False) ‑> list</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Determins the appropriate values type resulting from operations involving the tensors as input.</p>
@@ -1936,6 +1999,8 @@ Backends can override this method to prevent unnecessary casting.</p>
 <dl>
 <dt><strong><code>*tensors</code></strong></dt>
 <dd>tensors to cast and to consider when determining the common data type</dd>
+<dt><strong><code>bool_to_int</code></strong></dt>
+<dd>Whether to convert boolean values to integers if all values are boolean.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>tensors cast to a common data type</p></div>
@@ -1943,7 +2008,7 @@ Backends can override this method to prevent unnecessary casting.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def auto_cast(self, *tensors) -&gt; list:
+<pre><code class="python">def auto_cast(self, *tensors, bool_to_int=False) -&gt; list:
     &#34;&#34;&#34;
     Determins the appropriate values type resulting from operations involving the tensors as input.
     
@@ -1951,14 +2016,17 @@ Backends can override this method to prevent unnecessary casting.</p>
     Backends can override this method to prevent unnecessary casting.
 
     Args:
-      *tensors: tensors to cast and to consider when determining the common data type
+        *tensors: tensors to cast and to consider when determining the common data type
+        bool_to_int: Whether to convert boolean values to integers if all values are boolean.
 
     Returns:
         tensors cast to a common data type
     &#34;&#34;&#34;
     dtypes = [self.dtype(t) for t in tensors]
     result_type = self.combine_types(*dtypes)
-    if result_type.kind in (int, float, complex, bool):
+    if result_type.kind == bool and bool_to_int:
+        result_type = DType(int, 32)
+    if result_type.kind in (int, float, complex, bool):  # do not cast everything to string!
         tensors = [self.cast(t, result_type) for t in tensors]
     return tensors</code></pre>
 </details>
@@ -2198,7 +2266,7 @@ This method may be used to register internal calls with the profiler.</p>
         residual_squared_old = residual_squared
         residual_squared = self.sum(residual ** 2, -1, keepdims=True)
         dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-        diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
+        diverged = self.any(residual_squared / rsq0 &gt; 1e5, axis=(1,)) &amp; (iterations &gt;= 8)
         converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
         if trajectory is not None:
             trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
@@ -2256,7 +2324,7 @@ This method may be used to register internal calls with the profiler.</p>
         dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
         with spatial_derivative_evaluation(1):
             dy = self.linear(lin, dx); function_evaluations += continue_1
-        diverged = self.any(residual_squared / rsq0 &gt; 100, axis=(1,)) &amp; (iterations &gt;= 8)
+        diverged = self.any(residual_squared / rsq0 &gt; 1e5, axis=(1,)) &amp; (iterations &gt;= 8)
         converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
         if trajectory is not None:
             trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
@@ -2700,40 +2768,6 @@ Higher dimensions may not be supported.</p>
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.functional_gradient"><code class="name flex">
-<span>def <span class="ident">functional_gradient</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool)</span>
-</code></dt>
-<dd>
-<div class="desc"><h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong></dt>
-<dd>Function to differentiate.</dd>
-<dt><strong><code>wrt</code></strong></dt>
-<dd>Argument indices for which to compute the gradient.</dd>
-<dt><strong><code>get_output</code></strong></dt>
-<dd>Whether the derivative function should return the output of <code>f</code> in addition to the gradient.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>A function <code>g</code> with the same arguments as <code>f</code>.
-If <code>get_output=True</code>, <code>g</code> returns a <code>tuple</code>containing the outputs of <code>f</code> followed by the gradients.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def functional_gradient(self, f: Callable, wrt: tuple or list, get_output: bool):
-    &#34;&#34;&#34;
-    Args:
-        f: Function to differentiate.
-        wrt: Argument indices for which to compute the gradient.
-        get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
-
-    Returns:
-        A function `g` with the same arguments as `f`.
-        If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.backend.Backend.get_default_device"><code class="name flex">
 <span>def <span class="ident">get_default_device</span></span>(<span>self) ‑> phi.math.backend._backend.ComputeDevice</span>
 </code></dt>
@@ -2747,8 +2781,22 @@ If <code>get_output=True</code>, <code>g</code> returns a <code>tuple</code>cont
     return self._default_device</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.gradients"><code class="name flex">
-<span>def <span class="ident">gradients</span></span>(<span>self, y, xs: tuple, grad_y) ‑> tuple</span>
+<dt id="phi.math.backend.Backend.get_device"><code class="name flex">
+<span>def <span class="ident">get_device</span></span>(<span>self, tensor: ~TensorType) ‑> phi.math.backend._backend.ComputeDevice</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the device <code>tensor</code> is located on.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_device(self, tensor: TensorType) -&gt; ComputeDevice:
+    &#34;&#34;&#34; Returns the device `tensor` is located on. &#34;&#34;&#34;
+    raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.get_device_by_ref"><code class="name flex">
+<span>def <span class="ident">get_device_by_ref</span></span>(<span>self, ref)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2756,8 +2804,11 @@ If <code>get_output=True</code>, <code>g</code> returns a <code>tuple</code>cont
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gradients(self, y, xs: tuple or list, grad_y) -&gt; tuple:
-    raise NotImplementedError(self)</code></pre>
+<pre><code class="python">def get_device_by_ref(self, ref):
+    for device in self._devices:
+        if device.ref == ref:
+            return device
+    raise KeyError(f&#34;{self.name} has no device with ref &#39;{ref}&#39;. Available: {[d.ref for d in self._devices]}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.greater_or_equal"><code class="name flex">
@@ -3041,15 +3092,41 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.jacobian"><code class="name flex">
-<span>def <span class="ident">jacobian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool)</span>
+<span>def <span class="ident">jacobian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, is_f_scalar: bool)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function to differentiate. Returns a tuple containing <code>(reduced_loss, output)</code></dd>
+<dt><strong><code>wrt</code></strong></dt>
+<dd>Argument indices for which to compute the gradient.</dd>
+<dt><strong><code>get_output</code></strong></dt>
+<dd>Whether the derivative function should return the output of <code>f</code> in addition to the gradient.</dd>
+<dt><strong><code>is_f_scalar</code></strong></dt>
+<dd>Whether <code>f</code> is guaranteed to return a scalar output.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A function <code>g</code> with the same arguments as <code>f</code>.
+If <code>get_output=True</code>, <code>g</code> returns a <code>tuple</code>containing the outputs of <code>f</code> followed by the gradients.
+The gradients retain the dimensions of <code>reduced_loss</code> in order as outer (first) dimensions.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
+<pre><code class="python">def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+    &#34;&#34;&#34;
+    Args:
+        f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
+        wrt: Argument indices for which to compute the gradient.
+        get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
+        is_f_scalar: Whether `f` is guaranteed to return a scalar output.
+
+    Returns:
+        A function `g` with the same arguments as `f`.
+        If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
+        The gradients retain the dimensions of `reduced_loss` in order as outer (first) dimensions.
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3067,7 +3144,7 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.jit_compile_grad"><code class="name flex">
-<span>def <span class="ident">jit_compile_grad</span></span>(<span>self, f, wrt: tuple, get_output: bool)</span>
+<span>def <span class="ident">jit_compile_grad</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, is_f_scalar: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3075,12 +3152,12 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+<pre><code class="python">def jit_compile_grad(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.jit_compile_hessian"><code class="name flex">
-<span>def <span class="ident">jit_compile_hessian</span></span>(<span>self, f, wrt: tuple, get_output: bool, get_gradient: bool)</span>
+<span>def <span class="ident">jit_compile_hessian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3088,7 +3165,7 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+<pre><code class="python">def jit_compile_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -3241,7 +3318,11 @@ This method need not provide a gradient for the operation.</p>
     Returns:
         `list` of all currently available devices.
     &#34;&#34;&#34;
-    raise NotImplementedError()</code></pre>
+    if device_type is None:
+        return list(self._devices)
+    else:
+        assert device_type in (&#39;CPU&#39;, &#39;GPU&#39;, &#39;TPU&#39;), &#34;Device&#34;
+        return [d for d in self._devices if d.device_type == device_type]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.log"><code class="name flex">
@@ -3294,6 +3375,47 @@ This method need not provide a gradient for the operation.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def matmul(self, A, b):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.matrix_solve_least_squares"><code class="name flex">
+<span>def <span class="ident">matrix_solve_least_squares</span></span>(<span>self, matrix: ~TensorType, rhs: ~TensorType) ‑> Tuple[~TensorType, ~TensorType, ~TensorType, ~TensorType]</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>matrix</code></strong></dt>
+<dd>Shape (batch, vec, constraints)</dd>
+<dt><strong><code>rhs</code></strong></dt>
+<dd>Shape (batch, vec, batch_per_matrix)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>solution</code></dt>
+<dd>Solution vector of Shape (batch, constraints, batch_per_matrix)</dd>
+<dt><code>residuals</code></dt>
+<dd>Optional, can be <code>None</code></dd>
+<dt><code>rank</code></dt>
+<dd>Optional, can be <code>None</code></dd>
+<dt><code>singular_values</code></dt>
+<dd>Optional, can be <code>None</code></dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -&gt; Tuple[TensorType, TensorType, TensorType, TensorType]:
+    &#34;&#34;&#34;
+    Args:
+        matrix: Shape (batch, vec, constraints)
+        rhs: Shape (batch, vec, batch_per_matrix)
+
+    Returns:
+        solution: Solution vector of Shape (batch, constraints, batch_per_matrix)
+        residuals: Optional, can be `None`
+        rank: Optional, can be `None`
+        singular_values: Optional, can be `None`
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3378,13 +3500,13 @@ This method need not provide a gradient for the operation.</p>
     from scipy.optimize import OptimizeResult, minimize
     from threading import Thread
 
-    assert self.supports(Backend.functional_gradient)
+    assert self.supports(Backend.jacobian)
     x0 = self.numpy(x0)
     assert x0.ndim == 2  # (batch, parameters)
     atol = self.numpy(atol)
     max_iter = self.numpy(max_iter)
     batch_size = x0.shape[0]
-    fg = self.functional_gradient(f, [0], get_output=True)
+    fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
     method_description = f&#34;SciPy {method} with {self.name}&#34;
 
     iterations = [0] * batch_size
@@ -3420,7 +3542,7 @@ This method need not provide a gradient for the operation.</p>
                 if final_losses[b] is None:  # first evaluation
                     final_losses[b] = f_b_losses[b]
                     if trajectories is not None:
-                        trajectories[b].append(SolveResult(method_description, x0[b], f_b_losses[b], 0, 1, False, False, &#34;&#34;))
+                        trajectories[b].append(SolveResult(method_description, x0[b], self.numpy(f_b_losses[b]), 0, 1, False, False, &#34;&#34;))
                 return f_b_losses_np[b], f_grad_np[b]
 
             def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
@@ -3429,7 +3551,7 @@ This method need not provide a gradient for the operation.</p>
                 recent_b_losses.clear()
                 final_losses[b] = loss
                 if trajectories is not None:
-                    trajectories[b].append(SolveResult(method_description, x, loss, iterations[b], function_evaluations[b], False, False, &#34;&#34;))
+                    trajectories[b].append(SolveResult(method_description, x, self.numpy(loss), iterations[b], function_evaluations[b], False, False, &#34;&#34;))
 
             res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={&#39;maxiter&#39;: max_iter[b]}, callback=callback)
             assert isinstance(res, OptimizeResult)
@@ -3453,7 +3575,7 @@ This method need not provide a gradient for the operation.</p>
             all_finished = True
             f_output_available.wait()
             break
-        _, f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
+        f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
         f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
         f_grad_np = self.numpy(f_grad).astype(numpy.float64)
         f_output_available.wait()
@@ -3463,12 +3585,12 @@ This method need not provide a gradient for the operation.</p>
 
     if trj:
         max_trajectory_length = max([len(t) for t in trajectories])
-        last_points = [SolveResult(method_description, xs[b], final_losses[b], iterations[b], function_evaluations[b], converged[b], diverged[b], &#34;&#34;) for b in range(batch_size)]
+        last_points = [SolveResult(method_description, xs[b], self.numpy(final_losses[b]), iterations[b], function_evaluations[b], converged[b], diverged[b], &#34;&#34;) for b in range(batch_size)]
         trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
         trajectory = []
         for states in zip(*trajectories):
-            x = self.stack([self.to_float(state.x) for state in states])
-            residual = self.stack([state.residual for state in states])
+            x = numpy.stack([state.x for state in states])
+            residual = numpy.stack([state.residual for state in states])
             iterations = [state.iterations for state in states]
             function_evaluations = [state.function_evaluations for state in states]
             converged = [state.converged for state in states]
@@ -3847,19 +3969,6 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.record_gradients"><code class="name flex">
-<span>def <span class="ident">record_gradients</span></span>(<span>self, xs: tuple, persistent=False)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def record_gradients(self, xs: tuple or list, persistent=False):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.backend.Backend.reshape"><code class="name flex">
 <span>def <span class="ident">reshape</span></span>(<span>self, value, shape)</span>
 </code></dt>
@@ -4214,7 +4323,7 @@ For placeholder tensors, unknown dimensions are represented as <code>None</code>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sub(self, a, b):
-    a, b = self.auto_cast(a, b)
+    a, b = self.auto_cast(a, b, bool_to_int=True)
     return a - b</code></pre>
 </details>
 </dd>
@@ -4435,12 +4544,13 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <span>def <span class="ident">transpose</span></span>(<span>self, tensor, axes)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Transposes the dimensions of <code>tensor</code> given the new axes order. The tensor will be cast to the default precision in the process.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def transpose(self, tensor, axes):
+    &#34;&#34;&#34; Transposes the dimensions of `tensor` given the new axes order. The tensor will be cast to the default precision in the process. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -4591,7 +4701,8 @@ return values
     A physical device that can be selected to perform backend computations.
     &#34;&#34;&#34;
 
-    def __init__(self, backend: &#39;Backend&#39;, name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None):
+    def __init__(self, backend: &#39;Backend&#39;, name: str, device_type: str, memory: int, processor_count: int, description: str, ref):
+        assert device_type in (&#39;CPU&#39;, &#39;GPU&#39;, &#39;TPU&#39;)
         self.name: str = name
         &#34;&#34;&#34; Name of the compute device. CPUs are typically called `&#39;CPU&#39;`. &#34;&#34;&#34;
         self.device_type: str = device_type
@@ -4603,7 +4714,7 @@ return values
         self.description: str = description
         &#34;&#34;&#34; Further information about the device such as driver version. &#34;&#34;&#34;
         self.ref = ref
-        &#34;&#34;&#34; (Optional) Reference to the internal device representation. &#34;&#34;&#34;
+        &#34;&#34;&#34; Reference to the internal device representation. Two devices are equal if their refs are equal. &#34;&#34;&#34;
         self.backend: &#39;Backend&#39; = backend
         &#34;&#34;&#34; Backend that this device belongs to. Different backends represent the same device with different objects. &#34;&#34;&#34;
 
@@ -4614,7 +4725,13 @@ return values
         descr = self.description.replace(&#39;\n&#39;, &#39;  &#39;)
         if len(descr) &gt; 30:
             descr = descr[:28] + &#34;...&#34;
-        return f&#34;{self.backend} device &#39;{self.name}&#39; ({self.device_type}{ref}) | {mem} | {pro} | {descr}&#34;</code></pre>
+        return f&#34;{self.backend} device &#39;{self.name}&#39; ({self.device_type}{ref}) | {mem} | {pro} | {descr}&#34;
+
+    def __eq__(self, other):
+        return isinstance(other, ComputeDevice) and other.ref == self.ref
+
+    def __hash__(self):
+        return hash(self.ref)</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -4644,7 +4761,7 @@ return values
 </dd>
 <dt id="phi.math.backend.ComputeDevice.ref"><code class="name">var <span class="ident">ref</span></code></dt>
 <dd>
-<div class="desc"><p>(Optional) Reference to the internal device representation.</p></div>
+<div class="desc"><p>Reference to the internal device representation. Two devices are equal if their refs are equal.</p></div>
 </dd>
 </dl>
 </dd>
@@ -5073,6 +5190,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.abs" href="#phi.math.backend.Backend.abs">abs</a></code></li>
 <li><code><a title="phi.math.backend.Backend.add" href="#phi.math.backend.Backend.add">add</a></code></li>
 <li><code><a title="phi.math.backend.Backend.all" href="#phi.math.backend.Backend.all">all</a></code></li>
+<li><code><a title="phi.math.backend.Backend.allocate_on_device" href="#phi.math.backend.Backend.allocate_on_device">allocate_on_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.and_" href="#phi.math.backend.Backend.and_">and_</a></code></li>
 <li><code><a title="phi.math.backend.Backend.any" href="#phi.math.backend.Backend.any">any</a></code></li>
 <li><code><a title="phi.math.backend.Backend.arccos" href="#phi.math.backend.Backend.arccos">arccos</a></code></li>
@@ -5116,9 +5234,9 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.floordiv" href="#phi.math.backend.Backend.floordiv">floordiv</a></code></li>
 <li><code><a title="phi.math.backend.Backend.from_dlpack" href="#phi.math.backend.Backend.from_dlpack">from_dlpack</a></code></li>
-<li><code><a title="phi.math.backend.Backend.functional_gradient" href="#phi.math.backend.Backend.functional_gradient">functional_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
-<li><code><a title="phi.math.backend.Backend.gradients" href="#phi.math.backend.Backend.gradients">gradients</a></code></li>
+<li><code><a title="phi.math.backend.Backend.get_device" href="#phi.math.backend.Backend.get_device">get_device</a></code></li>
+<li><code><a title="phi.math.backend.Backend.get_device_by_ref" href="#phi.math.backend.Backend.get_device_by_ref">get_device_by_ref</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_or_equal" href="#phi.math.backend.Backend.greater_or_equal">greater_or_equal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_than" href="#phi.math.backend.Backend.greater_than">greater_than</a></code></li>
 <li><code><a title="phi.math.backend.Backend.grid_sample" href="#phi.math.backend.Backend.grid_sample">grid_sample</a></code></li>
@@ -5141,6 +5259,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.log10" href="#phi.math.backend.Backend.log10">log10</a></code></li>
 <li><code><a title="phi.math.backend.Backend.log2" href="#phi.math.backend.Backend.log2">log2</a></code></li>
 <li><code><a title="phi.math.backend.Backend.matmul" href="#phi.math.backend.Backend.matmul">matmul</a></code></li>
+<li><code><a title="phi.math.backend.Backend.matrix_solve_least_squares" href="#phi.math.backend.Backend.matrix_solve_least_squares">matrix_solve_least_squares</a></code></li>
 <li><code><a title="phi.math.backend.Backend.max" href="#phi.math.backend.Backend.max">max</a></code></li>
 <li><code><a title="phi.math.backend.Backend.maximum" href="#phi.math.backend.Backend.maximum">maximum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.mean" href="#phi.math.backend.Backend.mean">mean</a></code></li>
@@ -5169,7 +5288,6 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
 <li><code><a title="phi.math.backend.Backend.range" href="#phi.math.backend.Backend.range">range</a></code></li>
 <li><code><a title="phi.math.backend.Backend.real" href="#phi.math.backend.Backend.real">real</a></code></li>
-<li><code><a title="phi.math.backend.Backend.record_gradients" href="#phi.math.backend.Backend.record_gradients">record_gradients</a></code></li>
 <li><code><a title="phi.math.backend.Backend.reshape" href="#phi.math.backend.Backend.reshape">reshape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.round" href="#phi.math.backend.Backend.round">round</a></code></li>
 <li><code><a title="phi.math.backend.Backend.scatter" href="#phi.math.backend.Backend.scatter">scatter</a></code></li>

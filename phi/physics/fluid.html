@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>phi.physics.fluid API documentation</title>
-<meta name="description" content="Definition of Fluid, IncompressibleFlow as well as fluid-related functions." />
+<meta name="description" content="Functions for simulating incompressible fluids, both grid-based and particle-based …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,28 +22,68 @@
 <h1 class="title">Module <code>phi.physics.fluid</code></h1>
 </header>
 <section id="section-intro">
-<p>Definition of Fluid, IncompressibleFlow as well as fluid-related functions.</p>
+<p>Functions for simulating incompressible fluids, both grid-based and particle-based.</p>
+<p>The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is <code><a title="phi.physics.fluid.make_incompressible" href="#phi.physics.fluid.make_incompressible">make_incompressible()</a></code> which removes the divergence of a velocity field.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
-Definition of Fluid, IncompressibleFlow as well as fluid-related functions.
+Functions for simulating incompressible fluids, both grid-based and particle-based.
+
+The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 &#34;&#34;&#34;
 from typing import Tuple
 
 from phi import math, field
-from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, HardGeometryMask, CenteredGrid
-from phi.geom import union
+from phi.math import wrap, channel
+from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud
+from phi.geom import union, Geometry
+from ..field._embed import FieldEmbedding
 from ..field._grid import GridType
-from ..math import extrapolation
+from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
 from ..math._tensors import copy_with
-from ..math.extrapolation import combine_sides
+from ..math.extrapolation import combine_sides, Extrapolation
+
+
+class Obstacle:
+    &#34;&#34;&#34;
+    An obstacle defines boundary conditions inside a geometry.
+    It can also have a linear and angular velocity.
+    &#34;&#34;&#34;
+
+    def __init__(self, geometry, velocity=0, angular_velocity=0):
+        &#34;&#34;&#34;
+        Args:
+            geometry: Physical shape and size of the obstacle.
+            velocity: Linear velocity vector of the obstacle.
+            angular_velocity: Rotation speed of the obstacle. Scalar value in 2D, vector in 3D.
+        &#34;&#34;&#34;
+        self.geometry = geometry
+        self.velocity = wrap(velocity, channel(geometry)) if isinstance(velocity, (tuple, list)) else velocity
+        self.angular_velocity = angular_velocity
+        self.shape = shape(geometry) &amp; non_channel(self.velocity) &amp; non_channel(angular_velocity)
+
+    @property
+    def is_stationary(self):
+        &#34;&#34;&#34; Test whether the obstacle is completely still. &#34;&#34;&#34;
+        return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
+
+    def copied_with(self, **kwargs):
+        geometry, velocity, angular_velocity = self.geometry, self.velocity, self.angular_velocity
+        if &#39;geometry&#39; in kwargs:
+            geometry = kwargs[&#39;geometry&#39;]
+        if &#39;velocity&#39; in kwargs:
+            velocity = kwargs[&#39;velocity&#39;]
+        if &#39;angular_velocity&#39; in kwargs:
+            angular_velocity = kwargs[&#39;angular_velocity&#39;]
+        return Obstacle(geometry, velocity, angular_velocity)
 
 
 def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
-                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[GridType, CenteredGrid]:
+                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5)),
+                        active: CenteredGrid = None) -&gt; Tuple[GridType, CenteredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -53,45 +93,78 @@ def make_incompressible(velocity: GridType,
         velocity: Vector field sampled on a grid
         obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
         solve: Parameters for the pressure solve as.
+        active: (Optional) Mask for which cells the pressure should be solved.
+            If given, the velocity may take `NaN` values where it does not contribute to the pressure.
+            Also, the total divergence will never be subtracted if active is given, even if all values are 1.
 
     Returns:
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     &#34;&#34;&#34;
     assert isinstance(obstacles, (tuple, list)), f&#34;obstacles must be a tuple or list but got {type(obstacles)}&#34;
+    obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
+    for obstacle in obstacles:
+        assert obstacle.geometry.vector.item_names == velocity.vector.item_names, f&#34;Obstacles must live in the same physical space as the velocity field {velocity.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}&#34;
     input_velocity = velocity
+    # --- Create masks ---
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
-    active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=extrapolation.NONE)
-    accessible = active.with_extrapolation(accessible_extrapolation)
-    hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
+    with NUMPY:
+        accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
+        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
+    all_active = active is None
+    if active is None:
+        active = accessible.with_extrapolation(extrapolation.NONE)
+    else:
+        active *= accessible  # no pressure inside obstacles
+    # --- Linear solve ---
     velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity) * active
-    if not input_velocity.extrapolation.connects_to_outside:
+    if not all_active:  # NaN in velocity allowed
+        div = field.where(field.is_finite(div), div, 0)
+    if not input_velocity.extrapolation.is_flexible and all_active:
         assert solve.preprocess_y is None, &#34;fluid.make_incompressible() does not support custom preprocessing&#34;
         solve = copy_with(solve, preprocess_y=_balance_divergence, preprocess_y_args=(active,))
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
-        solve = copy_with(solve, x0=CenteredGrid(0, resolution=div.resolution, bounds=div.bounds, extrapolation=pressure_extrapolation))
+        solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
+    if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
+        solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
     pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
+    # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
     velocity = velocity - grad_pressure
     return velocity, pressure
 
 
-@math.jit_compile_linear
-def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid):
+@math.jit_compile_linear  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
+def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid) -&gt; CenteredGrid:
+    &#34;&#34;&#34;
+    Computes the laplace of `pressure` in the presence of obstacles.
+
+    Args:
+        pressure: Pressure field.
+        hard_bcs: Mask encoding which cells are connected to each other.
+            One between fluid cells, zero inside and at the boundary of obstacles.
+            This should be of the same type as the velocity, i.e. `StaggeredGrid` or `CenteredGrid`.
+        active: Mask indicating for which cells the pressure value is valid.
+            Linear solves will only determine the pressure for these cells.
+            This is generally zero inside obstacles and in non-simulated regions.
+
+    Returns:
+        `CenteredGrid`
+    &#34;&#34;&#34;
     grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
-    grad *= hard_bcs
-    div = divergence(grad)
-    lap = where(active, div, pressure)
-    return lap
+    valid_grad = grad * hard_bcs
+    div = divergence(valid_grad)
+    laplace = where(active, div, pressure)
+    return laplace
 
 
 def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
+def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or list):
     &#34;&#34;&#34;
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -106,6 +179,9 @@ def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
     &#34;&#34;&#34;
     # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
+        if isinstance(obstacle, Geometry):
+            obstacle = Obstacle(obstacle)
+        assert isinstance(obstacle, Obstacle)
         obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) @ velocity
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
@@ -115,7 +191,28 @@ def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
     return velocity
 
 
-def _pressure_extrapolation(vext: math.Extrapolation):
+def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -&gt; PointCloud:
+    &#34;&#34;&#34;
+    Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
+    obstacles or back into the domain.
+
+    Args:
+        particles: PointCloud holding particle positions as elements
+        obstacles: List of `Obstacle` or `Geometry` objects where any particles inside should get shifted outwards
+        offset: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
+
+    Returns:
+        PointCloud where all particles are inside the domain / outside of obstacles.
+    &#34;&#34;&#34;
+    pos = particles.elements.center
+    for obj in obstacles:
+        geometry = obj.geometry if isinstance(obj, Obstacle) else obj
+        assert isinstance(geometry, Geometry), f&#34;obstacles must be a list of Obstacle or Geometry objects but got {type(obj)}&#34;
+        pos = geometry.push(pos, shift_amount=offset)
+    return particles.with_elements(particles.elements @ pos)
+
+
+def _pressure_extrapolation(vext: Extrapolation):
     if vext == extrapolation.PERIODIC:
         return extrapolation.PERIODIC
     elif vext == extrapolation.BOUNDARY:
@@ -128,15 +225,20 @@ def _pressure_extrapolation(vext: math.Extrapolation):
         raise ValueError(f&#34;Unsupported extrapolation: {type(vext)}&#34;)
 
 
-def _accessible_extrapolation(vext: math.Extrapolation):
+def _accessible_extrapolation(vext: Extrapolation):
+    &#34;&#34;&#34; Determine whether outside cells are accessible based on the velocity extrapolation. &#34;&#34;&#34;
     if vext == extrapolation.PERIODIC:
         return extrapolation.PERIODIC
     elif vext == extrapolation.BOUNDARY:
         return extrapolation.ONE
     elif isinstance(vext, extrapolation.ConstantExtrapolation):
         return extrapolation.ZERO
+    elif isinstance(vext, FieldEmbedding):
+        return extrapolation.ONE
     elif isinstance(vext, extrapolation._MixedExtrapolation):
         return combine_sides(**{dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
+    elif isinstance(vext, extrapolation._NormalTangentialExtrapolation):
+        return _accessible_extrapolation(vext.normal)
     else:
         raise ValueError(f&#34;Unsupported extrapolation: {type(vext)}&#34;)</code></pre>
 </details>
@@ -168,7 +270,7 @@ Cells outside far away will be unaffected.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def apply_boundary_conditions(velocity: Grid, obstacles: tuple or list):
+<pre><code class="python">def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or list):
     &#34;&#34;&#34;
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -183,6 +285,9 @@ Cells outside far away will be unaffected.</p>
     &#34;&#34;&#34;
     # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
+        if isinstance(obstacle, Geometry):
+            obstacle = Obstacle(obstacle)
+        assert isinstance(obstacle, Obstacle)
         obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) @ velocity
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
@@ -192,8 +297,50 @@ Cells outside far away will be unaffected.</p>
     return velocity</code></pre>
 </details>
 </dd>
+<dt id="phi.physics.fluid.boundary_push"><code class="name flex">
+<span>def <span class="ident">boundary_push</span></span>(<span>particles: phi.field._point_cloud.PointCloud, obstacles: tuple, offset: float = 0.5) ‑> phi.field._point_cloud.PointCloud</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
+obstacles or back into the domain.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>particles</code></strong></dt>
+<dd>PointCloud holding particle positions as elements</dd>
+<dt><strong><code>obstacles</code></strong></dt>
+<dd>List of <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a></code> or <code>Geometry</code> objects where any particles inside should get shifted outwards</dd>
+<dt><strong><code>offset</code></strong></dt>
+<dd>Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>PointCloud where all particles are inside the domain / outside of obstacles.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -&gt; PointCloud:
+    &#34;&#34;&#34;
+    Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
+    obstacles or back into the domain.
+
+    Args:
+        particles: PointCloud holding particle positions as elements
+        obstacles: List of `Obstacle` or `Geometry` objects where any particles inside should get shifted outwards
+        offset: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
+
+    Returns:
+        PointCloud where all particles are inside the domain / outside of obstacles.
+    &#34;&#34;&#34;
+    pos = particles.elements.center
+    for obj in obstacles:
+        geometry = obj.geometry if isinstance(obj, Obstacle) else obj
+        assert isinstance(geometry, Geometry), f&#34;obstacles must be a list of Obstacle or Geometry objects but got {type(obj)}&#34;
+        pos = geometry.push(pos, shift_amount=offset)
+    return particles.with_elements(particles.elements @ pos)</code></pre>
+</details>
+</dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: tuple = (), solve=auto with tolerance 9.999999747378752e-06 (rel), 9.999999747378752e-06 (abs), max_iterations=1000) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: tuple = (), solve=auto with tolerance 1e-05 (rel), 1e-05 (abs), max_iterations=1000, active: phi.field._grid.CenteredGrid = None) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -206,6 +353,10 @@ Cells outside far away will be unaffected.</p>
 <dd>List of Obstacles to specify boundary conditions inside the domain (Default value = ())</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd>Parameters for the pressure solve as.</dd>
+<dt><strong><code>active</code></strong></dt>
+<dd>(Optional) Mask for which cells the pressure should be solved.
+If given, the velocity may take <code>NaN</code> values where it does not contribute to the pressure.
+Also, the total divergence will never be subtracted if active is given, even if all values are 1.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -220,7 +371,8 @@ Cells outside far away will be unaffected.</p>
 </summary>
 <pre><code class="python">def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
-                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5))) -&gt; Tuple[GridType, CenteredGrid]:
+                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5)),
+                        active: CenteredGrid = None) -&gt; Tuple[GridType, CenteredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -230,26 +382,44 @@ Cells outside far away will be unaffected.</p>
         velocity: Vector field sampled on a grid
         obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
         solve: Parameters for the pressure solve as.
+        active: (Optional) Mask for which cells the pressure should be solved.
+            If given, the velocity may take `NaN` values where it does not contribute to the pressure.
+            Also, the total divergence will never be subtracted if active is given, even if all values are 1.
 
     Returns:
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     &#34;&#34;&#34;
     assert isinstance(obstacles, (tuple, list)), f&#34;obstacles must be a tuple or list but got {type(obstacles)}&#34;
+    obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
+    for obstacle in obstacles:
+        assert obstacle.geometry.vector.item_names == velocity.vector.item_names, f&#34;Obstacles must live in the same physical space as the velocity field {velocity.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}&#34;
     input_velocity = velocity
+    # --- Create masks ---
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
-    active = CenteredGrid(HardGeometryMask(~union(*[obstacle.geometry for obstacle in obstacles])), resolution=velocity.resolution, bounds=velocity.bounds, extrapolation=extrapolation.NONE)
-    accessible = active.with_extrapolation(accessible_extrapolation)
-    hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
+    with NUMPY:
+        accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
+        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
+    all_active = active is None
+    if active is None:
+        active = accessible.with_extrapolation(extrapolation.NONE)
+    else:
+        active *= accessible  # no pressure inside obstacles
+    # --- Linear solve ---
     velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity) * active
-    if not input_velocity.extrapolation.connects_to_outside:
+    if not all_active:  # NaN in velocity allowed
+        div = field.where(field.is_finite(div), div, 0)
+    if not input_velocity.extrapolation.is_flexible and all_active:
         assert solve.preprocess_y is None, &#34;fluid.make_incompressible() does not support custom preprocessing&#34;
         solve = copy_with(solve, preprocess_y=_balance_divergence, preprocess_y_args=(active,))
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
-        solve = copy_with(solve, x0=CenteredGrid(0, resolution=div.resolution, bounds=div.bounds, extrapolation=pressure_extrapolation))
+        solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
+    if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
+        solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
     pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
+    # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
     velocity = velocity - grad_pressure
     return velocity, pressure</code></pre>
@@ -258,6 +428,102 @@ Cells outside far away will be unaffected.</p>
 </dl>
 </section>
 <section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="phi.physics.fluid.Obstacle"><code class="flex name class">
+<span>class <span class="ident">Obstacle</span></span>
+<span>(</span><span>geometry, velocity=0, angular_velocity=0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An obstacle defines boundary conditions inside a geometry.
+It can also have a linear and angular velocity.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>geometry</code></strong></dt>
+<dd>Physical shape and size of the obstacle.</dd>
+<dt><strong><code>velocity</code></strong></dt>
+<dd>Linear velocity vector of the obstacle.</dd>
+<dt><strong><code>angular_velocity</code></strong></dt>
+<dd>Rotation speed of the obstacle. Scalar value in 2D, vector in 3D.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Obstacle:
+    &#34;&#34;&#34;
+    An obstacle defines boundary conditions inside a geometry.
+    It can also have a linear and angular velocity.
+    &#34;&#34;&#34;
+
+    def __init__(self, geometry, velocity=0, angular_velocity=0):
+        &#34;&#34;&#34;
+        Args:
+            geometry: Physical shape and size of the obstacle.
+            velocity: Linear velocity vector of the obstacle.
+            angular_velocity: Rotation speed of the obstacle. Scalar value in 2D, vector in 3D.
+        &#34;&#34;&#34;
+        self.geometry = geometry
+        self.velocity = wrap(velocity, channel(geometry)) if isinstance(velocity, (tuple, list)) else velocity
+        self.angular_velocity = angular_velocity
+        self.shape = shape(geometry) &amp; non_channel(self.velocity) &amp; non_channel(angular_velocity)
+
+    @property
+    def is_stationary(self):
+        &#34;&#34;&#34; Test whether the obstacle is completely still. &#34;&#34;&#34;
+        return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
+
+    def copied_with(self, **kwargs):
+        geometry, velocity, angular_velocity = self.geometry, self.velocity, self.angular_velocity
+        if &#39;geometry&#39; in kwargs:
+            geometry = kwargs[&#39;geometry&#39;]
+        if &#39;velocity&#39; in kwargs:
+            velocity = kwargs[&#39;velocity&#39;]
+        if &#39;angular_velocity&#39; in kwargs:
+            angular_velocity = kwargs[&#39;angular_velocity&#39;]
+        return Obstacle(geometry, velocity, angular_velocity)</code></pre>
+</details>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.physics.fluid.Obstacle.is_stationary"><code class="name">var <span class="ident">is_stationary</span></code></dt>
+<dd>
+<div class="desc"><p>Test whether the obstacle is completely still.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_stationary(self):
+    &#34;&#34;&#34; Test whether the obstacle is completely still. &#34;&#34;&#34;
+    return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.physics.fluid.Obstacle.copied_with"><code class="name flex">
+<span>def <span class="ident">copied_with</span></span>(<span>self, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copied_with(self, **kwargs):
+    geometry, velocity, angular_velocity = self.geometry, self.velocity, self.angular_velocity
+    if &#39;geometry&#39; in kwargs:
+        geometry = kwargs[&#39;geometry&#39;]
+    if &#39;velocity&#39; in kwargs:
+        velocity = kwargs[&#39;velocity&#39;]
+    if &#39;angular_velocity&#39; in kwargs:
+        angular_velocity = kwargs[&#39;angular_velocity&#39;]
+    return Obstacle(geometry, velocity, angular_velocity)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -274,7 +540,19 @@ Cells outside far away will be unaffected.</p>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.physics.fluid.apply_boundary_conditions" href="#phi.physics.fluid.apply_boundary_conditions">apply_boundary_conditions</a></code></li>
+<li><code><a title="phi.physics.fluid.boundary_push" href="#phi.physics.fluid.boundary_push">boundary_push</a></code></li>
 <li><code><a title="phi.physics.fluid.make_incompressible" href="#phi.physics.fluid.make_incompressible">make_incompressible</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a></code></h4>
+<ul class="">
+<li><code><a title="phi.physics.fluid.Obstacle.copied_with" href="#phi.physics.fluid.Obstacle.copied_with">copied_with</a></code></li>
+<li><code><a title="phi.physics.fluid.Obstacle.is_stationary" href="#phi.physics.fluid.Obstacle.is_stationary">is_stationary</a></code></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

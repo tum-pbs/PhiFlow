@@ -42,10 +42,8 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 &#34;&#34;&#34;
-import warnings
-
 from phi import math
-from phi.field import SampledField, ConstantField, Field, PointCloud, extrapolate_valid, Grid, sample, reduce_sample
+from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample
 from phi.field._field import FieldType
 from phi.field._field_math import GridType
 from phi.geom import Geometry
@@ -67,6 +65,18 @@ def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) 
     vel_full = sample(velocity, elements.shifted(dt * vel_half2))
     vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
     return elements.shifted(dt * vel_rk4)
+
+
+def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = None) -&gt; Geometry:
+    &#34;&#34;&#34; Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN. &#34;&#34;&#34;
+    v0 = sample(velocity, elements)
+    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
+    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
+    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
+    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
+    vel_nan = math.where(math.is_finite(vel_rk4), vel_rk4, v0)
+    return elements.shifted(dt * vel_nan)
+
 
 
 def advect(field: SampledField,
@@ -94,8 +104,6 @@ def advect(field: SampledField,
         return points(field, velocity, dt=dt, integrator=integrator)
     elif isinstance(field, Grid):
         return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
-    elif isinstance(field, ConstantField):
-        return field
     raise NotImplementedError(field)
 
 
@@ -179,65 +187,7 @@ def mac_cormack(field: GridType,
     lower_limit = math.min(limits, [f&#39;closest_{dim}&#39; for dim in field.shape.spatial.names])
     upper_limit = math.max(limits, [f&#39;closest_{dim}&#39; for dim in field.shape.spatial.names])
     values_clamped = math.clip(new_field.values, lower_limit, upper_limit)
-    return new_field.with_values(values_clamped)
-
-
-def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: Field = None, occupied: Field = None):
-    &#34;&#34;&#34; 
-    Lagrangian advection of particles using a fourth-order runge-kutta scheme. If `accessible` and `occupied` are specified,
-    the advection uses velocity-dependent extrapolation of `velocity`.
-    
-    Args:
-        cloud: PointCloud holding the particle positions as elements
-        velocity: velocity Grid which should get used for advection
-        dt: Time step for runge-kutta
-        accessible: Boundary conditions for restricting extrapolation to accessible positions
-        occupied: Binary Grid indicating particle positions on the grid for extrapolation
-
-    Returns:
-        PointCloud with advected particle positions and their corresponding values.
-    &#34;&#34;&#34;
-    warnings.warn(&#34;runge_kutta_4 is deprecated. Use points() with integrator=rk4 instead.&#34;, DeprecationWarning)
-    assert isinstance(velocity, Grid), &#39;runge_kutta advection with extrapolation works for Grids only.&#39;
-
-    def extrapolation_helper(elements, t_shift, v_field, mask):
-        shift = math.ceil(math.max(math.abs(elements.center - points.center))) - t_shift
-        t_shift += shift
-        v_field, mask = extrapolate_valid(v_field, mask, int(shift))
-        v_field *= accessible
-        return v_field, mask, t_shift
-
-    points = cloud.elements
-    total_shift = 0
-    extrapolate = accessible is not None and occupied is not None
-
-    # --- Sample velocity at intermediate points and adjust velocity-dependent
-    # extrapolation to maximum shift of corresponding component ---
-    if extrapolate:
-        assert isinstance(occupied, type(velocity)), &#39;occupation mask must have same type as velocity.&#39;
-        velocity, occupied = extrapolate_valid(velocity, occupied, 2)
-        velocity *= accessible
-    vel_k1 = sample(velocity, points)
-
-    shifted_points = points.shifted(0.5 * dt * vel_k1)
-    if extrapolate:
-        velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k2 = sample(velocity, shifted_points)
-
-    shifted_points = points.shifted(0.5 * dt * vel_k2)
-    if extrapolate:
-        velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k3 = sample(velocity, shifted_points)
-
-    shifted_points = points.shifted(dt * vel_k3)
-    if extrapolate:
-        velocity, _, _ = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k4 = sample(velocity, shifted_points)
-
-    # --- Combine points with RK4 scheme ---
-    vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
-    new_points = points.shifted(dt * vel)
-    return cloud.with_elements(new_points)</code></pre>
+    return new_field.with_values(values_clamped)</code></pre>
 </details>
 </section>
 <section>
@@ -299,8 +249,6 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
         return points(field, velocity, dt=dt, integrator=integrator)
     elif isinstance(field, Grid):
         return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
-    elif isinstance(field, ConstantField):
-        return field
     raise NotImplementedError(field)</code></pre>
 </details>
 </dd>
@@ -318,6 +266,26 @@ def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: F
     if v0 is None:
         v0 = sample(velocity, elements)
     return elements.shifted(v0 * dt)</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.advect.finite_rk4"><code class="name flex">
+<span>def <span class="ident">finite_rk4</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._grid.Grid, dt: float, v0: phi.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = None) -&gt; Geometry:
+    &#34;&#34;&#34; Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN. &#34;&#34;&#34;
+    v0 = sample(velocity, elements)
+    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
+    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
+    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
+    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
+    vel_nan = math.where(math.is_finite(vel_rk4), vel_rk4, v0)
+    return elements.shifted(dt * vel_nan)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.mac_cormack"><code class="name flex">
@@ -447,89 +415,6 @@ Each point moves by an amount equal to the local velocity times <code>dt</code>.
     return elements.shifted(dt * vel_rk4)</code></pre>
 </details>
 </dd>
-<dt id="phi.physics.advect.runge_kutta_4"><code class="name flex">
-<span>def <span class="ident">runge_kutta_4</span></span>(<span>cloud: phi.field._field.SampledField, velocity: phi.field._field.Field, dt: float, accessible: phi.field._field.Field = None, occupied: phi.field._field.Field = None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Lagrangian advection of particles using a fourth-order runge-kutta scheme. If <code>accessible</code> and <code>occupied</code> are specified,
-the advection uses velocity-dependent extrapolation of <code>velocity</code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>cloud</code></strong></dt>
-<dd>PointCloud holding the particle positions as elements</dd>
-<dt><strong><code>velocity</code></strong></dt>
-<dd>velocity Grid which should get used for advection</dd>
-<dt><strong><code>dt</code></strong></dt>
-<dd>Time step for runge-kutta</dd>
-<dt><strong><code>accessible</code></strong></dt>
-<dd>Boundary conditions for restricting extrapolation to accessible positions</dd>
-<dt><strong><code>occupied</code></strong></dt>
-<dd>Binary Grid indicating particle positions on the grid for extrapolation</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>PointCloud with advected particle positions and their corresponding values.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: Field = None, occupied: Field = None):
-    &#34;&#34;&#34; 
-    Lagrangian advection of particles using a fourth-order runge-kutta scheme. If `accessible` and `occupied` are specified,
-    the advection uses velocity-dependent extrapolation of `velocity`.
-    
-    Args:
-        cloud: PointCloud holding the particle positions as elements
-        velocity: velocity Grid which should get used for advection
-        dt: Time step for runge-kutta
-        accessible: Boundary conditions for restricting extrapolation to accessible positions
-        occupied: Binary Grid indicating particle positions on the grid for extrapolation
-
-    Returns:
-        PointCloud with advected particle positions and their corresponding values.
-    &#34;&#34;&#34;
-    warnings.warn(&#34;runge_kutta_4 is deprecated. Use points() with integrator=rk4 instead.&#34;, DeprecationWarning)
-    assert isinstance(velocity, Grid), &#39;runge_kutta advection with extrapolation works for Grids only.&#39;
-
-    def extrapolation_helper(elements, t_shift, v_field, mask):
-        shift = math.ceil(math.max(math.abs(elements.center - points.center))) - t_shift
-        t_shift += shift
-        v_field, mask = extrapolate_valid(v_field, mask, int(shift))
-        v_field *= accessible
-        return v_field, mask, t_shift
-
-    points = cloud.elements
-    total_shift = 0
-    extrapolate = accessible is not None and occupied is not None
-
-    # --- Sample velocity at intermediate points and adjust velocity-dependent
-    # extrapolation to maximum shift of corresponding component ---
-    if extrapolate:
-        assert isinstance(occupied, type(velocity)), &#39;occupation mask must have same type as velocity.&#39;
-        velocity, occupied = extrapolate_valid(velocity, occupied, 2)
-        velocity *= accessible
-    vel_k1 = sample(velocity, points)
-
-    shifted_points = points.shifted(0.5 * dt * vel_k1)
-    if extrapolate:
-        velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k2 = sample(velocity, shifted_points)
-
-    shifted_points = points.shifted(0.5 * dt * vel_k2)
-    if extrapolate:
-        velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k3 = sample(velocity, shifted_points)
-
-    shifted_points = points.shifted(dt * vel_k3)
-    if extrapolate:
-        velocity, _, _ = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k4 = sample(velocity, shifted_points)
-
-    # --- Combine points with RK4 scheme ---
-    vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
-    new_points = points.shifted(dt * vel)
-    return cloud.with_elements(new_points)</code></pre>
-</details>
-</dd>
 <dt id="phi.physics.advect.semi_lagrangian"><code class="name flex">
 <span>def <span class="ident">semi_lagrangian</span></span>(<span>field: ~GridType, velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;) ‑> ~GridType</span>
 </code></dt>
@@ -601,10 +486,10 @@ The new values are then determined by sampling <code>field</code> at these looku
 <ul class="two-column">
 <li><code><a title="phi.physics.advect.advect" href="#phi.physics.advect.advect">advect</a></code></li>
 <li><code><a title="phi.physics.advect.euler" href="#phi.physics.advect.euler">euler</a></code></li>
+<li><code><a title="phi.physics.advect.finite_rk4" href="#phi.physics.advect.finite_rk4">finite_rk4</a></code></li>
 <li><code><a title="phi.physics.advect.mac_cormack" href="#phi.physics.advect.mac_cormack">mac_cormack</a></code></li>
 <li><code><a title="phi.physics.advect.points" href="#phi.physics.advect.points">points</a></code></li>
 <li><code><a title="phi.physics.advect.rk4" href="#phi.physics.advect.rk4">rk4</a></code></li>
-<li><code><a title="phi.physics.advect.runge_kutta_4" href="#phi.physics.advect.runge_kutta_4">runge_kutta_4</a></code></li>
 <li><code><a title="phi.physics.advect.semi_lagrangian" href="#phi.physics.advect.semi_lagrangian">semi_lagrangian</a></code></li>
 </ul>
 </li>
