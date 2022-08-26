@@ -5,7 +5,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import channel, batch, DType, vec
+from phi.math import channel, batch, DType, vec, stack
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial, instance
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors, \
     Layout
@@ -514,3 +514,26 @@ class TestTensors(TestCase):
         self.assertIsInstance(l1 == l2, math.Tensor)
         math.assert_close(wrap([False, True]), l1 != l2)
         self.assertIsInstance(l1 != l2, math.Tensor)
+
+    def test_numpy_asarray(self):
+        for t in [
+            tensor(.5),
+            vec(x=1, y=2),
+            math.random_normal(batch(b=10), spatial(x=4, y=3))
+        ]:
+            numpy.asarray(t)
+
+    def test_numpy_function_interface(self):
+        t = stack([1, 2, 3], channel('vector'))
+        a = numpy.asarray(1.)
+        for x, y in [(a, t), (t, a)]:
+            math.assert_close(x + y, np.add(x, y))
+            math.assert_close(x - y, np.subtract(x, y))
+            math.assert_close(x * y, np.multiply(x, y))
+            math.assert_close(x / y, np.divide(x, y))
+            math.assert_close(x // y, np.floor_divide(x, y))
+            math.assert_close(x % y, np.remainder(x, y))
+            math.assert_close(x > y, np.greater(x, y))
+            math.assert_close(x >= y, np.greater_equal(x, y))
+            math.assert_close(x < y, np.less(x, y))
+            math.assert_close(x <= y, np.less_equal(x, y))

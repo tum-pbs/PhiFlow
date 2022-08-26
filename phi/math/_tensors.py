@@ -44,17 +44,17 @@ class Tensor:
         If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
         Args:
-            order: (Optional) list of dimension names. If not given, the current dimension order is kept.
+            order: (Optional) Order of dimension names as comma-separated string, list or `Shape`.
 
         Returns:
-            Native tensor representation
+            Native tensor representation, such as PyTorch tensor or NumPy array.
 
         Raises:
             ValueError if the tensor cannot be transposed to match target_shape
         """
         raise NotImplementedError()
 
-    def numpy(self, order: str or tuple or list = None) -> np.ndarray:
+    def numpy(self, order: str or tuple or list or Shape = None) -> np.ndarray:
         """
         Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
         
@@ -70,7 +70,7 @@ class Tensor:
             `phi.math.numpy()`
 
         Args:
-            order: (Optional) list of dimension names. If not given, the current dimension order is kept.
+            order: (Optional) Order of dimension names as comma-separated string, list or `Shape`.
 
         Returns:
             NumPy representation
@@ -80,6 +80,65 @@ class Tensor:
         """
         native = self.native(order=order)
         return choose_backend(native).numpy(native)
+
+    def __array__(self, dtype=None):  # NumPy conversion
+        warnings.warn("Automatic conversion of Φ-Flow tensors to NumPy can cause problems because the dimension order is not guaranteed.", SyntaxWarning, stacklevel=3)
+        return self.numpy(self._shape)
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):  # NumPy interface
+        if len(inputs) != 2:
+            return NotImplemented
+        if ufunc.__name__ == 'multiply':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x * y, lambda x, y: choose_backend(x, y).mul(x, y), 'mul', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y * x, lambda x, y: choose_backend(x, y).mul(y, x), 'rmul', '*')
+        if ufunc.__name__ == 'add':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), 'add', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y + x, lambda x, y: choose_backend(x, y).add(y, x), 'radd', '*')
+        if ufunc.__name__ == 'subtract':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), 'add', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), 'rsub', '*')
+        if ufunc.__name__ == 'true_divide':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), 'true_divide', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y / x, lambda x, y: choose_backend(x, y).div(y, x), 'r_true_divide', '*')
+        if ufunc.__name__ == 'floor_divide':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y), 'floor_divide', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x), 'r_floor_divide', '*')
+        if ufunc.__name__ == 'remainder':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y), 'remainder', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), 'r_remainder', '*')
+        if ufunc.__name__ == 'greater':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x > y, lambda x, y: choose_backend(x, y).greater_than(x, y), 'greater', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y > x, lambda x, y: choose_backend(x, y).greater_than(y, x), 'r_greater', '*')
+        if ufunc.__name__ == 'greater_equal':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x >= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), 'greater_equal', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y >= x, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), 'r_greater_equal', '*')
+        if ufunc.__name__ == 'less':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x < y, lambda x, y: choose_backend(x, y).greater_than(y, x), 'less', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y < x, lambda x, y: choose_backend(x, y).greater_than(x, y), 'r_less', '*')
+        if ufunc.__name__ == 'less_equal':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x <= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), 'less_equal', '*')
+            else:
+                return self._op2(inputs[0], lambda x, y: y <= x, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), 'r_less_equal', '*')
+        raise NotImplementedError(f"NumPy function '{ufunc.__name__}' is not compatible with Φ-Flow tensors.")
 
     @property
     def dtype(self) -> DType:
@@ -600,7 +659,7 @@ class Tensor:
         """
         raise NotImplementedError(self.__class__)
 
-    def _op2(self, other: 'Tensor', operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
+    def _op2(self, other, operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
         """
         Apply a broadcast operation on two tensors.
 
@@ -1194,19 +1253,19 @@ class TensorStack(Tensor):
             assert isinstance(t, Tensor)
             assert t.dtype == components[0].dtype, f"Stacked tensors must have the same data type but got {[t.dtype for t in components]}"
             assert stack_dim.name not in t.shape, f"Cannot stack along '{stack_dim.name}' because the dimension already exists."
-        self.tensors = tuple(components)
+        self._tensors = tuple(components)
         self.stack_dim = stack_dim.with_sizes([len(components)])
         try:
-            merge_shapes(*self.tensors)
+            merge_shapes(*self._tensors)
             self._varying_shapes = False
         except IncompatibleShapes:
             self._varying_shapes = True
-        self._shape = shape_stack(self.stack_dim, *[t.shape for t in self.tensors])
+        self._shape = shape_stack(self.stack_dim, *[t.shape for t in self._tensors])
         self._cached = None
 
     @property
     def _is_tracer(self) -> bool:
-        return any([t._is_tracer for t in self.tensors])
+        return any([t._is_tracer for t in self._tensors])
 
     @property
     def requires_broadcast(self):
@@ -1216,13 +1275,13 @@ class TensorStack(Tensor):
         if self._cached is None:
             if self.requires_broadcast:
                 return None
-            elif all([t.shape.is_uniform for t in self.tensors]):
-                natives = [t.native(order=self._shape.names) for t in self.tensors]
+            elif all([t.shape.is_uniform for t in self._tensors]):
+                natives = [t.native(order=self._shape.names) for t in self._tensors]
                 native = choose_backend(*natives).concat(natives, axis=self.shape.index(self.stack_dim.name))
                 self._cached = NativeTensor(native, self._shape)
             else:  # cache stack_dim on inner tensors
-                non_uniform_dim = self.tensors[0].shape.shape.without('dims')
-                unstacked = [t.unstack(non_uniform_dim.name) for t in self.tensors]
+                non_uniform_dim = self._tensors[0].shape.shape.without('dims')
+                unstacked = [t.unstack(non_uniform_dim.name) for t in self._tensors]
                 stacked = []
                 for to_stack in zip(*unstacked):
                     tensor = TensorStack(to_stack, self.stack_dim)._cache()
@@ -1232,7 +1291,7 @@ class TensorStack(Tensor):
 
     @property
     def dtype(self):
-        return self.tensors[0].dtype
+        return self._tensors[0].dtype
 
     @property
     def shape(self):
@@ -1246,7 +1305,7 @@ class TensorStack(Tensor):
             # Is only the stack dimension shifted?
             if order is not None and self._shape.without(self.stack_dim).names == tuple(filter(lambda name: name != self.stack_dim.name, order)):
                 inner_order = [dim for dim in order if dim != self.stack_dim.name]
-                natives = [t.native(inner_order) for t in self.tensors]
+                natives = [t.native(inner_order) for t in self._tensors]
                 assert self.stack_dim.name in order, f"Dimension {self.stack_dim} missing from 'order'. Got {order} but tensor has shape {self.shape}."
                 native = choose_backend(*natives).stack(natives, axis=order.index(self.stack_dim.name))
                 return native
@@ -1259,7 +1318,7 @@ class TensorStack(Tensor):
         else:
             new_stack_dim = new_shape[self._shape.index(self.stack_dim.name)]
             inner_shape = new_shape.without(new_stack_dim)
-            tensors = [t._with_shape_replaced(inner_shape) for t in self.tensors]
+            tensors = [t._with_shape_replaced(inner_shape) for t in self._tensors]
             return TensorStack(tensors, new_stack_dim)
 
     def _getitem(self, selection: dict):
@@ -1269,14 +1328,14 @@ class TensorStack(Tensor):
             return self._cache()._getitem(selection)
         # --- Inner dims ---
         inner_dict = {dim: sel for dim, sel in selection.items() if dim != self.stack_dim.name}
-        tensors = self.tensors
+        tensors = self._tensors
         if len(inner_dict) > 0:
             tensors = [t[inner_dict] for t in tensors]
         # --- stack dimension ---
         if self.stack_dim.name in selection:
             selection = selection[self.stack_dim.name]
             if isinstance(selection, int):
-                return self.tensors[selection]
+                return self._tensors[selection]
             elif isinstance(selection, slice):
                 return TensorStack(tensors[selection], self.stack_dim)
             else:
@@ -1288,7 +1347,7 @@ class TensorStack(Tensor):
         if self._cached is not None:
             return self._cached.flip(*dims)
         else:
-            tensors = [t.flip(*dims) for t in self.tensors]
+            tensors = [t.flip(*dims) for t in self._tensors]
             if self.stack_dim.name in dims:
                 tensors = tensors[::-1]
             return TensorStack(tensors, self.stack_dim)
@@ -1297,10 +1356,10 @@ class TensorStack(Tensor):
         if self._cached is not None:
             return self._cached.unstack(dimension)
         if dimension == self.stack_dim.name:
-            return self.tensors
+            return self._tensors
         else:
             if self.requires_broadcast:
-                unstacked = [t.unstack(dimension) for t in self.tensors]
+                unstacked = [t.unstack(dimension) for t in self._tensors]
                 result = [TensorStack(items, self.stack_dim) for items in zip(*unstacked)]
                 return result
             else:
@@ -1308,7 +1367,7 @@ class TensorStack(Tensor):
 
     def _op1(self, native_function):
         if self.requires_broadcast:
-            tensors = [t._op1(native_function) for t in self.tensors]
+            tensors = [t._op1(native_function) for t in self._tensors]
             return TensorStack(tensors, self.stack_dim)
         else:
             return self._cache()._op1(native_function)
@@ -1318,9 +1377,9 @@ class TensorStack(Tensor):
         if self.requires_broadcast:
             if self.stack_dim.name in other.shape:
                 other = other.unstack(self.stack_dim.name)
-                tensors = [operator(t1, t2) for t1, t2 in zip(self.tensors, other)]
+                tensors = [operator(t1, t2) for t1, t2 in zip(self._tensors, other)]
             else:
-                tensors = [operator(t, other) for t in self.tensors]
+                tensors = [operator(t, other) for t in self._tensors]
             return TensorStack(tensors, self.stack_dim)
         elif isinstance(other, (CollapsedTensor, NativeTensor)):
             return op2_native(self, other, native_function)
@@ -1333,18 +1392,18 @@ class TensorStack(Tensor):
         if self._cached is not None:
             return self._cached._natives()
         else:
-            return sum([t._natives() for t in self.tensors], ())
+            return sum([t._natives() for t in self._tensors], ())
 
     def _with_natives_replaced(self, natives: list):
         if self._cached is not None:
             return self._cached._with_natives_replaced(natives)
         else:
-            tensors = [t._with_natives_replaced(natives) for t in self.tensors]
+            tensors = [t._with_natives_replaced(natives) for t in self._tensors]
             return TensorStack(tensors, self.stack_dim)
 
     def _expand(self):
         if self.requires_broadcast:
-            for t in self.tensors:
+            for t in self._tensors:
                 t._expand()
         self._cache()
 
@@ -1365,7 +1424,7 @@ class TensorStack(Tensor):
             return self._cached._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
         # --- inner reduce ---
         inner_axes = [dim for dim in dims if dim != self.stack_dim.name]
-        red_inners = [t._tensor_reduce(inner_axes, native_function, collapsed_function, unaffected_function) for t in self.tensors]
+        red_inners = [t._tensor_reduce(inner_axes, native_function, collapsed_function, unaffected_function) for t in self._tensors]
         # --- outer reduce ---
         if self.stack_dim.name in dims:
             if any([t._is_tracer for t in red_inners]):
