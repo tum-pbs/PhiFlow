@@ -4,8 +4,9 @@ from numbers import Number
 from phi import math
 
 from ._field import Field
+from .numerical import Scheme
 from ..geom import Geometry
-from ..math import Shape, GLOBAL_AXIS_ORDER, spatial
+from ..math import Shape, spatial, instance
 
 
 class AngularVelocity(Field):
@@ -26,14 +27,16 @@ class AngularVelocity(Field):
         strength = math.wrap(strength)
         assert location.shape.channel.names == ('vector',), "location must have a single channel dimension called 'vector'"
         assert location.shape.spatial.is_empty, "location tensor cannot have any spatial dimensions"
+        assert not instance(location), "AngularVelocity does not support instance dimensions"
         self.location = location
         self.strength = strength
         self.falloff = falloff
         self.component = component
-        spatial_names = [GLOBAL_AXIS_ORDER.axis_name(i, location.vector.size) for i in range(location.vector.size)]
+        spatial_names = location.vector.item_names
+        assert spatial_names is not None, "location.vector must list spatial dimensions as item names"
         self._shape = location.shape & spatial(**{dim: 1 for dim in spatial_names})
 
-    def _sample(self, geometry: Geometry) -> math.Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
         points = geometry.center
         distances = points - self.location
         strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)

@@ -11,21 +11,22 @@ from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, \
     PlottingLibrary
 from .. import math, field
-from ..field import SampledField, Scene, Field, PointCloud
+from ..field import SampledField, Scene, Field, PointCloud, Grid
 from ..field._scene import _slugify_filename
-from ..geom import Geometry
-from ..math import Tensor, layout, batch, Shape
+from ..geom import Geometry, Box, embed
+from ..math import Tensor, layout, batch, Shape, spatial, channel
 from ..math._tensors import Layout
 
 
 def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry,
          play=True,
          gui: Gui or str = None,
+         lib: Gui or str = None,
          keep_alive=True,
          **config):
     """
     If `model` is a user interface model, launches the registered user interface.
-    This will typically be the widgets interface for Jupyter or Colab notebooks, the Dash web interface for scripts or the console interface if the above are not available.
+    This will typically be the Dash web interface or the console interface if dash is not available.
     This method prepares the `model` before showing it. No more fields should be added to the vis after this method is invoked.
 
     See Also:
@@ -45,15 +46,17 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
       model: (Optional) `VisModel`, the application or plottable object to display.
         If unspecified, shows the most recently plotted figure.
       play: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
-      gui: (optional) class of GUI to use
+      gui: Deprecated. Use `lib` instead. (optional) class of GUI to use
+      lib: Gui class or plotting library as `str`, e.g. `'matplotlib'` or `'plotly'`
       keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
       **config: additional GUI configuration parameters.
         For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
     """
+    lib = lib if lib is not None else gui
     if len(model) == 1 and isinstance(model[0], VisModel):
         model[0].prepare()
         # --- Setup Gui ---
-        gui = default_gui() if gui is None else get_gui(gui)
+        gui = default_gui() if lib is None else get_gui(lib)
         gui.configure(config)
         gui.setup(model[0])
         if play:  # this needs to be done even if model cannot progress right now
@@ -64,12 +67,31 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
         else:
             gui.show(True)  # may be blocking call
     elif len(model) == 0:
-        plots = default_plots() if gui is None else get_plots(gui)
+        plots = default_plots() if lib is None else get_plots(lib)
         return plots.show(plots.current_figure)
     else:
-        plots = default_plots() if gui is None else get_plots(gui)
+        plots = default_plots() if lib is None else get_plots(lib)
         fig = plot(*model, lib=plots, **config)
         return plots.show(fig)
+
+
+def close(figure=None):
+    """
+    Close and destroy a figure.
+
+    Args:
+        figure: (Optional) A figure that was created using `plot()`.
+            If not specified, closes the figure created most recently.
+    """
+    if figure is None:
+        figure = LAST_FIGURE[0]
+    if isinstance(figure, Tensor):
+        for fig in figure:
+            close(fig)
+    else:
+        plots = get_plots_by_figure(figure)
+        plots.close(figure)
+
 
 
 RECORDINGS = {}
@@ -113,7 +135,7 @@ def view(*fields: str or SampledField,
             If not provided, the user namespace is searched for Field variables.
         play: Whether to immediately start executing loops.
         gui: (Optional) Name of GUI as `str` or GUI class.
-            Built-in GUIs can be selected via `'dash'`, `'console'` and `'widgets'`.
+            Built-in GUIs can be selected via `'dash'`, `'console'`.
             See https://tum-pbs.github.io/PhiFlow/Visualization.html
         name: (Optional) Name to display in GUI and use for the output directory if `scene=True`.
             Will be generated from the top-level script if not provided.
@@ -231,7 +253,16 @@ def action(fun):
     return fun
 
 
-LAST_FIGURE = [None]
+LAST_FIGURE = [None]  # reference to last figure (1-element list)
+
+
+def get_current_figure():
+    """
+    Returns the figure that was most recently created using `plot()`.
+
+    The type of the figure depends on which library was used, e.g. `matplotlib.figure.Figure` or `plotly.graph_objs.Figure`.
+    """
+    return LAST_FIGURE[0]
 
 
 def plot(*fields: SampledField or Tensor or Layout,
@@ -239,11 +270,11 @@ def plot(*fields: SampledField or Tensor or Layout,
          row_dims: str or Shape or tuple or list or Callable = None,
          col_dims: str or Shape or tuple or list or Callable = batch,
          animate: str or Shape or tuple or list or Callable = None,
-         title: Tensor = None,
+         title: str or Tensor = None,
          size=(12, 5),
          same_scale=True,
          show_color_bar=True,
-         frame_time=200,
+         frame_time=100,
          repeat=True,
          **plt_args):
     """
@@ -268,47 +299,51 @@ def plot(*fields: SampledField or Tensor or Layout,
         repeat: Whether the animation should loop.
 
     Returns:
-        If all batch dimensions are reduced by `rows` and `cols`, returns a single figure created for `data`.
-        Otherwise returns a `Tensor` of figures (not yet supported).
+        `Tensor` of figure objects.
+        The tensor contains those dimensions of `fields` that were not reduced by `row_dims`, `col_dims` or `animate`.
+        Currently, only single-figure plots are supported.
+
+        In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     """
-    positioning = {}
-    nrows, ncols, fig_shape = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, 0, 0, positioning)
+    nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, 0, 0, {}, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
     if same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
-            max_val = float(max([abs(f.values).max for l in positioning.values() for f in l]))
+            max_val = float(max([abs(f.values).finite_max for l in positioning.values() for f in l]))
         else:
-            min_val = float(min([f.values.min for l in positioning.values() for f in l]))
-            max_val = float(max([f.values.max for l in positioning.values() for f in l]))
+            min_val = float(min([f.values.finite_min for l in positioning.values() for f in l]))
+            max_val = float(max([f.values.finite_max for l in positioning.values() for f in l]))
     else:
         min_val = max_val = None
-    subplots = {pos: max([f.spatial_rank for f in fields]) for pos, fields in positioning.items()}
-    if title is None or isinstance(title, str):
-        title = layout(title)
-    assert isinstance(title, Tensor), "title must be a Tensor or str"
+    subplots = {pos: _space(fields, animate) for pos, fields in positioning.items()}
+    if isinstance(title, str):
+        title = {pos: title for pos in positioning}
+    elif isinstance(title, Tensor):
+        title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
+    else:
+        assert title is None, f"title must be a str or Tensor but got {title}"
+        title = {pos: ", ".join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
-        plots.plotting_done(figure, axes)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
                     for f in fields:
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
-            plots.plotting_done(figure, axes)
+            plots.close(figure)
             return anim
         else:
             for pos, fields in positioning.items():
                 for f in fields:
-                    plots.plot(f, figure, axes[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
             LAST_FIGURE[0] = figure
-            plots.plotting_done(figure, axes)
-            return figure
+            return layout(figure)
     else:
         raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
 
@@ -319,72 +354,81 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
                        animate: str or Shape or tuple or list or Callable,  # do not reduce these dims, has priority
                        offset_row: int,
                        offset_col: int,
-                       positioning: Dict[Tuple[int, int], List]) -> Tuple[int, int, Shape]:  # rows, cols
+                       positioning: Dict[Tuple[int, int], List],
+                       base_index: Dict[str, int or str]) -> Tuple[int, int, Shape, dict, dict]:  # rows, cols
     if data is None:
         raise ValueError(f"Cannot layout figure for '{data}'")
     if isinstance(data, list):
         data = math.layout(data, batch('list'))
     elif isinstance(data, tuple):
         data = math.layout(data, batch('tuple'))
+    elif isinstance(data, dict):
+        data = math.layout(data, batch('dict'))
     if isinstance(data, Layout):
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
+        indices = {}
         if not batch(data):  # overlay
             for d in data:  # overlay these fields
-                e_rows, e_cols, d_non_reduced = layout_sub_figures(d, row_dims, col_dims, animate, offset_row, offset_col, positioning)
+                e_rows, e_cols, d_non_reduced, positioning, indices = layout_sub_figures(d, row_dims, col_dims, animate, offset_row, offset_col, positioning, base_index)
                 rows = max(rows, e_rows)
                 cols = max(cols, e_cols)
                 non_reduced &= d_non_reduced
         else:
             dim0 = data.shape[0]
+            if dim0.only(animate):
+                data = math.stack(data.native(), dim0)
+                return layout_sub_figures(data, row_dims, col_dims, animate, offset_row, offset_col, positioning, base_index)
             elements = data.unstack(dim0.name)
-            for e in elements:
-                if dim0.only(animate):
-                    # assert data.shape.rank == 1,
-                    raise NotImplementedError("To animate plots, stack data along time axis first.")
-                elif dim0.only(row_dims):
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row + rows, offset_col, positioning)
+            for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
+                index = dict(base_index, **{dim0.name: item_name})
+                if dim0.only(row_dims):
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row + rows, offset_col, positioning, index)
                     rows += e_rows
                     cols = max(cols, e_cols)
                 elif dim0.only(col_dims):
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col + cols, positioning)
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col + cols, positioning, index)
                     cols += e_cols
                     rows = max(rows, e_rows)
                 else:
-                    e_rows, e_cols, e_non_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col, positioning)
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col, positioning, index)
                     cols = max(cols, e_cols)
                     rows = max(rows, e_rows)
                 non_reduced &= e_non_reduced
-        return rows, cols, non_reduced
+                indices.update(e_indices)
+        return rows, cols, non_reduced, positioning, indices
     else:
         if isinstance(data, Tensor):
             data = field.tensor_as_field(data)
         elif isinstance(data, Geometry):
             data = PointCloud(data)
-        assert isinstance(data, Field), data
+        assert isinstance(data, Field), f"Cannot plot {type(data)}. Only tensors, geometries and fields can be plotted."
         animate = data.shape.only(animate)
         row_shape = batch(data).only(row_dims).without(animate)
         col_shape = batch(data).only(col_dims).without(row_dims).without(animate)
         non_reduced: Shape = batch(data).without(row_dims).without(col_dims) & animate
-        for ri, r in enumerate(row_shape.meshgrid()):
-            for ci, c in enumerate(col_shape.meshgrid()):
+        indices = {}
+        for ri, r in enumerate(row_shape.meshgrid(names=True)):
+            for ci, c in enumerate(col_shape.meshgrid(names=True)):
+                indices[(offset_row + ri, offset_col + ci)] = dict(base_index, **r, **c)
                 sub_data = data[r][c]
                 positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
-        return row_shape.volume, col_shape.volume, non_reduced
+        return row_shape.volume, col_shape.volume, non_reduced, positioning, indices
 
 
-    # if len(plottable) > 1:
-    #     plottable
-    #
-    # return math.layout([], math.channel('cols, rows, overlay'))
-    # else:  # x, y, z
-    #     if channel in value.shape.spatial and 'vector' in value.shape:
-    #         return value.vector[channel]
-    #     elif 'vector' in value.shape:
-    #         raise ValueError(
-    #             f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
-    #     else:
-    #         return value
+def _space(fields: Tuple[Field, ...], ignore_dims: Shape) -> Box:
+    all_dims = []
+    for f in fields:
+        for dim in f.bounds.vector.item_names:
+            if dim not in all_dims and dim not in ignore_dims:
+                all_dims.append(dim)
+    all_bounds = [embed(f.bounds.without(ignore_dims.names), all_dims) for f in fields]
+    if len(all_bounds) == 1:
+        return all_bounds[0]
+    bounds: Box = math.stack(all_bounds, batch('_fields'))
+    lower = math.finite_min(bounds.lower, '_fields', default=-math.INF)
+    upper = math.finite_max(bounds.upper, '_fields', default=math.INF)
+    return Box(lower, upper)
 
 
 def overlay(*fields: SampledField or Tensor) -> Tensor:
@@ -415,6 +459,9 @@ def write_image(path: str, figure=None, dpi=120.):
         dpi: Pixels per inch.
     """
     figure = figure or LAST_FIGURE[0]
+    if figure is None:
+        figure = default_plots().current_figure
+    assert figure is not None, "No figure to save."
     lib = get_plots_by_figure(figure)
     lib.save(figure, path, dpi)
 
@@ -423,7 +470,7 @@ def default_gui() -> Gui:
     if GUI_OVERRIDES:
         return GUI_OVERRIDES[-1]
     if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
-        options = ['widgets']
+        raise NotImplementedError("There is currently no GUI support for Python notebooks. Use `vis.plot()` to display plots or animations instead.")
     else:
         options = ['dash', 'console']
     for option in options:
@@ -444,12 +491,6 @@ def get_gui(gui: str or Gui) -> Gui:
         elif gui == 'console':
             from ._console import ConsoleGui
             return ConsoleGui()
-        # elif gui == 'matplotlib':
-        #     from ._matplotlib.matplotlib_gui import MatplotlibGui
-        #     return MatplotlibGui()
-        elif gui == 'widgets':
-            from ._widgets import WidgetsGui
-            return WidgetsGui()
         else:
             raise NotImplementedError(f"No display available with name {gui}")
     elif isinstance(gui, Gui):

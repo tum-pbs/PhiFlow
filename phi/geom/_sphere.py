@@ -3,9 +3,10 @@ from typing import Dict
 
 from phi import math
 
-from ._geom import Geometry
-from ..math import wrap, Tensor
+from ._geom import Geometry, _keep_vector
+from ..math import wrap, Tensor, Shape
 from ..math.backend import PHI_LOGGER
+from ..math.magic import slicing_dict
 
 
 class Sphere(Geometry):
@@ -26,23 +27,21 @@ class Sphere(Geometry):
             **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
         """
         if center is not None:
-            if not isinstance(center, Tensor):
-                warnings.warn(f"constructor Sphere({type(center)}) is deprecated. Use Sphere(Tensor) or Sphere(**center_) instead.", DeprecationWarning)
-                self._center = wrap(center)
-            else:
-                self._center = center
-            assert 'vector' in self._center.shape, f"Sphere.center must have a 'vector' dimension. Use the syntax x=0.5."
+            assert isinstance(center, Tensor), "center must be a Tensor"
+            assert 'vector' in center.shape, f"Sphere center must have a 'vector' dimension."
+            assert center.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names."
+            self._center = center
         else:
-            self._center = math.wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
-            # self._center = wrap(math.spatial(**center_), math.channel('vector'))
+            self._center = wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
         assert radius is not None, "radius must be specified."
         self._radius = wrap(radius)
+        assert 'vector' not in self._radius.shape, f"Sphere radius must not vary along vector but got {radius}"
 
     @property
     def shape(self):
         if self._center is None or self._radius is None:
             return None
-        return (self._center.shape & self._radius.shape).without('vector')
+        return self._center.shape & self._radius.shape
 
     @property
     def radius(self):
@@ -73,7 +72,7 @@ class Sphere(Geometry):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
         return math.any(distance_squared <= self.radius ** 2, self.shape.instance)  # union for instance dimensions
 
-    def approximate_signed_distance(self, location):
+    def approximate_signed_distance(self, location: Tensor or tuple):
         """
         Computes the exact distance from location to the closest point on the sphere.
         Very close to the sphere center, the distance takes a constant value.
@@ -111,10 +110,15 @@ class Sphere(Geometry):
     def __variable_attrs__(self):
         return '_radius', '_center'
 
-    def unstack(self, dimension: str) -> tuple:
-        center = self.center.dimension(dimension).unstack(self.shape.get_size(dimension))
-        radius = self.radius.dimension(dimension).unstack(self.shape.get_size(dimension))
-        return tuple([Sphere(c, r) for c, r in zip(center, radius)])
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        return Sphere(self._center[_keep_vector(item)], self._radius[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(isinstance(v, Sphere) for v in values):
+            return Sphere(math.stack([v.center for v in values], dim, **kwargs), radius=math.stack([v.radius for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         raise NotImplementedError()

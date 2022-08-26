@@ -1,11 +1,11 @@
 from numbers import Number
-from typing import Dict
 
 import numpy as np
 
 from phi import math
-from phi.math import Tensor, Shape, spatial, EMPTY_SHAPE, GLOBAL_AXIS_ORDER
-from phi.math._tensors import variable_attributes, copy_with
+from phi.math import Tensor, Shape, EMPTY_SHAPE
+from phi.math._tensors import variable_attributes
+from phi.math.magic import BoundDim, slicing_dict
 
 
 class Geometry:
@@ -25,14 +25,19 @@ class Geometry:
     @property
     def center(self) -> Tensor:
         """
-        Center location in single channel dimension, ordered according to GLOBAL_AXIS_ORDER
+        Center location in single channel dimension.
         """
         raise NotImplementedError(self)
 
     @property
     def shape(self) -> Shape:
         """
-        Specifies the number of copies of the geometry as batch and spatial dimensions.
+        The `shape` of a `Geometry` consists of the following dimensions:
+
+        * A single *channel* dimension called `'vector'` specifying the physical space
+        * Instance dimensions denote that this geometry consists of multiple copies in the same space
+        * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
+        * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
         """
         raise NotImplementedError()
 
@@ -48,7 +53,7 @@ class Geometry:
     def shape_type(self) -> Tensor:
         """
         Returns the type (or types) of this geometry as a string `Tensor`
-        Boxes return `'B'` and spheres return `'S'`.
+        Boxes return `'B'`, spheres return `'S'`, points return `'P'`.
         Returns `'?'` for unknown types, e.g. a union over multiple types.
         Custom types can return their own identifiers.
 
@@ -68,8 +73,7 @@ class Geometry:
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         """
-        attrs = {a: getattr(self, a) for a in variable_attributes(self)}
-        return tuple([copy_with(self, **{a: v[{dimension: i}] for a, v in attrs.items() if dimension in v.shape}) for i in range(self.shape.get_size(dimension))])
+        return math.unstack(self, dimension)
 
     @property
     def spatial_rank(self) -> int:
@@ -91,7 +95,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_signed_distance(self, location: Tensor) -> Tensor:
+    def approximate_signed_distance(self, location: Tensor or tuple) -> Tensor:
         """
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -319,11 +323,20 @@ class Geometry:
     def __repr__(self):
         return f"{self.__class__.__name__}{self.shape}"
 
-    def __getitem__(self, item: dict):
-        assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
-        item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
-        attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
-        return copy_with(self, **attrs)
+    def __getitem__(self, item):
+        raise NotImplementedError
+        # assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
+        # item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
+        # attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
+        # return copy_with(self, **attrs)
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        from ._stack import GeometryStack
+        return GeometryStack(math.layout(values, dim))
+
+    def __getattr__(self, name: str) -> BoundDim:
+        return BoundDim(self, name)
+
 
 
 class _InvertedGeometry(Geometry):
@@ -371,6 +384,19 @@ class _InvertedGeometry(Geometry):
 
     def __hash__(self):
         return -hash(self.geometry)
+
+
+def invert(geometry: Geometry):
+    """
+    Swaps inside and outside.
+
+    Args:
+        geometry: `phi.geom.Geometry` to swap
+
+    Returns:
+        New `phi.geom.Geometry` object with same surface but swapped normals
+    """
+    return ~geometry
 
 
 class _NoGeometry(Geometry):
@@ -424,6 +450,8 @@ class Point(Geometry):
     """
 
     def __init__(self, location: math.Tensor):
+        assert 'vector' in location.shape, "location must have a vector dimension"
+        assert location.shape.get_item_names('vector') is not None, "Vector dimension needs to list spatial dimension as item names."
         self._location = location
 
     @property
@@ -432,7 +460,7 @@ class Point(Geometry):
 
     @property
     def shape(self) -> Shape:
-        return self._location.shape.without('vector')
+        return self._location.shape
 
     def unstack(self, dimension: str) -> tuple:
         return tuple(Point(loc) for loc in self._location.unstack(dimension))
@@ -440,7 +468,7 @@ class Point(Geometry):
     def lies_inside(self, location: Tensor) -> Tensor:
         return math.wrap(False)
 
-    def approximate_signed_distance(self, location: Tensor) -> Tensor:
+    def approximate_signed_distance(self, location: Tensor or tuple) -> Tensor:
         return math.vec_abs(location - self._location)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
@@ -464,6 +492,29 @@ class Point(Geometry):
     def __variable_attrs__(self):
         return '_location',
 
+    @property
+    def volume(self) -> Tensor:
+        return math.wrap(0)
+
+    @property
+    def shape_type(self) -> Tensor:
+        return math.tensor('P')
+
+    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+        raise NotImplementedError
+
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        return self
+
+    def __getitem__(self, item):
+        return Point(self._location[_keep_vector(slicing_dict(self, item))])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(isinstance(v, Point) for v in values):
+            return Point(math.stack([v.center for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
+
 
 def assert_same_rank(rank1, rank2, error_message):
     """ Tests that two objects have the same spatial rank. Objects can be of types: `int`, `None` (no check), `Geometry`, `Shape`, `Tensor` """
@@ -486,3 +537,12 @@ def _rank(rank):
     else:
         raise NotImplementedError(f"{type(rank)} now allowed. Allowed are (int, Geometry, Shape, Tensor).")
     return None if rank == 0 else rank
+
+
+def _keep_vector(dim_selection: dict) -> dict:
+    if 'vector' not in dim_selection:
+        return dim_selection
+    item = dict(dim_selection)
+    if isinstance(item['vector'], int) or (isinstance(item['vector'], str) and ',' not in item['vector']):
+        item['vector'] = (item['vector'],)
+    return item

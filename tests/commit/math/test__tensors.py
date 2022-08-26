@@ -1,13 +1,16 @@
 from unittest import TestCase
 
+import numpy
 import numpy as np
 
 import phi
 from phi import math
-from phi.math import channel, batch, DType
-from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial
-from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached
+from phi.math import channel, batch, DType, vec
+from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial, instance
+from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors, \
+    Layout
 from phi.math.backend import Backend
+from phi.math.magic import PhiTreeNode
 
 BACKENDS = phi.detect_backends()
 
@@ -20,7 +23,6 @@ class TestTensors(TestCase):
                 for const in (1, 1.5, True, 1+1j):
                     tens = math.wrap(const)
                     self.assertEqual(math.NUMPY, tens.default_backend)
-                    self.assertTrue(isinstance(tens.native(), (int, float, bool, complex)), msg=backend)
                     math.assert_close(tens, const)
                     tens = math.tensor(const)
                     self.assertEqual(backend, math.choose_backend(tens), f'{const} was not converted to the specified backend')
@@ -209,6 +211,28 @@ class TestTensors(TestCase):
                 with backend:
                     math.jit_compile(tracable)(math.ones(channel(vector=3)))
 
+    def test_format(self):
+        for value in [
+            math.random_normal(channel(vector='x,y'), dtype=(float, 32)),
+            math.random_normal(channel(vector='x,y'), dtype=(float, 64)),
+            math.random_normal(channel(vector='x,y'), dtype=(int, 32)),
+            math.random_normal(batch(b=6), channel(vector='x,y'), dtype=(int, 64)),
+            math.random_normal(batch(b=6), channel(vector='x,y'), dtype=(float, 64)),
+            math.ones(),
+            math.ones(spatial(x=4, y=3)),
+        ]:
+            for layout in [
+                'auto',
+                'row',
+                'numpy',
+                'full',
+                'summary'
+            ]:
+                print(f"#  {layout}")
+                print(f"{value:{layout}:color:no-shape:no-dtype:threshold=1:.1f}")
+                print(f"{value:{layout}:shape:dtype:no-color:threshold=1:.8f}")
+                print(f"{value:{layout}}")
+                print()
 
     def test_tensor_like(self):
 
@@ -237,8 +261,8 @@ class TestTensors(TestCase):
 
         v = MyObjV(math.wrap(0))
         t = MyObjT(math.wrap(0), math.wrap(1))
-        self.assertIsInstance(v, math.TensorLike)
-        self.assertIsInstance(t, math.TensorLike)
+        self.assertIsInstance(v, PhiTreeNode)
+        self.assertIsInstance(t, PhiTreeNode)
         try:
             math.cos(v)
         except Success:
@@ -278,7 +302,17 @@ class TestTensors(TestCase):
     def test_slice_by_int_tensor(self):
         indices = math.meshgrid(x=2, y=2)
         sel = indices.x[wrap((1, 0), spatial('x'))]
-        math.assert_close((1, 0), sel.vector['x'].y[0])
+        math.assert_close([1, 0], sel.vector['x'].y[0])
+
+    def test_slice_str(self):
+        x = math.random_normal(batch(b=2), channel(c='x,y,z'))
+        math.assert_close(x.c[0], x['x'])
+        math.assert_close(x.c[(0, 1)], x['x,y'])
+
+    def test_slice_int(self):
+        x = math.random_normal(batch(b=2), channel(c='x,y,z'))
+        math.assert_close(x.c[0], x[0])
+        math.assert_close(x.c[(0, 1)], x[[0, 1]])
 
     def test_serialize_tensor(self):
         t = math.random_normal(batch(batch=10), spatial(x=4, y=3), channel(vector=2))
@@ -407,3 +441,76 @@ class TestTensors(TestCase):
     def test_iter_dim(self):
         slices = tuple(math.zeros(channel(vector='x,y')).vector)
         self.assertEqual(2, len(slices))
+
+    def test_matmul_reduce(self):
+        a = math.meshgrid(x=4, y=3)
+        math.assert_close(a.y[0], a.y * (1, 0, 0))
+        math.assert_close(a.y[1], a.y * (0, 1, 0))
+
+    def test_zero_dim(self):
+        nothing = math.random_uniform(spatial(x=5)).x[:0]
+        self.assertEqual(spatial(x=0), nothing.shape)
+        nothing = math.zeros(spatial(x=5)).x[:0]
+        self.assertEqual(spatial(x=0), nothing.shape)
+
+    def test_disassemble_assemble(self):
+        for t in [
+            math.zeros(batch(b=2, c=2)),
+            math.ones(batch(b=10)) * wrap((1, 2), channel('vector')),
+        ]:
+            natives, shapes, native_dims = disassemble_tensors(t, expand=False)
+            restored = assemble_tensors(natives, shapes, native_dims)
+            math.assert_close(t, restored)
+            print(restored)
+
+    def test_is_number(self):
+        self.assertTrue(math.is_scalar(1.))
+        self.assertTrue(math.is_scalar(-3))
+        self.assertTrue(math.is_scalar(True))
+        self.assertTrue(math.is_scalar(1j))
+        self.assertTrue(math.is_scalar(math.zeros()))
+        self.assertTrue(math.is_scalar(numpy.zeros(())))
+        self.assertFalse(math.is_scalar(math.zeros(spatial(x=4))))
+        self.assertFalse(math.is_scalar(numpy.zeros((1,))))
+
+    def test_compatible_tensor(self):
+        a = wrap([1, 2, 3], instance('points')) * vec(x=0, y=1)
+        self.assertEqual(instance(points=3) & channel(vector='x,y'), a.shape)
+
+    def test_numpy_cast(self):
+        for t in [math.zeros(spatial(x=4)), math.random_uniform(spatial(x=4))]:
+            self.assertEqual(numpy.float32, t.numpy().dtype)
+            with math.precision(64):
+                self.assertEqual(numpy.float64, t.numpy().dtype)
+
+    def test_change_dims(self):
+        t = math.expand(math.random_normal(spatial(x=4)), batch(b=10))
+        self.assertEqual(batch(b=10, a=4), t.x.as_batch('a').shape)
+        self.assertEqual(t.shape, t.nodim.as_batch('a').shape)
+
+    def test_device(self):
+        for backend in BACKENDS:
+            with backend:
+                t = math.zeros()
+                self.assertEqual(t.device, t.default_backend.get_default_device())
+                self.assertEqual(backend.get_default_device(), t.device)
+
+    def test_wrap_layout(self):
+        for a in ['abc', ('a', 'b', 'c'), math.layout('a')]:
+            t = wrap(a)
+            self.assertIsInstance(t, Layout, type(t))
+
+    def test_expand_layout(self):
+        layout = math.layout(['a', 'b'], spatial('alphabet'))
+        exp = math.expand(layout, batch(b=10))
+        self.assertEqual(batch(b=10) & spatial(alphabet=2), exp.shape)
+        self.assertEqual(exp.native('b,alphabet'), [['a', 'b']] * 10)
+        # self.assertEqual(exp.native('alphabet,b'), [['a'] * 10, ['b'] * 10])
+
+    def test_layout_equality(self):
+        l1 = wrap(['a', 'b'])
+        l2 = wrap(['a', 'c'])
+        math.assert_close(wrap([True, False]), l1 == l2)
+        self.assertIsInstance(l1 == l2, math.Tensor)
+        math.assert_close(wrap([False, True]), l1 != l2)
+        self.assertIsInstance(l1 != l2, math.Tensor)

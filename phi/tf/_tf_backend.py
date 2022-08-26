@@ -1,7 +1,7 @@
 import numbers
 from contextlib import contextmanager
 from functools import wraps, partial
-from typing import List, Callable
+from typing import List, Callable, Tuple
 
 import keras
 import numpy as np
@@ -9,7 +9,7 @@ import os
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from ..math.backend._backend import combined_dim
+from ..math.backend._backend import combined_dim, TensorType
 from ..math.backend._dtype import DType, to_numpy_dtype, from_numpy_dtype
 from phi.math.backend import Backend, ComputeDevice, NUMPY
 from ._tf_cuda_resample import resample_cuda, use_cuda
@@ -18,35 +18,27 @@ from ._tf_cuda_resample import resample_cuda, use_cuda
 class TFBackend(Backend):
 
     def __init__(self):
-        default_device = '/' + os.path.basename(tf.zeros(()).device)
-        default_device = ComputeDevice(self, default_device, default_device.split(":")[-2], -1, -1, "", default_device)
-        for device in self.list_devices():
-            if device.name == default_device.name:
+        devices = [ComputeDevice(self, device.name, device.device_type, device.memory_limit, -1, str(device), device.name) for device in device_lib.list_local_devices()]
+        # Example refs: '/device:CPU:0'
+        default_device_ref = '/' + os.path.basename(tf.zeros(()).device)
+        default_device = None
+        for device in devices:
+            if device.ref == default_device_ref:
                 default_device = device
-        Backend.__init__(self, "TensorFlow", default_device)
+        assert default_device is not None
+        Backend.__init__(self, "TensorFlow", devices, default_device)
 
     def prefers_channels_last(self) -> bool:
         return True
 
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        tf_devices = device_lib.list_local_devices()
-        devices = []
-        for device in tf_devices:
-            if device_type in (None, device.device_type):
-                devices.append(ComputeDevice(self, device.name, device.device_type, device.memory_limit,
-                                             processor_count=-1,
-                                             description=str(device),
-                                             ref=tf.device(device.name)))
-        return devices
-
     def _device_for(self, *values):
         devices = set(v.device for v in values if hasattr(v, 'device'))
         if len(devices) == 0:
-            return self._default_device.ref
+            return tf.device(self._default_device.ref)
         elif len(devices) == 1:
             return tf.device(next(iter(devices)))
         else:
-            return self._default_device.ref
+            return tf.device(self._default_device.ref)
 
     def seed(self, seed: int):
         tf.random.set_seed(seed)
@@ -62,7 +54,7 @@ class TFBackend(Backend):
             return is_tf_tensor or NUMPY.is_tensor(x, only_native=False)
 
     def as_tensor(self, x, convert_external=True):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             if self.is_tensor(x, only_native=convert_external):
                 return tf.identity(x)
             tensor = tf.convert_to_tensor(x)
@@ -91,7 +83,7 @@ class TFBackend(Backend):
 
     def from_dlpack(self, capsule):
         from tensorflow import experimental
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             return experimental.dlpack.from_dlpack(capsule)
 
     def copy(self, tensor, only_mutable=False):
@@ -100,6 +92,16 @@ class TFBackend(Backend):
                 return tf.identity(tensor)
         else:
             return tensor
+
+    def get_device(self, tensor: TensorType) -> ComputeDevice:
+        device_name = '/' + os.path.basename(tensor.device)
+        return self.get_device_by_ref(device_name)
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        with tf.device(device.ref):
+            result = tf.identity(tensor)
+            assert self.get_device(result) == device
+            return result
 
     def jit_compile(self, f: Callable) -> Callable:
         compiled = tf.function(f)
@@ -131,7 +133,7 @@ class TFBackend(Backend):
     def random_uniform(self, shape, low, high, dtype: DType or None):
         dtype = dtype or self.float_type
         tdt = to_numpy_dtype(dtype)
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             if dtype.kind != complex:
                 return tf.random.uniform(shape, low, high, dtype=tdt)
             else:
@@ -140,11 +142,11 @@ class TFBackend(Backend):
                 return real + 1j * imag
 
     def random_normal(self, shape, dtype: DType):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             return tf.random.normal(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def range(self, start, limit=None, delta=1, dtype: DType = DType(int, 32)):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             return tf.range(start, limit, delta, to_numpy_dtype(dtype))
 
     def tile(self, value, multiples):
@@ -178,6 +180,8 @@ class TFBackend(Backend):
 
     def sum(self, value, axis=None, keepdims=False):
         with tf.device(value.device):
+            if self.dtype(value).kind == bool:
+                value = self.to_int32(value)
             if axis is not None:
                 if not isinstance(axis, int):
                     axis = list(axis)
@@ -229,32 +233,33 @@ class TFBackend(Backend):
             return NotImplemented
 
     def zeros(self, shape, dtype: DType = None):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             return tf.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def zeros_like(self, tensor):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             return tf.zeros_like(tensor)
 
     def ones(self, shape, dtype: DType = None):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             return tf.ones(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
     def ones_like(self, tensor):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             return tf.ones_like(tensor)
 
     def meshgrid(self, *coordinates):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             result = tf.meshgrid(*coordinates, indexing='ij')
             return result
 
     def linspace(self, start, stop, number):
-        with self._default_device.ref:
+        with tf.device(self._default_device.ref):
             return self.to_float(tf.linspace(start, stop, number))
 
     def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
         with self._device_for(a, b):
+            a, b = self.auto_cast(a, b, bool_to_int=True)
             return tf.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
@@ -626,7 +631,7 @@ class TFBackend(Backend):
             a, b = self.auto_cast(a, b)
             return a // b
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         @wraps(f)
         def eval_grad(*args):
             args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
@@ -636,42 +641,21 @@ class TFBackend(Backend):
                 for arg in wrt_args:
                     assert arg.dtype in (tf.float16, tf.float32, tf.float64, tf.complex64, tf.complex128), f"Gradients can only be computed for float or complex tensors but got {arg.dtype} for argument with shape {arg.shape}"
                     tape.watch(arg)
-                output = f(*args)
-            output = output if isinstance(output, (tuple, list)) else [output]
-            loss = output[0]  # tf.reduce_sum(output[0]) not needed and will cause gradients to be None
-            grads = list(self.as_registered.call(tape.gradient, loss, wrt_args, name=f"Backpropagation"))
-            assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."
-            if get_output:
-                return (*output, *grads)
+                loss, output = f(*args)
+            if self.prod(tf.shape(loss)) == 1:
+                grads = list(self.as_registered.call(tape.gradient, loss, wrt_args, name=f"Backpropagation"))
             else:
-                return grads
+                grads = list(self.as_registered.call(tape.jacobian, loss, wrt_args, name=f"Backpropagation"))
+            assert None not in grads, f"Gradient could not be computed for wrt argument {grads.index(None)} (argument {wrt[grads.index(None)]}) with shape {wrt_args[grads.index(None)].shape}. TensorFlow returned gradient=None."
+            return (*output, *grads) if get_output else grads
         return eval_grad
-
-    # def variable(self, value):  # not supported, variables must record gradients outside a context
-    #     return tf.Variable(value, trainable=True)
-
-    def gradients(self, y, xs: tuple or list, grad_y):
-        if _TAPES:
-            tape = _TAPES[-1]
-            return tape.gradient(y, xs, grad_y)
-        return tf.gradients(y, xs, grad_y)
-
-    @contextmanager
-    def record_gradients(self, xs: tuple or list, persistent=False):
-        tape = tf.GradientTape(persistent=persistent)
-        tape.__enter__()
-        for x in xs:
-            tape.watch(x)
-        _TAPES.append(tape)
-
-        try:
-            yield None
-        finally:
-            tape.__exit__(None, None, None)
-            _TAPES.pop(-1)
 
     def stop_gradient(self, value):
         return tf.stop_gradient(value)
+
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
+        solution = tf.linalg.lstsq(matrix, rhs)
+        return solution, None, None, None
 
 
 _TAPES = []

@@ -1,15 +1,21 @@
 import warnings
 from numbers import Number
 
-from phi import math, struct, field
+from phi import math, field
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, HardGeometryMask
 from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
 from phi.geom import Geometry
 from phi.math import Tensor, channel, instance
 from phi.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
 from phi.math import spatial
-from ._physics import State
 from ..math.extrapolation import combine_sides
+from .fluid import Obstacle  # for compatibility
+
+
+warnings.warn("""Domain (phi.physics._boundaries) is deprecated and will be removed in a future release.
+Please create grids directly, replacing the domain with a dict, e.g.
+    domain = dict(x=64, y=128, bounds=Box(x=1, y=1))
+    grid = CenteredGrid(0, **domain)""", FutureWarning, stacklevel=2)
 
 
 def _create_boundary_conditions(obj: dict or tuple or list, spatial_dims: tuple) -> dict:
@@ -82,16 +88,12 @@ class Domain:
         """
         warnings.warn("Domain is deprecated and will be removed in a future release. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", DeprecationWarning, stacklevel=2)
         warnings.warn("Domain is deprecated and will be removed in a future release. Use a dict instead, e.g. CenteredGrid(values, extrapolation, **domain_dict)", FutureWarning, stacklevel=2)
-        if isinstance(resolution, (tuple, list)):
-            from ..math._config import GLOBAL_AXIS_ORDER
-            dims = [GLOBAL_AXIS_ORDER.axis_name(i, len(resolution)) for i in range(len(resolution))]
-            resolution = spatial(**{dim: val for dim, val in zip(dims, resolution)})
         self.resolution: math.Shape = spatial(resolution) & spatial(**resolution_)
         assert self.resolution.rank > 0, "Cannot create Domain because no dimensions were specified."
         """ Grid dimensions as `Shape` object containing spatial dimensions only. """
         self.boundaries: dict = _create_boundary_conditions(boundaries, self.resolution.names)
         """ Outer boundary conditions. """
-        self.bounds: Box = Box(0, math.wrap(self.resolution, channel('vector'))) if bounds is None else bounds
+        self.bounds: Box = Box(math.const_vec(0, self.resolution), math.wrap(self.resolution, channel('vector'))) if bounds is None else bounds
         """ Physical dimensions of the domain. """
 
     def __repr__(self):
@@ -340,44 +342,6 @@ class Domain:
         geometries = HardGeometryMask(union(geometries)) @ self.grid()
         initial_points = _distribute_points(geometries.values, points_per_cell, center=center)
         return self.points(initial_points, color=color)
-
-
-@struct.definition()
-class Obstacle(State):
-    """
-    An obstacle defines boundary conditions inside a geometry.
-    It can also have a linear and angular velocity.
-    """
-
-    def __init__(self, geometry, material=STICKY, velocity=0, tags=('obstacle',), **kwargs):
-        State.__init__(self, **struct.kwargs(locals()))
-
-    @struct.constant()
-    def geometry(self, geometry):
-        """ Physical shape and size of the obstacle. """
-        assert isinstance(geometry, Geometry)
-        return geometry
-
-    @struct.constant(default=STICKY)
-    def material(self, material):
-        """ Boundary conditions to apply inside and on the surface of the obstacle. """
-        assert isinstance(material, dict)
-        return material
-
-    @struct.constant(default=0)
-    def velocity(self, velocity):
-        """ Linear velocity vector of the obstacle. """
-        return velocity
-
-    @struct.constant(default=0)
-    def angular_velocity(self, av):
-        """ Rotation speed of the obstacle. Scalar value in 2D, vector in 3D. """
-        return av
-
-    @struct.derived()
-    def is_stationary(self):
-        """ Test whether the obstacle is completely still. """
-        return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
 
 
 def _distribute_points(mask: math.Tensor, points_per_cell: int = 1, center: bool = False) -> math.Tensor:

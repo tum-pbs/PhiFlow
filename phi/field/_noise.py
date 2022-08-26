@@ -6,6 +6,7 @@ from phi import math
 from phi.geom import GridCell, Geometry
 from phi.math import random_normal, Tensor, channel
 from ._field import Field
+from .numerical import Scheme
 
 
 class Noise(Field):
@@ -16,7 +17,7 @@ class Noise(Field):
     Noise is typically used as an initializer for CenteredGrids or StaggeredGrids.
     """
 
-    def __init__(self, *shape: math.Shape, scale=10, smoothness=1.0, **channel_dims):
+    def __init__(self, *shape: math.Shape, scale=10., smoothness=1.0, **channel_dims):
         """
         Args:
           shape: Batch and channel dimensions. Spatial dimensions will be added automatically once sampled on a grid.
@@ -32,7 +33,7 @@ class Noise(Field):
     def shape(self):
         return self._shape
 
-    def _sample(self, geometry: Geometry) -> Tensor:
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
         if isinstance(geometry, GridCell):
             return self.grid_sample(geometry.resolution, geometry.grid_size)
         raise NotImplementedError(f"{type(geometry)} not supported. Only GridCell allowed.")
@@ -44,17 +45,14 @@ class Noise(Field):
                 warnings.warn(f"Please provide item names for Noise dim {dim} using {dim}='x,y,z'", FutureWarning)
                 shape &= channel(**{dim.name: resolution.names})
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
-        with math.NUMPY:
-            k = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
-            k = math.vec_squared(k)
+        # --- Compute 1 / k^2 ---
+        k_vec = math.fftfreq(resolution) * resolution / math.tensor(size) * math.tensor(self.scale)  # in physical units
+        k2 = math.vec_squared(k_vec)
         lowest_frequency = 0.1
-        weight_mask = math.to_float(k > lowest_frequency)
-        # --- Compute 1/k ---
-        k._native[(0,) * len(k.shape)] = np.inf
-        inv_k = 1 / k
-        inv_k._native[(0,) * len(k.shape)] = 0
+        weight_mask = math.to_float(k2 > lowest_frequency)
+        inv_k2 = math.divide_no_nan(1, k2)
         # --- Compute result ---
-        fft = rndj * inv_k ** self.smoothness * weight_mask
+        fft = rndj * inv_k2 ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))
         array /= math.std(array, dim=array.shape.non_batch)
         array -= math.mean(array, dim=array.shape.non_batch)

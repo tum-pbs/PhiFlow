@@ -4,11 +4,12 @@ from typing import Dict, Tuple
 import numpy as np
 
 from phi import math
-from ._geom import Geometry
-from ._transform import rotate
-from ..math import wrap, INF
+from ._geom import Geometry, _keep_vector
+from ..math import wrap, INF, Shape, channel, spatial
+from ..math._shape import parse_dim_order
 from ..math._tensors import Tensor, copy_with
 from ..math.backend._backend import combined_dim, PHI_LOGGER
+from ..math.magic import slicing_dict
 
 
 class BaseBox(Geometry):  # not a Subwoofer
@@ -61,7 +62,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         return math.tensor('B')
 
     def bounding_radius(self):
-        return math.max(self.size, 'vector') * 1.414214
+        return math.vec_length(self.half_size)
 
     def bounding_half_extent(self):
         return self.size * 0.5
@@ -81,7 +82,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
         return bool_inside
 
-    def approximate_signed_distance(self, location):
+    def approximate_signed_distance(self, location: Tensor or tuple):
         """
         Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
         For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
@@ -115,12 +116,8 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
-        if self.size.vector.item_names is None:
-            assert len(dimensions) == self.spatial_rank, "Cannot project a Box if item names not available"
-            return self
-        lower = self.lower.vector[dimensions]
-        upper = self.upper.vector[dimensions]
-        return Box(lower, upper)
+        warnings.warn("Box.project(dims) is deprecated. Use Box.vector[dims] instead", DeprecationWarning, stacklevel=2)
+        return self.vector[dimensions]
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
@@ -128,6 +125,8 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def corner_representation(self) -> 'Box':
         return Box(self.lower, self.upper)
+
+    box = corner_representation
 
     def center_representation(self) -> 'Cuboid':
         return Cuboid(self.center, self.half_size)
@@ -137,6 +136,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
     def rotated(self, angle) -> Geometry:
+        from ._transform import rotate
         return rotate(self, angle)
 
     def scaled(self, factor: float or Tensor) -> 'Geometry':
@@ -147,15 +147,20 @@ class BoxType(type):
     """ Deprecated. Does not support item names. """
 
     def __getitem__(self, item):
-        if not isinstance(item, (tuple, list)):
-            item = [item]
+        assert isinstance(item, tuple) and isinstance(item[0], str), "The Box constructor was updated in Φ-Flow version 2.2. Please add the dimension order as a comma-separated string as the first argument, e.g. Box['x,y', 0:1, 1:2] or use the kwargs constructor Box(x=1, y=(1, 2))"
+        assert len(item) <= 3, f"Box[...] can only be used for x, y, z but got {len(item)} elements"
+        dim_order = parse_dim_order(item[0])
+        assert len(dim_order) == len(item) - 1, f"Dimension order '{item[0]}' does not match number of slices, {len(item) - 1}"
         lower = []
         upper = []
-        for dim in item:
+        for dim_name, dim in zip(dim_order, item[1:]):
             assert isinstance(dim, slice)
             assert dim.step is None or dim.step == 1, "Box: step must be 1 but is %s" % dim.step
             lower.append(dim.start if dim.start is not None else -np.inf)
             upper.append(dim.stop if dim.stop is not None else np.inf)
+        vec = math.channel(vector=dim_order)
+        lower = math.stack(lower, vec)
+        upper = math.stack(upper, vec)
         return Box(lower, upper)
 
 
@@ -171,22 +176,32 @@ class Box(BaseBox, metaclass=BoxType):
     Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
     Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     ```
+
+    The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.
+
+    ```python
+    Box['x,y', 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+    Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
+    ```
     """
 
-    def __init__(self,
-                 lower: Tensor or float or int = None,
-                 upper: Tensor or float or int = None,
-                 **size: int or Tensor):
+    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: int or Tensor):
         """
         Args:
           lower: physical location of lower corner
           upper: physical location of upper corner
-          **size: Upper l
+          **size: Specify size by dimension, either as `int` or `tuple` containing (lower, upper).
         """
         if lower is not None:
-            self._lower = wrap(lower)
+            assert isinstance(lower, Tensor)
+            assert 'vector' in lower.shape, "lower must have a vector dimension"
+            assert lower.vector.item_names is not None, "vector dimension of lower must list spatial dimension order"
+            self._lower = lower
         if upper is not None:
-            self._upper = wrap(upper)
+            assert isinstance(upper, Tensor)
+            assert 'vector' in upper.shape, "lower must have a vector dimension"
+            assert upper.vector.item_names is not None, "vector dimension of lower must list spatial dimension order"
+            self._upper = upper
         else:
             lower = []
             upper = []
@@ -212,11 +227,15 @@ class Box(BaseBox, metaclass=BoxType):
         if self.size.vector.item_names is None:
             warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
 
-    def unstack(self, dimension):
-        size = combined_dim(self._lower.shape.get_size(dimension), self._upper.shape.get_size(dimension))
-        lowers = self._lower.dimension(dimension).unstack(size)
-        uppers = self._upper.dimension(dimension).unstack(size)
-        return tuple(Box(lo, up) for lo, up in zip(lowers, uppers))
+    def __getitem__(self, item):
+        item = _keep_vector(slicing_dict(self, item))
+        return Box(self._lower[item], self._upper[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(isinstance(v, Box) for v in values):
+            return Box(math.stack([v.lower for v in values], dim, **kwargs), math.stack([v.upper for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
@@ -224,6 +243,13 @@ class Box(BaseBox, metaclass=BoxType):
                and self.size.shape.get_size('vector') == other.size.shape.get_size('vector')\
                and math.close(self._lower, other.lower)\
                and math.close(self._upper, other.upper)
+
+    def without(self, dims: Tuple[str, ...]):
+        remaining = list(self.shape.get_item_names('vector'))
+        for dim in dims:
+            if dim in remaining:
+                remaining.remove(dim)
+        return self.vector[remaining]
 
     def __hash__(self):
         return hash(self._upper)
@@ -235,7 +261,7 @@ class Box(BaseBox, metaclass=BoxType):
     def shape(self):
         if self._lower is None or self._upper is None:
             return None
-        return (self._lower.shape & self._upper.shape).non_channel
+        return self._lower.shape & self._upper.shape
 
     @property
     def lower(self):
@@ -263,8 +289,8 @@ class Box(BaseBox, metaclass=BoxType):
     def __mul__(self, other):
         if not isinstance(other, Box):
             return NotImplemented
-        lower = self._lower.vector.unstack(self.spatial_rank) + other._lower.vector.unstack(self.spatial_rank)
-        upper = self._upper.vector.unstack(self.spatial_rank) + other._upper.vector.unstack(self.spatial_rank)
+        lower = self._lower.vector.unstack(self.spatial_rank) + other._lower.vector.unstack(other.spatial_rank)
+        upper = self._upper.vector.unstack(self.spatial_rank) + other._upper.vector.unstack(other.spatial_rank)
         names = self._upper.vector.item_names + other._upper.vector.item_names
         lower = math.stack(lower, math.channel(vector=names))
         upper = math.stack(upper, math.channel(vector=names))
@@ -278,7 +304,7 @@ class Box(BaseBox, metaclass=BoxType):
             else:  # deprecated
                 return 'Box[%s at %s]' % ('x'.join([str(x) for x in self.size.numpy().flatten()]), ','.join([str(x) for x in self.lower.numpy().flatten()]))
         else:
-            return 'Box[shape=%s]' % self.shape
+            return f'Box[shape={self.shape}]'
 
 
 class Cuboid(BaseBox):
@@ -290,11 +316,18 @@ class Cuboid(BaseBox):
                  center: Tensor = 0,
                  half_size: float or Tensor = None,
                  **size: float or Tensor):
-        self._center = wrap(center)
         if half_size is not None:
-            self._half_size = wrap(half_size)
+            assert isinstance(half_size, Tensor), "half_size must be a Tensor"
+            assert 'vector' in half_size.shape, f"Cuboid size must have a 'vector' dimension."
+            assert half_size.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Cuboid(x=x, y=y) to assign names."
+            self._half_size = half_size
         else:
             self._half_size = math.wrap(tuple(size.values()), math.channel(vector=tuple(size.keys()))) * 0.5
+        center = wrap(center)
+        if 'vector' not in center.shape or center.shape.get_item_names('vector') is None:
+            center = math.expand(center, channel(self._half_size))
+        self._center = center
+
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
@@ -304,6 +337,16 @@ class Cuboid(BaseBox):
 
     def __hash__(self):
         return hash(self._center)
+
+    def __getitem__(self, item):
+        item = _keep_vector(slicing_dict(self, item))
+        return Cuboid(self._center[item], self._half_size[item])
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(isinstance(v, Cuboid) for v in values):
+            return Cuboid(math.stack([v.center for v in values], dim, **kwargs), math.stack([v.half_size for v in values], dim, **kwargs))
+        else:
+            return Geometry.__stack__(self, values, dim, **kwargs)
 
     def __variable_attrs__(self):
         return '_center', '_half_size'
@@ -320,7 +363,7 @@ class Cuboid(BaseBox):
     def shape(self):
         if self._center is None or self._half_size is None:
             return None
-        return (self._center.shape & self._half_size.shape).without('vector')
+        return self._center.shape & self._half_size.shape
 
     @property
     def size(self):
@@ -370,7 +413,7 @@ class GridCell(BaseBox):
 
     @property
     def center(self):
-        local_coords = math.meshgrid(**{dim: math.linspace(0.5 / size, 1 - 0.5 / size, size) for dim, size in zip(self.resolution.names, self.resolution.sizes)})
+        local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
         points = self.bounds.local_to_global(local_coords)
         return points
 
@@ -381,6 +424,10 @@ class GridCell(BaseBox):
     @property
     def size(self):
         return self.bounds.size / math.wrap(self.resolution.sizes)
+
+    @property
+    def dx(self):
+        return self.bounds.size / self.resolution
 
     @property
     def lower(self):
@@ -394,7 +441,8 @@ class GridCell(BaseBox):
     def half_size(self):
         return self.bounds.size / self.resolution.sizes / 2
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
         bounds = self._bounds
         dx = self.size
         gather_dict = {}
@@ -405,6 +453,8 @@ class GridCell(BaseBox):
                     stop = selection + 1
                 elif isinstance(selection, slice):
                     start = selection.start or 0
+                    if start < 0:
+                        start += self.resolution.get_size(dim)
                     stop = selection.stop or self.resolution.get_size(dim)
                     if stop < 0:
                         stop += self.resolution.get_size(dim)
@@ -419,6 +469,9 @@ class GridCell(BaseBox):
         resolution = self._resolution.after_gather(gather_dict)
         return GridCell(resolution, bounds)
 
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Cuboid':
+        return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
+
     def list_cells(self, dim_name):
         center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
@@ -429,6 +482,14 @@ class GridCell(BaseBox):
         bounds = Box(self.bounds.lower + unit * (-0.5 if lower else 0.5), self.bounds.upper + unit * (0.5 if upper else -0.5))
         ext_res = self.resolution.sizes + dim_mask * (int(lower) + int(upper) - 1)
         return GridCell(self.resolution.with_sizes(ext_res), bounds)
+
+    def padded(self, widths: dict):
+        resolution, bounds = self.resolution, self.bounds
+        for dim, (lower, upper) in widths.items():
+            masked_dx = self.dx * math.dim_mask(self.resolution, dim)
+            resolution = resolution.with_dim_size(dim, self.resolution.get_size(dim) + lower + upper)
+            bounds = Box(bounds.lower - masked_dx * lower, bounds.upper + masked_dx * upper)
+        return GridCell(resolution, bounds)
 
     # def face_centers(self, staggered_name='staggered'):
     #     face_centers = [self.extend_symmetric(dim).center for dim in self.shape.spatial.names]
@@ -447,10 +508,7 @@ class GridCell(BaseBox):
             return Cuboid(center, self.half_size)
 
     def rotated(self, angle) -> Geometry:
-        raise NotImplementedError()
-
-    def unstack(self, dimension):
-        raise NotImplementedError()
+        raise NotImplementedError("Grids cannot be rotated. Use center_representation() to convert it to Cuboids first.")
 
     def __eq__(self, other):
         return isinstance(other, GridCell) and self._bounds == other._bounds and self._resolution == other._resolution

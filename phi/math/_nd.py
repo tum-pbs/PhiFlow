@@ -1,24 +1,59 @@
-# Because division is different in Python 2 and 3
-from __future__ import division
-
-from typing import Tuple, Callable
+from typing import Tuple, Optional
 
 import numpy as np
 
 from . import _ops as math
 from . import extrapolation as extrapolation
-from ._config import GLOBAL_AXIS_ORDER
-from ._ops import stack
-from ._shape import Shape, channel, batch, spatial
-from ._tensors import Tensor, TensorLike, variable_values
-from ._tensors import wrap
+from ._magic_ops import stack, rename_dims, concat
+from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order
+from ._tensors import Tensor, variable_values, wrap
+from .magic import PhiTreeNode
 from .extrapolation import Extrapolation
 
 
-def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None, eps: float or Tensor = None):
+def vec(name='vector', **components) -> Tensor:
+    """
+    Lay out the given values along a channel dimension without converting them to the current backend.
+
+    Args:
+        **components: Values by component name.
+        name: Dimension name.
+
+    Returns:
+        `Tensor`
+    """
+    return stack(components, channel(name))
+
+
+def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):
+    """
+    Creates a single-dimension tensor with all values equal to `value`.
+    `value` is not converted to the default backend, even when it is a Python primitive.
+
+    Args:
+        value: Value for filling the vector.
+        dim: Either single-dimension non-spatial Shape or `Shape` consisting of any number of spatial dimensions.
+            In the latter case, a new channel dimension named `'vector'` will be created from the spatial shape.
+
+    Returns:
+        `Tensor`
+    """
+    if isinstance(dim, Shape):
+        if dim.spatial:
+            assert not dim.non_spatial, f"When creating a vector given spatial dimensions, the shape may only contain spatial dimensions but got {dim}"
+            shape = channel(vector=dim.names)
+        else:
+            assert dim.rank == 1, f"Cannot create vector from {dim}"
+            shape = dim
+    else:
+        dims = parse_dim_order(dim)
+        shape = channel(vector=dims)
+    return wrap([value] * shape.size, shape)
+
+
+def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: float or Tensor = None):
     """
     Computes the vector length of `vec`.
-    If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector.
 
     Args:
         eps: Minimum vector length. Use to avoid `inf` gradients for zero-length vectors.
@@ -29,12 +64,12 @@ def vec_abs(vec: Tensor, vec_dim: str or tuple or list or Shape = None, eps: flo
     return math.sqrt(squared)
 
 
-def vec_squared(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+def vec_squared(vec: Tensor, vec_dim: DimFilter = channel):
     """ Computes the squared length of `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
-    return math.sum_(vec ** 2, dim=vec.shape.channel if vec_dim is None else vec_dim)
+    return math.sum_(vec ** 2, dim=vec_dim)
 
 
-def vec_normalize(vec: Tensor, vec_dim: str or tuple or list or Shape = None):
+def vec_normalize(vec: Tensor, vec_dim: DimFilter = channel):
     """ Normalizes the vectors in `vec`. If `vec_dim` is None, the combined channel dimensions of `vec` are interpreted as a vector. """
     return vec / vec_abs(vec, vec_dim=vec_dim)
 
@@ -56,18 +91,12 @@ def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
     if spatial_rank == 2:  # Curl in 2D
         assert vec2.vector.exists
         if vec1.vector.exists:
-            v1_x, v1_y = vec1.vector.unstack()
-            v2_x, v2_y = vec2.vector.unstack()
-            if GLOBAL_AXIS_ORDER.is_x_first:
-                return v1_x * v2_y - v1_y * v2_x
-            else:
-                return - v1_x * v2_y + v1_y * v2_x
+            v1_x, v1_y = vec1.vector
+            v2_x, v2_y = vec2.vector
+            return v1_x * v2_y - v1_y * v2_x
         else:
-            v2_x, v2_y = vec2.vector.unstack()
-            if GLOBAL_AXIS_ORDER.is_x_first:
-                return vec1 * math.stack([-v2_y, v2_x], channel('vector'))
-            else:
-                return vec1 * math.stack([v2_y, -v2_x], channel('vector'))
+            v2_x, v2_y = vec2.vector
+            return vec1 * math.stack_tensors([-v2_y, v2_x], channel('vector'))
     elif spatial_rank == 3:  # Curl in 3D
         raise NotImplementedError(f'spatial_rank={spatial_rank} not yet implemented')
     else:
@@ -87,18 +116,38 @@ def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
     """
     assert 'vector' in vector.shape, "vector must have 'vector' dimension."
     if vector.vector.size == 2:
-        sin = math.sin(angle)
-        cos = math.cos(angle)
-        y, x = vector.vector.unstack()
-        if GLOBAL_AXIS_ORDER.is_x_first:
-            x, y = y, x
+        sin = wrap(math.sin(angle))
+        cos = wrap(math.cos(angle))
+        x, y = vector.vector
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
-        return math.stack([rot_x, rot_y], channel('vector'))
+        return math.stack_tensors([rot_x, rot_y], channel(vector=vector.vector.item_names))
     elif vector.vector.size == 1:
         raise AssertionError(f"Cannot rotate a 1D vector. shape={vector.shape}")
     else:
         raise NotImplementedError(f"Rotation in {vector.vector.size}D not yet implemented.")
+
+
+def dim_mask(all_dims: Shape or tuple or list, dims: DimFilter, mask_dim=channel('vector')) -> Tensor:
+    """
+    Creates a masked vector with 1 elements for `dims` and 0 for all other dimensions in `all_dims`.
+
+    Args:
+        all_dims: All dimensions for which the vector should have an entry.
+        dims: Dimensions marked as 1.
+        mask_dim: Dimension of the masked vector. Item names are assigned automatically.
+
+    Returns:
+        `Tensor`
+    """
+    assert isinstance(all_dims, (Shape, tuple, list)), f"all_dims must be a tuple or Shape but got {type(all_dims)}"
+    assert isinstance(mask_dim, Shape) and mask_dim.rank == 1, f"mask_dim must be a single-dimension Shape but got {mask_dim}"
+    if isinstance(all_dims, (tuple, list)):
+        all_dims = spatial(*all_dims)
+    dims = all_dims.only(dims)
+    mask = [1 if dim in dims else 0 for dim in all_dims]
+    mask_dim = mask_dim._with_item_names((all_dims.names,))
+    return wrap(mask, mask_dim)
 
 
 def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
@@ -119,36 +168,34 @@ def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
     return target * (source_total / denominator)
 
 
-def l1_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tensor:
+def l1_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `TensorLike`.
-            For `TensorLike` objects, only value the sum over all value attributes is computed.
-        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
-            `Shape or list or tuple or str or spatial or instance or channel`.
+        x: `Tensor` or `PhiTreeNode`.
+            For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
+        reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
         loss: `Tensor`
     """
     if isinstance(x, Tensor):
         return math.sum_(abs(x), reduce)
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         return sum([l1_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)
 
 
-def l2_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tensor:
+def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     """
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `TensorLike`.
-            For `TensorLike` objects, only value the sum over all value attributes is computed.
-        reduce: Dimensions to reduce. By default all non-batch dimensions are reduced.
-            `Shape or list or tuple or str or spatial or instance or channel`.
+        x: `Tensor` or `PhiTreeNode`.
+            For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
+        reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
         loss: `Tensor`
@@ -157,7 +204,7 @@ def l2_loss(x, reduce: Shape or list or tuple or str or Callable = None) -> Tens
         if x.dtype.kind == complex:
             x = abs(x)
         return math.sum_(x ** 2, reduce) * 0.5
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         return sum([l2_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
         raise ValueError(x)
@@ -173,7 +220,7 @@ def frequency_loss(x,
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-        x: `Tensor` or `TensorLike` Values to penalize, typically `actual - target`.
+        x: `Tensor` or `PhiTreeNode` Values to penalize, typically `actual - target`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
         threshold: Frequency amplitudes below this value are ignored.
@@ -193,7 +240,7 @@ def frequency_loss(x,
         diff_fft = abs_square(math.fft(x) * weights)
         diff_fft = math.sqrt(math.maximum(diff_fft, threshold))
         return l2_loss(diff_fft) if n == 2 else l1_loss(diff_fft)
-    elif isinstance(x, TensorLike):
+    elif isinstance(x, PhiTreeNode):
         losses = [frequency_loss(getattr(x, a), frequency_falloff, threshold, ignore_mean, n) for a in variable_values(x)]
         return sum(losses)
     else:
@@ -250,9 +297,9 @@ def abs_square(complex_values: Tensor) -> Tensor:
 
 def shift(x: Tensor,
           offsets: tuple,
-          dims: str or Shape or tuple or list or Callable or None = math.spatial,
+          dims: DimFilter = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
-          stack_dim: Shape or None = channel('shift')) -> list:
+          stack_dim: Optional[Shape] = channel('shift')) -> list:
     """
     shift Tensor by a fixed offset and abiding by extrapolation
 
@@ -268,7 +315,7 @@ def shift(x: Tensor,
 
     """
     if dims is None:
-        dims = spatial
+        raise ValueError("dims=None is not supported anymore.")
     dims = x.shape.only(dims).names
     if stack_dim is None:
         assert len(dims) == 1
@@ -290,34 +337,27 @@ def shift(x: Tensor,
     return offset_tensors
 
 
-def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int = 1) -> Tuple[Tensor, Tensor]:
+def masked_fill(values: Tensor, valid: Tensor, distance: int = 1) -> Tuple[Tensor, Tensor]:
     """
-    Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance_cells` steps in all spatial directions.
+    Extrapolates the values of `values` which are marked by the nonzero values of `valid` for `distance` steps in all spatial directions.
     Overlapping extrapolated values get averaged. Extrapolation also includes diagonals.
-
-    Examples (1-step extrapolation), x marks the values for extrapolation:
-        200   000    111        004   00x    044        102   000    144
-        010 + 0x0 => 111        000 + 000 => 234        004 + 00x => 234
-        040   000    111        200   x00    220        200   x00    234
 
     Args:
         values: Tensor which holds the values for extrapolation
         valid: Tensor with same size as `x` marking the values for extrapolation with nonzero values
-        distance_cells: Number of extrapolation steps
+        distance: Number of extrapolation steps
 
     Returns:
         values: Extrapolation result
         valid: mask marking all valid values after extrapolation
     """
-
     def binarize(x):
         return math.divide_no_nan(x, x)
-
-    distance_cells = min(distance_cells, max(values.shape.sizes))
-    for _ in range(distance_cells):
+    distance = min(distance, max(values.shape.sizes))
+    for _ in range(distance):
         valid = binarize(valid)
         valid_values = valid * values
-        overlap = valid
+        overlap = valid  # count how many values we are adding
         for dim in values.shape.spatial.names:
             values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=extrapolation.ZERO)
             valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
@@ -329,13 +369,52 @@ def extrapolate_valid_values(values: Tensor, valid: Tensor, distance_cells: int 
     return values, binarize(valid)
 
 
+def finite_fill(values: Tensor, dims: DimFilter = spatial, distance: int = 1, diagonal: bool = True, padding=extrapolation.BOUNDARY) -> Tuple[Tensor, Tensor]:
+    """
+    Fills non-finite (NaN, inf, -inf) values from nearby finite values.
+    Extrapolates the finite values of `values` for `distance` steps along `dims`.
+    Where multiple finite values could fill an invalid value, the average is computed.
+
+    Args:
+        values: Floating-point `Tensor`. All non-numeric values (`NaN`, `inf`, `-inf`) are interpreted as invalid.
+        dims: Dimensions along which to fill invalid values from finite ones.
+        distance: Number of extrapolation steps, each extrapolating one cell out.
+        diagonal: Whether to extrapolate values to their diagonal neighbors per step.
+        padding: Extrapolation of `values`. Determines whether to extrapolate from the edges as well.
+
+    Returns:
+        `Tensor` of same shape as `values`.
+    """
+    if diagonal:
+        distance = min(distance, max(values.shape.sizes))
+        dims = values.shape.only(dims)
+        for _ in range(distance):
+            valid = math.is_finite(values)
+            valid_values = math.where(valid, values, 0)
+            overlap = valid
+            for dim in dims:
+                values_l, values_r = shift(valid_values, (-1, 1), dims=dim, padding=padding)
+                valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
+                mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=padding)
+                overlap = math.sum_(mask_l + mask_r + overlap, dim='shift')
+            values = math.where(valid, values, valid_values / overlap)
+    else:
+        distance = min(distance, sum(values.shape.sizes))
+        for _ in range(distance):
+            neighbors = concat(shift(values, (-1, 1), dims, padding=padding, stack_dim=channel('neighbors')), 'neighbors')
+            finite = math.is_finite(neighbors)
+            avg_neighbors = math.sum_(math.where(finite, neighbors, 0), 'neighbors') / math.sum_(finite, 'neighbors')
+            values = math.where(math.is_finite(values), values, avg_neighbors)
+    return values
+
+
 # Gradient
 
 def spatial_gradient(grid: Tensor,
                      dx: float or Tensor = 1,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
-                     dims: str or Shape or tuple or list or Callable or None = spatial,
+                     dims: DimFilter = spatial,
                      stack_dim: Shape or None = channel('gradient')) -> Tensor:
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -381,7 +460,7 @@ def spatial_gradient(grid: Tensor,
 def laplace(x: Tensor,
             dx: Tensor or float = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
-            dims: str or tuple or list or Shape or Callable = spatial):
+            dims: DimFilter = spatial):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -398,7 +477,7 @@ def laplace(x: Tensor,
     if isinstance(dx, (tuple, list)):
         dx = wrap(dx, batch('_laplace'))
     elif isinstance(dx, Tensor) and dx.vector.exists:
-        dx = math.rename_dims(dx, 'vector', batch('_laplace'))
+        dx = rename_dims(dx, 'vector', batch('_laplace'))
     if isinstance(x, Extrapolation):
         return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch('_laplace'))
@@ -463,7 +542,7 @@ def fourier_poisson(grid: Tensor,
 
 def downsample2x(grid: Tensor,
                  padding: Extrapolation = extrapolation.BOUNDARY,
-                 dims: str or tuple or list or Shape or Callable = spatial) -> Tensor:
+                 dims: DimFilter = spatial) -> Tensor:
     """
     Resamples a regular grid to half the number of spatial sample points per dimension.
     The grid values at the new points are determined via mean (linear interpolation).
@@ -490,7 +569,7 @@ def downsample2x(grid: Tensor,
 
 def upsample2x(grid: Tensor,
                padding: Extrapolation = extrapolation.BOUNDARY,
-               dims: str or tuple or list or Shape or Callable = spatial) -> Tensor:
+               dims: DimFilter = spatial) -> Tensor:
     """
     Resamples a regular grid to double the number of spatial sample points per dimension.
     The grid values at the new points are determined via linear interpolation.
@@ -511,7 +590,7 @@ def upsample2x(grid: Tensor,
         left, center, right = shift(grid, (-1, 0, 1), dim.names, padding, None)
         interp_left = 0.25 * left + 0.75 * center
         interp_right = 0.75 * center + 0.25 * right
-        stacked = math.stack([interp_left, interp_right], channel(_interleave='left,right'))
+        stacked = math.stack_tensors([interp_left, interp_right], channel(_interleave='left,right'))
         grid = math.pack_dims(stacked, (dim.name, '_interleave'), dim)
     return grid
 
@@ -536,10 +615,10 @@ def sample_subgrid(grid: Tensor, start: Tensor, size: Shape) -> Tensor:
     assert start.shape.names == ('vector',)
     assert grid.shape.spatial.names == size.names
     assert math.all_available(start), "Cannot perform sample_subgrid() during tracing, 'start' must be known."
-    discard = {}
+    crop = {}
     for dim, d_start, d_size in zip(grid.shape.spatial.names, start, size.sizes):
-        discard[dim] = slice(int(d_start), int(d_start) + d_size + (1 if d_start != 0 else 0))
-    grid = grid[discard]
+        crop[dim] = slice(int(d_start), int(d_start) + d_size + (0 if d_start % 1 in (0, 1) else 1))
+    grid = grid[crop]
     upper_weight = start % 1
     lower_weight = 1 - upper_weight
     for i, dim in enumerate(grid.shape.spatial.names):

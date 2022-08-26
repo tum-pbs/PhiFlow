@@ -1,8 +1,13 @@
 from unittest import TestCase
 
 from phi import math
-from phi.math import spatial, channel, batch, instance
-from phi.math._shape import shape_stack, vector_add, IncompatibleShapes, EMPTY_SHAPE
+from phi.math import spatial, channel, batch, instance, non_instance, non_channel, non_spatial, non_batch
+from phi.math._shape import shape_stack, vector_add, EMPTY_SHAPE, Shape
+
+
+class ShapedDummy:
+    def __init__(self, shape: Shape):
+        self.shape = shape
 
 
 class TestShape(TestCase):
@@ -24,8 +29,8 @@ class TestShape(TestCase):
         self.assertEqual(('stack', 'time', 'x', 'y'), stacked.names)
         self.assertEqual(3, stacked.get_size('stack'))
         self.assertEqual(1, stacked.get_size('time'))
-        math.assert_close((3, 3, 1), stacked.get_size('x'))
-        math.assert_close((3, 4, 1), stacked.get_size('y'))
+        math.assert_close([3, 3, 1], stacked.get_size('x'))
+        math.assert_close([3, 4, 1], stacked.get_size('y'))
         print(stacked.shape)
         self.assertEqual(('stack', 'dims'), stacked.shape.names)
         self.assertEqual(12, stacked.shape.volume)
@@ -100,3 +105,25 @@ class TestShape(TestCase):
             dict(x=0, vector='x'),
             dict(x=1, vector='x'),
         ], indices)
+
+    def test_filters(self):
+        b = batch(batch=10)
+        s = spatial(x=4, y=3)
+        i = instance(points=5)
+        c = channel(vector=2)
+        shape = math.concat_shapes(b, s, i, c)
+        for obj in [shape, math.zeros(shape)]:
+            self.assertEqual(batch(obj), b)
+            self.assertEqual(spatial(obj), s)
+            self.assertEqual(instance(obj), i)
+            self.assertEqual(channel(obj), c)
+            self.assertEqual(non_batch(obj), math.concat_shapes(s, i, c))
+            self.assertEqual(non_spatial(obj), math.concat_shapes(b, i, c))
+            self.assertEqual(non_instance(obj), math.concat_shapes(b, s, c))
+            self.assertEqual(non_channel(obj), math.concat_shapes(b, s, i))
+
+    def test_merge_shaped(self):
+        self.assertEqual(spatial(x=4, y=3, z=2), math.merge_shapes(ShapedDummy(spatial(x=4, y=3)), spatial(y=3, z=2)))
+
+    def test_concat_shaped(self):
+        self.assertEqual(spatial(x=4, y=3, z=2), math.concat_shapes(ShapedDummy(spatial(x=4, y=3)), spatial(z=2)))

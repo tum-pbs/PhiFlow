@@ -3,7 +3,7 @@ import warnings
 from collections import namedtuple
 from contextlib import contextmanager
 from threading import Barrier
-from typing import List, Callable
+from typing import List, Callable, TypeVar, Tuple
 
 import logging
 import numpy
@@ -15,13 +15,16 @@ SolveResult = namedtuple('SolveResult', [
     'method', 'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
 ])
 
+TensorType = TypeVar('TensorType')
+
 
 class ComputeDevice:
     """
     A physical device that can be selected to perform backend computations.
     """
 
-    def __init__(self, backend: 'Backend', name: str, device_type: str, memory: int, processor_count: int, description: str, ref=None):
+    def __init__(self, backend: 'Backend', name: str, device_type: str, memory: int, processor_count: int, description: str, ref):
+        assert device_type in ('CPU', 'GPU', 'TPU')
         self.name: str = name
         """ Name of the compute device. CPUs are typically called `'CPU'`. """
         self.device_type: str = device_type
@@ -33,7 +36,7 @@ class ComputeDevice:
         self.description: str = description
         """ Further information about the device such as driver version. """
         self.ref = ref
-        """ (Optional) Reference to the internal device representation. """
+        """ Reference to the internal device representation. Two devices are equal if their refs are equal. """
         self.backend: 'Backend' = backend
         """ Backend that this device belongs to. Different backends represent the same device with different objects. """
 
@@ -46,10 +49,16 @@ class ComputeDevice:
             descr = descr[:28] + "..."
         return f"{self.backend} device '{self.name}' ({self.device_type}{ref}) | {mem} | {pro} | {descr}"
 
+    def __eq__(self, other):
+        return isinstance(other, ComputeDevice) and other.ref == self.ref
+
+    def __hash__(self):
+        return hash(self.ref)
+
 
 class Backend:
 
-    def __init__(self, name: str, default_device: ComputeDevice):
+    def __init__(self, name: str, devices: List[ComputeDevice], default_device: ComputeDevice):
         """
         Backends delegate low-level operations to a compute library or emulate them.
 
@@ -62,6 +71,7 @@ class Backend:
             default_device: `ComputeDevice` being used by default
         """
         self._name = name
+        self._devices = tuple(devices)
         self._default_device = default_device
 
     def __enter__(self):
@@ -124,7 +134,7 @@ class Backend:
     def combine_types(self, *dtypes: DType) -> DType:
         return combine_types(*dtypes, fp_precision=self.precision)
 
-    def auto_cast(self, *tensors) -> list:
+    def auto_cast(self, *tensors, bool_to_int=False) -> list:
         """
         Determins the appropriate values type resulting from operations involving the tensors as input.
         
@@ -132,14 +142,17 @@ class Backend:
         Backends can override this method to prevent unnecessary casting.
 
         Args:
-          *tensors: tensors to cast and to consider when determining the common data type
+            *tensors: tensors to cast and to consider when determining the common data type
+            bool_to_int: Whether to convert boolean values to integers if all values are boolean.
 
         Returns:
             tensors cast to a common data type
         """
         dtypes = [self.dtype(t) for t in tensors]
         result_type = self.combine_types(*dtypes)
-        if result_type.kind in (int, float, complex, bool):
+        if result_type.kind == bool and bool_to_int:
+            result_type = DType(int, 32)
+        if result_type.kind in (int, float, complex, bool):  # do not cast everything to string!
             tensors = [self.cast(t, result_type) for t in tensors]
         return tensors
 
@@ -169,7 +182,11 @@ class Backend:
         Returns:
             `list` of all currently available devices.
         """
-        raise NotImplementedError()
+        if device_type is None:
+            return list(self._devices)
+        else:
+            assert device_type in ('CPU', 'GPU', 'TPU'), "Device"
+            return [d for d in self._devices if d.device_type == device_type]
 
     def get_default_device(self) -> ComputeDevice:
         return self._default_device
@@ -197,6 +214,26 @@ class Backend:
         assert device.backend is self, f"Cannot set default device to {device.name} for backend {self.name} because the devices belongs to backend {device.backend.name}"
         self._default_device = device
         return True
+
+    def get_device(self, tensor: TensorType) -> ComputeDevice:
+        """ Returns the device `tensor` is located on. """
+        raise NotImplementedError()
+
+    def get_device_by_ref(self, ref):
+        for device in self._devices:
+            if device.ref == ref:
+                return device
+        raise KeyError(f"{self.name} has no device with ref '{ref}'. Available: {[d.ref for d in self._devices]}")
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        """
+        Moves `tensor` to `device`. May copy the tensor if it is already on the device.
+
+        Args:
+            tensor: Existing tensor native to this backend.
+            device: Target device, associated with this backend.
+        """
+        raise NotImplementedError()
 
     def seed(self, seed: int):
         raise NotImplementedError()
@@ -311,20 +348,19 @@ class Backend:
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def functional_gradient(self, f: Callable, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         """
         Args:
-            f: Function to differentiate.
+            f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
             wrt: Argument indices for which to compute the gradient.
             get_output: Whether the derivative function should return the output of `f` in addition to the gradient.
+            is_f_scalar: Whether `f` is guaranteed to return a scalar output.
 
         Returns:
             A function `g` with the same arguments as `f`.
             If `get_output=True`, `g` returns a `tuple`containing the outputs of `f` followed by the gradients.
+            The gradients retain the dimensions of `reduced_loss` in order as outer (first) dimensions.
         """
-        raise NotImplementedError(self)
-
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
         raise NotImplementedError(self)
 
     def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -> tuple:
@@ -358,13 +394,14 @@ class Backend:
         """
         return NotImplemented
 
-    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+    def jit_compile_grad(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         raise NotImplementedError()
 
-    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def jit_compile_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):
+        """ Transposes the dimensions of `tensor` given the new axes order. The tensor will be cast to the default precision in the process. """
         raise NotImplementedError()
 
     def random_uniform(self, shape, low, high, dtype: DType or None):
@@ -832,13 +869,13 @@ class Backend:
         from scipy.optimize import OptimizeResult, minimize
         from threading import Thread
 
-        assert self.supports(Backend.functional_gradient)
+        assert self.supports(Backend.jacobian)
         x0 = self.numpy(x0)
         assert x0.ndim == 2  # (batch, parameters)
         atol = self.numpy(atol)
         max_iter = self.numpy(max_iter)
         batch_size = x0.shape[0]
-        fg = self.functional_gradient(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
         method_description = f"SciPy {method} with {self.name}"
 
         iterations = [0] * batch_size
@@ -874,7 +911,7 @@ class Backend:
                     if final_losses[b] is None:  # first evaluation
                         final_losses[b] = f_b_losses[b]
                         if trajectories is not None:
-                            trajectories[b].append(SolveResult(method_description, x0[b], f_b_losses[b], 0, 1, False, False, ""))
+                            trajectories[b].append(SolveResult(method_description, x0[b], self.numpy(f_b_losses[b]), 0, 1, False, False, ""))
                     return f_b_losses_np[b], f_grad_np[b]
 
                 def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
@@ -883,7 +920,7 @@ class Backend:
                     recent_b_losses.clear()
                     final_losses[b] = loss
                     if trajectories is not None:
-                        trajectories[b].append(SolveResult(method_description, x, loss, iterations[b], function_evaluations[b], False, False, ""))
+                        trajectories[b].append(SolveResult(method_description, x, self.numpy(loss), iterations[b], function_evaluations[b], False, False, ""))
 
                 res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={'maxiter': max_iter[b]}, callback=callback)
                 assert isinstance(res, OptimizeResult)
@@ -907,7 +944,7 @@ class Backend:
                 all_finished = True
                 f_output_available.wait()
                 break
-            _, f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
+            f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
             f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
             f_grad_np = self.numpy(f_grad).astype(numpy.float64)
             f_output_available.wait()
@@ -917,12 +954,12 @@ class Backend:
 
         if trj:
             max_trajectory_length = max([len(t) for t in trajectories])
-            last_points = [SolveResult(method_description, xs[b], final_losses[b], iterations[b], function_evaluations[b], converged[b], diverged[b], "") for b in range(batch_size)]
+            last_points = [SolveResult(method_description, xs[b], self.numpy(final_losses[b]), iterations[b], function_evaluations[b], converged[b], diverged[b], "") for b in range(batch_size)]
             trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
             trajectory = []
             for states in zip(*trajectories):
-                x = self.stack([self.to_float(state.x) for state in states])
-                residual = self.stack([state.residual for state in states])
+                x = numpy.stack([state.x for state in states])
+                residual = numpy.stack([state.residual for state in states])
                 iterations = [state.iterations for state in states]
                 function_evaluations = [state.function_evaluations for state in states]
                 converged = [state.converged for state in states]
@@ -935,10 +972,10 @@ class Backend:
             return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
 
     def _minimize_gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size='adaptive'):
-        assert self.supports(Backend.functional_gradient)
+        assert self.supports(Backend.jacobian)
         assert len(self.staticshape(x0)) == 2  # (batch, parameters)
         batch_size = self.staticshape(x0)[0]
-        fg = self.functional_gradient(f, [0], get_output=True)
+        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
         method = f"Gradient descent with {self.name}"
 
         iterations = self.zeros([batch_size], DType(int, 32))
@@ -948,7 +985,7 @@ class Backend:
         if adaptive_step_size:
             step_size = self.zeros([batch_size]) + 0.1
 
-        _, loss, grad = fg(x0)  # Evaluate function and gradient
+        loss, grad = fg(x0)  # Evaluate function and gradient
         diverged = self.any(~self.isfinite(x0), axis=(1,))
         converged = self.zeros([batch_size], DType(bool))
         trajectory = [SolveResult(method, x0, loss, iterations, function_evaluations, converged, diverged, [""] * batch_size)] if trj else None
@@ -963,7 +1000,7 @@ class Backend:
                     dx = - grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
                     next_x = x + dx
                     predicted_loss_decrease = - self.sum(grad * dx, -1)  # >= 0
-                    _, next_loss, next_grad = fg(next_x); function_evaluations += continue_1
+                    next_loss, next_grad = fg(next_x); function_evaluations += continue_1
                     converged = converged | (self.sum(next_grad ** 2, axis=-1) < atol ** 2)
                     PHI_LOGGER.debug(f"Gradient: {self.numpy(next_grad)} with step_size={self.numpy(step_size)}")
                     actual_loss_decrease = loss - next_loss  # we want > 0
@@ -983,7 +1020,7 @@ class Backend:
                 x, loss, grad = next_x, next_loss, next_grad
             else:
                 x -= grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
-                _, loss, grad = fg(x); function_evaluations += continue_1
+                loss, grad = fg(x); function_evaluations += continue_1
                 diverged = self.any(~self.isfinite(x), axis=(1,)) | (loss > prev_loss)
                 converged = ~diverged & (prev_loss - loss < atol)
             if trj:
@@ -1064,7 +1101,7 @@ class Backend:
             residual_squared_old = residual_squared
             residual_squared = self.sum(residual ** 2, -1, keepdims=True)
             dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-            diverged = self.any(residual_squared / rsq0 > 100, axis=(1,)) & (iterations >= 8)
+            diverged = self.any(residual_squared / rsq0 > 1e5, axis=(1,)) & (iterations >= 8)
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
@@ -1112,7 +1149,7 @@ class Backend:
             dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
             with spatial_derivative_evaluation(1):
                 dy = self.linear(lin, dx); function_evaluations += continue_1
-            diverged = self.any(residual_squared / rsq0 > 100, axis=(1,)) & (iterations >= 8)
+            diverged = self.any(residual_squared / rsq0 > 1e5, axis=(1,)) & (iterations >= 8)
             converged = self.all(residual_squared <= tolerance_sq, axis=(1,))
             if trajectory is not None:
                 trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
@@ -1137,10 +1174,18 @@ class Backend:
             assert len(lin_shape) == 2, f"A must be a matrix but got shape {lin_shape}"
             return self.matmul(lin, vector)
 
-    def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
-        raise NotImplementedError(self)
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
+        """
+        Args:
+            matrix: Shape (batch, vec, constraints)
+            rhs: Shape (batch, vec, batch_per_matrix)
 
-    def record_gradients(self, xs: tuple or list, persistent=False):
+        Returns:
+            solution: Solution vector of Shape (batch, constraints, batch_per_matrix)
+            residuals: Optional, can be `None`
+            rank: Optional, can be `None`
+            singular_values: Optional, can be `None`
+        """
         raise NotImplementedError(self)
 
     def stop_gradient(self, value):
@@ -1215,11 +1260,11 @@ class Backend:
         return x >= y
 
     def add(self, a, b):
-        a, b = self.auto_cast(a, b)
+        a, b = self.auto_cast(a, b, bool_to_int=True)
         return a + b
 
     def sub(self, a, b):
-        a, b = self.auto_cast(a, b)
+        a, b = self.auto_cast(a, b, bool_to_int=True)
         return a - b
 
     def mul(self, a, b):
@@ -1475,7 +1520,7 @@ def functional_derivative_evaluation(order=1):
 def get_functional_derivative_order():
     """
     Operations that do not define a first or higher-order derivative may use slower alternative code paths when the derivative is `>0`.
-    This is set when calling a function created by `math.functional_gradient()` or `math.hessian()`.
+    This is set when calling a function created by `math.jacobian()` or `math.hessian()`.
     """
     return _FUNCTIONAL_DERIVATIVE_CONTEXT[-1]
 

@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math, field, geom
-from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial, instance, channel
+from phi.math import wrap, extrapolation, Tensor, PI, tensor, batch, spatial, instance, channel, NAN
 
 import numpy as np
 import os
@@ -49,7 +49,7 @@ class TestMathNDNumpy(TestCase):
         meshgrid = math.meshgrid(x=(0, 1, 2, 3), y=(0, -1))
         cases = dict(padding=(extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC, extrapolation.SYMMETRIC),
                      dx=(0.1, 1),
-                     dims=(None, ('x',), ('y',), ('x', 'y')))
+                     dims=(spatial, ('x',), ('y',), ('x', 'y')))
         for case_dict in [dict(zip(cases, v)) for v in product(*cases.values())]:
             laplace = math.laplace(meshgrid, **case_dict)
 
@@ -72,12 +72,35 @@ class TestMathNDNumpy(TestCase):
         math.print(same_size, 'Same size')
         math.assert_close(meshgrid.x[1:-1].y[1:-1], same_size.x[1:-1].y[1:-1])
 
+    def test_finite_fill_3x3_sanity(self):
+        values = tensor([[NAN, NAN, NAN],
+                         [NAN, 1,   NAN],
+                         [NAN, NAN, NAN]], spatial('x, y'))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance=1, diagonal=True))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance=2, diagonal=False))
+        values = tensor([[1, 1, 1], [1, NAN, 1], [1, 1, 1]], spatial('x,y'))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance=1, diagonal=False))
+        math.assert_close(math.ones(spatial(x=3, y=3)), math.finite_fill(values, distance=1, diagonal=True))
+
+    def test_finite_fill_3x3(self):
+        values = tensor([[NAN, NAN, NAN],
+                         [NAN, NAN, 4  ],
+                         [NAN, 2,   NAN]], spatial('x, y'))
+        expected_diag = tensor([[NAN, 4,   4],
+                                [2,   3,   4],
+                                [2,   2,   3]], spatial('x, y'))
+        math.assert_close(expected_diag, math.finite_fill(values, distance=1, diagonal=True))
+        expected = tensor([[NAN, 3.5, 4],
+                           [2.5, 3,   4],
+                           [2,   2,   3]], spatial('x, y'))
+        math.assert_close(expected, math.finite_fill(values, distance=2, diagonal=False))
+
     def test_extrapolate_valid_3x3_sanity(self):
         values = tensor([[0, 0, 0],
                          [0, 1, 0],
                          [0, 0, 0]], spatial('x, y'))
         valid = values
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid)
         expected_values = math.ones(spatial(x=3, y=3))
         expected_valid = extrapolated_values
         math.assert_close(extrapolated_values, expected_values)
@@ -96,7 +119,7 @@ class TestMathNDNumpy(TestCase):
         expected_values = tensor([[1, 4, 4],
                                   [2, 3, 4],
                                   [2, 3, 4]], spatial('x, y'))
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid)
         math.assert_close(extrapolated_values, expected_values)
         math.assert_close(extrapolated_valid, expected_valid)
 
@@ -117,7 +140,7 @@ class TestMathNDNumpy(TestCase):
                                   [2, 3, 4, 4],
                                   [2, 3, 4, 4],
                                   [2, 2, 3.25, 4]], spatial('x, y'))
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid, 2)
         math.assert_close(extrapolated_values, expected_values)
         math.assert_close(extrapolated_valid, expected_valid)
 
@@ -158,7 +181,7 @@ class TestMathNDNumpy(TestCase):
                                   [[0, 4, 4],
                                    [2, 3, 4],
                                    [2, 2, 0]]], spatial('x, y, z'))
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 1)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid, 1)
         math.assert_close(extrapolated_values, expected_values)
         math.assert_close(extrapolated_valid, expected_valid)
 
@@ -191,7 +214,7 @@ class TestMathNDNumpy(TestCase):
                                   [[3, 4, 4],
                                    [2, 3, 4],
                                    [2, 2, 3]]], spatial('x, y, z'))
-        extrapolated_values, extrapolated_valid = math.extrapolate_valid_values(values, valid, 2)
+        extrapolated_values, extrapolated_valid = math.masked_fill(values, valid, 2)
         math.assert_close(extrapolated_values, expected_values)
         math.assert_close(extrapolated_valid, expected_valid)
 
@@ -275,8 +298,8 @@ class TestMathNDNumpy(TestCase):
                 dx = params['dx']
                 padding = extrapolation.PERIODIC
                 ref = self.arakawa_reference_implementation(np.pad(d1.copy(), 1, mode='wrap'), np.pad(d2.copy(), 1, mode='wrap'), dx)[1:-1, 1:-1]
-                d1_tensor = field.CenteredGrid(values=math.tensor(d1, spatial('x,y')), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
-                d2_tensor = field.CenteredGrid(values=math.tensor(d2, spatial('x,y')), bounds=geom.Box([0, 0], list(grid_size)), extrapolation=padding)
+                d1_tensor = field.CenteredGrid(values=math.tensor(d1, spatial('x,y')), bounds=geom.Box(x=grid_size[0], y=grid_size[1]), extrapolation=padding)
+                d2_tensor = field.CenteredGrid(values=math.tensor(d2, spatial('x,y')), bounds=geom.Box(x=grid_size[0], y=grid_size[1]), extrapolation=padding)
                 val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor.values, d2_tensor.values, dx)
                 # try:
                 math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)
@@ -298,3 +321,7 @@ class TestMathNDNumpy(TestCase):
         math.assert_close(le, [0, 1.41421356237, 1])
         le = math.vec_length(v, eps=0.01)
         math.assert_close(le, [1e-1, 1.41421356237, 1])
+
+    def test_dim_mask(self):
+        math.assert_close((1, 0, 0), math.dim_mask(spatial('x,y,z'), 'x'))
+        math.assert_close((1, 0, 1), math.dim_mask(spatial('x,y,z'), 'x,z'))

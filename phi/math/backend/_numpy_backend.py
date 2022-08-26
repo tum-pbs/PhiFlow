@@ -11,7 +11,7 @@ from scipy.sparse import issparse
 from scipy.sparse.linalg import cg, spsolve
 
 from . import Backend, ComputeDevice
-from ._backend import combined_dim, SolveResult
+from ._backend import combined_dim, SolveResult, TensorType
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
 
@@ -24,14 +24,11 @@ class NumPyBackend(Backend):
         else:
             mem_bytes = -1
         processors = os.cpu_count()
-        self.cpu = ComputeDevice(self, "CPU", 'CPU', mem_bytes, processors, "")
-        Backend.__init__(self, "NumPy", self.cpu)
+        cpu = ComputeDevice(self, "CPU", 'CPU', mem_bytes, processors, "", 'CPU')
+        Backend.__init__(self, "NumPy", [cpu], cpu)
 
     def prefers_channels_last(self) -> bool:
         return True
-
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        return [self.cpu]
 
     seed = np.random.seed
     clip = staticmethod(np.clip)
@@ -86,7 +83,7 @@ class NumPyBackend(Backend):
         return False
 
     def is_tensor(self, x, only_native=False):
-        if isinstance(x, np.ndarray) and x.dtype != object:
+        if isinstance(x, np.ndarray) and x.dtype != object and x.dtype != str:
             return True
         if issparse(x):
             return True
@@ -96,7 +93,7 @@ class NumPyBackend(Backend):
         if only_native:
             return False
         # --- Non-native types
-        if isinstance(x, (numbers.Number, bool, str)):
+        if isinstance(x, (numbers.Number, bool)):
             return True
         if isinstance(x, (tuple, list)):
             return all([self.is_tensor(item, False) for item in x])
@@ -113,6 +110,13 @@ class NumPyBackend(Backend):
 
     def copy(self, tensor, only_mutable=False):
         return np.copy(tensor)
+
+    def get_device(self, tensor) -> ComputeDevice:
+        return self._default_device
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        assert device == self._default_device, f"NumPy Can only allocate on the CPU but got device {device}"
+        return tensor
 
     def equal(self, x, y):
         if isinstance(x, np.ndarray) and x.dtype.char == 'U':  # string comparison
@@ -347,7 +351,7 @@ class NumPyBackend(Backend):
     def stop_gradient(self, value):
         return value
 
-    # def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    # def jacobian(self, f, wrt: tuple or list, get_output: bool):
     #     warnings.warn("NumPy does not support analytic gradients and will use differences instead. This may be slow!", RuntimeWarning)
     #     eps = {64: 1e-9, 32: 1e-4, 16: 1e-1}[self.precision]
     #
@@ -455,3 +459,13 @@ class NumPyBackend(Backend):
         x = np.stack(xs)
         f_eval = [i + 1 for i in iterations]
         return SolveResult(f'scipy.sparse.linalg.{scipy_function.__name__}', x, None, iterations, f_eval, converged, diverged, "")
+
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> TensorType:
+        solution, residuals, rank, singular_values = [], [], [], []
+        for b in range(self.shape(rhs)[0]):
+            solution_b, residual_b, rnk_b, s_b = np.linalg.lstsq(matrix[b], rhs[b], rcond=None)
+            solution.append(solution_b)
+            residuals.append(residual_b)
+            rank.append(rnk_b)
+            singular_values.append(s_b)
+        return np.stack(solution), np.stack(residuals), np.stack(rank), np.stack(singular_values)

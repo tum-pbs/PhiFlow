@@ -1,4 +1,3 @@
-# coding=utf-8
 import inspect
 import json
 import os
@@ -8,65 +7,11 @@ import sys
 import warnings
 from os.path import join, isfile, isdir, abspath, expanduser, basename, split
 
-from phi import struct, math, __version__ as phi_version
-from ._field import Field, SampledField
+from phi import math, __version__ as phi_version
+from ._field import SampledField
 from ._field_io import read, write
-from ..math import Shape, batch
-from ..math._tensors import Sliceable
-from ..math.backend import PHI_LOGGER
-
-
-def read_sim_frame(directory: math.Tensor,
-                   names: str or tuple or list or dict or struct.Struct,
-                   frame: int,
-                   convert_to_backend=True):
-    def single_read(name):
-        name = _slugify_filename(name)
-        files = math.map(lambda dir_: _filename(dir_, name, frame), directory)
-        return read(files, convert_to_backend=convert_to_backend)
-
-    return struct.map(single_read, names)
-
-
-def write_sim_frame(directory: math.Tensor,
-                    fields: Field or tuple or list or dict or struct.Struct,
-                    frame: int,
-                    names: str or tuple or list or struct.Struct or None = None):
-    """
-    Write a Field or structure of Fields to files.
-    The filenames are created from the provided names and the frame index in accordance with the
-    scene format specification at https://tum-pbs.github.io/PhiFlow/Scene_Format_Specification.html .
-
-    This method can be used in batch mode.
-    Batch mode is active if a list of directories is given instead of a single directory.
-    Then, all fields are unstacked along the batch_dim dimension and matched with the directories list.
-
-    Args:
-        directory: directory name or list of directories.
-            If a list is provided, all fields are unstacked along batch_dim and matched with their respective directory.
-        fields: single field or structure of Fields to save.
-        frame: Number < 1000000, typically time step index.
-        names: (Optional) Structure matching fields, holding the filename for each respective Field.
-            If not provided, names are automatically generated based on the structure of fields.
-    """
-    if names is None:
-        names = struct.names(fields)
-    if frame > 1000000:
-        warnings.warn(f"frame too large: {frame}. Data will be saved but filename might cause trouble in the future.", RuntimeWarning)
-
-    def single_write(f, name):
-        name = _slugify_filename(name)
-        files = math.map(lambda dir_: _filename(dir_, name, frame), directory)
-        if isinstance(f, SampledField):
-            write(f, files)
-        elif isinstance(f, math.Tensor):
-            raise NotImplementedError()
-        elif isinstance(f, Field):
-            raise ValueError("write_sim_frame: only SampledField instances are saved. Resample other Fields before saving them.")
-        else:
-            raise ValueError(f"write_sim_frame: only SampledField instances can be saved but got {f}")
-
-    struct.foreach(single_write, fields, names)
+from ..math import Shape, batch, stack, unpack_dim, wrap
+from ..math.magic import BoundDim
 
 
 def _filename(simpath, name, frame):
@@ -98,7 +43,7 @@ def get_frames(path: str, field_name: str = None, mode=set.intersection) -> tupl
         return tuple(sorted(frames))
 
 
-class Scene(Sliceable):
+class Scene:
     """
     Provides methods for reading and writing simulation data.
 
@@ -116,8 +61,17 @@ class Scene(Sliceable):
         self._paths = math.wrap(paths)
         self._properties: dict or None = None
 
-    def __getitem__(self, item: dict):
+    def __getitem__(self, item):
         return Scene(self._paths[item])
+
+    def __getattr__(self, name: str) -> BoundDim:
+        return BoundDim(self, name)
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Scene':
+        if all(isinstance(v, Scene) for v in values):
+            return Scene(stack([v.paths for v in values], dim, **kwargs))
+        else:
+            return NotImplemented
 
     @property
     def shape(self):
@@ -176,7 +130,7 @@ class Scene(Sliceable):
         else:
             indices = [int(f[len(name)+1:]) for f in os.listdir(abs_dir) if f.startswith(f"{name}_")]
             next_id = max([-1] + indices) + 1
-        ids = math.wrap(tuple(range(next_id, next_id + shape.volume))).vector.split(shape)
+        ids = unpack_dim(wrap(tuple(range(next_id, next_id + shape.volume))), 'vector', shape)
         paths = math.map(lambda id_: join(parent_directory, f"{name}_{id_:06d}"), ids)
         scene = Scene(paths)
         scene.mkdir()
@@ -277,15 +231,33 @@ class Scene(Sliceable):
     def _init_properties(self):
         if self._properties is not None:
             return
-        json_file = join(next(iter(math.flatten(self._paths))), "description.json")
-        if isfile(json_file):
-            with open(json_file) as stream:
-                self._properties = json.load(stream)
-            if '__tensors__' in self._properties:
-                for key in self._properties['__tensors__']:
-                    self._properties[key] = math.from_dict(self._properties[key])
+
+        def read_json(path: str) -> dict:
+            json_file = join(path, "description.json")
+            if isfile(json_file):
+                with open(json_file) as stream:
+                    props = json.load(stream)
+                if '__tensors__' in props:
+                    for key in props['__tensors__']:
+                        props[key] = math.from_dict(props[key])
+                return props
+            else:
+                return {}
+
+        if self._paths.shape.volume == 1:
+            self._properties = read_json(self._paths.native())
         else:
             self._properties = {}
+            dicts = [read_json(p) for p in self._paths]
+            keys = set(sum([tuple(d.keys()) for d in dicts], ()))
+            for key in keys:
+                assert all(key in d for d in dicts), f"Failed to create batched Scene because property '{key}' is present in some scenes but not all."
+                if all([math.all(d[key] == dicts[0][key]) for d in dicts]):
+                    self._properties[key] = dicts[0][key]
+                else:
+                    self._properties[key] = stack([d[key] for d in dicts], self._paths.shape)
+        if '__tensors__' in self._properties:
+            del self._properties['__tensors__']
 
     def exist_properties(self):
         """
@@ -336,8 +308,17 @@ class Scene(Sliceable):
         self._write_properties()
 
     def _get_properties(self, index: dict):
-        tensor_names = {key for key, value in self._properties.items() if isinstance(value, math.Tensor)}
-        result = {key: math.to_dict(value[index]) if isinstance(value, math.Tensor) else value for key, value in self._properties.items()}
+        result = dict(self._properties)
+        tensor_names = []
+        for key, value in self._properties.items():
+            if isinstance(value, math.Tensor):
+                value = value[index]
+                if value.rank == 0:
+                    value = value.dtype.kind(value)
+                else:
+                    value = math.to_dict(value)
+                    tensor_names.append(key)
+                result[key] = value
         if tensor_names:
             result['__tensors__'] = tuple(tensor_names)
         return result
@@ -348,9 +329,6 @@ class Scene(Sliceable):
             instance_properties = self._get_properties(instance)
             with open(join(path, "description.json"), "w") as out:
                 json.dump(instance_properties, out, indent=2)
-
-    def write_sim_frame(self, arrays, fieldnames, frame):
-        write_sim_frame(self._paths, arrays, names=fieldnames, frame=frame)
 
     def write(self, data: dict = None, frame=0, **kw_data):
         """
@@ -367,13 +345,43 @@ class Scene(Sliceable):
         """
         data = dict(data) if data else {}
         data.update(kw_data)
-        write_sim_frame(self._paths, data, names=None, frame=frame)
+        for name, field in data.items():
+            self.write_field(field, name, frame)
 
-    def read_array(self, field_name, frame):
-        return read_sim_frame(self._paths, field_name, frame=frame)
+    def write_field(self, field: SampledField, name: str, frame: int):
+        """
+        Write a `SampledField` to a file.
+        The filenames are created from the provided names and the frame index in accordance with the
+        scene format specification at https://tum-pbs.github.io/PhiFlow/Scene_Format_Specification.html .
 
-    # def read_sim_frames(self, fieldnames=None, frames=None):
-    #     return read_sim_frames(self.path, fieldnames=fieldnames, frames=frames, batch_dim=self.batch_dim)
+        Args:
+            field: single field or structure of Fields to save.
+            name: Base file name.
+            frame: Frame number as `int`, typically time step index.
+        """
+        if not isinstance(field, SampledField):
+            raise ValueError(f"Only SampledField instances can be saved but got {field}")
+        name = _slugify_filename(name)
+        files = math.map(lambda dir_: _filename(dir_, name, frame), self._paths)
+        write(field, files)
+
+    def read_field(self, name: str, frame: int, convert_to_backend=True) -> SampledField:
+        """
+        Reads a single `SampledField` from files contained in this `Scene` (batch).
+
+        Args:
+            name: Base file name.
+            frame: Frame number as `int`, typically time step index.
+            convert_to_backend: Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.
+
+        Returns:
+            `SampledField`
+        """
+        name = _slugify_filename(name)
+        files = math.map(lambda dir_: _filename(dir_, name, frame), self._paths)
+        return read(files, convert_to_backend=convert_to_backend)
+
+    read_array = read_field
 
     def read(self, *names: str, frame=0, convert_to_backend=True):
         """
@@ -390,7 +398,9 @@ class Scene(Sliceable):
         Returns:
             Single `phi.field.Field` or sequence of fields, depending on the type of `names`.
         """
-        result = read_sim_frame(self._paths, names, frame=frame, convert_to_backend=convert_to_backend)
+        if len(names) == 1 and isinstance(names[0], (tuple, list)):
+            names = names[0]
+        result = [self.read_array(name, frame, convert_to_backend) for name in names]
         return result[0] if len(names) == 1 else result
 
     @property
@@ -415,7 +425,7 @@ class Scene(Sliceable):
         return get_frames(self.path, mode=set.intersection)
 
     def __repr__(self):
-        return repr(self.paths)
+        return f"{self.paths:no-dtype}"
 
     def __eq__(self, other):
         return isinstance(other, Scene) and (other._paths == self._paths).all
@@ -488,8 +498,8 @@ def slugify(value):
     """
     for greek_letter, name in greek.items():
         value = value.replace(greek_letter, name)
-    value = re.sub('[^\w\s-]', '', value).strip().lower()
-    value = re.sub('[-\s]+', '-', value)
+    value = re.sub('[^\\w\\s-]', '', value).strip().lower()
+    value = re.sub('[-\\s]+', '-', value)
     return value
 
 

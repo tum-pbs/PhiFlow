@@ -16,23 +16,27 @@ See the documentation at https://tum-pbs.github.io/PhiFlow/Math.html
 from .backend._dtype import DType
 from .backend import NUMPY, precision, set_global_precision, get_precision
 
-from ._config import GLOBAL_AXIS_ORDER
-from ._shape import Shape, EMPTY_SHAPE, spatial, channel, batch, instance, merge_shapes, concat_shapes, IncompatibleShapes
-from ._tensors import wrap, tensor, layout, Tensor, TensorDim, TensorLike, Dict, to_dict, from_dict, shape
+from ._shape import (
+    shape, Shape, EMPTY_SHAPE, DimFilter,
+    spatial, channel, batch, instance,
+    non_batch, non_spatial, non_instance, non_channel,
+    merge_shapes, concat_shapes, IncompatibleShapes
+)
+from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten
+from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
-    native, numpy, reshaped_native, reshaped_tensor, copy, native_call,
+    native, numpy, reshaped_native, reshaped_tensor, reshaped_numpy, copy, native_call,
     print_ as print,
     map_ as map,
     zeros, ones, fftfreq, random_normal, random_uniform, meshgrid, linspace, arange as range, range_tensor,  # creation operators (use default backend)
     zeros_like, ones_like,
-    stack, unstack, concat,
     pad,
-    pack_dims, unpack_dims, rename_dims, flatten, expand, transpose,  # reshape operations
+    transpose,  # reshape operations
     divide_no_nan,
     where, nonzero,
-    sum_ as sum, mean, std, prod, max_ as max, min_ as min, any_ as any, all_ as all, quantile, median,  # reduce
+    sum_ as sum, finite_sum, mean, finite_mean, std, prod, max_ as max, finite_max, min_ as min, finite_min, any_ as any, all_ as all, quantile, median,  # reduce
     dot,
     abs_ as abs, sign,
     round_ as round, ceil, floor,
@@ -41,28 +45,29 @@ from ._ops import (
     to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
     degrees,
     boolean_mask,
-    isfinite,
+    is_finite, is_finite as isfinite,
     closest_grid_values, grid_sample, scatter, gather,
     fft, ifft, convolve, cumulative_sum,
     dtype, cast,
     close, assert_close,
-    record_gradients, gradients, stop_gradient
+    stop_gradient
 )
 from ._nd import (
     shift,
-    vec_abs, vec_abs as vec_length, vec_squared, vec_normalize, cross_product, rotate_vector,
+    vec, const_vec, vec_abs, vec_abs as vec_length, vec_squared, vec_normalize, cross_product, rotate_vector, dim_mask,
     normalize_to,
     l1_loss, l2_loss, frequency_loss,
     spatial_gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,
-    extrapolate_valid_values,
+    masked_fill, finite_fill,
 )
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
-    functional_gradient, functional_gradient as gradient, custom_gradient, print_gradient, hessian,
+    jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient, hessian,
     solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape,
-    map_types, map_s2b,
+    map_types, map_s2b, map_i2b,
+    iterate,
 )
 
 
@@ -85,7 +90,7 @@ NUMPY = NUMPY  # to show up in pdoc
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
 
 __pdoc__ = {
-    'Extrapolation.__init__': False,
+    'Extrapolation': False,
     'Shape.__init__': False,
     'SolveInfo.__init__': False,
     'TensorDim.__init__': False,
@@ -93,7 +98,4 @@ __pdoc__ = {
     'Diverged.__init__': False,
     'NotConverged.__init__': False,
     'LinearFunction.__init__': False,
-    'TensorLike.__variable_attrs__': True,
-    'TensorLike.__value_attrs__': True,
-    'TensorLike.__with_attrs__': True,
 }

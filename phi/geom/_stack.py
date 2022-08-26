@@ -1,11 +1,12 @@
-from typing import List
+from typing import List, Tuple
 
 from phi import math
 from . import GridCell
 from ._geom import Geometry
-from ..math import Tensor
-from ..math._shape import shape_stack, Shape, INSTANCE_DIM
+from ..math import Tensor, expand
+from ..math._shape import shape_stack, Shape, INSTANCE_DIM, non_channel
 from ..math._tensors import variable_attributes, copy_with
+from ..math.magic import slicing_dict
 
 
 class GeometryStack(Geometry):
@@ -57,21 +58,21 @@ class GeometryStack(Geometry):
         raise NotImplementedError()
 
     def bounding_radius(self):
-        radii = [g.bounding_radius() for g in self.geometries]
+        radii = [expand(g.bounding_radius(), non_channel(g)) for g in self.geometries]
         return math.stack(radii, self.geometries.shape)
 
     def bounding_half_extent(self):
-        values = [g.bounding_half_extent() for g in self.geometries]
+        values = [expand(g.bounding_half_extent(), non_channel(g)) for g in self.geometries]
         return math.stack(values, self.geometries.shape)
 
     def shifted(self, delta: math.Tensor):
         deltas = delta.dimension(self.geometries.shape).unstack(len(self.geometries))
         geometries = [g.shifted(d) for g, d in zip(self.geometries, deltas)]
-        return stack(geometries, self.geometries.shape)
+        return GeometryStack(math.layout(geometries, self.geometries.shape))
 
     def rotated(self, angle):
         geometries = [g.rotated(angle) for g in self.geometries]
-        return stack(geometries, self.geometries.shape)
+        return GeometryStack(math.layout(geometries, self.geometries.shape))
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         raise NotImplementedError('GeometryStack.push() is not yet implemented.')
@@ -94,18 +95,9 @@ class GeometryStack(Geometry):
     def __hash__(self):
         return hash(self.geometries)
     
-    def __getitem__(self, item: dict):
-        selected = self.geometries[item]
+    def __getitem__(self, item):
+        selected = self.geometries[slicing_dict(self, item)]
         if selected.shape.volume > 1:
             return GeometryStack(selected)
         else:
             return next(iter(selected))
-
-
-def stack(geometries: List[Geometry], dim: Shape):
-    """ Stacks `geometries` along `dim`. The size of `dim` is ignored. """
-    if all(type(g) == type(geometries[0]) and not isinstance(g, GridCell) for g in geometries):
-        attrs = variable_attributes(geometries[0])
-        new_attributes = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
-        return copy_with(geometries[0], **new_attributes)
-    return GeometryStack(math.layout(geometries, dim))

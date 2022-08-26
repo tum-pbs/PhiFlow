@@ -1,7 +1,10 @@
+import math
+
 import numpy
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers as kl
+from tensorflow import Tensor
 import pickle
 
 from typing import Callable
@@ -96,13 +99,33 @@ def update_weights(net: keras.Model, optimizer: keras.optimizers.Optimizer, loss
     optimizer.apply_gradients(zip(gradients, net.trainable_variables))
     return output
 
-
 def adam(net: keras.Model, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
     """
     Creates an Adam optimizer for `net`, alias for [`keras.optimizers.Adam`](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam).
-    Analogue functions exist for other learning frameworks.
+    Analogous functions exist for other learning frameworks.
     """
     return keras.optimizers.Adam(learning_rate, betas[0], betas[1], epsilon)
+
+def SGD(net: keras.Model, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov = False):
+    """
+    Creates an SGD optimizer for 'net', alias for ['keras.optimizers.SGD'](https://keras.io/api/optimizers/sgd/)
+    Analogous functions exist for other learning frameworks.
+    """
+    return keras.optimizers.SGD(learning_rate, momentum, nesterov)
+
+def adagrad(net: keras.Model, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value = 0, eps=1e-10):
+    """
+    Creates an Adagrad optimizer for 'net', alias for ['keras.optimizers.Adagrad'](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adagrad)
+    Analogous functions exist for other learning frameworks.
+    """
+    return keras.optimizers.Adagrad(learning_rate, initial_accumulator_value, eps)
+
+def rmsprop(net: keras.Model, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0, centered=False):
+    """
+    Creates an RMSProp optimizer for 'net', alias for ['keras.optimizers.RMSprop'](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/RMSprop)
+    Analogous functions exist for other learning frameworks.
+    """
+    return keras.optimizers.RMSprop(learning_rate, alpha, momentum, eps, centered)
 
 
 def dense_net(in_channels: int,
@@ -110,13 +133,16 @@ def dense_net(in_channels: int,
               layers: tuple or list,
               batch_norm=False,
               activation='ReLU') -> keras.Model:
+
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     keras_layers = []
     for neuron_count in layers:
         keras_layers.append(kl.Dense(neuron_count, activation=activation))
         if batch_norm:
             keras_layers.append(kl.BatchNormalization())
-    return keras.models.Sequential([kl.InputLayer(input_shape=(in_channels,)), *keras_layers, kl.Dense(out_channels, activation='linear')])
+    return keras.models.Sequential([kl.InputLayer(input_shape=(in_channels,)),
+                                    *keras_layers,
+                                    kl.Dense(out_channels, activation='linear')])
 
 
 def u_net(in_channels: int,
@@ -125,7 +151,8 @@ def u_net(in_channels: int,
           filters: int or tuple or list = 16,
           batch_norm: bool = True,
           activation: str or Callable = 'ReLU',
-          in_spatial: tuple or int = 2) -> keras.Model:
+          in_spatial: tuple or int = 2,
+          use_res_blocks: bool = False) -> keras.Model:
     if isinstance(in_spatial, int):
         d = in_spatial
         in_spatial = (None,) * d
@@ -139,16 +166,16 @@ def u_net(in_channels: int,
         filters = (filters,) * levels
     # --- Construct the U-Net ---
     x = inputs = keras.Input(shape=in_spatial + (in_channels,))
-    x = double_conv(x, d, filters[0], filters[0], batch_norm, activation)
+    x = resnet_block(x, x.shape[-1], filters[0], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[0], filters[0], batch_norm, activation)
     xs = [x]
     for i in range(1, levels):
         x = MAX_POOL[d](2, padding="same")(x)
-        x = double_conv(x, d, filters[i], filters[i], batch_norm, activation)
+        x = resnet_block(x, x.shape[-1], filters[i], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i], filters[i], batch_norm, activation)
         xs.insert(0, x)
     for i in range(1, levels):
         x = UPSAMPLE[d](2)(x)
         x = kl.Concatenate()([x, xs[i]])
-        x = double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
+        x = resnet_block(x, x.shape[-1], filters[i-1], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
     x = CONV[d](out_channels, 1)(x)
     return keras.Model(inputs, x)
 
@@ -156,16 +183,179 @@ def u_net(in_channels: int,
 CONV = [None, kl.Conv1D, kl.Conv2D, kl.Conv3D]
 MAX_POOL = [None, kl.MaxPool1D, kl.MaxPool2D, kl.MaxPool3D]
 UPSAMPLE = [None, kl.UpSampling1D, kl.UpSampling2D, kl.UpSampling3D]
-ACTIVATIONS = {'tanh': keras.activations.tanh, 'ReLU': keras.activations.relu, 'Sigmoid': keras.activations.sigmoid}
+ACTIVATIONS = {'tanh': keras.activations.tanh, 'ReLU': keras.activations.relu, 'Sigmoid': keras.activations.sigmoid, 'SiLU': keras.activations.selu}
 
 
+def pad_periodic(x:Tensor):
+    d = len(x.shape) - 2
+    if d>=1:
+        x = tf.concat([tf.expand_dims(x[:, -1, ...], axis=1), x, tf.expand_dims(x[:, 0, ...], axis=1)], axis=1)
+    if d>=2:
+        x = tf.concat([tf.expand_dims(x[:, :, -1, ...], axis=2), x, tf.expand_dims(x[:, :, 0, ...], axis=2)], axis=2)
+    if d>=3:
+        x = tf.concat([tf.expand_dims(x[:, :, :, -1, ...], axis=3), x, tf.expand_dims(x[:, :, :, 0, ...], axis=3)], axis=3)
+    return x
 def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
-    x = CONV[d](mid_channels, 3, padding='same')(x)
+
+    x = pad_periodic(x)
+    x = CONV[d](mid_channels, 3, padding='valid')(x)
+    #x = CONV[d](mid_channels, 3, padding='same')(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
-    x = CONV[d](out_channels, 3, padding='same')(x)
+
+    x = pad_periodic(x)
+    x = CONV[d](out_channels, 3, padding='valid')(x)
+    #x = CONV[d](out_channels, 3, padding='same')(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
     return x
+
+def conv_net(in_channels: int,
+             out_channels: int,
+             layers: tuple,
+             batch_norm: bool = False,
+             activation: str or Callable = 'ReLU',
+             in_spatial:int or tuple=2) -> keras.Model:
+    if isinstance(in_spatial, int):
+        d = (None,) * in_spatial
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = in_spatial
+        in_spatial = len(d)
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    x = inputs = keras.Input(shape=d + (in_channels,))
+    for i in range(len(layers)):
+        x = pad_periodic(x)
+        x = CONV[in_spatial](layers[i], 3, padding='valid')(x)
+        if batch_norm:
+            x = kl.BatchNormalization()(x)
+        x = activation(x)
+    x = pad_periodic(x)
+    x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
+    return keras.Model(inputs, x)
+
+def resnet_block(x,in_channels : int,
+                 out_channels : int,
+                 batch_norm : bool = False,
+                 activation: str or Callable = 'ReLU',
+                 in_spatial : int or tuple = 2):
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    if isinstance(in_spatial, int):
+        d = (None,) * in_spatial
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = in_spatial
+        in_spatial = len(d)
+
+    d = (None,) * in_spatial
+    #x = inputs = keras.Input(d + (in_channels,))
+
+    x_1 = x
+    x = pad_periodic(x)
+
+    x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
+    if batch_norm:
+        x = kl.BatchNormalization()(x)
+    x = activation(x)
+
+    x = pad_periodic(x)
+
+    x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
+    if batch_norm:
+        x = kl.BatchNormalization()(x)
+    x = activation(x)
+
+    if in_channels != out_channels:
+        x_1 = CONV[in_spatial](out_channels, 1)(x_1)
+        if batch_norm:
+            x_1 = kl.BatchNormalization()(x_1)
+
+    x = kl.Add()([x, x_1])
+    #out = activation(out)
+    return x
+    #return keras.Model(inputs, out)
+
+def res_net(in_channels: int,
+            out_channels: int,
+            layers: tuple,
+            batch_norm: bool = False,
+            activation: str or Callable = 'ReLU',
+            in_spatial: int or tuple=2):
+
+    if isinstance(in_spatial, int):
+        d = (None,) * in_spatial
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = in_spatial
+        in_spatial = len(d)
+
+    x = inputs = keras.Input(shape=d + (in_channels,))
+    #print('X shape : ', x.shape)
+    out = resnet_block(x, in_channels, layers[0], batch_norm, activation, in_spatial)
+
+    for i in range(1, len(layers)):
+        out = resnet_block(out, layers[i-1], layers[i], batch_norm, activation, in_spatial)
+
+    out = resnet_block(out, layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial)
+    return keras.Model(inputs, out)
+
+
+def conv_classifier(input_shape: list, num_classes: int, batch_norm: bool, in_spatial: int or tuple):
+    if isinstance(in_spatial, int):
+        d = in_spatial
+        in_spatial = (None, ) * d
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
+    #input_shape[0] = Channels
+    spatial_shape_list = list(input_shape[1:])
+    x = inputs = keras.Input(shape= in_spatial + (input_shape[0],))
+    x = double_conv(x, d, 64, 64, batch_norm, ACTIVATIONS['ReLU'])
+    x = MAX_POOL[d](2)(x)
+
+    x = double_conv(x, d, 128, 128, batch_norm, ACTIVATIONS['ReLU'])
+    x = MAX_POOL[d](2)(x)
+
+
+    x = double_conv(x, d, 256, 256, batch_norm, ACTIVATIONS['ReLU'])
+    x = pad_periodic(x)
+    x = CONV[d](256, 3, padding='valid')(x)
+    if batch_norm:
+        x = kl.BatchNormalization()(x)
+    x = ACTIVATIONS['ReLU'](x)
+    x = MAX_POOL[d](2)(x)
+
+    x = double_conv(x, d, 512, 512, batch_norm, ACTIVATIONS['ReLU'])
+    x = pad_periodic(x)
+    x = CONV[d](512, 3, padding='valid')(x)
+    if batch_norm:
+        x = kl.BatchNormalization()(x)
+    x = ACTIVATIONS['ReLU'](x)
+    x = MAX_POOL[d](2)(x)
+
+    x = double_conv(x, d, 512, 512, batch_norm, ACTIVATIONS['ReLU'])
+    x = pad_periodic(x)
+    x = CONV[d](512, 3, padding='valid')(x)
+    if batch_norm:
+        x = kl.BatchNormalization()(x)
+    x = ACTIVATIONS['ReLU'](x)
+    x = MAX_POOL[d](2)(x)
+
+    for i in range(5):
+        for j in range(len(spatial_shape_list)):
+            spatial_shape_list[j] = math.floor((spatial_shape_list[j] - 2) / 2) + 1
+
+    flattened_input_dim = 1
+    for i in range(len(spatial_shape_list)):
+        flattened_input_dim *= spatial_shape_list[i]
+    flattened_input_dim *= 512
+
+    x = kl.Flatten()(x)
+    x = dense_net(flattened_input_dim, num_classes, [4096, 4096, 100], batch_norm, 'ReLU')(x)
+
+    x = kl.Softmax()(x)
+
+    return keras.Model(inputs, x)
+

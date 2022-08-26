@@ -24,7 +24,7 @@ Make sure that your contribution passes all tests.
 
 For commits, we use the following tags in the header:
 
-* `[docs]` for documentation updates
+* `[doc]` for documentation updates
 * `[ci]` for CI configuration changes
 * `[build]` for changes to the installation
 * `[tests]` for adding or changing unit tests

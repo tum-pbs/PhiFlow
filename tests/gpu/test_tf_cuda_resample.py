@@ -2,13 +2,101 @@ from collections import defaultdict
 from unittest import TestCase
 import random as rand
 
-from setuptools.command.develop import develop
-from tensorflow.python.framework.errors_impl import InvalidArgumentError
+from packaging import version
 
-from phi.tf._tf_backend import *
-from phi.tf._tf_backend import _resample_linear_niftynet
+import numpy as np
+import tensorflow.compat.v1 as tf
 
 from phi.tf._tf_cuda_resample import resample_cuda
+
+
+tf.disable_eager_execution()
+
+COORDINATES_TYPE = tf.int32
+EPS = 1e-6
+
+
+def tensor_spatial_rank(tensor):
+    return len(tensor.shape) - 2
+
+
+def _resample_linear_niftynet(inputs, sample_coords, boundary, boundary_func, float_type):
+    inputs = tf.convert_to_tensor(inputs)
+    sample_coords = tf.convert_to_tensor(sample_coords)
+
+    in_spatial_size = [int(d) for d in inputs.shape[1:-1]]
+    in_spatial_rank = tensor_spatial_rank(inputs)
+    batch_size = tf.shape(inputs)[0]
+
+    out_spatial_rank = tensor_spatial_rank(sample_coords)
+    out_spatial_size = sample_coords.get_shape().as_list()[1:-1]
+
+    if sample_coords.shape[0] != inputs.shape[0]:
+        sample_coords = tf.tile(sample_coords, [batch_size] + [1] * (len(sample_coords.shape) - 1))
+
+    xy = tf.unstack(sample_coords, axis=-1)
+    base_coords = [tf.floor(coords) for coords in xy]
+    floor_coords = [tf.cast(boundary_func(x, in_spatial_size[idx]), COORDINATES_TYPE) for (idx, x) in enumerate(base_coords)]
+    ceil_coords = [tf.cast(boundary_func(x + 1.0, in_spatial_size[idx]), COORDINATES_TYPE) for (idx, x) in enumerate(base_coords)]
+
+    if boundary.upper() == 'ZERO':
+        weight_0 = [tf.expand_dims(x - tf.cast(i, float_type), -1) for (x, i) in zip(xy, floor_coords)]
+        weight_1 = [tf.expand_dims(tf.cast(i, float_type) - x, -1) for (x, i) in zip(xy, ceil_coords)]
+    else:
+        weight_0 = [tf.expand_dims(x - i, -1) for (x, i) in zip(xy, base_coords)]
+        weight_1 = [1.0 - w for w in weight_0]
+
+    batch_ids = tf.reshape(tf.range(batch_size), [batch_size] + [1] * out_spatial_rank)
+    batch_ids = tf.tile(batch_ids, [1] + out_spatial_size)
+    sc = (floor_coords, ceil_coords)
+    binary_neighbour_ids = [[int(c) for c in format(i, '0%ib' % in_spatial_rank)] for i in range(2 ** in_spatial_rank)]
+
+    def get_knot(bc):
+        coord = [sc[c][i] for i, c in enumerate(bc)]
+        if version.parse(tf.__version__) >= version.parse('1.14.0'):
+            coord = tf.stack(coord, -1)
+            return tf.gather_nd(inputs, coord, batch_dims=1)  # NaN can cause negative integers here
+        else:
+            coord = tf.stack([batch_ids] + coord, -1)
+            return tf.gather_nd(inputs, coord)  # NaN can cause negative integers here
+
+    samples = [get_knot(bc) for bc in binary_neighbour_ids]
+
+    def _pyramid_combination(samples, w_0, w_1):
+        if len(w_0) == 1:
+            return samples[0] * w_1[0] + samples[1] * w_0[0]
+        f_0 = _pyramid_combination(samples[::2], w_0[:-1], w_1[:-1])
+        f_1 = _pyramid_combination(samples[1::2], w_0[:-1], w_1[:-1])
+        return f_0 * w_1[-1] + f_1 * w_0[-1]
+
+    return _pyramid_combination(samples, weight_0, weight_1)
+
+
+def _boundary_replicate(sample_coords, input_size):
+    return tf.maximum(tf.minimum(sample_coords, input_size - 1), 0)
+
+
+def _boundary_circular(sample_coords, input_size):
+    return tf.mod(tf.mod(sample_coords, input_size) + input_size, input_size)
+
+
+def _boundary_symmetric(sample_coords, input_size):
+    sample_coords = _boundary_circular(sample_coords, 2 * input_size)
+    return ((2 * input_size - 1) - tf.abs((2 * input_size - 1) - 2 * sample_coords)) // 2
+
+
+def _boundary_reflect(sample_coords, input_size):
+    sample_coords = _boundary_circular(sample_coords, 2 * input_size - 2)
+    return (input_size - 1) - tf.abs((input_size - 1) - sample_coords)
+
+
+SUPPORTED_BOUNDARY = {
+    'zero': _boundary_replicate,
+    'replicate': _boundary_replicate,
+    'circular': _boundary_circular,
+    'symmetric': _boundary_symmetric,
+    'reflect': _boundary_reflect,
+}
 
 
 class TestTfCudaResample(TestCase):

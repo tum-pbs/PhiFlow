@@ -15,7 +15,7 @@ BOUNDARY_MASK = StaggeredGrid(Box(x=(-INF, 0.5), y=None), velocity.extrapolation
 pressure = None
 
 
-@math.jit_compile  # Only for PyTorch, TensorFlow and Jax
+@jit_compile  # Only for PyTorch, TensorFlow and Jax
 def step(v, p, dt=1.):
     v = advect.semi_lagrangian(v, v, dt)
     v = v * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (SPEED, 0)

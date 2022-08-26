@@ -1,7 +1,7 @@
 import numbers
 import warnings
 from functools import wraps
-from typing import List, Callable
+from typing import List, Callable, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -13,7 +13,7 @@ from jax.interpreters.xla import DeviceArray
 
 from phi.math import DType
 from phi.math.backend import Backend, ComputeDevice
-from phi.math.backend._backend import combined_dim, SolveResult, PHI_LOGGER
+from phi.math.backend._backend import combined_dim, SolveResult, PHI_LOGGER, TensorType
 from ..math.backend._dtype import to_numpy_dtype, from_numpy_dtype
 
 
@@ -24,9 +24,14 @@ config.update("jax_enable_x64", True)
 class JaxBackend(Backend):
 
     def __init__(self):
-        gpus = self.list_devices('GPU')
-        cpus = self.list_devices('CPU')
-        Backend.__init__(self, "Jax", default_device=gpus[0] if gpus else cpus[0])
+        devices = []
+        for device_type in ['cpu', 'gpu', 'tpu']:
+            try:
+                for jax_dev in jax.devices(device_type):
+                    devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev.platform.upper(), -1, -1, f"id={jax_dev.id}", jax_dev))
+            except RuntimeError as err:
+                pass  # this is just Jax not finding anything. jaxlib.xla_client._get_local_backends() could help but isn't currently available on GitHub actions
+        Backend.__init__(self, "Jax", devices, devices[-1])
         try:
             self.rnd_key = jax.random.PRNGKey(seed=0)
         except RuntimeError as err:
@@ -35,21 +40,6 @@ class JaxBackend(Backend):
 
     def prefers_channels_last(self) -> bool:
         return True
-
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        types = ['cpu', 'gpu', 'tpu'] if device_type is None else [device_type.lower()]
-        devices = []
-        for device_type in types:
-            try:
-                for jax_dev in jax.devices(device_type):
-                    devices.append(ComputeDevice(self, jax_dev.device_kind, jax_dev.platform.upper(), -1, -1, f"id={jax_dev.id}", jax_dev))
-            except RuntimeError as err:
-                pass  # this is just Jax not finding anything. jaxlib.xla_client._get_local_backends() could help but isn't currently available on GitHub actions
-        return devices
-
-    # def set_default_device(self, device: ComputeDevice or str):
-    #     Backend.set_default_device(self, device)
-    #     jax.config.update('jax_platform_name', self._default_device.device_type.lower())  # this does not work
 
     def _check_float64(self):
         if self.precision == 64:
@@ -113,6 +103,12 @@ class JaxBackend(Backend):
     def copy(self, tensor, only_mutable=False):
         return jnp.array(tensor, copy=True)
 
+    def get_device(self, tensor: TensorType) -> ComputeDevice:
+        return self.get_device_by_ref(tensor.device())
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        return jax.device_put(tensor, device.ref)
+
     sqrt = staticmethod(jnp.sqrt)
     exp = staticmethod(jnp.exp)
     sin = staticmethod(jnp.sin)
@@ -129,7 +125,6 @@ class JaxBackend(Backend):
     round = staticmethod(jnp.round)
     ceil = staticmethod(jnp.ceil)
     floor = staticmethod(jnp.floor)
-    nonzero = staticmethod(jnp.nonzero)
     flip = staticmethod(jnp.flip)
     stop_gradient = staticmethod(jax.lax.stop_gradient)
     transpose = staticmethod(jnp.transpose)
@@ -148,6 +143,10 @@ class JaxBackend(Backend):
     einsum = staticmethod(jnp.einsum)
     cumsum = staticmethod(jnp.cumsum)
 
+    def nonzero(self, values):
+        result = jnp.nonzero(values)
+        return jnp.stack(result, -1)
+
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):
             # print(jax.make_jaxpr(f)(*args))
@@ -165,14 +164,9 @@ class JaxBackend(Backend):
             for v in values:
                 self.block_until_ready(v)
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         if get_output:
-            @wraps(f)
-            def aux_f(*args):
-                output = f(*args)
-                output = output if isinstance(output, (tuple, list)) else [output]
-                return jnp.sum(output[0]), output
-            jax_grad_f = jax.value_and_grad(aux_f, argnums=wrt, has_aux=True)
+            jax_grad_f = jax.value_and_grad(f, argnums=wrt, has_aux=True)
             @wraps(f)
             def unwrap_outputs(*args):
                 args = [self.to_float(arg) if self.dtype(arg).kind in (bool, int) else arg for arg in args]
@@ -182,11 +176,8 @@ class JaxBackend(Backend):
         else:
             @wraps(f)
             def nonaux_f(*args):
-                output = f(*args)
-                result = output[0] if isinstance(output, (tuple, list)) else output
-                if result.ndim > 0:
-                    result = jnp.sum(result)
-                return result
+                loss, output = f(*args)
+                return loss
             return jax.grad(nonaux_f, argnums=wrt, has_aux=False)
 
     def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
@@ -437,3 +428,10 @@ class JaxBackend(Backend):
             return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
         else:
             return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
+
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
+        solution, residuals, rank, singular_values = lstsq_batched(matrix, rhs)
+        return solution, residuals, rank, singular_values
+
+
+lstsq_batched = jax.vmap(jnp.linalg.lstsq)  # map first dimension, required for JaxBackend.matrix_solve_least_squares()

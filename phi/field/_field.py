@@ -1,12 +1,15 @@
+import warnings
 from typing import TypeVar, Callable
 
 from phi import math
-from phi.geom import Geometry, Box
-from phi.math import Shape, Tensor, Extrapolation, channel
-from phi.math._tensors import Sliceable, BoundDim
+from phi.math import Shape, Tensor, channel
+from phi.math.extrapolation import Extrapolation
+from phi.geom import Geometry, Box, Point
+from phi.math.magic import BoundDim
+from .numerical import Scheme
 
 
-class Field(Sliceable):
+class Field:
     """
     Base class for all fields.
     
@@ -20,15 +23,6 @@ class Field(Sliceable):
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
 
-    def __init__(self, bounds: Box or None):
-        """
-        Args:
-            bounds: Bounds inside which the values of this `Field` are valid.
-                The bounds will also be used as axis limits for plots.
-        """
-        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
-        self._bounds = bounds
-
     @property
     def shape(self) -> Shape:
         """
@@ -38,7 +32,7 @@ class Field(Sliceable):
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @property
     def spatial_rank(self) -> int:
@@ -46,7 +40,7 @@ class Field(Sliceable):
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         This is equal to the spatial rank of the `data`.
         """
-        return self.shape.spatial.rank
+        raise NotImplementedError
 
     @property
     def bounds(self) -> Box:
@@ -55,14 +49,18 @@ class Field(Sliceable):
         The bounds will also be used as axis limits for plots.
 
         The bounds can be set manually in the constructor, otherwise default bounds will be generated.
-        """
-        raise NotImplementedError()
 
-    def _sample(self, geometry: Geometry) -> math.Tensor:
+        For fields that are valid without bounds, the lower and upper limit of `bounds` is set to `-inf` and `inf`, respectively.
+
+        Fields whose spatial rank is determined only during sampling return an empty `Box`.
+        """
+        raise NotImplementedError
+
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
         """ For internal use only. Use `sample()` instead. """
         raise NotImplementedError(self)
 
-    def at(self, representation: 'SampledField', keep_extrapolation=False) -> 'SampledField':
+    def at(self, representation: 'SampledField', keep_extrapolation=False, scheme: Scheme = Scheme()) -> 'SampledField':
         """
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
@@ -80,11 +78,12 @@ class Field(Sliceable):
             keep_extrapolation: Only available if `self` is a `SampledField`.
                 If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
                 This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
+            scheme: Numerical scheme for resampling.
 
         Returns:
             Field object of same type as `representation`
         """
-        resampled = reduce_sample(self, representation.elements)
+        resampled = reduce_sample(self, representation.elements, scheme=scheme)
         extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
@@ -107,18 +106,33 @@ class Field(Sliceable):
             return self.with_values(other)
         return NotImplemented
 
-    def __getitem__(self, item: dict) -> 'Field':
+    def __rshift__(self, other):
+        warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
+        return self.at(other, keep_extrapolation=False)
+
+    def __rrshift__(self, other):
+        warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
+        if not isinstance(self, SampledField):
+            return NotImplemented
+        if isinstance(other, (Geometry, float, int, complex, tuple, list)):
+            return self.with_values(other)
+        return NotImplemented
+
+    def __getitem__(self, item) -> 'Field':
         """
         Access a slice of the Field.
         The returned `Field` may be of a different type than `self`.
 
         Args:
-            item: `dict` mapping dimensions (`str`) to selections (`int` or `slice`)
+            item: `dict` mapping dimensions (`str`) to selections (`int` or `slice`) or other supported type, such as `int` or `str`.
 
         Returns:
             Sliced `Field`.
         """
         raise NotImplementedError(self)
+
+    def __getattr__(self, name: str) -> BoundDim:
+        return BoundDim(self, name)
 
     def dimension(self, name: str):
         """
@@ -148,28 +162,35 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or math.Extrapolation, bounds: Box or None):
+    def __init__(self, elements: Geometry or Tensor, values: Tensor, extrapolation: float or Extrapolation or Field or None, bounds: Box or None):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
           values: values corresponding to elements
           extrapolation: values outside elements
         """
-        super().__init__(bounds)
-        if not isinstance(extrapolation, math.Extrapolation):
-            extrapolation = math.extrapolation.ConstantExtrapolation(extrapolation)
-        assert isinstance(extrapolation, Extrapolation), f"Not a valid extrapolation: {extrapolation}"
+        if isinstance(elements, Tensor):
+            elements = Point(elements)
         assert isinstance(elements, Geometry), elements
         assert isinstance(values, Tensor), f"Values must be a Tensor but got {values}."
-        self._elements = elements
-        self._values = values
-        self._extrapolation = extrapolation
+        assert bounds is None or isinstance(bounds, Box), 'Invalid bounds.'
+        self._bounds = bounds
+        self._elements: Geometry = elements
+        self._values: Tensor = values
+        self._extrapolation: Extrapolation = as_extrapolation(extrapolation)
+
+    @property
+    def bounds(self) -> Box:
+        raise NotImplementedError(self.__class__)
+
+    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
+        raise NotImplementedError(self.__class__)
 
     def with_values(self, values):
         """ Returns a copy of this field with `values` replaced. """
         raise NotImplementedError(self)
 
-    def with_extrapolation(self, extrapolation: math.Extrapolation):
+    def with_extrapolation(self, extrapolation: Extrapolation):
         """ Returns a copy of this field with `values` replaced. """
         raise NotImplementedError(self)
 
@@ -177,8 +198,20 @@ class SampledField(Field):
     def shape(self):
         raise NotImplementedError()
 
-    def __getitem__(self: 'FieldType', item: dict) -> 'FieldType':
+    @property
+    def spatial_rank(self) -> int:
+        return self._elements.spatial_rank
+
+    def __getitem__(self: 'FieldType', item) -> 'FieldType':
         raise NotImplementedError(self)
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'FieldType':
+        from ._field_math import stack
+        return stack(values, dim, kwargs.get('bounds', None))
+
+    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'FieldType':
+        from ._field_math import concat
+        return concat(values, dim)
 
     @property
     def elements(self) -> Geometry:
@@ -264,6 +297,9 @@ class SampledField(Field):
         return self.with_values(values).with_extrapolation(extrapolation_)
 
     def _op2(self, other, operator) -> 'SampledField':
+        if isinstance(other, Geometry):
+            from ._mask import HardGeometryMask
+            other = HardGeometryMask(other)
         if isinstance(other, Field):
             other_values = reduce_sample(other, self._elements)
             values = operator(self._values, other_values)
@@ -278,25 +314,7 @@ class SampledField(Field):
             return self.with_values(values)
 
 
-def unstack(field: Field, dim: str) -> tuple:
-    """
-    Unstack `field` along one of its dimensions.
-    The dimension can be batch, spatial or channel.
-
-    Args:
-        field: `Field` to unstack.
-        dim: name of the dimension to unstack, must be part of `self.shape`
-
-    Returns:
-        `tuple` of `Fields`. The returned fields may be of different types than `field`.
-    """
-    size = field.shape.get_size(dim)
-    if isinstance(size, Tensor):
-        size = math.min(size)  # unstack StaggeredGrid along x or y
-    return tuple([field[{dim: i}] for i in range(size)])
-
-
-def sample(field: Field, geometry: Geometry) -> math.Tensor:
+def sample(field: Field, geometry: Geometry, scheme: Scheme = Scheme()) -> math.Tensor:
     """
     Computes the field value inside the volume of the (batched) `geometry`.
 
@@ -312,21 +330,23 @@ def sample(field: Field, geometry: Geometry) -> math.Tensor:
     Args:
         field: Source `Field` to sample.
         geometry: Single or batched `phi.geom.Geometry`.
+        scheme: Numerical scheme.
 
     Returns:
         Sampled values as a `phi.math.Tensor`
     """
-    assert all(dim not in field.shape for dim in geometry.shape.channel)
-    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geometry.shape.channel:
+    geom_ch = channel(geometry).without('vector')
+    assert all(dim not in field.shape for dim in geom_ch)
+    if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geom_ch:
         return field.values
-    if geometry.shape.channel:
-        sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
-        return math.stack(sampled, geometry.shape.channel)
+    if geom_ch:
+        sampled = [field._sample(p, scheme=scheme) for p in geometry.unstack(geom_ch.name)]
+        return math.stack(sampled, geom_ch)
     else:
-        return field._sample(geometry)
+        return field._sample(geometry, scheme=scheme)
 
 
-def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> math.Tensor:
+def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector'), scheme: Scheme = Scheme()) -> math.Tensor:
     """
     Similar to `sample()`, but matches channel dimensions of `geometry` with channel dimensions of this field.
     Currently, `geometry` may have at most one channel dimension.
@@ -338,25 +358,52 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector')) -> ma
         field: Source `Field` to sample.
         geometry: Single or batched `phi.geom.Geometry`.
         dim: Dimension of result, resulting from reduction of channel dimensions.
+        scheme: Numerical scheme.
 
     Returns:
         Sampled values as a `phi.math.Tensor`
     """
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry):
         return field.values
-    if geometry.shape.channel:  # Reduce this dimension
-        assert geometry.shape.channel.rank == 1, "Only single-dimension reduction supported."
+    if channel(geometry).without('vector'):  # Reduce this dimension
+        geom_ch = channel(geometry).without('vector')
+        assert geom_ch.rank == 1, "Only single-dimension reduction supported."
         if field.shape.channel.volume > 1:
-            assert field.shape.channel.volume == geometry.shape.channel.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
-            components = unstack(field, field.shape.channel.name)
-            sampled = [c._sample(p) for c, p in zip(components, geometry.unstack(geometry.shape.channel.name))]
+            assert field.shape.channel.volume == geom_ch.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
+            components = math.unstack(field, field.shape.channel.name)
+            sampled = [c._sample(p, scheme=scheme) for c, p in zip(components, geometry.unstack(geom_ch.name))]
         else:
-            sampled = [field._sample(p) for p in geometry.unstack(geometry.shape.channel.name)]
+            sampled = [field._sample(p, scheme=scheme) for p in geometry.unstack(channel(geometry).without('vector').name)]
         dim = dim._with_item_names(geometry.shape.channel.item_names)
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
-        return field._sample(geometry)
+        return field._sample(geometry, scheme=scheme)
 
 
 FieldType = TypeVar('FieldType', bound=Field)
 SampledFieldType = TypeVar('SampledFieldType', bound=SampledField)
+
+
+def as_extrapolation(obj: Extrapolation or float or Field or None) -> Extrapolation:
+    """
+    Returns an `Extrapolation` representing `obj`.
+
+    Args:
+        obj: One of
+
+            * `float` or `Tensor`: Extrapolate with a constant value
+            * `Extrapolation`: Use as-is.
+            * `Field`: Sample values from `obj`, embedding another field inside `obj`.
+
+    Returns:
+        `Extrapolation`
+    """
+    if isinstance(obj, Extrapolation):
+        return obj
+    elif isinstance(obj, Field):
+        from ._embed import FieldEmbedding
+        return FieldEmbedding(obj)
+    elif obj is None:
+        return math.extrapolation.NONE
+    else:
+        return math.extrapolation.ConstantExtrapolation(obj)

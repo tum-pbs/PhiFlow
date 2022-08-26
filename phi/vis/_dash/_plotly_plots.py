@@ -9,7 +9,7 @@ from plotly.tools import DEFAULT_PLOTLY_COLORS
 
 from phi import math, field
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
-from phi.geom import Sphere, BaseBox, Point
+from phi.geom import Sphere, BaseBox, Point, Box
 from phi.math import instance, Tensor, spatial, channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
@@ -25,22 +25,33 @@ class PlotlyPlots(PlottingLibrary):
                       size: tuple,
                       rows: int,
                       cols: int,
-                      subplots: Dict[Tuple[int, int], int],
-                      titles: Tensor) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
-        titles = [titles.rows[r].cols[c].native() for r in range(rows) for c in range(cols)]
-        specs = [[{'type': 'xy' if subplots.get((row, col), 0) < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
+                      subplots: Dict[Tuple[int, int], Box],
+                      titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+        titles = [titles.get((r, c), None) for r in range(rows) for c in range(cols)]
+        specs = [[{'type': 'xy' if subplots.get((row, col), Box()).spatial_rank < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
         fig = self.current_figure = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=specs)
+        for (row, col), bounds in subplots.items():
+            subplot = fig.get_subplot(row + 1, col + 1)
+            if bounds.spatial_rank == 1:
+                subplot.xaxis.update(title=bounds.vector.item_names[0], range=_get_range(bounds, 0))
+            elif bounds.spatial_rank == 2:
+                subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain', title=bounds.vector.item_names[0], range=_get_range(bounds, 0))
+                subplot.yaxis.update(constrain='domain', title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
+            elif bounds.spatial_rank == 3:
+                subplot.xaxis.update(title=bounds.vector.item_names[0], range=_get_range(bounds, 0))
+                subplot.yaxis.update(title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
+                subplot.zaxis.update(title=bounds.vector.item_names[2], range=_get_range(bounds, 2))
         fig._phi_size = size
         return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
 
     def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
         raise NotImplementedError()
 
-    def plot(self, data: SampledField, figure: graph_objects.Figure, subplot, min_val: float = None, max_val: float = None,
+    def plot(self, data: SampledField, figure: graph_objects.Figure, subplot, space: Box, min_val: float = None, max_val: float = None,
              show_color_bar: bool = True, **plt_args):
-        _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar)
+        _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val)
 
-    def plotting_done(self, figure, subfigures):
+    def close(self, figure):
         pass
 
     def show(self, figure: graph_objects.Figure):
@@ -57,16 +68,26 @@ class PlotlyPlots(PlottingLibrary):
 PLOTLY = PlotlyPlots()
 
 
+def _get_range(bounds: Box, index: int):
+    lower = bounds.lower.vector[index].numpy()
+    upper = bounds.upper.vector[index].numpy()
+    return lower, upper
+
+
 def _plot(data: SampledField,
           fig: graph_objects.Figure,
           size: tuple,
           colormap: str or None,
           show_color_bar: bool,
-          row: int = None, col: int = None,
-          ):
+          vmin,
+          vmax,
+          row: int = None,
+          col: int = None):
     subplot = fig.get_subplot(row, col)
-    vector = data.points.shape['vector']
-    if data.spatial_rank == 1 and isinstance(data, Grid):
+    dims = data.bounds.vector.item_names
+    vector = data.bounds.shape['vector']
+    extra_channels = data.shape.channel.without('vector')
+    if data.spatial_rank == 1 and isinstance(data, Grid):  # Line plot
         x = data.points.vector[0].numpy().flatten()
         channels = data.values.shape.channel
         if channels.rank == 1 and channels.get_item_names(0) is not None:
@@ -79,6 +100,8 @@ def _plot(data: SampledField,
                 y = math.reshaped_native(real_values(data[ch_idx]), [data.shape.spatial], to_numpy=True)
                 fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Multi-channel'), row=row, col=col)
             fig.update_layout(showlegend=False)
+        if vmin is not None and vmax is not None:
+            subplot.yaxis.update(range=(vmin - .02 * (vmax - vmin), vmax + .02 * (vmax - vmin)))
     elif data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape:  # heatmap
         dims = spatial(data)
         values = real_values(data).numpy(dims.reversed)
@@ -89,40 +112,27 @@ def _plot(data: SampledField,
         color_scale = get_div_map(min_val, max_val, equal_scale=True, colormap=colormap)
         # color_bar = graph_objects.heatmap.ColorBar(x=1.15)   , colorbar=color_bar
         fig.add_heatmap(row=row, col=col, x=x, y=y, z=values, zauto=False, zmin=min_val, zmax=max_val, colorscale=color_scale, showscale=show_color_bar)
-        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain', title=dims.names[0])
-        subplot.yaxis.update(constrain='domain', title=dims.names[1])
     elif data.spatial_rank == 2 and isinstance(data, Grid):  # vector field
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
-        x, y = math.reshaped_native(data.points.vector[spatial(data)], [vector, data.shape.without(vector)], to_numpy=True, force_expand=True)
-        extra_channels = data.shape.channel.without('vector')
-        data_x, data_y = math.reshaped_native(data.values, [vector, extra_channels, spatial(data)], to_numpy=True, force_expand=True)
-        lower_x, lower_y = [float(l) for l in data.bounds.lower.vector.unstack_spatial('x,y')]
-        upper_x, upper_y = [float(u) for u in data.bounds.upper.vector.unstack_spatial('x,y')]
-        x_range = [lower_x, upper_x]
-        y_range = [lower_y, upper_y]
-        for ch in range(data_x.shape[0]):
+        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel], force_expand=True)
+        u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without(vector)], force_expand=True)
+        for ch in range(u.shape[0]):
             # quiver = figure_factory.create_quiver(x, y, data_x[ch], data_y[ch], scale=1.0)  # 7 points per arrow
             # fig.add_trace(quiver, row=row, col=col)
-            data_y_flat = data_y[ch].flatten()
-            data_x_flat = data_x[ch].flatten()
+            u_ch = u[ch]
+            v_ch = v[ch]
             # lines_y = numpy.stack([y, y + data_y_flat, [None] * len(x)], -1).flatten()  # 3 points per arrow
             # lines_x = numpy.stack([x, x + data_x_flat, [None] * len(x)], -1).flatten()
-            lines_y = numpy.stack([y - data_y_flat / 2, y + data_y_flat / 2, [None] * len(x)], -1).flatten()  # 3 points per arrow
-            lines_x = numpy.stack([x - data_x_flat / 2, x + data_x_flat / 2, [None] * len(x)], -1).flatten()
+            lines_x = numpy.stack([x, x + u_ch, [None] * len(x)], -1).flatten()
+            lines_y = numpy.stack([y, y + v_ch, [None] * len(x)], -1).flatten()  # 3 points per arrow
             name = extra_channels.get_item_names(0)[ch] if extra_channels.rank == 1 and extra_channels.get_item_names(0) is not None else None
             fig.add_scatter(x=lines_x, y=lines_y, mode='lines', row=row, col=col, name=name)
-        if data_x.shape[0] == 1:
+        if u.shape[0] == 1:
             fig.update_layout(showlegend=False)
-        subplot.xaxis.update(range=x_range)
-        subplot.yaxis.update(range=y_range)
-        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
-        subplot.yaxis.update(constrain='domain')
     elif data.spatial_rank == 3 and isinstance(data, Grid) and data.shape.channel.volume == 1:  # 3D heatmap
-        values = real_values(data).numpy('z,y,x')
-        x = data.points.vector['x'].numpy('z,y,x')
-        y = data.points.vector['y'].numpy('z,y,x')
-        z = data.points.vector['z'].numpy('z,y,x')
+        values = real_values(data).numpy(dims)
+        x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, *data.points.shape.spatial])
         min_val, max_val = numpy.nanmin(values), numpy.nanmax(values)
         min_val, max_val = min_val if numpy.isfinite(min_val) else 0, max_val if numpy.isfinite(max_val) else 0
         color_scale = get_div_map(min_val, max_val, equal_scale=True, colormap=colormap)
@@ -133,26 +143,18 @@ def _plot(data: SampledField,
                        surface_count=17,  # needs to be a large number for good volume rendering
                        row=row, col=col)
         fig.update_layout(uirevision=True)
-    elif data.spatial_rank == 3 and isinstance(data, Grid):  # 3D vector field
+    elif isinstance(data, Grid) and data.spatial_rank == 3:  # 3D vector field
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
-        u = real_values(data).vector['x'].numpy('z,y,x')
-        v = real_values(data).vector['y'].numpy('z,y,x')
-        w = real_values(data).vector['z'].numpy('z,y,x')
-        x = data.points.vector['x'].numpy('z,y,x')
-        y = data.points.vector['y'].numpy('z,y,x')
-        z = data.points.vector['z'].numpy('z,y,x')
+        x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
+        u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
         fig.add_cone(x=x.flatten(), y=y.flatten(), z=z.flatten(), u=u.flatten(), v=v.flatten(), w=w.flatten(),
                      colorscale='Blues',
                      sizemode="absolute", sizeref=1,
                      row=row, col=col)
     elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):
-        x, y = math.reshaped_native(data.points, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
-        u, v = math.reshaped_native(data.values, [vector, data.shape.without('vector')], to_numpy=True, force_expand=True)
-        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
-        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
-        subplot.xaxis.update(range=[lower_x, upper_x])
-        subplot.yaxis.update(range=[lower_y, upper_y])
+        x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
+        u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
         if data.color.shape:
             # color = data.color.numpy(data.shape.non_channel).reshape(-1)
@@ -161,20 +163,14 @@ def _plot(data: SampledField,
             color = data.color.native()
             quiver.line.update(color=color)
         fig.add_trace(quiver, row=row, col=col)
-        if data.points.vector.item_names:
-            subplot.xaxis.update(title=data.points.vector.item_names[0])
-            subplot.yaxis.update(title=data.points.vector.item_names[1])
-        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
-        subplot.yaxis.update(constrain='domain')
     elif isinstance(data, PointCloud) and data.spatial_rank == 2:
-        lower_x, lower_y = [float(d) for d in data.bounds.lower.vector]
-        upper_x, upper_y = [float(d) for d in data.bounds.upper.vector]
+        yrange = subplot.yaxis.range
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
-                _plot(d, fig, size, colormap, show_color_bar, row, col)
+                _plot(d, fig, size, colormap, show_color_bar, vmin, vmax, row=row, col=col)
         else:
-            x, y = [d.numpy() for d in data.points.vector.unstack_spatial('x,y')]
+            x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
             color = data.color.native()
             subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1]
             if isinstance(data.elements, Sphere):
@@ -185,27 +181,22 @@ def _plot(data: SampledField,
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
             elif isinstance(data.elements, Point):
                 symbol = 'x'
-                marker_size = 12 / (subplot_height / (upper_y - lower_y))
+                marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
             else:
                 symbol = 'asterisk'
                 marker_size = data.elements.bounding_radius().numpy()
-            marker_size *= subplot_height / (upper_y - lower_y)
+            marker_size *= subplot_height / (yrange[1] - yrange[0])
             marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
             fig.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
-        subplot.xaxis.update(range=[lower_x, upper_x])
-        subplot.yaxis.update(range=[lower_y, upper_y])
         fig.update_layout(showlegend=False)
-        subplot.xaxis.update(scaleanchor=f'y{subplot.yaxis.plotly_name[5:]}', scaleratio=1, constrain='domain')
-        subplot.yaxis.update(constrain='domain')
     elif isinstance(data, PointCloud) and data.spatial_rank == 3:
-        lower_x, lower_y, lower_z = [float(d) for d in data.bounds.lower.vector.unstack_spatial('x,y,z')]
-        upper_x, upper_y, upper_z = [float(d) for d in data.bounds.upper.vector.unstack_spatial('x,y,z')]
+        yrange = subplot.yaxis.range
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
-                _plot(d, fig, size, colormap, show_color_bar, row, col)
+                _plot(d, fig, size, colormap, show_color_bar, vmin, vmax, row=row, col=col)
         else:
-            x, y, z = [d.numpy() for d in data.points.vector.unstack_spatial('x,y,z')]
+            x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
             color = data.color.native()
             # if data.color.shape.instance_rank == 0:
             #     color = str(data.color)
@@ -220,16 +211,13 @@ def _plot(data: SampledField,
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
             elif isinstance(data.elements, Point):
                 symbol = 'x'
-                marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (upper_y - lower_y) * 0.5)
+                marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5)
             else:
                 symbol = 'asterisk'
                 marker_size = data.elements.bounding_radius().numpy()
-            marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (upper_y - lower_y) * 0.5
+            marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
             marker = graph_objects.scatter3d.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
             fig.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
-        subplot.xaxis.update(range=[lower_x, upper_x])
-        subplot.yaxis.update(range=[lower_y, upper_y])
-        subplot.zaxis.update(range=[lower_z, upper_z])
         fig.update_layout(showlegend=False)
     else:
         raise NotImplementedError(f"No figure recipe for {data}")
@@ -383,5 +371,5 @@ def split_curve(curve: np.ndarray) -> List[np.ndarray]:
 
 
 def join_curves(curves: List[np.ndarray]) -> np.ndarray:
-    curves = [np.append(np.array(c, numpy.float), numpy.nan, -2) for c in curves[:-1]] + [curves[-1]]
+    curves = [np.append(np.array(c, numpy.float), [[numpy.nan, numpy.nan]], -2) for c in curves[:-1]] + [curves[-1]]
     return np.concatenate(curves, -2)

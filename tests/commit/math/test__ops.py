@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN
+from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN, vec
 from phi.math.backend import Backend
 
 
@@ -59,6 +59,30 @@ class TestMathFunctions(TestCase):
         math.assert_close(math.maximum(0, v), 1)
         math.assert_close(math.maximum(0, -v), 0)
 
+    def test_finite_min(self):
+        t = math.tensor([0, 1, -1, -math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_min(t), -1)
+        t = math.tensor([-math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_min(t, default=0), 0)
+
+    def test_finite_max(self):
+        t = math.tensor([0, 1, -1, -math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_max(t), 1)
+        t = math.tensor([-math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_max(t, default=0), 0)
+
+    def test_finite_sum(self):
+        t = math.tensor([0, 1, 1, -math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_sum(t), 2)
+        t = math.tensor([-math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_sum(t), math.NAN)
+
+    def test_finite_mean(self):
+        t = math.tensor([0, 1, 1, -math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_mean(t), 2/3)
+        t = math.tensor([-math.INF, math.INF, math.NAN])
+        math.assert_close(math.finite_mean(t), math.NAN)
+
     def test_sum_collapsed(self):
         ones = math.ones(spatial(x=40000, y=30000))
         math.assert_close(40000 * 30000, math.sum(ones))
@@ -80,6 +104,12 @@ class TestMathFunctions(TestCase):
     def test_sum_by_type(self):
         a = math.ones(spatial(x=3, y=4), batch(b=10), instance(i=2), channel(vector=2))
         math.assert_close(math.sum(a, spatial), 12)
+
+    def test_sum_bool(self):
+        for backend in BACKENDS:
+            with backend:
+                a = math.tensor([True, False, True, False], spatial('x'))
+                math.assert_close(2, math.sum(a))
 
     def test_unstack(self):
         a = math.random_uniform(batch(b=10), spatial(x=4, y=3), channel(vector=2))
@@ -110,7 +140,7 @@ class TestMathFunctions(TestCase):
 
     def test_grid_sample_backend_equality_2d(self):
         grid = math.random_normal(spatial(y=10, x=7))
-        coords = math.random_uniform(batch(mybatch=10) & spatial(x=3, y=2)) * (12, 9)
+        coords = math.random_uniform(batch(mybatch=10) & spatial(x=3, y=2)) * vec(y=12, x=9)
         grid_ = math.tensor(grid.native('x,y'), spatial('x,y'))
         coords_ = coords.vector.flip()
         for extrap in (extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC):
@@ -127,7 +157,7 @@ class TestMathFunctions(TestCase):
 
     def test_grid_sample_backend_equality_2d_batched(self):
         grid = math.random_normal(batch(mybatch=10) & spatial(y=10, x=7))
-        coords = math.random_uniform(batch(mybatch=10) & spatial(x=3, y=2)) * (12, 9)
+        coords = math.random_uniform(batch(mybatch=10) & spatial(x=3, y=2)) * vec(y=12, x=9)
         grid_ = math.tensor(grid.native('mybatch,x,y'), batch('mybatch'), spatial('x,y'))
         coords_ = coords.vector.flip()
         for extrap in (extrapolation.ZERO, extrapolation.ONE, extrapolation.BOUNDARY, extrapolation.PERIODIC):
@@ -143,32 +173,38 @@ class TestMathFunctions(TestCase):
             math.assert_close(*sampled, abs_tolerance=1e-5)
 
     def test_grid_sample_gradient_1d(self):
+        def f(grid, coords):
+            sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
+            return math.mean(math.l2_loss(sampled)) / 2
+
+        f_grad = math.jacobian(f, (0, 1), get_output=False)
+
         for backend in BACKENDS:
-            if backend.supports(Backend.gradients):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     grid = math.tensor([0., 1, 2, 3], spatial('x'))
                     coords = math.tensor([0.5, 1.5], instance('points'))
-                    with math.record_gradients(grid, coords):
-                        sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
-                        loss = math.mean(math.l2_loss(sampled)) / 2
-                        grad_grid, grad_coords = math.gradients(loss, grid, coords)
+                    grad_grid, grad_coords = f_grad(grid, coords)
                     math.assert_close(grad_grid, math.tensor([0.125, 0.5, 0.375, 0], spatial('x')), msg=backend)
                     math.assert_close(grad_coords, math.tensor([0.25, 0.75], instance('points')), msg=backend)
 
     def test_grid_sample_gradient_2d(self):
+        def f(grid, coords):
+            sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
+            return math.sum(sampled) / 3
+
+        f_grad = math.jacobian(f, (0, 1), get_output=False)
+
         grads_grid = []
         grads_coords = []
         for backend in BACKENDS:
-            if backend.supports(Backend.gradients):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     grid = math.tensor([[1., 2, 3], [1, 2, 3]], spatial('x,y'))
                     coords = math.tensor([(0.5, 0.5), (1, 1.1), (-0.8, -0.5)], instance('points'), channel('vector'))
-                    with math.record_gradients(grid, coords):
-                        sampled = math.grid_sample(grid, coords, extrapolation.ZERO)
-                        loss = math.sum(sampled) / 3
-                        grad_grid, grad_coords = math.gradients(loss, grid, coords)
-                        grads_grid.append(grad_grid)
-                        grads_coords.append(grad_coords)
+                    grad_grid, grad_coords = f_grad(grid, coords)
+                    grads_grid.append(grad_grid)
+                    grads_coords.append(grad_coords)
         math.assert_close(*grads_grid)
         math.assert_close(*grads_coords)
 
@@ -208,7 +244,7 @@ class TestMathFunctions(TestCase):
                 with backend:
                     t = math.tensor([(1, 2, 3, 4), (1, 2, 3, 4), (6, 7, 8, 9)], batch('batch'), instance('list'))
                     q = math.quantile(t, 0.5)
-                    math.assert_close(q, (2.5, 2.5, 7.5), msg=backend.name)
+                    math.assert_close(q, [2.5, 2.5, 7.5], msg=backend.name)
                     q = math.quantile(t, [0.5, 0.6])
                     math.assert_close(q, [(2.5, 2.5, 7.5), (2.8, 2.8, 7.8)], msg=backend.name)
 
@@ -291,6 +327,12 @@ class TestMathFunctions(TestCase):
                 dot = math.dot(a, 'a', b, 'b')
                 self.assertEqual(set(spatial(x=2, y=3) & batch(batch=10)), set(dot.shape), msg=backend.name)
                 math.assert_close(dot, 4, msg=backend.name)
+
+    def test_dot_missing_multiply(self):
+        w1 = math.random_uniform(channel(neurons=64, input=1), low=-1, high=1)
+        x = math.random_uniform(batch(batch=100), low=-2, high=2)
+        y = x.neurons * w1.input
+        self.assertEqual(batch(batch=100) & channel(neurons=64), y.shape)
 
     def test_range(self):
         for backend in BACKENDS:
@@ -485,7 +527,7 @@ class TestMathFunctions(TestCase):
         for backend in BACKENDS:
             with backend:
                 # only values batched
-                x = math.tensor([[1, 2, 3], [11, 12, 13]], batch('batch'), spatial('x')) * (2, -1)
+                x = math.tensor([[1, 2, 3], [11, 12, 13]], batch('batch'), spatial('x')) * vec(x=2, y=-1)
                 identity_kernel1 = math.ones(spatial(x=1))
                 identity_kernel2 = math.tensor([0, 1], spatial('x'))
                 identity_kernel3 = math.tensor([0, 1, 0], spatial('x'))
@@ -544,12 +586,12 @@ class TestMathFunctions(TestCase):
     def test_native(self):
         nat = np.zeros(4)
         self.assertIs(math.native(nat), nat)
-        self.assertIs(math.native(math.tensor(nat)), nat)
+        math.assert_close(math.native(math.tensor(nat)), nat)
 
     def test_numpy(self):
         nat = np.zeros(4)
         self.assertIs(math.numpy(nat), nat)
-        self.assertIs(math.numpy(math.tensor(nat)), nat)
+        math.assert_close(math.numpy(math.tensor(nat)), nat)
 
     def test_sparse(self):
         i = [[0, 1, 1],
@@ -642,8 +684,18 @@ class TestMathFunctions(TestCase):
     def test_where_nan(self):
         for backend in BACKENDS:
             with backend:
-                cond = math.linspace(0, 1, 2) > 0
+                cond = math.linspace(0, 1, channel(linspace=2)) > 0
                 x = math.tensor([-1, -2, -3], spatial('x'))
                 t = math.where(cond, x, NAN)
                 math.assert_close(t.linspace[0], NAN)
                 math.assert_close(t.linspace[1], x)
+
+    def test_fit_hyperplane(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.random_normal(instance(batch=20), channel(vector='x0,x1')) + (1, 1)
+                y = math.stack([0.8 * x[0] - x[1] + 1, -0.8 * x[0]], channel(features='y0,y1'))
+                from phi.math._fit import fit_hyperplane
+                w, b = fit_hyperplane(x, y, 'batch')
+                math.assert_close(w, math.wrap([(0.8, -1), (-0.8, 0)], channel(y), channel(x)), abs_tolerance=1e-5)
+                math.assert_close(b, math.wrap((1, 0), channel(y)), abs_tolerance=1e-5)

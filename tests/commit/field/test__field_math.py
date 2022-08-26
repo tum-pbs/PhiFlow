@@ -21,21 +21,21 @@ class TestFieldMath(TestCase):
         self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
 
     def test_spatial_gradient_batched(self):
-        bounds = geom.stack([Box[0:1, 0:1], Box[0:10, 0:10]], batch('batch'))
+        bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
         grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
         grad = field.spatial_gradient(grid)
         self.assertIsInstance(grad, CenteredGrid)
 
     def test_laplace_batched(self):
-        bounds = geom.stack([Box[0:1, 0:1], Box[0:10, 0:10]], batch('batch'))
+        bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
         grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
         lap = field.laplace(grid)
         self.assertIsInstance(lap, CenteredGrid)
 
     def test_divergence_centered(self):
-        v = CenteredGrid(1, extrapolation.ZERO, bounds=Box[0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
+        v = CenteredGrid(1, extrapolation.ZERO, bounds=Box['x,y', 0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
         div = field.divergence(v).values
-        math.assert_close(div.y[0], (1.5, 0, -1.5))
+        math.assert_close(div.y[0], [1.5, 0, -1.5])
 
     def test_trace_function(self):
         def f(x: StaggeredGrid, y: CenteredGrid):
@@ -63,7 +63,7 @@ class TestFieldMath(TestCase):
         y = CenteredGrid((1, 1), x=4, y=3)
 
         for backend in BACKENDS:
-            if backend.supports(Backend.gradients):
+            if backend.supports(Backend.jacobian):
                 with backend:
                     dx, = grad(x, y)
                     self.assertIsInstance(dx, StaggeredGrid)
@@ -138,8 +138,8 @@ class TestFieldMath(TestCase):
             self.assertEqual(converted.values.default_backend, backend)
 
     def test_convert_point_cloud(self):
-        loc = math.random_uniform(instance(points=4), channel(vector=2))
-        val = math.random_normal(instance(points=4), channel(vector=2))
+        loc = math.random_uniform(instance(points=4), channel(vector='x,y'))
+        val = math.random_normal(instance(points=4), channel(vector='x,y'))
         points = PointCloud(Sphere(loc, radius=1), val)
         for backend in BACKENDS:
             converted = field.convert(points, backend)
@@ -148,17 +148,17 @@ class TestFieldMath(TestCase):
             self.assertEqual(converted.elements.radius.default_backend, backend)
 
     def test_center_of_mass(self):
-        density = CenteredGrid(HardGeometryMask(Box[0:1, 1:2]), x=4, y=3)
+        density = CenteredGrid(Box(x=1, y=(1, 2)), x=4, y=3)
         math.assert_close(field.center_of_mass(density), (0.5, 1.5))
-        density = CenteredGrid(HardGeometryMask(Box[:, 2:3]), x=4, y=3)
+        density = CenteredGrid(Box(x=None, y=(2, 3)), x=4, y=3)
         math.assert_close(field.center_of_mass(density), (2, 2.5))
 
     def test_curl_2d_centered_to_staggered(self):
-        pot = CenteredGrid(Box[1:2, 1:2], x=4, y=3)
+        pot = CenteredGrid(Box['x,y', 1:2, 1:2], x=4, y=3)
         curl = field.curl(pot, type=StaggeredGrid)
         math.assert_close(field.mean(curl), 0)
-        math.assert_close(curl.values.vector[0].x[1], (1, -1))
-        math.assert_close(curl.values.vector[1].y[1], (-1, 1, 0))
+        math.assert_close(curl.values.vector[0].x[1], [1, -1])
+        math.assert_close(curl.values.vector[1].y[1], [-1, 1, 0])
 
     def test_curl_2d_staggered_to_centered(self):
         velocity = StaggeredGrid((2, 0), extrapolation.BOUNDARY, x=2, y=2)
@@ -166,9 +166,9 @@ class TestFieldMath(TestCase):
         self.assertEqual(spatial(x=3, y=3), curl.resolution)
 
     def test_integrate_all(self):
-        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:10, 0:10])
+        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box['x,y', 0:10, 0:10])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y'))
-        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box[0:1, 0:1])
+        grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box['x,y', 0:1, 0:1])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y') / 100)
 
     def test_tensor_as_field(self):

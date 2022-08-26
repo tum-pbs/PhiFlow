@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple, Callable, List
+from typing import Tuple, Callable, List, Union, Any
 
 from phi import math
 from phi.math.backend import PHI_LOGGER
@@ -64,7 +64,8 @@ class Shape:
     def _from_dict(dict_: dict):
         names = tuple(dict_['names'])
         sizes = tuple(dict_['sizes']) if 'sizes' in dict_ else (None,) * len(names)
-        return Shape(sizes, names, tuple(dict_['types']), tuple(dict_['item_names']))
+        item_names = tuple([None if n is None else tuple(n) for n in dict_['item_names']])
+        return Shape(sizes, names, tuple(dict_['types']), item_names)
 
     @property
     def _named_sizes(self):
@@ -104,6 +105,8 @@ class Shape:
         if dim is None:
             return None
         elif isinstance(dim, str):
+            if dim not in self.names:
+                raise ValueError(f"Shape {self} has no dimension '{dim}'")
             return self.names.index(dim)
         elif isinstance(dim, Shape):
             assert dim.rank == 1, f"index() requires a single dimension as input but got {dim}. Use indices() for multiple dimensions."
@@ -165,16 +168,7 @@ class Shape:
         return tuple([self.get_size(dim) for dim in dims])
 
     def get_type(self, dim: str or 'Shape') -> str:
-        """
-        See Also:
-            `Shape.get_types()`, `Shape.type`.
-
-        Args:
-            dim: Dimension, either as name `str` or single-dimension `Shape`.
-
-        Returns:
-            Dimension type as `str`.
-        """
+        # undocumented, use get_dim_type() instead.
         if isinstance(dim, str):
             return self.types[self.names.index(dim)]
         elif isinstance(dim, Shape):
@@ -183,17 +177,18 @@ class Shape:
         else:
             raise ValueError(dim)
 
-    def get_types(self, dims: tuple or list or 'Shape') -> tuple:
+    def get_dim_type(self, dim: str or 'Shape') -> Callable:
         """
-        See Also:
-            `Shape.get_type()`
-
         Args:
-            dims: Dimensions as `tuple`, `list` or `Shape`.
+            dim: Dimension, either as name `str` or single-dimension `Shape`.
 
         Returns:
-            `tuple`
+            Dimension type, one of `batch`, `spatial`, `instance`, `channel`.
         """
+        return {BATCH_DIM: batch, SPATIAL_DIM: spatial, INSTANCE_DIM: instance, CHANNEL_DIM: channel}[self.get_type(dim)]
+
+    def get_types(self, dims: tuple or list or 'Shape') -> tuple:
+        # undocumented, do not use
         if isinstance(dims, (tuple, list)):
             return tuple(self.get_type(n) for n in dims)
         elif isinstance(dims, Shape):
@@ -213,7 +208,7 @@ class Shape:
         if isinstance(dim, int):
             result = self.item_names[dim]
         elif isinstance(dim, str):
-            result = self.item_names[self.names.index(dim)]
+            result = self.item_names[self.index(dim)]
         elif isinstance(dim, Shape):
             assert dim.rank == 1, f"Shape.get_type() only accepts single-dimension Shapes but got {dim}"
             result = self.item_names[self.names.index(dim.name)]
@@ -247,6 +242,7 @@ class Shape:
                 selection = self.index(selection)
             return self[selection]
         elif isinstance(selection, (tuple, list)):
+            selection = [self.index(s) if isinstance(s, str) else s for s in selection]
             return Shape(tuple([self.sizes[i] for i in selection]), tuple([self.names[i] for i in selection]), tuple([self.types[i] for i in selection]), tuple([self.item_names[i] for i in selection]))
         raise AssertionError("Can only access shape elements as shape[int] or shape[slice]")
 
@@ -543,7 +539,7 @@ class Shape:
         item_names.insert(pos, dim.item_names[0])
         return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
 
-    def without(self, dims: str or tuple or list or 'Shape') -> 'Shape':
+    def without(self, dims: 'DimFilter') -> 'Shape':
         """
         Builds a new shape from this one that is missing all given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -570,7 +566,7 @@ class Shape:
         else:
             raise ValueError(dims)
 
-    def only(self, dims: str or tuple or list or 'Shape' or Callable):
+    def only(self, dims: 'DimFilter'):
         """
         Builds a new shape from this one that only contains the given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -704,7 +700,7 @@ class Shape:
                 return True
         return False
 
-    def with_size(self, size: int):
+    def with_size(self, size: int or None):
         """
         Only for single-dimension shapes.
         Returns a `Shape` representing this dimension but with a different size.
@@ -744,10 +740,33 @@ class Shape:
             assert len(sizes) == len(self.sizes), f"Cannot create shape from {self} with sizes {sizes}"
             return Shape(tuple(sizes), self.names, self.types, self.item_names)
 
+    def without_sizes(self):
+        """
+        Returns:
+            `Shape` with all sizes undefined (`None`)
+        """
+        return Shape((None,) * self.rank, self.names, self.types, self.item_names)
+
     def _replace_single_size(self, dim: str, size: int):
         new_sizes = list(self.sizes)
         new_sizes[self.index(dim)] = size
         return self.with_sizes(new_sizes)
+
+    def with_dim_size(self, dim: str or 'Shape', size):
+        """
+        Returns a new `Shape` that has a different size for `dim`.
+
+        Args:
+            dim: Dimension for which to replace the size, `Shape` or `str`.
+            size: New size, `int` or `Tensor`
+
+        Returns:
+            `Shape` with same names and types as `self`.
+        """
+        if isinstance(dim, Shape):
+            dim = dim.name
+        assert isinstance(dim, str)
+        return self._replace_single_size(dim, size)
 
     def _with_names(self, names: str or tuple or list):
         if isinstance(names, str):
@@ -758,16 +777,32 @@ class Shape:
     def _replace_names_and_types(self,
                                  dims: 'Shape' or str or tuple or list,
                                  new: 'Shape' or str or tuple or list) -> 'Shape':
+        """
+        Returns a copy of `self` with `dims` replaced by `new`.
+        Dimensions that are not present in `self` are ignored.
+
+        The dimension order is preserved.
+
+        Args:
+            dims: Dimensions to replace.
+            new: New dimensions, must have same length as `dims`.
+                If a `Shape` is given, replaces the dimension types and item names as well.
+
+        Returns:
+            `Shape` with same rank and dimension order as `self`.
+        """
         dims = parse_dim_order(dims)
         sizes = [math.rename_dims(s, dims, new) if isinstance(s, math.Tensor) else s for s in self.sizes]
         if isinstance(new, Shape):  # replace names and types
             names = list(self.names)
             types = list(self.types)
+            item_names = list(self.item_names)
             for old_name, new_dim in zip(dims, new):
                 if old_name in self:
                     names[self.index(old_name)] = new_dim.name
                     types[self.index(old_name)] = new_dim.type
-            return Shape(tuple(sizes), tuple(names), tuple(types), self.item_names)
+                    item_names[self.index(old_name)] = new_dim.item_names[0]
+            return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
         else:  # replace only names
             new = parse_dim_order(new)
             names = list(self.names)
@@ -775,6 +810,8 @@ class Shape:
                 if old_name in self:
                     names[self.index(old_name)] = new_name
             return Shape(tuple(sizes), tuple(names), self.types, self.item_names)
+
+    replace = _replace_names_and_types
 
     def _with_types(self, types: 'Shape'):
         return Shape(self.sizes, self.names, tuple([types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)]), self.item_names)
@@ -831,11 +868,35 @@ class Shape:
             item_names[self.index(dim)] = None
         return Shape(tuple(sizes), self.names, self.types, tuple(item_names))
 
+    def prepare_gather(self, dim: str, selection):
+        if isinstance(selection, Shape):
+            selection = selection.name if selection.rank == 1 else selection.names
+        if isinstance(selection, str) and ',' in selection:
+            selection = parse_dim_order(selection)
+        if isinstance(selection, str):  # single item name
+            item_names = self.get_item_names(dim, fallback_spatial=True)
+            assert item_names is not None, f"No item names defined for dim '{dim}' in tensor {self.shape} and dimension size does not match spatial rank."
+            assert selection in item_names, f"Accessing tensor.{dim}['{selection}'] failed. Item names are {item_names}."
+            selection = item_names.index(selection)
+        if isinstance(selection, (tuple, list)):
+            selection = list(selection)
+            if any([isinstance(s, str) for s in selection]):
+                item_names = self.get_item_names(dim, fallback_spatial=True)
+                for i, s in enumerate(selection):
+                    if isinstance(s, str):
+                        assert item_names is not None, f"Accessing tensor.{dim}['{s}'] failed because no item names are present on tensor {self.shape}"
+                        assert s in item_names, f"Accessing tensor.{dim}['{s}'] failed. Item names are {item_names}."
+                        selection[i] = item_names.index(s)
+            if not selection:  # empty
+                selection = slice(0, 0)
+        return selection
+
     def after_gather(self, selection: dict) -> 'Shape':
         result = self
         for name, selection in selection.items():
             if name not in self.names:
                 continue
+            selection = self.prepare_gather(name, selection)
             if isinstance(selection, int):
                 if result.is_uniform:
                     result = result.without(name)
@@ -845,17 +906,24 @@ class Shape:
                     result = result.with_sizes(gathered_sizes).without(name)
             elif isinstance(selection, slice):
                 step = selection.step or 1
-                start = selection.start or (0 if step > 0 else self.get_size(name)-1)
-                stop = selection.stop or (self.get_size(name) if step > 0 else -1)
+                start = selection.start if isinstance(selection.start, int) else (0 if step > 0 else self.get_size(name)-1)
+                stop = selection.stop if isinstance(selection.stop, int) else (self.get_size(name) if step > 0 else -1)
                 if stop < 0 and step > 0:
                     stop += self.get_size(name)
                     assert stop >= 0
+                if start < 0 and step > 0:
+                    start += self.get_size(name)
+                    assert start >= 0
                 new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
                 if new_size.rank == 0:
                     new_size = int(new_size)  # NumPy array not allowed because not hashable
                 result = result._replace_single_size(name, new_size)
                 if step < 0:
                     result = result.flipped([name])
+            elif isinstance(selection, (tuple, list)):
+                result = result._replace_single_size(name, len(selection))
+                if self.get_item_names(name) is not None:
+                    result = result._with_item_name(name, tuple([self.get_item_names(name)[i] for i in selection]))
             else:
                 raise NotImplementedError(f"{type(selection)} not supported. Only (int, slice) allowed.")
         return result
@@ -875,7 +943,7 @@ class Shape:
         Returns:
             `dict` iterator.
         """
-        assert self.is_uniform
+        assert self.is_uniform, f"Shape.meshgrid() is currently not supported for non-uniform tensors, {self}"
         indices = [0] * self.rank
         while True:
             if names:
@@ -890,29 +958,34 @@ class Shape:
                 return
 
     def __add__(self, other):
-        return self._op2(other, lambda s, o: s + o)
+        return self._op2(other, lambda s, o: s + o, 0)
 
     def __radd__(self, other):
-        return self._op2(other, lambda s, o: o + s)
+        return self._op2(other, lambda s, o: o + s, 0)
 
     def __sub__(self, other):
-        return self._op2(other, lambda s, o: s - o)
+        return self._op2(other, lambda s, o: s - o, 0)
 
     def __rsub__(self, other):
-        return self._op2(other, lambda s, o: o - s)
+        return self._op2(other, lambda s, o: o - s, 0)
 
     def __mul__(self, other):
-        return self._op2(other, lambda s, o: s * o)
+        return self._op2(other, lambda s, o: s * o, 1)
 
     def __rmul__(self, other):
-        return self._op2(other, lambda s, o: o * s)
+        return self._op2(other, lambda s, o: o * s, 1)
 
-    def _op2(self, other, fun):
+    def _op2(self, other, fun, default: int):
         if isinstance(other, int):
             return Shape(tuple([fun(s, other) for s in self.sizes]), self.names, self.types, (None,) * self.rank)
         elif isinstance(other, Shape):
-            assert self.names == other.names, f"{self.names, other.names}"
-            return Shape(tuple([fun(s, o) for s, o in zip(self.sizes, other.sizes)]), self.names, self.types, (None,) * self.rank)
+            merged = self.without_sizes() & other.without_sizes()
+            sizes = ()
+            for dim in merged.names:
+                self_val = self.get_size(dim) if dim in self else default
+                other_val = other.get_size(dim) if dim in other else default
+                sizes += (fun(self_val, other_val),)
+            return merged.with_sizes(sizes)
         else:
             return NotImplemented
 
@@ -921,6 +994,21 @@ class Shape:
 
 
 EMPTY_SHAPE = Shape((), (), (), ())
+""" Empty shape, `()` """
+
+DimFilter = Union[str, tuple, list, Shape, Callable]
+try:
+    DimFilter.__doc__ = """Dimension filters can be used with `Shape.only()` and `Shype.without()`, making them the standard tool for specifying sets of dimensions.
+    
+    The following types can be used as dimension filters:
+    
+    * `Shape` instances
+    * `tuple` or `list` objects containing dimension names as `str`
+    * Single `str` listing comma-separated dimension names
+    * Any function `filter(Shape) -> Shape`, such as `math.batch()`, `math.non_batch()`, `math.spatial()`, etc.
+    """  # docstring must be set explicitly
+except AttributeError:  # on older Python versions, this is not possible
+    pass
 
 
 class IncompatibleShapes(ValueError):
@@ -992,8 +1080,11 @@ def _construct_shape(dim_type: str, *args, **dims):
         elif isinstance(size, (tuple, list)):
             items = tuple(size)
             size = len(items)
+        elif isinstance(size, Shape):
+            items = size.names
+            size = size.rank
         else:
-            assert size is None or isinstance(size, int), f"Invalid size: {size}"
+            assert size is None or isinstance(size, int), f"Cannot construct dimension from {type(size).__name__}. Only int, tuple, list, str or Shape allowed. Got {size}"
             items = None
         names += (name,)
         sizes += (size,)
@@ -1001,7 +1092,32 @@ def _construct_shape(dim_type: str, *args, **dims):
     return math.Shape(sizes, names, (dim_type,) * len(sizes), item_names)
 
 
-def spatial(*args, **dims: int or str or tuple or list) -> Shape:
+def shape(obj) -> Shape:
+    """
+    If `obj` is a `Tensor` or `phi.math.magic.Shaped`, returns its shape.
+    If `obj` is a `Shape`, returns `obj`.
+
+    This function can be passed as a `dim` argument to an operation to specify that it should act upon all dimensions.
+
+    Args:
+        obj: `Tensor` or `Shape` or `Shaped`
+
+    Returns:
+        `Shape`
+    """
+    if isinstance(obj, Shape):
+        return obj
+    elif hasattr(obj, '__shape__'):
+        return obj.__shape__()
+    elif hasattr(obj, 'shape') and isinstance(obj.shape, Shape):
+        return obj.shape
+    elif isinstance(obj, (int, float, complex, bool)):
+        return EMPTY_SHAPE
+    else:
+        raise ValueError(f'shape() requires Shaped or Shape argument but got {obj}')
+
+
+def spatial(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.
 
@@ -1035,18 +1151,18 @@ def spatial(*args, **dims: int or str or tuple or list) -> Shape:
     Returns:
         `Shape` containing only dimensions of type spatial.
     """
-    from phi.math import Tensor
+    from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
         return _construct_shape(SPATIAL_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].spatial
-    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
-        return args[0].shape.spatial
+    elif len(args) == 1 and isinstance(args[0], Shaped):
+        return shape(args[0]).spatial
     else:
         raise AssertionError(f"spatial() must be called either as a selector spatial(Shape) or spatial(Tensor) or as a constructor spatial(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def channel(*args, **dims: int or str or tuple or list) -> Shape:
+def channel(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     Returns the channel dimensions of an existing `Shape` or creates a new `Shape` with only channel dimensions.
 
@@ -1080,22 +1196,18 @@ def channel(*args, **dims: int or str or tuple or list) -> Shape:
     Returns:
         `Shape` containing only dimensions of type channel.
     """
-    from ._tensors import Tensor
+    from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
-        result = _construct_shape(CHANNEL_DIM, *args, **dims)
-        for s, n, t, item_name in result._dimensions:
-            if item_name is None and s is not None and not n.startswith('_'):
-                warnings.warn(f"Item names are highly recommended for channel dimensions. Use the syntax math.channel({result.names[0]}='x,y,z') to assign names or use math.stack(dict, dim)", SyntaxWarning, stacklevel=2)
-        return result
+        return _construct_shape(CHANNEL_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].channel
-    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
-        return args[0].shape.channel
+    elif len(args) == 1 and isinstance(args[0], Shaped):
+        return shape(args[0]).channel
     else:
         raise AssertionError(f"channel() must be called either as a selector channel(Shape) or channel(Tensor) or as a constructor channel(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def batch(*args, **dims: int or str or tuple or list) -> Shape:
+def batch(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
@@ -1129,18 +1241,18 @@ def batch(*args, **dims: int or str or tuple or list) -> Shape:
     Returns:
         `Shape` containing only dimensions of type batch.
     """
-    from phi.math import Tensor
+    from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
         return _construct_shape(BATCH_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].batch
-    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
-        return args[0].shape.batch
+    elif len(args) == 1 and isinstance(args[0], Shaped):
+        return shape(args[0]).batch
     else:
         raise AssertionError(f"batch() must be called either as a selector batch(Shape) or batch(Tensor) or as a constructor batch(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def instance(*args, **dims: int or str or tuple or list) -> Shape:
+def instance(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     """
     Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
 
@@ -1174,18 +1286,18 @@ def instance(*args, **dims: int or str or tuple or list) -> Shape:
     Returns:
         `Shape` containing only dimensions of type instance.
     """
-    from phi.math import Tensor
+    from .magic import Shaped
     if all(isinstance(arg, str) for arg in args) or dims:
         return _construct_shape(INSTANCE_DIM, *args, **dims)
     elif len(args) == 1 and isinstance(args[0], Shape):
         return args[0].instance
-    elif len(args) == 1 and hasattr(args[0], 'shape') and isinstance(args[0].shape, Shape):
-        return args[0].shape.instance
+    elif len(args) == 1 and isinstance(args[0], Shaped):
+        return shape(args[0]).instance
     else:
         raise AssertionError(f"instance() must be called either as a selector instance(Shape) or instance(Tensor) or as a constructor instance(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def merge_shapes(*shapes: Shape, order=(batch, instance, spatial, channel)):
+def merge_shapes(*shapes: Shape or Any, order=(batch, instance, spatial, channel)):
     """
     Combines `shapes` into a single `Shape`, grouping dimensions by type.
     If dimensions with equal names are present in multiple shapes, their types and sizes must match.
@@ -1196,39 +1308,118 @@ def merge_shapes(*shapes: Shape, order=(batch, instance, spatial, channel)):
         `concat_shapes()`.
 
     Args:
-        *shapes: `Shape` objects to combine.
-        check_exact: Sequence of type filters, such as `channel`, `batch`, `spatial` or `instance`.
-            These types are checked for exact match, i.e. shapes must either contain all dimensions of that type or none.
-            The order of the dimensions does not matter.
-            For example, when checking `spatial`, the shapes `spatial(x=5)` and `spatial(y=4)` cannot be combined.
-            However, `spatial(x=5, y=4)` can be combined with `spatial(y=4, x=5)` and `channel('vector')`.
+        *shapes: `Shape` or `Shaped` objects to combine.
         order: Dimension type order as `tuple` of type filters (`channel`, `batch`, `spatial` or `instance`). Dimensions are grouped by type while merging.
 
     Returns:
         Merged `Shape`
+
+    Raises:
+        IncompatibleShapes if the shapes are not compatible
     """
     if not shapes:
         return EMPTY_SHAPE
+    shapes = [obj if isinstance(obj, Shape) else shape(obj) for obj in shapes]
     merged = []
     for dim_type in order:
         type_group = dim_type(shapes[0])
-        for shape in shapes[1:]:
-            shape = dim_type(shape)
-            for dim in shape:
+        for sh in shapes[1:]:
+            sh = dim_type(sh)
+            for dim in sh:
                 if dim not in type_group:
                     type_group = type_group._expand(dim, pos=-1)
                 else:  # check size match
                     if not _size_equal(dim.size, type_group.get_size(dim.name)):
                         raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
                     names1 = type_group.get_item_names(dim)
-                    names2 = shape.get_item_names(dim)
+                    names2 = sh.get_item_names(dim)
                     if names1 is not None and names2 is not None and len(names1) > 1:
                         if names1 != names2:
-                            raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
+                            if set(names1) == set(names2):
+                                raise IncompatibleShapes(f"Inconsistent component order: '{','.join(names1)}' vs '{','.join(names2)}' in dimension '{dim.name}'. Failed to merge shapes {shapes}", *shapes)
+                            else:
+                                raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
                     elif names1 is None and names2 is not None:
                         type_group = type_group._with_item_name(dim, tuple(names2))
         merged.append(type_group)
     return concat_shapes(*merged)
+
+
+def non_batch(obj) -> Shape:
+    """
+    Returns the non-batch dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    from .magic import Shaped
+    if isinstance(obj, Shape):
+        return obj.non_batch
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_batch
+    else:
+        raise AssertionError(f"non_batch() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
+
+def non_spatial(obj) -> Shape:
+    """
+    Returns the non-spatial dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    from .magic import Shaped
+    if isinstance(obj, Shape):
+        return obj.non_spatial
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_spatial
+    else:
+        raise AssertionError(f"non_spatial() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
+
+def non_instance(obj) -> Shape:
+    """
+    Returns the non-instance dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    from .magic import Shaped
+    if isinstance(obj, Shape):
+        return obj.non_instance
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_instance
+    else:
+        raise AssertionError(f"non_instance() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
+
+def non_channel(obj) -> Shape:
+    """
+    Returns the non-channel dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    from .magic import Shaped
+    if isinstance(obj, Shape):
+        return obj.non_channel
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_channel
+    else:
+        raise AssertionError(f"non_channel() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
 
 
 def _size_equal(s1, s2):
@@ -1240,7 +1431,7 @@ def _size_equal(s1, s2):
         return math.close(s1, s2)
 
 
-def concat_shapes(*shapes: Shape) -> Shape:
+def concat_shapes(*shapes: Shape or Any) -> Shape:
     """
     Creates a `Shape` listing the dimensions of all `shapes` in the given order.
 
@@ -1253,6 +1444,7 @@ def concat_shapes(*shapes: Shape) -> Shape:
     Returns:
         Combined `Shape`.
     """
+    shapes = [obj if isinstance(obj, Shape) else shape(obj) for obj in shapes]
     names = sum([s.names for s in shapes], ())
     if len(set(names)) != len(names):
         raise IncompatibleShapes(f"Cannot concatenate shapes {list(shapes)}. Duplicate dimension names are not allowed.")
@@ -1299,7 +1491,7 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
         if all([math.close(s, dim_sizes[0]) for s in dim_sizes[1:]]):
             dim_sizes = dim_sizes[0]
         else:
-            from ._ops import stack
+            from ._magic_ops import stack
             from ._tensors import wrap
             dim_sizes = [wrap(d) for d in dim_sizes]
             dim_sizes = stack(dim_sizes, stack_dim)

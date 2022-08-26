@@ -7,10 +7,8 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 """
-import warnings
-
 from phi import math
-from phi.field import SampledField, ConstantField, Field, PointCloud, extrapolate_valid, Grid, sample, reduce_sample
+from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample
 from phi.field._field import FieldType
 from phi.field._field_math import GridType
 from phi.geom import Geometry
@@ -32,6 +30,18 @@ def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) 
     vel_full = sample(velocity, elements.shifted(dt * vel_half2))
     vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
     return elements.shifted(dt * vel_rk4)
+
+
+def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = None) -> Geometry:
+    """ Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN. """
+    v0 = sample(velocity, elements)
+    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
+    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
+    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
+    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
+    vel_nan = math.where(math.is_finite(vel_rk4), vel_rk4, v0)
+    return elements.shifted(dt * vel_nan)
+
 
 
 def advect(field: SampledField,
@@ -59,8 +69,6 @@ def advect(field: SampledField,
         return points(field, velocity, dt=dt, integrator=integrator)
     elif isinstance(field, Grid):
         return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
-    elif isinstance(field, ConstantField):
-        return field
     raise NotImplementedError(field)
 
 
@@ -145,61 +153,3 @@ def mac_cormack(field: GridType,
     upper_limit = math.max(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     values_clamped = math.clip(new_field.values, lower_limit, upper_limit)
     return new_field.with_values(values_clamped)
-
-
-def runge_kutta_4(cloud: SampledField, velocity: Field, dt: float, accessible: Field = None, occupied: Field = None):
-    """ 
-    Lagrangian advection of particles using a fourth-order runge-kutta scheme. If `accessible` and `occupied` are specified,
-    the advection uses velocity-dependent extrapolation of `velocity`.
-    
-    Args:
-        cloud: PointCloud holding the particle positions as elements
-        velocity: velocity Grid which should get used for advection
-        dt: Time step for runge-kutta
-        accessible: Boundary conditions for restricting extrapolation to accessible positions
-        occupied: Binary Grid indicating particle positions on the grid for extrapolation
-
-    Returns:
-        PointCloud with advected particle positions and their corresponding values.
-    """
-    warnings.warn("runge_kutta_4 is deprecated. Use points() with integrator=rk4 instead.", DeprecationWarning)
-    assert isinstance(velocity, Grid), 'runge_kutta advection with extrapolation works for Grids only.'
-
-    def extrapolation_helper(elements, t_shift, v_field, mask):
-        shift = math.ceil(math.max(math.abs(elements.center - points.center))) - t_shift
-        t_shift += shift
-        v_field, mask = extrapolate_valid(v_field, mask, int(shift))
-        v_field *= accessible
-        return v_field, mask, t_shift
-
-    points = cloud.elements
-    total_shift = 0
-    extrapolate = accessible is not None and occupied is not None
-
-    # --- Sample velocity at intermediate points and adjust velocity-dependent
-    # extrapolation to maximum shift of corresponding component ---
-    if extrapolate:
-        assert isinstance(occupied, type(velocity)), 'occupation mask must have same type as velocity.'
-        velocity, occupied = extrapolate_valid(velocity, occupied, 2)
-        velocity *= accessible
-    vel_k1 = sample(velocity, points)
-
-    shifted_points = points.shifted(0.5 * dt * vel_k1)
-    if extrapolate:
-        velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k2 = sample(velocity, shifted_points)
-
-    shifted_points = points.shifted(0.5 * dt * vel_k2)
-    if extrapolate:
-        velocity, occupied, total_shift = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k3 = sample(velocity, shifted_points)
-
-    shifted_points = points.shifted(dt * vel_k3)
-    if extrapolate:
-        velocity, _, _ = extrapolation_helper(shifted_points, total_shift, velocity, occupied)
-    vel_k4 = sample(velocity, shifted_points)
-
-    # --- Combine points with RK4 scheme ---
-    vel = (1/6.) * (vel_k1 + 2 * (vel_k2 + vel_k3) + vel_k4)
-    new_points = points.shifted(dt * vel)
-    return cloud.with_elements(new_points)

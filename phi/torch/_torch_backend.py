@@ -2,44 +2,31 @@ import numbers
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Callable, Optional, Set
+from typing import List, Callable, Optional, Set, Tuple
 
 import numpy as np
 import torch
 import torch.fft
 import torch.nn.functional as torchf
+from packaging import version
 
 from phi.math import DType
 from phi.math.backend import Backend, NUMPY, ComputeDevice, PHI_LOGGER
-from phi.math.backend._backend import combined_dim, SolveResult, get_functional_derivative_order
+from phi.math.backend._backend import combined_dim, SolveResult, get_functional_derivative_order, TensorType
 
 
 class TorchBackend(Backend):
 
     def __init__(self):
-        cpu = NUMPY.cpu
-        self.cpu = ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')
-        gpus = self.list_devices('GPU')
-        Backend.__init__(self, 'PyTorch', default_device=gpus[0] if gpus else cpu)
+        cpu = NUMPY.get_default_device()
+        devices = [ComputeDevice(self, "CPU", 'CPU', cpu.memory, cpu.processor_count, cpu.description, ref='cpu')]
+        for index in range(torch.cuda.device_count()):
+            properties = torch.cuda.get_device_properties(index)
+            devices.append(ComputeDevice(self, properties.name, 'GPU', properties.total_memory, properties.multi_processor_count, f"compute capability {properties.major}.{properties.minor}", f'cuda:{index}'))
+        Backend.__init__(self, 'PyTorch', devices, devices[1 if len(devices) > 1 else 0])
 
     def prefers_channels_last(self) -> bool:
         return False
-
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
-        devices = []
-        if device_type in (None, 'CPU'):
-            devices.append(self.cpu)
-        if device_type in (None, 'GPU'):
-            for index in range(torch.cuda.device_count()):
-                properties = torch.cuda.get_device_properties(index)
-                devices.append(ComputeDevice(self,
-                                             properties.name,
-                                             'GPU',
-                                             properties.total_memory,
-                                             properties.multi_processor_count,
-                                             f"compute capability {properties.major}.{properties.minor}",
-                                             ref=f'cuda:{index}'))
-        return devices
 
     def is_module(self, obj):
         return isinstance(obj, (JITFunction, torch.nn.Module))
@@ -97,9 +84,9 @@ class TorchBackend(Backend):
         else:
             return self.as_tensor(obj)
 
-    def auto_cast(self, *tensors) -> list:
+    def auto_cast(self, *tensors, **kwargs) -> list:
         tensors = [t if isinstance(t, (numbers.Number, bool)) else self.as_tensor(t, True) for t in tensors]
-        return Backend.auto_cast(self, *tensors)
+        return Backend.auto_cast(self, *tensors, **kwargs)
 
     def is_available(self, tensor) -> bool:
         # return True
@@ -124,6 +111,12 @@ class TorchBackend(Backend):
 
     def copy(self, tensor, only_mutable=False):
         return torch.clone(tensor)
+
+    def get_device(self, tensor: TensorType) -> ComputeDevice:
+        return self.get_device_by_ref(str(tensor.device))
+
+    def allocate_on_device(self, tensor: TensorType, device: ComputeDevice) -> TensorType:
+        return self.as_tensor(tensor).to(device.ref)
 
     def multi_slice(self, tensor, slices: tuple):
         neg_slices = [i for i, s in enumerate(slices) if isinstance(s, slice) and s.step is not None and s.step < 0]
@@ -160,6 +153,7 @@ class TorchBackend(Backend):
     def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
         """ See PyTorch_Jit.md """
         def select_jit(*args):
+            args = [self.as_tensor(arg) for arg in args]
             if not CURRENT_JIT_CALLS:
                 return torch_function.apply(*args)
             jit = CURRENT_JIT_CALLS[-1]
@@ -239,6 +233,7 @@ class TorchBackend(Backend):
             raise NotImplementedError()  # TODO transpose to get (0, 0) to the front
         pad_width_spatial = [item for sublist in reversed(pad_width_reordered) for item in sublist]  # flatten
         try:
+            constant_values = self.dtype(value).kind(constant_values)
             result = torchf.pad(reordered, pad_width_spatial, mode, value=constant_values)  # supports 3D to 5D (2 + 1D to 3D)
         except RuntimeError as err:
             warnings.warn(f"PyTorch error {err}", RuntimeWarning)
@@ -322,6 +317,8 @@ class TorchBackend(Backend):
     def where(self, condition, x=None, y=None):
         condition = self.as_tensor(condition).bool()
         x, y = self.auto_cast(x, y)
+        x = self.as_tensor(x)
+        y = self.as_tensor(y)
         return torch.where(condition, x, y)
 
     def mean(self, value, axis=None, keepdims=False):
@@ -439,6 +436,9 @@ class TorchBackend(Backend):
         value = self.as_tensor(value)
         kernel = self.as_tensor(kernel)
         value, kernel = self.auto_cast(value, kernel)
+        if self.dtype(value).kind in (bool, int):
+            value = self.to_float(value)
+            kernel = self.to_float(kernel)
         if zero_padding:
             if all(s % 2 == 1 for s in kernel.shape[3:]):
                 padding = [s // 2 for s in kernel.shape[3:]]
@@ -564,7 +564,7 @@ class TorchBackend(Backend):
 
     def cast(self, x, dtype: DType):
         if isinstance(x, (numbers.Number, bool)):
-            return x  # Creating a Tensor here would raise warnings during tracing.
+            return dtype.kind(x)  # Creating a Tensor here would raise warnings during tracing.
         if not self.is_tensor(x, only_native=True):
             x = self.as_tensor(x)
         if self.dtype(x) == dtype:
@@ -629,6 +629,12 @@ class TorchBackend(Backend):
         x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
         return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
 
+    def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
+        assert version.parse(torch.__version__) >= version.parse('1.9.0'), "least squares requires PyTorch >= 1.9.0"
+        matrix, rhs = self.auto_cast(matrix, rhs)
+        solution, residuals, rank, singular_values = torch.linalg.lstsq(matrix, rhs)
+        return solution, residuals, rank, singular_values
+
     def _prepare_graph_inputs(self, args: tuple, wrt: tuple or list):
         args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
         args = [self.to_float(arg) if self.dtype(arg).kind == int else arg for arg in args]
@@ -647,23 +653,18 @@ class TorchBackend(Backend):
             assert t.requires_grad
         return args, wrt_args
 
-    def functional_gradient(self, f, wrt: tuple or list, get_output: bool):
+    def jacobian(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         @wraps(f)
         def eval_grad(*args):
             args, wrt_args = self._prepare_graph_inputs(args, wrt)
-            output = f(*args)
-            output = output if isinstance(output, (tuple, list)) else [output]
-            loss = output[0].sum()
-            grads = torch.autograd.grad(loss, wrt_args)  # grad() cannot be called during jit trace
-            if get_output:
-                # output[0] = output[0].detach()  # why?
-                return (*output, *grads)
+            loss, output = f(*args)
+            if np.prod(self.staticshape(loss)) == 1:
+                grads = torch.autograd.grad(loss, wrt_args)  # grad() cannot be called during jit trace
             else:
-                return grads
+                raise NotImplementedError()
+                grads = torch.autograd.grad(loss, wrt_args, retain_graph=True)
+            return (*output, *grads) if get_output else grads
         return eval_grad
-
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool):
-        pass
 
     def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
         # if not get_output and not get_gradient:
@@ -751,33 +752,13 @@ class TorchBackend(Backend):
 
         return eval_hessian
 
-    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool):
+    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
         jit = self.jit_compile(f)
-        return self.functional_gradient(jit, wrt, get_output)
+        return self.jacobian(jit, wrt, get_output, is_f_scalar)
 
     def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
         jit = self.jit_compile(f)
         return self.hessian(jit, wrt, get_output, get_gradient)
-
-    def gradients(self, y, xs: tuple or list, grad_y) -> tuple:
-        if self.ndims(y) > 0:
-            y = self.sum(y)
-        grad = torch.autograd.grad(y, xs, grad_y)
-        return grad
-
-    @contextmanager
-    def record_gradients(self, xs: tuple or list, persistent=False):
-        for x in xs:
-            assert self.is_tensor(x, only_native=True), f"Must be a PyTorch tensor but got {x}"
-        xs = [x if x.is_leaf else x.detach_() for x in xs]
-        assert not any(x.requires_grad for x in xs)
-        for x in xs:
-            x.requires_grad = True
-        try:
-            yield None
-        finally:
-            for x in xs:
-                x.requires_grad = False
 
     def stop_gradient(self, value):
         return value.detach()

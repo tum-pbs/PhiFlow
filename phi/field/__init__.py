@@ -17,19 +17,19 @@ All fields can be sampled at physical locations or volumes using `sample()` or `
 See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 """
 
-from ._field import Field, SampledField, unstack, sample, reduce_sample
-from ._constant import ConstantField
+from ._field import Field, SampledField, sample, reduce_sample, as_extrapolation
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import Grid, CenteredGrid, StaggeredGrid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from phi.math import (
-    abs, sign, round, ceil, floor, sqrt, exp, isfinite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
+    abs, sign, round, ceil, floor, sqrt, exp, isfinite, is_finite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
     stop_gradient,
-    jit_compile, jit_compile_linear, functional_gradient,
+    jit_compile, jit_compile_linear, functional_gradient, jacobian, gradient,
     solve_linear, solve_nonlinear, minimize,
     l2_loss, l1_loss, frequency_loss,
+    unstack, stack, concat  # expand, rename_dims, pack_dims, unpack_dims
 )
 from ._field_math import (
     assert_close, tensor_as_field,
@@ -41,10 +41,11 @@ from ._field_math import (
     where, maximum, minimum,
     vec_squared, vec_length as vec_abs, vec_length,
     downsample2x, upsample2x,
-    extrapolate_valid,
+    finite_fill,
     native_call,
     integrate,
     pack_dims,
+    support,
 )
 from ._field_io import write, read
 from ._scene import Scene
