@@ -349,9 +349,14 @@ class GradientFunction:
             with functional_derivative_evaluation(order=1):
                 result = self.f(*values, **in_key.kwargs)  # Tensor or tuple/list of Tensors
             loss = result[0] if isinstance(result, (tuple, list)) else result
-            assert isinstance(loss, Tensor), f"Function {self.f.__name__} must return loss of type phi.math.Tensor as its first output but returned {type(loss)}"
-            loss_reduced = math.sum_(loss, batch)
-            loss_native = loss_reduced.native(loss_reduced.shape.names)
+            if isinstance(loss, Tensor):
+            # assert , f"Function {self.f.__name__} must return loss of type phi.math.Tensor as its first output but returned {type(loss)}"
+                loss_reduced = math.sum_(loss, batch)
+                loss_native = loss_reduced.native(loss_reduced.shape.names)
+            else:
+                loss_native = loss
+                loss_shape = in_key.backend.staticshape(loss_native)
+                assert len(loss_shape) == 0, f"Only scalar losses are allowed when returning a native tensor but {self.f.__name__} returned {type(loss_native).__name__} of shape {loss_shape}. For higher-dimensional values, use Φ-Tensors instead."
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, None, in_key.backend, in_key.tracing)
