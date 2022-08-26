@@ -3334,7 +3334,7 @@ However, passing different values for these will cause <code>f</code> to be re-t
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>PhiTreeNode</code>.
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>PhiTreeNode</code> or 0D or 1D native tensor.
 For <code>PhiTreeNode</code> objects, only value the sum over all value attributes is computed.</dd>
 <dt><strong><code>reduce</code></strong></dt>
 <dd>Dimensions to reduce as <code>DimFilter</code>.</dd>
@@ -3353,7 +3353,7 @@ For <code>PhiTreeNode</code> objects, only value the sum over all value attribut
     Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;1&lt;/sub&gt;*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `PhiTreeNode`.
+        x: `Tensor` or `PhiTreeNode` or 0D or 1D native tensor.
             For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
@@ -3365,7 +3365,17 @@ For <code>PhiTreeNode</code> objects, only value the sum over all value attribut
     elif isinstance(x, PhiTreeNode):
         return sum([l1_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
-        raise ValueError(x)</code></pre>
+        try:
+            backend = math.choose_backend(x)
+            shape = backend.staticshape(x)
+            if len(shape) == 0:
+                return abs(x)
+            elif len(shape) == 1:
+                return backend.sum(abs(x))
+            else:
+                raise ValueError(&#34;l2_loss is only defined for 0D and 1D native tensors. For higher-dimensional data, use Φ-Flow tensors.&#34;)
+        except math.NoBackendFound:
+            raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l2_loss"><code class="name flex">
@@ -3376,7 +3386,7 @@ For <code>PhiTreeNode</code> objects, only value the sum over all value attribut
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>PhiTreeNode</code>.
+<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>PhiTreeNode</code> or 0D or 1D native tensor.
 For <code>PhiTreeNode</code> objects, only value the sum over all value attributes is computed.</dd>
 <dt><strong><code>reduce</code></strong></dt>
 <dd>Dimensions to reduce as <code>DimFilter</code>.</dd>
@@ -3395,7 +3405,7 @@ For <code>PhiTreeNode</code> objects, only value the sum over all value attribut
     Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;2&lt;/sub&gt;&lt;sup&gt;2&lt;/sup&gt; / 2*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `PhiTreeNode`.
+        x: `Tensor` or `PhiTreeNode` or 0D or 1D native tensor.
             For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
@@ -3409,7 +3419,17 @@ For <code>PhiTreeNode</code> objects, only value the sum over all value attribut
     elif isinstance(x, PhiTreeNode):
         return sum([l2_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
-        raise ValueError(x)</code></pre>
+        try:
+            backend = math.choose_backend(x)
+            shape = backend.staticshape(x)
+            if len(shape) == 0:
+                return x ** 2 * 0.5
+            elif len(shape) == 1:
+                return backend.sum(x ** 2) * 0.5
+            else:
+                raise ValueError(&#34;l2_loss is only defined for 0D and 1D native tensors. For higher-dimensional data, use Φ-Flow tensors.&#34;)
+        except math.NoBackendFound:
+            raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.laplace"><code class="name flex">
@@ -11275,7 +11295,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                 return self._op2(inputs[1], lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), &#39;add&#39;, &#39;*&#39;)
             else:
                 return self._op2(inputs[0], lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), &#39;rsub&#39;, &#39;*&#39;)
-        if ufunc.__name__ == &#39;true_divide&#39;:
+        if ufunc.__name__ in [&#39;divide&#39;, &#39;true_divide&#39;]:
             if inputs[0] is self:
                 return self._op2(inputs[1], lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), &#39;true_divide&#39;, &#39;*&#39;)
             else:
