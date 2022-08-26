@@ -11655,7 +11655,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
             assert isinstance(value, TensorStack)
             assert value.stack_dim.name in dims
             concat_dim = value.shape.without(value.stack_dim)[0]
-            c = concat_tensor(value.tensors, concat_dim)
+            c = concat_tensor(value._tensors, concat_dim)
             return pack_dims(c, [d for d in dims if d != value.stack_dim.name], packed_dim, pos=pos)
 
     def dimension(self, name: str or Shape) -&gt; &#39;TensorDim&#39;:
