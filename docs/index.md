@@ -15,7 +15,7 @@
 #### Tensors and Dimensions
 
 * [▶️ Introduction Video](https://youtu.be/4nYwL8ZZDK8)
-* [Introduction Notebook]()
+* [Introduction Notebook](Math_Introduction.html)
 
 #### Differentiation
 
