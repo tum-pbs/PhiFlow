@@ -845,8 +845,8 @@ class Layout(Tensor):
         elif isinstance(other, Tensor):
             raise NotImplementedError
         else:  # compare all independently to constant
-            flat = [v == other for v in self._as_list()]
-            raise NotImplementedError
+            obj = Layout._compare_recursive_constant(self._obj, other, self._shape)
+            return wrap(obj, self._shape)
 
     def __ne__(self, other):
         return ~(self == other)
@@ -861,6 +861,13 @@ class Layout(Tensor):
         assert type(obj1) == type(obj2), f"Cannot check element-wise equality between {obj1} and {obj2} because they have different types"
         assert len(obj1) == len(obj2), f"Cannot check element-wise equality between {obj1} and {obj2} because they have different lengths"
         equal_elements = [Layout._compare_recursive(o1, o2, shape[1:]) for o1, o2 in zip(obj1, obj2)]
+        return type(obj1)(equal_elements)  # list or tuple
+
+    @staticmethod
+    def _compare_recursive_constant(obj1, const, shape: Shape):
+        if not shape:
+            return obj1 == const
+        equal_elements = [Layout._compare_recursive(o1, const, shape[1:]) for o1 in obj1]
         return type(obj1)(equal_elements)  # list or tuple
 
 
