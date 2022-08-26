@@ -11216,17 +11216,17 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
         Args:
-            order: (Optional) list of dimension names. If not given, the current dimension order is kept.
+            order: (Optional) Order of dimension names as comma-separated string, list or `Shape`.
 
         Returns:
-            Native tensor representation
+            Native tensor representation, such as PyTorch tensor or NumPy array.
 
         Raises:
             ValueError if the tensor cannot be transposed to match target_shape
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def numpy(self, order: str or tuple or list = None) -&gt; np.ndarray:
+    def numpy(self, order: str or tuple or list or Shape = None) -&gt; np.ndarray:
         &#34;&#34;&#34;
         Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
         
@@ -11242,7 +11242,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
             `phi.math.numpy()`
 
         Args:
-            order: (Optional) list of dimension names. If not given, the current dimension order is kept.
+            order: (Optional) Order of dimension names as comma-separated string, list or `Shape`.
 
         Returns:
             NumPy representation
@@ -11252,6 +11252,65 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         &#34;&#34;&#34;
         native = self.native(order=order)
         return choose_backend(native).numpy(native)
+
+    def __array__(self, dtype=None):  # NumPy conversion
+        warnings.warn(&#34;Automatic conversion of Φ-Flow tensors to NumPy can cause problems because the dimension order is not guaranteed.&#34;, SyntaxWarning, stacklevel=3)
+        return self.numpy(self._shape)
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):  # NumPy interface
+        if len(inputs) != 2:
+            return NotImplemented
+        if ufunc.__name__ == &#39;multiply&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x * y, lambda x, y: choose_backend(x, y).mul(x, y), &#39;mul&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y * x, lambda x, y: choose_backend(x, y).mul(y, x), &#39;rmul&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;add&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), &#39;add&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y + x, lambda x, y: choose_backend(x, y).add(y, x), &#39;radd&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;subtract&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), &#39;add&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), &#39;rsub&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;true_divide&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), &#39;true_divide&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y / x, lambda x, y: choose_backend(x, y).div(y, x), &#39;r_true_divide&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;floor_divide&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y), &#39;floor_divide&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x), &#39;r_floor_divide&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;remainder&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y), &#39;remainder&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), &#39;r_remainder&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;greater&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x &gt; y, lambda x, y: choose_backend(x, y).greater_than(x, y), &#39;greater&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y &gt; x, lambda x, y: choose_backend(x, y).greater_than(y, x), &#39;r_greater&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;greater_equal&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x &gt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), &#39;greater_equal&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y &gt;= x, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), &#39;r_greater_equal&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;less&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x &lt; y, lambda x, y: choose_backend(x, y).greater_than(y, x), &#39;less&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y &lt; x, lambda x, y: choose_backend(x, y).greater_than(x, y), &#39;r_less&#39;, &#39;*&#39;)
+        if ufunc.__name__ == &#39;less_equal&#39;:
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x &lt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), &#39;less_equal&#39;, &#39;*&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y &lt;= x, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), &#39;r_less_equal&#39;, &#39;*&#39;)
+        raise NotImplementedError(f&#34;NumPy function &#39;{ufunc.__name__}&#39; is not compatible with Φ-Flow tensors.&#34;)
 
     @property
     def dtype(self) -&gt; DType:
@@ -11772,7 +11831,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def _op2(self, other: &#39;Tensor&#39;, operator: Callable, native_function: Callable, op_name: str = &#39;unknown&#39;, op_symbol: str = &#39;?&#39;) -&gt; &#39;Tensor&#39;:
+    def _op2(self, other, operator: Callable, native_function: Callable, op_name: str = &#39;unknown&#39;, op_symbol: str = &#39;?&#39;) -&gt; &#39;Tensor&#39;:
         &#34;&#34;&#34;
         Apply a broadcast operation on two tensors.
 
@@ -12213,10 +12272,10 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>order</code></strong></dt>
-<dd>(Optional) list of dimension names. If not given, the current dimension order is kept.</dd>
+<dd>(Optional) Order of dimension names as comma-separated string, list or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Native tensor representation</p>
+<p>Native tensor representation, such as PyTorch tensor or NumPy array.</p>
 <h2 id="raises">Raises</h2>
 <p>ValueError if the tensor cannot be transposed to match target_shape</p></div>
 <details class="source">
@@ -12231,10 +12290,10 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
     If a dimension of the tensor is not listed in `order`, a `ValueError` is raised.
 
     Args:
-        order: (Optional) list of dimension names. If not given, the current dimension order is kept.
+        order: (Optional) Order of dimension names as comma-separated string, list or `Shape`.
 
     Returns:
-        Native tensor representation
+        Native tensor representation, such as PyTorch tensor or NumPy array.
 
     Raises:
         ValueError if the tensor cannot be transposed to match target_shape
@@ -12257,7 +12316,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>order</code></strong></dt>
-<dd>(Optional) list of dimension names. If not given, the current dimension order is kept.</dd>
+<dd>(Optional) Order of dimension names as comma-separated string, list or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>NumPy representation</p>
@@ -12267,7 +12326,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def numpy(self, order: str or tuple or list = None) -&gt; np.ndarray:
+<pre><code class="python">def numpy(self, order: str or tuple or list or Shape = None) -&gt; np.ndarray:
     &#34;&#34;&#34;
     Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
     
@@ -12283,7 +12342,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
         `phi.math.numpy()`
 
     Args:
-        order: (Optional) list of dimension names. If not given, the current dimension order is kept.
+        order: (Optional) Order of dimension names as comma-separated string, list or `Shape`.
 
     Returns:
         NumPy representation
