@@ -103,7 +103,7 @@ class Tensor:
                 return self._op2(inputs[1], lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), 'add', '*')
             else:
                 return self._op2(inputs[0], lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), 'rsub', '*')
-        if ufunc.__name__ == 'true_divide':
+        if ufunc.__name__ in ['divide', 'true_divide']:
             if inputs[0] is self:
                 return self._op2(inputs[1], lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), 'true_divide', '*')
             else:
