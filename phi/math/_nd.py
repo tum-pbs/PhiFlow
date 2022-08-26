@@ -173,7 +173,7 @@ def l1_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `PhiTreeNode`.
+        x: `Tensor` or `PhiTreeNode` or 0D or 1D native tensor.
             For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
@@ -185,7 +185,17 @@ def l1_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     elif isinstance(x, PhiTreeNode):
         return sum([l1_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
-        raise ValueError(x)
+        try:
+            backend = math.choose_backend(x)
+            shape = backend.staticshape(x)
+            if len(shape) == 0:
+                return abs(x)
+            elif len(shape) == 1:
+                return backend.sum(abs(x))
+            else:
+                raise ValueError("l2_loss is only defined for 0D and 1D native tensors. For higher-dimensional data, use Φ-Flow tensors.")
+        except math.NoBackendFound:
+            raise ValueError(x)
 
 
 def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
@@ -193,7 +203,7 @@ def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `PhiTreeNode`.
+        x: `Tensor` or `PhiTreeNode` or 0D or 1D native tensor.
             For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
@@ -207,7 +217,17 @@ def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     elif isinstance(x, PhiTreeNode):
         return sum([l2_loss(getattr(x, a), reduce) for a in variable_values(x)])
     else:
-        raise ValueError(x)
+        try:
+            backend = math.choose_backend(x)
+            shape = backend.staticshape(x)
+            if len(shape) == 0:
+                return x ** 2 * 0.5
+            elif len(shape) == 1:
+                return backend.sum(x ** 2) * 0.5
+            else:
+                raise ValueError("l2_loss is only defined for 0D and 1D native tensors. For higher-dimensional data, use Φ-Flow tensors.")
+        except math.NoBackendFound:
+            raise ValueError(x)
 
 
 def frequency_loss(x,
