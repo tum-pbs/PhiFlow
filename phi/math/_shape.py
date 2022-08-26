@@ -1,4 +1,5 @@
 import warnings
+from numbers import Number
 from typing import Tuple, Callable, List, Union, Any
 
 from phi import math
@@ -1113,8 +1114,23 @@ def shape(obj) -> Shape:
         return obj.shape
     elif isinstance(obj, (int, float, complex, bool)):
         return EMPTY_SHAPE
+    elif isinstance(obj, (tuple, list)):
+        return channel('vector')
+    elif isinstance(obj, (Number, bool)):
+        return EMPTY_SHAPE
     else:
-        raise ValueError(f'shape() requires Shaped or Shape argument but got {obj}')
+        from .backend import choose_backend, NoBackendFound
+        try:
+            backend = choose_backend(obj)
+            shape_tuple = backend.staticshape(obj)
+            if len(shape_tuple) == 0:
+                return EMPTY_SHAPE
+            elif len(shape_tuple) == 1:
+                return channel('vector')
+            else:
+                raise ValueError(f"Cannot auto-complete shape of {backend} tensor with shape {shape_tuple}. Only 0D and 1D tensors have a Φ-Flow shape by default.")
+        except NoBackendFound:
+            raise ValueError(f'shape() requires Shaped or Shape argument but got {type(obj)}')
 
 
 def spatial(*args, **dims: int or str or tuple or list or Shape) -> Shape:
