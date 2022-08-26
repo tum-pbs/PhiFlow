@@ -483,7 +483,7 @@ class Tensor:
             assert isinstance(value, TensorStack)
             assert value.stack_dim.name in dims
             concat_dim = value.shape.without(value.stack_dim)[0]
-            c = concat_tensor(value.tensors, concat_dim)
+            c = concat_tensor(value._tensors, concat_dim)
             return pack_dims(c, [d for d in dims if d != value.stack_dim.name], packed_dim, pos=pos)
 
     def dimension(self, name: str or Shape) -> 'TensorDim':
@@ -1897,7 +1897,7 @@ def cached(t: Tensor or 'PhiTreeNode') -> Tensor or 'PhiTreeNode':
     elif isinstance(t, TensorStack):
         if t._cached is not None:
             return t._cached
-        inners = cached(t.tensors)
+        inners = cached(t._tensors)
         if t.requires_broadcast:
             return TensorStack(inners, t.stack_dim)
         else:
