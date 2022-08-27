@@ -10,8 +10,8 @@ from phi.torch.flow import *
 
 
 DOMAIN = dict(x=50, y=50, bounds=Box(x=100, y=100))
-MARKER_0 = CenteredGrid(Sphere((40, 50), radius=20), extrapolation.BOUNDARY, **DOMAIN)
-MARKER_TARGET = CenteredGrid(Sphere((60, 50), radius=20), extrapolation.BOUNDARY, **DOMAIN)
+MARKER_0 = CenteredGrid(Sphere(x=40, y=50, radius=20), extrapolation.BOUNDARY, **DOMAIN)
+MARKER_TARGET = CenteredGrid(Sphere(x=60, y=50, radius=20), extrapolation.BOUNDARY, **DOMAIN)
 
 
 def loss(velocity):
@@ -20,7 +20,7 @@ def loss(velocity):
     return field.l2_loss(smooth_diff), advected, smooth_diff
 
 
-gradient_function = field.functional_gradient(loss, get_output=True)
+gradient_function = field.functional_gradient(loss, 'velocity', get_output=True)
 
 velocity_fit = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
 marker_fit = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
@@ -28,7 +28,7 @@ smooth_difference = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
 viewer = view(display=['marker_fit', 'gradient'], play=False, namespace=globals())
 
 for iteration in viewer.range(warmup=1):
-    (loss, marker_fit, smooth_difference), (gradient,) = gradient_function(velocity_fit)
+    (loss, marker_fit, smooth_difference), gradient = gradient_function(velocity_fit)
     viewer.info(f"Loss = {loss:.2f}")
     viewer.log_scalars(loss=loss)
     velocity_fit -= gradient
