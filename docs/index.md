@@ -1,3 +1,4 @@
+# ![PhiFlow](figures/Logo_DallE2_3_layout.png)
 
 [**Homepage**](https://github.com/tum-pbs/PhiFlow)
 &nbsp;&nbsp;&nbsp; [**API**](phi)
