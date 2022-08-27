@@ -16044,7 +16044,7 @@ Say we want to optimize the initial velocities so that all simulations arrive at
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[13]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sim_grad</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">functional_gradient</span><span class="p">(</span><span class="n">simulate</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">get_output</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sim_grad</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">functional_gradient</span><span class="p">(</span><span class="n">simulate</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="s1">'velocity'</span><span class="p">,</span> <span class="n">get_output</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -16073,7 +16073,7 @@ Say we want to optimize the initial velocities so that all simulations arrive at
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[14]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">velocity_grad</span><span class="p">,</span> <span class="o">=</span> <span class="n">sim_grad</span><span class="p">(</span><span class="n">initial_smoke</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">velocity_grad</span> <span class="o">=</span> <span class="n">sim_grad</span><span class="p">(</span><span class="n">initial_smoke</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)</span>
 
 <span class="n">vis</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">velocity_grad</span><span class="p">)</span>
 </pre></div>
@@ -16183,10 +16183,10 @@ Next loss: <span class="ansi-blue-intense-fg">(274.484, 239.474, 200.312, 0.000)
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[16]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sim_grad</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">functional_gradient</span><span class="p">(</span><span class="n">simulate</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">get_output</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sim_grad</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">functional_gradient</span><span class="p">(</span><span class="n">simulate</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="s1">'velocity'</span><span class="p">,</span> <span class="n">get_output</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 <span class="k">for</span> <span class="n">opt_step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
-  <span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">final_smoke</span><span class="p">,</span> <span class="n">_v</span><span class="p">),</span> <span class="p">(</span><span class="n">velocity_grad</span><span class="p">,)</span> <span class="o">=</span> <span class="n">sim_grad</span><span class="p">(</span><span class="n">initial_smoke</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)</span>
+  <span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">final_smoke</span><span class="p">,</span> <span class="n">_v</span><span class="p">),</span> <span class="n">velocity_grad</span> <span class="o">=</span> <span class="n">sim_grad</span><span class="p">(</span><span class="n">initial_smoke</span><span class="p">,</span> <span class="n">initial_velocity</span><span class="p">)</span>
   <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Step </span><span class="si">{</span><span class="n">opt_step</span><span class="si">}</span><span class="s2">, loss: </span><span class="si">{</span><span class="n">loss</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
   <span class="n">initial_velocity</span> <span class="o">-=</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="n">velocity_grad</span>
 </pre></div>

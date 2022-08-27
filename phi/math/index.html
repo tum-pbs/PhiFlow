@@ -1379,14 +1379,16 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for the backpropagation pass.</p>
-<p><em>Warning</em> This method can lead to memory leaks if the gradient funcion is not called.
+<p><em>Warning</em> This method can lead to memory leaks if the gradient function is not called.
 Make sure to pass tensors without gradients if the gradient is not required, see <code><a title="phi.math.stop_gradient" href="#phi.math.stop_gradient">stop_gradient()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Forward function mapping <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> arguments <code>x</code> to a single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> output or sequence of tensors <code>y</code>.</dd>
 <dt><strong><code>gradient</code></strong></dt>
-<dd>Function to compute the vector-Jacobian product for backpropropagation. Will be called as <code>gradient(*x, *y, *dy) -&gt; *dx</code>.</dd>
+<dd>Function to compute the vector-Jacobian product for backpropagation.
+Will be called as <code>gradient(input_dict, *y, *dy) -&gt; output_dict</code> where <code>input_dict</code> contains all named arguments passed to the forward function
+and <code>output_dict</code> contains only those parameters for which a gradient is defined.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
@@ -1398,12 +1400,14 @@ Make sure to pass tensors without gradients if the gradient is not required, see
     &#34;&#34;&#34;
     Creates a function based on `f` that uses a custom gradient for the backpropagation pass.
 
-    *Warning* This method can lead to memory leaks if the gradient funcion is not called.
+    *Warning* This method can lead to memory leaks if the gradient function is not called.
     Make sure to pass tensors without gradients if the gradient is not required, see `stop_gradient()`.
 
     Args:
         f: Forward function mapping `Tensor` arguments `x` to a single `Tensor` output or sequence of tensors `y`.
-        gradient: Function to compute the vector-Jacobian product for backpropropagation. Will be called as `gradient(*x, *y, *dy) -&gt; *dx`.
+        gradient: Function to compute the vector-Jacobian product for backpropagation.
+            Will be called as `gradient(input_dict, *y, *dy) -&gt; output_dict` where `input_dict` contains all named arguments passed to the forward function
+            and `output_dict` contains only those parameters for which a gradient is defined.
 
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
@@ -2419,7 +2423,7 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 </details>
 </dd>
 <dt id="phi.math.functional_gradient"><code class="name flex">
-<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
+<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the gradient of <code>f</code>.</p>
@@ -2429,10 +2433,10 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx, = jacobian(loss_function, get_output=False)(x, y)
+dx = functional_gradient(loss_function, 'x', get_output=False)(x, y)
 
-(loss, prediction), (dx, dy) = jacobian(loss_function,
-                                    wrt=(0, 1), get_output=True)(x, y)
+(loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                        'x,y', get_output=True)(x, y)
 </code></pre>
 <p>Functional gradients are implemented for the following backends:</p>
 <ul>
@@ -2452,9 +2456,8 @@ All arguments for which the gradient is computed must be of dtype float or compl
 <dt><strong><code>get_output</code></strong></dt>
 <dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
-Either <code>tuple</code> or <code>int</code>.
-Example: <code>wrt_indices=(0,)</code> computes the gradient with respect to the first argument of <code>f</code> but returns the gradient as a single-entry tuple.</dd>
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
+If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
@@ -2462,7 +2465,7 @@ Example: <code>wrt_indices=(0,)</code> computes the gradient with respect to the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
+<pre><code class="python">def functional_gradient(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the gradient of `f`.
 
@@ -2473,10 +2476,10 @@ Example: <code>wrt_indices=(0,)</code> computes the gradient with respect to the
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx, = jacobian(loss_function, get_output=False)(x, y)
+    dx = functional_gradient(loss_function, &#39;x&#39;, get_output=False)(x, y)
 
-    (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                        wrt=(0, 1), get_output=True)(x, y)
+    (loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                            &#39;x,y&#39;, get_output=True)(x, y)
     ```
 
     Functional gradients are implemented for the following backends:
@@ -2494,14 +2497,14 @@ Example: <code>wrt_indices=(0,)</code> computes the gradient with respect to the
             It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
             All arguments for which the gradient is computed must be of dtype float or complex.
         get_output: Whether the gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Either `tuple` or `int`.
-            Example: `wrt_indices=(0,)` computes the gradient with respect to the first argument of `f` but returns the gradient as a single-entry tuple.
+        wrt: Comma-separated parameter names of `f` with respect to which the gradient should be computed.
+            If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     &#34;&#34;&#34;
-    return GradientFunction(f, wrt, get_output, True)</code></pre>
+    f_params, wrt = simplify_wrt(f, wrt)
+    return GradientFunction(f, f_params, wrt, get_output, is_f_scalar=True)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.gather"><code class="name flex">
@@ -2588,7 +2591,7 @@ The precision can be set globally using <code><a title="phi.math.set_global_prec
 </details>
 </dd>
 <dt id="phi.math.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
+<span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the Jacobian matrix of <code>f</code>.
@@ -2599,10 +2602,10 @@ For scalar functions, consider using <code><a title="phi.math.functional_gradien
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+dx = jacobian(loss_function, wrt='x', get_output=False)(x, y)
 
 (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                    wrt=(0, 1), get_output=True)(x, y)
+                                    wrt='x,y', get_output=True)(x, y)
 </code></pre>
 <p>Functional gradients are implemented for the following backends:</p>
 <ul>
@@ -2622,9 +2625,8 @@ All arguments for which the gradient is computed must be of dtype float or compl
 <dt><strong><code>get_output</code></strong></dt>
 <dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
-Either <code>tuple</code> or <code>int</code>.
-Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the first argument of <code>f</code> but returns the Jacobian as a single-entry tuple.</dd>
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
+If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and Jacobian of <code>f</code> if <code>get_output=True</code>, else just the Jacobian of <code>f</code>.</p></div>
@@ -2632,7 +2634,7 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
+<pre><code class="python">def jacobian(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the Jacobian matrix of `f`.
     For scalar functions, consider using `functional_gradient()` instead.
@@ -2644,10 +2646,10 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+    dx = jacobian(loss_function, wrt=&#39;x&#39;, get_output=False)(x, y)
 
     (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                        wrt=(0, 1), get_output=True)(x, y)
+                                        wrt=&#39;x,y&#39;, get_output=True)(x, y)
     ```
 
     Functional gradients are implemented for the following backends:
@@ -2665,14 +2667,14 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
             It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
             All arguments for which the gradient is computed must be of dtype float or complex.
         get_output: Whether the gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Either `tuple` or `int`.
-            Example: `wrt_indices=(0,)` computes the Jacobian with respect to the first argument of `f` but returns the Jacobian as a single-entry tuple.
+        wrt: Comma-separated parameter names of `f` with respect to which the gradient should be computed.
+            If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and Jacobian of `f` if `get_output=True`, else just the Jacobian of `f`.
     &#34;&#34;&#34;
-    return GradientFunction(f, wrt, get_output, False)</code></pre>
+    f_params, wrt = simplify_wrt(f, wrt)
+    return GradientFunction(f, f_params, wrt, get_output, is_f_scalar=False)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.grid_sample"><code class="name flex">
@@ -2726,7 +2728,7 @@ The size of the <code>vector</code> dimension must match the number of spatial d
 </details>
 </dd>
 <dt id="phi.math.hessian"><code class="name flex">
-<span>def <span class="ident">hessian</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True, get_gradient=True, dim_suffixes=('', '_')) ‑> Callable</span>
+<span>def <span class="ident">hessian</span></span>(<span>f: Callable, wrt: str, get_output=True, get_gradient=True, dim_suffixes=('', '_')) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p><em>Experimental. This function currently only supports PyTorch and the Hessian can only be computed w.r.t. one argument.</em></p>
@@ -2737,10 +2739,10 @@ The size of the <code>vector</code> dimension must match the number of spatial d
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-hess, = jacobian(loss_function, get_output=False, get_gradient=False)(x, y)
+hess, = hessian(loss_function, 'x', get_output=False, get_gradient=False)(x, y)
 
-(loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = jacobian(loss_function,
-                                    wrt=(0, 1), get_output=True)(x, y)
+(loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = hessian(loss_function,
+                                    wrt='x,y', get_output=True)(x, y)
 </code></pre>
 <p>When the gradient function is invoked, <code>f</code> is called with tensors that track the gradient.
 For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code>f</code>.</p>
@@ -2752,8 +2754,8 @@ For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments 
 It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
 All arguments for which the gradient is computed must be of dtype float or complex.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
-Example: <code>wrt_indices=[0]</code> computes the gradient with respect to the first argument of <code>f</code>.</dd>
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
+If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 <dt><strong><code>get_output</code></strong></dt>
 <dd>Whether the Hessian function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>get_gradient</code></strong></dt>
@@ -2771,7 +2773,7 @@ This argument has no effect on the dimension names of the gradient if <code>get_
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def hessian(f: Callable, wrt: tuple or list = (0,), get_output=True, get_gradient=True, dim_suffixes=(&#39;&#39;, &#39;_&#39;)) -&gt; Callable:
+<pre><code class="python">def hessian(f: Callable, wrt: str, get_output=True, get_gradient=True, dim_suffixes=(&#39;&#39;, &#39;_&#39;)) -&gt; Callable:
     &#34;&#34;&#34;
     *Experimental. This function currently only supports PyTorch and the Hessian can only be computed w.r.t. one argument.*
 
@@ -2784,10 +2786,10 @@ This argument has no effect on the dimension names of the gradient if <code>get_
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    hess, = jacobian(loss_function, get_output=False, get_gradient=False)(x, y)
+    hess, = hessian(loss_function, &#39;x&#39;, get_output=False, get_gradient=False)(x, y)
 
-    (loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = jacobian(loss_function,
-                                        wrt=(0, 1), get_output=True)(x, y)
+    (loss, prediction), (dx, dy), ((dx_dx, dx_dy), (dy_dx, dy_dy)) = hessian(loss_function,
+                                        wrt=&#39;x,y&#39;, get_output=True)(x, y)
     ```
 
     When the gradient function is invoked, `f` is called with tensors that track the gradient.
@@ -2798,8 +2800,8 @@ This argument has no effect on the dimension names of the gradient if <code>get_
             `f` must return a floating point `Tensor` with rank zero.
             It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
             All arguments for which the gradient is computed must be of dtype float or complex.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Example: `wrt_indices=[0]` computes the gradient with respect to the first argument of `f`.
+        wrt: Comma-separated parameter names of `f` with respect to which the gradient should be computed.
+            If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).
         get_output: Whether the Hessian function should also return the return values of `f`.
         get_gradient: Whether the Hessian function should also return the gradient of `f`.
         dim_suffixes: `tuple` containing two strings.
@@ -2811,7 +2813,8 @@ This argument has no effect on the dimension names of the gradient if <code>get_
     Returns:
         Function with the same arguments as `f` that returns `(f(x), g(x), H(x))` or less depending on `get_output` and `get_gradient`.
     &#34;&#34;&#34;
-    return HessianFunction(f, wrt, get_output, get_gradient, dim_suffixes)</code></pre>
+    f_params, wrt = simplify_wrt(f, wrt)
+    return HessianFunction(f, f_params, wrt, get_output, get_gradient, dim_suffixes)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.ifft"><code class="name flex">
@@ -3096,7 +3099,7 @@ These arguments can be of any type.</dd>
 </details>
 </dd>
 <dt id="phi.math.jacobian"><code class="name flex">
-<span>def <span class="ident">jacobian</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
+<span>def <span class="ident">jacobian</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the Jacobian matrix of <code>f</code>.
@@ -3107,10 +3110,10 @@ For scalar functions, consider using <code><a title="phi.math.functional_gradien
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+dx = jacobian(loss_function, wrt='x', get_output=False)(x, y)
 
 (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                    wrt=(0, 1), get_output=True)(x, y)
+                                    wrt='x,y', get_output=True)(x, y)
 </code></pre>
 <p>Functional gradients are implemented for the following backends:</p>
 <ul>
@@ -3130,9 +3133,8 @@ All arguments for which the gradient is computed must be of dtype float or compl
 <dt><strong><code>get_output</code></strong></dt>
 <dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
-Either <code>tuple</code> or <code>int</code>.
-Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the first argument of <code>f</code> but returns the Jacobian as a single-entry tuple.</dd>
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
+If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and Jacobian of <code>f</code> if <code>get_output=True</code>, else just the Jacobian of <code>f</code>.</p></div>
@@ -3140,7 +3142,7 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
+<pre><code class="python">def jacobian(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the Jacobian matrix of `f`.
     For scalar functions, consider using `functional_gradient()` instead.
@@ -3152,10 +3154,10 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+    dx = jacobian(loss_function, wrt=&#39;x&#39;, get_output=False)(x, y)
 
     (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                        wrt=(0, 1), get_output=True)(x, y)
+                                        wrt=&#39;x,y&#39;, get_output=True)(x, y)
     ```
 
     Functional gradients are implemented for the following backends:
@@ -3173,14 +3175,14 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
             It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
             All arguments for which the gradient is computed must be of dtype float or complex.
         get_output: Whether the gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Either `tuple` or `int`.
-            Example: `wrt_indices=(0,)` computes the Jacobian with respect to the first argument of `f` but returns the Jacobian as a single-entry tuple.
+        wrt: Comma-separated parameter names of `f` with respect to which the gradient should be computed.
+            If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and Jacobian of `f` if `get_output=True`, else just the Jacobian of `f`.
     &#34;&#34;&#34;
-    return GradientFunction(f, wrt, get_output, False)</code></pre>
+    f_params, wrt = simplify_wrt(f, wrt)
+    return GradientFunction(f, f_params, wrt, get_output, is_f_scalar=False)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.jit_compile"><code class="name flex">
@@ -3198,9 +3200,8 @@ def my_function(x: math.Tensor) -&gt; math.Tensor:
 <p>Invoking the returned function may invoke re-tracing / re-compiling <code>f</code> after the first call if either</p>
 <ul>
 <li>it is called with a different number of arguments,</li>
-<li>the keyword arguments differ from previous invocations,</li>
-<li>the positional tensor arguments have different dimension names or types (the dimension order also counts),</li>
-<li>any positional <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> arguments require a different backend than previous invocations,</li>
+<li>the tensor arguments have different dimension names or types (the dimension order also counts),</li>
+<li>any <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> arguments require a different backend than previous invocations,</li>
 <li><code>PhiTreeNode</code> positional arguments do not match in non-variable properties.</li>
 </ul>
 <p>Compilation is implemented for the following backends:</p>
@@ -3242,9 +3243,8 @@ All positional arguments must be of type <code><a title="phi.math.Tensor" href="
     Invoking the returned function may invoke re-tracing / re-compiling `f` after the first call if either
 
     * it is called with a different number of arguments,
-    * the keyword arguments differ from previous invocations,
-    * the positional tensor arguments have different dimension names or types (the dimension order also counts),
-    * any positional `Tensor` arguments require a different backend than previous invocations,
+    * the tensor arguments have different dimension names or types (the dimension order also counts),
+    * any `Tensor` arguments require a different backend than previous invocations,
     * `PhiTreeNode` positional arguments do not match in non-variable properties.
 
     Compilation is implemented for the following backends:
@@ -3270,7 +3270,7 @@ All positional arguments must be of type <code><a title="phi.math.Tensor" href="
 </details>
 </dd>
 <dt id="phi.math.jit_compile_linear"><code class="name flex">
-<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y], linear_args: str = None) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
@@ -3289,6 +3289,8 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 All positional arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> and <code>f</code> must return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.
 <code>f</code> may be conditioned on keyword arguments.
 However, passing different values for these will cause <code>f</code> to be re-traced unless the conditioning arguments are also being traced.</dd>
+<dt><strong><code>linear_args</code></strong></dt>
+<dd>Which parameters <code>f</code> is linear in. All other arguments are treated as conditioning arguments and will cause re-tracing on change.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code> with similar signature and return values as <code>f</code>.</p></div>
@@ -3296,7 +3298,7 @@ However, passing different values for these will cause <code>f</code> to be re-t
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
+<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y], linear_args: str = None) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
     For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
@@ -3317,13 +3319,19 @@ However, passing different values for these will cause <code>f</code> to be re-t
             All positional arguments must be of type `Tensor` and `f` must return a `Tensor`.
             `f` may be conditioned on keyword arguments.
             However, passing different values for these will cause `f` to be re-traced unless the conditioning arguments are also being traced.
+        linear_args: Which parameters `f` is linear in. All other arguments are treated as conditioning arguments and will cause re-tracing on change.
 
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
     &#34;&#34;&#34;
     if isinstance(f, JitFunction):
         f = f.f  # cannot trace linear function from jitted version
-    return f if isinstance(f, LinearFunction) else LinearFunction(f)</code></pre>
+    if isinstance(linear_args, str):
+        linear_args = tuple(s.strip() for s in linear_args.split(&#39;,&#39;))
+    elif linear_args is None:
+        f_params = function_parameters(f)
+        linear_args = f_params[0],
+    return f if isinstance(f, LinearFunction) and f.linear_args == linear_args else LinearFunction(f, linear_args)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l1_loss"><code class="name flex">
@@ -8254,8 +8262,10 @@ This may indicate that no solution exists.</p>
     Use `jit_compile_linear()` to create a linear function representation.
     &#34;&#34;&#34;
 
-    def __init__(self, f):
+    def __init__(self, f, linear_args: Tuple[str, ...]):
         self.f = f
+        self.f_params = function_parameters(f)
+        self.linear_args = linear_args
         self.tracers: Dict[SignatureKey, ShiftLinTracer] = {}
         self.nl_jit = JitFunction(f)  # for backends that do not support sparse matrices
 
@@ -8264,11 +8274,9 @@ This may indicate that no solution exists.</p>
         with NUMPY if prefer_numpy else in_key.backend:
             x = math.ones(in_key.shapes[0])
             tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
-        f_input = assemble_tree(in_key.tree, [tracer])
-        assert isinstance(f_input, tuple)
-        condition_args = [in_key.kwargs[f&#39;_condition_arg[{i}]&#39;] for i in range(in_key.kwargs[&#39;n_condition_args&#39;])]
-        kwargs = {k: v for k, v in in_key.kwargs.items() if not (k.startswith(&#39;_condition_arg[&#39;) or k == &#39;n_condition_args&#39;)}
-        result = self.f(*f_input, *condition_args, **kwargs)
+        x_kwargs = assemble_tree(in_key.tree, [tracer])
+        condition_kwargs = in_key.condition
+        result = self.f(**x_kwargs, **condition_kwargs)
         _, result_tensors = disassemble_tree(result)
         assert len(result_tensors) == 1, f&#34;Linear function must return a single Tensor or tensor-like but got {result}&#34;
         result_tensor = result_tensors[0]
@@ -8283,49 +8291,51 @@ This may indicate that no solution exists.</p>
             if not key.tracing:
                 self.tracers[key] = tracer
                 if len(self.tracers) &gt;= 4:
-                    warnings.warn(f&#34;Φ-lin: The compiled linear function &#39;{self.f.__name__}&#39; was traced {len(self.tracers)} times. Performing many traces may be slow and cause memory leaks. Keyword arguments are taken as constant and are not jit-compiled, so a trace is performed when the function is called with different keyword arguments. Multiple linear traces can be avoided by jit-compiling the code that calls jit_compile_linear().&#34;, RuntimeWarning)
+                    warnings.warn(f&#34;&#34;&#34;Φ-lin: The compiled linear function &#39;{self.f.__name__}&#39; was traced {len(self.tracers)} times.
+Performing many traces may be slow and cause memory leaks.
+Tensors in conditioning arguments (all except the first parameter unless specified otherwise) are compared by reference, not by tensor values.
+Conditioning arguments: {key.condition}
+Multiple linear traces can be avoided by jit-compiling the code that calls the linear function.&#34;&#34;&#34;, RuntimeWarning, stacklevel=3)
             return tracer
 
     def __call__(self, *args: X, **kwargs) -&gt; Y:
-        nest, tensors = disassemble_tree(args)
+        kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
+        condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
+        x = {name: kwargs[name] for name in self.linear_args}
+        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         assert tensors, &#34;Linear function requires at least one argument&#34;
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
-            return self.f(*args, **kwargs)
-        backend = math.choose_backend_t(*tensors)
-        if not backend.supports(Backend.sparse_coo_tensor):
+            return self.f(**kwargs)
+        if not key.backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;, RuntimeWarning)
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
-                PHI_LOGGER.debug(f&#34;Φ-lin: Running &#39;{self.f.__name__}&#39; as-is with {backend} because it is being traced.&#34;)
-                return self.f(*args, **kwargs)
+                PHI_LOGGER.debug(f&#34;Φ-lin: Running &#39;{self.f.__name__}&#39; as-is with {key.backend} because it is being traced.&#34;)
+                return self.f(**kwargs)
             else:
-                return self.nl_jit(*args, **kwargs)
-        x, *condition_args = args
-        key = self._condition_key(x, condition_args, kwargs)
+                return self.nl_jit(**kwargs)
         tracer = self._get_or_trace(key, prefer_numpy=False)
         return tracer.apply(tensors[0])
 
-    def sparse_matrix(self, x, *condition_args, format: str = None, prefer_numpy=False, **kwargs):
-        key = self._condition_key(x, condition_args, kwargs)
+    def sparse_matrix(self, *args, format: str = None, prefer_numpy=False, **kwargs):
+        kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
+        condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
+        x = {name: kwargs[name] for name in self.linear_args}
+        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         assert math.close(tracer.bias, 0), &#34;This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead.&#34;
         return tracer.get_sparse_matrix(format)
 
-    def sparse_matrix_and_bias(self, x, *condition_args, format: str = None, prefer_numpy=False, **kwargs):
-        key = self._condition_key(x, condition_args, kwargs)
+    def sparse_matrix_and_bias(self, *args, format: str = None, prefer_numpy=False, **kwargs):
+        kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
+        condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
+        x = {name: kwargs[name] for name in self.linear_args}
+        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         return tracer.get_sparse_matrix(format), tracer.bias
 
-    def _condition_key(self, x, condition_args, kwargs):
-        kwargs[&#39;n_condition_args&#39;] = len(condition_args)
-        for i, c_arg in enumerate(condition_args):
-            kwargs[f&#39;_condition_arg[{i}]&#39;] = c_arg
-        key, _ = key_from_args(x, cache=False, **kwargs)
-        # assert key.backend.supports(Backend.sparse_coo_tensor)
-        return key
-
     def stencil_inspector(self, *args, prefer_numpy=True, **kwargs):
-        key, _ = key_from_args(*args, cache=True, **kwargs)
+        key, _, _ = key_from_args(*args, cache=True, **kwargs)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
 
         def print_stencil(**indices):
@@ -8342,7 +8352,7 @@ This may indicate that no solution exists.</p>
 <h3>Methods</h3>
 <dl>
 <dt id="phi.math.LinearFunction.sparse_matrix"><code class="name flex">
-<span>def <span class="ident">sparse_matrix</span></span>(<span>self, x, *condition_args, format: str = None, prefer_numpy=False, **kwargs)</span>
+<span>def <span class="ident">sparse_matrix</span></span>(<span>self, *args, format: str = None, prefer_numpy=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -8350,15 +8360,18 @@ This may indicate that no solution exists.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sparse_matrix(self, x, *condition_args, format: str = None, prefer_numpy=False, **kwargs):
-    key = self._condition_key(x, condition_args, kwargs)
+<pre><code class="python">def sparse_matrix(self, *args, format: str = None, prefer_numpy=False, **kwargs):
+    kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
+    condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
+    x = {name: kwargs[name] for name in self.linear_args}
+    key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
     tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
     assert math.close(tracer.bias, 0), &#34;This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead.&#34;
     return tracer.get_sparse_matrix(format)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.LinearFunction.sparse_matrix_and_bias"><code class="name flex">
-<span>def <span class="ident">sparse_matrix_and_bias</span></span>(<span>self, x, *condition_args, format: str = None, prefer_numpy=False, **kwargs)</span>
+<span>def <span class="ident">sparse_matrix_and_bias</span></span>(<span>self, *args, format: str = None, prefer_numpy=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -8366,8 +8379,11 @@ This may indicate that no solution exists.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sparse_matrix_and_bias(self, x, *condition_args, format: str = None, prefer_numpy=False, **kwargs):
-    key = self._condition_key(x, condition_args, kwargs)
+<pre><code class="python">def sparse_matrix_and_bias(self, *args, format: str = None, prefer_numpy=False, **kwargs):
+    kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
+    condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
+    x = {name: kwargs[name] for name in self.linear_args}
+    key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
     tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
     return tracer.get_sparse_matrix(format), tracer.bias</code></pre>
 </details>
@@ -8382,7 +8398,7 @@ This may indicate that no solution exists.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stencil_inspector(self, *args, prefer_numpy=True, **kwargs):
-    key, _ = key_from_args(*args, cache=True, **kwargs)
+    key, _, _ = key_from_args(*args, cache=True, **kwargs)
     tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
 
     def print_stencil(**indices):
@@ -11287,49 +11303,63 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                 return self._op2(inputs[0], lambda x, y: y * x, lambda x, y: choose_backend(x, y).mul(y, x), &#39;rmul&#39;, &#39;*&#39;)
         if ufunc.__name__ == &#39;add&#39;:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), &#39;add&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), &#39;add&#39;, &#39;+&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y + x, lambda x, y: choose_backend(x, y).add(y, x), &#39;radd&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y + x, lambda x, y: choose_backend(x, y).add(y, x), &#39;radd&#39;, &#39;+&#39;)
         if ufunc.__name__ == &#39;subtract&#39;:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), &#39;add&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), &#39;add&#39;, &#39;-&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), &#39;rsub&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), &#39;rsub&#39;, &#39;-&#39;)
         if ufunc.__name__ in [&#39;divide&#39;, &#39;true_divide&#39;]:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), &#39;true_divide&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), &#39;true_divide&#39;, &#39;/&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y / x, lambda x, y: choose_backend(x, y).div(y, x), &#39;r_true_divide&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y / x, lambda x, y: choose_backend(x, y).div(y, x), &#39;r_true_divide&#39;, &#39;/&#39;)
         if ufunc.__name__ == &#39;floor_divide&#39;:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y), &#39;floor_divide&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y), &#39;floor_divide&#39;, &#39;//&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x), &#39;r_floor_divide&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x), &#39;r_floor_divide&#39;, &#39;//&#39;)
         if ufunc.__name__ == &#39;remainder&#39;:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y), &#39;remainder&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y), &#39;remainder&#39;, &#39;%&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), &#39;r_remainder&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), &#39;r_remainder&#39;, &#39;%&#39;)
+        if ufunc.__name__ == &#39;equal&#39;:
+            if _EQUALITY_BY_REF:
+                return wrap(inputs[0] is inputs[1])
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y), &#39;equal&#39;, &#39;==&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y == x, lambda x, y: choose_backend(x, y).equal(y, x), &#39;r_equal&#39;, &#39;==&#39;)
+        if ufunc.__name__ == &#39;not_equal&#39;:
+            if _EQUALITY_BY_REF:
+                return wrap(inputs[0] is not inputs[1])
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y), &#39;equal&#39;, &#39;!=&#39;)
+            else:
+                return self._op2(inputs[0], lambda x, y: y != x, lambda x, y: choose_backend(x, y).not_equal(y, x), &#39;r_equal&#39;, &#39;!=&#39;)
         if ufunc.__name__ == &#39;greater&#39;:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x &gt; y, lambda x, y: choose_backend(x, y).greater_than(x, y), &#39;greater&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x &gt; y, lambda x, y: choose_backend(x, y).greater_than(x, y), &#39;greater&#39;, &#39;&gt;&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y &gt; x, lambda x, y: choose_backend(x, y).greater_than(y, x), &#39;r_greater&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y &gt; x, lambda x, y: choose_backend(x, y).greater_than(y, x), &#39;r_greater&#39;, &#39;&gt;&#39;)
         if ufunc.__name__ == &#39;greater_equal&#39;:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x &gt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), &#39;greater_equal&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x &gt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), &#39;greater_equal&#39;, &#39;&gt;=&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y &gt;= x, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), &#39;r_greater_equal&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y &gt;= x, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), &#39;r_greater_equal&#39;, &#39;&gt;=&#39;)
         if ufunc.__name__ == &#39;less&#39;:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x &lt; y, lambda x, y: choose_backend(x, y).greater_than(y, x), &#39;less&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x &lt; y, lambda x, y: choose_backend(x, y).greater_than(y, x), &#39;less&#39;, &#39;&lt;&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y &lt; x, lambda x, y: choose_backend(x, y).greater_than(x, y), &#39;r_less&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y &lt; x, lambda x, y: choose_backend(x, y).greater_than(x, y), &#39;r_less&#39;, &#39;&lt;&#39;)
         if ufunc.__name__ == &#39;less_equal&#39;:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x &lt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), &#39;less_equal&#39;, &#39;*&#39;)
+                return self._op2(inputs[1], lambda x, y: x &lt;= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), &#39;less_equal&#39;, &#39;&lt;=&#39;)
             else:
-                return self._op2(inputs[0], lambda x, y: y &lt;= x, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), &#39;r_less_equal&#39;, &#39;*&#39;)
+                return self._op2(inputs[0], lambda x, y: y &lt;= x, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), &#39;r_less_equal&#39;, &#39;&lt;=&#39;)
         raise NotImplementedError(f&#34;NumPy function &#39;{ufunc.__name__}&#39; is not compatible with Φ-Flow tensors.&#34;)
 
     @property
@@ -11786,9 +11816,13 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self._op2(other, lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), &#39;rmod&#39;, &#39;%&#39;)
 
     def __eq__(self, other):
+        if _EQUALITY_BY_REF:
+            return wrap(self is other)
         return self._op2(other, lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y), &#39;eq&#39;, &#39;==&#39;)
 
     def __ne__(self, other):
+        if _EQUALITY_BY_REF:
+            return wrap(self is not other)
         return self._op2(other, lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y), &#39;ne&#39;, &#39;!=&#39;)
 
     def __lt__(self, other):

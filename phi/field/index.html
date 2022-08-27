@@ -777,7 +777,7 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 </details>
 </dd>
 <dt id="phi.field.functional_gradient"><code class="name flex">
-<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
+<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the gradient of <code>f</code>.</p>
@@ -787,10 +787,10 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx, = jacobian(loss_function, get_output=False)(x, y)
+dx = functional_gradient(loss_function, 'x', get_output=False)(x, y)
 
-(loss, prediction), (dx, dy) = jacobian(loss_function,
-                                    wrt=(0, 1), get_output=True)(x, y)
+(loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                        'x,y', get_output=True)(x, y)
 </code></pre>
 <p>Functional gradients are implemented for the following backends:</p>
 <ul>
@@ -810,9 +810,8 @@ All arguments for which the gradient is computed must be of dtype float or compl
 <dt><strong><code>get_output</code></strong></dt>
 <dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
-Either <code>tuple</code> or <code>int</code>.
-Example: <code>wrt_indices=(0,)</code> computes the gradient with respect to the first argument of <code>f</code> but returns the gradient as a single-entry tuple.</dd>
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
+If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
@@ -820,7 +819,7 @@ Example: <code>wrt_indices=(0,)</code> computes the gradient with respect to the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def functional_gradient(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
+<pre><code class="python">def functional_gradient(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the gradient of `f`.
 
@@ -831,10 +830,10 @@ Example: <code>wrt_indices=(0,)</code> computes the gradient with respect to the
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx, = jacobian(loss_function, get_output=False)(x, y)
+    dx = functional_gradient(loss_function, &#39;x&#39;, get_output=False)(x, y)
 
-    (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                        wrt=(0, 1), get_output=True)(x, y)
+    (loss, prediction), (dx, dy) = functional_gradient(loss_function,
+                                            &#39;x,y&#39;, get_output=True)(x, y)
     ```
 
     Functional gradients are implemented for the following backends:
@@ -852,18 +851,18 @@ Example: <code>wrt_indices=(0,)</code> computes the gradient with respect to the
             It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
             All arguments for which the gradient is computed must be of dtype float or complex.
         get_output: Whether the gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Either `tuple` or `int`.
-            Example: `wrt_indices=(0,)` computes the gradient with respect to the first argument of `f` but returns the gradient as a single-entry tuple.
+        wrt: Comma-separated parameter names of `f` with respect to which the gradient should be computed.
+            If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     &#34;&#34;&#34;
-    return GradientFunction(f, wrt, get_output, True)</code></pre>
+    f_params, wrt = simplify_wrt(f, wrt)
+    return GradientFunction(f, f_params, wrt, get_output, is_f_scalar=True)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
+<span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the Jacobian matrix of <code>f</code>.
@@ -874,10 +873,10 @@ For scalar functions, consider using <code><a title="phi.field.functional_gradie
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+dx = jacobian(loss_function, wrt='x', get_output=False)(x, y)
 
 (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                    wrt=(0, 1), get_output=True)(x, y)
+                                    wrt='x,y', get_output=True)(x, y)
 </code></pre>
 <p>Functional gradients are implemented for the following backends:</p>
 <ul>
@@ -897,9 +896,8 @@ All arguments for which the gradient is computed must be of dtype float or compl
 <dt><strong><code>get_output</code></strong></dt>
 <dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
-Either <code>tuple</code> or <code>int</code>.
-Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the first argument of <code>f</code> but returns the Jacobian as a single-entry tuple.</dd>
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
+If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and Jacobian of <code>f</code> if <code>get_output=True</code>, else just the Jacobian of <code>f</code>.</p></div>
@@ -907,7 +905,7 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
+<pre><code class="python">def jacobian(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the Jacobian matrix of `f`.
     For scalar functions, consider using `functional_gradient()` instead.
@@ -919,10 +917,10 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+    dx = jacobian(loss_function, wrt=&#39;x&#39;, get_output=False)(x, y)
 
     (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                        wrt=(0, 1), get_output=True)(x, y)
+                                        wrt=&#39;x,y&#39;, get_output=True)(x, y)
     ```
 
     Functional gradients are implemented for the following backends:
@@ -940,14 +938,14 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
             It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
             All arguments for which the gradient is computed must be of dtype float or complex.
         get_output: Whether the gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Either `tuple` or `int`.
-            Example: `wrt_indices=(0,)` computes the Jacobian with respect to the first argument of `f` but returns the Jacobian as a single-entry tuple.
+        wrt: Comma-separated parameter names of `f` with respect to which the gradient should be computed.
+            If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and Jacobian of `f` if `get_output=True`, else just the Jacobian of `f`.
     &#34;&#34;&#34;
-    return GradientFunction(f, wrt, get_output, False)</code></pre>
+    f_params, wrt = simplify_wrt(f, wrt)
+    return GradientFunction(f, f_params, wrt, get_output, is_f_scalar=False)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
@@ -1057,7 +1055,7 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 </details>
 </dd>
 <dt id="phi.field.jacobian"><code class="name flex">
-<span>def <span class="ident">jacobian</span></span>(<span>f: Callable, wrt: tuple = (0,), get_output=True) ‑> Callable</span>
+<span>def <span class="ident">jacobian</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the Jacobian matrix of <code>f</code>.
@@ -1068,10 +1066,10 @@ For scalar functions, consider using <code><a title="phi.field.functional_gradie
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+dx = jacobian(loss_function, wrt='x', get_output=False)(x, y)
 
 (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                    wrt=(0, 1), get_output=True)(x, y)
+                                    wrt='x,y', get_output=True)(x, y)
 </code></pre>
 <p>Functional gradients are implemented for the following backends:</p>
 <ul>
@@ -1091,9 +1089,8 @@ All arguments for which the gradient is computed must be of dtype float or compl
 <dt><strong><code>get_output</code></strong></dt>
 <dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Arguments of <code>f</code> with respect to which the gradient should be computed.
-Either <code>tuple</code> or <code>int</code>.
-Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the first argument of <code>f</code> but returns the Jacobian as a single-entry tuple.</dd>
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
+If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and Jacobian of <code>f</code> if <code>get_output=True</code>, else just the Jacobian of <code>f</code>.</p></div>
@@ -1101,7 +1098,7 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jacobian(f: Callable, wrt: tuple or list = (0,), get_output=True) -&gt; Callable:
+<pre><code class="python">def jacobian(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the Jacobian matrix of `f`.
     For scalar functions, consider using `functional_gradient()` instead.
@@ -1113,10 +1110,10 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx = jacobian(loss_function, wrt=0, get_output=False)(x, y)
+    dx = jacobian(loss_function, wrt=&#39;x&#39;, get_output=False)(x, y)
 
     (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                        wrt=(0, 1), get_output=True)(x, y)
+                                        wrt=&#39;x,y&#39;, get_output=True)(x, y)
     ```
 
     Functional gradients are implemented for the following backends:
@@ -1134,14 +1131,14 @@ Example: <code>wrt_indices=(0,)</code> computes the Jacobian with respect to the
             It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if `return_values=True`.
             All arguments for which the gradient is computed must be of dtype float or complex.
         get_output: Whether the gradient function should also return the return values of `f`.
-        wrt: Arguments of `f` with respect to which the gradient should be computed.
-            Either `tuple` or `int`.
-            Example: `wrt_indices=(0,)` computes the Jacobian with respect to the first argument of `f` but returns the Jacobian as a single-entry tuple.
+        wrt: Comma-separated parameter names of `f` with respect to which the gradient should be computed.
+            If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).
 
     Returns:
         Function with the same arguments as `f` that returns the value of `f`, auxiliary data and Jacobian of `f` if `get_output=True`, else just the Jacobian of `f`.
     &#34;&#34;&#34;
-    return GradientFunction(f, wrt, get_output, False)</code></pre>
+    f_params, wrt = simplify_wrt(f, wrt)
+    return GradientFunction(f, f_params, wrt, get_output, is_f_scalar=False)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.jit_compile"><code class="name flex">
@@ -1159,9 +1156,8 @@ def my_function(x: math.Tensor) -&gt; math.Tensor:
 <p>Invoking the returned function may invoke re-tracing / re-compiling <code>f</code> after the first call if either</p>
 <ul>
 <li>it is called with a different number of arguments,</li>
-<li>the keyword arguments differ from previous invocations,</li>
-<li>the positional tensor arguments have different dimension names or types (the dimension order also counts),</li>
-<li>any positional <code>Tensor</code> arguments require a different backend than previous invocations,</li>
+<li>the tensor arguments have different dimension names or types (the dimension order also counts),</li>
+<li>any <code>Tensor</code> arguments require a different backend than previous invocations,</li>
 <li><code>PhiTreeNode</code> positional arguments do not match in non-variable properties.</li>
 </ul>
 <p>Compilation is implemented for the following backends:</p>
@@ -1203,9 +1199,8 @@ All positional arguments must be of type <code>Tensor</code> or <code>PhiTreeNod
     Invoking the returned function may invoke re-tracing / re-compiling `f` after the first call if either
 
     * it is called with a different number of arguments,
-    * the keyword arguments differ from previous invocations,
-    * the positional tensor arguments have different dimension names or types (the dimension order also counts),
-    * any positional `Tensor` arguments require a different backend than previous invocations,
+    * the tensor arguments have different dimension names or types (the dimension order also counts),
+    * any `Tensor` arguments require a different backend than previous invocations,
     * `PhiTreeNode` positional arguments do not match in non-variable properties.
 
     Compilation is implemented for the following backends:
@@ -1231,7 +1226,7 @@ All positional arguments must be of type <code>Tensor</code> or <code>PhiTreeNod
 </details>
 </dd>
 <dt id="phi.field.jit_compile_linear"><code class="name flex">
-<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y]) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y], linear_args: str = None) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
@@ -1250,6 +1245,8 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 All positional arguments must be of type <code>Tensor</code> and <code>f</code> must return a <code>Tensor</code>.
 <code>f</code> may be conditioned on keyword arguments.
 However, passing different values for these will cause <code>f</code> to be re-traced unless the conditioning arguments are also being traced.</dd>
+<dt><strong><code>linear_args</code></strong></dt>
+<dd>Which parameters <code>f</code> is linear in. All other arguments are treated as conditioning arguments and will cause re-tracing on change.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code>LinearFunction</code> with similar signature and return values as <code>f</code>.</p></div>
@@ -1257,7 +1254,7 @@ However, passing different values for these will cause <code>f</code> to be re-t
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y]) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
+<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y], linear_args: str = None) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
     For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
@@ -1278,13 +1275,19 @@ However, passing different values for these will cause <code>f</code> to be re-t
             All positional arguments must be of type `Tensor` and `f` must return a `Tensor`.
             `f` may be conditioned on keyword arguments.
             However, passing different values for these will cause `f` to be re-traced unless the conditioning arguments are also being traced.
+        linear_args: Which parameters `f` is linear in. All other arguments are treated as conditioning arguments and will cause re-tracing on change.
 
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
     &#34;&#34;&#34;
     if isinstance(f, JitFunction):
         f = f.f  # cannot trace linear function from jitted version
-    return f if isinstance(f, LinearFunction) else LinearFunction(f)</code></pre>
+    if isinstance(linear_args, str):
+        linear_args = tuple(s.strip() for s in linear_args.split(&#39;,&#39;))
+    elif linear_args is None:
+        f_params = function_parameters(f)
+        linear_args = f_params[0],
+    return f if isinstance(f, LinearFunction) and f.linear_args == linear_args else LinearFunction(f, linear_args)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.l1_loss"><code class="name flex">
