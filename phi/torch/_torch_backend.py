@@ -359,6 +359,7 @@ class TorchBackend(Backend):
         return torch.tensordot(a, b, (a_axes, b_axes))
 
     def matmul(self, A, b):
+        A, b = self.auto_cast(A, b)
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
@@ -720,6 +721,8 @@ class TorchBackend(Backend):
             grads = torch.autograd.grad(scalar_loss, wrt_args, create_graph=True, retain_graph=True)  # grad() cannot be called during jit trace
             hessian = []
             for grad in grads:
+                if not grad.requires_grad:
+                    raise NotImplementedError("Linear dependency detected. Hessian = 0.")
                 hessian.append([[] for _ in grads])
                 for lin_index in range(int(np.prod(grad.shape[1:]))):
                     multi_index = np.unravel_index(lin_index, grad.shape[1:])

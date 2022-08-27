@@ -28,13 +28,13 @@ class TestFunctional(TestCase):
                     self.assertEqual(len(scalar_mul.traces), trace_count_0 + 1)
                 math.assert_close(scalar_mul(x, fac=2), 2, msg=backend)
                 if backend.supports(Backend.jit_compile):
-                    self.assertEqual(len(scalar_mul.traces), trace_count_0 + 2)
+                    self.assertEqual(len(scalar_mul.traces), trace_count_0 + 1)
                 math.assert_close(scalar_mul(math.zeros(spatial(x=4)), fac=2), 0, msg=backend)
                 if backend.supports(Backend.jit_compile):
-                    self.assertEqual(len(scalar_mul.traces), trace_count_0 + 2)
+                    self.assertEqual(len(scalar_mul.traces), trace_count_0 + 1)
                 math.assert_close(scalar_mul(math.zeros(spatial(y=4)), fac=2), 0, msg=backend)
                 if backend.supports(Backend.jit_compile):
-                    self.assertEqual(len(scalar_mul.traces), trace_count_0 + 3)
+                    self.assertEqual(len(scalar_mul.traces), trace_count_0 + 2)
 
     def test_jit_compile_with_native(self):
         @math.jit_compile
@@ -98,8 +98,8 @@ class TestFunctional(TestCase):
         def f(x):
             return x
 
-        def grad(_x, _y, df):
-            return df * 0,
+        def grad(_inputs, _y, df):
+            return {'x': df * 0}
 
         for backend in BACKENDS:
             if backend.supports(Backend.jacobian):
@@ -114,8 +114,8 @@ class TestFunctional(TestCase):
         def f(x):
             return x.x[:2]
 
-        def grad(_x, _y, df):
-            return math.flatten(math.expand(df * 0, batch(tmp=2))),
+        def grad(_inputs, _y, df):
+            return {'x': math.flatten(math.expand(df * 0, batch(tmp=2)))}
 
         def loss(x):
             fg = math.custom_gradient(f, grad)
@@ -305,7 +305,7 @@ class TestFunctional(TestCase):
         def f(x, y):
             return math.l1_loss(x ** 2 * y), x, y
         
-        eval_hessian = math.hessian(f, wrt=[0, ], get_output=True, get_gradient=True, dim_suffixes=('1', '2'))
+        eval_hessian = math.hessian(f, wrt='x', get_output=True, get_gradient=True, dim_suffixes=('1', '2'))
 
         for backend in BACKENDS:
             if backend.supports(Backend.hessian):

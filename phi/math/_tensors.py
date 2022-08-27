@@ -122,14 +122,14 @@ class Tensor:
                 return self._op2(inputs[0], lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), 'r_remainder', '%')
         if ufunc.__name__ == 'equal':
             if _EQUALITY_BY_REF:
-                return inputs[0] is inputs[1]
+                return wrap(inputs[0] is inputs[1])
             if inputs[0] is self:
                 return self._op2(inputs[1], lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y), 'equal', '==')
             else:
                 return self._op2(inputs[0], lambda x, y: y == x, lambda x, y: choose_backend(x, y).equal(y, x), 'r_equal', '==')
         if ufunc.__name__ == 'not_equal':
             if _EQUALITY_BY_REF:
-                return inputs[0] is not inputs[1]
+                return wrap(inputs[0] is not inputs[1])
             if inputs[0] is self:
                 return self._op2(inputs[1], lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y), 'equal', '!=')
             else:
@@ -611,12 +611,12 @@ class Tensor:
 
     def __eq__(self, other):
         if _EQUALITY_BY_REF:
-            return self is other
+            return wrap(self is other)
         return self._op2(other, lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y), 'eq', '==')
 
     def __ne__(self, other):
         if _EQUALITY_BY_REF:
-            return self is not other
+            return wrap(self is not other)
         return self._op2(other, lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y), 'ne', '!=')
 
     def __lt__(self, other):
@@ -1880,10 +1880,13 @@ def disassemble_tree(obj: PhiTreeNodeType) -> Tuple[PhiTreeNodeType, List[Tensor
             values.extend(value)
         return copy_with(obj, **keys), values
     else:
-        backend = choose_backend(obj)
-        sizes = backend.staticshape(obj)
-        shape = Shape(sizes, tuple([f"dim{i}" for i in range(len(sizes))]), (None,) * len(sizes), (None,) * len(sizes))
-        return NATIVE_TENSOR, [NativeTensor(obj, shape)]
+        try:
+            backend = choose_backend(obj)
+            sizes = backend.staticshape(obj)
+            shape = Shape(sizes, tuple([f"dim{i}" for i in range(len(sizes))]), (None,) * len(sizes), (None,) * len(sizes))
+            return NATIVE_TENSOR, [NativeTensor(obj, shape)]
+        except NoBackendFound:
+            return obj, []
 
 
 def assemble_tree(obj: PhiTreeNodeType, values: List[Tensor]) -> PhiTreeNodeType:
@@ -1909,7 +1912,7 @@ def assemble_tree(obj: PhiTreeNodeType, values: List[Tensor]) -> PhiTreeNodeType
         values = {a: assemble_tree(getattr(obj, a), values) for a in attributes}
         return copy_with(obj, **values)
     else:
-        raise ValueError(f"Value must be Tensor or tensor-like but got {type(obj)}")
+        return obj
 
 
 def cached(t: Tensor or 'PhiTreeNode') -> Tensor or 'PhiTreeNode':

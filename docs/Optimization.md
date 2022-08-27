@@ -103,9 +103,9 @@ def physics(x: Grid, y: Grid, target: Grid) -> math.Tensor:
     x, y = step(x, y)
     return field.l2_loss(y - target), x
 
-gradient = field.functional_gradient(physics, wrt=[0, 1], get_output=True)
+gradient = field.functional_gradient(physics, wrt='x,y', get_output=True)
 
-loss, x, dx, dy = gradient(...)
+loss, x, (dx, dy) = gradient(...)
 ```
 In the above example, `wrt=[0, 1]` specifies that we are interested in the gradient with respect to the first and second argument of `physics`.
 With `get_output=True`, evaluating the gradient also returns all regular outputs of `physics`.
