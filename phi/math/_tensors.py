@@ -2,6 +2,7 @@ import copy
 import numbers
 import warnings
 from collections import namedtuple
+from contextlib import contextmanager
 from typing import Tuple, Callable, List, TypeVar
 
 from dataclasses import dataclass
@@ -96,49 +97,63 @@ class Tensor:
                 return self._op2(inputs[0], lambda x, y: y * x, lambda x, y: choose_backend(x, y).mul(y, x), 'rmul', '*')
         if ufunc.__name__ == 'add':
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), 'add', '*')
+                return self._op2(inputs[1], lambda x, y: x + y, lambda x, y: choose_backend(x, y).add(x, y), 'add', '+')
             else:
-                return self._op2(inputs[0], lambda x, y: y + x, lambda x, y: choose_backend(x, y).add(y, x), 'radd', '*')
+                return self._op2(inputs[0], lambda x, y: y + x, lambda x, y: choose_backend(x, y).add(y, x), 'radd', '+')
         if ufunc.__name__ == 'subtract':
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), 'add', '*')
+                return self._op2(inputs[1], lambda x, y: x - y, lambda x, y: choose_backend(x, y).sub(x, y), 'add', '-')
             else:
-                return self._op2(inputs[0], lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), 'rsub', '*')
+                return self._op2(inputs[0], lambda x, y: y - x, lambda x, y: choose_backend(x, y).sub(y, x), 'rsub', '-')
         if ufunc.__name__ in ['divide', 'true_divide']:
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), 'true_divide', '*')
+                return self._op2(inputs[1], lambda x, y: x / y, lambda x, y: choose_backend(x, y).div(x, y), 'true_divide', '/')
             else:
-                return self._op2(inputs[0], lambda x, y: y / x, lambda x, y: choose_backend(x, y).div(y, x), 'r_true_divide', '*')
+                return self._op2(inputs[0], lambda x, y: y / x, lambda x, y: choose_backend(x, y).div(y, x), 'r_true_divide', '/')
         if ufunc.__name__ == 'floor_divide':
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y), 'floor_divide', '*')
+                return self._op2(inputs[1], lambda x, y: x // y, lambda x, y: choose_backend(x, y).floordiv(x, y), 'floor_divide', '//')
             else:
-                return self._op2(inputs[0], lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x), 'r_floor_divide', '*')
+                return self._op2(inputs[0], lambda x, y: y // x, lambda x, y: choose_backend(x, y).floordiv(y, x), 'r_floor_divide', '//')
         if ufunc.__name__ == 'remainder':
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y), 'remainder', '*')
+                return self._op2(inputs[1], lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y), 'remainder', '%')
             else:
-                return self._op2(inputs[0], lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), 'r_remainder', '*')
+                return self._op2(inputs[0], lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), 'r_remainder', '%')
+        if ufunc.__name__ == 'equal':
+            if _EQUALITY_BY_REF:
+                return inputs[0] is inputs[1]
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y), 'equal', '==')
+            else:
+                return self._op2(inputs[0], lambda x, y: y == x, lambda x, y: choose_backend(x, y).equal(y, x), 'r_equal', '==')
+        if ufunc.__name__ == 'not_equal':
+            if _EQUALITY_BY_REF:
+                return inputs[0] is not inputs[1]
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y), 'equal', '!=')
+            else:
+                return self._op2(inputs[0], lambda x, y: y != x, lambda x, y: choose_backend(x, y).not_equal(y, x), 'r_equal', '!=')
         if ufunc.__name__ == 'greater':
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x > y, lambda x, y: choose_backend(x, y).greater_than(x, y), 'greater', '*')
+                return self._op2(inputs[1], lambda x, y: x > y, lambda x, y: choose_backend(x, y).greater_than(x, y), 'greater', '>')
             else:
-                return self._op2(inputs[0], lambda x, y: y > x, lambda x, y: choose_backend(x, y).greater_than(y, x), 'r_greater', '*')
+                return self._op2(inputs[0], lambda x, y: y > x, lambda x, y: choose_backend(x, y).greater_than(y, x), 'r_greater', '>')
         if ufunc.__name__ == 'greater_equal':
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x >= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), 'greater_equal', '*')
+                return self._op2(inputs[1], lambda x, y: x >= y, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), 'greater_equal', '>=')
             else:
-                return self._op2(inputs[0], lambda x, y: y >= x, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), 'r_greater_equal', '*')
+                return self._op2(inputs[0], lambda x, y: y >= x, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), 'r_greater_equal', '>=')
         if ufunc.__name__ == 'less':
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x < y, lambda x, y: choose_backend(x, y).greater_than(y, x), 'less', '*')
+                return self._op2(inputs[1], lambda x, y: x < y, lambda x, y: choose_backend(x, y).greater_than(y, x), 'less', '<')
             else:
-                return self._op2(inputs[0], lambda x, y: y < x, lambda x, y: choose_backend(x, y).greater_than(x, y), 'r_less', '*')
+                return self._op2(inputs[0], lambda x, y: y < x, lambda x, y: choose_backend(x, y).greater_than(x, y), 'r_less', '<')
         if ufunc.__name__ == 'less_equal':
             if inputs[0] is self:
-                return self._op2(inputs[1], lambda x, y: x <= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), 'less_equal', '*')
+                return self._op2(inputs[1], lambda x, y: x <= y, lambda x, y: choose_backend(x, y).greater_or_equal(y, x), 'less_equal', '<=')
             else:
-                return self._op2(inputs[0], lambda x, y: y <= x, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), 'r_less_equal', '*')
+                return self._op2(inputs[0], lambda x, y: y <= x, lambda x, y: choose_backend(x, y).greater_or_equal(x, y), 'r_less_equal', '<=')
         raise NotImplementedError(f"NumPy function '{ufunc.__name__}' is not compatible with Φ-Flow tensors.")
 
     @property
@@ -595,9 +610,13 @@ class Tensor:
         return self._op2(other, lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), 'rmod', '%')
 
     def __eq__(self, other):
+        if _EQUALITY_BY_REF:
+            return self is other
         return self._op2(other, lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y), 'eq', '==')
 
     def __ne__(self, other):
+        if _EQUALITY_BY_REF:
+            return self is not other
         return self._op2(other, lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y), 'ne', '!=')
 
     def __lt__(self, other):
@@ -781,6 +800,21 @@ class TensorDim(BoundDim):
     def prod(self):
         from ._ops import prod
         return prod(self.tensor, self.name)
+
+
+_EQUALITY_BY_REF = []
+
+
+@contextmanager
+def equality_by_ref():
+    """
+    Enables Tensor.__bool__
+    """
+    _EQUALITY_BY_REF.append(True)
+    try:
+        yield None
+    finally:
+        _EQUALITY_BY_REF.pop(-1)
 
 
 class Layout(Tensor):
@@ -1793,7 +1827,7 @@ def variable_values(obj):
 
 
 
-PhiTreeNodeType = TypeVar('PhiTreeNodeType')
+PhiTreeNodeType = TypeVar('PhiTreeNodeType')  # Defined in phi.math.magic: tuple, list, dict, custom
 
 
 MISSING_TENSOR = 'missing'

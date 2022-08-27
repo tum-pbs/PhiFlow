@@ -8,7 +8,7 @@ from phi import math
 from phi.math import channel, batch, DType, vec, stack
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial, instance
 from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors, \
-    Layout
+    Layout, equality_by_ref
 from phi.math.backend import Backend
 from phi.math.magic import PhiTreeNode
 
@@ -533,7 +533,14 @@ class TestTensors(TestCase):
             math.assert_close(x / y, np.divide(x, y))
             math.assert_close(x // y, np.floor_divide(x, y))
             math.assert_close(x % y, np.remainder(x, y))
+            math.assert_close(x == y, np.equal(x, y))
+            math.assert_close(x != y, np.not_equal(x, y))
             math.assert_close(x > y, np.greater(x, y))
             math.assert_close(x >= y, np.greater_equal(x, y))
             math.assert_close(x < y, np.less(x, y))
             math.assert_close(x <= y, np.less_equal(x, y))
+            with equality_by_ref():
+                self.assertFalse(x == y)
+                self.assertFalse(np.equal(x, y))
+                self.assertTrue(x != y)
+                self.assertTrue(np.not_equal(x, y))
