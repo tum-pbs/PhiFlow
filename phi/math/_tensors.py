@@ -4,6 +4,7 @@ import warnings
 from collections import namedtuple
 from typing import Tuple, Callable, List, TypeVar
 
+from dataclasses import dataclass
 import numpy
 import numpy as np
 
@@ -2122,10 +2123,10 @@ def from_dict(dict_: dict, convert=False):
         return shape
 
 
+@dataclass
 class Color:
-    def __init__(self, name: str, console_foreground_begin: str):
-        self.name = name
-        self.console_foreground_begin = console_foreground_begin
+    name: str
+    console_foreground_begin: str
 
     def __call__(self, obj, **kwargs):
         text = str(obj).replace(CONSOLE_END, self.console_foreground_begin)
@@ -2140,28 +2141,34 @@ GREY = Color("Grey", '\033[37m')
 CONSOLE_END = '\033[0m'
 
 
-ColorScheme = namedtuple('ColorScheme', ['value', 'shape', 'dtype', 'fine'])
+@dataclass
+class ColorScheme:
+    value: Color
+    shape: Color
+    dtype: Color
+    fine: Color
+
+
 DEFAULT_COLORS = ColorScheme(BLUE, GREEN, YELLOW, GREY)
 NO_COLORS = ColorScheme(DEFAULT, DEFAULT, DEFAULT, DEFAULT)
 
 
+@dataclass
 class PrintOptions:
-
-    def __init__(self, layout='auto', float_format: str = None, threshold=8, colors=None, include_shape: bool = None, include_dtype: bool = None):
-        self.layout = layout
-        self.float_format = float_format
-        self.threshold = threshold
-        self._colors = colors
-        self.include_shape = include_shape
-        self.include_dtype = include_dtype
+    layout: str = 'auto'
+    float_format: str = None
+    threshold: int = 8
+    colors: ColorScheme = None
+    include_shape: bool = None
+    include_dtype: bool = None
 
     def get_colors(self):
-        if self._colors is True:
+        if self.colors is True:
             return DEFAULT_COLORS
-        elif self._colors is False:
+        elif self.colors is False:
             return NO_COLORS
-        elif self._colors is not None:
-            return self._colors
+        elif self.colors is not None:
+            return self.colors
         else:  # None
             return DEFAULT_COLORS if check_is_printing() else NO_COLORS
 
@@ -2227,8 +2234,7 @@ def is_unexpected_dtype(dtype: DType):
 
 def format_tracer(self: Tensor, options: PrintOptions) -> str:
     colors = options.get_colors()
-    e = '\033[0m'
-    return f"{colors.shape}{self.shape}{e} {colors.dtype}{self.dtype}{e} {colors.value}{self.default_backend} tracer{e}"
+    return f"{colors.shape(self.shape)} {colors.dtype(self.dtype)} {colors.value(f'{self.default_backend} tracer')}"
 
 
 def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line content
