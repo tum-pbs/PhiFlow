@@ -95,8 +95,15 @@ def match_output_signature(new_in: SignatureKey, recorded_mappings: Dict[Signatu
                        f"Registered transforms:\n{transforms_str}")  # KeyError does not support \n
 
 
-def key_from_args(args, kwargs: Dict[str, Any], parameters: Tuple[str, ...], cache=False, condition=None) -> Tuple[SignatureKey, List[Tensor], list]:
+def key_from_args(args, kwargs: Dict[str, Any], parameters: Tuple[str, ...], cache=False, condition=None, aux: Tuple[str, ...] = ()) -> Tuple[SignatureKey, List[Tensor], list]:
     kwargs.update({parameters[i]: v for i, v in enumerate(args)})
+    if aux:
+        assert condition is None
+        condition = {}
+        for param in aux:
+            if param in kwargs:
+                condition[param] = kwargs[param]
+                del kwargs[param]
     tree, tensors = disassemble_tree(kwargs)
     tracing = not all_available(*tensors)
     backend = math.choose_backend_t(*tensors)
@@ -699,10 +706,11 @@ def hessian(f: Callable, wrt: str, get_output=True, get_gradient=True, dim_suffi
 
 class CustomGradientFunction:
 
-    def __init__(self, f: Callable, gradient: Callable):
+    def __init__(self, f: Callable, gradient: Callable, auxiliary_args: Tuple[str, ...]):
         self.f = f
         self.f_params = function_parameters(f)
         self.gradient = gradient
+        self.auxiliary_args = auxiliary_args
         self.traces: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
 
@@ -710,6 +718,8 @@ class CustomGradientFunction:
         def forward_native(*natives):
             in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             kwargs = assemble_tree(in_key.tree, in_tensors)
+            if in_key.condition:
+                kwargs |= in_key.condition
             result = self.f(**kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
@@ -723,6 +733,8 @@ class CustomGradientFunction:
             y_tensors = assemble_tensors(y_natives, out_key.shapes, out_key.native_dims)
             dy_tensors = assemble_tensors(dy_natives, out_key.shapes, out_key.native_dims)
             kwargs = assemble_tree(in_key.tree, x_tensors)
+            if in_key.condition:
+                kwargs |= in_key.condition
             y = assemble_tree(out_key.tree, y_tensors)
             dy = assemble_tree(out_key.tree, dy_tensors)
             result = self.gradient(kwargs, y, dy)
@@ -737,7 +749,7 @@ class CustomGradientFunction:
         return in_key.backend.custom_gradient(forward_native, backward_native)
 
     def __call__(self, *args, **kwargs):
-        key, tensors, natives = key_from_args(args, kwargs, self.f_params, cache=False)  # adds args to kwargs
+        key, tensors, natives = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)  # adds args to kwargs
         if not key.backend.supports(Backend.jacobian) and not key.backend.supports(Backend.jacobian):
             return self.f(**kwargs)  # no need to use custom gradient if gradients aren't supported anyway
         elif not key.backend.supports(Backend.custom_gradient):
@@ -798,7 +810,7 @@ Traces can be avoided by jit-compiling the code that calls custom gradient funct
             return []
 
 
-def custom_gradient(f: Callable, gradient: Callable):
+def custom_gradient(f: Callable, gradient: Callable, auxiliary_args: str = ''):
     """
     Creates a function based on `f` that uses a custom gradient for the backpropagation pass.
 
@@ -810,11 +822,13 @@ def custom_gradient(f: Callable, gradient: Callable):
         gradient: Function to compute the vector-Jacobian product for backpropagation.
             Will be called as `gradient(input_dict, *y, *dy) -> output_dict` where `input_dict` contains all named arguments passed to the forward function
             and `output_dict` contains only those parameters for which a gradient is defined.
+        auxiliary_args: Comma-separated parameter names of arguments that are not relevant to backpropagation.
 
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     """
-    return CustomGradientFunction(f, gradient)
+    auxiliary_args = tuple(s.strip() for s in auxiliary_args.split(',') if s.strip())
+    return CustomGradientFunction(f, gradient, auxiliary_args)
 
 
 def simplify_add(val: dict) -> Dict[Shape, Tensor]:
@@ -1628,7 +1642,7 @@ def solve_linear(f: Callable[[X], Y],
 
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
-                          active_dims: Shape or None, backend: Backend, is_backprop: Tensor) -> Any:
+                          active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
     PHI_LOGGER.debug(f"Performing linear solve {solve} with backend {backend}")
     if solve.preprocess_y is not None:
         y = solve.preprocess_y(y, *solve.preprocess_y_args)
@@ -1673,7 +1687,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)
-    result.convergence_check(is_backprop.all and 'TensorFlow' in backend.name)  # raises ConvergenceException
+    result.convergence_check(is_backprop and 'TensorFlow' in backend.name)  # raises ConvergenceException
     return x
 
 
@@ -1686,14 +1700,14 @@ def attach_gradient_solve(forward_solve: Callable):
         grad_solve_ = copy_with(solve.gradient_solve, x0=x0)
         if 'is_backprop' in kwargs:
             del kwargs['is_backprop']
-        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=wrap(True), **kwargs)  # this should hopefully result in implicit gradients for higher orders as well
+        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)  # this should hopefully result in implicit gradients for higher orders as well
         return {'y': dy}
-    solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve)
+    solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve, auxiliary_args='backend,is_backprop,active_dims')
     return solve_with_grad
 
 
 def _matrix_solve_forward(y, solve: Solve, matrix: SparseMatrixContainer,
-                          backend: Backend = None, is_backprop=wrap(False)):  # kwargs
+                          backend: Backend = None, is_backprop=False):  # kwargs
     matrix_native = matrix.native()
     active_dims = matrix.src_shape
     result = _linear_solve_forward(y, solve, matrix_native, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
@@ -1704,7 +1718,7 @@ _matrix_solve = attach_gradient_solve(_matrix_solve_forward)
 
 
 def _function_solve_forward(y, solve: Solve, f_args: tuple,
-                            f_kwargs: dict = None, f: Callable = None, backend: Backend = None, is_backprop=wrap(False)):  # kwargs
+                            f_kwargs: dict = None, f: Callable = None, backend: Backend = None, is_backprop=False):  # kwargs
     y_nest, (y_tensor,) = disassemble_tree(y)
     x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
