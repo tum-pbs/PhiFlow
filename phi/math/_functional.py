@@ -125,9 +125,20 @@ def key_from_args_pack_batch(args, kwargs, parameters: Tuple[str, ...], cache=Fa
 def function_parameters(f):
     if isinstance(f, (JitFunction, GradientFunction, HessianFunction, CustomGradientFunction, LinearFunction)):
         return f.f_params
+    elif hasattr(f, '__wrapped__') and f.__wrapped__ is not None:
+        inner_params = function_parameters(f.__wrapped__)
+        outer_parameters = dict(inspect.signature(f, follow_wrapped=False).parameters)
+        args_param = [name for name, param in outer_parameters.items() if param.kind == inspect.Parameter.VAR_POSITIONAL]
+        assert args_param, f"Wrapping function {f.__name__} must have a varargs parameter"
+        kwargs_param = [name for name, param in outer_parameters.items() if param.kind == inspect.Parameter.VAR_KEYWORD]
+        outer_params = list(outer_parameters.keys())
+        if kwargs_param:
+            outer_params.remove(kwargs_param[0])
+        index = outer_params.index(args_param[0])
+        return tuple(outer_params[:index]) + inner_params + tuple(outer_params[index+1:])
     else:
         params = inspect.signature(f).parameters.keys()
-        assert 'args' not in params, f"Failed to determine signature of {f}"
+        assert 'args' not in params, f"Failed to determine signature of {f}. If it wraps another function, decorate it with @functools.wraps(func_with_signature)"
         return tuple(params)
 
 
@@ -763,20 +774,16 @@ Traces can be avoided by jit-compiling the code that calls custom gradient funct
                 return list(incomplete._natives())
         elif isinstance(tree, (tuple, list)):
             if incomplete is None:
-                natives = []
-                for item in tree:
-                    natives_item = CustomGradientFunction.incomplete_tree_to_natives(None, item, complete_shapes)
-                    natives.extend(natives_item)
-                return type(tree)(natives)
+                return sum([CustomGradientFunction.incomplete_tree_to_natives(None, item, complete_shapes) for item in tree], [])
             else:
                 assert type(tree) == type(incomplete) and len(tree) == len(incomplete)
-                natives = []
-                for i_item, c_item in zip(incomplete, tree):
-                    natives_item = CustomGradientFunction.incomplete_tree_to_natives(i_item, c_item, complete_shapes)
-                    natives.extend(natives_item)
-                return natives
+                return sum([CustomGradientFunction.incomplete_tree_to_natives(i_item, c_item, complete_shapes) for i_item, c_item in zip(incomplete, tree)], [])
         elif isinstance(tree, dict):
-            raise NotImplementedError()
+            if incomplete is None:
+                return sum([CustomGradientFunction.incomplete_tree_to_natives(None, item, complete_shapes) for item in tree.values()], [])
+            else:
+                assert type(tree) == type(incomplete) and len(tree) == len(incomplete) and set(tree.keys()) == set(incomplete.keys())
+                return sum([CustomGradientFunction.incomplete_tree_to_natives(incomplete[key], c_item, complete_shapes) for key, c_item in tree.items()], [])
         elif isinstance(tree, PhiTreeNode):
             attributes = variable_attributes(tree)
             natives = []
