@@ -1375,7 +1375,7 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
 </details>
 </dd>
 <dt id="phi.math.custom_gradient"><code class="name flex">
-<span>def <span class="ident">custom_gradient</span></span>(<span>f: Callable, gradient: Callable)</span>
+<span>def <span class="ident">custom_gradient</span></span>(<span>f: Callable, gradient: Callable, auxiliary_args: str = '')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for the backpropagation pass.</p>
@@ -1389,6 +1389,8 @@ Make sure to pass tensors without gradients if the gradient is not required, see
 <dd>Function to compute the vector-Jacobian product for backpropagation.
 Will be called as <code>gradient(input_dict, *y, *dy) -&gt; output_dict</code> where <code>input_dict</code> contains all named arguments passed to the forward function
 and <code>output_dict</code> contains only those parameters for which a gradient is defined.</dd>
+<dt><strong><code>auxiliary_args</code></strong></dt>
+<dd>Comma-separated parameter names of arguments that are not relevant to backpropagation.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
@@ -1396,7 +1398,7 @@ and <code>output_dict</code> contains only those parameters for which a gradient
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def custom_gradient(f: Callable, gradient: Callable):
+<pre><code class="python">def custom_gradient(f: Callable, gradient: Callable, auxiliary_args: str = &#39;&#39;):
     &#34;&#34;&#34;
     Creates a function based on `f` that uses a custom gradient for the backpropagation pass.
 
@@ -1408,11 +1410,13 @@ and <code>output_dict</code> contains only those parameters for which a gradient
         gradient: Function to compute the vector-Jacobian product for backpropagation.
             Will be called as `gradient(input_dict, *y, *dy) -&gt; output_dict` where `input_dict` contains all named arguments passed to the forward function
             and `output_dict` contains only those parameters for which a gradient is defined.
+        auxiliary_args: Comma-separated parameter names of arguments that are not relevant to backpropagation.
 
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     &#34;&#34;&#34;
-    return CustomGradientFunction(f, gradient)</code></pre>
+    auxiliary_args = tuple(s.strip() for s in auxiliary_args.split(&#39;,&#39;) if s.strip())
+    return CustomGradientFunction(f, gradient, auxiliary_args)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.degrees"><code class="name flex">
