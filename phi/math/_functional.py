@@ -719,7 +719,7 @@ class CustomGradientFunction:
             in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             kwargs = assemble_tree(in_key.tree, in_tensors)
             if in_key.condition:
-                kwargs |= in_key.condition
+                kwargs = {**kwargs, **in_key.condition}
             result = self.f(**kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
@@ -734,7 +734,7 @@ class CustomGradientFunction:
             dy_tensors = assemble_tensors(dy_natives, out_key.shapes, out_key.native_dims)
             kwargs = assemble_tree(in_key.tree, x_tensors)
             if in_key.condition:
-                kwargs |= in_key.condition
+                kwargs = {**kwargs, **in_key.condition}
             y = assemble_tree(out_key.tree, y_tensors)
             dy = assemble_tree(out_key.tree, dy_tensors)
             result = self.gradient(kwargs, y, dy)
