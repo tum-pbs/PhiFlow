@@ -1628,7 +1628,7 @@ def solve_linear(f: Callable[[X], Y],
 
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
-                          active_dims: Shape or None, backend: Backend, is_backprop: bool) -> Any:
+                          active_dims: Shape or None, backend: Backend, is_backprop: Tensor) -> Any:
     PHI_LOGGER.debug(f"Performing linear solve {solve} with backend {backend}")
     if solve.preprocess_y is not None:
         y = solve.preprocess_y(y, *solve.preprocess_y_args)
@@ -1673,7 +1673,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
         result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)
-    result.convergence_check(is_backprop and 'TensorFlow' in backend.name)  # raises ConvergenceException
+    result.convergence_check(is_backprop.all and 'TensorFlow' in backend.name)  # raises ConvergenceException
     return x
 
 
@@ -1686,14 +1686,14 @@ def attach_gradient_solve(forward_solve: Callable):
         grad_solve_ = copy_with(solve.gradient_solve, x0=x0)
         if 'is_backprop' in kwargs:
             del kwargs['is_backprop']
-        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)  # this should hopefully result in implicit gradients for higher orders as well
+        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=wrap(True), **kwargs)  # this should hopefully result in implicit gradients for higher orders as well
         return {'y': dy}
     solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve)
     return solve_with_grad
 
 
 def _matrix_solve_forward(y, solve: Solve, matrix: SparseMatrixContainer,
-                          backend: Backend = None, is_backprop=False):  # kwargs
+                          backend: Backend = None, is_backprop=wrap(False)):  # kwargs
     matrix_native = matrix.native()
     active_dims = matrix.src_shape
     result = _linear_solve_forward(y, solve, matrix_native, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
@@ -1704,7 +1704,7 @@ _matrix_solve = attach_gradient_solve(_matrix_solve_forward)
 
 
 def _function_solve_forward(y, solve: Solve, f_args: tuple,
-                            f_kwargs: dict = None, f: Callable = None, backend: Backend = None, is_backprop=False):  # kwargs
+                            f_kwargs: dict = None, f: Callable = None, backend: Backend = None, is_backprop=wrap(False)):  # kwargs
     y_nest, (y_tensor,) = disassemble_tree(y)
     x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
     active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
