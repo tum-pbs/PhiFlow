@@ -80,7 +80,7 @@ class JaxBackend(Backend):
         # --- Non-native types ---
         if isinstance(x, np.ndarray):
             return True
-        if isinstance(x, (numbers.Number, bool, str)):
+        if isinstance(x, (numbers.Number, bool)):
             return True
         if isinstance(x, (tuple, list)):
             return all([self.is_tensor(item, False) for item in x])

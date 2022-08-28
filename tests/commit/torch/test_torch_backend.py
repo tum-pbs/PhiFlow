@@ -33,3 +33,5 @@ class TestTorchBackend(TestCase):
         self.assertFalse(TORCH.is_tensor(tensorflow.zeros(4), only_native=True))
         self.assertFalse(TORCH.is_tensor([0, 1, 2, 3], only_native=True))
         self.assertFalse(TORCH.is_tensor(np.zeros(4), only_native=True))
+        # Others
+        self.assertFalse(TORCH.is_tensor('string'))
