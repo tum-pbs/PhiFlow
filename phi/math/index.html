@@ -8306,7 +8306,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
         condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
         x = {name: kwargs[name] for name in self.linear_args}
-        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, tensors, natives, kwargs = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         assert tensors, &#34;Linear function requires at least one argument&#34;
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
@@ -8325,7 +8325,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
         condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
         x = {name: kwargs[name] for name in self.linear_args}
-        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         assert math.close(tracer.bias, 0), &#34;This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead.&#34;
         return tracer.get_sparse_matrix(format)
@@ -8334,12 +8334,12 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
         condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
         x = {name: kwargs[name] for name in self.linear_args}
-        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         return tracer.get_sparse_matrix(format), tracer.bias
 
     def stencil_inspector(self, *args, prefer_numpy=True, **kwargs):
-        key, _, _ = key_from_args(*args, cache=True, **kwargs)
+        key, _, _, _ = key_from_args(*args, cache=True, **kwargs)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
 
         def print_stencil(**indices):
@@ -8368,7 +8368,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
     kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
     condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
     x = {name: kwargs[name] for name in self.linear_args}
-    key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+    key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
     tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
     assert math.close(tracer.bias, 0), &#34;This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead.&#34;
     return tracer.get_sparse_matrix(format)</code></pre>
@@ -8387,7 +8387,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
     kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
     condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
     x = {name: kwargs[name] for name in self.linear_args}
-    key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+    key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
     tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
     return tracer.get_sparse_matrix(format), tracer.bias</code></pre>
 </details>
@@ -8402,7 +8402,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stencil_inspector(self, *args, prefer_numpy=True, **kwargs):
-    key, _, _ = key_from_args(*args, cache=True, **kwargs)
+    key, _, _, _ = key_from_args(*args, cache=True, **kwargs)
     tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
 
     def print_stencil(**indices):
