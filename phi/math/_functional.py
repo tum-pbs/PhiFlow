@@ -95,8 +95,8 @@ def match_output_signature(new_in: SignatureKey, recorded_mappings: Dict[Signatu
                        f"Registered transforms:\n{transforms_str}")  # KeyError does not support \n
 
 
-def key_from_args(args, kwargs: Dict[str, Any], parameters: Tuple[str, ...], cache=False, condition=None, aux: Tuple[str, ...] = ()) -> Tuple[SignatureKey, List[Tensor], list]:
-    kwargs.update({parameters[i]: v for i, v in enumerate(args)})
+def key_from_args(args, kwargs: Dict[str, Any], parameters: Tuple[str, ...], cache=False, condition=None, aux: Tuple[str, ...] = ()) -> Tuple[SignatureKey, List[Tensor], list, Dict[str, Any]]:
+    kwargs = {**kwargs, **{parameters[i]: v for i, v in enumerate(args)}}
     if aux:
         assert condition is None
         condition = {}
@@ -109,11 +109,11 @@ def key_from_args(args, kwargs: Dict[str, Any], parameters: Tuple[str, ...], cac
     backend = math.choose_backend_t(*tensors)
     natives, shapes, native_dims = disassemble_tensors(tensors, expand=cache)
     key = SignatureKey(None, tree, shapes, native_dims, backend, tracing, condition)
-    return key, tensors, natives
+    return key, tensors, natives, kwargs
 
 
-def key_from_args_pack_batch(args, kwargs, parameters: Tuple[str, ...], cache=False, condition=None) -> Tuple[SignatureKey, List[Tensor], list, Shape]:
-    kwargs.update({parameters[i]: v for i, v in enumerate(args)})
+def key_from_args_pack_batch(args, kwargs, parameters: Tuple[str, ...], cache=False, condition=None) -> Tuple[SignatureKey, List[Tensor], list, Dict[str, Any], Shape]:
+    kwargs = {**kwargs, **{parameters[i]: v for i, v in enumerate(args)}}
     tree, tensors = disassemble_tree(kwargs)
     tracing = not all_available(*tensors)
     backend = math.choose_backend_t(*tensors)
@@ -126,7 +126,7 @@ def key_from_args_pack_batch(args, kwargs, parameters: Tuple[str, ...], cache=Fa
     # natives, shapes, native_dims = disassemble_tensors(tensors, expand=cache)
     shapes = tuple([math.concat_shapes(batch(batch=batch_shape.volume), *t.shape.non_batch) for t in tensors])
     key = SignatureKey(None, tree, shapes, None, backend, tracing, condition)
-    return key, tensors, natives, batch_shape
+    return key, tensors, natives, kwargs, batch_shape
 
 
 def function_parameters(f):
@@ -175,7 +175,7 @@ class JitFunction:
         return in_key.backend.jit_compile(jit_f_native)
 
     def __call__(self, *args, **kwargs):
-        key, tensors, natives = key_from_args(args, kwargs, self.f_params, cache=True)
+        key, tensors, natives, kwargs = key_from_args(args, kwargs, self.f_params, cache=True)
         if isinstance(self.f, GradientFunction) and key.backend.supports(Backend.jit_compile_grad):
             return self.grad_jit(**kwargs)
         if not key.backend.supports(Backend.jit_compile):
@@ -290,7 +290,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
         condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
         x = {name: kwargs[name] for name in self.linear_args}
-        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, tensors, natives, kwargs = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         assert tensors, "Linear function requires at least one argument"
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
@@ -309,7 +309,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
         condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
         x = {name: kwargs[name] for name in self.linear_args}
-        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         assert math.close(tracer.bias, 0), "This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead."
         return tracer.get_sparse_matrix(format)
@@ -318,12 +318,12 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
         condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
         x = {name: kwargs[name] for name in self.linear_args}
-        key, tensors, natives = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         return tracer.get_sparse_matrix(format), tracer.bias
 
     def stencil_inspector(self, *args, prefer_numpy=True, **kwargs):
-        key, _, _ = key_from_args(*args, cache=True, **kwargs)
+        key, _, _, _ = key_from_args(*args, cache=True, **kwargs)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
 
         def print_stencil(**indices):
@@ -429,7 +429,7 @@ class GradientFunction:
             return in_key.backend.jacobian(f_native, wrt=wrt_natives, get_output=self.get_output, is_f_scalar=self.is_f_scalar)
 
     def __call__(self, *args, **kwargs):
-        key, tensors, natives = key_from_args(args, kwargs, self.f_params, cache=True)  # adds args to kwargs
+        key, tensors, natives, kwargs = key_from_args(args, kwargs, self.f_params, cache=True)  # adds args to kwargs
         if not key.backend.supports(Backend.jacobian):
             if math.default_backend().supports(Backend.jacobian):
                 warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support jacobian()", RuntimeWarning)
@@ -591,7 +591,7 @@ class HessianFunction:
         return hessian_generator(f_native, wrt=wrt_natives, get_output=self.get_output, get_gradient=self.get_gradient)
 
     def __call__(self, *args, **kwargs):
-        key, tensors, natives, batch_shape = key_from_args_pack_batch(args, kwargs, self.f_params, cache=True)
+        key, tensors, natives, kwargs, batch_shape = key_from_args_pack_batch(args, kwargs, self.f_params, cache=True)
         if not key.backend.supports(Backend.jacobian):
             if math.default_backend().supports(Backend.jacobian):
                 warnings.warn(f"Using {math.default_backend()} for gradient computation because {key.backend} does not support jacobian()", RuntimeWarning)
@@ -749,12 +749,12 @@ class CustomGradientFunction:
         return in_key.backend.custom_gradient(forward_native, backward_native)
 
     def __call__(self, *args, **kwargs):
-        key, tensors, natives = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)  # adds args to kwargs
+        key, _, natives, _ = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)  # adds args to kwargs
         if not key.backend.supports(Backend.jacobian) and not key.backend.supports(Backend.jacobian):
-            return self.f(**kwargs)  # no need to use custom gradient if gradients aren't supported anyway
+            return self.f(*args, **kwargs)  # no need to use custom gradient if gradients aren't supported anyway
         elif not key.backend.supports(Backend.custom_gradient):
             warnings.warn(f"custom_gradient() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.", RuntimeWarning)
-            return self.f(**kwargs)
+            return self.f(*args, **kwargs)
         if key not in self.traces:
             self.traces[key] = self._trace(key)
             if len(self.traces) >= 8:
