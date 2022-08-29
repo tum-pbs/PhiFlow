@@ -290,7 +290,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
         condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
         x = {name: kwargs[name] for name in self.linear_args}
-        key, tensors, natives, kwargs = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, tensors, natives, x = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
         assert tensors, "Linear function requires at least one argument"
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
