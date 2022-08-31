@@ -261,7 +261,7 @@ class ConstantExtrapolation(Extrapolation):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
-            tensors = [self.pad(t, inner_widths) for t in value.tensors]
+            tensors = [self.pad(t, inner_widths) for t in value.dimension(value.stack_dim.name)]
             return TensorStack(tensors, value.stack_dim)
         else:
             return Extrapolation.pad(self, value, widths, **kwargs)
@@ -404,7 +404,7 @@ class _CopyExtrapolation(Extrapolation):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
             inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
-            tensors = [self.pad(t, inner_widths) for t in value.tensors]
+            tensors = [self.pad(t, inner_widths) for t in value.dimension(value.stack_dim.name)]
             return TensorStack(tensors, value.stack_dim)
         elif isinstance(value, ShiftLinTracer):
             return self._pad_linear_tracer(value, widths)

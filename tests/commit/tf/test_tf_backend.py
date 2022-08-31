@@ -20,3 +20,5 @@ class TestNothing(TestCase):
         self.assertFalse(TENSORFLOW.is_tensor(torch.zeros(4), only_native=True))
         self.assertFalse(TENSORFLOW.is_tensor([0, 1, 2, 3], only_native=True))
         self.assertFalse(TENSORFLOW.is_tensor(np.zeros(4), only_native=True))
+        # Others
+        self.assertFalse(TENSORFLOW.is_tensor('string'))

@@ -1,4 +1,5 @@
 import functools
+import inspect
 import warnings
 from typing import Callable
 
@@ -66,7 +67,9 @@ class JaxOptimizer:
 
     def update(self, net: StaxNet, loss_function, wrt, loss_args, loss_kwargs):
         if loss_function not in self._update_function_cache:
+            @functools.wraps(loss_function)
             def update(packed_current_state, *loss_args, **loss_kwargs):
+                @functools.wraps(loss_function)
                 def loss_depending_on_net(params_tracer: tuple, *args, **kwargs):
                     net._tracers = params_tracer
                     loss_function_non_jit = loss_function.f if isinstance(loss_function, JitFunction) else loss_function

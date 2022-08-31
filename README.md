@@ -1,4 +1,4 @@
-# ![PhiFlow](docs/figures/Logo1_layout.png)
+# ![PhiFlow](docs/figures/Logo_DallE2_3_layout.png)
 
 ![Build Status](https://github.com/tum-pbs/PhiFlow/actions/workflows/unit-tests.yml/badge.svg)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/phiflow.svg)](https://pypi.org/project/phiflow/)
@@ -17,9 +17,9 @@ making it easy to build end-to-end differentiable functions involving both learn
 
 [//]: # (![Gui]&#40;https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png&#41;)
 
-| <img src="docs/figures/RenderedSmoke.gif">  | <img src="docs/figures/Animations.gif">                                                                                                                                                                                                                                                                                                                                                              |
-|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Fluids Tutorial](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) &nbsp; • &nbsp; [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) | [Animation Gallery](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/2.2-develop/docs/Animations.ipynb) &nbsp; • &nbsp; [Solar System](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Planets_Tutorial.ipynb) &nbsp; • &nbsp; [Learning to Throw](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Learn_to_Throw_Tutorial.ipynb) |
+| <img src="docs/figures/RenderedSmoke.gif">  | <img src="docs/figures/Animations.gif">                                                                                                                                                                                                                                                                       |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Fluids Tutorial](https://tum-pbs.github.io/PhiFlow/Fluids_Tutorial.html) &nbsp; • &nbsp; [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) | [Animation Gallery](https://tum-pbs.github.io/PhiFlow/Animations.html) &nbsp; • &nbsp; [Solar System](https://tum-pbs.github.io/PhiFlow/Planets_Tutorial.html) &nbsp; • &nbsp; [Learning to Throw](https://tum-pbs.github.io/PhiFlow/Learn_to_Throw_Tutorial.html) |
 
 
 ## Features
