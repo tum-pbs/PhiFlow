@@ -1,5 +1,4 @@
-import math
-from typing import Callable
+from typing import Callable, Dict
 
 import numpy
 import torch
@@ -7,8 +6,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 
+from .. import math
 from . import TORCH
 from ._torch_backend import register_module_call
+from ..math import channel
 
 
 def parameter_count(model: nn.Module) -> int:
@@ -25,6 +26,21 @@ def parameter_count(model: nn.Module) -> int:
     for parameter in model.parameters():
         total += numpy.prod(parameter.shape)
     return int(total)
+
+
+def get_parameters(net: nn.Module, wrap=True) -> dict:
+    if not wrap:
+        return {name: param for name, param in net.named_parameters()}
+    result = {}
+    for name, param in net.named_parameters():
+        if name.endswith('.weight'):
+            phi_tensor = math.wrap(param, channel('input,output'))
+        elif name.endswith('.bias'):
+            phi_tensor = math.wrap(param, channel('output'))
+        else:
+            raise NotImplementedError
+        result[name] = phi_tensor
+    return result
 
 
 def save_state(obj: nn.Module or optim.Optimizer, path: str):

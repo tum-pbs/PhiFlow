@@ -125,6 +125,39 @@ def _recursive_count_parameters(obj):
     return numpy.prod(obj.shape)
 
 
+def get_parameters(model: StaxNet, wrap=True) -> dict:
+    result = {}
+    _recursive_add_parameters(model.parameters, wrap, (), result)
+    return result
+
+
+def _recursive_add_parameters(param, wrap: bool, prefix: tuple, result: dict):
+    if isinstance(param, dict):
+        for name, obj in param.items():
+            _recursive_add_parameters(obj, wrap, prefix + (name,), result)
+    elif isinstance(param, (tuple, list)):
+        for i, obj in enumerate(param):
+            _recursive_add_parameters(obj, wrap, prefix + (i,), result)
+    else:
+        rank = len(param.shape)
+        if prefix[-1] == 0 and rank == 2:
+            name = '.'.join(str(p) for p in prefix[:-1]) + '.weight'
+        elif prefix[-1] == 1 and rank == 1:
+            name = '.'.join(str(p) for p in prefix[:-1]) + '.bias'
+        else:
+            name = '.'.join(prefix)
+        if not wrap:
+            result[name] = param
+        else:
+            if rank == 1:
+                phi_tensor = math.wrap(param, math.channel('output'))
+            elif rank == 2:
+                phi_tensor = math.wrap(param, math.channel('input,output'))
+            else:
+                raise NotImplementedError
+            result[name] = phi_tensor
+
+
 def save_state(obj: StaxNet or JaxOptimizer, path: str):
     """
     Write the state of a module or optimizer to a file.

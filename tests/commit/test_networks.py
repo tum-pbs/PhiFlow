@@ -82,10 +82,15 @@ class TestNetworks(TestCase):
                 lib.update_weights(net, optimizer, loss_function, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
                 lib.update_weights(net_res, optimizer_2, loss_function_res, math.random_uniform(math.batch(batch=10), math.spatial(x=8, y=8)))
 
-    def test_dense_net_network_sizes(self):
+    def test_dense_net_network_params(self):
         for lib in LIBRARIES:
             net = lib.dense_net(2, 3, layers=[10, 12], batch_norm=False, activation='ReLU')
             self.assertEqual(201, lib.parameter_count(net))
+            params = lib.get_parameters(net, wrap=True)
+            self.assertEqual(6, len(params))
+            self.assertTrue(all(isinstance(p, math.Tensor) for p in params.values()))
+            params = lib.get_parameters(net, wrap=False)
+            self.assertEqual(6, len(params))
 
     def test_optimize_dense_net(self):
         for lib in LIBRARIES:

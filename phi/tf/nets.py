@@ -1,13 +1,14 @@
-import math
+from typing import Callable
+import pickle
 
 import numpy
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers as kl
 from tensorflow import Tensor
-import pickle
 
-from typing import Callable
+from .. import math
+
 
 
 def parameter_count(model: keras.Model):
@@ -24,6 +25,34 @@ def parameter_count(model: keras.Model):
     for parameter in model.trainable_weights:
         total += numpy.prod(parameter.shape)
     return int(total)
+
+
+def get_parameters(model: keras.Model, wrap=True, to_numpy=True) -> dict:
+    result = {}
+    for var in model.trainable_weights:
+        name: str = var.name
+        layer = name[:name.index('/')].replace('_', '').replace('dense', 'linear')
+        try:
+            int(layer[-1:])
+        except ValueError:
+            layer += '0'
+        prop = name[name.index('/') + 1:].replace('kernel', 'weight')
+        if prop.endswith(':0'):
+            prop = prop[:-2]
+        name = f"{layer}.{prop}"
+        if to_numpy:
+            var = var.numpy()
+        if not wrap:
+            result[name] = var
+        else:
+            if name.endswith('.weight'):
+                phi_tensor = math.wrap(var, math.channel('input,output'))
+            elif name.endswith('.bias'):
+                phi_tensor = math.wrap(var, math.channel('output'))
+            else:
+                raise NotImplementedError(name)
+            result[name] = phi_tensor
+    return result
 
 
 def save_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str):
@@ -44,7 +73,7 @@ def save_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str)
     elif isinstance(obj, keras.optimizers.Optimizer):
         if not path.endswith('.pkl'):
             path += '.pkl'
-        weights = obj.get_weights()
+        weights = obj.get_parameters()
         with open(path, 'wb') as f:
             pickle.dump(weights, f)
     else:
