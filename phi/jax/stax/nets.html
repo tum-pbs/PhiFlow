@@ -153,6 +153,39 @@ def _recursive_count_parameters(obj):
     return numpy.prod(obj.shape)
 
 
+def get_parameters(model: StaxNet, wrap=True) -&gt; dict:
+    result = {}
+    _recursive_add_parameters(model.parameters, wrap, (), result)
+    return result
+
+
+def _recursive_add_parameters(param, wrap: bool, prefix: tuple, result: dict):
+    if isinstance(param, dict):
+        for name, obj in param.items():
+            _recursive_add_parameters(obj, wrap, prefix + (name,), result)
+    elif isinstance(param, (tuple, list)):
+        for i, obj in enumerate(param):
+            _recursive_add_parameters(obj, wrap, prefix + (i,), result)
+    else:
+        rank = len(param.shape)
+        if prefix[-1] == 0 and rank == 2:
+            name = &#39;.&#39;.join(str(p) for p in prefix[:-1]) + &#39;.weight&#39;
+        elif prefix[-1] == 1 and rank == 1:
+            name = &#39;.&#39;.join(str(p) for p in prefix[:-1]) + &#39;.bias&#39;
+        else:
+            name = &#39;.&#39;.join(prefix)
+        if not wrap:
+            result[name] = param
+        else:
+            if rank == 1:
+                phi_tensor = math.wrap(param, math.channel(&#39;output&#39;))
+            elif rank == 2:
+                phi_tensor = math.wrap(param, math.channel(&#39;input,output&#39;))
+            else:
+                raise NotImplementedError
+            result[name] = phi_tensor
+
+
 def save_state(obj: StaxNet or JaxOptimizer, path: str):
     &#34;&#34;&#34;
     Write the state of a module or optimizer to a file.
@@ -1001,6 +1034,21 @@ Analogous functions exist for other learning frameworks.</p></div>
     return net</code></pre>
 </details>
 </dd>
+<dt id="phi.jax.stax.nets.get_parameters"><code class="name flex">
+<span>def <span class="ident">get_parameters</span></span>(<span>model: <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a>, wrap=True) ‑> dict</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_parameters(model: StaxNet, wrap=True) -&gt; dict:
+    result = {}
+    _recursive_add_parameters(model.parameters, wrap, (), result)
+    return result</code></pre>
+</details>
+</dd>
 <dt id="phi.jax.stax.nets.load_state"><code class="name flex">
 <span>def <span class="ident">load_state</span></span>(<span>obj: <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a>, path: str)</span>
 </code></dt>
@@ -1582,6 +1630,7 @@ Analogue functions exist for other learning frameworks.</p></div>
 <li><code><a title="phi.jax.stax.nets.create_double_conv" href="#phi.jax.stax.nets.create_double_conv">create_double_conv</a></code></li>
 <li><code><a title="phi.jax.stax.nets.create_upsample" href="#phi.jax.stax.nets.create_upsample">create_upsample</a></code></li>
 <li><code><a title="phi.jax.stax.nets.dense_net" href="#phi.jax.stax.nets.dense_net">dense_net</a></code></li>
+<li><code><a title="phi.jax.stax.nets.get_parameters" href="#phi.jax.stax.nets.get_parameters">get_parameters</a></code></li>
 <li><code><a title="phi.jax.stax.nets.load_state" href="#phi.jax.stax.nets.load_state">load_state</a></code></li>
 <li><code><a title="phi.jax.stax.nets.parameter_count" href="#phi.jax.stax.nets.parameter_count">parameter_count</a></code></li>
 <li><code><a title="phi.jax.stax.nets.res_net" href="#phi.jax.stax.nets.res_net">res_net</a></code></li>
