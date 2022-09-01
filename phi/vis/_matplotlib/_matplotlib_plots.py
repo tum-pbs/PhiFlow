@@ -236,8 +236,8 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
         axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
     elif isinstance(data, PointCloud) and data.spatial_rank == 2:
         axis.set_aspect('equal', adjustable='box')
-        if data.points.shape.non_channel.rank > 1:  # multiple instance / spatial dimensions
-            data_list = field.unstack(data, data.points.shape.non_channel[0].name)
+        if data.points.shape.without('vector').rank > 1:  # multiple instance / spatial dimensions
+            data_list = field.unstack(data, data.points.shape.without('vector')[0].name)
             for d in data_list:
                 _plot_points(axis, d, dims, vector, **plt_args)
         else:
