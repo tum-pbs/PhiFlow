@@ -1352,9 +1352,12 @@ class TensorStack(Tensor):
             return self._cached._with_shape_replaced(new_shape)
         else:
             new_stack_dim = new_shape[self._shape.index(self.stack_dim.name)]
-            inner_shape = new_shape.without(new_stack_dim)
-            tensors = [t._with_shape_replaced(inner_shape) for t in self._tensors]
-            return TensorStack(tensors, new_stack_dim)
+            new_tensors = []
+            for t in self._tensors:
+                inner_indices = [self.shape.index(d) for d in t.shape.names]
+                new_inner_shape = new_shape[inner_indices]
+                new_tensors.append(t._with_shape_replaced(new_inner_shape))
+            return TensorStack(new_tensors, new_stack_dim)
 
     def _getitem(self, selection: dict):
         if self._cached is not None:
