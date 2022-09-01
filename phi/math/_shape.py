@@ -1085,7 +1085,8 @@ def _construct_shape(dim_type: str, *args, **dims):
             items = size.names
             size = size.rank
         else:
-            assert size is None or isinstance(size, int), f"Cannot construct dimension from {type(size).__name__}. Only int, tuple, list, str or Shape allowed. Got {size}"
+            from ._tensors import Tensor
+            assert size is None or isinstance(size, (int, Tensor)), f"Cannot construct dimension from {type(size).__name__}. Only int, tuple, list, str or Shape allowed. Got {size}"
             items = None
         names += (name,)
         sizes += (size,)
