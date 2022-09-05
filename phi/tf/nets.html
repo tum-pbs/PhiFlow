@@ -26,7 +26,7 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from typing import Callable
+<pre><code class="python">from typing import Callable, Tuple, List
 import pickle
 
 import numpy
@@ -36,7 +36,6 @@ from tensorflow.keras import layers as kl
 from tensorflow import Tensor
 
 from .. import math
-
 
 
 def parameter_count(model: keras.Model):
@@ -156,6 +155,7 @@ def update_weights(net: keras.Model, optimizer: keras.optimizers.Optimizer, loss
     optimizer.apply_gradients(zip(gradients, net.trainable_variables))
     return output
 
+
 def adam(net: keras.Model, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=1e-07):
     &#34;&#34;&#34;
     Creates an Adam optimizer for `net`, alias for [`keras.optimizers.Adam`](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam).
@@ -163,19 +163,22 @@ def adam(net: keras.Model, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsi
     &#34;&#34;&#34;
     return keras.optimizers.Adam(learning_rate, betas[0], betas[1], epsilon)
 
-def SGD(net: keras.Model, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov = False):
+
+def sgd(net: keras.Model, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov=False):
     &#34;&#34;&#34;
     Creates an SGD optimizer for &#39;net&#39;, alias for [&#39;keras.optimizers.SGD&#39;](https://keras.io/api/optimizers/sgd/)
     Analogous functions exist for other learning frameworks.
     &#34;&#34;&#34;
     return keras.optimizers.SGD(learning_rate, momentum, nesterov)
 
-def adagrad(net: keras.Model, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value = 0, eps=1e-10):
+
+def adagrad(net: keras.Model, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value=0, eps=1e-10):
     &#34;&#34;&#34;
     Creates an Adagrad optimizer for &#39;net&#39;, alias for [&#39;keras.optimizers.Adagrad&#39;](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adagrad)
     Analogous functions exist for other learning frameworks.
     &#34;&#34;&#34;
     return keras.optimizers.Adagrad(learning_rate, initial_accumulator_value, eps)
+
 
 def rmsprop(net: keras.Model, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0, centered=False):
     &#34;&#34;&#34;
@@ -187,10 +190,9 @@ def rmsprop(net: keras.Model, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08
 
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: tuple or list,
+              layers: Tuple[int, ...] or List[int],
               batch_norm=False,
               activation=&#39;ReLU&#39;) -&gt; keras.Model:
-
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     keras_layers = []
     for neuron_count in layers:
@@ -232,7 +234,7 @@ def u_net(in_channels: int,
     for i in range(1, levels):
         x = UPSAMPLE[d](2)(x)
         x = kl.Concatenate()([x, xs[i]])
-        x = resnet_block(x, x.shape[-1], filters[i-1], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
+        x = resnet_block(x, x.shape[-1], filters[i - 1], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
     x = CONV[d](out_channels, 1)(x)
     return keras.Model(inputs, x)
 
@@ -240,41 +242,45 @@ def u_net(in_channels: int,
 CONV = [None, kl.Conv1D, kl.Conv2D, kl.Conv3D]
 MAX_POOL = [None, kl.MaxPool1D, kl.MaxPool2D, kl.MaxPool3D]
 UPSAMPLE = [None, kl.UpSampling1D, kl.UpSampling2D, kl.UpSampling3D]
-ACTIVATIONS = {&#39;tanh&#39;: keras.activations.tanh, &#39;ReLU&#39;: keras.activations.relu, &#39;Sigmoid&#39;: keras.activations.sigmoid, &#39;SiLU&#39;: keras.activations.selu}
+ACTIVATIONS = {&#39;tanh&#39;: keras.activations.tanh, &#39;ReLU&#39;: keras.activations.relu, &#39;Sigmoid&#39;: keras.activations.sigmoid,
+               &#39;SiLU&#39;: keras.activations.selu}
 
 
-def pad_periodic(x:Tensor):
+def pad_periodic(x: Tensor):
     d = len(x.shape) - 2
-    if d&gt;=1:
+    if d &gt;= 1:
         x = tf.concat([tf.expand_dims(x[:, -1, ...], axis=1), x, tf.expand_dims(x[:, 0, ...], axis=1)], axis=1)
-    if d&gt;=2:
+    if d &gt;= 2:
         x = tf.concat([tf.expand_dims(x[:, :, -1, ...], axis=2), x, tf.expand_dims(x[:, :, 0, ...], axis=2)], axis=2)
-    if d&gt;=3:
-        x = tf.concat([tf.expand_dims(x[:, :, :, -1, ...], axis=3), x, tf.expand_dims(x[:, :, :, 0, ...], axis=3)], axis=3)
+    if d &gt;= 3:
+        x = tf.concat([tf.expand_dims(x[:, :, :, -1, ...], axis=3), x, tf.expand_dims(x[:, :, :, 0, ...], axis=3)],
+                      axis=3)
     return x
-def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
 
+
+def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
     x = pad_periodic(x)
     x = CONV[d](mid_channels, 3, padding=&#39;valid&#39;)(x)
-    #x = CONV[d](mid_channels, 3, padding=&#39;same&#39;)(x)
+    # x = CONV[d](mid_channels, 3, padding=&#39;same&#39;)(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
 
     x = pad_periodic(x)
     x = CONV[d](out_channels, 3, padding=&#39;valid&#39;)(x)
-    #x = CONV[d](out_channels, 3, padding=&#39;same&#39;)(x)
+    # x = CONV[d](out_channels, 3, padding=&#39;same&#39;)(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
     return x
 
+
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: tuple,
+             layers: Tuple[int, ...] or List[int],
              batch_norm: bool = False,
              activation: str or Callable = &#39;ReLU&#39;,
-             in_spatial:int or tuple=2) -&gt; keras.Model:
+             in_spatial: int or tuple = 2) -&gt; keras.Model:
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -293,11 +299,12 @@ def conv_net(in_channels: int,
     x = CONV[in_spatial](out_channels, 3, padding=&#39;valid&#39;)(x)
     return keras.Model(inputs, x)
 
-def resnet_block(x,in_channels : int,
-                 out_channels : int,
-                 batch_norm : bool = False,
+
+def resnet_block(x, in_channels: int,
+                 out_channels: int,
+                 batch_norm: bool = False,
                  activation: str or Callable = &#39;ReLU&#39;,
-                 in_spatial : int or tuple = 2):
+                 in_spatial: int or tuple = 2):
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
@@ -307,7 +314,7 @@ def resnet_block(x,in_channels : int,
         in_spatial = len(d)
 
     d = (None,) * in_spatial
-    #x = inputs = keras.Input(d + (in_channels,))
+    # x = inputs = keras.Input(d + (in_channels,))
 
     x_1 = x
     x = pad_periodic(x)
@@ -330,17 +337,17 @@ def resnet_block(x,in_channels : int,
             x_1 = kl.BatchNormalization()(x_1)
 
     x = kl.Add()([x, x_1])
-    #out = activation(out)
+    # out = activation(out)
     return x
-    #return keras.Model(inputs, out)
+    # return keras.Model(inputs, out)
+
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: tuple,
+            layers: Tuple[int, ...] or List[int],
             batch_norm: bool = False,
             activation: str or Callable = &#39;ReLU&#39;,
-            in_spatial: int or tuple=2):
-
+            in_spatial: int or tuple = 2):
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -349,32 +356,31 @@ def res_net(in_channels: int,
         in_spatial = len(d)
 
     x = inputs = keras.Input(shape=d + (in_channels,))
-    #print(&#39;X shape : &#39;, x.shape)
+    # print(&#39;X shape : &#39;, x.shape)
     out = resnet_block(x, in_channels, layers[0], batch_norm, activation, in_spatial)
 
     for i in range(1, len(layers)):
-        out = resnet_block(out, layers[i-1], layers[i], batch_norm, activation, in_spatial)
+        out = resnet_block(out, layers[i - 1], layers[i], batch_norm, activation, in_spatial)
 
-    out = resnet_block(out, layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial)
+    out = resnet_block(out, layers[len(layers) - 1], out_channels, batch_norm, activation, in_spatial)
     return keras.Model(inputs, out)
 
 
 def conv_classifier(input_shape: list, num_classes: int, batch_norm: bool, in_spatial: int or tuple):
     if isinstance(in_spatial, int):
         d = in_spatial
-        in_spatial = (None, ) * d
+        in_spatial = (None,) * d
     else:
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
-    #input_shape[0] = Channels
+    # input_shape[0] = Channels
     spatial_shape_list = list(input_shape[1:])
-    x = inputs = keras.Input(shape= in_spatial + (input_shape[0],))
+    x = inputs = keras.Input(shape=in_spatial + (input_shape[0],))
     x = double_conv(x, d, 64, 64, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     x = MAX_POOL[d](2)(x)
 
     x = double_conv(x, d, 128, 128, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     x = MAX_POOL[d](2)(x)
-
 
     x = double_conv(x, d, 256, 256, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     x = pad_periodic(x)
@@ -424,24 +430,6 @@ def conv_classifier(input_shape: list, num_classes: int, batch_norm: bool, in_sp
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="phi.tf.nets.SGD"><code class="name flex">
-<span>def <span class="ident">SGD</span></span>(<span>net: keras.engine.training.Model, learning_rate: float = 0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates an SGD optimizer for 'net', alias for <a href="https://keras.io/api/optimizers/sgd/">'keras.optimizers.SGD'</a>
-Analogous functions exist for other learning frameworks.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def SGD(net: keras.Model, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov = False):
-    &#34;&#34;&#34;
-    Creates an SGD optimizer for &#39;net&#39;, alias for [&#39;keras.optimizers.SGD&#39;](https://keras.io/api/optimizers/sgd/)
-    Analogous functions exist for other learning frameworks.
-    &#34;&#34;&#34;
-    return keras.optimizers.SGD(learning_rate, momentum, nesterov)</code></pre>
-</details>
-</dd>
 <dt id="phi.tf.nets.adagrad"><code class="name flex">
 <span>def <span class="ident">adagrad</span></span>(<span>net: keras.engine.training.Model, learning_rate: float = 0.001, lr_decay=0, weight_decay=0, initial_accumulator_value=0, eps=1e-10)</span>
 </code></dt>
@@ -452,7 +440,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def adagrad(net: keras.Model, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value = 0, eps=1e-10):
+<pre><code class="python">def adagrad(net: keras.Model, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value=0, eps=1e-10):
     &#34;&#34;&#34;
     Creates an Adagrad optimizer for &#39;net&#39;, alias for [&#39;keras.optimizers.Adagrad&#39;](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adagrad)
     Analogous functions exist for other learning frameworks.
@@ -490,19 +478,18 @@ Analogous functions exist for other learning frameworks.</p></div>
 <pre><code class="python">def conv_classifier(input_shape: list, num_classes: int, batch_norm: bool, in_spatial: int or tuple):
     if isinstance(in_spatial, int):
         d = in_spatial
-        in_spatial = (None, ) * d
+        in_spatial = (None,) * d
     else:
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
-    #input_shape[0] = Channels
+    # input_shape[0] = Channels
     spatial_shape_list = list(input_shape[1:])
-    x = inputs = keras.Input(shape= in_spatial + (input_shape[0],))
+    x = inputs = keras.Input(shape=in_spatial + (input_shape[0],))
     x = double_conv(x, d, 64, 64, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     x = MAX_POOL[d](2)(x)
 
     x = double_conv(x, d, 128, 128, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     x = MAX_POOL[d](2)(x)
-
 
     x = double_conv(x, d, 256, 256, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     x = pad_periodic(x)
@@ -546,7 +533,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.conv_net"><code class="name flex">
-<span>def <span class="ident">conv_net</span></span>(<span>in_channels: int, out_channels: int, layers: tuple, batch_norm: bool = False, activation: str = 'ReLU', in_spatial: int = 2) ‑> keras.engine.training.Model</span>
+<span>def <span class="ident">conv_net</span></span>(<span>in_channels: int, out_channels: int, layers: Tuple[int, ...], batch_norm: bool = False, activation: str = 'ReLU', in_spatial: int = 2) ‑> keras.engine.training.Model</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -556,10 +543,10 @@ Analogous functions exist for other learning frameworks.</p></div>
 </summary>
 <pre><code class="python">def conv_net(in_channels: int,
              out_channels: int,
-             layers: tuple,
+             layers: Tuple[int, ...] or List[int],
              batch_norm: bool = False,
              activation: str or Callable = &#39;ReLU&#39;,
-             in_spatial:int or tuple=2) -&gt; keras.Model:
+             in_spatial: int or tuple = 2) -&gt; keras.Model:
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -580,7 +567,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.dense_net"><code class="name flex">
-<span>def <span class="ident">dense_net</span></span>(<span>in_channels: int, out_channels: int, layers: tuple, batch_norm=False, activation='ReLU') ‑> keras.engine.training.Model</span>
+<span>def <span class="ident">dense_net</span></span>(<span>in_channels: int, out_channels: int, layers: Tuple[int, ...], batch_norm=False, activation='ReLU') ‑> keras.engine.training.Model</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -590,10 +577,9 @@ Analogous functions exist for other learning frameworks.</p></div>
 </summary>
 <pre><code class="python">def dense_net(in_channels: int,
               out_channels: int,
-              layers: tuple or list,
+              layers: Tuple[int, ...] or List[int],
               batch_norm=False,
               activation=&#39;ReLU&#39;) -&gt; keras.Model:
-
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     keras_layers = []
     for neuron_count in layers:
@@ -615,17 +601,16 @@ Analogous functions exist for other learning frameworks.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
-
     x = pad_periodic(x)
     x = CONV[d](mid_channels, 3, padding=&#39;valid&#39;)(x)
-    #x = CONV[d](mid_channels, 3, padding=&#39;same&#39;)(x)
+    # x = CONV[d](mid_channels, 3, padding=&#39;same&#39;)(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
 
     x = pad_periodic(x)
     x = CONV[d](out_channels, 3, padding=&#39;valid&#39;)(x)
-    #x = CONV[d](out_channels, 3, padding=&#39;same&#39;)(x)
+    # x = CONV[d](out_channels, 3, padding=&#39;same&#39;)(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
@@ -721,14 +706,15 @@ Analogous functions exist for other learning frameworks.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pad_periodic(x:Tensor):
+<pre><code class="python">def pad_periodic(x: Tensor):
     d = len(x.shape) - 2
-    if d&gt;=1:
+    if d &gt;= 1:
         x = tf.concat([tf.expand_dims(x[:, -1, ...], axis=1), x, tf.expand_dims(x[:, 0, ...], axis=1)], axis=1)
-    if d&gt;=2:
+    if d &gt;= 2:
         x = tf.concat([tf.expand_dims(x[:, :, -1, ...], axis=2), x, tf.expand_dims(x[:, :, 0, ...], axis=2)], axis=2)
-    if d&gt;=3:
-        x = tf.concat([tf.expand_dims(x[:, :, :, -1, ...], axis=3), x, tf.expand_dims(x[:, :, :, 0, ...], axis=3)], axis=3)
+    if d &gt;= 3:
+        x = tf.concat([tf.expand_dims(x[:, :, :, -1, ...], axis=3), x, tf.expand_dims(x[:, :, :, 0, ...], axis=3)],
+                      axis=3)
     return x</code></pre>
 </details>
 </dd>
@@ -765,7 +751,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.res_net"><code class="name flex">
-<span>def <span class="ident">res_net</span></span>(<span>in_channels: int, out_channels: int, layers: tuple, batch_norm: bool = False, activation: str = 'ReLU', in_spatial: int = 2)</span>
+<span>def <span class="ident">res_net</span></span>(<span>in_channels: int, out_channels: int, layers: Tuple[int, ...], batch_norm: bool = False, activation: str = 'ReLU', in_spatial: int = 2)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -775,11 +761,10 @@ Analogous functions exist for other learning frameworks.</p></div>
 </summary>
 <pre><code class="python">def res_net(in_channels: int,
             out_channels: int,
-            layers: tuple,
+            layers: Tuple[int, ...] or List[int],
             batch_norm: bool = False,
             activation: str or Callable = &#39;ReLU&#39;,
-            in_spatial: int or tuple=2):
-
+            in_spatial: int or tuple = 2):
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -788,13 +773,13 @@ Analogous functions exist for other learning frameworks.</p></div>
         in_spatial = len(d)
 
     x = inputs = keras.Input(shape=d + (in_channels,))
-    #print(&#39;X shape : &#39;, x.shape)
+    # print(&#39;X shape : &#39;, x.shape)
     out = resnet_block(x, in_channels, layers[0], batch_norm, activation, in_spatial)
 
     for i in range(1, len(layers)):
-        out = resnet_block(out, layers[i-1], layers[i], batch_norm, activation, in_spatial)
+        out = resnet_block(out, layers[i - 1], layers[i], batch_norm, activation, in_spatial)
 
-    out = resnet_block(out, layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial)
+    out = resnet_block(out, layers[len(layers) - 1], out_channels, batch_norm, activation, in_spatial)
     return keras.Model(inputs, out)</code></pre>
 </details>
 </dd>
@@ -807,11 +792,11 @@ Analogous functions exist for other learning frameworks.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def resnet_block(x,in_channels : int,
-                 out_channels : int,
-                 batch_norm : bool = False,
+<pre><code class="python">def resnet_block(x, in_channels: int,
+                 out_channels: int,
+                 batch_norm: bool = False,
                  activation: str or Callable = &#39;ReLU&#39;,
-                 in_spatial : int or tuple = 2):
+                 in_spatial: int or tuple = 2):
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
@@ -821,7 +806,7 @@ Analogous functions exist for other learning frameworks.</p></div>
         in_spatial = len(d)
 
     d = (None,) * in_spatial
-    #x = inputs = keras.Input(d + (in_channels,))
+    # x = inputs = keras.Input(d + (in_channels,))
 
     x_1 = x
     x = pad_periodic(x)
@@ -844,9 +829,9 @@ Analogous functions exist for other learning frameworks.</p></div>
             x_1 = kl.BatchNormalization()(x_1)
 
     x = kl.Add()([x, x_1])
-    #out = activation(out)
+    # out = activation(out)
     return x
-    #return keras.Model(inputs, out)</code></pre>
+    # return keras.Model(inputs, out)</code></pre>
 </details>
 </dd>
 <dt id="phi.tf.nets.rmsprop"><code class="name flex">
@@ -910,6 +895,24 @@ Analogous functions exist for other learning frameworks.</p></div>
         raise ValueError(&#34;obj must be a Keras model or optimizer&#34;)</code></pre>
 </details>
 </dd>
+<dt id="phi.tf.nets.sgd"><code class="name flex">
+<span>def <span class="ident">sgd</span></span>(<span>net: keras.engine.training.Model, learning_rate: float = 0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates an SGD optimizer for 'net', alias for <a href="https://keras.io/api/optimizers/sgd/">'keras.optimizers.SGD'</a>
+Analogous functions exist for other learning frameworks.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sgd(net: keras.Model, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov=False):
+    &#34;&#34;&#34;
+    Creates an SGD optimizer for &#39;net&#39;, alias for [&#39;keras.optimizers.SGD&#39;](https://keras.io/api/optimizers/sgd/)
+    Analogous functions exist for other learning frameworks.
+    &#34;&#34;&#34;
+    return keras.optimizers.SGD(learning_rate, momentum, nesterov)</code></pre>
+</details>
+</dd>
 <dt id="phi.tf.nets.u_net"><code class="name flex">
 <span>def <span class="ident">u_net</span></span>(<span>in_channels: int, out_channels: int, levels: int = 4, filters: int = 16, batch_norm: bool = True, activation: str = 'ReLU', in_spatial: tuple = 2, use_res_blocks: bool = False) ‑> keras.engine.training.Model</span>
 </code></dt>
@@ -949,7 +952,7 @@ Analogous functions exist for other learning frameworks.</p></div>
     for i in range(1, levels):
         x = UPSAMPLE[d](2)(x)
         x = kl.Concatenate()([x, xs[i]])
-        x = resnet_block(x, x.shape[-1], filters[i-1], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
+        x = resnet_block(x, x.shape[-1], filters[i - 1], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
     x = CONV[d](out_channels, 1)(x)
     return keras.Model(inputs, x)</code></pre>
 </details>
@@ -1021,7 +1024,6 @@ Analogous functions exist for other learning frameworks.</p></div>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
-<li><code><a title="phi.tf.nets.SGD" href="#phi.tf.nets.SGD">SGD</a></code></li>
 <li><code><a title="phi.tf.nets.adagrad" href="#phi.tf.nets.adagrad">adagrad</a></code></li>
 <li><code><a title="phi.tf.nets.adam" href="#phi.tf.nets.adam">adam</a></code></li>
 <li><code><a title="phi.tf.nets.conv_classifier" href="#phi.tf.nets.conv_classifier">conv_classifier</a></code></li>
@@ -1036,6 +1038,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 <li><code><a title="phi.tf.nets.resnet_block" href="#phi.tf.nets.resnet_block">resnet_block</a></code></li>
 <li><code><a title="phi.tf.nets.rmsprop" href="#phi.tf.nets.rmsprop">rmsprop</a></code></li>
 <li><code><a title="phi.tf.nets.save_state" href="#phi.tf.nets.save_state">save_state</a></code></li>
+<li><code><a title="phi.tf.nets.sgd" href="#phi.tf.nets.sgd">sgd</a></code></li>
 <li><code><a title="phi.tf.nets.u_net" href="#phi.tf.nets.u_net">u_net</a></code></li>
 <li><code><a title="phi.tf.nets.update_weights" href="#phi.tf.nets.update_weights">update_weights</a></code></li>
 </ul>

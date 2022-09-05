@@ -29,7 +29,7 @@
 <pre><code class="python">import functools
 import inspect
 import warnings
-from typing import Callable
+from typing import Callable, Tuple, List
 
 import numpy
 import jax
@@ -37,7 +37,9 @@ import jax.numpy as jnp
 from jax import random
 
 from packaging import version
-if version.parse(jax.__version__) &gt;= version.parse(&#39;0.2.25&#39;):  # Stax and Optimizers were moved to jax.example_libraries on Oct 20, 2021
+
+if version.parse(jax.__version__) &gt;= version.parse(
+        &#39;0.2.25&#39;):  # Stax and Optimizers were moved to jax.example_libraries on Oct 20, 2021
     from jax.example_libraries import stax
     import jax.example_libraries.optimizers as optim
     from jax.example_libraries.optimizers import OptimizerState
@@ -45,6 +47,7 @@ else:
     from jax.experimental import stax
     import jax.experimental.optimizers as optim
     from jax.experimental.optimizers import OptimizerState
+
     warnings.warn(f&#34;Found Jax version {jax.__version__}. Using legacy imports.&#34;, FutureWarning)
 
 from phi import math
@@ -116,10 +119,10 @@ class JaxOptimizer:
                 update = math.jit_compile(update)
             self._update_function_cache[loss_function] = update
 
-        next_packed_state, loss_output = self._update_function_cache[loss_function](self._state.packed_state, *loss_args, **loss_kwargs)
+        next_packed_state, loss_output = self._update_function_cache[loss_function](self._state.packed_state,
+                                                                                    *loss_args, **loss_kwargs)
         self._state = OptimizerState(next_packed_state, self._state.tree_def, self._state.subtree_defs)
         return loss_output
-
 
 
 def parameter_count(model: StaxNet) -&gt; int:
@@ -202,7 +205,7 @@ def save_state(obj: StaxNet or JaxOptimizer, path: str):
     if isinstance(obj, StaxNet):
         numpy.save(path, obj.parameters)
     else:
-        pass  # ToDo
+        raise NotImplementedError  # ToDo
         # numpy.save(path, obj._state)
 
 
@@ -223,7 +226,7 @@ def load_state(obj: StaxNet or JaxOptimizer, path: str):
         state = numpy.load(path, allow_pickle=True)
         obj.parameters = tuple([tuple(layer) for layer in state])
     else:
-        pass  # ToDo
+        raise NotImplementedError  # ToDo
 
 
 def update_weights(net: StaxNet, optimizer: JaxOptimizer, loss_function: Callable, *loss_args, **loss_kwargs):
@@ -256,19 +259,21 @@ def adam(net: StaxNet, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilon=
     opt.initialize(net.parameters)
     return opt
 
-def SGD(net: StaxNet, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov = False):
+
+def sgd(net: StaxNet, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov=False):
     &#34;&#34;&#34;
     Creates an SGD optimizer for `net`, alias for [`jax.example_libraries.optimizers.SGD`](https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html).
     Analogous functions exist for other learning frameworks.
     &#34;&#34;&#34;
-    if momentum==0:
+    if momentum == 0:
         opt = JaxOptimizer(*optim.sgd(learning_rate))
     else:
         opt = JaxOptimizer(*optim.momentum(learning_rate, momentum))
     opt.initialize(net.parameters)
     return opt
 
-def adagrad(net: StaxNet, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value = 0, eps=1e-10):
+
+def adagrad(net: StaxNet, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value=0, eps=1e-10):
     &#34;&#34;&#34;
     Creates an Adagrad optimizer for `net`, alias for [`jax.example_libraries.optimizers.adagrad`](https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html).
     Analogue functions exist for other learning frameworks.
@@ -277,21 +282,23 @@ def adagrad(net: StaxNet, learning_rate: float = 1e-3, lr_decay=0, weight_decay=
     opt.initialize(net.parameters)
     return opt
 
+
 def rmsprop(net: StaxNet, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0, centered=False):
     &#34;&#34;&#34;
     Creates an RMSprop optimizer for `net`, alias for [`jax.example_libraries.optimizers.rmsprop`](https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html).
     Analogue functions exist for other learning frameworks.
     &#34;&#34;&#34;
-    if momentum==0:
+    if momentum == 0:
         opt = JaxOptimizer(*optim.rmsprop(learning_rate, alpha, eps))
     else:
         opt = JaxOptimizer(*optim.rmsprop_momentum(learning_rate, alpha, eps, momentum))
     opt.initialize(net.parameters)
     return opt
 
+
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: tuple or list,
+              layers: Tuple[int, ...] or List[int],
               batch_norm=False,
               activation=&#39;ReLU&#39;) -&gt; StaxNet:
     activation = {&#39;ReLU&#39;: stax.Relu, &#39;Sigmoid&#39;: stax.Sigmoid, &#39;tanh&#39;: stax.Tanh}[activation]
@@ -335,11 +342,16 @@ def u_net(in_channels: int,
     init_functions, apply_functions = {}, {}
     for i in range(1, levels):
         if use_res_blocks:
-            init_functions[f&#39;down{i}&#39;], apply_functions[f&#39;down{i}&#39;] = resnet_block(filters[i-1], filters[i], batch_norm, activation, d)
-            init_functions[f&#39;up{i}&#39;], apply_functions[f&#39;up{i}&#39;] = resnet_block(filters[i] + filters[i-1], filters[i-1], batch_norm, activation, d)
+            init_functions[f&#39;down{i}&#39;], apply_functions[f&#39;down{i}&#39;] = resnet_block(filters[i - 1], filters[i],
+                                                                                   batch_norm, activation, d)
+            init_functions[f&#39;up{i}&#39;], apply_functions[f&#39;up{i}&#39;] = resnet_block(filters[i] + filters[i - 1],
+                                                                               filters[i - 1], batch_norm, activation,
+                                                                               d)
         else:
-            init_functions[f&#39;down{i}&#39;], apply_functions[f&#39;down{i}&#39;] = create_double_conv(d, filters[i], filters[i], batch_norm, activation)
-            init_functions[f&#39;up{i}&#39;], apply_functions[f&#39;up{i}&#39;] = create_double_conv(d, filters[i - 1], filters[i - 1], batch_norm, activation)
+            init_functions[f&#39;down{i}&#39;], apply_functions[f&#39;down{i}&#39;] = create_double_conv(d, filters[i], filters[i],
+                                                                                         batch_norm, activation)
+            init_functions[f&#39;up{i}&#39;], apply_functions[f&#39;up{i}&#39;] = create_double_conv(d, filters[i - 1], filters[i - 1],
+                                                                                     batch_norm, activation)
     outc_init, outc_apply = CONV[d](out_channels, (1,) * d, padding=&#39;same&#39;)
     max_pool_init, max_pool_apply = stax.MaxPool((2,) * d, padding=&#39;same&#39;, strides=(2,) * d)
     _, up_apply = create_upsample()
@@ -357,7 +369,7 @@ def u_net(in_channels: int,
             shapes.insert(0, shape)
         for i in range(1, levels):
             shape = shapes[i][:-1] + (shapes[i][-1] + shape[-1],)
-            shape, params[f&#39;up{i}&#39;] = init_functions[f&#39;up{i}&#39;](rngs[levels+i], shape)
+            shape, params[f&#39;up{i}&#39;] = init_functions[f&#39;up{i}&#39;](rngs[levels + i], shape)
         shape, params[&#39;outc&#39;] = outc_init(rngs[-1], shape)
         return shape, params
 
@@ -382,11 +394,11 @@ def u_net(in_channels: int,
     return net
 
 
-ACTIVATIONS = {&#39;ReLU&#39;: stax.Relu, &#39;Sigmoid&#39;: stax.Sigmoid, &#39;tanh&#39;: stax.Tanh, &#39;SiLU&#39; : stax.Selu}
+ACTIVATIONS = {&#39;ReLU&#39;: stax.Relu, &#39;Sigmoid&#39;: stax.Sigmoid, &#39;tanh&#39;: stax.Tanh, &#39;SiLU&#39;: stax.Selu}
 CONV = [None,
         functools.partial(stax.GeneralConv, (&#39;NWC&#39;, &#39;WIO&#39;, &#39;NWC&#39;)),
         functools.partial(stax.GeneralConv, (&#39;NWHC&#39;, &#39;WHIO&#39;, &#39;NWHC&#39;)),
-        functools.partial(stax.GeneralConv, (&#39;NWHDC&#39;, &#39;WHDIO&#39;, &#39;NWHDC&#39;)),]
+        functools.partial(stax.GeneralConv, (&#39;NWHDC&#39;, &#39;WHDIO&#39;, &#39;NWHDC&#39;)), ]
 
 &#39;&#39;&#39;
 def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
@@ -399,18 +411,21 @@ def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm:
         stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
         activation)
 &#39;&#39;&#39;
+
+
 # Periodic Implementation
 def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
-
     init_fn, apply_fn = {}, {}
 
     init_fn[&#39;conv1&#39;], apply_fn[&#39;conv1&#39;] = stax.serial(CONV[d](mid_channels, (3,) * d, padding=&#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                          activation)
+                                                      stax.BatchNorm(
+                                                          axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
+                                                      activation)
 
     init_fn[&#39;conv2&#39;], apply_fn[&#39;conv2&#39;] = stax.serial(CONV[d](mid_channels, (3,) * d, padding=&#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                          activation)
+                                                      stax.BatchNorm(
+                                                          axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
+                                                      activation)
 
     def net_init(rng, input_shape):
         params = {}
@@ -428,21 +443,25 @@ def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm:
 
         out = jnp.pad(x, pad_width=pad_tuple, mode=&#39;wrap&#39;)
         out = apply_fn[&#39;conv1&#39;](params[&#39;conv1&#39;], out)
-        out = jnp.pad(out ,pad_width=pad_tuple, mode=&#39;wrap&#39;)
+        out = jnp.pad(out, pad_width=pad_tuple, mode=&#39;wrap&#39;)
         out = apply_fn[&#39;conv2&#39;](params[&#39;conv2&#39;], out)
 
         return out
 
     return net_init, net_apply
 
+
 def create_upsample():
     # def upsample_init(rng, input_shape):
     #     return shape, []
     def upsample_apply(params, inputs, **kwargs):
-        x = math.wrap(inputs, math.batch(&#39;batch&#39;), *[math.spatial(f&#39;{i}&#39;) for i in range(len(inputs.shape) - 2)], math.channel(&#39;vector&#39;))
+        x = math.wrap(inputs, math.batch(&#39;batch&#39;), *[math.spatial(f&#39;{i}&#39;) for i in range(len(inputs.shape) - 2)],
+                      math.channel(&#39;vector&#39;))
         x = math.upsample2x(x)
         return x.native(x.shape)
+
     return NotImplemented, upsample_apply
+
 
 def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, in_spatial: int or tuple):
     if isinstance(in_spatial, int):
@@ -468,20 +487,23 @@ def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, 
 
     init_fn[&#39;conv3_1&#39;], apply_fn[&#39;conv3_1&#39;] = create_double_conv(d, 256, 256, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;conv3_2&#39;], apply_fn[&#39;conv3_2&#39;] = stax.serial(CONV[d](256, (3,) * d, padding=&#39;valid&#39;),
-                                                      stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                                           ACTIVATIONS[&#39;ReLU&#39;])
+                                                          stax.BatchNorm(axis=tuple(
+                                                              range(d + 1))) if batch_norm else stax.Identity,
+                                                          ACTIVATIONS[&#39;ReLU&#39;])
 
     init_fn[&#39;max_pool3&#39;], apply_fn[&#39;max_pool3&#39;] = stax.MaxPool((2,) * d, padding=&#39;valid&#39;, strides=(2,) * d)
 
     init_fn[&#39;conv4_1&#39;], apply_fn[&#39;conv4_1&#39;] = create_double_conv(d, 512, 512, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;conv4_2&#39;], apply_fn[&#39;conv4_2&#39;] = stax.serial(CONV[d](512, (3,) * d, padding=&#39;valid&#39;),
-                                                      stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                                            ACTIVATIONS[&#39;ReLU&#39;])
+                                                          stax.BatchNorm(axis=tuple(
+                                                              range(d + 1))) if batch_norm else stax.Identity,
+                                                          ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;max_pool4&#39;], apply_fn[&#39;max_pool4&#39;] = stax.MaxPool((2,) * d, padding=&#39;valid&#39;, strides=(2,) * d)
 
     init_fn[&#39;conv5_1&#39;], apply_fn[&#39;conv5_1&#39;] = create_double_conv(d, 512, 512, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;conv5_2&#39;], apply_fn[&#39;conv5_2&#39;] = stax.serial(CONV[d](512, (3,) * d, padding=&#39;valid&#39;),
-                                                          stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
+                                                          stax.BatchNorm(axis=tuple(
+                                                              range(d + 1))) if batch_norm else stax.Identity,
                                                           ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;max_pool5&#39;], apply_fn[&#39;max_pool5&#39;] = stax.MaxPool((2,) * d, padding=&#39;valid&#39;, strides=(2,) * d)
 
@@ -526,14 +548,14 @@ def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, 
                 init_fn[f&#39;{net_list[i]}&#39;](rngs[i], shape)
 
         shape, params[&#39;flatten&#39;] = init_fn[&#39;flatten&#39;](rngs[N], shape)
-        shape, params[&#39;dense&#39;] = dense_init(rngs[N+1], (1,) + (flattened_input_dim,))
+        shape, params[&#39;dense&#39;] = dense_init(rngs[N + 1], (1,) + (flattened_input_dim,))
 
         return shape, params
 
     def net_apply(params, inputs, **kwargs):
         x = inputs
 
-        pad_tuple = [[0, 0]] + [[1,1] for i in range(d)] + [[0,0]]
+        pad_tuple = [[0, 0]] + [[1, 1] for i in range(d)] + [[0, 0]]
 
         for i in range(len(net_list)):
             if net_list[i] in [&#39;conv3_2&#39;, &#39;conv4_2&#39;, &#39;conv5_2&#39;]:
@@ -548,13 +570,14 @@ def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, 
     net.initialize()
     return net
 
-def conv_net(in_channels : int,
-            out_channels: int,
-            layers : tuple,
-            batch_norm : bool = False,
-            activation:str or Callable = &#39;ReLU&#39;,
-            in_spatial : int or tuple = 2) -&gt;StaxNet:
-    if isinstance(in_spatial,tuple):
+
+def conv_net(in_channels: int,
+             out_channels: int,
+             layers: Tuple[int, ...] or List[int],
+             batch_norm: bool = False,
+             activation: str or Callable = &#39;ReLU&#39;,
+             in_spatial: int or tuple = 2) -&gt; StaxNet:
+    if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
     else:
@@ -566,17 +589,18 @@ def conv_net(in_channels : int,
 
     init_fn, apply_fn = {}, {}
     for i in range(len(layers)):
-        init_fn[f&#39;conv{i+1}&#39;], apply_fn[f&#39;conv{i+1}&#39;] = stax.serial(CONV[in_spatial](out_channels, (3,)*in_spatial, padding = &#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(in_spatial+1))) if batch_norm else stax.Identity,
-                                          activation)
+        init_fn[f&#39;conv{i + 1}&#39;], apply_fn[f&#39;conv{i + 1}&#39;] = stax.serial(
+            CONV[in_spatial](out_channels, (3,) * in_spatial, padding=&#39;valid&#39;),
+            stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+            activation)
 
     def net_init(rng, input_shape):
         params = {}
         rngs = random.split(rng, 2)
 
         shape, params[&#39;conv1&#39;] = init_fn[&#39;conv1&#39;](rngs[0], input_shape)
-        for i in range(1,len(layers)):
-            shape, params[f&#39;conv{i+1}&#39;] = init_fn[f&#39;conv{i+1}&#39;](rngs[i], shape)
+        for i in range(1, len(layers)):
+            shape, params[f&#39;conv{i + 1}&#39;] = init_fn[f&#39;conv{i + 1}&#39;](rngs[i], shape)
 
         return shape, params
 
@@ -585,26 +609,27 @@ def conv_net(in_channels : int,
 
         pad_tuple = [(0, 0)]
         for i in range(in_spatial):
-            pad_tuple.append((1,1))
-        pad_tuple.append((0,0))
+            pad_tuple.append((1, 1))
+        pad_tuple.append((0, 0))
 
         out = jnp.pad(x, pad_width=pad_tuple, mode=&#39;wrap&#39;)
         out = apply_fn[&#39;conv1&#39;](params[&#39;conv1&#39;], out)
-        for i in range(1,len(layers)):
+        for i in range(1, len(layers)):
             out = jnp.pad(out, pad_width=pad_tuple, mode=&#39;wrap&#39;)
-            out = apply_fn[f&#39;conv{i+1}&#39;](params[f&#39;conv{i+1}&#39;], out)
+            out = apply_fn[f&#39;conv{i + 1}&#39;](params[f&#39;conv{i + 1}&#39;], out)
         return out
 
     net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
     net.initialize()
     return net
 
-def res_net(in_channels : int,
-            out_channels : int,
-            layers : tuple,
-            batch_norm : bool = False,
-            activation : str or Callable = &#39;ReLU&#39;,
-            in_spatial : int or tuple=2) -&gt; StaxNet:
+
+def res_net(in_channels: int,
+            out_channels: int,
+            layers: Tuple[int, ...] or List[int],
+            batch_norm: bool = False,
+            activation: str or Callable = &#39;ReLU&#39;,
+            in_spatial: int or tuple = 2) -&gt; StaxNet:
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -617,21 +642,20 @@ def res_net(in_channels : int,
     stax_layers.append(resnet_block(in_channels, layers[0], batch_norm, activation, in_spatial))
 
     for i in range(1, len(layers)):
-        stax_layers.append(resnet_block(layers[i-1], layers[i], batch_norm, activation, in_spatial))
+        stax_layers.append(resnet_block(layers[i - 1], layers[i], batch_norm, activation, in_spatial))
 
-    stax_layers.append(resnet_block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial))
+    stax_layers.append(resnet_block(layers[len(layers) - 1], out_channels, batch_norm, activation, in_spatial))
     net_init, net_apply = stax.serial(*stax_layers)
     net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
     net.initialize()
     return net
 
 
-def resnet_block(in_channels : int,
-                out_channels : int,
-                batch_norm : bool,
-                activation : str or Callable = &#39;ReLU&#39;,
-                in_spatial : int or tuple = 2):
-
+def resnet_block(in_channels: int,
+                 out_channels: int,
+                 batch_norm: bool,
+                 activation: str or Callable = &#39;ReLU&#39;,
+                 in_spatial: int or tuple = 2):
     if isinstance(in_spatial, int):
         d = (1,) * in_spatial
     else:
@@ -640,17 +664,20 @@ def resnet_block(in_channels : int,
 
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     init_fn, apply_fn = {}, {}
-    init_fn[&#39;conv1&#39;], apply_fn[&#39;conv1&#39;] = stax.serial(CONV[in_spatial](out_channels, (3,)*in_spatial, padding = &#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(in_spatial+1))) if batch_norm else stax.Identity,
-                                          activation)
-    init_fn[&#39;conv2&#39;], apply_fn[&#39;conv2&#39;] = stax.serial(CONV[in_spatial](out_channels, (3,)*in_spatial, padding = &#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(in_spatial+1))) if batch_norm else stax.Identity,
-                                          activation)
+    init_fn[&#39;conv1&#39;], apply_fn[&#39;conv1&#39;] = stax.serial(
+        CONV[in_spatial](out_channels, (3,) * in_spatial, padding=&#39;valid&#39;),
+        stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+        activation)
+    init_fn[&#39;conv2&#39;], apply_fn[&#39;conv2&#39;] = stax.serial(
+        CONV[in_spatial](out_channels, (3,) * in_spatial, padding=&#39;valid&#39;),
+        stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+        activation)
 
     init_activation, apply_activation = activation
     if in_channels != out_channels:
-        init_fn[&#39;sample_conv&#39;], apply_fn[&#39;sample_conv&#39;] = stax.serial(CONV[in_spatial](out_channels, (1,)*in_spatial, padding = &#39;VALID&#39;),
-                                                                      stax.BatchNorm(axis=tuple(range(in_spatial+1))) if batch_norm else stax.Identity)
+        init_fn[&#39;sample_conv&#39;], apply_fn[&#39;sample_conv&#39;] = stax.serial(
+            CONV[in_spatial](out_channels, (1,) * in_spatial, padding=&#39;VALID&#39;),
+            stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity)
     else:
         init_fn[&#39;sample_conv&#39;], apply_fn[&#39;sample_conv&#39;] = stax.Identity
 
@@ -676,7 +703,7 @@ def resnet_block(in_channels : int,
         out = apply_fn[&#39;conv2&#39;](params[&#39;conv2&#39;], out)
         skip_x = apply_fn[&#39;sample_conv&#39;](params[&#39;sample_conv&#39;], x, **kwargs)
         out = jnp.add(out, skip_x)
-        #out = apply_activation(params[&#39;activation&#39;], out)
+        # out = apply_activation(params[&#39;activation&#39;], out)
         return out
 
     return net_init, net_apply</code></pre>
@@ -704,29 +731,6 @@ def resnet_block(in_channels : int,
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="phi.jax.stax.nets.SGD"><code class="name flex">
-<span>def <span class="ident">SGD</span></span>(<span>net: <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a>, learning_rate: float = 0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Creates an SGD optimizer for <code>net</code>, alias for <a href="https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html"><code>jax.example_libraries.optimizers.SGD</code></a>.
-Analogous functions exist for other learning frameworks.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def SGD(net: StaxNet, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov = False):
-    &#34;&#34;&#34;
-    Creates an SGD optimizer for `net`, alias for [`jax.example_libraries.optimizers.SGD`](https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html).
-    Analogous functions exist for other learning frameworks.
-    &#34;&#34;&#34;
-    if momentum==0:
-        opt = JaxOptimizer(*optim.sgd(learning_rate))
-    else:
-        opt = JaxOptimizer(*optim.momentum(learning_rate, momentum))
-    opt.initialize(net.parameters)
-    return opt</code></pre>
-</details>
-</dd>
 <dt id="phi.jax.stax.nets.adagrad"><code class="name flex">
 <span>def <span class="ident">adagrad</span></span>(<span>net: <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a>, learning_rate: float = 0.001, lr_decay=0, weight_decay=0, initial_accumulator_value=0, eps=1e-10)</span>
 </code></dt>
@@ -737,7 +741,7 @@ Analogue functions exist for other learning frameworks.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def adagrad(net: StaxNet, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value = 0, eps=1e-10):
+<pre><code class="python">def adagrad(net: StaxNet, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value=0, eps=1e-10):
     &#34;&#34;&#34;
     Creates an Adagrad optimizer for `net`, alias for [`jax.example_libraries.optimizers.adagrad`](https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html).
     Analogue functions exist for other learning frameworks.
@@ -800,20 +804,23 @@ Analogous functions exist for other learning frameworks.</p></div>
 
     init_fn[&#39;conv3_1&#39;], apply_fn[&#39;conv3_1&#39;] = create_double_conv(d, 256, 256, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;conv3_2&#39;], apply_fn[&#39;conv3_2&#39;] = stax.serial(CONV[d](256, (3,) * d, padding=&#39;valid&#39;),
-                                                      stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                                           ACTIVATIONS[&#39;ReLU&#39;])
+                                                          stax.BatchNorm(axis=tuple(
+                                                              range(d + 1))) if batch_norm else stax.Identity,
+                                                          ACTIVATIONS[&#39;ReLU&#39;])
 
     init_fn[&#39;max_pool3&#39;], apply_fn[&#39;max_pool3&#39;] = stax.MaxPool((2,) * d, padding=&#39;valid&#39;, strides=(2,) * d)
 
     init_fn[&#39;conv4_1&#39;], apply_fn[&#39;conv4_1&#39;] = create_double_conv(d, 512, 512, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;conv4_2&#39;], apply_fn[&#39;conv4_2&#39;] = stax.serial(CONV[d](512, (3,) * d, padding=&#39;valid&#39;),
-                                                      stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                                            ACTIVATIONS[&#39;ReLU&#39;])
+                                                          stax.BatchNorm(axis=tuple(
+                                                              range(d + 1))) if batch_norm else stax.Identity,
+                                                          ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;max_pool4&#39;], apply_fn[&#39;max_pool4&#39;] = stax.MaxPool((2,) * d, padding=&#39;valid&#39;, strides=(2,) * d)
 
     init_fn[&#39;conv5_1&#39;], apply_fn[&#39;conv5_1&#39;] = create_double_conv(d, 512, 512, batch_norm, ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;conv5_2&#39;], apply_fn[&#39;conv5_2&#39;] = stax.serial(CONV[d](512, (3,) * d, padding=&#39;valid&#39;),
-                                                          stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
+                                                          stax.BatchNorm(axis=tuple(
+                                                              range(d + 1))) if batch_norm else stax.Identity,
                                                           ACTIVATIONS[&#39;ReLU&#39;])
     init_fn[&#39;max_pool5&#39;], apply_fn[&#39;max_pool5&#39;] = stax.MaxPool((2,) * d, padding=&#39;valid&#39;, strides=(2,) * d)
 
@@ -858,14 +865,14 @@ Analogous functions exist for other learning frameworks.</p></div>
                 init_fn[f&#39;{net_list[i]}&#39;](rngs[i], shape)
 
         shape, params[&#39;flatten&#39;] = init_fn[&#39;flatten&#39;](rngs[N], shape)
-        shape, params[&#39;dense&#39;] = dense_init(rngs[N+1], (1,) + (flattened_input_dim,))
+        shape, params[&#39;dense&#39;] = dense_init(rngs[N + 1], (1,) + (flattened_input_dim,))
 
         return shape, params
 
     def net_apply(params, inputs, **kwargs):
         x = inputs
 
-        pad_tuple = [[0, 0]] + [[1,1] for i in range(d)] + [[0,0]]
+        pad_tuple = [[0, 0]] + [[1, 1] for i in range(d)] + [[0, 0]]
 
         for i in range(len(net_list)):
             if net_list[i] in [&#39;conv3_2&#39;, &#39;conv4_2&#39;, &#39;conv5_2&#39;]:
@@ -882,7 +889,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.jax.stax.nets.conv_net"><code class="name flex">
-<span>def <span class="ident">conv_net</span></span>(<span>in_channels: int, out_channels: int, layers: tuple, batch_norm: bool = False, activation: str = 'ReLU', in_spatial: int = 2) ‑> <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a></span>
+<span>def <span class="ident">conv_net</span></span>(<span>in_channels: int, out_channels: int, layers: Tuple[int, ...], batch_norm: bool = False, activation: str = 'ReLU', in_spatial: int = 2) ‑> <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -890,13 +897,13 @@ Analogous functions exist for other learning frameworks.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conv_net(in_channels : int,
-            out_channels: int,
-            layers : tuple,
-            batch_norm : bool = False,
-            activation:str or Callable = &#39;ReLU&#39;,
-            in_spatial : int or tuple = 2) -&gt;StaxNet:
-    if isinstance(in_spatial,tuple):
+<pre><code class="python">def conv_net(in_channels: int,
+             out_channels: int,
+             layers: Tuple[int, ...] or List[int],
+             batch_norm: bool = False,
+             activation: str or Callable = &#39;ReLU&#39;,
+             in_spatial: int or tuple = 2) -&gt; StaxNet:
+    if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
     else:
@@ -908,17 +915,18 @@ Analogous functions exist for other learning frameworks.</p></div>
 
     init_fn, apply_fn = {}, {}
     for i in range(len(layers)):
-        init_fn[f&#39;conv{i+1}&#39;], apply_fn[f&#39;conv{i+1}&#39;] = stax.serial(CONV[in_spatial](out_channels, (3,)*in_spatial, padding = &#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(in_spatial+1))) if batch_norm else stax.Identity,
-                                          activation)
+        init_fn[f&#39;conv{i + 1}&#39;], apply_fn[f&#39;conv{i + 1}&#39;] = stax.serial(
+            CONV[in_spatial](out_channels, (3,) * in_spatial, padding=&#39;valid&#39;),
+            stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+            activation)
 
     def net_init(rng, input_shape):
         params = {}
         rngs = random.split(rng, 2)
 
         shape, params[&#39;conv1&#39;] = init_fn[&#39;conv1&#39;](rngs[0], input_shape)
-        for i in range(1,len(layers)):
-            shape, params[f&#39;conv{i+1}&#39;] = init_fn[f&#39;conv{i+1}&#39;](rngs[i], shape)
+        for i in range(1, len(layers)):
+            shape, params[f&#39;conv{i + 1}&#39;] = init_fn[f&#39;conv{i + 1}&#39;](rngs[i], shape)
 
         return shape, params
 
@@ -927,14 +935,14 @@ Analogous functions exist for other learning frameworks.</p></div>
 
         pad_tuple = [(0, 0)]
         for i in range(in_spatial):
-            pad_tuple.append((1,1))
-        pad_tuple.append((0,0))
+            pad_tuple.append((1, 1))
+        pad_tuple.append((0, 0))
 
         out = jnp.pad(x, pad_width=pad_tuple, mode=&#39;wrap&#39;)
         out = apply_fn[&#39;conv1&#39;](params[&#39;conv1&#39;], out)
-        for i in range(1,len(layers)):
+        for i in range(1, len(layers)):
             out = jnp.pad(out, pad_width=pad_tuple, mode=&#39;wrap&#39;)
-            out = apply_fn[f&#39;conv{i+1}&#39;](params[f&#39;conv{i+1}&#39;], out)
+            out = apply_fn[f&#39;conv{i + 1}&#39;](params[f&#39;conv{i + 1}&#39;], out)
         return out
 
     net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
@@ -952,16 +960,17 @@ Analogous functions exist for other learning frameworks.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
-
     init_fn, apply_fn = {}, {}
 
     init_fn[&#39;conv1&#39;], apply_fn[&#39;conv1&#39;] = stax.serial(CONV[d](mid_channels, (3,) * d, padding=&#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                          activation)
+                                                      stax.BatchNorm(
+                                                          axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
+                                                      activation)
 
     init_fn[&#39;conv2&#39;], apply_fn[&#39;conv2&#39;] = stax.serial(CONV[d](mid_channels, (3,) * d, padding=&#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                          activation)
+                                                      stax.BatchNorm(
+                                                          axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
+                                                      activation)
 
     def net_init(rng, input_shape):
         params = {}
@@ -979,7 +988,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 
         out = jnp.pad(x, pad_width=pad_tuple, mode=&#39;wrap&#39;)
         out = apply_fn[&#39;conv1&#39;](params[&#39;conv1&#39;], out)
-        out = jnp.pad(out ,pad_width=pad_tuple, mode=&#39;wrap&#39;)
+        out = jnp.pad(out, pad_width=pad_tuple, mode=&#39;wrap&#39;)
         out = apply_fn[&#39;conv2&#39;](params[&#39;conv2&#39;], out)
 
         return out
@@ -1000,14 +1009,16 @@ Analogous functions exist for other learning frameworks.</p></div>
     # def upsample_init(rng, input_shape):
     #     return shape, []
     def upsample_apply(params, inputs, **kwargs):
-        x = math.wrap(inputs, math.batch(&#39;batch&#39;), *[math.spatial(f&#39;{i}&#39;) for i in range(len(inputs.shape) - 2)], math.channel(&#39;vector&#39;))
+        x = math.wrap(inputs, math.batch(&#39;batch&#39;), *[math.spatial(f&#39;{i}&#39;) for i in range(len(inputs.shape) - 2)],
+                      math.channel(&#39;vector&#39;))
         x = math.upsample2x(x)
         return x.native(x.shape)
+
     return NotImplemented, upsample_apply</code></pre>
 </details>
 </dd>
 <dt id="phi.jax.stax.nets.dense_net"><code class="name flex">
-<span>def <span class="ident">dense_net</span></span>(<span>in_channels: int, out_channels: int, layers: tuple, batch_norm=False, activation='ReLU') ‑> <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a></span>
+<span>def <span class="ident">dense_net</span></span>(<span>in_channels: int, out_channels: int, layers: Tuple[int, ...], batch_norm=False, activation='ReLU') ‑> <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1017,7 +1028,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </summary>
 <pre><code class="python">def dense_net(in_channels: int,
               out_channels: int,
-              layers: tuple or list,
+              layers: Tuple[int, ...] or List[int],
               batch_norm=False,
               activation=&#39;ReLU&#39;) -&gt; StaxNet:
     activation = {&#39;ReLU&#39;: stax.Relu, &#39;Sigmoid&#39;: stax.Sigmoid, &#39;tanh&#39;: stax.Tanh}[activation]
@@ -1084,7 +1095,7 @@ Analogous functions exist for other learning frameworks.</p></div>
         state = numpy.load(path, allow_pickle=True)
         obj.parameters = tuple([tuple(layer) for layer in state])
     else:
-        pass  # ToDo</code></pre>
+        raise NotImplementedError  # ToDo</code></pre>
 </details>
 </dd>
 <dt id="phi.jax.stax.nets.parameter_count"><code class="name flex">
@@ -1117,7 +1128,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.jax.stax.nets.res_net"><code class="name flex">
-<span>def <span class="ident">res_net</span></span>(<span>in_channels: int, out_channels: int, layers: tuple, batch_norm: bool = False, activation: str = 'ReLU', in_spatial: int = 2) ‑> <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a></span>
+<span>def <span class="ident">res_net</span></span>(<span>in_channels: int, out_channels: int, layers: Tuple[int, ...], batch_norm: bool = False, activation: str = 'ReLU', in_spatial: int = 2) ‑> <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1125,12 +1136,12 @@ Analogous functions exist for other learning frameworks.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def res_net(in_channels : int,
-            out_channels : int,
-            layers : tuple,
-            batch_norm : bool = False,
-            activation : str or Callable = &#39;ReLU&#39;,
-            in_spatial : int or tuple=2) -&gt; StaxNet:
+<pre><code class="python">def res_net(in_channels: int,
+            out_channels: int,
+            layers: Tuple[int, ...] or List[int],
+            batch_norm: bool = False,
+            activation: str or Callable = &#39;ReLU&#39;,
+            in_spatial: int or tuple = 2) -&gt; StaxNet:
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -1143,9 +1154,9 @@ Analogous functions exist for other learning frameworks.</p></div>
     stax_layers.append(resnet_block(in_channels, layers[0], batch_norm, activation, in_spatial))
 
     for i in range(1, len(layers)):
-        stax_layers.append(resnet_block(layers[i-1], layers[i], batch_norm, activation, in_spatial))
+        stax_layers.append(resnet_block(layers[i - 1], layers[i], batch_norm, activation, in_spatial))
 
-    stax_layers.append(resnet_block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial))
+    stax_layers.append(resnet_block(layers[len(layers) - 1], out_channels, batch_norm, activation, in_spatial))
     net_init, net_apply = stax.serial(*stax_layers)
     net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
     net.initialize()
@@ -1161,12 +1172,11 @@ Analogous functions exist for other learning frameworks.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def resnet_block(in_channels : int,
-                out_channels : int,
-                batch_norm : bool,
-                activation : str or Callable = &#39;ReLU&#39;,
-                in_spatial : int or tuple = 2):
-
+<pre><code class="python">def resnet_block(in_channels: int,
+                 out_channels: int,
+                 batch_norm: bool,
+                 activation: str or Callable = &#39;ReLU&#39;,
+                 in_spatial: int or tuple = 2):
     if isinstance(in_spatial, int):
         d = (1,) * in_spatial
     else:
@@ -1175,17 +1185,20 @@ Analogous functions exist for other learning frameworks.</p></div>
 
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     init_fn, apply_fn = {}, {}
-    init_fn[&#39;conv1&#39;], apply_fn[&#39;conv1&#39;] = stax.serial(CONV[in_spatial](out_channels, (3,)*in_spatial, padding = &#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(in_spatial+1))) if batch_norm else stax.Identity,
-                                          activation)
-    init_fn[&#39;conv2&#39;], apply_fn[&#39;conv2&#39;] = stax.serial(CONV[in_spatial](out_channels, (3,)*in_spatial, padding = &#39;valid&#39;),
-                                          stax.BatchNorm(axis=tuple(range(in_spatial+1))) if batch_norm else stax.Identity,
-                                          activation)
+    init_fn[&#39;conv1&#39;], apply_fn[&#39;conv1&#39;] = stax.serial(
+        CONV[in_spatial](out_channels, (3,) * in_spatial, padding=&#39;valid&#39;),
+        stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+        activation)
+    init_fn[&#39;conv2&#39;], apply_fn[&#39;conv2&#39;] = stax.serial(
+        CONV[in_spatial](out_channels, (3,) * in_spatial, padding=&#39;valid&#39;),
+        stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+        activation)
 
     init_activation, apply_activation = activation
     if in_channels != out_channels:
-        init_fn[&#39;sample_conv&#39;], apply_fn[&#39;sample_conv&#39;] = stax.serial(CONV[in_spatial](out_channels, (1,)*in_spatial, padding = &#39;VALID&#39;),
-                                                                      stax.BatchNorm(axis=tuple(range(in_spatial+1))) if batch_norm else stax.Identity)
+        init_fn[&#39;sample_conv&#39;], apply_fn[&#39;sample_conv&#39;] = stax.serial(
+            CONV[in_spatial](out_channels, (1,) * in_spatial, padding=&#39;VALID&#39;),
+            stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity)
     else:
         init_fn[&#39;sample_conv&#39;], apply_fn[&#39;sample_conv&#39;] = stax.Identity
 
@@ -1211,7 +1224,7 @@ Analogous functions exist for other learning frameworks.</p></div>
         out = apply_fn[&#39;conv2&#39;](params[&#39;conv2&#39;], out)
         skip_x = apply_fn[&#39;sample_conv&#39;](params[&#39;sample_conv&#39;], x, **kwargs)
         out = jnp.add(out, skip_x)
-        #out = apply_activation(params[&#39;activation&#39;], out)
+        # out = apply_activation(params[&#39;activation&#39;], out)
         return out
 
     return net_init, net_apply</code></pre>
@@ -1232,7 +1245,7 @@ Analogue functions exist for other learning frameworks.</p></div>
     Creates an RMSprop optimizer for `net`, alias for [`jax.example_libraries.optimizers.rmsprop`](https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html).
     Analogue functions exist for other learning frameworks.
     &#34;&#34;&#34;
-    if momentum==0:
+    if momentum == 0:
         opt = JaxOptimizer(*optim.rmsprop(learning_rate, alpha, eps))
     else:
         opt = JaxOptimizer(*optim.rmsprop_momentum(learning_rate, alpha, eps, momentum))
@@ -1274,8 +1287,31 @@ Analogue functions exist for other learning frameworks.</p></div>
     if isinstance(obj, StaxNet):
         numpy.save(path, obj.parameters)
     else:
-        pass  # ToDo
+        raise NotImplementedError  # ToDo
         # numpy.save(path, obj._state)</code></pre>
+</details>
+</dd>
+<dt id="phi.jax.stax.nets.sgd"><code class="name flex">
+<span>def <span class="ident">sgd</span></span>(<span>net: <a title="phi.jax.stax.nets.StaxNet" href="#phi.jax.stax.nets.StaxNet">StaxNet</a>, learning_rate: float = 0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates an SGD optimizer for <code>net</code>, alias for <a href="https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html"><code>jax.example_libraries.optimizers.SGD</code></a>.
+Analogous functions exist for other learning frameworks.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sgd(net: StaxNet, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov=False):
+    &#34;&#34;&#34;
+    Creates an SGD optimizer for `net`, alias for [`jax.example_libraries.optimizers.SGD`](https://jax.readthedocs.io/en/latest/jax.example_libraries.optimizers.html).
+    Analogous functions exist for other learning frameworks.
+    &#34;&#34;&#34;
+    if momentum == 0:
+        opt = JaxOptimizer(*optim.sgd(learning_rate))
+    else:
+        opt = JaxOptimizer(*optim.momentum(learning_rate, momentum))
+    opt.initialize(net.parameters)
+    return opt</code></pre>
 </details>
 </dd>
 <dt id="phi.jax.stax.nets.u_net"><code class="name flex">
@@ -1314,11 +1350,16 @@ Analogue functions exist for other learning frameworks.</p></div>
     init_functions, apply_functions = {}, {}
     for i in range(1, levels):
         if use_res_blocks:
-            init_functions[f&#39;down{i}&#39;], apply_functions[f&#39;down{i}&#39;] = resnet_block(filters[i-1], filters[i], batch_norm, activation, d)
-            init_functions[f&#39;up{i}&#39;], apply_functions[f&#39;up{i}&#39;] = resnet_block(filters[i] + filters[i-1], filters[i-1], batch_norm, activation, d)
+            init_functions[f&#39;down{i}&#39;], apply_functions[f&#39;down{i}&#39;] = resnet_block(filters[i - 1], filters[i],
+                                                                                   batch_norm, activation, d)
+            init_functions[f&#39;up{i}&#39;], apply_functions[f&#39;up{i}&#39;] = resnet_block(filters[i] + filters[i - 1],
+                                                                               filters[i - 1], batch_norm, activation,
+                                                                               d)
         else:
-            init_functions[f&#39;down{i}&#39;], apply_functions[f&#39;down{i}&#39;] = create_double_conv(d, filters[i], filters[i], batch_norm, activation)
-            init_functions[f&#39;up{i}&#39;], apply_functions[f&#39;up{i}&#39;] = create_double_conv(d, filters[i - 1], filters[i - 1], batch_norm, activation)
+            init_functions[f&#39;down{i}&#39;], apply_functions[f&#39;down{i}&#39;] = create_double_conv(d, filters[i], filters[i],
+                                                                                         batch_norm, activation)
+            init_functions[f&#39;up{i}&#39;], apply_functions[f&#39;up{i}&#39;] = create_double_conv(d, filters[i - 1], filters[i - 1],
+                                                                                     batch_norm, activation)
     outc_init, outc_apply = CONV[d](out_channels, (1,) * d, padding=&#39;same&#39;)
     max_pool_init, max_pool_apply = stax.MaxPool((2,) * d, padding=&#39;same&#39;, strides=(2,) * d)
     _, up_apply = create_upsample()
@@ -1336,7 +1377,7 @@ Analogue functions exist for other learning frameworks.</p></div>
             shapes.insert(0, shape)
         for i in range(1, levels):
             shape = shapes[i][:-1] + (shapes[i][-1] + shape[-1],)
-            shape, params[f&#39;up{i}&#39;] = init_functions[f&#39;up{i}&#39;](rngs[levels+i], shape)
+            shape, params[f&#39;up{i}&#39;] = init_functions[f&#39;up{i}&#39;](rngs[levels + i], shape)
         shape, params[&#39;outc&#39;] = outc_init(rngs[-1], shape)
         return shape, params
 
@@ -1463,7 +1504,8 @@ Analogue functions exist for other learning frameworks.</p></div>
                 update = math.jit_compile(update)
             self._update_function_cache[loss_function] = update
 
-        next_packed_state, loss_output = self._update_function_cache[loss_function](self._state.packed_state, *loss_args, **loss_kwargs)
+        next_packed_state, loss_output = self._update_function_cache[loss_function](self._state.packed_state,
+                                                                                    *loss_args, **loss_kwargs)
         self._state = OptimizerState(next_packed_state, self._state.tree_def, self._state.subtree_defs)
         return loss_output</code></pre>
 </details>
@@ -1527,7 +1569,8 @@ Analogue functions exist for other learning frameworks.</p></div>
             update = math.jit_compile(update)
         self._update_function_cache[loss_function] = update
 
-    next_packed_state, loss_output = self._update_function_cache[loss_function](self._state.packed_state, *loss_args, **loss_kwargs)
+    next_packed_state, loss_output = self._update_function_cache[loss_function](self._state.packed_state,
+                                                                                *loss_args, **loss_kwargs)
     self._state = OptimizerState(next_packed_state, self._state.tree_def, self._state.subtree_defs)
     return loss_output</code></pre>
 </details>
@@ -1622,7 +1665,6 @@ Analogue functions exist for other learning frameworks.</p></div>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
-<li><code><a title="phi.jax.stax.nets.SGD" href="#phi.jax.stax.nets.SGD">SGD</a></code></li>
 <li><code><a title="phi.jax.stax.nets.adagrad" href="#phi.jax.stax.nets.adagrad">adagrad</a></code></li>
 <li><code><a title="phi.jax.stax.nets.adam" href="#phi.jax.stax.nets.adam">adam</a></code></li>
 <li><code><a title="phi.jax.stax.nets.conv_classifier" href="#phi.jax.stax.nets.conv_classifier">conv_classifier</a></code></li>
@@ -1637,6 +1679,7 @@ Analogue functions exist for other learning frameworks.</p></div>
 <li><code><a title="phi.jax.stax.nets.resnet_block" href="#phi.jax.stax.nets.resnet_block">resnet_block</a></code></li>
 <li><code><a title="phi.jax.stax.nets.rmsprop" href="#phi.jax.stax.nets.rmsprop">rmsprop</a></code></li>
 <li><code><a title="phi.jax.stax.nets.save_state" href="#phi.jax.stax.nets.save_state">save_state</a></code></li>
+<li><code><a title="phi.jax.stax.nets.sgd" href="#phi.jax.stax.nets.sgd">sgd</a></code></li>
 <li><code><a title="phi.jax.stax.nets.u_net" href="#phi.jax.stax.nets.u_net">u_net</a></code></li>
 <li><code><a title="phi.jax.stax.nets.update_weights" href="#phi.jax.stax.nets.update_weights">update_weights</a></code></li>
 </ul>
