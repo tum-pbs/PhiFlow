@@ -39,7 +39,7 @@ class TestNetworks(TestCase):
             net = lib.u_net(1, 1, levels=2)
             optimizer = lib.adam(net, 1e-3)
             net_res = lib.u_net(1, 1, levels=2, use_res_blocks=True, activation='SiLU')
-            optimizer_2 = lib.adam(net_res, 1e-3)
+            optimizer_2 = lib.sgd(net_res, 1e-3)
 
             def loss_function(x):
                 print("Running loss_function")
@@ -60,9 +60,9 @@ class TestNetworks(TestCase):
     def test_optimize_u_net_jit(self):
         for lib in LIBRARIES:
             net = lib.u_net(1, 1, levels=2)
-            optimizer = lib.adam(net, 1e-3)
+            optimizer = lib.adagrad(net, 1e-3)
             net_res = lib.u_net(1, 1, levels=2, use_res_blocks=True, activation='SiLU')
-            optimizer_2 = lib.adam(net_res, 1e-3)
+            optimizer_2 = lib.rmsprop(net_res, 1e-3)
 
             @math.jit_compile
             def loss_function(x):
