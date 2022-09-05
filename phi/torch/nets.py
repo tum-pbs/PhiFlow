@@ -1,4 +1,4 @@
-from typing import Callable, Dict
+from typing import Callable, Dict, List, Tuple
 
 import numpy
 import torch
@@ -58,6 +58,7 @@ def save_state(obj: nn.Module or optim.Optimizer, path: str):
         path += '.pth'
     torch.save(obj.state_dict(), path)
 
+
 def load_state(obj: nn.Module or optim.Optimizer, path: str):
     """
     Read the state of a module or optimizer from a file.
@@ -105,30 +106,41 @@ def adam(net: nn.Module, learning_rate: float = 1e-3, betas=(0.9, 0.999), epsilo
     """
     return optim.Adam(net.parameters(), learning_rate, betas, epsilon)
 
-def SGD(net: nn.Module, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov = False):
+
+def sgd(net: nn.Module, learning_rate: float = 1e-3, momentum=0, dampening=0, weight_decay=0, nesterov=False):
     """
     Creates an SGD optimizer for 'net', alias for ['torch.optim.SGD'](https://pytorch.org/docs/stable/generated/torch.optim.SGD.html)
     Analogue functions exist for other learning frameworks.
     """
     return optim.SGD(net.parameters(), learning_rate, momentum, dampening, weight_decay, nesterov)
 
-def adagrad(net: nn.Module, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value = 0, eps=1e-10):
+
+def adagrad(net: nn.Module, learning_rate: float = 1e-3, lr_decay=0, weight_decay=0, initial_accumulator_value=0,
+            eps=1e-10):
     """
     Creates an Adagrad optimizer for 'net', alias for ['torch.optim.Adagrad'](https://pytorch.org/docs/stable/generated/torch.optim.Adagrad.html)
     Analogue functions exist for other learning frameworks.
     """
     return optim.Adagrad(net.parameters(), learning_rate, lr_decay, weight_decay, initial_accumulator_value, eps)
 
-def rmsprop(net: nn.Module, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0, centered=False):
+
+def rmsprop(net: nn.Module, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0,
+            centered=False):
     """
     Creates an RMSProp optimizer for 'net', alias for ['torch.optim.RMSprop'](https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html)
     Analogue functions exist for other learning frameworks.
     """
     return optim.RMSprop(net.parameters(), learning_rate, alpha, eps, weight_decay, momentum, centered)
 
+
+CONV = [None, nn.Conv1d, nn.Conv2d, nn.Conv3d]
+NORM = [None, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]
+ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh, 'SiLU': nn.SiLU}
+
+
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: tuple or list,
+              layers: Tuple[int, ...] or List[int],
               batch_norm=False,
               activation: str or Callable = 'ReLU') -> nn.Module:
     layers = [in_channels, *layers, out_channels]
@@ -171,7 +183,7 @@ def u_net(in_channels: int,
           batch_norm: bool = True,
           activation: str or type = 'ReLU',
           in_spatial: tuple or int = 2,
-          use_res_blocks : bool = False) -> nn.Module:
+          use_res_blocks: bool = False) -> nn.Module:
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
@@ -190,7 +202,8 @@ def u_net(in_channels: int,
 
 class UNet(nn.Module):
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, filters: tuple, batch_norm: bool, activation: type, use_res_blocks: bool):
+    def __init__(self, d: int, in_channels: int, out_channels: int, filters: tuple, batch_norm: bool, activation: type,
+                 use_res_blocks: bool):
         super(UNet, self).__init__()
         self._levels = len(filters)
         self._spatial_rank = d
@@ -200,7 +213,8 @@ class UNet(nn.Module):
             self.add_module('inc', DoubleConv(d, in_channels, filters[0], filters[0], batch_norm, activation))
         for i in range(1, self._levels):
             self.add_module(f'down{i}', Down(d, filters[i - 1], filters[i], batch_norm, activation, use_res_blocks))
-            self.add_module(f'up{i}', Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation, use_res_blocks= use_res_blocks))
+            self.add_module(f'up{i}', Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation,
+                                         use_res_blocks=use_res_blocks))
         self.add_module('outc', CONV[d](filters[0], out_channels, kernel_size=1))
 
     def forward(self, x):
@@ -217,46 +231,11 @@ class UNet(nn.Module):
         return x
 
 
-# class ConvDenseNet(nn.Module):
-#
-#     def __init__(self,
-#                  in_channels: int,
-#                  in_spatial: tuple,
-#                  filters: tuple,
-#                  dense_layers: list,
-#                  d=2):
-#         super(ConvDenseNet, self).__init__()
-#         # Conv
-#         self._levels = len(filters)
-#         self.inc = DoubleConv(in_channels, filters[0], d=d)
-#         for i in range(1, self._levels):
-#             self.add_module(f'conv{i}', Down(filters[i - 1], filters[i], d=d))
-#         # Dense
-#         in_neurons = int(numpy.prod(in_spatial) * filters[-1] / 2 ** (d * (len(filters) - 1)))
-#         self._dense_layers = (in_neurons, *dense_layers)
-#         for i, (s1, s2) in enumerate(zip(self._dense_layers[:-1], self._dense_layers[1:])):
-#             self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
-#
-#     def forward(self, x):
-#         x = self.inc(x)
-#         for i in range(1, self._levels):
-#             x = getattr(self, f'conv{i}')(x)
-#         x = torch.reshape(x, (x.shape[0], -1))
-#         for i in range(len(self._dense_layers) - 2):
-#             x = F.relu(getattr(self, f'linear{i}')(x))
-#         x = getattr(self, f'linear{len(self._dense_layers) - 2}')(x)
-#         return x
-
-
-CONV = [None, nn.Conv1d, nn.Conv2d, nn.Conv3d]
-NORM = [None, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]
-ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh, 'SiLU': nn.SiLU}
-
-
 class DoubleConv(nn.Module):
     """(convolution => [BN] => ReLU) * 2"""
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: type):
+    def __init__(self, d: int, in_channels: int, out_channels: int, mid_channels: int, batch_norm: bool,
+                 activation: type):
         super().__init__()
         self.add_module('double_conv', nn.Sequential(
             CONV[d](in_channels, mid_channels, kernel_size=3, padding=1, padding_mode='circular'),
@@ -277,7 +256,8 @@ MAX_POOL = [None, nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]
 class Down(nn.Module):
     """Downscaling with maxpool then double conv or resnet_block"""
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: str or type, use_res_blocks: bool):
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: str or type,
+                 use_res_blocks: bool):
         super().__init__()
         self.add_module('maxpool', MAX_POOL[d](2))
         if use_res_blocks:
@@ -295,7 +275,8 @@ class Up(nn.Module):
 
     _MODES = [None, 'linear', 'bilinear', 'trilinear']
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, linear=True, use_res_blocks: bool = False):
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, linear=True,
+                 use_res_blocks: bool = False):
         super().__init__()
         if linear:
             # if bilinear, use the normal convolutions to reduce the number of channels
@@ -325,36 +306,38 @@ class Up(nn.Module):
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
+
 class ConvNet(nn.Module):
 
     def __init__(self, in_spatial, in_channels, out_channels, layers, batch_norm, activation):
         super(ConvNet, self).__init__()
         self.layers = layers
         activation = ACTIVATIONS[activation]
-        self.add_module(f'Conv_in', nn.Sequential(CONV[in_spatial](in_channels, layers[0], kernel_size=3, padding=1, padding_mode='circular'),
-                                                     NORM[in_spatial](layers[0]) if batch_norm else nn.Identity(),
-                                                     activation()))
-        for i in range(1,len(layers)):
-            self.add_module(f'Conv{i}', nn.Sequential(CONV[in_spatial](layers[i-1], layers[i], kernel_size=3, padding=1, padding_mode='circular'),
-                                                     NORM[in_spatial](layers[i]) if batch_norm else nn.Identity(),
-                                                     activation()))
-        self.add_module(f'Conv_out', CONV[in_spatial](layers[len(layers)-1], out_channels, kernel_size=3, padding=1, padding_mode='circular'))
+        self.add_module(f'Conv_in', nn.Sequential(
+            CONV[in_spatial](in_channels, layers[0], kernel_size=3, padding=1, padding_mode='circular'),
+            NORM[in_spatial](layers[0]) if batch_norm else nn.Identity(),
+            activation()))
+        for i in range(1, len(layers)):
+            self.add_module(f'Conv{i}', nn.Sequential(
+                CONV[in_spatial](layers[i - 1], layers[i], kernel_size=3, padding=1, padding_mode='circular'),
+                NORM[in_spatial](layers[i]) if batch_norm else nn.Identity(),
+                activation()))
+        self.add_module(f'Conv_out', CONV[in_spatial](layers[len(layers) - 1], out_channels, kernel_size=3, padding=1, padding_mode='circular'))
 
     def forward(self, x):
         x = getattr(self, f'Conv_in')(x)
-        for i in range(1,len(self.layers)):
+        for i in range(1, len(self.layers)):
             x = getattr(self, f'Conv{i}')(x)
         x = getattr(self, f'Conv_out')(x)
         return x
 
 
-def conv_net(in_channels:int,
-             out_channels:int,
-             layers:tuple,
-             batch_norm:bool = False,
-             activation:str or type='ReLU',
-             in_spatial:int or tuple = 2) -> nn.Module:
-
+def conv_net(in_channels: int,
+             out_channels: int,
+             layers: Tuple[int, ...] or List[int],
+             batch_norm: bool = False,
+             activation: str or type = 'ReLU',
+             in_spatial: int or tuple = 2) -> nn.Module:
     if isinstance(in_spatial, int):
         d = in_spatial
     else:
@@ -364,11 +347,11 @@ def conv_net(in_channels:int,
     net = net.to(TORCH.get_default_device().ref)
     return net
 
+
 class ResNet_Block(nn.Module):
 
-
     def __init__(self, in_spatial, in_channels, out_channels, batch_norm, activation):
-        #Since in_channels and out_channels might be different
+        # Since in_channels and out_channels might be different
         # we need a sampling layer for up/down sampling input
         # in order to add it as a skip connection
         super(ResNet_Block, self).__init__()
@@ -400,16 +383,17 @@ class ResNet_Block(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self,in_spatial, in_channels, out_channels, layers, batch_norm, activation):
+    def __init__(self, in_spatial, in_channels, out_channels, layers, batch_norm, activation):
         super(ResNet, self).__init__()
         self.layers = layers
 
         self.add_module('Res_in', ResNet_Block(in_spatial, in_channels, layers[0], batch_norm, activation))
 
         for i in range(1, len(layers)):
-            self.add_module(f'Res{i}', ResNet_Block(in_spatial, layers[i-1], layers[i], batch_norm, activation))
+            self.add_module(f'Res{i}', ResNet_Block(in_spatial, layers[i - 1], layers[i], batch_norm, activation))
 
-        self.add_module('Res_out', ResNet_Block(in_spatial, layers[len(layers)-1], out_channels, batch_norm, activation))
+        self.add_module('Res_out',
+                        ResNet_Block(in_spatial, layers[len(layers) - 1], out_channels, batch_norm, activation))
 
     def forward(self, x):
         x = TORCH.as_tensor(x)
@@ -418,15 +402,15 @@ class ResNet(nn.Module):
             x = getattr(self, f'Res{i}')(x)
         x = getattr(self, 'Res_out')(x)
         return x
-      
-def res_net(in_channels : int,
-            out_channels : int,
-            layers : tuple,
-            batch_norm : bool = False,
-            activation : str or type='ReLU',
-            in_spatial : int or tuple = 2) -> nn.Module:
 
-    if(isinstance(in_spatial, int)):
+
+def res_net(in_channels: int,
+            out_channels: int,
+            layers: Tuple[int, ...] or List[int],
+            batch_norm: bool = False,
+            activation: str or type = 'ReLU',
+            in_spatial: int or tuple = 2) -> nn.Module:
+    if (isinstance(in_spatial, int)):
         d = in_spatial
     else:
         assert isinstance(in_spatial, tuple)
@@ -435,20 +419,22 @@ def res_net(in_channels : int,
     net = net.to(TORCH.get_default_device().ref)
     return net
 
-def conv_classifier(input_shape : list, num_classes : int, batch_norm : bool, in_spatial: int or tuple) :
-    if isinstance(in_spatial, int) :
+
+def conv_classifier(input_shape: list, num_classes: int, batch_norm: bool, in_spatial: int or tuple):
+    if isinstance(in_spatial, int):
         d = in_spatial
     else:
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
-    net = Conv_Classifier(d, input_shape, num_classes, batch_norm)
+    net = ConvClassifier(d, input_shape, num_classes, batch_norm)
     net = net.to(TORCH.get_default_device().ref)
     return net
 
-class Conv_Classifier(nn.Module):
+
+class ConvClassifier(nn.Module):
 
     def __init__(self, d: int, input_shape: list, num_classes: int, batch_norm: bool):
-        super(Conv_Classifier, self).__init__()
+        super(ConvClassifier, self).__init__()
 
         self.spatial_shape_list = list(input_shape[1:])
         self.add_module('maxpool', MAX_POOL[d](2))
@@ -458,23 +444,23 @@ class Conv_Classifier(nn.Module):
         self.add_module('conv2', DoubleConv(d, 64, 128, 128, batch_norm, ACTIVATIONS['ReLU']))
 
         self.add_module('conv3', nn.Sequential(DoubleConv(d, 128, 256, 256, batch_norm, ACTIVATIONS['ReLU']),
-                                 CONV[d](256, 256, 3, padding=1, padding_mode='circular'),
-                                 NORM[d](256) if batch_norm else nn.Identity(),
-                                 nn.ReLU()))
+                                               CONV[d](256, 256, 3, padding=1, padding_mode='circular'),
+                                               NORM[d](256) if batch_norm else nn.Identity(),
+                                               nn.ReLU()))
 
         self.add_module('conv4', nn.Sequential(DoubleConv(d, 256, 512, 512, batch_norm, ACTIVATIONS['ReLU']),
-                                 CONV[d](512, 512, 3, padding=1, padding_mode='circular'),
-                                 NORM[d](512) if batch_norm else nn.Identity(),
-                                 nn.ReLU()))
+                                               CONV[d](512, 512, 3, padding=1, padding_mode='circular'),
+                                               NORM[d](512) if batch_norm else nn.Identity(),
+                                               nn.ReLU()))
 
         self.add_module('conv5', nn.Sequential(DoubleConv(d, 512, 512, 512, batch_norm, ACTIVATIONS['ReLU']),
-                                 CONV[d](512, 512, 3, padding=1, padding_mode='circular'),
-                                 NORM[d](512) if batch_norm else nn.Identity(),
-                                 nn.ReLU()))
+                                               CONV[d](512, 512, 3, padding=1, padding_mode='circular'),
+                                               NORM[d](512) if batch_norm else nn.Identity(),
+                                               nn.ReLU()))
 
         for i in range(5):
             for j in range(len(self.spatial_shape_list)):
-                self.spatial_shape_list[j] = math.floor((self.spatial_shape_list[j] - 2)/2) + 1
+                self.spatial_shape_list[j] = math.floor((self.spatial_shape_list[j] - 2) / 2) + 1
 
         flattened_input_dim = 1
         for i in range(len(self.spatial_shape_list)):
@@ -488,18 +474,8 @@ class Conv_Classifier(nn.Module):
     def forward(self, x):
 
         for i in range(5):
-            x = getattr(self, f'conv{i+1}')(x)
+            x = getattr(self, f'conv{i + 1}')(x)
             x = self.maxpool(x)
         x = self.flatten(x)
         x = self.softmax(self.linear(x))
         return x
-
-
-
-
-
-
-
-
-
-
