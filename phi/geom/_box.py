@@ -148,7 +148,7 @@ class BoxType(type):
 
     def __getitem__(self, item):
         assert isinstance(item, tuple) and isinstance(item[0], str), "The Box constructor was updated in Φ-Flow version 2.2. Please add the dimension order as a comma-separated string as the first argument, e.g. Box['x,y', 0:1, 1:2] or use the kwargs constructor Box(x=1, y=(1, 2))"
-        assert len(item) <= 3, f"Box[...] can only be used for x, y, z but got {len(item)} elements"
+        assert len(item) <= 4, f"Box[...] can only be used for x, y, z but got {len(item)} elements"
         dim_order = parse_dim_order(item[0])
         assert len(dim_order) == len(item) - 1, f"Dimension order '{item[0]}' does not match number of slices, {len(item) - 1}"
         lower = []
