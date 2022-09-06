@@ -1,3 +1,9 @@
+"""
+Jax implementation of the unified machine learning API.
+Equivalent functions also exist for the other frameworks.
+
+For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
+"""
 from typing import Callable, Tuple, List
 import pickle
 
@@ -26,7 +32,7 @@ def parameter_count(model: keras.Model):
     return int(total)
 
 
-def get_parameters(model: keras.Model, wrap=True, to_numpy=True) -> dict:
+def get_parameters(model: keras.Model, wrap=True) -> dict:
     result = {}
     for var in model.trainable_weights:
         name: str = var.name
@@ -39,8 +45,7 @@ def get_parameters(model: keras.Model, wrap=True, to_numpy=True) -> dict:
         if prop.endswith(':0'):
             prop = prop[:-2]
         name = f"{layer}.{prop}"
-        if to_numpy:
-            var = var.numpy()
+        var = var.numpy()
         if not wrap:
             result[name] = var
         else:
