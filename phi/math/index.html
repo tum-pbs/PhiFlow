@@ -8058,7 +8058,9 @@ def precision(self):
 </code></dt>
 <dd>
 <div class="desc"><p>Dictionary of <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>PhiTreeNode</code> values.
-In addition to dictionary functions, supports mathematical operators with other <code><a title="phi.math.Dict" href="#phi.math.Dict">Dict</a></code>s and lookup via <code>.key</code> syntax.
+Dicts are not themselves tensors and do not have a shape.
+Use <code><a title="phi.math.layout" href="#phi.math.layout">layout()</a></code> to treat <code>dict</code> instances like tensors.</p>
+<p>In addition to dictionary functions, supports mathematical operators with other <code><a title="phi.math.Dict" href="#phi.math.Dict">Dict</a></code>s and lookup via <code>.key</code> syntax.
 <code><a title="phi.math.Dict" href="#phi.math.Dict">Dict</a></code> implements <code>PhiTreeNode</code> so instances can be passed to math operations like <code><a title="phi.math.sin" href="#phi.math.sin">sin()</a></code>.</p></div>
 <details class="source">
 <summary>
@@ -8067,6 +8069,9 @@ In addition to dictionary functions, supports mathematical operators with other 
 <pre><code class="python">class Dict(dict):
     &#34;&#34;&#34;
     Dictionary of `Tensor` or `PhiTreeNode` values.
+    Dicts are not themselves tensors and do not have a shape.
+    Use `layout()` to treat `dict` instances like tensors.
+
     In addition to dictionary functions, supports mathematical operators with other `Dict`s and lookup via `.key` syntax.
     `Dict` implements `PhiTreeNode` so instances can be passed to math operations like `sin`.
     &#34;&#34;&#34;
