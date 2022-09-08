@@ -1,4 +1,12 @@
-import math
+
+"""
+Jax implementation of the unified machine learning API.
+Equivalent functions also exist for the other frameworks.
+
+For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
+"""
+from typing import Callable, Tuple, List
+import pickle
 
 import numpy
 import tensorflow as tf
@@ -25,6 +33,31 @@ def parameter_count(model: keras.Model):
         total += numpy.prod(parameter.shape)
     return int(total)
 
+def get_parameters(model: keras.Model, wrap=True) -> dict:
+    result = {}
+    for var in model.trainable_weights:
+        name: str = var.name
+        layer = name[:name.index('/')].replace('_', '').replace('dense', 'linear')
+        try:
+            int(layer[-1:])
+        except ValueError:
+            layer += '0'
+        prop = name[name.index('/') + 1:].replace('kernel', 'weight')
+        if prop.endswith(':0'):
+            prop = prop[:-2]
+        name = f"{layer}.{prop}"
+        var = var.numpy()
+        if not wrap:
+            result[name] = var
+        else:
+            if name.endswith('.weight'):
+                phi_tensor = math.wrap(var, math.channel('input,output'))
+            elif name.endswith('.bias'):
+                phi_tensor = math.wrap(var, math.channel('output'))
+            else:
+                raise NotImplementedError(name)
+            result[name] = phi_tensor
+    return result
 
 def save_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str):
     """

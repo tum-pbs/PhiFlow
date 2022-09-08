@@ -5,7 +5,7 @@ from . import GridCell
 from ._geom import Geometry
 from ..math import Tensor, expand
 from ..math._shape import shape_stack, Shape, INSTANCE_DIM, non_channel
-from ..math._tensors import variable_attributes, copy_with
+from ..math._magic_ops import variable_attributes, copy_with
 from ..math.magic import slicing_dict
 
 

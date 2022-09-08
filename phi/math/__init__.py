@@ -22,7 +22,7 @@ from ._shape import (
     non_batch, non_spatial, non_instance, non_channel,
     merge_shapes, concat_shapes, IncompatibleShapes
 )
-from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten
+from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten, copy_with
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
 from .extrapolation import Extrapolation
 from ._ops import (

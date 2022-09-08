@@ -4,9 +4,9 @@ import numpy as np
 
 from . import _ops as math
 from . import extrapolation as extrapolation
-from ._magic_ops import stack, rename_dims, concat
+from ._magic_ops import stack, rename_dims, concat, variable_values
 from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order
-from ._tensors import Tensor, variable_values, wrap
+from ._tensors import Tensor, wrap
 from .magic import PhiTreeNode
 from .extrapolation import Extrapolation
 
