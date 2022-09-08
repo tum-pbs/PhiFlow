@@ -58,6 +58,7 @@ To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`
 &#34;&#34;&#34;
 import warnings
 from typing import Tuple, Dict, Any, Callable
+from .backend._dtype import DType
 from ._shape import Shape, shape, batch, spatial, instance, channel, non_batch
 
 
@@ -646,6 +647,12 @@ def slicing_dict(obj, item) -&gt; dict:
     return item
 
 
+class OtherMagicFunctions:
+
+    def __cast__(self, dtype: DType):
+        raise NotImplementedError
+
+
 __pdoc__ = {}  # Show all magic functions in pdoc3
 for cls_name, cls in dict(globals()).items():
     if isinstance(cls, type) and type(cls) != type and not cls_name.startswith(&#39;_&#39;):
@@ -1148,6 +1155,21 @@ In that case, <code>size</code> copies of the object are returned.</dd>
 </dd>
 </dl>
 </dd>
+<dt id="phi.math.magic.OtherMagicFunctions"><code class="flex name class">
+<span>class <span class="ident">OtherMagicFunctions</span></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class OtherMagicFunctions:
+
+    def __cast__(self, dtype: DType):
+        raise NotImplementedError</code></pre>
+</details>
+</dd>
 <dt id="phi.math.magic.PhiTreeNode"><code class="flex name class">
 <span>class <span class="ident">PhiTreeNode</span></span>
 </code></dt>
@@ -1165,7 +1187,7 @@ In that case, <code>size</code> copies of the object are returned.</dd>
 <p>Φ-tree nodes can be used as keys, for example in <code>jit_compile()</code>.
 They are converted to keys by stripping all variable tensors and replacing them by a placeholder object.
 In key mode, <code>__eq__()</code> compares all non-variable properties that might invalidate a trace when changed.</p>
-<p>Disassembly and assembly of Φ-tree nodes uses <code>phi.math.copy_with</code> which will call <code>__with_attrs__</code> if implemented.</p></div>
+<p>Disassembly and assembly of Φ-tree nodes uses <code><a title="phi.math.copy_with" href="index.html#phi.math.copy_with">copy_with()</a></code> which will call <code>__with_attrs__</code> if implemented.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1315,7 +1337,7 @@ Calling <code>getattr(self, attr)</code> must return a <code>Tensor</code> or <c
 <span>def <span class="ident">__with_attrs__</span></span>(<span>self, **attrs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Used by <code>phi.math.copy_with</code>.
+<div class="desc"><p>Used by <code><a title="phi.math.copy_with" href="index.html#phi.math.copy_with">copy_with()</a></code>.
 Create a copy of this object which has the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> attributes contained in <code>attrs</code> replaced.
 If this method is not implemented, tensor attributes are replaced using <code>setattr()</code>.</p>
 <h2 id="args">Args</h2>
@@ -2101,6 +2123,9 @@ Un-stacking along multiple dimensions is equal to first packing the dimensions a
 <li><code><a title="phi.math.magic.BoundDim.unpack" href="#phi.math.magic.BoundDim.unpack">unpack</a></code></li>
 <li><code><a title="phi.math.magic.BoundDim.unstack" href="#phi.math.magic.BoundDim.unstack">unstack</a></code></li>
 </ul>
+</li>
+<li>
+<h4><code><a title="phi.math.magic.OtherMagicFunctions" href="#phi.math.magic.OtherMagicFunctions">OtherMagicFunctions</a></code></h4>
 </li>
 <li>
 <h4><code><a title="phi.math.magic.PhiTreeNode" href="#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code></h4>

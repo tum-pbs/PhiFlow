@@ -58,7 +58,7 @@ from ._shape import (
     non_batch, non_spatial, non_instance, non_channel,
     merge_shapes, concat_shapes, IncompatibleShapes
 )
-from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten
+from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten, copy_with
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
 from .extrapolation import Extrapolation
 from ._ops import (
@@ -294,7 +294,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.all(native, dim))</code></pre>
+    return _reduce(boolean_tensor, dim, bool, native_function=lambda backend, native, dim: backend.all(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.all_available"><code class="name flex">
@@ -400,7 +400,7 @@ Tracing placeholders are considered not available, even when they hold example v
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.any(native, dim))</code></pre>
+    return _reduce(boolean_tensor, dim, bool, native_function=lambda backend, native, dim: backend.any(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.arccos"><code class="name flex">
@@ -651,7 +651,7 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
 </details>
 </dd>
 <dt id="phi.math.cast"><code class="name flex">
-<span>def <span class="ident">cast</span></span>(<span>x: phi.math._tensors.Tensor, dtype: phi.math.backend._dtype.DType) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">cast</span></span>(<span>x: ~OtherMagicType, dtype: phi.math.backend._dtype.DType) ‑> ~OtherMagicType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Casts <code>x</code> to a different data type.</p>
@@ -677,7 +677,7 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cast(x: Tensor, dtype: DType) -&gt; Tensor:
+<pre><code class="python">def cast(x: OtherMagicType, dtype: DType) -&gt; OtherMagicType:
     &#34;&#34;&#34;
     Casts `x` to a different data type.
 
@@ -698,7 +698,21 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
     Returns:
         `Tensor` with data type `dtype`
     &#34;&#34;&#34;
-    return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))</code></pre>
+    if hasattr(x, &#39;__cast__&#39;):
+        return x.__cast__(dtype)
+    elif isinstance(x, (Number, bool)):
+        return dtype.kind(x)
+    elif isinstance(x, PhiTreeNode):
+        attrs = {key: getattr(x, key) for key in value_attributes(x)}
+        new_attrs = {k: cast(v, dtype) for k, v in attrs.items()}
+        return copy_with(x, **new_attrs)
+    try:
+        backend = choose_backend(x)
+        return backend.cast(x, dtype)
+    except NoBackendFound:
+        if dtype.kind == bool:
+            return bool(x)
+        raise ValueError(f&#34;Cannot cast object of type &#39;{type(x).__name__}&#39;&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.ceil"><code class="name flex">
@@ -1261,6 +1275,51 @@ The result will have the non-reduced channel dimensions of <code>kernel</code>.<
         warnings.warn(&#34;Tracing tensors cannot be copied.&#34;, RuntimeWarning)
         return value
     return value._op1(lambda native: choose_backend(native).copy(native))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.copy_with"><code class="name flex">
+<span>def <span class="ident">copy_with</span></span>(<span>obj: ~PhiTreeNodeType, **updates) ‑> ~PhiTreeNodeType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a copy of the given <code>PhiTreeNode</code> with updated values as specified in <code>updates</code>.</p>
+<p>If <code>obj</code> overrides <code>__with_attrs__</code>, the copy will be created via that specific implementation.
+Otherwise, the <code><a title="phi.math.copy" href="#phi.math.copy">copy()</a></code> module and <code>setattr</code> will be used.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd><code>PhiTreeNode</code></dd>
+<dt><strong><code>**updates</code></strong></dt>
+<dd>Values to be replaced.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Copy of <code>obj</code> with updated values.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_with(obj: PhiTreeNodeType, **updates) -&gt; PhiTreeNodeType:
+    &#34;&#34;&#34;
+    Creates a copy of the given `PhiTreeNode` with updated values as specified in `updates`.
+
+    If `obj` overrides `__with_attrs__`, the copy will be created via that specific implementation.
+    Otherwise, the `copy` module and `setattr` will be used.
+
+    Args:
+        obj: `PhiTreeNode`
+        **updates: Values to be replaced.
+
+    Returns:
+        Copy of `obj` with updated values.
+    &#34;&#34;&#34;
+    if hasattr(obj, &#39;__with_attrs__&#39;):
+        return obj.__with_attrs__(**updates)
+    elif isinstance(obj, (Number, bool)):
+        return obj
+    else:
+        cpy = copy.copy(obj)
+        for attr, value in updates.items():
+            setattr(cpy, attr, value)
+        return cpy</code></pre>
 </details>
 </dd>
 <dt id="phi.math.cos"><code class="name flex">
@@ -3923,7 +3982,7 @@ Overlapping extrapolated values get averaged. Extrapolation also includes diagon
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.max(native, dim))</code></pre>
+    return _reduce(value, dim, None, native_function=lambda backend, native, dim: backend.max(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.maximum"><code class="name flex">
@@ -3986,7 +4045,7 @@ Overlapping extrapolated values get averaged. Extrapolation also includes diagon
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.mean(native, dim))</code></pre>
+    return _reduce(value, dim, float, native_function=lambda backend, native, dim: backend.mean(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.median"><code class="name flex">
@@ -4225,7 +4284,7 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.min(native, dim))</code></pre>
+    return _reduce(value, dim, None, native_function=lambda backend, native, dim: backend.min(native, dim))</code></pre>
 </details>
 </dd>
 <dt id="phi.math.minimize"><code class="name flex">
@@ -5200,7 +5259,7 @@ math.jacobian(f)(math.ones(x=6))
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(value, dim,
+    return _reduce(value, dim, None,
                    native_function=lambda backend, native, dim: backend.prod(native, dim),
                    collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)</code></pre>
 </details>
@@ -6764,7 +6823,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(cached(value), dim,
+    return _reduce(cached(value), dim, float,
                    native_function=lambda backend, native, dim: backend.std(native, dim),
                    collapsed_function=lambda inner, red_shape: inner,
                    unaffected_function=lambda value: value * 0)</code></pre>
@@ -6866,7 +6925,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     Returns:
         `Tensor` without the reduced dimensions.
     &#34;&#34;&#34;
-    return _reduce(value, dim,
+    return _reduce(value, dim, float,
                    native_function=lambda backend, native, dim: backend.sum(native, dim),
                    collapsed_function=lambda inner, red_shape: inner * red_shape.volume)</code></pre>
 </details>
@@ -8474,7 +8533,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
 
         The `__init__` constructor is for internal use only.
         &#34;&#34;&#34;
-        if len(sizes) &gt; 0:
+        if len(sizes) &gt; 0 and any(s is not None and not isinstance(s, int) for s in sizes):
             from ._tensors import Tensor
             sizes = tuple([s if isinstance(s, Tensor) or s is None else int(s) for s in sizes])  # TODO replace this by an assert
         self.sizes: tuple = sizes
@@ -11712,6 +11771,9 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
             c = concat_tensor(value._tensors, concat_dim)
             return pack_dims(c, [d for d in dims if d != value.stack_dim.name], packed_dim, pos=pos)
 
+    def __cast__(self, dtype: DType):
+        return self._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
+
     def dimension(self, name: str or Shape) -&gt; &#39;TensorDim&#39;:
         &#34;&#34;&#34;
         Returns a reference to a specific dimension of this tensor.
@@ -11916,6 +11978,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
+                       dtype: type or None,
                        native_function: Callable,
                        collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
                        unaffected_function: Callable = lambda value: value):
@@ -12536,6 +12599,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.convert" href="#phi.math.convert">convert</a></code></li>
 <li><code><a title="phi.math.convolve" href="#phi.math.convolve">convolve</a></code></li>
 <li><code><a title="phi.math.copy" href="#phi.math.copy">copy</a></code></li>
+<li><code><a title="phi.math.copy_with" href="#phi.math.copy_with">copy_with</a></code></li>
 <li><code><a title="phi.math.cos" href="#phi.math.cos">cos</a></code></li>
 <li><code><a title="phi.math.cross_product" href="#phi.math.cross_product">cross_product</a></code></li>
 <li><code><a title="phi.math.cumulative_sum" href="#phi.math.cumulative_sum">cumulative_sum</a></code></li>

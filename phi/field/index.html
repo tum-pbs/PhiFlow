@@ -260,7 +260,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.cast"><code class="name flex">
-<span>def <span class="ident">cast</span></span>(<span>x: phi.math._tensors.Tensor, dtype: phi.math.backend._dtype.DType) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">cast</span></span>(<span>x: ~OtherMagicType, dtype: phi.math.backend._dtype.DType) ‑> ~OtherMagicType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Casts <code>x</code> to a different data type.</p>
@@ -286,7 +286,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cast(x: Tensor, dtype: DType) -&gt; Tensor:
+<pre><code class="python">def cast(x: OtherMagicType, dtype: DType) -&gt; OtherMagicType:
     &#34;&#34;&#34;
     Casts `x` to a different data type.
 
@@ -307,7 +307,21 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     Returns:
         `Tensor` with data type `dtype`
     &#34;&#34;&#34;
-    return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))</code></pre>
+    if hasattr(x, &#39;__cast__&#39;):
+        return x.__cast__(dtype)
+    elif isinstance(x, (Number, bool)):
+        return dtype.kind(x)
+    elif isinstance(x, PhiTreeNode):
+        attrs = {key: getattr(x, key) for key in value_attributes(x)}
+        new_attrs = {k: cast(v, dtype) for k, v in attrs.items()}
+        return copy_with(x, **new_attrs)
+    try:
+        backend = choose_backend(x)
+        return backend.cast(x, dtype)
+    except NoBackendFound:
+        if dtype.kind == bool:
+            return bool(x)
+        raise ValueError(f&#34;Cannot cast object of type &#39;{type(x).__name__}&#39;&#34;)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.ceil"><code class="name flex">

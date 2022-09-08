@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>phi.tf.nets API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Jax implementation of the unified machine learning API.
+Equivalent functions also exist for the other frameworks …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,11 +23,20 @@
 <h1 class="title">Module <code>phi.tf.nets</code></h1>
 </header>
 <section id="section-intro">
+<p>Jax implementation of the unified machine learning API.
+Equivalent functions also exist for the other frameworks.</p>
+<p>For API documentation, see <a href="https://tum-pbs.github.io/PhiFlow/Network_API">https://tum-pbs.github.io/PhiFlow/Network_API</a> .</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from typing import Callable, Tuple, List
+<pre><code class="python">&#34;&#34;&#34;
+Jax implementation of the unified machine learning API.
+Equivalent functions also exist for the other frameworks.
+
+For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
+&#34;&#34;&#34;
+from typing import Callable, Tuple, List
 import pickle
 
 import numpy
@@ -54,7 +64,7 @@ def parameter_count(model: keras.Model):
     return int(total)
 
 
-def get_parameters(model: keras.Model, wrap=True, to_numpy=True) -&gt; dict:
+def get_parameters(model: keras.Model, wrap=True) -&gt; dict:
     result = {}
     for var in model.trainable_weights:
         name: str = var.name
@@ -67,8 +77,7 @@ def get_parameters(model: keras.Model, wrap=True, to_numpy=True) -&gt; dict:
         if prop.endswith(&#39;:0&#39;):
             prop = prop[:-2]
         name = f&#34;{layer}.{prop}&#34;
-        if to_numpy:
-            var = var.numpy()
+        var = var.numpy()
         if not wrap:
             result[name] = var
         else:
@@ -618,7 +627,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.get_parameters"><code class="name flex">
-<span>def <span class="ident">get_parameters</span></span>(<span>model: keras.engine.training.Model, wrap=True, to_numpy=True) ‑> dict</span>
+<span>def <span class="ident">get_parameters</span></span>(<span>model: keras.engine.training.Model, wrap=True) ‑> dict</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -626,7 +635,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_parameters(model: keras.Model, wrap=True, to_numpy=True) -&gt; dict:
+<pre><code class="python">def get_parameters(model: keras.Model, wrap=True) -&gt; dict:
     result = {}
     for var in model.trainable_weights:
         name: str = var.name
@@ -639,8 +648,7 @@ Analogous functions exist for other learning frameworks.</p></div>
         if prop.endswith(&#39;:0&#39;):
             prop = prop[:-2]
         name = f&#34;{layer}.{prop}&#34;
-        if to_numpy:
-            var = var.numpy()
+        var = var.numpy()
         if not wrap:
             result[name] = var
         else:
