@@ -3,6 +3,7 @@ import inspect
 import warnings
 from typing import Callable
 
+import keras
 import numpy
 import jax
 import jax.numpy as jnp
@@ -553,19 +554,19 @@ def res_net(in_channels : int,
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     stax_layers = []
 
-    stax_layers.append(resnet_block(in_channels, layers[0], batch_norm, activation, in_spatial))
+    stax_layers.append(ResNet_Block(in_channels, layers[0], batch_norm, activation, in_spatial))
 
     for i in range(1, len(layers)):
-        stax_layers.append(resnet_block(layers[i-1], layers[i], batch_norm, activation, in_spatial))
+        stax_layers.append(ResNet_Block(layers[i-1], layers[i], batch_norm, activation, in_spatial))
 
-    stax_layers.append(resnet_block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial))
+    stax_layers.append(ResNet_Block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial))
     net_init, net_apply = stax.serial(*stax_layers)
     net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
     net.initialize()
     return net
 
 
-def resnet_block(in_channels : int,
+def ResNet_Block(in_channels : int,
                 out_channels : int,
                 batch_norm : bool,
                 activation : str or Callable = 'ReLU',
@@ -619,4 +620,208 @@ def resnet_block(in_channels : int,
         return out
 
     return net_init, net_apply
+
+def get_mask(inputs, reverse_mask, data_format = 'NHWC'):
+    shape = inputs.shape
+    if len(shape) == 2:
+        N = shape[-1]
+        range_n = jnp.arange(0, N)
+        even_ind = range_n % 2
+        checker = jnp.reshape(even_ind, (-1, N))
+    elif len(shape) == 4:
+        H = shape[2] if data_format == 'NCHW' else shape[1]
+        W = shape[3] if data_format == 'NCHW' else shape[2]
+
+        range_h = jnp.arange(0, H) %2
+        range_w = jnp.arange(0, W) %2
+
+
+        even_ind_h = range_h.astype(bool)
+        even_ind_w = range_w.astype(bool)
+
+        ind_h = jnp.tile(jnp.expand_dims(even_ind_h, -1), [1,W])
+        ind_w = jnp.tile(jnp.expand_dims(even_ind_w,  0), [H,1])
+        #ind_h = even_ind_h.unsqueeze(-1).repeat(1, W)
+        #ind_w = even_ind_w.unsqueeze( 0).repeat(H, 1)
+
+
+        checker = jnp.logical_xor(ind_h, ind_w)
+
+        reshape = [-1, 1, H, W] if data_format == 'NCHW' else [-1, H, W, 1]
+        checker = jnp.reshape(checker, reshape)
+        checker = checker.astype(jnp.float32)
+
+    else:
+        raise ValueError('Invalid tensor shape. Dimension of the tensor shape must be '
+                         '2 (NxD) or 4 (NxCxHxW or NxHxWxC), got {}.'.format(inputs.get_shape().as_list()))
+
+    if reverse_mask:
+        checker = 1 - checker
+
+    return checker
+
+def Dense_ResNet_Block(in_channels: int,
+                       mid_channels: int,
+                       batch_norm: bool = False,
+                       activation : str or Callable = 'ReLU'):
+    inputs = keras.Input(shape = (in_channels,))
+    x_1 = inputs
+
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    init_fn, apply_fn = {}, {}
+    init_fn['dense1'], apply_fn['dense1'] = stax.serial(stax.Dense(mid_channels),
+                                                        stax.BatchNorm(axis=(0, )),
+                                                        activation)
+    init_fn['dense2'], apply_fn['dense2'] = stax.serial(stax.Dense(in_channels),
+                                                        stax.BatchNorm(axis=(0,)),
+                                                        activation)
+    init_activation, apply_activation = activation
+
+    def net_init(rng, input_shape):
+        params = {}
+        rngs = random.split(rng, 2)
+
+        shape, params['dense1'] = init_fn['dense1'](rngs[0], input_shape)
+        shape, params['dense2'] = init_fn['dense2'](rngs[1], shape)
+        shape, params['activation'] = init_activation(rngs[2], shape)
+        return shape, params
+
+    def net_apply(params, inputs, **kwargs):
+        x = inputs
+
+        out = apply_fn['dense1'](params['dense1'], x)
+        out = apply_fn['dense2'](params['dense2'], out)
+
+        out = jnp.add(out, x)
+
+        return out
+
+    return net_init, net_apply
+
+def coupling_layer(in_channels: int,
+                   mid_channels: int,
+                   activation: str or Callable='ReLU',
+                   batch_norm: bool = False,
+                   in_spatial: int or tuple=2,
+                   reverse_mask: bool = False):
+    if isinstance(in_spatial, tuple):
+        in_spatial = len(in_spatial)
+
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    init_fn, apply_fn = {}, {}
+    if in_spatial == 0:
+        init_fn['s1'], apply_fn['s1'] = stax.serial(Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation),
+                                                    stax.Tanh)
+        init_fn['t1'], apply_fn['t1'] = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
+
+        init_fn['s2'], apply_fn['s2'] = stax.serial(Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation),
+                                                    stax.Tanh)
+        init_fn['t2'], apply_fn['t2'] = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
+    else:
+        init_fn['s1'], apply_fn['s1'] = stax.serial(ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial),
+                                                    stax.Tanh)
+        init_fn['t1'], apply_fn['t1'] = ResNet_Block(in_channels, in_channels, batch_norm, activation)
+
+        init_fn['s2'], apply_fn['s2'] = stax.serial(ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial),
+                                                    stax.Tanh)
+        init_fn['t2'], apply_fn['t2'] = ResNet_Block(in_channels, in_channels, batch_norm, activation)
+
+    def net_init(rng, input_shape):
+        params = {}
+        rngs = random.split(rng, 2)
+
+        shape, params['s1'] = init_fn['s1'](rngs[0], input_shape)
+        shape, params['t1'] = init_fn['t1'](rngs[1], input_shape)
+        shape, params['s2'] = init_fn['s2'](rngs[2], input_shape)
+        shape, params['t2'] = init_fn['t2'](rngs[3], input_shape)
+
+        return shape, params
+
+    def net_apply(params, inputs, invert=False):
+        x = inputs
+
+        mask = get_mask(x, reverse_mask, 'NCHW')
+
+        if invert:
+            v1 = x * mask
+            v2 = x * (1-mask)
+
+            s1 = apply_fn['s1'](params['s1'], v1)
+            t1 = apply_fn['t1'](params['t1'], v1)
+
+            u2 = (1-mask) * (v2 - t1) * jnp.exp(-s1)
+
+            s2 = apply_fn['s2'](params['s2'], u2)
+            t2 = apply_fn['t2'](params['t2'], u2)
+
+            u1 = mask * (v1 - t2) * jnp.exp(-s2)
+
+            return u1 + u2
+        else:
+            u1 = x * mask
+            u2 = x * (1-mask)
+
+            s2 = apply_fn['s2'](params['s2'], u2)
+            t2 = apply_fn['t2'](params['t2'], u2)
+
+            v1 = mask * (u1 * jnp.exp(s2) + t2)
+
+            s1 = apply_fn['s1'](params['s1'], v1)
+            t1 = apply_fn['t1'](params['t1'], v1)
+
+            v2 = (1-mask) * (u2 * jnp.exp(s1) + t1)
+
+            return v1 + v2
+
+    return net_init, net_apply
+
+def inn(in_channels: int,
+        mid_channels: int,
+        num_blocks: int,
+        batch_norm: bool = False,
+        reverse_mask: bool = False,
+        activation: str or type='ReLU',
+        in_spatial: tuple or int=2):
+    if isinstance(in_spatial, tuple):
+        in_spatial = len(in_spatial)
+
+    init_fn, apply_fn = {}, {}
+
+    for i in range(num_blocks):
+        init_fn[f'CouplingLayer{i+1}'], apply_fn[f'CouplingLayer{i+1}'] = \
+            coupling_layer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask)
+
+    def net_init(rng, input_shape):
+        params = {}
+        rngs = random.split(rng, 2)
+
+        for i in range(num_blocks):
+            shape, params[f'CouplingLayer{i+1}'] = init_fn[f'CouplingLayer{i+1}'](rngs[i], input_shape)
+
+        return shape, params
+
+    def net_apply(params, inputs, invert=False):
+        out = inputs
+
+        if invert:
+            for i in range(num_blocks, 0,-1):
+                out = apply_fn[f'CouplingLayer{i}'](
+                    params[f'CouplingLayer{i}'],out, invert)
+        else:
+            for i in range(1, num_blocks+1):
+                out = apply_fn[f'CouplingLayer{i}'](
+                    params[f'CouplingLayer{i}'], out)
+
+        return out
+    if in_spatial == 0:
+        net = StaxNet(net_init, net_apply, (1,) + (in_channels,))
+    else:
+        net = StaxNet(net_init, net_apply, (1,) + (1,) * in_spatial + (in_channels,))
+    net.initialize()
+    return net
+
+
+
+
+
 

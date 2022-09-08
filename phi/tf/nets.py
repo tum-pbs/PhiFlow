@@ -236,24 +236,24 @@ def conv_net(in_channels: int,
     x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
     return keras.Model(inputs, x)
 
-def resnet_block(x,in_channels : int,
-                 out_channels : int,
-                 batch_norm : bool = False,
+def ResNet_Block(in_channels: int,
+                 out_channels: int,
+                 batch_norm: bool = False,
                  activation: str or Callable = 'ReLU',
-                 in_spatial : int or tuple = 2):
+                 in_spatial: int or tuple = 2):
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
-        assert isinstance(in_spatial, tuple)
+        #assert isinstance(in_spatial, tuple)
         d = in_spatial
         in_spatial = len(d)
 
     d = (None,) * in_spatial
-    #x = inputs = keras.Input(d + (in_channels,))
 
-    x_1 = x
-    x = pad_periodic(x)
+    inputs = keras.Input(shape = d + (in_channels,))
+    x_1 = inputs
+    x = pad_periodic(inputs)
 
     x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
     if batch_norm:
@@ -273,9 +273,8 @@ def resnet_block(x,in_channels : int,
             x_1 = kl.BatchNormalization()(x_1)
 
     x = kl.Add()([x, x_1])
-    #out = activation(out)
-    return x
-    #return keras.Model(inputs, out)
+
+    return keras.Model(inputs, x)
 
 def res_net(in_channels: int,
             out_channels: int,
@@ -292,13 +291,13 @@ def res_net(in_channels: int,
         in_spatial = len(d)
 
     x = inputs = keras.Input(shape=d + (in_channels,))
-    #print('X shape : ', x.shape)
-    out = resnet_block(x, in_channels, layers[0], batch_norm, activation, in_spatial)
+
+    out = ResNet_Block(in_channels, layers[0], batch_norm, activation, in_spatial)(x)
 
     for i in range(1, len(layers)):
-        out = resnet_block(out, layers[i-1], layers[i], batch_norm, activation, in_spatial)
+        out = ResNet_Block(layers[i-1], layers[i], batch_norm, activation, in_spatial)(out)
 
-    out = resnet_block(out, layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial)
+    out = ResNet_Block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial)(out)
     return keras.Model(inputs, out)
 
 
@@ -358,4 +357,152 @@ def conv_classifier(input_shape: list, num_classes: int, batch_norm: bool, in_sp
     x = kl.Softmax()(x)
 
     return keras.Model(inputs, x)
+
+def get_mask(inputs, reverse_mask, data_format = 'NHWC'):
+    shape = inputs.shape
+    if len(shape) == 2:
+        N = shape[-1]
+        range_n = tf.range(0, N)
+        even_ind = range_n % 2
+        checker = tf.reshape(even_ind, (-1, N))
+    elif len(shape) == 4:
+        H = shape[2] if data_format == 'NCHW' else shape[1]
+        W = shape[3] if data_format == 'NCHW' else shape[2]
+
+        range_h = tf.range(0, H)
+        range_w = tf.range(0, W)
+
+        even_ind_h = tf.cast(range_h % 2, dtype=tf.bool)
+        even_ind_w = tf.cast(range_w % 2, dtype=tf.bool)
+
+        ind_h = tf.tile(tf.expand_dims(even_ind_h, -1), [1,W])
+        ind_w = tf.tile(tf.expand_dims(even_ind_w,  0), [H,1])
+        #ind_h = even_ind_h.unsqueeze(-1).repeat(1, W)
+        #ind_w = even_ind_w.unsqueeze( 0).repeat(H, 1)
+
+        checker = tf.math.logical_xor(ind_h, ind_w)
+
+        reshape = [-1, 1, H, W] if data_format == 'NCHW' else [-1, H, W, 1]
+        checker = tf.reshape(checker, reshape)
+        checker = tf.cast(checker, dtype=tf.float32)
+
+    else:
+        raise ValueError('Invalid tensor shape. Dimension of the tensor shape must be '
+                         '2 (NxD) or 4 (NxCxHxW or NxHxWxC), got {}.'.format(inputs.get_shape().as_list()))
+
+    if reverse_mask:
+        checker = 1 - checker
+
+    return checker
+
+def Dense_ResNet_Block(in_channels: int,
+                       mid_channels: int,
+                       batch_norm: bool = False,
+                       activation: str or Callable = 'ReLU'):
+    inputs = keras.Input(shape = (in_channels,))
+    x_1 = inputs
+
+    x = kl.Dense(mid_channels)(x)
+    if batch_norm:
+        x = kl.BatchNormalization()(x)
+    x = activation(x)
+
+    x = kl.Dense(in_channels)(x)
+    if batch_norm:
+        x = kl.BatchNormalization()(x)
+    x = activation(x)
+
+    x = kl.Add()([x, x_1])
+
+    return keras.Model(inputs, x)
+
+class Coupling_layer(keras.Model):
+
+    def __init__(self, in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask):
+        super(Coupling_layer, self).__init__()
+
+        self.activation = activation
+        self.batch_norm = batch_norm
+        self.reverse_mask = reverse_mask
+
+
+        if in_spatial == 0: #for in_spatial = 0, use dense layers
+            self.s1 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
+            self.t1 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
+
+            self.s2 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
+            self.t2 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
+        else:
+            self.s1 = ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial)
+            self.t1 = ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial)
+
+            self.s2 = ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial)
+            self.t2 = ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial)
+
+    def call(self, x, invert=False):
+        mask = get_mask(x, self.reverse_mask, 'NCHW')
+
+        if invert:
+            v1 = x * mask
+            v2 = x * (1-mask)
+
+            u2 = (1-mask) * (v2 - self.t1(v1)) * tf.math.exp( tf.tanh(-self.s1(v1)))
+            u1 = mask * (v1 - self.t2(u2)) * tf.math.exp( tf.tanh(-self.s2(u2)))
+
+            return u1 + u2
+        else:
+            u1 = x * mask
+            u2 = x * (1-mask)
+
+            v1 = mask * (u1 * tf.math.exp( tf.tanh(self.s2(u2))) + self.t2(u2))
+            v2 = (1-mask) * (u2 * tf.math.exp( tf.tanh(self.s1(v1))) + self.t1(v1))
+
+            return v1 + v2
+
+def coupling_layer(in_channels: int,
+                   mid_channels: int,
+                   activation: str or type='ReLU',
+                   batch_norm=False,
+                   reverse_mask=False,
+                   in_spatial: tuple or int=2):
+
+    if isinstance(in_spatial, tuple):
+        in_spatial = len(in_spatial)
+
+    net = Coupling_layer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask)
+    return net
+
+class INN(keras.Model):
+    def __init__(self, in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask):
+        super(INN, self).__init__()
+        self.num_blocks = num_blocks
+
+        self.layer_dict = {}
+        for i in range(num_blocks):
+            self.layer_dict[f'coupling_block{i+1}'] = \
+                Coupling_layer(in_channels, mid_channels,
+                               activation, batch_norm,
+                               in_spatial, reverse_mask)
+
+    def call(self, x, backward=False):
+        if backward:
+            for i in range(self.num_blocks, 0, -1):
+                x = self.layer_dict[f'coupling_block{i}'](x, backward)
+        else:
+            for i in range(1, self.num_blocks+1):
+                x = self.layer_dict[f'coupling_block{i}'](x)
+        return x
+
+def inn(in_channels: int,
+        mid_channels: int,
+        num_blocks: int,
+        batch_norm: bool = False,
+        reverse_mask: bool = False,
+        activation: str or type='ReLU',
+        in_spatial: tuple or int=2):
+    if isinstance(in_spatial, tuple):
+        in_spatial = len(in_spatial)
+
+    net = INN(in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask)
+    return net
 
