@@ -432,7 +432,7 @@ def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
 OtherMagicType = TypeVar('OtherMagicType')
 
 
-def cast(x: OtherMagicType, dtype: DType) -> OtherMagicType:
+def cast(x: OtherMagicType, dtype: DType or type) -> OtherMagicType:
     """
     Casts `x` to a different data type.
 
@@ -453,6 +453,8 @@ def cast(x: OtherMagicType, dtype: DType) -> OtherMagicType:
     Returns:
         `Tensor` with data type `dtype`
     """
+    if not isinstance(dtype, DType):
+        dtype = DType.as_dtype(dtype)
     if hasattr(x, '__cast__'):
         return x.__cast__(dtype)
     elif isinstance(x, (Number, bool)):

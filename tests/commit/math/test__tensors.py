@@ -500,6 +500,42 @@ class TestTensors(TestCase):
             t = wrap(a)
             self.assertIsInstance(t, Layout, type(t))
 
+    def test_layout_shape_completion(self):
+        l = math.layout({'a': [1, 2], 'b': (0, 1)}, channel('letter,index'))
+        self.assertEqual(channel(letter='a,b', index=2), l.shape, l.shape)
+
+    def test_layout_ops(self):
+        l = math.layout({'a': [1, 2], 'b': (0, 1)}, channel('letter,index'))
+        math.assert_close(2 * l, l * 2, l + l)
+
+    def test_layout_assert_close(self):
+        l = math.layout({'a': [1, 2], 'b': (0, 1)}, channel('letter,index'))
+        math.assert_close(l, l)
+        math.assert_close(0, l * 0)
+        try:
+            math.assert_close(0, l)
+            raise RuntimeError("Faulty assertion passed")
+        except AssertionError:
+            pass
+        try:
+            math.assert_close(l, l + 1)
+            raise RuntimeError("Faulty assertion passed")
+        except AssertionError:
+            pass
+
+    def test_layout_nested_tensor(self):
+        l = math.layout({'a': [1, 2], 'b': (0, 1)}, channel('letter,index'))
+        lt = l * wrap([1, -1])
+        math.assert_close(l, lt.vector[0])
+        math.assert_close([2, -2, 1, -1], math.flatten(lt.index[1]))
+
+    def test_cast_layout(self):
+        l = math.layout({'a': [1, 2], 'b': (0, 1)}, channel('letter,index'))
+        lt = l * wrap([1, -1])
+        math.assert_close([True, True, False, True], math.flatten(math.cast(l, bool)))
+        for l in [l, lt]:
+            math.assert_close(l, math.cast(l, float))
+
     def test_expand_layout(self):
         layout = math.layout(['a', 'b'], spatial('alphabet'))
         exp = math.expand(layout, batch(b=10))

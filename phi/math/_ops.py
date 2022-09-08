@@ -13,7 +13,7 @@ from ._shape import (Shape, EMPTY_SHAPE,
                      IncompatibleShapes, DimFilter, non_batch)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
-    cached, is_scalar
+    cached, is_scalar, Layout
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
     NoBackendFound
 from .backend._dtype import DType, combine_types
@@ -2044,20 +2044,24 @@ def assert_close(*values,
             np.testing.assert_allclose(np_values[0], other, rel_tolerance, abs_tolerance, err_msg=msg, verbose=verbose)
 
 
-def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float, msg: str, verbose: bool):
+def _assert_close(tensor1: Tensor, tensor2: Tensor, rel_tolerance: float, abs_tolerance: float, msg: str, verbose: bool):
     if tensor2 is tensor1:
         return
-    if isinstance(tensor2, (int, float, bool)):
-        np.testing.assert_allclose(tensor1.numpy(), tensor2, rel_tolerance, abs_tolerance)
+    # if isinstance(tensor2, (int, float, bool)):
+    #     np.testing.assert_allclose(tensor1.numpy(), tensor2, rel_tolerance, abs_tolerance)
+    if isinstance(tensor1, Layout):
+        tensor1._assert_close(tensor2, rel_tolerance, abs_tolerance, msg, verbose)
+    elif isinstance(tensor2, Layout):
+        tensor2._assert_close(tensor1, rel_tolerance, abs_tolerance, msg, verbose)
+    else:
+        def inner_assert_close(tensor1, tensor2):
+            new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)
+            np1 = choose_backend(native1).numpy(native1)
+            np2 = choose_backend(native2).numpy(native2)
+            if not np.allclose(np1, np2, rel_tolerance, abs_tolerance):
+                np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance, err_msg=msg, verbose=verbose)
 
-    def inner_assert_close(tensor1, tensor2):
-        new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)
-        np1 = choose_backend(native1).numpy(native1)
-        np2 = choose_backend(native2).numpy(native2)
-        if not np.allclose(np1, np2, rel_tolerance, abs_tolerance):
-            np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance, err_msg=msg, verbose=verbose)
-
-    broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
+        broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
 def _native_wrapper(tensor_function: Callable, create_native_function: Callable, persistent_refs=False):

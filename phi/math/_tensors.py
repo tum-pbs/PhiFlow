@@ -941,37 +941,54 @@ class Layout(Tensor):
         return Layout(obj, self._shape)
 
     def __eq__(self, other):
-        if isinstance(other, Layout):
-            assert self._shape == other._shape, "Cannot compare Layouts with different dimensions (not implemented yet)."
-            obj = Layout._compare_recursive(self._obj, other._obj, self._shape)
-            return wrap(obj, self._shape)
-        elif isinstance(other, Tensor):
-            raise NotImplementedError
-        else:  # compare all independently to constant
-            obj = Layout._compare_recursive_constant(self._obj, other, self._shape)
-            return wrap(obj, self._shape)
+        if _EQUALITY_BY_REF:
+            return wrap(self is other)
+        return self._op2(other, lambda x, y: x == y, lambda x, y: x == y, 'eq', '==')
 
     def __ne__(self, other):
-        return ~(self == other)
+        if _EQUALITY_BY_REF:
+            return wrap(self is not other)
+        return self._op2(other, lambda x, y: x != y, lambda x, y: x != y, 'ne', '!=')
+    
+    def _assert_close(self, other: Tensor, rel_tolerance: float, abs_tolerance: float, msg: str, verbose: bool):
+        from ._ops import assert_close
+        inner_test = lambda x, y: assert_close(x, y, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
+        return self._op2(other, inner_test, inner_test, 'assert_close', '≈')
 
-    def _op2(self, other: 'Tensor', operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
-        raise NotImplementedError("Mathematical operations not supported between Layouts. Use Tensors instead.")
+    def _op2(self, other, operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> Tensor:
+        obj = self._recursive_op2(self._obj, self._shape, other, operator, native_function, op_name)
+        new_shape = concat_shapes(self._shape, other.shape.without(self._shape)) if isinstance(other, Tensor) else self._shape
+        return Layout(obj, new_shape)
 
     @staticmethod
-    def _compare_recursive(obj1, obj2, shape: Shape):
-        if not shape:
-            return obj1 == obj2
-        assert type(obj1) == type(obj2), f"Cannot check element-wise equality between {obj1} and {obj2} because they have different types"
-        assert len(obj1) == len(obj2), f"Cannot check element-wise equality between {obj1} and {obj2} because they have different lengths"
-        equal_elements = [Layout._compare_recursive(o1, o2, shape[1:]) for o1, o2 in zip(obj1, obj2)]
-        return type(obj1)(equal_elements)  # list or tuple
+    def _recursive_op2(obj, shape: Shape, other, operator, native_function, op_name):
+        if shape:
+            dim = shape.names[0]
+            if isinstance(other, Tensor) and dim in other.shape:
+                assert other.shape.get_size(dim) == len(obj), f"Shape mismatch during {op_name}: '{dim}' has size {len(obj)} on layout but {other.shape.get_size(dim)} on other tensor."
+                others = [other[{dim: i}] for i in range(len(obj))]
+            else:
+                others = [other] * len(obj)
+            if isinstance(obj, (tuple, list)):
+                return type(obj)([Layout._recursive_op2(i, shape[1:], o, operator, native_function, op_name) for i, o in zip(obj, others)])
+            elif isinstance(obj, dict):
+                return {k: Layout._recursive_op2(v, shape[1:], o, operator, native_function, op_name) for (k, v), o in zip(obj.items(), others)}
+        else:  # leaf
+            if isinstance(other, Layout) and not other.shape:
+                return native_function(obj, other.native())
+            if isinstance(other, Tensor):
+                return operator(obj, other)
+            else:
+                return native_function(obj, other)
+
+    def _op1(self, native_function):
+        return Layout(self._recursive_op1(self._obj, self._shape, native_function), self._shape)
 
     @staticmethod
-    def _compare_recursive_constant(obj1, const, shape: Shape):
-        if not shape:
-            return obj1 == const
-        equal_elements = [Layout._compare_recursive(o1, const, shape[1:]) for o1 in obj1]
-        return type(obj1)(equal_elements)  # list or tuple
+    def _recursive_op1(obj, shape: Shape, native_function):
+        if shape:
+            if isinstance(obj, (tuple, list)):
+                return type(obj)([Layout._recursive_op1(i, shape[1:]) for i in obj])
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
@@ -1012,9 +1029,13 @@ class Layout(Tensor):
     def _recursive_cast(obj, shape: Shape, dtype: DType):
         if shape:
             if isinstance(obj, (tuple, list)):
-                return type(obj)([Layout._recursive_cast(i, dtype) for i in obj])
+                return type(obj)([Layout._recursive_cast(i, shape[1:], dtype) for i in obj])
             elif isinstance(obj, dict):
-                return {k: Layout._recursive_cast(v, dtype) for k, v in obj.items()}
+                return {k: Layout._recursive_cast(v, shape[1:], dtype) for k, v in obj.items()}
+            elif isinstance(obj, Tensor):
+                assert obj.shape == shape
+                from ._ops import cast
+                return cast(obj, dtype)
             else:
                 raise ValueError(obj)
         else:
@@ -1699,7 +1720,12 @@ def layout(objects, *shape: Shape) -> Tensor:
             if shape.rank == 1:
                 return shape.with_sizes((len(native),))
             inner_shape = shape[1:]
-            inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native]
+            if isinstance(native, (tuple, list)):
+                inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native]
+            elif isinstance(native, dict):
+                inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native.values()]
+            else:
+                raise ValueError(native)
             return shape_stack(shape[0], *inner_shapes)
 
         shape = recursive_determine_shape(objects, shape)
@@ -1727,12 +1753,12 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
         data_type = type(data)
         backend = choose_backend(*compat_natives, data)
         try:
-            other_tensor = backend.as_tensor(data, convert_external=convert)
-            shape = backend.staticshape(other_tensor)
+            data = backend.as_tensor(data, convert_external=convert)
+            shape = backend.staticshape(data)
         except ValueError as e:
             raise ValueError(e)
         if len(shape) == 0:
-            return NativeTensor(other_tensor, EMPTY_SHAPE)
+            return NativeTensor(data, EMPTY_SHAPE)
         elif isinstance(data, (tuple, list)):  # always channel, add vector if not available
             data = backend.as_tensor(data)
         if len(shape) == compat_shape.channel_rank:
@@ -1742,7 +1768,7 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
             return wrap(data, compat_shape['vector'].without_sizes())
         elif len(shape) == compat_shape.rank:
             warnings.warn(f"Combining a phi.math.Tensor with a {data_type} of same shape is not invariant under shape permutations. Please convert the {data_type} to a phi.math.Tensor first. Shapes: {shape} and {compat_shape}", SyntaxWarning, stacklevel=5)
-            return NativeTensor(other_tensor, compat_shape.with_sizes(shape))
+            return NativeTensor(data, compat_shape.with_sizes(shape))
         else:
             raise ValueError(f"Cannot combine native tensor of shape {shape} with tensor of shape {compat_shape}")
 
