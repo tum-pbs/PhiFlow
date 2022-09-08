@@ -436,10 +436,10 @@ def get_mask(inputs, reverse_mask, data_format = 'NHWC'):
 
     return checker.to(TORCH.get_default_device().ref)
 
-class Coupling_layer(nn.Module):
+class CouplingLayer(nn.Module):
 
     def __init__(self, in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask):
-        super(Coupling_layer, self).__init__()
+        super(CouplingLayer, self).__init__()
 
         self.activation = activation
         self.batch_norm = batch_norm
@@ -484,13 +484,13 @@ class Coupling_layer(nn.Module):
             v2 = (1-mask) * (u2 * torch.exp( self.s1(v1)) + self.t1(v1))
 
             return v1 + v2
-class INN(nn.Module):
+class Inn(nn.Module):
     def __init__(self, in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask):
-        super(INN, self).__init__()
+        super(Inn, self).__init__()
         self.num_blocks = num_blocks
 
         for i in range(num_blocks):
-            self.add_module(f'coupling_block{i+1}', Coupling_layer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask))
+            self.add_module(f'coupling_block{i+1}', CouplingLayer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask))
 
     def forward(self, x, backward=False):
         if backward:
@@ -513,7 +513,7 @@ def inn(in_channels: int,
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
-    return INN(in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask).to(TORCH.get_default_device().ref)
+    return Inn(in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask).to(TORCH.get_default_device().ref)
 
 
 def coupling_layer(in_channels: int,
@@ -525,7 +525,7 @@ def coupling_layer(in_channels: int,
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
-    net = Coupling_layer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask)
+    net = CouplingLayer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask)
     net = net.to(TORCH.get_default_device().ref)
     return net
 
