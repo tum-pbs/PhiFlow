@@ -1810,7 +1810,7 @@ def disassemble_tensors(obj: Tensor or Tuple[Tensor, ...] or List[Tensor], expan
     """
     assert isinstance(obj, (Tensor, tuple, list)), f"jit-compiled function returned {type(obj)} but must return either a 'phi.math.Tensor' or tuple/list of tensors."
     if isinstance(obj, Tensor):
-        if expand:
+        if expand or isinstance(obj, TensorStack):
             obj._expand()
         if isinstance(obj, CollapsedTensor) and obj._inner is not None:
             native_dims = obj._inner.shape
