@@ -677,7 +677,7 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cast(x: OtherMagicType, dtype: DType) -&gt; OtherMagicType:
+<pre><code class="python">def cast(x: OtherMagicType, dtype: DType or type) -&gt; OtherMagicType:
     &#34;&#34;&#34;
     Casts `x` to a different data type.
 
@@ -698,6 +698,8 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
     Returns:
         `Tensor` with data type `dtype`
     &#34;&#34;&#34;
+    if not isinstance(dtype, DType):
+        dtype = DType.as_dtype(dtype)
     if hasattr(x, &#39;__cast__&#39;):
         return x.__cast__(dtype)
     elif isinstance(x, (Number, bool)):
@@ -3628,7 +3630,12 @@ Calling <code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">T
             if shape.rank == 1:
                 return shape.with_sizes((len(native),))
             inner_shape = shape[1:]
-            inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native]
+            if isinstance(native, (tuple, list)):
+                inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native]
+            elif isinstance(native, dict):
+                inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native.values()]
+            else:
+                raise ValueError(native)
             return shape_stack(shape[0], *inner_shapes)
 
         shape = recursive_determine_shape(objects, shape)

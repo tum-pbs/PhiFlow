@@ -286,7 +286,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cast(x: OtherMagicType, dtype: DType) -&gt; OtherMagicType:
+<pre><code class="python">def cast(x: OtherMagicType, dtype: DType or type) -&gt; OtherMagicType:
     &#34;&#34;&#34;
     Casts `x` to a different data type.
 
@@ -307,6 +307,8 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     Returns:
         `Tensor` with data type `dtype`
     &#34;&#34;&#34;
+    if not isinstance(dtype, DType):
+        dtype = DType.as_dtype(dtype)
     if hasattr(x, &#39;__cast__&#39;):
         return x.__cast__(dtype)
     elif isinstance(x, (Number, bool)):
