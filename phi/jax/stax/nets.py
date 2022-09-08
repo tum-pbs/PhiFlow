@@ -269,14 +269,14 @@ def u_net(in_channels: int,
         d = len(in_spatial)
     # Create layers
     if use_res_blocks:
-        inc_init, inc_apply = resnet_block(in_channels, filters[0], batch_norm, activation, d)
+        inc_init, inc_apply = ResNet_Block(in_channels, filters[0], batch_norm, activation, d)
     else:
         inc_init, inc_apply = create_double_conv(d, filters[0], filters[0], batch_norm, activation)
     init_functions, apply_functions = {}, {}
     for i in range(1, levels):
         if use_res_blocks:
-            init_functions[f'down{i}'], apply_functions[f'down{i}'] = resnet_block(filters[i-1], filters[i], batch_norm, activation, d)
-            init_functions[f'up{i}'], apply_functions[f'up{i}'] = resnet_block(filters[i] + filters[i-1], filters[i-1], batch_norm, activation, d)
+            init_functions[f'down{i}'], apply_functions[f'down{i}'] = ResNet_Block(filters[i-1], filters[i], batch_norm, activation, d)
+            init_functions[f'up{i}'], apply_functions[f'up{i}'] = ResNet_Block(filters[i] + filters[i-1], filters[i-1], batch_norm, activation, d)
         else:
             init_functions[f'down{i}'], apply_functions[f'down{i}'] = create_double_conv(d, filters[i], filters[i], batch_norm, activation)
             init_functions[f'up{i}'], apply_functions[f'up{i}'] = create_double_conv(d, filters[i - 1], filters[i - 1], batch_norm, activation)
@@ -552,14 +552,17 @@ def res_net(in_channels : int,
         d = (1,) * in_spatial
 
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+
     stax_layers = []
+    if len(layers) > 0:
+        stax_layers.append(ResNet_Block(in_channels, layers[0], batch_norm, activation, in_spatial))
 
-    stax_layers.append(ResNet_Block(in_channels, layers[0], batch_norm, activation, in_spatial))
+        for i in range(1, len(layers)):
+            stax_layers.append(ResNet_Block(layers[i-1], layers[i], batch_norm, activation, in_spatial))
 
-    for i in range(1, len(layers)):
-        stax_layers.append(ResNet_Block(layers[i-1], layers[i], batch_norm, activation, in_spatial))
-
-    stax_layers.append(ResNet_Block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial))
+        stax_layers.append(ResNet_Block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial))
+    else:
+        stax_layers.append(ResNet_Block(in_channels, out_channels, batch_norm, activation, in_spatial))
     net_init, net_apply = stax.serial(*stax_layers)
     net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
     net.initialize()

@@ -14,7 +14,7 @@ See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 
 from phi.flow import *
 from . import TENSORFLOW
-from .nets import parameter_count, dense_net, u_net, save_state, load_state, update_weights, adam, conv_net, res_net, SGD, adagrad, rmsprop, conv_classifier, inn
+from .nets import parameter_count, dense_net, u_net, save_state, load_state, update_weights, adam, conv_net, res_net, SGD, adagrad, rmsprop, conv_classifier, coupling_layer,inn
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers

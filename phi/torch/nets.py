@@ -323,7 +323,7 @@ class ConvNet(nn.Module):
                 CONV[in_spatial](layers[i - 1], layers[i], kernel_size=3, padding=1, padding_mode='circular'),
                 NORM[in_spatial](layers[i]) if batch_norm else nn.Identity(),
                 activation()))
-        self.add_module(f'Conv_out', CONV[in_spatial](layers[len(layers) - 1], out_channels, kernel_size=3, padding=1, padding_mode='circular')
+        self.add_module(f'Conv_out', CONV[in_spatial](layers[len(layers) - 1], out_channels, kernel_size=3, padding=1, padding_mode='circular'))
 
     def forward(self, x):
         x = getattr(self, f'Conv_in')(x)
@@ -484,6 +484,7 @@ class CouplingLayer(nn.Module):
             v2 = (1-mask) * (u2 * torch.exp( self.s1(v1)) + self.t1(v1))
 
             return v1 + v2
+
 class Inn(nn.Module):
     def __init__(self, in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask):
         super(Inn, self).__init__()
@@ -543,7 +544,7 @@ class ResNet(nn.Module):
 
             self.add_module('Res_out', ResNet_Block(in_spatial, layers[len(layers)-1], out_channels, batch_norm, activation))
         else:
-            self.add_module('Res', ResNet_Block(in_spatial, in_channels, in_channels, batch_norm, activation))
+            self.add_module('Res', ResNet_Block(in_spatial, in_channels, out_channels, batch_norm, activation))
 
     def forward(self, x):
         x = TORCH.as_tensor(x)
