@@ -246,7 +246,7 @@ class TestTensors(TestCase):
             def __value_attrs__(self):
                 return 'x',
 
-            def __with_tattrs__(self, **tattrs):
+            def __with_attrs__(self, **tattrs):
                 math.assert_close(tattrs['x'], 1)
                 raise Success
 
@@ -514,6 +514,23 @@ class TestTensors(TestCase):
         self.assertIsInstance(l1 == l2, math.Tensor)
         math.assert_close(wrap([False, True]), l1 != l2)
         self.assertIsInstance(l1 != l2, math.Tensor)
+
+    def test_layout_reduce(self):
+        l = math.layout([])
+        self.assertFalse(l.all)
+        self.assertFalse(l.any)
+
+        l = math.layout('Hi')
+        self.assertTrue(l.all)
+        self.assertTrue(l.any)
+
+        l = math.layout([0, 1, 2], channel('vector'))
+        self.assertFalse(l.all)
+        self.assertTrue(l.any)
+        math.assert_close(1, l.mean)
+        math.assert_close(math.sqrt(2/3), l.std)
+        math.assert_close(0, l.min)
+        math.assert_close(2, l.max)
 
     def test_numpy_asarray(self):
         for t in [

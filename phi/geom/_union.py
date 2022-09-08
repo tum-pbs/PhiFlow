@@ -4,7 +4,7 @@ from phi import math
 from ._geom import Geometry, NO_GEOMETRY
 from ._box import bounding_box, Box
 from ..math._shape import merge_shapes
-from ..math._tensors import variable_attributes, copy_with
+from ..math._magic_ops import variable_attributes, copy_with
 from ..math.magic import PhiTreeNode
 
 

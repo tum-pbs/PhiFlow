@@ -17,6 +17,7 @@ To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`
 """
 import warnings
 from typing import Tuple, Dict, Any, Callable
+from .backend._dtype import DType
 from ._shape import Shape, shape, batch, spatial, instance, channel, non_batch
 
 
@@ -603,6 +604,12 @@ def slicing_dict(obj, item) -> dict:
         else:
             raise AssertionError(f"Slicing {type(obj).__name__}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}")
     return item
+
+
+class OtherMagicFunctions:
+
+    def __cast__(self, dtype: DType):
+        raise NotImplementedError
 
 
 __pdoc__ = {}  # Show all magic functions in pdoc3

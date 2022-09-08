@@ -11,9 +11,9 @@ import numpy as np
 
 from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, print_, reshaped_native, reshaped_tensor, to_float
-from ._magic_ops import stack, unpack_dim
+from ._magic_ops import stack, unpack_dim, copy_with
 from ._shape import EMPTY_SHAPE, Shape, parse_dim_order, vector_add, merge_shapes, spatial, instance, batch, concat_shapes, non_batch, shape
-from ._tensors import Tensor, NativeTensor, disassemble_tree, assemble_tree, copy_with, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached, equality_by_ref
+from ._tensors import Tensor, NativeTensor, disassemble_tree, assemble_tree, disassemble_tensors, assemble_tensors, variable_attributes, wrap, cached, equality_by_ref
 from .magic import PhiTreeNode
 from .backend import choose_backend, Backend, NUMPY
 from .backend._backend import SolveResult, get_spatial_derivative_order, functional_derivative_evaluation, PHI_LOGGER
@@ -1113,12 +1113,13 @@ class ShiftLinTracer(Tensor):
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
+                       dtype: type or None,
                        native_function: Callable,
                        collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
                        unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
-        raise NotImplementedError()
+        raise NotImplementedError("Reducing linear tracers is not yet supported.")
 
     def _natives(self) -> tuple:
         """

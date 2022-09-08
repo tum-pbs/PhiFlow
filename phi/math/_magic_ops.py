@@ -1,7 +1,12 @@
+import copy
 import warnings
+from numbers import Number
+from typing import TypeVar, Tuple
 
+from .backend import choose_backend, NoBackendFound
+from .backend._dtype import DType
 from ._shape import Shape, DimFilter, batch, instance, shape
-from .magic import Sliceable, Shaped, Shapable
+from .magic import Sliceable, Shaped, Shapable, PhiTreeNode
 
 
 class MagicNotImplemented(Exception): pass
@@ -368,3 +373,98 @@ def flatten(value, flat_dim: Shape = instance('flat'), **kwargs):
     return pack_dims(value, shape(value), flat_dim, **kwargs)
 
 
+# PhiTreeNode
+
+PhiTreeNodeType = TypeVar('PhiTreeNodeType')  # Defined in phi.math.magic: tuple, list, dict, custom
+
+
+def variable_attributes(obj) -> Tuple[str]:
+    if hasattr(obj, '__variable_attrs__'):
+        return obj.__variable_attrs__()
+    elif hasattr(obj, '__value_attrs__'):
+        return obj.__value_attrs__()
+    else:
+        raise ValueError(f"Not PhiTreeNode: {type(obj)}")
+
+
+def value_attributes(obj):
+    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
+    return obj.__value_attrs__()
+
+
+def variable_values(obj):
+    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
+    if hasattr(obj, '__variable_attrs__'):
+        values = obj.__value_attrs__()
+        variables = obj.__variable_attrs__()
+        return [a for a in values if a in variables]
+    else:
+        return obj.__value_attrs__()
+
+
+def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
+    """
+    Creates a copy of the given `PhiTreeNode` with updated values as specified in `updates`.
+
+    If `obj` overrides `__with_attrs__`, the copy will be created via that specific implementation.
+    Otherwise, the `copy` module and `setattr` will be used.
+
+    Args:
+        obj: `PhiTreeNode`
+        **updates: Values to be replaced.
+
+    Returns:
+        Copy of `obj` with updated values.
+    """
+    if hasattr(obj, '__with_attrs__'):
+        return obj.__with_attrs__(**updates)
+    elif isinstance(obj, (Number, bool)):
+        return obj
+    else:
+        cpy = copy.copy(obj)
+        for attr, value in updates.items():
+            setattr(cpy, attr, value)
+        return cpy
+
+
+# Other Ops
+
+OtherMagicType = TypeVar('OtherMagicType')
+
+
+def cast(x: OtherMagicType, dtype: DType) -> OtherMagicType:
+    """
+    Casts `x` to a different data type.
+
+    Implementations:
+
+    * NumPy: [`x.astype()`](numpy.ndarray.astype)
+    * PyTorch: [`x.to()`](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.to)
+    * TensorFlow: [`tf.cast`](https://www.tensorflow.org/api_docs/python/tf/cast)
+    * Jax: [`jax.numpy.array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html)
+
+    See Also:
+        `to_float`, `to_int32`, `to_int64`, `to_complex`.
+
+    Args:
+        x: `Tensor`
+        dtype: New data type as `phi.math.DType`, e.g. `DType(int, 16)`.
+
+    Returns:
+        `Tensor` with data type `dtype`
+    """
+    if hasattr(x, '__cast__'):
+        return x.__cast__(dtype)
+    elif isinstance(x, (Number, bool)):
+        return dtype.kind(x)
+    elif isinstance(x, PhiTreeNode):
+        attrs = {key: getattr(x, key) for key in value_attributes(x)}
+        new_attrs = {k: cast(v, dtype) for k, v in attrs.items()}
+        return copy_with(x, **new_attrs)
+    try:
+        backend = choose_backend(x)
+        return backend.cast(x, dtype)
+    except NoBackendFound:
+        if dtype.kind == bool:
+            return bool(x)
+        raise ValueError(f"Cannot cast object of type '{type(x).__name__}'")
