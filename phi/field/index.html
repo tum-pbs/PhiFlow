@@ -2191,8 +2191,8 @@ These arguments can be of any type.</dd>
     assert len(x0_tensors) == len(y_tensors) == 1, &#34;Only single-tensor linear solves are currently supported&#34;
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
-    if not all_available(*y_tensors, *x0_tensors):  # jit mode
-        f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
+    # if not all_available(*y_tensors, *x0_tensors):  # jit mode
+    #     f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
         matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))

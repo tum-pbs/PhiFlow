@@ -6417,8 +6417,8 @@ These arguments can be of any type.</dd>
     assert len(x0_tensors) == len(y_tensors) == 1, &#34;Only single-tensor linear solves are currently supported&#34;
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
-    if not all_available(*y_tensors, *x0_tensors):  # jit mode
-        f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
+    # if not all_available(*y_tensors, *x0_tensors):  # jit mode
+    #     f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
         matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))
@@ -8382,14 +8382,14 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         assert tensors, &#34;Linear function requires at least one argument&#34;
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
-            return self.f(**kwargs)
+            return self.f(*args, **kwargs)
         if not key.backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f&#34;Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.&#34;, RuntimeWarning)
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
                 PHI_LOGGER.debug(f&#34;Φ-lin: Running &#39;{self.f.__name__}&#39; as-is with {key.backend} because it is being traced.&#34;)
-                return self.f(**kwargs)
+                return self.f(*args, **kwargs)
             else:
-                return self.nl_jit(**kwargs)
+                return self.nl_jit(*args, **kwargs)
         tracer = self._get_or_trace(key, prefer_numpy=False)
         return tracer.apply(tensors[0])
 
@@ -8412,7 +8412,10 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
             pos = spatial(**indices)
             print(f&#34;{self.f.__name__}: {pos} = {&#39; + &#39;.join(f&#39;{val[indices]} * {vector_add(pos, offset)}&#39; for offset, val in tracer.val.items() if (val[indices] != 0).all)}&#34;)
 
-        return print_stencil</code></pre>
+        return print_stencil
+
+    def __repr__(self):
+        return f&#34;lin({self.f.__name__})&#34;</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
