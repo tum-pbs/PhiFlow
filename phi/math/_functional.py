@@ -176,7 +176,7 @@ class JitFunction:
     def __call__(self, *args, **kwargs):
         key, _, natives, _ = key_from_args(args, kwargs, self.f_params, cache=True, aux=self.auxiliary_args)
         if isinstance(self.f, GradientFunction) and key.backend.supports(Backend.jit_compile_grad):
-            return self.grad_jit(**kwargs)
+            return self.grad_jit(*args, **kwargs)
         if not key.backend.supports(Backend.jit_compile):
             warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.", RuntimeWarning)
             return self.f(*args, **kwargs)
@@ -291,14 +291,14 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         assert tensors, "Linear function requires at least one argument"
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
-            return self.f(**kwargs)
+            return self.f(*args, **kwargs)
         if not key.backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.", RuntimeWarning)
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
                 PHI_LOGGER.debug(f"Φ-lin: Running '{self.f.__name__}' as-is with {key.backend} because it is being traced.")
-                return self.f(**kwargs)
+                return self.f(*args, **kwargs)
             else:
-                return self.nl_jit(**kwargs)
+                return self.nl_jit(*args, **kwargs)
         tracer = self._get_or_trace(key, prefer_numpy=False)
         return tracer.apply(tensors[0])
 
@@ -322,6 +322,9 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
             print(f"{self.f.__name__}: {pos} = {' + '.join(f'{val[indices]} * {vector_add(pos, offset)}' for offset, val in tracer.val.items() if (val[indices] != 0).all)}")
 
         return print_stencil
+
+    def __repr__(self):
+        return f"lin({self.f.__name__})"
 
 
 def jit_compile_linear(f: Callable[[X], Y], auxiliary_args: str = None) -> 'LinearFunction[X, Y]':  # TODO add cache control method, e.g. max_traces
@@ -1625,8 +1628,8 @@ def solve_linear(f: Callable[[X], Y],
     assert len(x0_tensors) == len(y_tensors) == 1, "Only single-tensor linear solves are currently supported"
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
-    if not all_available(*y_tensors, *x0_tensors):  # jit mode
-        f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
+    # if not all_available(*y_tensors, *x0_tensors):  # jit mode
+    #     f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
 
     if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
         matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))
