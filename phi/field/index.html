@@ -1158,7 +1158,7 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 </details>
 </dd>
 <dt id="phi.field.jit_compile"><code class="name flex">
-<span>def <span class="ident">jit_compile</span></span>(<span>f: Callable) ‑> Callable</span>
+<span>def <span class="ident">jit_compile</span></span>(<span>f: Callable, auxiliary_args: str = '') ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compiles a graph based on the function <code>f</code>.
@@ -1191,6 +1191,8 @@ An exception to this is <code><a title="phi.field.jit_compile_linear" href="#phi
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to be traced.
 All positional arguments must be of type <code>Tensor</code> or <code>PhiTreeNode</code> returning a single <code>Tensor</code> or <code>PhiTreeNode</code>.</dd>
+<dt><strong><code>auxiliary_args</code></strong></dt>
+<dd>Comma-separated parameter names of arguments that are not relevant to backpropagation.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with similar signature and return values as <code>f</code>.</p></div>
@@ -1198,7 +1200,7 @@ All positional arguments must be of type <code>Tensor</code> or <code>PhiTreeNod
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile(f: Callable) -&gt; Callable:
+<pre><code class="python">def jit_compile(f: Callable, auxiliary_args: str = &#39;&#39;) -&gt; Callable:
     &#34;&#34;&#34;
     Compiles a graph based on the function `f`.
     The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.
@@ -1234,15 +1236,17 @@ All positional arguments must be of type <code>Tensor</code> or <code>PhiTreeNod
     Args:
         f: Function to be traced.
             All positional arguments must be of type `Tensor` or `PhiTreeNode` returning a single `Tensor` or `PhiTreeNode`.
+        auxiliary_args: Comma-separated parameter names of arguments that are not relevant to backpropagation.
 
     Returns:
         Function with similar signature and return values as `f`.
     &#34;&#34;&#34;
-    return f if isinstance(f, (JitFunction, LinearFunction)) else JitFunction(f)</code></pre>
+    auxiliary_args = set(s.strip() for s in auxiliary_args.split(&#39;,&#39;) if s.strip())
+    return f if isinstance(f, (JitFunction, LinearFunction)) and f.auxiliary_args == auxiliary_args else JitFunction(f, auxiliary_args)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.jit_compile_linear"><code class="name flex">
-<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y], linear_args: str = None) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y], auxiliary_args: str = None) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
@@ -1258,11 +1262,9 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function that is linear in its positional arguments.
-All positional arguments must be of type <code>Tensor</code> and <code>f</code> must return a <code>Tensor</code>.
-<code>f</code> may be conditioned on keyword arguments.
-However, passing different values for these will cause <code>f</code> to be re-traced unless the conditioning arguments are also being traced.</dd>
-<dt><strong><code>linear_args</code></strong></dt>
-<dd>Which parameters <code>f</code> is linear in. All other arguments are treated as conditioning arguments and will cause re-tracing on change.</dd>
+All positional arguments must be of type <code>Tensor</code> and <code>f</code> must return a <code>Tensor</code>.</dd>
+<dt><strong><code>auxiliary_args</code></strong></dt>
+<dd>Which parameters <code>f</code> is not linear in. These arguments are treated as conditioning arguments and will cause re-tracing on change.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code>LinearFunction</code> with similar signature and return values as <code>f</code>.</p></div>
@@ -1270,7 +1272,7 @@ However, passing different values for these will cause <code>f</code> to be re-t
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y], linear_args: str = None) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
+<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y], auxiliary_args: str = None) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
     For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
@@ -1289,21 +1291,20 @@ However, passing different values for these will cause <code>f</code> to be re-t
     Args:
         f: Function that is linear in its positional arguments.
             All positional arguments must be of type `Tensor` and `f` must return a `Tensor`.
-            `f` may be conditioned on keyword arguments.
-            However, passing different values for these will cause `f` to be re-traced unless the conditioning arguments are also being traced.
-        linear_args: Which parameters `f` is linear in. All other arguments are treated as conditioning arguments and will cause re-tracing on change.
+        auxiliary_args: Which parameters `f` is not linear in. These arguments are treated as conditioning arguments and will cause re-tracing on change.
 
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
     &#34;&#34;&#34;
     if isinstance(f, JitFunction):
         f = f.f  # cannot trace linear function from jitted version
-    if isinstance(linear_args, str):
-        linear_args = tuple(s.strip() for s in linear_args.split(&#39;,&#39;))
-    elif linear_args is None:
+    if isinstance(auxiliary_args, str):
+        auxiliary_args = set(s.strip() for s in auxiliary_args.split(&#39;,&#39;) if s.strip())
+    else:
+        assert auxiliary_args is None
         f_params = function_parameters(f)
-        linear_args = f_params[0],
-    return f if isinstance(f, LinearFunction) and f.linear_args == linear_args else LinearFunction(f, linear_args)</code></pre>
+        auxiliary_args = f_params[1:]
+    return f if isinstance(f, LinearFunction) and f.auxiliary_args == auxiliary_args else LinearFunction(f, auxiliary_args)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.l1_loss"><code class="name flex">
@@ -1594,8 +1595,9 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        assert not non_batch(y_tensors[0]), f&#34;Failed to minimize &#39;{f.__name__}&#39; because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()&#34;
-        return y_tensors[0].sum, (reshaped_native(y_tensors[0], [batch_dims]), )
+        assert not non_batch(
+            y_tensors[0]), f&#34;Failed to minimize &#39;{f.__name__}&#39; because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()&#34;
+        return y_tensors[0].sum, (reshaped_native(y_tensors[0], [batch_dims]),)
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))

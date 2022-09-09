@@ -1476,7 +1476,7 @@ and <code>output_dict</code> contains only those parameters for which a gradient
     Returns:
         Function with similar signature and return values as `f`. However, the returned function does not support keyword arguments.
     &#34;&#34;&#34;
-    auxiliary_args = tuple(s.strip() for s in auxiliary_args.split(&#39;,&#39;) if s.strip())
+    auxiliary_args = set(s.strip() for s in auxiliary_args.split(&#39;,&#39;) if s.strip())
     return CustomGradientFunction(f, gradient, auxiliary_args)</code></pre>
 </details>
 </dd>
@@ -3251,7 +3251,7 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 </details>
 </dd>
 <dt id="phi.math.jit_compile"><code class="name flex">
-<span>def <span class="ident">jit_compile</span></span>(<span>f: Callable) ‑> Callable</span>
+<span>def <span class="ident">jit_compile</span></span>(<span>f: Callable, auxiliary_args: str = '') ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compiles a graph based on the function <code>f</code>.
@@ -3284,6 +3284,8 @@ An exception to this is <code><a title="phi.math.jit_compile_linear" href="#phi.
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to be traced.
 All positional arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>PhiTreeNode</code> returning a single <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>PhiTreeNode</code>.</dd>
+<dt><strong><code>auxiliary_args</code></strong></dt>
+<dd>Comma-separated parameter names of arguments that are not relevant to backpropagation.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Function with similar signature and return values as <code>f</code>.</p></div>
@@ -3291,7 +3293,7 @@ All positional arguments must be of type <code><a title="phi.math.Tensor" href="
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile(f: Callable) -&gt; Callable:
+<pre><code class="python">def jit_compile(f: Callable, auxiliary_args: str = &#39;&#39;) -&gt; Callable:
     &#34;&#34;&#34;
     Compiles a graph based on the function `f`.
     The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.
@@ -3327,15 +3329,17 @@ All positional arguments must be of type <code><a title="phi.math.Tensor" href="
     Args:
         f: Function to be traced.
             All positional arguments must be of type `Tensor` or `PhiTreeNode` returning a single `Tensor` or `PhiTreeNode`.
+        auxiliary_args: Comma-separated parameter names of arguments that are not relevant to backpropagation.
 
     Returns:
         Function with similar signature and return values as `f`.
     &#34;&#34;&#34;
-    return f if isinstance(f, (JitFunction, LinearFunction)) else JitFunction(f)</code></pre>
+    auxiliary_args = set(s.strip() for s in auxiliary_args.split(&#39;,&#39;) if s.strip())
+    return f if isinstance(f, (JitFunction, LinearFunction)) and f.auxiliary_args == auxiliary_args else JitFunction(f, auxiliary_args)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.jit_compile_linear"><code class="name flex">
-<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y], linear_args: str = None) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y], auxiliary_args: str = None) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
@@ -3351,11 +3355,9 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function that is linear in its positional arguments.
-All positional arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> and <code>f</code> must return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.
-<code>f</code> may be conditioned on keyword arguments.
-However, passing different values for these will cause <code>f</code> to be re-traced unless the conditioning arguments are also being traced.</dd>
-<dt><strong><code>linear_args</code></strong></dt>
-<dd>Which parameters <code>f</code> is linear in. All other arguments are treated as conditioning arguments and will cause re-tracing on change.</dd>
+All positional arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> and <code>f</code> must return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+<dt><strong><code>auxiliary_args</code></strong></dt>
+<dd>Which parameters <code>f</code> is not linear in. These arguments are treated as conditioning arguments and will cause re-tracing on change.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code> with similar signature and return values as <code>f</code>.</p></div>
@@ -3363,7 +3365,7 @@ However, passing different values for these will cause <code>f</code> to be re-t
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y], linear_args: str = None) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
+<pre><code class="python">def jit_compile_linear(f: Callable[[X], Y], auxiliary_args: str = None) -&gt; &#39;LinearFunction[X, Y]&#39;:  # TODO add cache control method, e.g. max_traces
     &#34;&#34;&#34;
     Compile an optimized representation of the linear function `f`.
     For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
@@ -3382,21 +3384,20 @@ However, passing different values for these will cause <code>f</code> to be re-t
     Args:
         f: Function that is linear in its positional arguments.
             All positional arguments must be of type `Tensor` and `f` must return a `Tensor`.
-            `f` may be conditioned on keyword arguments.
-            However, passing different values for these will cause `f` to be re-traced unless the conditioning arguments are also being traced.
-        linear_args: Which parameters `f` is linear in. All other arguments are treated as conditioning arguments and will cause re-tracing on change.
+        auxiliary_args: Which parameters `f` is not linear in. These arguments are treated as conditioning arguments and will cause re-tracing on change.
 
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
     &#34;&#34;&#34;
     if isinstance(f, JitFunction):
         f = f.f  # cannot trace linear function from jitted version
-    if isinstance(linear_args, str):
-        linear_args = tuple(s.strip() for s in linear_args.split(&#39;,&#39;))
-    elif linear_args is None:
+    if isinstance(auxiliary_args, str):
+        auxiliary_args = set(s.strip() for s in auxiliary_args.split(&#39;,&#39;) if s.strip())
+    else:
+        assert auxiliary_args is None
         f_params = function_parameters(f)
-        linear_args = f_params[0],
-    return f if isinstance(f, LinearFunction) and f.linear_args == linear_args else LinearFunction(f, linear_args)</code></pre>
+        auxiliary_args = f_params[1:]
+    return f if isinstance(f, LinearFunction) and f.auxiliary_args == auxiliary_args else LinearFunction(f, auxiliary_args)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.l1_loss"><code class="name flex">
@@ -3852,6 +3853,7 @@ These dimensions will be mapped to <code>dim_type</code> for all positional func
     Returns:
         Function with signature matching `f`.
     &#34;&#34;&#34;
+
     def forward_retype(obj, input_types: Shape):
         tree, tensors = disassemble_tree(obj)
         retyped = []
@@ -4395,8 +4397,9 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        assert not non_batch(y_tensors[0]), f&#34;Failed to minimize &#39;{f.__name__}&#39; because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()&#34;
-        return y_tensors[0].sum, (reshaped_native(y_tensors[0], [batch_dims]), )
+        assert not non_batch(
+            y_tensors[0]), f&#34;Failed to minimize &#39;{f.__name__}&#39; because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()&#34;
+        return y_tensors[0].sum, (reshaped_native(y_tensors[0], [batch_dims]),)
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
@@ -5209,6 +5212,7 @@ math.jacobian(f)(math.ones(x=6))
     Returns:
         `identity(value)` which when differentiated, prints the gradient vector.
     &#34;&#34;&#34;
+
     def print_grad(_x, _y, dx):
         if all_available(_x, dx):
             if detailed:
@@ -5216,6 +5220,7 @@ math.jacobian(f)(math.ones(x=6))
             else:
                 print(f&#34;{name}:  \t{dx}&#34;)
         return dx,
+
     identity = custom_gradient(lambda x: x, print_grad)
     return identity(value)</code></pre>
 </details>
@@ -8337,12 +8342,12 @@ This may indicate that no solution exists.</p>
     Use `jit_compile_linear()` to create a linear function representation.
     &#34;&#34;&#34;
 
-    def __init__(self, f, linear_args: Tuple[str, ...]):
+    def __init__(self, f, auxiliary_args: Set[str]):
         self.f = f
         self.f_params = function_parameters(f)
-        self.linear_args = linear_args
+        self.auxiliary_args = auxiliary_args
         self.tracers: Dict[SignatureKey, ShiftLinTracer] = {}
-        self.nl_jit = JitFunction(f)  # for backends that do not support sparse matrices
+        self.nl_jit = JitFunction(f, self.auxiliary_args)  # for backends that do not support sparse matrices
 
     def _trace(self, in_key: SignatureKey, prefer_numpy: bool) -&gt; &#39;ShiftLinTracer&#39;:
         assert in_key.shapes[0].is_uniform, f&#34;math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}&#34;
@@ -8350,8 +8355,7 @@ This may indicate that no solution exists.</p>
             x = math.ones(in_key.shapes[0])
             tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
         x_kwargs = assemble_tree(in_key.tree, [tracer])
-        condition_kwargs = in_key.condition
-        result = self.f(**x_kwargs, **condition_kwargs)
+        result = self.f(**x_kwargs, **in_key.auxiliary_kwargs)
         _, result_tensors = disassemble_tree(result)
         assert len(result_tensors) == 1, f&#34;Linear function must return a single Tensor or tensor-like but got {result}&#34;
         result_tensor = result_tensors[0]
@@ -8369,15 +8373,12 @@ This may indicate that no solution exists.</p>
                     warnings.warn(f&#34;&#34;&#34;Φ-lin: The compiled linear function &#39;{self.f.__name__}&#39; was traced {len(self.tracers)} times.
 Performing many traces may be slow and cause memory leaks.
 Tensors in conditioning arguments (all except the first parameter unless specified otherwise) are compared by reference, not by tensor values.
-Conditioning arguments: {key.condition}
+Auxiliary arguments: {key.auxiliary_kwargs}
 Multiple linear traces can be avoided by jit-compiling the code that calls the linear function.&#34;&#34;&#34;, RuntimeWarning, stacklevel=3)
             return tracer
 
     def __call__(self, *args: X, **kwargs) -&gt; Y:
-        kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
-        condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
-        x = {name: kwargs[name] for name in self.linear_args}
-        key, tensors, natives, x = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, tensors, natives, x = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)
         assert tensors, &#34;Linear function requires at least one argument&#34;
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
@@ -8393,19 +8394,13 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         return tracer.apply(tensors[0])
 
     def sparse_matrix(self, *args, format: str = None, prefer_numpy=False, **kwargs):
-        kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
-        condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
-        x = {name: kwargs[name] for name in self.linear_args}
-        key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, *_ = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         assert math.close(tracer.bias, 0), &#34;This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead.&#34;
         return tracer.get_sparse_matrix(format)
 
     def sparse_matrix_and_bias(self, *args, format: str = None, prefer_numpy=False, **kwargs):
-        kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
-        condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
-        x = {name: kwargs[name] for name in self.linear_args}
-        key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+        key, *_ = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)
         tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
         return tracer.get_sparse_matrix(format), tracer.bias
 
@@ -8436,10 +8431,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sparse_matrix(self, *args, format: str = None, prefer_numpy=False, **kwargs):
-    kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
-    condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
-    x = {name: kwargs[name] for name in self.linear_args}
-    key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+    key, *_ = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)
     tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
     assert math.close(tracer.bias, 0), &#34;This is an affine function and cannot be represented by a single matrix. Use sparse_matrix_and_bias() instead.&#34;
     return tracer.get_sparse_matrix(format)</code></pre>
@@ -8455,10 +8447,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sparse_matrix_and_bias(self, *args, format: str = None, prefer_numpy=False, **kwargs):
-    kwargs.update({self.f_params[i]: v for i, v in enumerate(args)})
-    condition_args = {name: val for name, val in kwargs.items() if name not in self.linear_args}
-    x = {name: kwargs[name] for name in self.linear_args}
-    key, _, _, _ = key_from_args((), x, self.f_params, cache=False, condition=condition_args)
+    key, *_ = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)
     tracer = self._get_or_trace(key, prefer_numpy=prefer_numpy)
     return tracer.get_sparse_matrix(format), tracer.bias</code></pre>
 </details>
@@ -11088,7 +11077,8 @@ This property must be set to a value compatible with the solution <code>x</code>
         return self.msg
 
     def snapshot(self, index):
-        return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg, self.solve_time)
+        return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index],
+                         self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg, self.solve_time)
 
     def convergence_check(self, only_warn: bool):
         if not all_available(self.diverged, self.converged):
@@ -11191,7 +11181,8 @@ This property must be set to a value compatible with the solution <code>x</code>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def snapshot(self, index):
-    return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index], self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg, self.solve_time)</code></pre>
+    return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index],
+                     self.converged.trajectory[index], self.diverged.trajectory[index], self.method, self.msg, self.solve_time)</code></pre>
 </details>
 </dd>
 </dl>
