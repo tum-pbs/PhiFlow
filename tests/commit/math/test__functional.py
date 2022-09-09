@@ -1,3 +1,4 @@
+from functools import partial
 from unittest import TestCase
 
 import phi
@@ -35,6 +36,12 @@ class TestFunctional(TestCase):
                 math.assert_close(scalar_mul(math.zeros(spatial(y=4)), fac=2), 0, msg=backend)
                 if backend.supports(Backend.jit_compile):
                     self.assertEqual(len(scalar_mul.traces), trace_count_0 + 2)
+
+    def test_jit_compile_aux(self):
+        @partial(math.jit_compile, auxiliary_args='fac')
+        def scalar_mul(x, fac):
+            return x * fac
+        math.assert_close(6, scalar_mul(2, 3))
 
     def test_jit_compile_with_native(self):
         @math.jit_compile

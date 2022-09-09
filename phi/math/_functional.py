@@ -164,7 +164,7 @@ class JitFunction:
             PHI_LOGGER.debug(f"Φ-jit: Tracing '{self.f.__name__}'")
             in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             kwargs = assemble_tree(in_key.tree, in_tensors)
-            result = self.f(**kwargs)  # Tensor or tuple/list of Tensors
+            result = self.f(**kwargs, **in_key.auxiliary_kwargs)  # Tensor or tuple/list of Tensors
             tree, out_tensors = disassemble_tree(result)
             result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
             self.recorded_mappings[in_key] = SignatureKey(jit_f_native, tree, result_shapes, None, in_key.backend, in_key.tracing)
@@ -174,12 +174,12 @@ class JitFunction:
         return in_key.backend.jit_compile(jit_f_native)
 
     def __call__(self, *args, **kwargs):
-        key, tensors, natives, kwargs = key_from_args(args, kwargs, self.f_params, cache=True, aux=self.auxiliary_args)
+        key, _, natives, _ = key_from_args(args, kwargs, self.f_params, cache=True, aux=self.auxiliary_args)
         if isinstance(self.f, GradientFunction) and key.backend.supports(Backend.jit_compile_grad):
             return self.grad_jit(**kwargs)
         if not key.backend.supports(Backend.jit_compile):
             warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.", RuntimeWarning)
-            return self.f(**kwargs)
+            return self.f(*args, **kwargs)
         if key not in self.traces:
             self.traces[key] = self._jit_compile(key)
             if len(self.traces) >= 10:
