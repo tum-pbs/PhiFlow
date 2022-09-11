@@ -716,9 +716,7 @@ class CustomGradientFunction:
         def forward_native(*natives):
             in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             kwargs = assemble_tree(in_key.tree, in_tensors)
-            if in_key.auxiliary_kwargs:
-                kwargs = {**kwargs, **in_key.auxiliary_kwargs}
-            result = self.f(**kwargs)  # Tensor or tuple/list of Tensors
+            result = self.f(**kwargs, **in_key.auxiliary_kwargs)  # Tensor or tuple/list of Tensors
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
             self.recorded_mappings[in_key] = SignatureKey(forward_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
@@ -1614,7 +1612,7 @@ def solve_linear(f: Callable[[X], Y],
             `f` need not be linear in these arguments.
             Use this instead of lambda function since a lambda will not be recognized as calling a jit-compiled function.
         f_kwargs: Additional keyword arguments to be passed to `f`.
-            These arguments can be of any type.
+            These arguments are treated as auxiliary arguments and can be of any type.
 
     Returns:
         x: solution of the linear system of equations `f(x) = y` as `Tensor` or `PhiTreeNode`.
@@ -1628,21 +1626,43 @@ def solve_linear(f: Callable[[X], Y],
     assert len(x0_tensors) == len(y_tensors) == 1, "Only single-tensor linear solves are currently supported"
     backend = choose_backend_t(*y_tensors, *x0_tensors)
 
-    # if not all_available(*y_tensors, *x0_tensors):  # jit mode
-    #     f = jit_compile_linear(f) if backend.supports(Backend.sparse_coo_tensor) else jit_compile(f)
-
-    if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):
+    if isinstance(f, LinearFunction) and (backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)):  # Matrix solve
         matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))
-        return _matrix_solve(y - bias, solve, matrix, backend=backend)  # custom_gradient
-    else:
-        # arg_tree, arg_tensors = disassemble_tree(f_args)
-        # arg_tensors = cached(arg_tensors)
-        # f_args = assemble_tree(arg_tree, arg_tensors)
+
+        def _matrix_solve_forward(y, solve: Solve, matrix: SparseMatrixContainer, is_backprop=False):
+            matrix_native = matrix.native()
+            active_dims = matrix.src_shape
+            result = _linear_solve_forward(y, solve, matrix_native, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
+            return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
+
+        _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args='is_backprop')
+        return _matrix_solve(y - bias, solve, matrix)
+    else:  # Matrix-free solve
         f_args = cached(f_args)
-        # x0_tensors = cached(x0_tensors)
-        # solve = copy_with(solve, x0=assemble_tree(x0_tree, x0_tensors))
         solve = cached(solve)
-        return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {}, f=f, backend=backend)  # custom_gradient
+
+        def _function_solve_forward(y, solve: Solve, f_args: tuple, f_kwargs: dict = None, is_backprop=False):
+            y_nest, (y_tensor,) = disassemble_tree(y)
+            x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
+            active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
+            batches = (y_tensor.shape & x0_tensor.shape).batch
+
+            def native_lin_f(native_x, batch_index=None):
+                if batch_index is not None and batches.volume > 1:
+                    native_x = backend.tile(backend.expand_dims(native_x), [batches.volume, 1])
+                x = assemble_tree(x0_nest, [reshaped_tensor(native_x, [batches, active_dims] if backend.ndims(native_x) >= 2 else [active_dims], convert=False)])
+                y = f(x, *f_args, **f_kwargs)
+                _, (y_tensor,) = disassemble_tree(y)
+                y_native = reshaped_native(y_tensor, [batches, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
+                if batch_index is not None and batches.volume > 1:
+                    y_native = y_native[batch_index]
+                return y_native
+
+            result = _linear_solve_forward(y, solve, native_lin_f, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
+            return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
+
+        _function_solve = attach_gradient_solve(_function_solve_forward, auxiliary_args='is_backprop,f_kwargs')
+        return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {})
 
 
 def _linear_solve_forward(y, solve: Solve, native_lin_op,
@@ -1695,7 +1715,7 @@ def _linear_solve_forward(y, solve: Solve, native_lin_op,
     return x
 
 
-def attach_gradient_solve(forward_solve: Callable):
+def attach_gradient_solve(forward_solve: Callable, auxiliary_args: str):
     def implicit_gradient_solve(kwargs, x, dx):
         solve = kwargs['solve']
         matrix = (kwargs['matrix'],) if 'matrix' in kwargs else ()
@@ -1707,44 +1727,8 @@ def attach_gradient_solve(forward_solve: Callable):
         dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)  # this should hopefully result in implicit gradients for higher orders as well
         return {'y': dy}
 
-    solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve, auxiliary_args='backend,is_backprop,active_dims')
+    solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve, auxiliary_args=auxiliary_args)
     return solve_with_grad
-
-
-def _matrix_solve_forward(y, solve: Solve, matrix: SparseMatrixContainer,
-                          backend: Backend = None, is_backprop=False):  # kwargs
-    matrix_native = matrix.native()
-    active_dims = matrix.src_shape
-    result = _linear_solve_forward(y, solve, matrix_native, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
-    return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
-
-
-_matrix_solve = attach_gradient_solve(_matrix_solve_forward)
-
-
-def _function_solve_forward(y, solve: Solve, f_args: tuple,
-                            f_kwargs: dict = None, f: Callable = None, backend: Backend = None, is_backprop=False):  # kwargs
-    y_nest, (y_tensor,) = disassemble_tree(y)
-    x0_nest, (x0_tensor,) = disassemble_tree(solve.x0)
-    active_dims = (y_tensor.shape & x0_tensor.shape).non_batch  # assumes batch dimensions are not active
-    batches = (y_tensor.shape & x0_tensor.shape).batch
-
-    def native_lin_f(native_x, batch_index=None):
-        if batch_index is not None and batches.volume > 1:
-            native_x = backend.tile(backend.expand_dims(native_x), [batches.volume, 1])
-        x = assemble_tree(x0_nest, [reshaped_tensor(native_x, [batches, active_dims] if backend.ndims(native_x) >= 2 else [active_dims], convert=False)])
-        y = f(x, *f_args, **f_kwargs)
-        _, (y_tensor,) = disassemble_tree(y)
-        y_native = reshaped_native(y_tensor, [batches, active_dims] if backend.ndims(native_x) >= 2 else [active_dims])
-        if batch_index is not None and batches.volume > 1:
-            y_native = y_native[batch_index]
-        return y_native
-
-    result = _linear_solve_forward(y, solve, native_lin_f, active_dims=active_dims, backend=backend, is_backprop=is_backprop)
-    return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
-
-
-_function_solve = attach_gradient_solve(_function_solve_forward)
 
 
 def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
