@@ -833,7 +833,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
+    def custom_gradient(self, f: Callable, gradient: Callable, get_external_cache: Callable = None, on_call_skipped: Callable = None) -&gt; Callable:
         &#34;&#34;&#34;
         Creates a function based on `f` that uses a custom gradient for backprop.
 
@@ -2544,7 +2544,7 @@ Higher dimensions may not be supported.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.custom_gradient"><code class="name flex">
-<span>def <span class="ident">custom_gradient</span></span>(<span>self, f: Callable, gradient: Callable) ‑> Callable</span>
+<span>def <span class="ident">custom_gradient</span></span>(<span>self, f: Callable, gradient: Callable, get_external_cache: Callable = None, on_call_skipped: Callable = None) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for backprop.</p>
@@ -2561,7 +2561,7 @@ Higher dimensions may not be supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def custom_gradient(self, f: Callable, gradient: Callable) -&gt; Callable:
+<pre><code class="python">def custom_gradient(self, f: Callable, gradient: Callable, get_external_cache: Callable = None, on_call_skipped: Callable = None) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function based on `f` that uses a custom gradient for backprop.
 
