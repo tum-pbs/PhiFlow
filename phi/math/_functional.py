@@ -3,7 +3,7 @@ import time
 import types
 import uuid
 import warnings
-from functools import wraps
+from functools import wraps, partial
 from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any, Set
 
 import numpy
@@ -743,7 +743,7 @@ class CustomGradientFunction:
         forward_native.__name__ = f"forward '{self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)}'"
         backward_native.__name__ = f"{self.gradient.__name__ if isinstance(self.gradient, types.FunctionType) else str(self.gradient)} (of '{self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)}')"
 
-        return in_key.backend.custom_gradient(forward_native, backward_native)
+        return in_key.backend.custom_gradient(forward_native, backward_native, get_external_cache=lambda: self.recorded_mappings[in_key], on_call_skipped=partial(self.recorded_mappings.__setitem__, in_key))
 
     def __call__(self, *args, **kwargs):
         key, _, natives, _ = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)
@@ -759,7 +759,7 @@ class CustomGradientFunction:
 To avoid memory leaks, call {self.f.__name__}.traces.clear(), {self.f.__name__}.recorded_mappings.clear().
 Traces can be avoided by jit-compiling the code that calls custom gradient functions.
 """, RuntimeWarning, stacklevel=2)
-        native_result = self.traces[key](*natives)
+        native_result = self.traces[key](*natives)  # With PyTorch + jit, this does not call forward_native every time
         output_key = match_output_signature(key, self.recorded_mappings, self)
         output_tensors = assemble_tensors(native_result, output_key.shapes, output_key.native_dims)
         return assemble_tree(output_key.tree, output_tensors)

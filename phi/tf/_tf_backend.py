@@ -107,7 +107,7 @@ class TFBackend(Backend):
         compiled = tf.function(f)
         return lambda *args: self.as_registered.call(compiled, *args, name=f"run jit-compiled '{f.__name__}'")
 
-    def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
+    def custom_gradient(self, f: Callable, gradient: Callable, get_external_cache: Callable = None, on_call_skipped: Callable = None) -> Callable:
         @tf.custom_gradient
         def tf_function(*args, **kwargs):
             def grad(*grad_args):
