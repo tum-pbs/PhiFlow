@@ -26,7 +26,7 @@ class Shape:
 
         The `__init__` constructor is for internal use only.
         """
-        if len(sizes) > 0:
+        if len(sizes) > 0 and any(s is not None and not isinstance(s, int) for s in sizes):
             from ._tensors import Tensor
             sizes = tuple([s if isinstance(s, Tensor) or s is None else int(s) for s in sizes])  # TODO replace this by an assert
         self.sizes: tuple = sizes
@@ -1085,7 +1085,8 @@ def _construct_shape(dim_type: str, *args, **dims):
             items = size.names
             size = size.rank
         else:
-            assert size is None or isinstance(size, int), f"Cannot construct dimension from {type(size).__name__}. Only int, tuple, list, str or Shape allowed. Got {size}"
+            from ._tensors import Tensor
+            assert size is None or isinstance(size, (int, Tensor)), f"Cannot construct dimension from {type(size).__name__}. Only int, tuple, list, str or Shape allowed. Got {size}"
             items = None
         names += (name,)
         sizes += (size,)

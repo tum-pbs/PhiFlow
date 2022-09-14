@@ -2,7 +2,7 @@ import numbers
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Callable, Optional, Set, Tuple
+from typing import List, Callable, Optional, Set, Tuple, Any
 
 import numpy as np
 import torch
@@ -150,7 +150,7 @@ class TorchBackend(Backend):
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(self, f)
 
-    def custom_gradient(self, f: Callable, gradient: Callable = None) -> Callable:
+    def custom_gradient(self, f: Callable, gradient: Callable = None, get_external_cache: Callable = None, on_call_skipped: Callable = None) -> Callable:
         """ See PyTorch_Jit.md """
         def select_jit(*args):
             args = [self.as_tensor(arg) for arg in args]
@@ -158,11 +158,14 @@ class TorchBackend(Backend):
                 return torch_function.apply(*args)
             jit = CURRENT_JIT_CALLS[-1]
             if torch._C._get_tracing_state() is not None:  # second call: we are tracing
-                compiled_function = jit.get_compiled_function(torch_function, args)
+                compiled_function, ext_cache = jit.get_compiled_function(torch_function, args)  # increases counter
+                if on_call_skipped:
+                    on_call_skipped(ext_cache)
                 return compiled_function.apply(*args)  # this adds the compiled function to TorchScript. The function must not call any torch functions while being traced lest they be double-executed later.
             else:  # first call: record this function
                 output = torch_function.apply(*args)
-                jit.record_autograd_function_call(torch_function, args, output)
+                ext_cache = get_external_cache() if get_external_cache else None
+                jit.record_autograd_function_call(torch_function, args, output, ext_cache)
                 return output
 
         torch_function = construct_torch_custom_function(f, None, None, gradient, is_f_traced=False, backend=self)
@@ -792,7 +795,7 @@ class JITFunction:
         self.backend = backend
         self.f = f
         self.traced = None
-        self.autograd_function_calls = []  # (TorchCustomFunction, args, output)
+        self.autograd_function_calls = []  # (TorchCustomFunction, args, output, ext_cache)
         self.compiled_functions = []  # (TorchCustomFunction, TorchCustomFunction)
         self.autograd_function_call_counts = 0
         self.called_modules: Set[torch.nn.Module] = set()
@@ -808,7 +811,7 @@ class JITFunction:
             self_jit = self
             CURRENT_JIT_CALLS.append(self)
             self.f(*args)  # records all autograd.Function / nn.Module calls with their args -> self.autograd_function_calls, self.called_modules
-            for i, (rec_function, rec_args, rec_output) in enumerate(self.autograd_function_calls):
+            for i, (rec_function, rec_args, rec_output, _ext_cache) in enumerate(self.autograd_function_calls):
                 self.compiled_functions.append((rec_function, rec_function.compile(rec_args, rec_output)))
             assert self.autograd_function_call_counts == 0
 
@@ -830,16 +833,18 @@ class JITFunction:
         from phi.math.backend import choose_backend
         return choose_backend(self).call(self.traced, *args, name=f"run jit-compiled '{self.f.__name__}'")
 
-    def record_autograd_function_call(self, function: torch.autograd.Function, args, output):
-        self.autograd_function_calls.append((function, args, output))
+    def record_autograd_function_call(self, function: torch.autograd.Function, args, output, ext_cache):
+        self.autograd_function_calls.append((function, args, output, ext_cache))
 
-    def get_compiled_function(self, function: torch.autograd.Function, args) -> torch.autograd.Function:
+    def get_compiled_function(self, function: torch.autograd.Function, args) -> Tuple[torch.autograd.Function, Any]:
         assert torch._C._get_tracing_state() is not None
         assert self.autograd_function_call_counts < len(self.autograd_function_calls), f"More custom-gradient functions were called during tracing!\nLast encountered: {function}"
+        assert len(self.autograd_function_calls) == len(self.compiled_functions)
         original_function, compiled_function = self.compiled_functions[self.autograd_function_call_counts]
         assert isinstance(compiled_function, torch.autograd.Function)
+        function, args, output, ext_cache = self.autograd_function_calls[self.autograd_function_call_counts]
         self.autograd_function_call_counts += 1
-        return compiled_function
+        return compiled_function, ext_cache
 
     def __repr__(self):
         return f"TorchScript[{self.f.__name__}]"

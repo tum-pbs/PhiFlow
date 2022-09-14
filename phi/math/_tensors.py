@@ -9,10 +9,11 @@ from dataclasses import dataclass
 import numpy
 import numpy as np
 
+from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
-                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape)
+                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, batch)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend, ComputeDevice
 from .backend._dtype import DType
@@ -502,6 +503,9 @@ class Tensor:
             c = concat_tensor(value._tensors, concat_dim)
             return pack_dims(c, [d for d in dims if d != value.stack_dim.name], packed_dim, pos=pos)
 
+    def __cast__(self, dtype: DType):
+        return self._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
+
     def dimension(self, name: str or Shape) -> 'TensorDim':
         """
         Returns a reference to a specific dimension of this tensor.
@@ -706,6 +710,7 @@ class Tensor:
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
+                       dtype: type or None,
                        native_function: Callable,
                        collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
                        unaffected_function: Callable = lambda value: value):
@@ -900,6 +905,10 @@ class Layout(Tensor):
     def _is_tracer(self) -> bool:
         return False
 
+    def __bool__(self):
+        assert self.rank == 0, f"Cannot convert tensor with non-empty shape {self.shape} to bool. Use tensor.any or tensor.all instead."
+        return bool(self._obj)
+
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Shapable':
         obj = [v.native(self._shape) for v in values]
         new_shape = concat_shapes(dim, self._shape)
@@ -931,38 +940,112 @@ class Layout(Tensor):
     def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Shapable':
         return NotImplemented
 
+    def __cast__(self, dtype: DType):
+        obj = self._recursive_cast(self._obj, self._shape, dtype)
+        return Layout(obj, self._shape)
+
     def __eq__(self, other):
-        if isinstance(other, Layout):
-            assert self._shape == other._shape, "Cannot compare Layouts with different dimensions (not implemented yet)."
-            obj = Layout._compare_recursive(self._obj, other._obj, self._shape)
-            return wrap(obj, self._shape)
-        elif isinstance(other, Tensor):
-            raise NotImplementedError
-        else:  # compare all independently to constant
-            obj = Layout._compare_recursive_constant(self._obj, other, self._shape)
-            return wrap(obj, self._shape)
+        if _EQUALITY_BY_REF:
+            return wrap(self is other)
+        return self._op2(other, lambda x, y: x == y, lambda x, y: x == y, 'eq', '==')
 
     def __ne__(self, other):
-        return ~(self == other)
+        if _EQUALITY_BY_REF:
+            return wrap(self is not other)
+        return self._op2(other, lambda x, y: x != y, lambda x, y: x != y, 'ne', '!=')
+    
+    def _assert_close(self, other: Tensor, rel_tolerance: float, abs_tolerance: float, msg: str, verbose: bool):
+        from ._ops import assert_close
+        inner_test = lambda x, y: assert_close(x, y, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
+        return self._op2(other, inner_test, inner_test, 'assert_close', '≈')
 
-    def _op2(self, other: 'Tensor', operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
-        raise NotImplementedError("Mathematical operations not supported between Layouts. Use Tensors instead.")
+    def _op2(self, other, operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> Tensor:
+        obj = self._recursive_op2(self._obj, self._shape, other, operator, native_function, op_name)
+        new_shape = concat_shapes(self._shape, other.shape.without(self._shape)) if isinstance(other, Tensor) else self._shape
+        return Layout(obj, new_shape)
 
     @staticmethod
-    def _compare_recursive(obj1, obj2, shape: Shape):
-        if not shape:
-            return obj1 == obj2
-        assert type(obj1) == type(obj2), f"Cannot check element-wise equality between {obj1} and {obj2} because they have different types"
-        assert len(obj1) == len(obj2), f"Cannot check element-wise equality between {obj1} and {obj2} because they have different lengths"
-        equal_elements = [Layout._compare_recursive(o1, o2, shape[1:]) for o1, o2 in zip(obj1, obj2)]
-        return type(obj1)(equal_elements)  # list or tuple
+    def _recursive_op2(obj, shape: Shape, other, operator, native_function, op_name):
+        if shape:
+            dim = shape.names[0]
+            if isinstance(other, Tensor) and dim in other.shape:
+                assert other.shape.get_size(dim) == len(obj), f"Shape mismatch during {op_name}: '{dim}' has size {len(obj)} on layout but {other.shape.get_size(dim)} on other tensor."
+                others = [other[{dim: i}] for i in range(len(obj))]
+            else:
+                others = [other] * len(obj)
+            if isinstance(obj, (tuple, list)):
+                return type(obj)([Layout._recursive_op2(i, shape[1:], o, operator, native_function, op_name) for i, o in zip(obj, others)])
+            elif isinstance(obj, dict):
+                return {k: Layout._recursive_op2(v, shape[1:], o, operator, native_function, op_name) for (k, v), o in zip(obj.items(), others)}
+        else:  # leaf
+            if isinstance(other, Layout) and not other.shape:
+                return native_function(obj, other.native())
+            if isinstance(other, Tensor):
+                return operator(obj, other)
+            else:
+                return native_function(obj, other)
+
+    def _op1(self, native_function):
+        return Layout(self._recursive_op1(self._obj, self._shape, native_function), self._shape)
 
     @staticmethod
-    def _compare_recursive_constant(obj1, const, shape: Shape):
-        if not shape:
-            return obj1 == const
-        equal_elements = [Layout._compare_recursive(o1, const, shape[1:]) for o1 in obj1]
-        return type(obj1)(equal_elements)  # list or tuple
+    def _recursive_op1(obj, shape: Shape, native_function):
+        if shape:
+            if isinstance(obj, (tuple, list)):
+                return type(obj)([Layout._recursive_op1(i, shape[1:]) for i in obj])
+
+    def _tensor_reduce(self,
+                       dims: Tuple[str],
+                       dtype: type or None,
+                       native_function: Callable,
+                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
+                       unaffected_function: Callable = lambda value: value):
+        if all(dim not in self._shape for dim in dims):
+            return unaffected_function(self)
+        if self._shape[0].name in dims and len(dims) == 1:
+            if dtype is not None:
+                values = [dtype(i) for i in self._as_list()]
+                result = native_function(choose_backend(*values), self._obj, 0)
+            else:
+                result = native_function(choose_backend(self._as_list()), self._obj, 0)
+            return wrap(result)
+        if not self._shape.without(dims):
+            return self.__flatten__(batch('_flat'))._tensor_reduce(('_flat',), dtype, native_function, collapsed_function, unaffected_function)
+        else:
+            raise NotImplementedError(f"Partial Layout reduction not yet supported. Shape={self._shape}, reduce={dims}")
+        # # --- inner reduce ---
+        # inner_axes = [dim for dim in dims if dim != self.stack_dim.name]
+        # red_inners = [t._tensor_reduce(inner_axes, dtype, native_function, collapsed_function, unaffected_function) for t in
+        #               self._tensors]
+        # # --- outer reduce ---
+        # if self.stack_dim.name in dims:
+        #     if any([t._is_tracer for t in red_inners]):
+        #         return sum(red_inners[1:], red_inners[0])  # TODO this may not always be the sum
+        #     else:
+        #         inner_order = red_inners[0].shape.names
+        #         natives = [t.native(inner_order) for t in red_inners]
+        #         backend = choose_backend(*natives)
+        #         result = native_function(backend, backend.stack(natives),
+        #                                  dim=0)  # TODO not necessary if tensors are CollapsedTensors
+        #         return NativeTensor(result, red_inners[0].shape)
+        # else:
+        #     return TensorStack(red_inners, self.stack_dim)
+
+    @staticmethod
+    def _recursive_cast(obj, shape: Shape, dtype: DType):
+        if shape:
+            if isinstance(obj, (tuple, list)):
+                return type(obj)([Layout._recursive_cast(i, shape[1:], dtype) for i in obj])
+            elif isinstance(obj, dict):
+                return {k: Layout._recursive_cast(v, shape[1:], dtype) for k, v in obj.items()}
+            elif isinstance(obj, Tensor):
+                assert obj.shape == shape
+                from ._ops import cast
+                return cast(obj, dtype)
+            else:
+                raise ValueError(obj)
+        else:
+            return dtype.kind(obj)
 
 
 class NativeTensor(Tensor):
@@ -1080,6 +1163,7 @@ class NativeTensor(Tensor):
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
+                       dtype: type or None,
                        native_function: Callable,
                        collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
                        unaffected_function: Callable = lambda value: value):
@@ -1256,15 +1340,16 @@ class CollapsedTensor(Tensor):  # package-private
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
+                       dtype: type or None,
                        native_function: Callable,
                        collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
                        unaffected_function: Callable = lambda value: value):
         if self.is_cached:
-            return self._cached._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
+            return self._cached._tensor_reduce(dims, dtype, native_function, collapsed_function, unaffected_function)
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         inner_dims = [dim for dim in dims if dim in self._inner.shape]
-        inner_reduce = self._inner._tensor_reduce(tuple(inner_dims), native_function, collapsed_function, unaffected_function)
+        inner_reduce = self._inner._tensor_reduce(tuple(inner_dims), dtype, native_function, collapsed_function, unaffected_function)
         collapsed_dims = self._shape.without(self._inner.shape)
         final_shape = self._shape.without(dims)
         total_reduce = collapsed_function(inner_reduce, collapsed_dims.only(dims))
@@ -1352,9 +1437,12 @@ class TensorStack(Tensor):
             return self._cached._with_shape_replaced(new_shape)
         else:
             new_stack_dim = new_shape[self._shape.index(self.stack_dim.name)]
-            inner_shape = new_shape.without(new_stack_dim)
-            tensors = [t._with_shape_replaced(inner_shape) for t in self._tensors]
-            return TensorStack(tensors, new_stack_dim)
+            new_tensors = []
+            for t in self._tensors:
+                inner_indices = [self.shape.index(d) for d in t.shape.names]
+                new_inner_shape = new_shape[inner_indices]
+                new_tensors.append(t._with_shape_replaced(new_inner_shape))
+            return TensorStack(new_tensors, new_stack_dim)
 
     def _getitem(self, selection: dict):
         if self._cached is not None:
@@ -1450,16 +1538,17 @@ class TensorStack(Tensor):
 
     def _tensor_reduce(self,
                        dims: Tuple[str],
+                       dtype: type or None,
                        native_function: Callable,
                        collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
                        unaffected_function: Callable = lambda value: value):
         if all(dim not in self._shape for dim in dims):
             return unaffected_function(self)
         if self._cached is not None:
-            return self._cached._tensor_reduce(dims, native_function, collapsed_function, unaffected_function)
+            return self._cached._tensor_reduce(dims, dtype, native_function, collapsed_function, unaffected_function)
         # --- inner reduce ---
         inner_axes = [dim for dim in dims if dim != self.stack_dim.name]
-        red_inners = [t._tensor_reduce(inner_axes, native_function, collapsed_function, unaffected_function) for t in self._tensors]
+        red_inners = [t._tensor_reduce(inner_axes, dtype, native_function, collapsed_function, unaffected_function) for t in self._tensors]
         # --- outer reduce ---
         if self.stack_dim.name in dims:
             if any([t._is_tracer for t in red_inners]):
@@ -1637,7 +1726,12 @@ def layout(objects, *shape: Shape) -> Tensor:
             if shape.rank == 1:
                 return shape.with_sizes((len(native),))
             inner_shape = shape[1:]
-            inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native]
+            if isinstance(native, (tuple, list)):
+                inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native]
+            elif isinstance(native, dict):
+                inner_shapes = [recursive_determine_shape(n, inner_shape) for n in native.values()]
+            else:
+                raise ValueError(native)
             return shape_stack(shape[0], *inner_shapes)
 
         shape = recursive_determine_shape(objects, shape)
@@ -1665,12 +1759,12 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
         data_type = type(data)
         backend = choose_backend(*compat_natives, data)
         try:
-            other_tensor = backend.as_tensor(data, convert_external=convert)
-            shape = backend.staticshape(other_tensor)
+            data = backend.as_tensor(data, convert_external=convert)
+            shape = backend.staticshape(data)
         except ValueError as e:
             raise ValueError(e)
         if len(shape) == 0:
-            return NativeTensor(other_tensor, EMPTY_SHAPE)
+            return NativeTensor(data, EMPTY_SHAPE)
         elif isinstance(data, (tuple, list)):  # always channel, add vector if not available
             data = backend.as_tensor(data)
         if len(shape) == compat_shape.channel_rank:
@@ -1680,7 +1774,7 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
             return wrap(data, compat_shape['vector'].without_sizes())
         elif len(shape) == compat_shape.rank:
             warnings.warn(f"Combining a phi.math.Tensor with a {data_type} of same shape is not invariant under shape permutations. Please convert the {data_type} to a phi.math.Tensor first. Shapes: {shape} and {compat_shape}", SyntaxWarning, stacklevel=5)
-            return NativeTensor(other_tensor, compat_shape.with_sizes(shape))
+            return NativeTensor(data, compat_shape.with_sizes(shape))
         else:
             raise ValueError(f"Cannot combine native tensor of shape {shape} with tensor of shape {compat_shape}")
 
@@ -1748,7 +1842,7 @@ def disassemble_tensors(obj: Tensor or Tuple[Tensor, ...] or List[Tensor], expan
     """
     assert isinstance(obj, (Tensor, tuple, list)), f"jit-compiled function returned {type(obj)} but must return either a 'phi.math.Tensor' or tuple/list of tensors."
     if isinstance(obj, Tensor):
-        if expand:
+        if expand or isinstance(obj, TensorStack):
             obj._expand()
         if isinstance(obj, CollapsedTensor) and obj._inner is not None:
             native_dims = obj._inner.shape
@@ -1792,42 +1886,7 @@ def _assemble_pop(natives: list, shape: Shape, native_dims: Shape or None):
 
 
 
-def copy_with(obj, **tensor_attributes):
-    if hasattr(obj, '__with_tattrs__'):
-        return obj.__with_tattrs__(**tensor_attributes)
-    else:
-        cpy = copy.copy(obj)
-        for attr, value in tensor_attributes.items():
-            setattr(cpy, attr, value)
-        return cpy
 
-
-def variable_attributes(obj) -> Tuple[str]:
-    if hasattr(obj, '__variable_attrs__'):
-        return obj.__variable_attrs__()
-    elif hasattr(obj, '__value_attrs__'):
-        return obj.__value_attrs__()
-    else:
-        raise ValueError(f"Not PhiTreeNode: {type(obj)}")
-
-
-def value_attributes(obj):
-    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
-    return obj.__value_attrs__()
-
-
-def variable_values(obj):
-    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
-    if hasattr(obj, '__variable_attrs__'):
-        values = obj.__value_attrs__()
-        variables = obj.__variable_attrs__()
-        return [a for a in values if a in variables]
-    else:
-        return obj.__value_attrs__()
-
-
-
-PhiTreeNodeType = TypeVar('PhiTreeNodeType')  # Defined in phi.math.magic: tuple, list, dict, custom
 
 
 MISSING_TENSOR = 'missing'
@@ -1942,6 +2001,8 @@ def cached(t: Tensor or 'PhiTreeNode') -> Tensor or 'PhiTreeNode':
             natives = [t.native(order=t.shape.names) for t in inners]
             native = choose_backend(*natives).stack(natives, axis=t.shape.index(t.stack_dim.name))
             return NativeTensor(native, t.shape)
+    elif isinstance(t, Layout):
+        return t
     elif isinstance(t, PhiTreeNode):
         tree, tensors = disassemble_tree(t)
         tensors_ = [cached(t_) for t_ in tensors]
@@ -1953,6 +2014,9 @@ def cached(t: Tensor or 'PhiTreeNode') -> Tensor or 'PhiTreeNode':
 class Dict(dict):
     """
     Dictionary of `Tensor` or `PhiTreeNode` values.
+    Dicts are not themselves tensors and do not have a shape.
+    Use `layout()` to treat `dict` instances like tensors.
+
     In addition to dictionary functions, supports mathematical operators with other `Dict`s and lookup via `.key` syntax.
     `Dict` implements `PhiTreeNode` so instances can be passed to math operations like `sin`.
     """

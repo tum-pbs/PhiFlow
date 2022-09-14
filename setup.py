@@ -46,6 +46,11 @@ def compile_cuda(file_names, nvcc, source_dir, target_dir, logfile):
 
 def compile_gcc(file_names, gcc, source_dir, target_dir, cuda_lib, logfile):
     import tensorflow
+    from packaging import version
+    if version.parse(tensorflow.__version__) >= version.parse('2.5.0'):
+        cpp_version, gcc_version = '14', '7.5'
+    else:
+        cpp_version, gcc_version = '11', '4.8'
     tf_cflags = tensorflow.sysconfig.get_compile_flags()
     tf_lflags = tensorflow.sysconfig.get_link_flags()
     link_cuda_lib = '-L' + cuda_lib
@@ -54,7 +59,7 @@ def compile_gcc(file_names, gcc, source_dir, target_dir, cuda_lib, logfile):
                 join(source_dir, f'{file_names}.cc'),
                 join(target_dir, f'{file_names}.cu.o'),
                 '-o', join(target_dir, f'{file_names}.so'),
-                '-std=c++11',
+                f'-std=c++{cpp_version}',
                 '-shared',
                 '-fPIC',
                 '-lcudart',
