@@ -311,8 +311,13 @@ class ConvNet(nn.Module):
 
     def __init__(self, in_spatial, in_channels, out_channels, layers, batch_norm, activation):
         super(ConvNet, self).__init__()
-        self.layers = layers
+
         activation = ACTIVATIONS[activation]
+
+        if len(layers) < 1:
+            layers.append(out_channels)
+
+        self.layers = layers
 
         self.add_module(f'Conv_in', nn.Sequential(
             CONV[in_spatial](in_channels, layers[0], kernel_size=3, padding=1, padding_mode='circular'),
@@ -323,19 +328,21 @@ class ConvNet(nn.Module):
                 CONV[in_spatial](layers[i - 1], layers[i], kernel_size=3, padding=1, padding_mode='circular'),
                 NORM[in_spatial](layers[i]) if batch_norm else nn.Identity(),
                 activation()))
-        self.add_module(f'Conv_out', CONV[in_spatial](layers[len(layers) - 1], out_channels, kernel_size=3, padding=1, padding_mode='circular'))
+        self.add_module(f'Conv_out', CONV[in_spatial](layers[len(layers) - 1], out_channels, kernel_size=1))
 
     def forward(self, x):
+
         x = getattr(self, f'Conv_in')(x)
         for i in range(1, len(self.layers)):
             x = getattr(self, f'Conv{i}')(x)
         x = getattr(self, f'Conv_out')(x)
+
         return x
 
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Tuple[int, ...] or List[int],
+             layers: Tuple[int, ...] or List[int] = [],
              batch_norm: bool = False,
              activation: str or type = 'ReLU',
              in_spatial: int or tuple = 2) -> nn.Module:
@@ -386,10 +393,11 @@ class Dense_ResNet_Block(nn.Module):
     def __init__(self, in_channels, mid_channels, batch_norm, activation):
         super(Dense_ResNet_Block, self).__init__()
 
-        self.bn1 = NORM[1](mid_channels) if batch_norm else nn.Identity()
+        self.activation = activation
+        self.bn1 = NORM[1](in_channels) if batch_norm else nn.Identity()
         self.linear1 = nn.Linear(in_channels, mid_channels)
 
-        self.bn2 = NORM[1](in_channels) if batch_norm else nn.Identity()
+        self.bn2 = NORM[1](mid_channels) if batch_norm else nn.Identity()
         self.linear2 = nn.Linear(mid_channels, in_channels)
 
     def forward(self, x):
@@ -436,132 +444,35 @@ def get_mask(inputs, reverse_mask, data_format = 'NHWC'):
 
     return checker.to(TORCH.get_default_device().ref)
 
-class CouplingLayer(nn.Module):
-
-    def __init__(self, in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask):
-        super(CouplingLayer, self).__init__()
-
-        self.activation = activation
-        self.batch_norm = batch_norm
-        self.reverse_mask = reverse_mask
-
-
-        if in_spatial == 0: #for in_spatial = 0, use dense layers
-            self.s1 = nn.Sequential(Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation),
-                                    torch.nn.Tanh())
-            self.t1 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
-
-            self.s2 = nn.Sequential(Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation),
-                                    torch.nn.Tanh())
-            self.t2 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
-        else:
-            self.s1 = nn.Sequential(ResNet_Block(in_spatial, in_channels, in_channels, batch_norm, activation),
-                                    torch.nn.Tanh())
-            self.t1 = ResNet_Block(in_spatial, in_channels, in_channels, batch_norm, activation)
-
-            self.s2 = nn.Sequential(ResNet_Block(in_spatial, in_channels, in_channels, batch_norm, activation),
-                                    torch.nn.Tanh())
-            self.t2 = ResNet_Block(in_spatial, in_channels, in_channels, batch_norm, activation)
-
-
-    def forward(self, x, invert=False):
-        x = TORCH.as_tensor(x)
-        mask = get_mask(x, self.reverse_mask, 'NCHW')
-
-        if invert:
-            v1 = x * mask
-            v2 = x * (1-mask)
-
-            u2 = (1-mask) * (v2 - self.t1(v1)) * torch.exp(-self.s1(v1))
-            u1 = mask * (v1 - self.t2(u2)) * torch.exp(-self.s2(u2))
-
-            return u1 + u2
-        else:
-            u1 = x * mask
-            u2 = x * (1-mask)
-
-            v1 = mask * (u1 * torch.exp( self.s2(u2)) + self.t2(u2))
-            v2 = (1-mask) * (u2 * torch.exp( self.s1(v1)) + self.t1(v1))
-
-            return v1 + v2
-
-class Inn(nn.Module):
-    def __init__(self, in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask):
-        super(Inn, self).__init__()
-        self.num_blocks = num_blocks
-
-        for i in range(num_blocks):
-            self.add_module(f'coupling_block{i+1}', CouplingLayer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask))
-
-    def forward(self, x, backward=False):
-        if backward:
-            for i in range(self.num_blocks, 0, -1):
-                x = getattr(self, f'coupling_block{i}')(x, backward)
-        else:
-            for i in range(1, self.num_blocks+1):
-                x = getattr(self, f'coupling_block{i}')(x, backward)
-        return x
-
-
-def inn(in_channels: int,
-        mid_channels: int,
-        num_blocks: int,
-        batch_norm: bool = False,
-        reverse_mask: bool = False,
-        activation: str or type='ReLU',
-        in_spatial: tuple or int=2,
-        backward: bool = False):
-    if isinstance(in_spatial, tuple):
-        in_spatial = len(in_spatial)
-
-    return Inn(in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask).to(TORCH.get_default_device().ref)
-
-
-def coupling_layer(in_channels: int,
-                   mid_channels: int,
-                   activation: str or type='ReLU',
-                   batch_norm=False,
-                   reverse_mask=False,
-                   in_spatial: tuple or int=2):
-    if isinstance(in_spatial, tuple):
-        in_spatial = len(in_spatial)
-
-    net = CouplingLayer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask)
-    net = net.to(TORCH.get_default_device().ref)
-    return net
-
 class ResNet(nn.Module):
 
     def __init__(self, in_spatial, in_channels, out_channels, layers, batch_norm, activation):
         super(ResNet, self).__init__()
         self.layers = layers
 
-        if len(self.layers) >0:
-            self.add_module('Res_in', ResNet_Block(in_spatial, in_channels, layers[0], batch_norm, activation))
+        if len(self.layers) < 1:
+            layers.append(out_channels)
+        self.add_module('Res_in', ResNet_Block(in_spatial, in_channels, layers[0], batch_norm, activation))
 
-            for i in range(1, len(layers)):
-                self.add_module(f'Res{i}', ResNet_Block(in_spatial, layers[i-1], layers[i], batch_norm, activation))
+        for i in range(1, len(layers)):
+            self.add_module(f'Res{i}', ResNet_Block(in_spatial, layers[i-1], layers[i], batch_norm, activation))
 
-            self.add_module('Res_out', ResNet_Block(in_spatial, layers[len(layers)-1], out_channels, batch_norm, activation))
-        else:
-            self.add_module('Res', ResNet_Block(in_spatial, in_channels, out_channels, batch_norm, activation))
+        self.add_module('Res_out', CONV[in_spatial](layers[len(layers)-1], out_channels, kernel_size=1))
 
     def forward(self, x):
         x = TORCH.as_tensor(x)
-        if len(self.layers) > 0:
-            x = getattr(self, 'Res_in')(x)
-            for i in range(1, len(self.layers)):
-                x = getattr(self, f'Res{i}')(x)
-            x = getattr(self, 'Res_out')(x)
-        else:
-            print('Single Res block')
-            x = getattr(self, 'Res')(x)
+
+        x = getattr(self, 'Res_in')(x)
+        for i in range(1, len(self.layers)):
+            x = getattr(self, f'Res{i}')(x)
+        x = getattr(self, 'Res_out')(x)
+
         return x
 
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Tuple[int, ...] or List[int],
+            layers: Tuple[int, ...] or List[int] = [],
             batch_norm: bool = False,
             activation: str or type = 'ReLU',
             in_spatial: int or tuple = 2) -> nn.Module:
@@ -634,3 +545,102 @@ class ConvClassifier(nn.Module):
         x = self.flatten(x)
         x = self.softmax(self.linear(x))
         return x
+
+NET = {'u_net': u_net, 'res_net': res_net, 'conv_net': conv_net}
+
+class CouplingLayer(nn.Module):
+
+    def __init__(self, in_channels, activation, batch_norm, in_spatial, net, reverse_mask):
+        super(CouplingLayer, self).__init__()
+
+        self.activation = activation
+        self.batch_norm = batch_norm
+        self.reverse_mask = reverse_mask
+
+        if in_spatial == 0: #for in_spatial = 0, use dense layers
+            self.s1 = nn.Sequential(Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation),
+                                    torch.nn.Tanh())
+            self.t1 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
+
+            self.s2 = nn.Sequential(Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation),
+                                    torch.nn.Tanh())
+            self.t2 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
+        else:
+            self.s1 = nn.Sequential(NET[net](in_channels=in_channels, out_channels=in_channels,
+                                             batch_norm=batch_norm, activation=activation,
+                                             in_spatial=in_spatial), torch.nn.Tanh())
+            self.t1 = NET[net](in_channels=in_channels, out_channels=in_channels,
+                               batch_norm=batch_norm, activation=activation,
+                               in_spatial=in_spatial)
+            self.s2 = nn.Sequential(NET[net](in_channels=in_channels, out_channels=in_channels,
+                                             batch_norm=batch_norm, activation=activation,
+                                             in_spatial=in_spatial), torch.nn.Tanh())
+            self.t2 = NET[net](in_channels=in_channels, out_channels=in_channels,
+                               batch_norm=batch_norm, activation=activation,
+                               in_spatial=in_spatial)
+
+
+    def forward(self, x, invert=False):
+        x = TORCH.as_tensor(x)
+        mask = get_mask(x, self.reverse_mask, 'NCHW')
+
+        if invert:
+            v1 = x * mask
+            v2 = x * (1-mask)
+
+            u2 = (1-mask) * (v2 - self.t1(v1)) * torch.exp(-self.s1(v1))
+            u1 = mask * (v1 - self.t2(u2)) * torch.exp(-self.s2(u2))
+
+            return u1 + u2
+        else:
+            u1 = x * mask
+            u2 = x * (1-mask)
+
+            v1 = mask * (u1 * torch.exp( self.s2(u2)) + self.t2(u2))
+            v2 = (1-mask) * (u2 * torch.exp( self.s1(v1)) + self.t1(v1))
+
+            return v1 + v2
+
+class InvertibleNet(nn.Module):
+    def __init__(self, in_channels, num_blocks, activation, batch_norm, in_spatial, net):
+        super(InvertibleNet, self).__init__()
+        self.num_blocks = num_blocks
+
+        for i in range(num_blocks):
+            self.add_module(f'coupling_block{i+1}',
+                            CouplingLayer(in_channels, activation,
+                                          batch_norm, in_spatial, net, (i%2==0)))
+
+    def forward(self, x, backward=False):
+        if backward:
+            for i in range(self.num_blocks, 0, -1):
+                x = getattr(self, f'coupling_block{i}')(x, backward)
+        else:
+            for i in range(1, self.num_blocks+1):
+                x = getattr(self, f'coupling_block{i}')(x, backward)
+        return x
+
+
+def invertible_net(in_channels: int,
+        num_blocks: int,
+        batch_norm: bool = False,
+        net: str = 'u_net',
+        activation: str or type='ReLU',
+        in_spatial: tuple or int=2):
+    if isinstance(in_spatial, tuple):
+        in_spatial = len(in_spatial)
+
+    return InvertibleNet(in_channels, num_blocks, activation, batch_norm, in_spatial, net).to(TORCH.get_default_device().ref)
+
+
+def coupling_layer(in_channels: int,
+                   activation: str or type='ReLU',
+                   batch_norm=False,
+                   reverse_mask=False,
+                   in_spatial: tuple or int=2):
+    if isinstance(in_spatial, tuple):
+        in_spatial = len(in_spatial)
+
+    net = CouplingLayer(in_channels,  activation, batch_norm, in_spatial, reverse_mask)
+    net = net.to(TORCH.get_default_device().ref)
+    return net

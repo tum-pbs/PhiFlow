@@ -214,7 +214,7 @@ def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: boo
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: tuple,
+             layers: tuple = [],
              batch_norm: bool = False,
              activation: str or Callable = 'ReLU',
              in_spatial:int or tuple=2) -> keras.Model:
@@ -226,14 +226,16 @@ def conv_net(in_channels: int,
         in_spatial = len(d)
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     x = inputs = keras.Input(shape=d + (in_channels,))
+    if len(layers) < 1:
+        layers.append(out_channels)
     for i in range(len(layers)):
         x = pad_periodic(x)
         x = CONV[in_spatial](layers[i], 3, padding='valid')(x)
         if batch_norm:
             x = kl.BatchNormalization()(x)
         x = activation(x)
-    x = pad_periodic(x)
-    x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
+    #x = pad_periodic(x)
+    x = CONV[in_spatial](out_channels, 1)(x)
     return keras.Model(inputs, x)
 
 def ResNet_Block(in_channels: int,
@@ -278,7 +280,7 @@ def ResNet_Block(in_channels: int,
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: tuple,
+            layers: tuple = [],
             batch_norm: bool = False,
             activation: str or Callable = 'ReLU',
             in_spatial: int or tuple=2):
@@ -292,15 +294,15 @@ def res_net(in_channels: int,
 
     x = inputs = keras.Input(shape=d + (in_channels,))
 
-    if len(layers) > 0:
-        out = ResNet_Block(in_channels, layers[0], batch_norm, activation, in_spatial)(x)
+    if len(layers) < 1:
+        layers.append(out_channels)
+    out = ResNet_Block(in_channels, layers[0], batch_norm, activation, in_spatial)(x)
 
-        for i in range(1, len(layers)):
-            out = ResNet_Block(layers[i-1], layers[i], batch_norm, activation, in_spatial)(out)
+    for i in range(1, len(layers)):
+        out = ResNet_Block(layers[i-1], layers[i], batch_norm, activation, in_spatial)(out)
 
-        out = ResNet_Block(layers[len(layers)-1], out_channels, batch_norm, activation, in_spatial)(out)
-    else:
-        out = ResNet_Block(in_channels, out_channels, batch_norm, activation, in_spatial)(x)
+    out = CONV[in_spatial](out_channels, 1)(out)
+
     return keras.Model(inputs, out)
 
 
@@ -420,9 +422,10 @@ def Dense_ResNet_Block(in_channels: int,
 
     return keras.Model(inputs, x)
 
+NET = {'u_net': u_net, 'res_net': res_net, 'conv_net': conv_net}
 class CouplingLayer(keras.Model):
 
-    def __init__(self, in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask):
+    def __init__(self, in_channels, activation, batch_norm, in_spatial, net, reverse_mask):
         super(CouplingLayer, self).__init__()
 
         self.activation = activation
@@ -431,17 +434,25 @@ class CouplingLayer(keras.Model):
 
 
         if in_spatial == 0: #for in_spatial = 0, use dense layers
-            self.s1 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
-            self.t1 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
+            self.s1 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
+            self.t1 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
 
-            self.s2 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
-            self.t2 = Dense_ResNet_Block(in_channels, mid_channels, batch_norm, activation)
+            self.s2 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
+            self.t2 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
         else:
-            self.s1 = ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial)
-            self.t1 = ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial)
+            self.s1 = NET[net](in_channels=in_channels, out_channels=in_channels,
+                               batch_norm=batch_norm, activation=activation,
+                               in_spatial=in_spatial)
+            self.t1 = NET[net](in_channels=in_channels, out_channels=in_channels,
+                               batch_norm=batch_norm, activation=activation,
+                               in_spatial=in_spatial)
 
-            self.s2 = ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial)
-            self.t2 = ResNet_Block(in_channels, in_channels, batch_norm, activation, in_spatial)
+            self.s2 = NET[net](in_channels=in_channels, out_channels=in_channels,
+                               batch_norm=batch_norm, activation=activation,
+                               in_spatial=in_spatial)
+            self.t2 = NET[net](in_channels=in_channels, out_channels=in_channels,
+                               batch_norm=batch_norm, activation=activation,
+                               in_spatial=in_spatial)
 
     def call(self, x, invert=False):
         mask = get_mask(x, self.reverse_mask, 'NCHW')
@@ -463,30 +474,17 @@ class CouplingLayer(keras.Model):
 
             return v1 + v2
 
-def coupling_layer(in_channels: int,
-                   mid_channels: int,
-                   activation: str or type='ReLU',
-                   batch_norm=False,
-                   reverse_mask=False,
-                   in_spatial: tuple or int=2):
-
-    if isinstance(in_spatial, tuple):
-        in_spatial = len(in_spatial)
-
-    net = CouplingLayer(in_channels, mid_channels, activation, batch_norm, in_spatial, reverse_mask)
-    return net
-
-class Inn(keras.Model):
-    def __init__(self, in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask):
-        super(Inn, self).__init__()
+class InvertibleNet(keras.Model):
+    def __init__(self, in_channels, num_blocks, activation, batch_norm, in_spatial, net):
+        super(InvertibleNet, self).__init__()
         self.num_blocks = num_blocks
 
         self.layer_dict = {}
         for i in range(num_blocks):
             self.layer_dict[f'coupling_block{i+1}'] = \
-                coupling_layer(in_channels, mid_channels,
+                CouplingLayer(in_channels,
                                activation, batch_norm,
-                               reverse_mask, in_spatial)
+                               in_spatial, net, (i%2==0))
 
     def call(self, x, backward=False):
         if backward:
@@ -497,16 +495,15 @@ class Inn(keras.Model):
                 x = self.layer_dict[f'coupling_block{i}'](x)
         return x
 
-def inn(in_channels: int,
-        mid_channels: int,
+def invertible_net(in_channels: int,
         num_blocks: int,
         batch_norm: bool = False,
-        reverse_mask: bool = False,
+        net: str = 'u_net',
         activation: str or type='ReLU',
         in_spatial: tuple or int=2):
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
-    net = Inn(in_channels, mid_channels, num_blocks, activation, batch_norm, in_spatial, reverse_mask)
-    return net
+    return InvertibleNet(in_channels, num_blocks, activation,
+                         batch_norm, in_spatial, net)
 
