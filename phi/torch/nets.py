@@ -1,3 +1,9 @@
+"""
+PyTorch implementation of the unified machine learning API.
+Equivalent functions also exist for the other frameworks.
+
+For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
+"""
 from typing import Callable, Dict, List, Tuple
 
 import numpy

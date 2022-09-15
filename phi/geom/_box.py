@@ -5,10 +5,8 @@ import numpy as np
 
 from phi import math
 from ._geom import Geometry, _keep_vector
-from ..math import wrap, INF, Shape, channel, spatial
+from ..math import wrap, INF, Shape, channel, spatial, copy_with, Tensor
 from ..math._shape import parse_dim_order
-from ..math._tensors import Tensor, copy_with
-from ..math.backend._backend import combined_dim, PHI_LOGGER
 from ..math.magic import slicing_dict
 
 

@@ -313,7 +313,7 @@ def pad(grid: GridType, widths: int or tuple or list or dict) -> GridType:
         w_lower = math.wrap([w[0] for w in widths_list])
         w_upper = math.wrap([w[1] for w in widths_list])
         bounds = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
-        return type(grid)(values=data, resolution=data.shape.spatial, bounds=bounds, extrapolation=grid.extrapolation)
+        return type(grid)(values=data, bounds=bounds, extrapolation=grid.extrapolation)
     raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
 
 

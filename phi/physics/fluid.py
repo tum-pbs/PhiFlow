@@ -12,7 +12,7 @@ from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType
 from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
-from ..math._tensors import copy_with
+from ..math._magic_ops import copy_with
 from ..math.extrapolation import combine_sides, Extrapolation
 
 

@@ -26,7 +26,7 @@ class Shape:
 
         The `__init__` constructor is for internal use only.
         """
-        if len(sizes) > 0:
+        if len(sizes) > 0 and any(s is not None and not isinstance(s, int) for s in sizes):
             from ._tensors import Tensor
             sizes = tuple([s if isinstance(s, Tensor) or s is None else int(s) for s in sizes])  # TODO replace this by an assert
         self.sizes: tuple = sizes

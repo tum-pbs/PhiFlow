@@ -7,13 +7,13 @@ from typing import Tuple, Callable, Any
 import numpy as np
 
 from . import extrapolation as e_
-from ._magic_ops import expand, pack_dims, flatten, unpack_dim
+from ._magic_ops import expand, pack_dims, flatten, unpack_dim, cast, copy_with, value_attributes
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch)
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
-    custom_op2, compatible_tensor, copy_with, variable_attributes, disassemble_tree, assemble_tree, \
-    value_attributes, cached, is_scalar
+    custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
+    cached, is_scalar, Layout
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
     NoBackendFound
 from .backend._dtype import DType, combine_types
@@ -978,13 +978,15 @@ def nonzero(value: Tensor, list_dim: Shape or str = instance('nonzero'), index_d
 
 def _reduce(value: Tensor or list or tuple,
             dim: DimFilter,
+            dtype: type or None,
             native_function: Callable,
             collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
             unaffected_function: Callable = lambda value: value) -> Tensor:
     """
     Args:
         value:
-        dim:
+        dim: Which dimensions should be reduced
+        dtype: (Optional) Whether the reducing operation converts the data to a different type like bool.
         native_function:
         collapsed_function: handles collapsed dimensions, called as `collapsed_function(inner_reduced, collapsed_dims_to_reduce)`
         unaffected_function: returns `unaffected_function(value)` if `len(dims) > 0` but none of them are part of `value`
@@ -999,7 +1001,7 @@ def _reduce(value: Tensor or list or tuple,
         else:
             value = wrap(value)
         dims = value.shape.only(dim)
-        return value._tensor_reduce(dims.names, native_function, collapsed_function, unaffected_function)
+        return value._tensor_reduce(dims.names, dtype, native_function, collapsed_function, unaffected_function)
 
 
 def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1020,7 +1022,7 @@ def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim,
+    return _reduce(value, dim, float,
                    native_function=lambda backend, native, dim: backend.sum(native, dim),
                    collapsed_function=lambda inner, red_shape: inner * red_shape.volume)
 
@@ -1043,7 +1045,7 @@ def prod(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim,
+    return _reduce(value, dim, None,
                    native_function=lambda backend, native, dim: backend.prod(native, dim),
                    collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)
 
@@ -1066,7 +1068,7 @@ def mean(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.mean(native, dim))
+    return _reduce(value, dim, float, native_function=lambda backend, native, dim: backend.mean(native, dim))
 
 
 def std(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1089,7 +1091,7 @@ def std(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(cached(value), dim,
+    return _reduce(cached(value), dim, float,
                    native_function=lambda backend, native, dim: backend.std(native, dim),
                    collapsed_function=lambda inner, red_shape: inner,
                    unaffected_function=lambda value: value * 0)
@@ -1113,7 +1115,7 @@ def any_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) ->
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.any(native, dim))
+    return _reduce(boolean_tensor, dim, bool, native_function=lambda backend, native, dim: backend.any(native, dim))
 
 
 def all_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1134,7 +1136,7 @@ def all_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) ->
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(boolean_tensor, dim, native_function=lambda backend, native, dim: backend.all(native, dim))
+    return _reduce(boolean_tensor, dim, bool, native_function=lambda backend, native, dim: backend.all(native, dim))
 
 
 def max_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1155,7 +1157,7 @@ def max_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.max(native, dim))
+    return _reduce(value, dim, None, native_function=lambda backend, native, dim: backend.max(native, dim))
 
 
 def min_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1176,7 +1178,7 @@ def min_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim, native_function=lambda backend, native, dim: backend.min(native, dim))
+    return _reduce(value, dim, None, native_function=lambda backend, native, dim: backend.min(native, dim))
 
 
 def finite_min(value, dim: DimFilter = non_batch, default: complex or float = float('NaN')):
@@ -1634,30 +1636,6 @@ def sigmoid(x) -> Tensor or PhiTreeNode:
     return _backend_op1(x, Backend.sigmoid)
 
 
-def cast(x: Tensor, dtype: DType) -> Tensor:
-    """
-    Casts `x` to a different data type.
-
-    Implementations:
-
-    * NumPy: [`x.astype()`](numpy.ndarray.astype)
-    * PyTorch: [`x.to()`](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.to)
-    * TensorFlow: [`tf.cast`](https://www.tensorflow.org/api_docs/python/tf/cast)
-    * Jax: [`jax.numpy.array`](https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.array.html)
-
-    See Also:
-        `to_float`, `to_int32`, `to_int64`, `to_complex`.
-
-    Args:
-        x: `Tensor`
-        dtype: New data type as `phi.math.DType`, e.g. `DType(int, 16)`.
-
-    Returns:
-        `Tensor` with data type `dtype`
-    """
-    return x._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
-
-
 def cast_same(*values: Tensor) -> Tuple[Tensor]:
     """
     Casts all tensors to the same `DType`.
@@ -2066,20 +2044,24 @@ def assert_close(*values,
             np.testing.assert_allclose(np_values[0], other, rel_tolerance, abs_tolerance, err_msg=msg, verbose=verbose)
 
 
-def _assert_close(tensor1, tensor2, rel_tolerance: float, abs_tolerance: float, msg: str, verbose: bool):
+def _assert_close(tensor1: Tensor, tensor2: Tensor, rel_tolerance: float, abs_tolerance: float, msg: str, verbose: bool):
     if tensor2 is tensor1:
         return
-    if isinstance(tensor2, (int, float, bool)):
-        np.testing.assert_allclose(tensor1.numpy(), tensor2, rel_tolerance, abs_tolerance)
+    # if isinstance(tensor2, (int, float, bool)):
+    #     np.testing.assert_allclose(tensor1.numpy(), tensor2, rel_tolerance, abs_tolerance)
+    if isinstance(tensor1, Layout):
+        tensor1._assert_close(tensor2, rel_tolerance, abs_tolerance, msg, verbose)
+    elif isinstance(tensor2, Layout):
+        tensor2._assert_close(tensor1, rel_tolerance, abs_tolerance, msg, verbose)
+    else:
+        def inner_assert_close(tensor1, tensor2):
+            new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)
+            np1 = choose_backend(native1).numpy(native1)
+            np2 = choose_backend(native2).numpy(native2)
+            if not np.allclose(np1, np2, rel_tolerance, abs_tolerance):
+                np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance, err_msg=msg, verbose=verbose)
 
-    def inner_assert_close(tensor1, tensor2):
-        new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)
-        np1 = choose_backend(native1).numpy(native1)
-        np2 = choose_backend(native2).numpy(native2)
-        if not np.allclose(np1, np2, rel_tolerance, abs_tolerance):
-            np.testing.assert_allclose(np1, np2, rel_tolerance, abs_tolerance, err_msg=msg, verbose=verbose)
-
-    broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
+        broadcast_op(inner_assert_close, [tensor1, tensor2], no_return=True)
 
 
 def _native_wrapper(tensor_function: Callable, create_native_function: Callable, persistent_refs=False):
