@@ -5,18 +5,18 @@ Equivalent functions also exist for the other frameworks.
 For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 """
 import functools
-import inspect
 import warnings
-from typing import Callable
+from typing import Callable, Tuple, List
 
-import keras
-import numpy
 import jax
 import jax.numpy as jnp
+import keras
+import numpy
 from jax import random
-
 from packaging import version
-if version.parse(jax.__version__) >= version.parse('0.2.25'):  # Stax and Optimizers were moved to jax.example_libraries on Oct 20, 2021
+
+if version.parse(jax.__version__) >= version.parse(
+        '0.2.25'):  # Stax and Optimizers were moved to jax.example_libraries on Oct 20, 2021
     from jax.example_libraries import stax
     import jax.example_libraries.optimizers as optim
     from jax.example_libraries.optimizers import OptimizerState
@@ -494,12 +494,12 @@ def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, 
     net.initialize()
     return net
 
-def conv_net(in_channels : int,
-            out_channels: int,
-            layers : tuple = [],
-            batch_norm : bool = False,
-            activation:str or Callable = 'ReLU',
-            in_spatial : int or tuple = 2) ->StaxNet:
+def conv_net(in_channels: int,
+             out_channels: int,
+             layers: Tuple[int, ...] or List[int, ...] = [],
+             batch_norm: bool = False,
+             activation: str or Callable = 'ReLU',
+             in_spatial: int or tuple = 2) ->StaxNet:
     if isinstance(in_spatial,tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -559,12 +559,12 @@ def conv_net(in_channels : int,
     net.initialize()
     return net
 
-def res_net(in_channels : int,
-            out_channels : int,
-            layers : tuple = [],
-            batch_norm : bool = False,
-            activation : str or Callable = 'ReLU',
-            in_spatial : int or tuple=2) -> StaxNet:
+def res_net(in_channels: int,
+            out_channels: int,
+            layers: Tuple[int, ...] or List[int, ...] = [],
+            batch_norm: bool = False,
+            activation: str or Callable = 'ReLU',
+            in_spatial: int or tuple = 2) -> StaxNet:
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -721,12 +721,12 @@ def Dense_ResNet_Block(in_channels: int,
 
     return net_init, net_apply
 
-def conv_net_unit(in_channels : int,
-             out_channels: int,
-             layers : tuple = [],
-             batch_norm : bool = False,
-             activation:str or Callable = 'ReLU',
-             in_spatial : int or tuple = 2):
+def conv_net_unit(in_channels: int,
+                  out_channels: int,
+                  layers: Tuple[int, ...] or List[int, ...] = [],
+                  batch_norm: bool = False,
+                  activation: str or Callable = 'ReLU',
+                  in_spatial: int or tuple = 2):
     if isinstance(in_spatial,tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -854,12 +854,12 @@ def u_net_unit(in_channels: int,
 
     return net_init, net_apply
 
-def res_net_unit(in_channels : int,
-            out_channels : int,
-            layers : tuple = [],
-            batch_norm : bool = False,
-            activation : str or Callable = 'ReLU',
-            in_spatial : int or tuple=2):
+def res_net_unit(in_channels: int,
+                 out_channels: int,
+                 layers: Tuple[int, ...] or List[int, ...] = [],
+                 batch_norm: bool = False,
+                 activation: str or Callable = 'ReLU',
+                 in_spatial: int or tuple = 2):
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)

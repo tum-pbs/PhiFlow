@@ -1,21 +1,18 @@
-
 """
 Jax implementation of the unified machine learning API.
 Equivalent functions also exist for the other frameworks.
 
 For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 """
-from typing import Callable, Tuple, List
 import pickle
+from typing import Callable
+from typing import Tuple, List
 
 import numpy
 import tensorflow as tf
+from tensorflow import Tensor
 from tensorflow import keras
 from tensorflow.keras import layers as kl
-from tensorflow import Tensor
-import pickle
-
-from typing import Callable
 
 
 def parameter_count(model: keras.Model):
@@ -247,10 +244,10 @@ def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: boo
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: tuple = [],
+             layers: Tuple[int, ...] or List[int, ...] = [],
              batch_norm: bool = False,
              activation: str or Callable = 'ReLU',
-             in_spatial:int or tuple=2) -> keras.Model:
+             in_spatial: int or tuple = 2) -> keras.Model:
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -313,10 +310,10 @@ def ResNet_Block(in_channels: int,
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: tuple = [],
+            layers: Tuple[int, ...] or List[int, ...] = [],
             batch_norm: bool = False,
             activation: str or Callable = 'ReLU',
-            in_spatial: int or tuple=2):
+            in_spatial: int or tuple = 2):
 
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
