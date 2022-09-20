@@ -1,10 +1,8 @@
 import math
 
-from phi.jax.stax.flow import *
+from phi.torch.flow import *
 
-
-net = u_net(1, 2, in_spatial=2, use_res_blocks=True, activation='SiLU')
-
+net = fno(1, 2, 3, modes=12, activation='GeLU')
 optimizer = adam(net, learning_rate=1e-3)
 
 
@@ -25,6 +23,7 @@ print(gt_smoothness.shape)
 
 viewer = view(gui='dash', scene=True)
 for i in viewer.range():
+    if i == 100: break
     loss = update_weights(net, optimizer, loss_function, gt_scale, gt_smoothness)
     print(f'Iter : {i}, Loss : {loss}')
     viewer.log_scalars(loss=loss)

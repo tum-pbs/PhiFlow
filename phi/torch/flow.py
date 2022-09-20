@@ -14,12 +14,6 @@ See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
 
 from phi.flow import *
 from . import TORCH
-from .nets import parameter_count, get_parameters, save_state, load_state, dense_net, u_net, update_weights, adam, conv_net, res_net, sgd, sgd as SGD, rmsprop, adagrad, conv_classifier, invertible_net
-
-import torch
-import torch.nn.functional as torchf
-import torch.optim as optim
-
 
 if not backend.context_backend():
     backend.set_global_default_backend(TORCH)
