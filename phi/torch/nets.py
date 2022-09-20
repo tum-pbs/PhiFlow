@@ -744,13 +744,9 @@ class FNO(nn.Module):
         1. Lift the input to the desire channel dimension by self.fc0 .
         2. 4 layers of the integral operators u' = (W + K)(u).
             W defined by self.w; K defined by self.conv .
-        3. Project from the channel space to the output space by self.fc1 and self.fc2 .
+        3. Project from the channel space to the output space by self.fc1 and self.fc2.
         
-        input: the solution of the first 10 timesteps + 3 locations (u(1, x, y), ..., u(10, x, y),  x, y, t).
-        It's a constant function in time, except for the last index.
-        input shape: (batchsize, x=64, y=64, t=40, c=13)
-        output: the solution of the next 40 timesteps
-        output shape: (batchsize, x=64, y=64, t=40, c=1)
+        input shape and output shape: (batchsize b, channels c, *spatial)
         """
 
         self.activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
