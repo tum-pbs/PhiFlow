@@ -32,7 +32,7 @@ from .math import PI, INF, NAN
 from .math import (
     wrap, tensor, vec,  # Tensor creation
     shape, spatial, channel, batch, instance, non_spatial, non_channel, non_batch, non_instance,  # Shape functions (magic)
-    unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten,  # Magic Ops
+    unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, cast,  # Magic Ops
     jit_compile, jit_compile_linear, minimize, functional_gradient, solve_linear, solve_nonlinear, iterate,  # jacobian, hessian, custom_gradient # Functional magic
 )
 from .geom import union
