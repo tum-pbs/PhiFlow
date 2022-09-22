@@ -182,7 +182,7 @@ def u_net(in_channels: int,
           batch_norm: bool = True,
           activation: str or Callable = 'ReLU',
           in_spatial: tuple or int = 2,
-          use_res_blocks: bool = False) -> keras.Model:
+          use_res_blocks: bool = False, **kwargs) -> keras.Model:
     if isinstance(in_spatial, int):
         d = in_spatial
         in_spatial = (None,) * d
@@ -242,12 +242,13 @@ def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: boo
     x = activation(x)
     return x
 
+
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Tuple[int, ...] or List[int, ...] = [],
+             layers: Tuple[int, ...] or List[int, ...],
              batch_norm: bool = False,
              activation: str or Callable = 'ReLU',
-             in_spatial: int or tuple = 2) -> keras.Model:
+             in_spatial: int or tuple = 2, **kwargs) -> keras.Model:
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -308,13 +309,13 @@ def ResNet_Block(in_channels: int,
 
     return keras.Model(inputs, x)
 
+
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Tuple[int, ...] or List[int, ...] = [],
+            layers: Tuple[int, ...] or List[int, ...],
             batch_norm: bool = False,
             activation: str or Callable = 'ReLU',
-            in_spatial: int or tuple = 2):
-
+            in_spatial: int or tuple = 2, **kwargs):
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -470,17 +471,17 @@ class CouplingLayer(keras.Model):
             self.s2 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
             self.t2 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
         else:
-            self.s1 = NET[net](in_channels=in_channels, out_channels=in_channels,
+            self.s1 = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[],
                                batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
-            self.t1 = NET[net](in_channels=in_channels, out_channels=in_channels,
+            self.t1 = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[],
                                batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
 
-            self.s2 = NET[net](in_channels=in_channels, out_channels=in_channels,
+            self.s2 = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[],
                                batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
-            self.t2 = NET[net](in_channels=in_channels, out_channels=in_channels,
+            self.t2 = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[],
                                batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
 
@@ -525,15 +526,15 @@ class InvertibleNet(keras.Model):
                 x = self.layer_dict[f'coupling_block{i}'](x)
         return x
 
+
 def invertible_net(in_channels: int,
-        num_blocks: int,
-        batch_norm: bool = False,
-        net: str = 'u_net',
-        activation: str or type='ReLU',
-        in_spatial: tuple or int=2):
+                   num_blocks: int,
+                   batch_norm: bool = False,
+                   net: str = 'u_net',
+                   activation: str or type = 'ReLU',
+                   in_spatial: tuple or int = 2, **kwargs):
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
     return InvertibleNet(in_channels, num_blocks, activation,
                          batch_norm, in_spatial, net)
-

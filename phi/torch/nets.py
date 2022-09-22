@@ -4,17 +4,16 @@ Equivalent functions also exist for the other frameworks.
 
 For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 """
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, List, Tuple
 
 import numpy
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import optim
 
-from .. import math
 from . import TORCH
 from ._torch_backend import register_module_call
+from .. import math
 from ..math import channel
 
 
@@ -189,7 +188,7 @@ def u_net(in_channels: int,
           batch_norm: bool = True,
           activation: str or type = 'ReLU',
           in_spatial: tuple or int = 2,
-          use_res_blocks: bool = False) -> nn.Module:
+          use_res_blocks: bool = False, **kwargs) -> nn.Module:
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
@@ -348,10 +347,10 @@ class ConvNet(nn.Module):
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Tuple[int, ...] or List[int] = [],
+             layers: Tuple[int, ...] or List[int],
              batch_norm: bool = False,
              activation: str or type = 'ReLU',
-             in_spatial: int or tuple = 2) -> nn.Module:
+             in_spatial: int or tuple = 2, **kwargs) -> nn.Module:
     if isinstance(in_spatial, int):
         d = in_spatial
     else:
@@ -478,10 +477,10 @@ class ResNet(nn.Module):
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Tuple[int, ...] or List[int] = [],
+            layers: Tuple[int, ...] or List[int],
             batch_norm: bool = False,
             activation: str or type = 'ReLU',
-            in_spatial: int or tuple = 2) -> nn.Module:
+            in_spatial: int or tuple = 2, **kwargs) -> nn.Module:
     if (isinstance(in_spatial, int)):
         d = in_spatial
     else:
@@ -573,16 +572,16 @@ class CouplingLayer(nn.Module):
             self.t2 = Dense_ResNet_Block(in_channels, in_channels, batch_norm, activation)
         else:
             self.s1 = nn.Sequential(NET[net](in_channels=in_channels, out_channels=in_channels,
-                                             batch_norm=batch_norm, activation=activation,
+                                             layers=[], batch_norm=batch_norm, activation=activation,
                                              in_spatial=in_spatial), torch.nn.Tanh())
             self.t1 = NET[net](in_channels=in_channels, out_channels=in_channels,
-                               batch_norm=batch_norm, activation=activation,
+                               layers=[], batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
             self.s2 = nn.Sequential(NET[net](in_channels=in_channels, out_channels=in_channels,
-                                             batch_norm=batch_norm, activation=activation,
+                                             layers=[], batch_norm=batch_norm, activation=activation,
                                              in_spatial=in_spatial), torch.nn.Tanh())
             self.t2 = NET[net](in_channels=in_channels, out_channels=in_channels,
-                               batch_norm=batch_norm, activation=activation,
+                               layers=[], batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
 
 
@@ -628,15 +627,16 @@ class InvertibleNet(nn.Module):
 
 
 def invertible_net(in_channels: int,
-        num_blocks: int,
-        batch_norm: bool = False,
-        net: str = 'u_net',
-        activation: str or type='ReLU',
-        in_spatial: tuple or int=2):
+                   num_blocks: int,
+                   batch_norm: bool = False,
+                   net: str = 'u_net',
+                   activation: str or type = 'ReLU',
+                   in_spatial: tuple or int = 2, **kwargs):
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
-    return InvertibleNet(in_channels, num_blocks, activation, batch_norm, in_spatial, net).to(TORCH.get_default_device().ref)
+    return InvertibleNet(in_channels, num_blocks, activation, batch_norm, in_spatial, net).to(
+        TORCH.get_default_device().ref)
 
 
 def coupling_layer(in_channels: int,
