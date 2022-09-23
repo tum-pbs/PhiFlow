@@ -180,7 +180,7 @@ class JaxBackend(Backend):
                 return loss
             return jax.grad(nonaux_f, argnums=wrt, has_aux=False)
 
-    def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
+    def custom_gradient(self, f: Callable, gradient: Callable, get_external_cache: Callable = None, on_call_skipped: Callable = None) -> Callable:
         jax_fun = jax.custom_vjp(f)  # custom vector-Jacobian product (reverse-mode differentiation)
 
         def forward(*x):

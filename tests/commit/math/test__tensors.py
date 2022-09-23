@@ -536,6 +536,14 @@ class TestTensors(TestCase):
         for l in [l, lt]:
             math.assert_close(l, math.cast(l, float))
 
+    def test_layout_to_primitive(self):
+        self.assertEqual(1, int(math.layout(1.5)))
+        self.assertEqual(1.5, float(math.layout(1.5)))
+        self.assertEqual(1.5, complex(math.layout(1.5)))
+        self.assertTrue(math.layout('a'))
+        self.assertFalse(math.layout(0))
+        self.assertFalse(math.layout(''))
+
     def test_expand_layout(self):
         layout = math.layout(['a', 'b'], spatial('alphabet'))
         exp = math.expand(layout, batch(b=10))

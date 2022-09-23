@@ -381,7 +381,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def custom_gradient(self, f: Callable, gradient: Callable) -> Callable:
+    def custom_gradient(self, f: Callable, gradient: Callable, get_external_cache: Callable = None, on_call_skipped: Callable = None) -> Callable:
         """
         Creates a function based on `f` that uses a custom gradient for backprop.
 

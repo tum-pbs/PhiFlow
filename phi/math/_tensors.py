@@ -13,7 +13,7 @@ from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
-                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape)
+                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, batch)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend, ComputeDevice
 from .backend._dtype import DType
@@ -905,6 +905,10 @@ class Layout(Tensor):
     def _is_tracer(self) -> bool:
         return False
 
+    def __bool__(self):
+        assert self.rank == 0, f"Cannot convert tensor with non-empty shape {self.shape} to bool. Use tensor.any or tensor.all instead."
+        return bool(self._obj)
+
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Shapable':
         obj = [v.native(self._shape) for v in values]
         new_shape = concat_shapes(dim, self._shape)
@@ -1005,8 +1009,10 @@ class Layout(Tensor):
             else:
                 result = native_function(choose_backend(self._as_list()), self._obj, 0)
             return wrap(result)
+        if not self._shape.without(dims):
+            return self.__flatten__(batch('_flat'))._tensor_reduce(('_flat',), dtype, native_function, collapsed_function, unaffected_function)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Partial Layout reduction not yet supported. Shape={self._shape}, reduce={dims}")
         # # --- inner reduce ---
         # inner_axes = [dim for dim in dims if dim != self.stack_dim.name]
         # red_inners = [t._tensor_reduce(inner_axes, dtype, native_function, collapsed_function, unaffected_function) for t in
@@ -2008,6 +2014,9 @@ def cached(t: Tensor or 'PhiTreeNode') -> Tensor or 'PhiTreeNode':
 class Dict(dict):
     """
     Dictionary of `Tensor` or `PhiTreeNode` values.
+    Dicts are not themselves tensors and do not have a shape.
+    Use `layout()` to treat `dict` instances like tensors.
+
     In addition to dictionary functions, supports mathematical operators with other `Dict`s and lookup via `.key` syntax.
     `Dict` implements `PhiTreeNode` so instances can be passed to math operations like `sin`.
     """
