@@ -644,6 +644,9 @@ class _ReflectExtrapolation(_CopyExtrapolation):
 class _AntiReflectExtrapolation(_ReflectExtrapolation):
     """Like _ReflectExtrapolation but symmetric counterparts are negated for padding"""
 
+    def __repr__(self):
+        return 'antireflect'
+
     def pad_values(self, *args, **kwargs) -> Tensor:
         return -super().pad_values(*args, **kwargs)
 
@@ -780,9 +783,11 @@ BOUNDARY = _BoundaryExtrapolation(2)
 SYMMETRIC = _SymmetricExtrapolation(3)
 """ Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. """
 ANTISYMMETRIC = _AntiSymmetricExtrapolation(3)
+""" Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead. """
 REFLECT = _ReflectExtrapolation(4)
 """ Like SYMMETRIC but the edge values are not copied and only occur once per seam. """
 ANTIREFLECT = _AntiReflectExtrapolation(4)
+""" Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead. """
 
 NONE = _NoExtrapolation(-1)
 """ Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. """

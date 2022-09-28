@@ -8,8 +8,7 @@ Examples:
 * runge_kutta_4 (particle)
 """
 from phi import math
-from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample, \
-    spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
+from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
 from phi.field._field import FieldType
 from phi.field._field_math import GridType
 from phi.field.numerical import Scheme
@@ -50,8 +49,7 @@ def advect(field: SampledField,
            velocity: Field,
            dt: float or math.Tensor,
            integrator=euler,
-           scheme: Scheme = None
-           ) -> FieldType:
+           scheme: Scheme = None) -> FieldType:
     """
     Advect `field` along the `velocity` vectors using the specified integrator.
 
@@ -65,6 +63,8 @@ def advect(field: SampledField,
         velocity: Any `phi.field.Field` that can be sampled in the elements of `field`.
         dt: Time increment
         integrator: ODE integrator for solving the movement.
+        scheme: differentiation 'Scheme' if provided 'finite_difference' is used
+            if 'None' is given other functions are used which is the case by default
 
     Returns:
         Advected field of same type as `field`
@@ -92,17 +92,16 @@ def finite_difference(grid: Grid,
         velocity: `Grid` that can be sampled in the elements of `grid`.
         dt: Time increment
         scheme: finite difference `Scheme` used for differentiation
+            supported: explicit 2/4th order - implicit 6th order
 
     Returns:
         Advected grid of same type as `grid`
     """
 
-
     if isinstance(grid, StaggeredGrid):
         field_components = unstack(grid, 'vector')
         grad_list = [spatial_gradient(field_component, stack_dim=math.channel('gradient'), scheme=scheme) for
-                     field_component in
-                     field_components]
+                     field_component in field_components]
         grad_grid = grid.with_values(math.stack([component.values for component in grad_list], math.channel('vector')))
         velocity._scheme = True
         ammounts = [grad * vel.at(grad, scheme=scheme) for grad, vel in

@@ -49,6 +49,7 @@ def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2)) -> GridTy
         field: n-dimensional `CenteredGrid`
         axes: The second derivative along these dimensions is summed over
         scheme: finite difference `Scheme` used for differentiation
+            supported: explicit 2/4th order - implicit 6th order
 
     Returns:
         laplacian field as `CenteredGrid`
@@ -120,6 +121,7 @@ def spatial_gradient(field: CenteredGrid,
         stack_dim: Dimension to be added. This dimension lists the spatial_gradient w.r.t. the spatial dimensions.
             The `field` must not have a dimension of the same name.
         scheme: finite difference `Scheme` used for differentiation
+            supported: explicit 2/4th order - implicit 6th order
 
     Returns:
         spatial_gradient field of type `type`.
@@ -308,6 +310,7 @@ def divergence(field: Grid, scheme: Scheme = Scheme(2)) -> CenteredGrid:
     Args:
         field: vector field as `CenteredGrid` or `StaggeredGrid`
         scheme: finite difference `Scheme` used for differentiation
+            supported: explicit 2/4th order - implicit 6th order
 
     Returns:
         Divergence field as `CenteredGrid`

@@ -71,13 +71,15 @@ def finite_difference(grid: Grid,
 
     """
     Diffusion by using a finite difference scheme.
-
+    In contrast to `explicit` and `implicit` accuracy can be increased by using stencils of higher-order rather than calculating substeps.
+    This is controlled by the `scheme` passed.
 
     Args:
         grid: CenteredGrid or StaggeredGrid
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         scheme: finite difference `Scheme` used for differentiation
+            supported: explicit 2/4th order - implicit 6th order
 
     Returns:
         Diffused grid of same type as `grid`.

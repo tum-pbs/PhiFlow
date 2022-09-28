@@ -69,7 +69,9 @@ def make_incompressible(velocity: GridType,
             If given, the velocity may take `NaN` values where it does not contribute to the pressure.
             Also, the total divergence will never be subtracted if active is given, even if all values are 1.
         scheme: finite difference `Scheme` used for differentiation
-
+            For Higher-order schemes the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead,
+            while this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains
+            supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)
 
     Returns:
         velocity: divergence-free velocity of type `type(velocity)`
@@ -124,6 +126,7 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid,
         active: Mask indicating for which cells the pressure value is valid.
             Linear solves will only determine the pressure for these cells.
             This is generally zero inside obstacles and in non-simulated regions.
+        scheme: finite difference `Scheme` used for laplace calculation
 
     Returns:
         `CenteredGrid`
