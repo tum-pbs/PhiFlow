@@ -60,7 +60,7 @@ from ._nd import (
     spatial_gradient, laplace,
     fourier_laplace, fourier_poisson, abs_square,
     downsample2x, upsample2x, sample_subgrid,
-    masked_fill, finite_fill,
+    masked_fill, finite_fill
 )
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,

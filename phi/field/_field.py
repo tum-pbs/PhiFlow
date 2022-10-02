@@ -78,7 +78,7 @@ class Field:
             keep_extrapolation: Only available if `self` is a `SampledField`.
                 If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
                 This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
-            scheme: Numerical scheme for resampling.
+            scheme: Numerical scheme for resampling. See `reduce_sample`
 
         Returns:
             Field object of same type as `representation`
@@ -358,7 +358,8 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector'), schem
         field: Source `Field` to sample.
         geometry: Single or batched `phi.geom.Geometry`.
         dim: Dimension of result, resulting from reduction of channel dimensions.
-        scheme: Numerical scheme.
+        scheme: Numerical scheme. By default linear interpolation is used
+            supported: implicit 6th oder (only for sampling at mid-points, sampling at other locations and unsupported schemes result in automatic fallback to linear interpolation)
 
     Returns:
         Sampled values as a `phi.math.Tensor`
