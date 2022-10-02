@@ -11,9 +11,9 @@ import torch
 import torch.nn as nn
 from torch import optim
 
-from .. import math
 from . import TORCH
 from ._torch_backend import register_module_call
+from .. import math
 from ..math import channel
 
 
@@ -140,7 +140,7 @@ def rmsprop(net: nn.Module, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, 
 
 CONV = [None, nn.Conv1d, nn.Conv2d, nn.Conv3d]
 NORM = [None, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]
-ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh, 'SiLU': nn.SiLU}
+ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh, 'SiLU': nn.SiLU, 'GeLU': nn.GELU}
 
 
 def dense_net(in_channels: int,
@@ -603,6 +603,7 @@ def invertible_net(in_channels: int,
                    in_spatial: tuple or int = 2):
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
+        
     return InvertibleNet(in_channels, num_blocks, activation, batch_norm, in_spatial, net).to(TORCH.get_default_device().ref)
 
 
@@ -613,6 +614,177 @@ def coupling_layer(in_channels: int,
                    in_spatial: tuple or int = 2):
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
+
+
     net = CouplingLayer(in_channels, activation, batch_norm, in_spatial, reverse_mask)
+    net = net.to(TORCH.get_default_device().ref)
+    return net
+
+
+##################################################################################################################
+#  Fourier Neural Operators
+#  source: https://github.com/zongyi-li/fourier_neural_operator
+###################################################################################################################
+
+class SpectralConv(nn.Module):
+
+    def __init__(self, in_channels, out_channels, modes, in_spatial):
+
+        super(SpectralConv, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.in_spatial = in_spatial
+        assert in_spatial >= 1 and in_spatial <= 3
+        if isinstance(modes, int):
+            mode = modes
+            modes = [mode for i in range(in_spatial)]
+
+        self.scale = 1 / (in_channels * out_channels)
+
+        self.modes = {i + 1: modes[i] for i in range(len(modes))}
+        self.weights = {}
+
+        rand_shape = [in_channels, out_channels]
+        rand_shape += [self.modes[i] for i in range(1, in_spatial + 1)]
+
+        for i in range(2 ** (in_spatial - 1)):
+            self.weights[f'w{i + 1}'] = nn.Parameter(self.scale * torch.randn(rand_shape, dtype=torch.cfloat))
+
+    def complex_mul(self, input, weights):
+
+        if self.in_spatial == 1:
+            return torch.einsum("bix,iox->box", input, weights)
+        elif self.in_spatial == 2:
+            return torch.einsum("bixy,ioxy->boxy", input, weights)
+        elif self.in_spatial == 3:
+            return torch.einsum("bixyz,ioxyz->boxyz", input, weights)
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+
+        ##Convert to Fourier space
+        dims = [-i for i in range(self.in_spatial, 0, -1)]
+        x_ft = torch.fft.rfftn(x, dim=dims)
+
+        outft_dims = [batch_size, self.out_channels] + \
+                     [x.size(-i) for i in range(self.in_spatial, 1, -1)] + [x.size(-1) // 2 + 1]
+        out_ft = torch.zeros(outft_dims, dtype=torch.cfloat, device=x.device)
+
+        ##Multiply relevant fourier modes
+        if self.in_spatial == 1:
+            out_ft[:, :, :self.modes[1]] = \
+                self.complex_mul(x_ft[:, :, :self.modes[1]],
+                                 self.weights['w1'].to(x_ft.device))
+        elif self.in_spatial == 2:
+            out_ft[:, :, :self.modes[1], :self.modes[2]] = \
+                self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2]],
+                                 self.weights['w1'].to(x_ft.device))
+            out_ft[:, :, -self.modes[1]:, :self.modes[2]] = \
+                self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2]],
+                                 self.weights['w2'].to(x_ft.device))
+        elif self.in_spatial == 3:
+            out_ft[:, :, :self.modes[1], :self.modes[2], :self.modes[3]] = \
+                self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2], :self.modes[3]],
+                                 self.weights['w1'].to(x_ft.device))
+            out_ft[:, :, -self.modes[1]:, :self.modes[2], :self.modes[3]] = \
+                self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2], :self.modes[3]],
+                                 self.weights['w2'].to(x_ft.device))
+            out_ft[:, :, :self.modes[1], -self.modes[2]:, :self.modes[3]] = \
+                self.complex_mul(x_ft[:, :, :self.modes[1], -self.modes[2]:, :self.modes[3]],
+                                 self.weights['w3'].to(x_ft.device))
+            out_ft[:, :, -self.modes[1]:, -self.modes[2]:, :self.modes[3]] = \
+                self.complex_mul(x_ft[:, :, -self.modes[1]:, -self.modes[2]:, :self.modes[3]],
+                                 self.weights['w4'].to(x_ft.device))
+
+        ##Return to Physical Space
+        x = torch.fft.irfftn(out_ft, s=[x.size(-i) for i in range(self.in_spatial, 0, -1)])
+
+        return x
+
+
+class FNO(nn.Module):
+
+    def __init__(self, in_channels, out_channels, width, modes, activation, batch_norm, in_spatial):
+        super(FNO, self).__init__()
+
+        """
+        The overall network. It contains 4 layers of the Fourier layer.
+        1. Lift the input to the desire channel dimension by self.fc0 .
+        2. 4 layers of the integral operators u' = (W + K)(u).
+            W defined by self.w; K defined by self.conv .
+        3. Project from the channel space to the output space by self.fc1 and self.fc2.
+        
+        input shape and output shape: (batchsize b, channels c, *spatial)
+        """
+
+        self.activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+        self.width = width
+        self.in_spatial = in_spatial
+
+        self.fc0 = nn.Linear(in_channels + in_spatial, self.width)
+
+        for i in range(4):
+            self.add_module(f'conv{i}', SpectralConv(self.width, self.width, modes, in_spatial))
+            self.add_module(f'w{i}', CONV[in_spatial](self.width, self.width, kernel_size=1))
+            self.add_module(f'bn{i}', NORM[in_spatial](self.width) if batch_norm else nn.Identity())
+
+        self.fc1 = nn.Linear(self.width, 128)
+        self.fc2 = nn.Linear(128, out_channels)
+
+    # Adding extra spatial channels eg. x, y, z, .... to input x
+    def get_grid(self, shape, device):
+        batch_size = shape[0]
+        grid_channel_sizes = shape[2:]  # shape =  (batch_size, channels, *spatial)
+        self.grid_channels = {}
+        for i in range(self.in_spatial):
+            self.grid_channels[f'dim{i}'] = torch.tensor(torch.linspace(0, 1, grid_channel_sizes[i]),
+                                                         dtype=torch.float)
+            reshape_dim_tuple = [1, 1] + [1 if i != j else grid_channel_sizes[j] for j in range(self.in_spatial)]
+            repeat_dim_tuple = [batch_size, 1] + [1 if i == j else grid_channel_sizes[j] for j in
+                                                  range(self.in_spatial)]
+            self.grid_channels[f'dim{i}'] = self.grid_channels[f'dim{i}'].reshape(reshape_dim_tuple) \
+                .repeat(repeat_dim_tuple)
+
+        return torch.cat([self.grid_channels[f'dim{i}'] for i in range(self.in_spatial)], dim=1).to(device)
+
+    def forward(self, x):
+        grid = self.get_grid(x.shape, x.device)
+        x = torch.cat([x, grid], dim=1)
+
+        permute_tuple = [0] + [2 + i for i in range(self.in_spatial)] + [1]
+        permute_tuple_reverse = [0] + [self.in_spatial + 1] + [i + 1 for i in range(self.in_spatial)]
+
+        # Transpose x such that channels shape lies at the end to pass it through linear layers
+        x = x.permute(permute_tuple)
+
+        x = self.fc0(x)
+
+        # Transpose x back to its original shape to pass it through convolutional layers
+        x = x.permute(permute_tuple_reverse)
+
+        for i in range(4):
+            x1 = getattr(self, f'w{i}')(x)
+            x2 = getattr(self, f'conv{i}')(x)
+            x = getattr(self, f'bn{i}')(x1) + getattr(self, f'bn{i}')(x2)
+            x = self.activation()(x)
+
+        x = x.permute(permute_tuple)
+        x = self.activation()(self.fc1(x))
+        x = self.fc2(x)
+
+        x = x.permute(permute_tuple_reverse)
+
+        return x
+
+
+def fno(in_channels: int,
+        out_channels: int,
+        mid_channels: int,
+        modes: Tuple[int, ...] or List[int],
+        activation: str or type = 'ReLU',
+        batch_norm: bool = False,
+        in_spatial: int = 2):
+    net = FNO(in_channels, out_channels, mid_channels, modes, activation, batch_norm, in_spatial)
     net = net.to(TORCH.get_default_device().ref)
     return net
