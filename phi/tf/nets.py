@@ -191,7 +191,7 @@ def u_net(in_channels: int,
           batch_norm: bool = True,
           activation: str or Callable = 'ReLU',
           in_spatial: tuple or int = 2,
-          use_res_blocks: bool = False) -> keras.Model:
+          use_res_blocks: bool = False, **kwargs) -> keras.Model:
     if isinstance(in_spatial, int):
         d = in_spatial
         in_spatial = (None,) * d
@@ -205,16 +205,16 @@ def u_net(in_channels: int,
         filters = (filters,) * levels
     # --- Construct the U-Net ---
     x = inputs = keras.Input(shape=in_spatial + (in_channels,))
-    x = resnet_block(x, x.shape[-1], filters[0], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[0], filters[0], batch_norm, activation)
+    x = resnet_block(x.shape[-1], filters[0], batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[0], filters[0], batch_norm, activation)
     xs = [x]
     for i in range(1, levels):
         x = MAX_POOL[d](2, padding="same")(x)
-        x = resnet_block(x, x.shape[-1], filters[i], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i], filters[i], batch_norm, activation)
+        x = resnet_block(x.shape[-1], filters[i], batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i], filters[i], batch_norm, activation)
         xs.insert(0, x)
     for i in range(1, levels):
         x = UPSAMPLE[d](2)(x)
         x = kl.Concatenate()([x, xs[i]])
-        x = resnet_block(x, x.shape[-1], filters[i - 1], batch_norm, activation, d) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
+        x = resnet_block(x.shape[-1], filters[i - 1], batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
     x = CONV[d](out_channels, 1)(x)
     return keras.Model(inputs, x)
 
@@ -259,7 +259,7 @@ def conv_net(in_channels: int,
              layers: Tuple[int, ...] or List[int],
              batch_norm: bool = False,
              activation: str or Callable = 'ReLU',
-             in_spatial: int or tuple = 2) -> keras.Model:
+             in_spatial: int or tuple = 2, **kwargs) -> keras.Model:
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -281,7 +281,7 @@ def conv_net(in_channels: int,
     return keras.Model(inputs, x)
 
 
-def resnet_block(x, in_channels: int,
+def resnet_block(in_channels: int,
                  out_channels: int,
                  batch_norm: bool = False,
                  activation: str or Callable = 'ReLU',
@@ -319,7 +319,7 @@ def res_net(in_channels: int,
             layers: Tuple[int, ...] or List[int],
             batch_norm: bool = False,
             activation: str or Callable = 'ReLU',
-            in_spatial: int or tuple = 2):
+            in_spatial: int or tuple = 2, **kwargs):
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -474,17 +474,17 @@ class CouplingLayer(keras.Model):
             self.s2 = Dense_resnet_block(in_channels, in_channels, batch_norm, activation)
             self.t2 = Dense_resnet_block(in_channels, in_channels, batch_norm, activation)
         else:
-            self.s1 = NET[net](in_channels=in_channels, out_channels=in_channels,
+            self.s1 = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[],
                                batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
-            self.t1 = NET[net](in_channels=in_channels, out_channels=in_channels,
+            self.t1 = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[],
                                batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
 
-            self.s2 = NET[net](in_channels=in_channels, out_channels=in_channels,
+            self.s2 = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[],
                                batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
-            self.t2 = NET[net](in_channels=in_channels, out_channels=in_channels,
+            self.t2 = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[],
                                batch_norm=batch_norm, activation=activation,
                                in_spatial=in_spatial)
 
@@ -536,7 +536,7 @@ def invertible_net(in_channels: int,
                    batch_norm: bool = False,
                    net: str = 'u_net',
                    activation: str or type = 'ReLU',
-                   in_spatial: tuple or int = 2):
+                   in_spatial: tuple or int = 2, **kwargs):
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 

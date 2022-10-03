@@ -752,10 +752,10 @@ def Dense_resnet_block(in_channels: int,
 
 def conv_net_unit(in_channels: int,
                   out_channels: int,
-                  layers: Tuple[int, ...] or List[int, ...] = [],
+                  layers: Tuple[int, ...] or List[int, ...],
                   batch_norm: bool = False,
                   activation: str or Callable = 'ReLU',
-                  in_spatial: int or tuple = 2):
+                  in_spatial: int or tuple = 2, **kwargs):
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -822,7 +822,7 @@ def u_net_unit(in_channels: int,
                batch_norm: bool = True,
                activation='ReLU',
                in_spatial: tuple or int = 2,
-               use_res_blocks: bool = False):
+               use_res_blocks: bool = False, **kwargs):
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
@@ -894,10 +894,10 @@ def u_net_unit(in_channels: int,
 
 def res_net_unit(in_channels: int,
                  out_channels: int,
-                 layers: Tuple[int, ...] or List[int, ...] = [],
+                 layers: Tuple[int, ...] or List[int],
                  batch_norm: bool = False,
                  activation: str or Callable = 'ReLU',
-                 in_spatial: int or tuple = 2):
+                 in_spatial: int or tuple = 2, **kwargs):
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -945,17 +945,17 @@ def coupling_layer(in_channels: int,
         init_fn['t2'], apply_fn['t2'] = Dense_resnet_block(in_channels, in_channels, batch_norm, activation)
     else:
         init_fn['s1'], apply_fn['s1'] = NET[net](in_channels=in_channels, out_channels=in_channels,
-                                                 batch_norm=batch_norm, activation=activation,
+                                                 layers=[], batch_norm=batch_norm, activation=activation,
                                                  in_spatial=in_spatial)
         init_fn['t1'], apply_fn['t1'] = NET[net](in_channels=in_channels, out_channels=in_channels,
-                                                 batch_norm=batch_norm, activation=activation,
+                                                 layers=[], batch_norm=batch_norm, activation=activation,
                                                  in_spatial=in_spatial)
 
         init_fn['s2'], apply_fn['s2'] = NET[net](in_channels=in_channels, out_channels=in_channels,
-                                                 batch_norm=batch_norm, activation=activation,
+                                                 layers=[], batch_norm=batch_norm, activation=activation,
                                                  in_spatial=in_spatial)
         init_fn['t2'], apply_fn['t2'] = NET[net](in_channels=in_channels, out_channels=in_channels,
-                                                 batch_norm=batch_norm, activation=activation,
+                                                 layers=[], batch_norm=batch_norm, activation=activation,
                                                  in_spatial=in_spatial)
 
     def net_init(rng, input_shape):
@@ -1013,7 +1013,7 @@ def invertible_net(in_channels: int,
                    batch_norm: bool = False,
                    net: str = 'u_net',
                    activation: str or type = 'ReLU',
-                   in_spatial: tuple or int = 2):
+                   in_spatial: tuple or int = 2, **kwargs):
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
