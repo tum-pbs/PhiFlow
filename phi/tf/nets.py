@@ -542,3 +542,181 @@ def invertible_net(in_channels: int,
 
     return InvertibleNet(in_channels, num_blocks, activation,
                          batch_norm, in_spatial, net)
+
+
+##################################################################################################################
+#  Fourier Neural Operators
+#  source: https://github.com/zongyi-li/fourier_neural_operator
+###################################################################################################################
+RFFT = [tf.signal.rfft, tf.signal.rfft2d, tf.signal.rfft3d]
+FFT = [tf.signal.fft, tf.signal.fft2d, tf.signal.fft3d]
+IRFFT = [tf.signal.irfft, tf.signal.irfft2d, tf.signal.irfft3d]
+
+class SpectralConv(keras.Model):
+
+    def __init__(self, in_channels, out_channels, modes, in_spatial):
+
+        super(SpectralConv, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.in_spatial = in_spatial
+        assert in_spatial >= 1 and in_spatial <= 3
+        if isinstance(modes, int):
+            mode = modes
+            modes = [mode for i in range(in_spatial)]
+
+        self.scale = 1 / (in_channels * out_channels)
+
+        self.modes = {i + 1: modes[i] for i in range(len(modes))}
+        self.weights = {}
+
+        rand_shape = [in_channels, out_channels]
+        rand_shape += [self.modes[i] for i in range(1, in_spatial + 1)]
+
+        for i in range(2 ** (in_spatial - 1)):
+            self.weights[f'w{i + 1}'] = tf.Variable(self.scale * tf.random.normal(shape=rand_shape, dtype=tf.dtypes.complex64), trainable=True)
+            #self.weights[f'w{i + 1}'] = nn.Parameter(self.scale * torch.randn(rand_shape, dtype=torch.cfloat))
+
+    def complex_mul(self, input, weights):
+
+        if self.in_spatial == 1:
+            return tf.einsum("bix,iox->box", input, weights)
+        elif self.in_spatial == 2:
+            return tf.einsum("bixy,ioxy->boxy", input, weights)
+        elif self.in_spatial == 3:
+            return tf.einsum("bixyz,ioxyz->boxyz", input, weights)
+
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+
+        ##Convert to Fourier space
+        #dims = [-i for i in range(self.in_spatial, 0, -1)]
+        #x_ft = tf.signal.fft.rfftn(x, dim=dims)
+        x_ft = RFFT[self.in_spatial](x)
+
+        outft_dims = [batch_size, self.out_channels] + \
+                     [x.size(-i) for i in range(self.in_spatial, 1, -1)] + [x.size(-1) // 2 + 1]
+        out_ft = tf.zeros(outft_dims, dtype=tf.dtypes.complex64)
+
+        ##Multiply relevant fourier modes
+        if self.in_spatial == 1:
+            out_ft[:, :, :self.modes[1]] = \
+                self.complex_mul(x_ft[:, :, :self.modes[1]],
+                                 self.weights['w1'].to(x_ft.device))
+        elif self.in_spatial == 2:
+            out_ft[:, :, :self.modes[1], :self.modes[2]] = \
+                self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2]],
+                                 self.weights['w1'].to(x_ft.device))
+            out_ft[:, :, -self.modes[1]:, :self.modes[2]] = \
+                self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2]],
+                                 self.weights['w2'].to(x_ft.device))
+        elif self.in_spatial == 3:
+            out_ft[:, :, :self.modes[1], :self.modes[2], :self.modes[3]] = \
+                self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2], :self.modes[3]],
+                                 self.weights['w1'].to(x_ft.device))
+            out_ft[:, :, -self.modes[1]:, :self.modes[2], :self.modes[3]] = \
+                self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2], :self.modes[3]],
+                                 self.weights['w2'].to(x_ft.device))
+            out_ft[:, :, :self.modes[1], -self.modes[2]:, :self.modes[3]] = \
+                self.complex_mul(x_ft[:, :, :self.modes[1], -self.modes[2]:, :self.modes[3]],
+                                 self.weights['w3'].to(x_ft.device))
+            out_ft[:, :, -self.modes[1]:, -self.modes[2]:, :self.modes[3]] = \
+                self.complex_mul(x_ft[:, :, -self.modes[1]:, -self.modes[2]:, :self.modes[3]],
+                                 self.weights['w4'].to(x_ft.device))
+
+        ##Return to Physical Space
+        x = IRFFT[self.in_spatial](out_ft)
+        #x = torch.fft.irfftn(out_ft, s=[x.size(-i) for i in range(self.in_spatial, 0, -1)])
+
+        return x
+
+
+class FNO(keras.Model):
+
+    def __init__(self, in_channels, out_channels, width, modes, activation, batch_norm, in_spatial):
+        super(FNO, self).__init__()
+
+        """
+        The overall network. It contains 4 layers of the Fourier layer.
+        1. Lift the input to the desire channel dimension by self.fc0 .
+        2. 4 layers of the integral operators u' = (W + K)(u).
+            W defined by self.w; K defined by self.conv .
+        3. Project from the channel space to the output space by self.fc1 and self.fc2.
+
+        input shape and output shape: (batchsize b, channels c, *spatial)
+        """
+
+        self.activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+        self.width = width
+        self.in_spatial = in_spatial
+
+        self.fc0 = kl.Dense(self.width)
+        #self.fc0 = nn.Linear(in_channels + in_spatial, self.width)
+
+        self.model_dict = {}
+        for i in range(4):
+            self.model_dict[f'conv{i}'] = SpectralConv(self.width, self.width, modes, in_spatial)
+            self.model_dict[f'w{i}'] = CONV[self.in_spatial](self.width, kernel_size=1)
+            self.model_dict[f'bn{i}'] = kl.BatchNormalization()
+
+        self.fc1 = kl.Dense(128)
+        self.fc2 = kl.Dense(out_channels)
+
+    # Adding extra spatial channels eg. x, y, z, .... to input x
+    def get_grid(self, shape, device):
+        batch_size = shape[0]
+        grid_channel_sizes = shape[2:]  # shape =  (batch_size, channels, *spatial)
+        self.grid_channels = {}
+        for i in range(self.in_spatial):
+            self.grid_channels[f'dim{i}'] = tf.tensor(tf.linspace(0, 1, grid_channel_sizes[i]),
+                                                         dtype=tf.dtypes.float32)
+            reshape_dim_tuple = [1, 1] + [1 if i != j else grid_channel_sizes[j] for j in range(self.in_spatial)]
+            repeat_dim_tuple = [batch_size, 1] + [1 if i == j else grid_channel_sizes[j] for j in
+                                                  range(self.in_spatial)]
+            self.grid_channels[f'dim{i}'] = self.grid_channels[f'dim{i}'].reshape(reshape_dim_tuple) \
+                .repeat(repeat_dim_tuple)
+
+        return torch.cat([self.grid_channels[f'dim{i}'] for i in range(self.in_spatial)], dim=1).to(device)
+
+    def forward(self, x):
+        grid = self.get_grid(x.shape, x.device)
+        x = torch.cat([x, grid], dim=1)
+
+        permute_tuple = [0] + [2 + i for i in range(self.in_spatial)] + [1]
+        permute_tuple_reverse = [0] + [self.in_spatial + 1] + [i + 1 for i in range(self.in_spatial)]
+
+        # Transpose x such that channels shape lies at the end to pass it through linear layers
+        x = x.permute(permute_tuple)
+
+        x = self.fc0(x)
+
+        # Transpose x back to its original shape to pass it through convolutional layers
+        x = x.permute(permute_tuple_reverse)
+
+        for i in range(4):
+            x1 = getattr(self, f'w{i}')(x)
+            x2 = getattr(self, f'conv{i}')(x)
+            x = getattr(self, f'bn{i}')(x1) + getattr(self, f'bn{i}')(x2)
+            x = self.activation()(x)
+
+        x = x.permute(permute_tuple)
+        x = self.activation()(self.fc1(x))
+        x = self.fc2(x)
+
+        x = x.permute(permute_tuple_reverse)
+
+        return x
+
+
+def fno(in_channels: int,
+        out_channels: int,
+        mid_channels: int,
+        modes: Tuple[int, ...] or List[int],
+        activation: str or type = 'ReLU',
+        batch_norm: bool = False,
+        in_spatial: int = 2):
+    net = FNO(in_channels, out_channels, mid_channels, modes, activation, batch_norm, in_spatial)
+    net = net.to(TORCH.get_default_device().ref)
+    return net
