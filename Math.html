@@ -14630,12 +14630,37 @@ This eliminates the need for manual reshaping or the use of singleton dimensions
 <h2 id="Shapes">Shapes<a class="anchor-link" href="#Shapes">&#182;</a></h2><p>The shape of a <code>Tensor</code> is represented by a <a href="phi/math/#phi.math.Shape"><code>Shape</code></a> object which can be accessed as <code>tensor.shape</code>.
 In addition to the dimension sizes, the shape also stores the dimension names which determine their types.</p>
 <p>There are four types of dimensions</p>
-<p>| Dimension type                                 |                                                    Description | Examples              |
-|------------------------------------------------|---------------------------------------------------------------:|-----------------------|
-| <a href="phi/math/#phi.math.spatial"><code>spatial</code></a>        |                   Spans a grid with equidistant sample points. | <code>x</code>, <code>y</code>, <code>z</code>         |
-| <a href="phi/math/#phi.math.channel"><code>channel</code></a>        |    Set of properties sampled at per sample point per instance. | <code>vector</code>, <code>color</code>     |
-| <a href="phi/math/#phi.math.instance"><code>instance</code></a>  | Collection of (interacting) objects belonging to one instance. | <code>points</code>, <code>particles</code> |
-| <a href="phi/math/#phi.math.batch"><code>batch</code></a>            |                               Lists non-interacting instances. | <code>batch</code>, <code>frames</code>     |</p>
+<table>
+<thead>
+<tr>
+  <th>Dimension type</th>
+  <th style="text-align:right">Description</th>
+  <th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><a href="phi/math/#phi.math.spatial"><code>spatial</code></a></td>
+  <td style="text-align:right">Spans a grid with equidistant sample points.</td>
+  <td><code>x</code>, <code>y</code>, <code>z</code></td>
+</tr>
+<tr>
+  <td><a href="phi/math/#phi.math.channel"><code>channel</code></a></td>
+  <td style="text-align:right">Set of properties sampled at per sample point per instance.</td>
+  <td><code>vector</code>, <code>color</code></td>
+</tr>
+<tr>
+  <td><a href="phi/math/#phi.math.instance"><code>instance</code></a></td>
+  <td style="text-align:right">Collection of (interacting) objects belonging to one instance.</td>
+  <td><code>points</code>, <code>particles</code></td>
+</tr>
+<tr>
+  <td><a href="phi/math/#phi.math.batch"><code>batch</code></a></td>
+  <td style="text-align:right">Lists non-interacting instances.</td>
+  <td><code>batch</code>, <code>frames</code></td>
+</tr>
+</tbody>
+</table>
 <p>The default dimension order is <code>(batch, instance, channel, spatial)</code>.
 When a dimension is not present on a tensor, values are assumed to be constant along that dimension.
 Based on these rules rule, operators and functions may add dimensions to tensors as needed.</p>
@@ -14645,12 +14670,47 @@ The result is equal to calling the function on each slice.</p>
 <p>Spatial operations, such as <code>spatial_gradient()</code> or <code>divergence()</code> operate on spatial dimensions by default, ignoring all others.
 When operating on multiple spatial tensors, these tensors are typically required to have the same spatial dimensions, else an <code>IncompatibleShapes</code> error may be raised.
 The function <code>join_spaces()</code> can be used to add the missing spatial dimensions so that these errors are avoided.</p>
-<p>| Operation                                               |    Batch    |  instance |   Spatial   |    Channel    |
-|---------------------------------------------------------|:-----------:|:-----------:|:-----------:|:-------------:|
-| convolve                                                |      -      |      -      |      ★      |       ⟷       |
-| nonzero                                                 |      -      |     ★/⟷     |     ★/⟷     |       ⟷       |
-| scatter (grid)<br>scatter (indices)<br>scatter (values) | -<br>-<br>- | 🗙<br>⟷<br>⟷ | ★<br>🗙<br>🗙 | -<br>⟷/🗙<br>- |
-| gather/sample (grid)<br>gather/sample (indices)         |    -<br>-   |    🗙<br>-   |   ★/⟷<br>-  |    -<br>⟷/🗙   |</p>
+<table>
+<thead>
+<tr>
+  <th>Operation</th>
+  <th style="text-align:center">Batch</th>
+  <th style="text-align:center">instance</th>
+  <th style="text-align:center">Spatial</th>
+  <th style="text-align:center">Channel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>convolve</td>
+  <td style="text-align:center">-</td>
+  <td style="text-align:center">-</td>
+  <td style="text-align:center">★</td>
+  <td style="text-align:center">⟷</td>
+</tr>
+<tr>
+  <td>nonzero</td>
+  <td style="text-align:center">-</td>
+  <td style="text-align:center">★/⟷</td>
+  <td style="text-align:center">★/⟷</td>
+  <td style="text-align:center">⟷</td>
+</tr>
+<tr>
+  <td>scatter (grid)<br>scatter (indices)<br>scatter (values)</td>
+  <td style="text-align:center">-<br>-<br>-</td>
+  <td style="text-align:center">🗙<br>⟷<br>⟷</td>
+  <td style="text-align:center">★<br>🗙<br>🗙</td>
+  <td style="text-align:center">-<br>⟷/🗙<br>-</td>
+</tr>
+<tr>
+  <td>gather/sample (grid)<br>gather/sample (indices)</td>
+  <td style="text-align:center">-<br>-</td>
+  <td style="text-align:center">🗙<br>-</td>
+  <td style="text-align:center">★/⟷<br>-</td>
+  <td style="text-align:center">-<br>⟷/🗙</td>
+</tr>
+</tbody>
+</table>
 <p>In the above table, <code>-</code> denotes batch-type dimensions, 🗙 are not allowed, ⟷ are reduced in the operation, ★ are active</p>
 <p>The preferred way to define a <code>Shape</code> is via the <code>shape()</code> function.
 It takes the dimension sizes as keyword arguments.</p>
@@ -14682,7 +14742,7 @@ It takes the dimension sizes as keyword arguments.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y'</span><span class="p">)</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -14928,7 +14988,7 @@ Otherwise, they are determined automatically.</p>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython2"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span>
-<span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">batch</span><span class="p">(</span><span class="s1">'batch'</span><span class="p">),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y'</span><span class="p">))</span>
+<span class="n">math</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">batch</span><span class="p">(</span><span class="s1">&#39;batch&#39;</span><span class="p">),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
 </pre></div>
 
      </div>
@@ -14967,7 +15027,7 @@ Otherwise, they are determined automatically.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[9]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">math</span><span class="o">.</span><span class="n">reshaped_tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="p">[</span><span class="n">batch</span><span class="p">(),</span> <span class="o">*</span><span class="n">spatial</span><span class="p">(</span><span class="s1">'x,y'</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y'</span><span class="p">)])</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">math</span><span class="o">.</span><span class="n">reshaped_tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="p">[</span><span class="n">batch</span><span class="p">(),</span> <span class="o">*</span><span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">)])</span>
 </pre></div>
 
      </div>
@@ -15067,7 +15127,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[11]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">math</span><span class="o">.</span><span class="n">random_uniform</span><span class="p">(</span><span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y'</span><span class="p">))</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">math</span><span class="o">.</span><span class="n">random_uniform</span><span class="p">(</span><span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
 </pre></div>
 
      </div>
@@ -15089,7 +15149,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(x=0.904, y=0.564)</span></pre>
+<pre><span class="ansi-blue-intense-fg">(x=0.722, y=0.083)</span></pre>
 </div>
 
 </div>
@@ -15128,7 +15188,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(0, 0, 0, 1, 0, 0)</span> along <span class="ansi-green-intense-fg">examplesᵇ</span></pre>
+<pre><span class="ansi-blue-intense-fg">(-1, 0, 0, 0, -1, 0)</span> along <span class="ansi-green-intense-fg">examplesᵇ</span></pre>
 </div>
 
 </div>
@@ -15303,8 +15363,8 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[17]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">random_uniform</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">'x,y,z'</span><span class="p">))</span>
-<span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">'x'</span><span class="p">]</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">random_uniform</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">channel</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y,z&#39;</span><span class="p">))</span>
+<span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
 </pre></div>
 
      </div>
@@ -15326,7 +15386,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.550 ± 0.295</span> <span class="ansi-white-fg">(6e-03...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.537 ± 0.281</span> <span class="ansi-white-fg">(2e-02...1e+00)</span></pre>
 </div>
 
 </div>
@@ -15355,7 +15415,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[18]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">data</span><span class="p">[{</span><span class="s1">'x'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">'y'</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="s1">'vector'</span><span class="p">:</span> <span class="s1">'x'</span><span class="p">}]</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="n">data</span><span class="p">[{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="s1">&#39;vector&#39;</span><span class="p">:</span> <span class="s1">&#39;x&#39;</span><span class="p">}]</span>
 </pre></div>
 
      </div>
@@ -15377,7 +15437,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.550 ± 0.295</span> <span class="ansi-white-fg">(6e-03...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.537 ± 0.281</span> <span class="ansi-white-fg">(2e-02...1e+00)</span></pre>
 </div>
 
 </div>
@@ -15427,16 +15487,16 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.517 ± 0.282</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.468 ± 0.270</span> <span class="ansi-white-fg">(4e-04...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.503 ± 0.299</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.533 ± 0.302</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.489 ± 0.288</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.474 ± 0.275</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.482 ± 0.286</span> <span class="ansi-white-fg">(5e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.478 ± 0.285</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.508 ± 0.282</span> <span class="ansi-white-fg">(8e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.510 ± 0.298</span> <span class="ansi-white-fg">(5e-04...1e+00)</span>
+<pre><span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.518 ± 0.285</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.482 ± 0.293</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.513 ± 0.298</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.481 ± 0.290</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.494 ± 0.297</span> <span class="ansi-white-fg">(4e-04...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.452 ± 0.278</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.494 ± 0.285</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.503 ± 0.271</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.473 ± 0.293</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.541 ± 0.306</span> <span class="ansi-white-fg">(1e-04...1e+00)</span>
 </pre>
 </div>
 </div>
@@ -15475,16 +15535,16 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>(<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.517 ± 0.282</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.468 ± 0.270</span> <span class="ansi-white-fg">(4e-04...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.503 ± 0.299</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.533 ± 0.302</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.489 ± 0.288</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.474 ± 0.275</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.482 ± 0.286</span> <span class="ansi-white-fg">(5e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.478 ± 0.285</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.508 ± 0.282</span> <span class="ansi-white-fg">(8e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.510 ± 0.298</span> <span class="ansi-white-fg">(5e-04...1e+00)</span>)</pre>
+<pre>(<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.518 ± 0.285</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.482 ± 0.293</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.513 ± 0.298</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.481 ± 0.290</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.494 ± 0.297</span> <span class="ansi-white-fg">(4e-04...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.452 ± 0.278</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.494 ± 0.285</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.503 ± 0.271</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.473 ± 0.293</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.541 ± 0.306</span> <span class="ansi-white-fg">(1e-04...1e+00)</span>)</pre>
 </div>
 
 </div>
@@ -15517,7 +15577,7 @@ This tensor then has dimension sizes of type <code>Tensor</code> where the sourc
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython2"><pre><span></span><span class="n">t0</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
 <span class="n">t1</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">b</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
-<span class="n">stacked</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">'c'</span><span class="p">))</span>
+<span class="n">stacked</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">))</span>
 <span class="n">stacked</span>
 </pre></div>
 
@@ -15767,7 +15827,7 @@ There are no global variables for common data types; instead you can create one 
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[27]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">math</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">6</span><span class="p">))</span><span class="si">:</span><span class="s2">summary:color:shape:dtype:.5e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<div class=" highlight hl-ipython2"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">math</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">spatial</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">6</span><span class="p">))</span><span class="si">:</span><span class="s2">summary:color:shape:dtype:.5e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 
      </div>
