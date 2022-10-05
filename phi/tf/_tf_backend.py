@@ -18,7 +18,7 @@ from ._tf_cuda_resample import resample_cuda, use_cuda
 class TFBackend(Backend):
 
     def __init__(self):
-        devices = [ComputeDevice(self, device.name, device.device_type, device.memory_limit, -1, str(device), device.name) for device in device_lib.list_local_devices()]
+        devices = [ComputeDevice(self, device.name, simple_device_type(device.device_type), device.memory_limit, -1, str(device), device.name) for device in device_lib.list_local_devices()]
         # Example refs: '/device:CPU:0'
         default_device_ref = '/' + os.path.basename(tf.zeros(()).device)
         default_device = None
@@ -659,3 +659,7 @@ class TFBackend(Backend):
 
 
 _TAPES = []
+
+
+def simple_device_type(t: str):
+    return t[len('XLA_'):] if t.startswith('XLA_') else t
