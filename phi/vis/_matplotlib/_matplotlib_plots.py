@@ -133,6 +133,8 @@ class MatplotlibPlots(PlottingLibrary):
                 return HTML(figure.to_html5_video())
             else:
                 figure._fig.show()
+        else:
+            raise ValueError(f"{type(figure)} is not a valid {self.name} figure")
 
     def save(self, figure, path: str, dpi: float):
         if isinstance(figure, plt.Figure):
