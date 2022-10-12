@@ -14638,19 +14638,19 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>2022-10-12 12:44:28.778490: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
+<pre>2022-10-12 14:07:11.089019: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 AVX512F FMA
 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2022-10-12 12:44:28.934273: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.14/x64/lib
-2022-10-12 12:44:28.934327: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
-2022-10-12 12:44:28.971673: E tensorflow/stream_executor/cuda/cuda_blas.cc:2981] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-2022-10-12 12:44:29.951421: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libnvinfer.so.7&#39;; dlerror: libnvinfer.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.14/x64/lib
-2022-10-12 12:44:29.951561: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libnvinfer_plugin.so.7&#39;; dlerror: libnvinfer_plugin.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.14/x64/lib
-2022-10-12 12:44:29.951575: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Cannot dlopen some TensorRT libraries. If you would like to use Nvidia GPU with TensorRT, please make sure the missing libraries mentioned above are installed properly.
-2022-10-12 12:44:31.304098: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
+2022-10-12 14:07:11.230253: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcudart.so.11.0&#39;; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.14/x64/lib
+2022-10-12 14:07:11.230272: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+2022-10-12 14:07:11.262779: E tensorflow/stream_executor/cuda/cuda_blas.cc:2981] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2022-10-12 14:07:11.923744: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libnvinfer.so.7&#39;; dlerror: libnvinfer.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.14/x64/lib
+2022-10-12 14:07:11.923833: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libnvinfer_plugin.so.7&#39;; dlerror: libnvinfer_plugin.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.14/x64/lib
+2022-10-12 14:07:11.923841: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Cannot dlopen some TensorRT libraries. If you would like to use Nvidia GPU with TensorRT, please make sure the missing libraries mentioned above are installed properly.
+2022-10-12 14:07:12.816653: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 AVX512F FMA
 To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2022-10-12 12:44:31.304751: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcuda.so.1&#39;; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.14/x64/lib
-2022-10-12 12:44:31.304776: W tensorflow/stream_executor/cuda/cuda_driver.cc:263] failed call to cuInit: UNKNOWN ERROR (303)
-2022-10-12 12:44:31.304798: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (fv-az505-948): /proc/driver/nvidia/version does not exist
+2022-10-12 14:07:12.817041: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library &#39;libcuda.so.1&#39;; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.8.14/x64/lib
+2022-10-12 14:07:12.817058: W tensorflow/stream_executor/cuda/cuda_driver.cc:263] failed call to cuInit: UNKNOWN ERROR (303)
+2022-10-12 14:07:12.817080: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (fv-az196-460): /proc/driver/nvidia/version does not exist
 WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
 </pre>
 </div>
@@ -14734,8 +14734,8 @@ WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Initial loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span class="ansi-blue-intense-fg">0.251 ± 0.239</span> <span class="ansi-white-fg">(1e-05...8e-01)</span>
-Final loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span class="ansi-blue-intense-fg">0.111 ± 0.086</span> <span class="ansi-white-fg">(8e-05...3e-01)</span>
+<pre>Initial loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span class="ansi-blue-intense-fg">0.245 ± 0.191</span> <span class="ansi-white-fg">(4e-06...6e-01)</span>
+Final loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span class="ansi-blue-intense-fg">0.103 ± 0.100</span> <span class="ansi-white-fg">(4e-04...3e-01)</span>
 </pre>
 </div>
 </div>
@@ -14841,28 +14841,28 @@ Final loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span clas
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
 <pre>Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Initial loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.11e+04 ± 6.1e+04</span> <span class="ansi-white-fg">(3e+03...2e+05)</span>
+Initial loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.14e+04 ± 6.7e+04</span> <span class="ansi-white-fg">(4e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 0, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.12e+04 ± 6.1e+04</span> <span class="ansi-white-fg">(3e+03...2e+05)</span>
+Iter : 0, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.15e+04 ± 6.7e+04</span> <span class="ansi-white-fg">(4e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 1, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.89e+04 ± 5.7e+04</span> <span class="ansi-white-fg">(5e+03...2e+05)</span>
+Iter : 1, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.81e+04 ± 6.1e+04</span> <span class="ansi-white-fg">(7e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 2, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.79e+04 ± 5.5e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
+Iter : 2, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.64e+04 ± 5.8e+04</span> <span class="ansi-white-fg">(8e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 3, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.69e+04 ± 5.3e+04</span> <span class="ansi-white-fg">(7e+03...2e+05)</span>
+Iter : 3, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.50e+04 ± 5.5e+04</span> <span class="ansi-white-fg">(8e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 4, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.60e+04 ± 5.2e+04</span> <span class="ansi-white-fg">(8e+03...2e+05)</span>
+Iter : 4, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.36e+04 ± 5.3e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 5, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.49e+04 ± 5.0e+04</span> <span class="ansi-white-fg">(9e+03...2e+05)</span>
+Iter : 5, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.24e+04 ± 5.1e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 6, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.41e+04 ± 4.9e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
+Iter : 6, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.14e+04 ± 4.8e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 7, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.36e+04 ± 4.8e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
+Iter : 7, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.04e+04 ± 4.6e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 8, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.26e+04 ± 4.7e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
+Iter : 8, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.96e+04 ± 4.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 9, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.21e+04 ± 4.7e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
-Final loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.21e+04 ± 4.7e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
+Iter : 9, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.88e+04 ± 4.2e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
+Final loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.88e+04 ± 4.2e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 </pre>
 </div>
 </div>
@@ -14946,28 +14946,28 @@ A filter size of 3 is used in the convolutional layers.</p>
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
 <pre>Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Initial loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.67e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
+Initial loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.16e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 0, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.67e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
+Iter : 0, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.16e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 1, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.65e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
+Iter : 1, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.14e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 2, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.63e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
+Iter : 2, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.12e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 3, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.61e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
+Iter : 3, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.11e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 4, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.59e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
+Iter : 4, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.09e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 5, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.57e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(5e+03...2e+05)</span>
+Iter : 5, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.07e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 6, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.55e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(5e+03...2e+05)</span>
+Iter : 6, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.06e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 7, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.53e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(5e+03...2e+05)</span>
+Iter : 7, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.04e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 8, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.51e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(5e+03...2e+05)</span>
+Iter : 8, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.03e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 9, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.49e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(5e+03...2e+05)</span>
-Final loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">8.49e+04 ± 6.2e+04</span> <span class="ansi-white-fg">(5e+03...2e+05)</span>
+Iter : 9, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.02e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
+Final loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">9.02e+04 ± 6.5e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 </pre>
 </div>
 </div>
@@ -15049,28 +15049,28 @@ Final loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span cl
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
 <pre>Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Initial loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.23e+04 ± 6.0e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
+Initial loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.59e+04 ± 5.3e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 0, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.19e+04 ± 6.0e+04</span> <span class="ansi-white-fg">(9e+03...2e+05)</span>
+Iter : 0, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.68e+04 ± 5.4e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 1, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.09e+04 ± 5.9e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
+Iter : 1, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.51e+04 ± 5.3e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 2, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.97e+04 ± 5.9e+04</span> <span class="ansi-white-fg">(9e+03...2e+05)</span>
+Iter : 2, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.44e+04 ± 5.3e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 3, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.79e+04 ± 5.8e+04</span> <span class="ansi-white-fg">(9e+03...2e+05)</span>
+Iter : 3, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.40e+04 ± 5.2e+04</span> <span class="ansi-white-fg">(1e+04...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 4, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.72e+04 ± 5.7e+04</span> <span class="ansi-white-fg">(9e+03...2e+05)</span>
+Iter : 4, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.32e+04 ± 5.2e+04</span> <span class="ansi-white-fg">(9e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 5, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.60e+04 ± 5.6e+04</span> <span class="ansi-white-fg">(9e+03...2e+05)</span>
+Iter : 5, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.25e+04 ± 5.2e+04</span> <span class="ansi-white-fg">(8e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 6, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.57e+04 ± 5.6e+04</span> <span class="ansi-white-fg">(9e+03...2e+05)</span>
+Iter : 6, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.20e+04 ± 5.1e+04</span> <span class="ansi-white-fg">(8e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 7, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.49e+04 ± 5.6e+04</span> <span class="ansi-white-fg">(8e+03...2e+05)</span>
+Iter : 7, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.16e+04 ± 5.1e+04</span> <span class="ansi-white-fg">(7e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 8, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.36e+04 ± 5.4e+04</span> <span class="ansi-white-fg">(7e+03...2e+05)</span>
+Iter : 8, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.14e+04 ± 5.0e+04</span> <span class="ansi-white-fg">(8e+03...2e+05)</span>
 Grid Shape : (examplesᵇ=50, xˢ=64, yˢ=64)
-Iter : 9, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.31e+04 ± 5.4e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
-Final loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">6.31e+04 ± 5.4e+04</span> <span class="ansi-white-fg">(6e+03...2e+05)</span>
+Iter : 9, Loss : <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.07e+04 ± 5.0e+04</span> <span class="ansi-white-fg">(7e+03...2e+05)</span>
+Final loss: <span class="ansi-green-intense-fg">(examplesᵇ=50)</span> <span class="ansi-blue-intense-fg">7.07e+04 ± 5.0e+04</span> <span class="ansi-white-fg">(7e+03...2e+05)</span>
 </pre>
 </div>
 </div>
