@@ -2718,12 +2718,16 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code>Tensor</code> to unstack.</dd>
+<dd><code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Dimensions as <code>Shape</code> or comma-separated <code>str</code> or dimension type, i.e. <code>channel</code>, <code>spatial</code>, <code>instance</code>, <code>batch</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code>tuple</code> of <code>Tensor</code> objects.</p></div>
+<p><code>tuple</code> of <code>Tensor</code> objects.</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">unstack(math.zeros(spatial(x=5)), 'x')
+# Out: (0.0, 0.0, 0.0, 0.0, 0.0)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2735,11 +2739,17 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     If multiple dimensions are given, the order of elements will be according to the dimension order in `dim`, i.e. elements along the last dimension will be neighbors in the returned `tuple`.
 
     Args:
-        value: `Tensor` to unstack.
+        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dim: Dimensions as `Shape` or comma-separated `str` or dimension type, i.e. `channel`, `spatial`, `instance`, `batch`.
 
     Returns:
         `tuple` of `Tensor` objects.
+
+    Examples:
+        ```python
+        unstack(math.zeros(spatial(x=5)), &#39;x&#39;)
+        # Out: (0.0, 0.0, 0.0, 0.0, 0.0)
+        ```
     &#34;&#34;&#34;
     assert isinstance(value, Sliceable) and isinstance(value, Shaped)
     dims = shape(value).only(dim)

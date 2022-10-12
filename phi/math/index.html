@@ -965,12 +965,12 @@ The result will have 2^d values for each vector in coordiantes in d dimensions.<
 <span>def <span class="ident">concat</span></span>(<span>values: tuple, dim: str, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Concatenates a sequence of tensors along one dimension.
+<div class="desc"><p>Concatenates a sequence of <code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code> objects, e.g. <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, along one dimension.
 The shapes of all values must be equal, except for the size of the concat dimension.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd>Tensors to concatenate</dd>
+<dd>Tuple or list of <code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Concatenation dimension, must be present in all <code>values</code>.
 The size along <code>dim</code> is determined from <code>values</code> and can be set to undefined (<code>None</code>).</dd>
@@ -980,18 +980,25 @@ Adding spatial dimensions to fields requires the <code>bounds: Box</code> argume
 Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Concatenated <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<p>Concatenated <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">concat([math.zeros(batch(b=10)), math.ones(batch(b=10))], 'b')
+# Out: (bᵇ=20) 0.500 ± 0.500 (0e+00...1e+00)
+
+concat([vec(x=1, y=0), vec(z=2.)], 'vector')
+# Out: (x=1.000, y=0.000, z=2.000) float64
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def concat(values: tuple or list, dim: str or Shape, **kwargs):
     &#34;&#34;&#34;
-    Concatenates a sequence of tensors along one dimension.
+    Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
     The shapes of all values must be equal, except for the size of the concat dimension.
 
     Args:
-        values: Tensors to concatenate
+        values: Tuple or list of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dim: Concatenation dimension, must be present in all `values`.
             The size along `dim` is determined from `values` and can be set to undefined (`None`).
         **kwargs: Additional keyword arguments required by specific implementations.
@@ -1000,6 +1007,16 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 
     Returns:
         Concatenated `Tensor`
+
+    Examples:
+
+        ```python
+        concat([math.zeros(batch(b=10)), math.ones(batch(b=10))], &#39;b&#39;)
+        # Out: (bᵇ=20) 0.500 ± 0.500 (0e+00...1e+00)
+
+        concat([vec(x=1, y=0), vec(z=2.)], &#39;vector&#39;)
+        # Out: (x=1.000, y=0.000, z=2.000) float64
+        ```
     &#34;&#34;&#34;
     assert len(values) &gt; 0, f&#34;concat() got empty sequence {values}&#34;
     if isinstance(dim, Shape):
@@ -1770,7 +1787,7 @@ If <code>value</code> already contains some of the new dimensions, a size and ty
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
 <dt><strong><code>dims</code></strong></dt>
 <dd>Dimensions to be added as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></dd>
 <dt><strong><code>**kwargs</code></strong></dt>
@@ -1779,7 +1796,7 @@ Adding spatial dimensions to fields requires the <code>bounds: Box</code> argume
 Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Expanded <code>Shapable</code>.</p></div>
+<p>Same type as <code>value</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1798,14 +1815,14 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     Additionally, it replaces the traditional `unsqueeze` / `expand_dims` functions.
 
     Args:
-        value: `Tensor`
+        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dims: Dimensions to be added as `Shape`
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        Expanded `Shapable`.
+        Same type as `value`.
     &#34;&#34;&#34;
     if hasattr(value, &#39;__expand__&#39;):
         result = value.__expand__(dims, **kwargs)
@@ -2229,7 +2246,7 @@ The order of the values in memory is not changed.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
 <dt><strong><code>flat_dim</code></strong></dt>
 <dd>Dimension name and type as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object. The size is ignored.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
@@ -2238,7 +2255,11 @@ Adding spatial dimensions to fields requires the <code>bounds: Box</code> argume
 Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<p>Same type as <code>value</code>.</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">flatten(math.zeros(spatial(x=4, y=3)))
+# Out: (flatⁱ=12) const 0.0
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2249,14 +2270,20 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     The order of the values in memory is not changed.
 
     Args:
-        value: `Tensor`
+        value: `phi.math.magic.Shapable`, such as `Tensor`.
         flat_dim: Dimension name and type as `Shape` object. The size is ignored.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        `Tensor`
+        Same type as `value`.
+
+    Examples:
+        ```python
+        flatten(math.zeros(spatial(x=4, y=3)))
+        # Out: (flatⁱ=12) const 0.0
+        ```
     &#34;&#34;&#34;
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
@@ -4947,7 +4974,7 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd>Tensor containing the dimensions <code>dims</code>.</dd>
+<dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
 <dt><strong><code>dims</code></strong></dt>
 <dd>Dimensions to be compressed in the specified order.</dd>
 <dt><strong><code>packed_dim</code></strong></dt>
@@ -4960,7 +4987,11 @@ Adding spatial dimensions to fields requires the <code>bounds: Box</code> argume
 Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with compressed shape.</p></div>
+<p>Same type as <code>value</code>.</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">pack_dims(math.zeros(spatial(x=4, y=3)), spatial, instance('points'))
+# Out: (pointsⁱ=12) const 0.0
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4981,7 +5012,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         `unpack_dim()`
 
     Args:
-        value: Tensor containing the dimensions `dims`.
+        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`.
         dims: Dimensions to be compressed in the specified order.
         packed_dim: Single-dimension `Shape`.
         pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
@@ -4990,7 +5021,13 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        `Tensor` with compressed shape.
+        Same type as `value`.
+
+    Examples:
+        ```python
+        pack_dims(math.zeros(spatial(x=4, y=3)), spatial, instance(&#39;points&#39;))
+        # Out: (pointsⁱ=12) const 0.0
+        ```
     &#34;&#34;&#34;
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
     dims = shape(value).only(dims)
@@ -6716,7 +6753,7 @@ This makes repeated stacking and slicing along the same dimension very efficient
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd>Sequence of <code>Shapable</code> objects to be stacked.
+<dd>Collection of <code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>
 If a <code>dict</code>, keys must be of type <code>str</code> and are used as item names along <code>dim</code>.</dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with a least one dimension. None of these dimensions can be present with any of the <code>values</code>.
@@ -6728,7 +6765,17 @@ Adding spatial dimensions to fields requires the <code>bounds: Box</code> argume
 Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> containing <code>values</code> stacked along <code>dim</code>.</p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> containing <code>values</code> stacked along <code>dim</code>.</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">stack({'x': 0, 'y': 1}, channel('vector'))
+# Out: (x=0, y=1)
+
+stack([math.zeros(batch(b=2)), math.ones(batch(b=2))], channel(c='x,y'))
+# Out: (x=0.000, y=1.000); (x=0.000, y=1.000) (bᵇ=2, cᶜ=x,y)
+
+stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
+# Out: (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6741,7 +6788,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     This makes repeated stacking and slicing along the same dimension very efficient.
 
     Args:
-        values: Sequence of `Shapable` objects to be stacked.
+        values: Collection of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
             If a `dict`, keys must be of type `str` and are used as item names along `dim`.
         dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
             If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
@@ -6752,6 +6799,19 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 
     Returns:
         `Tensor` containing `values` stacked along `dim`.
+
+    Examples:
+
+        ```python
+        stack({&#39;x&#39;: 0, &#39;y&#39;: 1}, channel(&#39;vector&#39;))
+        # Out: (x=0, y=1)
+
+        stack([math.zeros(batch(b=2)), math.ones(batch(b=2))], channel(c=&#39;x,y&#39;))
+        # Out: (x=0.000, y=1.000); (x=0.000, y=1.000) (bᵇ=2, cᶜ=x,y)
+
+        stack([vec(x=1, y=0), vec(x=2, y=3.)], batch(&#39;b&#39;))
+        # Out: (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
+        ```
     &#34;&#34;&#34;
     assert len(values) &gt; 0, f&#34;stack() got empty sequence {values}&#34;
     assert isinstance(dim, Shape)
@@ -7356,7 +7416,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> for which one dimension should be split.</dd>
+<dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, for which one dimension should be split.</dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Dimension to be decompressed.</dd>
 <dt><strong><code>unpacked_dims</code></strong></dt>
@@ -7367,7 +7427,11 @@ Adding spatial dimensions to fields requires the <code>bounds: Box</code> argume
 Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with decompressed shape</p></div>
+<p>Same type as <code>value</code>.</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">unpack_dim(math.zeros(instance(points=12)), 'points', spatial(x=4, y=3))
+# Out: (xˢ=4, yˢ=3) const 0.0
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7382,7 +7446,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         `pack_dims()`
 
     Args:
-        value: `Tensor` for which one dimension should be split.
+        value: `phi.math.magic.Shapable`, such as `Tensor`, for which one dimension should be split.
         dim: Dimension to be decompressed.
         unpacked_dims: `Shape`: Ordered dimensions to replace `dim`, fulfilling `unpacked_dims.volume == shape(self)[dim].rank`.
         **kwargs: Additional keyword arguments required by specific implementations.
@@ -7390,7 +7454,13 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        `Tensor` with decompressed shape
+        Same type as `value`.
+
+    Examples:
+        ```python
+        unpack_dim(math.zeros(instance(points=12)), &#39;points&#39;, spatial(x=4, y=3))
+        # Out: (xˢ=4, yˢ=3) const 0.0
+        ```
     &#34;&#34;&#34;
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
     if isinstance(dim, Shape):
@@ -7425,7 +7495,7 @@ The compressed dimension <code>dim</code> is assumed to contain elements laid ou
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> for which one dimension should be split.</dd>
+<dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, for which one dimension should be split.</dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Dimension to be decompressed.</dd>
 <dt><strong><code>unpacked_dims</code></strong></dt>
@@ -7436,7 +7506,11 @@ Adding spatial dimensions to fields requires the <code>bounds: Box</code> argume
 Adding batch dimensions must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with decompressed shape</p></div>
+<p>Same type as <code>value</code>.</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">unpack_dim(math.zeros(instance(points=12)), 'points', spatial(x=4, y=3))
+# Out: (xˢ=4, yˢ=3) const 0.0
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7451,7 +7525,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         `pack_dims()`
 
     Args:
-        value: `Tensor` for which one dimension should be split.
+        value: `phi.math.magic.Shapable`, such as `Tensor`, for which one dimension should be split.
         dim: Dimension to be decompressed.
         unpacked_dims: `Shape`: Ordered dimensions to replace `dim`, fulfilling `unpacked_dims.volume == shape(self)[dim].rank`.
         **kwargs: Additional keyword arguments required by specific implementations.
@@ -7459,7 +7533,13 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        `Tensor` with decompressed shape
+        Same type as `value`.
+
+    Examples:
+        ```python
+        unpack_dim(math.zeros(instance(points=12)), &#39;points&#39;, spatial(x=4, y=3))
+        # Out: (xˢ=4, yˢ=3) const 0.0
+        ```
     &#34;&#34;&#34;
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
     if isinstance(dim, Shape):
@@ -7491,12 +7571,16 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> to unstack.</dd>
+<dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Dimensions as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or comma-separated <code>str</code> or dimension type, i.e. <code><a title="phi.math.channel" href="#phi.math.channel">channel()</a></code>, <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code>, <code><a title="phi.math.instance" href="#phi.math.instance">instance()</a></code>, <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code>tuple</code> of <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> objects.</p></div>
+<p><code>tuple</code> of <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> objects.</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">unstack(math.zeros(spatial(x=5)), 'x')
+# Out: (0.0, 0.0, 0.0, 0.0, 0.0)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7508,11 +7592,17 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     If multiple dimensions are given, the order of elements will be according to the dimension order in `dim`, i.e. elements along the last dimension will be neighbors in the returned `tuple`.
 
     Args:
-        value: `Tensor` to unstack.
+        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dim: Dimensions as `Shape` or comma-separated `str` or dimension type, i.e. `channel`, `spatial`, `instance`, `batch`.
 
     Returns:
         `tuple` of `Tensor` objects.
+
+    Examples:
+        ```python
+        unstack(math.zeros(spatial(x=5)), &#39;x&#39;)
+        # Out: (0.0, 0.0, 0.0, 0.0, 0.0)
+        ```
     &#34;&#34;&#34;
     assert isinstance(value, Sliceable) and isinstance(value, Shaped)
     dims = shape(value).only(dim)
