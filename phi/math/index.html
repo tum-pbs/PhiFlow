@@ -6046,9 +6046,11 @@ Must also contain all <code>scatter_dims</code>.</dd>
         indices_linear = pack_dims(indices, instance, instance(_scatter_instance=1))
         indices_inside = min_((round_(indices_linear) &gt;= 0) &amp; (round_(indices_linear) &lt; tensor(grid_shape.spatial, channel(&#39;vector&#39;))), &#39;vector&#39;)
         indices_linear = boolean_mask(indices_linear, &#39;_scatter_instance&#39;, indices_inside)
-        indices = unpack_dim(indices_linear, &#39;_scatter_instance&#39;, instance(indices))
         if instance(values).rank &gt; 0:
-            values = boolean_mask(values, values.shape.instance.name, indices_inside)
+            values_linear = pack_dims(values, instance, instance(_scatter_instance=1))
+            values_linear = boolean_mask(values_linear, &#39;_scatter_instance&#39;, indices_inside)
+            values = unpack_dim(values_linear, &#39;_scatter_instance&#39;, instance(values))
+        indices = unpack_dim(indices_linear, &#39;_scatter_instance&#39;, instance(indices))
         if indices.shape.is_non_uniform:
             raise NotImplementedError()
     lists = indices.shape.instance &amp; values.shape.instance
