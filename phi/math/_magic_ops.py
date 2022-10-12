@@ -19,11 +19,17 @@ def unstack(value, dim: DimFilter):
     If multiple dimensions are given, the order of elements will be according to the dimension order in `dim`, i.e. elements along the last dimension will be neighbors in the returned `tuple`.
 
     Args:
-        value: `Tensor` to unstack.
+        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dim: Dimensions as `Shape` or comma-separated `str` or dimension type, i.e. `channel`, `spatial`, `instance`, `batch`.
 
     Returns:
         `tuple` of `Tensor` objects.
+
+    Examples:
+        ```python
+        unstack(math.zeros(spatial(x=5)), 'x')
+        # Out: (0.0, 0.0, 0.0, 0.0, 0.0)
+        ```
     """
     assert isinstance(value, Sliceable) and isinstance(value, Shaped)
     dims = shape(value).only(dim)
@@ -55,7 +61,7 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     This makes repeated stacking and slicing along the same dimension very efficient.
 
     Args:
-        values: Sequence of `Shapable` objects to be stacked.
+        values: Collection of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
             If a `dict`, keys must be of type `str` and are used as item names along `dim`.
         dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
             If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
@@ -66,6 +72,19 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
 
     Returns:
         `Tensor` containing `values` stacked along `dim`.
+
+    Examples:
+
+        ```python
+        stack({'x': 0, 'y': 1}, channel('vector'))
+        # Out: (x=0, y=1)
+
+        stack([math.zeros(batch(b=2)), math.ones(batch(b=2))], channel(c='x,y'))
+        # Out: (x=0.000, y=1.000); (x=0.000, y=1.000) (bᵇ=2, cᶜ=x,y)
+
+        stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
+        # Out: (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
+        ```
     """
     assert len(values) > 0, f"stack() got empty sequence {values}"
     assert isinstance(dim, Shape)
@@ -129,11 +148,11 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
 
 def concat(values: tuple or list, dim: str or Shape, **kwargs):
     """
-    Concatenates a sequence of tensors along one dimension.
+    Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
     The shapes of all values must be equal, except for the size of the concat dimension.
 
     Args:
-        values: Tensors to concatenate
+        values: Tuple or list of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dim: Concatenation dimension, must be present in all `values`.
             The size along `dim` is determined from `values` and can be set to undefined (`None`).
         **kwargs: Additional keyword arguments required by specific implementations.
@@ -142,6 +161,16 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
 
     Returns:
         Concatenated `Tensor`
+
+    Examples:
+
+        ```python
+        concat([math.zeros(batch(b=10)), math.ones(batch(b=10))], 'b')
+        # Out: (bᵇ=20) 0.500 ± 0.500 (0e+00...1e+00)
+
+        concat([vec(x=1, y=0), vec(z=2.)], 'vector')
+        # Out: (x=1.000, y=0.000, z=2.000) float64
+        ```
     """
     assert len(values) > 0, f"concat() got empty sequence {values}"
     if isinstance(dim, Shape):
@@ -186,14 +215,14 @@ def expand(value, dims: Shape, **kwargs):
     Additionally, it replaces the traditional `unsqueeze` / `expand_dims` functions.
 
     Args:
-        value: `Tensor`
+        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dims: Dimensions to be added as `Shape`
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        Expanded `Shapable`.
+        Same type as `value`.
     """
     if hasattr(value, '__expand__'):
         result = value.__expand__(dims, **kwargs)
@@ -271,7 +300,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
         `unpack_dim()`
 
     Args:
-        value: Tensor containing the dimensions `dims`.
+        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`.
         dims: Dimensions to be compressed in the specified order.
         packed_dim: Single-dimension `Shape`.
         pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
@@ -280,7 +309,13 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        `Tensor` with compressed shape.
+        Same type as `value`.
+
+    Examples:
+        ```python
+        pack_dims(math.zeros(spatial(x=4, y=3)), spatial, instance('points'))
+        # Out: (pointsⁱ=12) const 0.0
+        ```
     """
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     dims = shape(value).only(dims)
@@ -316,7 +351,7 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
         `pack_dims()`
 
     Args:
-        value: `Tensor` for which one dimension should be split.
+        value: `phi.math.magic.Shapable`, such as `Tensor`, for which one dimension should be split.
         dim: Dimension to be decompressed.
         unpacked_dims: `Shape`: Ordered dimensions to replace `dim`, fulfilling `unpacked_dims.volume == shape(self)[dim].rank`.
         **kwargs: Additional keyword arguments required by specific implementations.
@@ -324,7 +359,13 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        `Tensor` with decompressed shape
+        Same type as `value`.
+
+    Examples:
+        ```python
+        unpack_dim(math.zeros(instance(points=12)), 'points', spatial(x=4, y=3))
+        # Out: (xˢ=4, yˢ=3) const 0.0
+        ```
     """
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     if isinstance(dim, Shape):
@@ -354,14 +395,20 @@ def flatten(value, flat_dim: Shape = instance('flat'), **kwargs):
     The order of the values in memory is not changed.
 
     Args:
-        value: `Tensor`
+        value: `phi.math.magic.Shapable`, such as `Tensor`.
         flat_dim: Dimension name and type as `Shape` object. The size is ignored.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
 
     Returns:
-        `Tensor`
+        Same type as `value`.
+
+    Examples:
+        ```python
+        flatten(math.zeros(spatial(x=4, y=3)))
+        # Out: (flatⁱ=12) const 0.0
+        ```
     """
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
