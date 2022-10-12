@@ -5984,7 +5984,7 @@ Must also contain all <code>scatter_dims</code>.</dd>
 </summary>
 <pre><code class="python">def scatter(base_grid: Tensor or Shape,
             indices: Tensor,
-            values: Tensor,
+            values: Tensor or float,
             mode: str = &#39;update&#39;,
             outside_handling: str = &#39;discard&#39;,
             indices_gradient=False):
@@ -6030,6 +6030,7 @@ Must also contain all <code>scatter_dims</code>.</dd>
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert indices.shape.channel.names == (&#39;vector&#39;,) or (grid_shape.spatial_rank + grid_shape.instance_rank == 1 and indices.shape.channel_rank == 0)
+    values = wrap(values)
     batches = values.shape.non_channel.non_instance &amp; indices.shape.non_channel.non_instance
     channels = grid_shape.channel &amp; values.shape.channel
     # --- Set up grid ---
@@ -6042,8 +6043,10 @@ Must also contain all <code>scatter_dims</code>.</dd>
     if outside_handling == &#39;clamp&#39;:
         indices = clip(indices, 0, tensor(grid_shape.spatial, channel(&#39;vector&#39;)) - 1)
     elif outside_handling == &#39;discard&#39;:
-        indices_inside = min_((round_(indices) &gt;= 0) &amp; (round_(indices) &lt; tensor(grid_shape.spatial, channel(&#39;vector&#39;))), &#39;vector&#39;)
-        indices = boolean_mask(indices, indices.shape.instance.name, indices_inside)
+        indices_linear = pack_dims(indices, instance, instance(_scatter_instance=1))
+        indices_inside = min_((round_(indices_linear) &gt;= 0) &amp; (round_(indices_linear) &lt; tensor(grid_shape.spatial, channel(&#39;vector&#39;))), &#39;vector&#39;)
+        indices_linear = boolean_mask(indices_linear, &#39;_scatter_instance&#39;, indices_inside)
+        indices = unpack_dim(indices_linear, &#39;_scatter_instance&#39;, instance(indices))
         if instance(values).rank &gt; 0:
             values = boolean_mask(values, values.shape.instance.name, indices_inside)
         if indices.shape.is_non_uniform:
@@ -8941,7 +8944,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         See Also:
             `Shape.names`.
         &#34;&#34;&#34;
-        assert self.rank == 1, &#34;Shape.name is only defined for shapes of rank 1.&#34;
+        assert self.rank == 1, f&#34;Shape.name is only defined for shapes of rank 1. shape={self}&#34;
         return self.names[0]
 
     @property
@@ -9730,7 +9733,7 @@ def name(self) -&gt; str:
     See Also:
         `Shape.names`.
     &#34;&#34;&#34;
-    assert self.rank == 1, &#34;Shape.name is only defined for shapes of rank 1.&#34;
+    assert self.rank == 1, f&#34;Shape.name is only defined for shapes of rank 1. shape={self}&#34;
     return self.names[0]</code></pre>
 </details>
 </dd>

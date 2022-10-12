@@ -679,8 +679,12 @@ For a full list of parameters, see the respective GUI documentation at <a href="
         return plots.show(plots.current_figure)
     else:
         plots = default_plots() if lib is None else get_plots(lib)
-        fig = plot(*model, lib=plots, **config)
-        return plots.show(fig)</code></pre>
+        fig_tensor = plot(*model, lib=plots, **config)
+        if isinstance(fig_tensor, Tensor):
+            for fig in fig_tensor:
+                plots.show(fig)
+        else:
+            return plots.show(fig_tensor)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
