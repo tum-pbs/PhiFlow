@@ -72,8 +72,8 @@ class MatplotlibPlots(PlottingLibrary):
             rc('animation', html='html5')
 
         base_axes = tuple(fig.axes)
-        positions = {a: (a.figbox.p0, a.figbox.p1) for a in base_axes}
-        titles = {a: a.get_title() for a in base_axes}
+        positions = {a: (a.get_subplotspec().get_position(a.figure).p0, a.get_subplotspec().get_position(a.figure).p1) for a in base_axes}
+        # titles = {a: a.get_title() for a in base_axes}
         specs = {a: a.get_subplotspec() for a in base_axes}
 
         def clear_and_plot(frame: int):
@@ -133,6 +133,8 @@ class MatplotlibPlots(PlottingLibrary):
                 return HTML(figure.to_html5_video())
             else:
                 figure._fig.show()
+        else:
+            raise ValueError(f"{type(figure)} is not a valid {self.name} figure")
 
     def save(self, figure, path: str, dpi: float):
         if isinstance(figure, plt.Figure):

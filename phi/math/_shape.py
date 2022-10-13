@@ -408,7 +408,7 @@ class Shape:
         See Also:
             `Shape.names`.
         """
-        assert self.rank == 1, "Shape.name is only defined for shapes of rank 1."
+        assert self.rank == 1, f"Shape.name is only defined for shapes of rank 1. shape={self}"
         return self.names[0]
 
     @property
