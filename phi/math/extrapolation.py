@@ -242,6 +242,8 @@ class ConstantExtrapolation(Extrapolation):
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             backend = choose_backend(native)
             result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
+            if result_tensor is NotImplemented:
+                return Extrapolation.pad(self, value, widths, **kwargs)
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):

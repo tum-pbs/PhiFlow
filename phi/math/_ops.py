@@ -710,7 +710,7 @@ def concat_tensor(values: tuple or list, dim: str) -> Tensor:
     return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
 
 
-def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation', **kwargs) -> Tensor:
+def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation' or Tensor or Number, **kwargs) -> Tensor:
     """
     Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
     Unlike `Extrapolation.pad()`, this function can handle negative widths which slice off outer values.
@@ -720,6 +720,7 @@ def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation', **kwargs) -> Tens
         widths: `dict` mapping dimension name (`str`) to `(lower, upper)`
             where `lower` and `upper` are `int` that can be positive (pad), negative (slice) or zero (pass).
         mode: `Extrapolation` used to determine values added from positive `widths`.
+            Assumes constant extrapolation if given a number or `Tensor` instead.
         kwargs: Additional padding arguments.
             These are ignored by the standard extrapolations defined in `phi.math.extrapolation` but can be used to pass additional contextual information to custom extrapolations.
             Grid classes from `phi.field` will pass the argument `bounds: Box`.
@@ -727,6 +728,7 @@ def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation', **kwargs) -> Tens
     Returns:
         Padded `Tensor`
     """
+    mode = mode if isinstance(mode, e_.Extrapolation) else e_.ConstantExtrapolation(mode)
     has_negative_widths = any(w[0] < 0 or w[1] < 0 for w in widths.values())
     slices = None
     if has_negative_widths:
