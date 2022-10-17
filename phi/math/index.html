@@ -5065,7 +5065,8 @@ Unlike <code>Extrapolation.pad()</code>, this function can handle negative width
 <dd><code>dict</code> mapping dimension name (<code>str</code>) to <code>(lower, upper)</code>
 where <code>lower</code> and <code>upper</code> are <code>int</code> that can be positive (pad), negative (slice) or zero (pass).</dd>
 <dt><strong><code>mode</code></strong></dt>
-<dd><code>Extrapolation</code> used to determine values added from positive <code>widths</code>.</dd>
+<dd><code>Extrapolation</code> used to determine values added from positive <code>widths</code>.
+Assumes constant extrapolation if given a number or <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> instead.</dd>
 <dt><strong><code>kwargs</code></strong></dt>
 <dd>Additional padding arguments.
 These are ignored by the standard extrapolations defined in <code><a title="phi.math.extrapolation" href="extrapolation.html">phi.math.extrapolation</a></code> but can be used to pass additional contextual information to custom extrapolations.
@@ -5077,7 +5078,7 @@ Grid classes from <code><a title="phi.field" href="../field/index.html">phi.fiel
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pad(value: Tensor, widths: dict, mode: &#39;e_.Extrapolation&#39;, **kwargs) -&gt; Tensor:
+<pre><code class="python">def pad(value: Tensor, widths: dict, mode: &#39;e_.Extrapolation&#39; or Tensor or Number, **kwargs) -&gt; Tensor:
     &#34;&#34;&#34;
     Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
     Unlike `Extrapolation.pad()`, this function can handle negative widths which slice off outer values.
@@ -5087,6 +5088,7 @@ Grid classes from <code><a title="phi.field" href="../field/index.html">phi.fiel
         widths: `dict` mapping dimension name (`str`) to `(lower, upper)`
             where `lower` and `upper` are `int` that can be positive (pad), negative (slice) or zero (pass).
         mode: `Extrapolation` used to determine values added from positive `widths`.
+            Assumes constant extrapolation if given a number or `Tensor` instead.
         kwargs: Additional padding arguments.
             These are ignored by the standard extrapolations defined in `phi.math.extrapolation` but can be used to pass additional contextual information to custom extrapolations.
             Grid classes from `phi.field` will pass the argument `bounds: Box`.
@@ -5094,6 +5096,7 @@ Grid classes from <code><a title="phi.field" href="../field/index.html">phi.fiel
     Returns:
         Padded `Tensor`
     &#34;&#34;&#34;
+    mode = mode if isinstance(mode, e_.Extrapolation) else e_.ConstantExtrapolation(mode)
     has_negative_widths = any(w[0] &lt; 0 or w[1] &lt; 0 for w in widths.values())
     slices = None
     if has_negative_widths:
