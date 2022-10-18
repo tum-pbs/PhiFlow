@@ -346,6 +346,8 @@ class JaxBackend(Backend):
             return jnp.array(x, to_numpy_dtype(dtype))
 
     def batched_gather_nd(self, values, indices):
+        values = self.as_tensor(values)
+        indices = self.as_tensor(indices)
         assert indices.shape[-1] == self.ndims(values) - 2
         batch_size = combined_dim(values.shape[0], indices.shape[0])
         results = []
