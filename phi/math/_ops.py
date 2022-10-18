@@ -701,13 +701,18 @@ def stack_tensors(values: tuple or list, dim: Shape):
 def concat_tensor(values: tuple or list, dim: str) -> Tensor:
     assert len(values) > 0, "concat() got empty sequence"
     assert isinstance(dim, str), f"dim must be a single-dimension Shape but got '{dim}' of type {type(dim)}"
-    broadcast_shape = merge_shapes(*[t.shape._with_item_name(dim, None).with_sizes([None] * t.shape.rank) for t in values])
-    natives = [v.native(order=broadcast_shape.names) for v in values]
-    backend = choose_backend(*natives)
-    concatenated = backend.concat(natives, broadcast_shape.index(dim))
-    if all([v.shape.get_item_names(dim) is not None for v in values]):
-        broadcast_shape = broadcast_shape._with_item_name(dim, sum([v.shape.get_item_names(dim) for v in values], ()))
-    return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
+
+    def inner_concat(*values):
+        broadcast_shape = merge_shapes(*[t.shape._with_item_name(dim, None).with_sizes([None] * t.shape.rank) for t in values])
+        natives = [v.native(order=broadcast_shape.names) for v in values]
+        backend = choose_backend(*natives)
+        concatenated = backend.concat(natives, broadcast_shape.index(dim))
+        if all([v.shape.get_item_names(dim) is not None for v in values]):
+            broadcast_shape = broadcast_shape._with_item_name(dim, sum([v.shape.get_item_names(dim) for v in values], ()))
+        return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
+
+    result = broadcast_op(inner_concat, values)
+    return result
 
 
 def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation' or Tensor or Number, **kwargs) -> Tensor:
@@ -888,6 +893,7 @@ def broadcast_op(operation: Callable,
         dim = next(iter(iter_dims))
         dim_type = None
         size = None
+        item_names = None
         unstacked = []
         for tensor in tensors:
             if dim in tensor.shape.names:
@@ -899,6 +905,8 @@ def broadcast_op(operation: Callable,
                 else:
                     assert size == len(unstacked_tensor)
                     assert dim_type == tensor.shape.get_type(dim)
+                if item_names is None:
+                    item_names = tensor.shape.get_item_names(dim)
             else:
                 unstacked.append(tensor)
         result_unstacked = []
@@ -906,7 +914,7 @@ def broadcast_op(operation: Callable,
             gathered = [t[i] if isinstance(t, tuple) else t for t in unstacked]
             result_unstacked.append(broadcast_op(operation, gathered, iter_dims=set(iter_dims) - {dim}))
         if not no_return:
-            return TensorStack(result_unstacked, Shape((None,), (dim,), (dim_type,), (None,)))
+            return TensorStack(result_unstacked, Shape((None,), (dim,), (dim_type,), (item_names,)))
 
 
 def where(condition: Tensor or float or int, value_true: Tensor or float or int, value_false: Tensor or float or int):
