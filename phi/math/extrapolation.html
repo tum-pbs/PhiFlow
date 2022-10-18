@@ -185,6 +185,9 @@ class Extrapolation:
     def __getitem__(self, item):
         return self
 
+    def _getitem_with_domain(self, item: dict, dim: str, upper_edge: bool, all_dims: tuple):
+        return self[item]
+
     def __abs__(self):
         raise NotImplementedError(self.__class__)
 
@@ -937,7 +940,8 @@ class _MixedExtrapolation(Extrapolation):
 
     def __getitem__(self, item):
         if isinstance(item, dict):
-            return combine_sides(**{dim: (e1[item], e2[item]) for dim, (e1, e2) in self.ext.items()})
+            all_dims = tuple(self.ext.keys())
+            return combine_sides(**{dim: (e1._getitem_with_domain(item, dim, False, all_dims), e2._getitem_with_domain(item, dim, True, all_dims)) for dim, (e1, e2) in self.ext.items()})
         else:
             dim, face = item
             return self.ext[dim][face]
@@ -1027,8 +1031,21 @@ class _NormalTangentialExtrapolation(Extrapolation):
         result = stack(result, value.shape.only(&#39;vector&#39;))
         return result
 
+    def _getitem_with_domain(self, item: dict, dim: str, upper_edge: bool, all_dims: tuple):
+        if &#39;vector&#39; not in item:
+            return self
+        component = item[&#39;vector&#39;]
+        assert isinstance(component, str), f&#34;Selecting a component of normal/tangential must be done by dimension name but got {component}&#34;
+        if component == dim:
+            return self.normal
+        else:
+            return self.tangential
+
     def __eq__(self, other):
         return isinstance(other, _NormalTangentialExtrapolation) and self.normal == other.normal and self.tangential == other.tangential
+
+    def __hash__(self):
+        return hash(self.normal) + hash(self.tangential)
 
     def __add__(self, other):
         return self._op2(other, lambda e1, e2: e1 + e2)
@@ -1912,6 +1929,9 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
 
     def __getitem__(self, item):
         return self
+
+    def _getitem_with_domain(self, item: dict, dim: str, upper_edge: bool, all_dims: tuple):
+        return self[item]
 
     def __abs__(self):
         raise NotImplementedError(self.__class__)
