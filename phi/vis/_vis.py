@@ -71,8 +71,12 @@ def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry
         return plots.show(plots.current_figure)
     else:
         plots = default_plots() if lib is None else get_plots(lib)
-        fig = plot(*model, lib=plots, **config)
-        return plots.show(fig)
+        fig_tensor = plot(*model, lib=plots, **config)
+        if isinstance(fig_tensor, Tensor):
+            for fig in fig_tensor:
+                plots.show(fig)
+        else:
+            return plots.show(fig_tensor)
 
 
 def close(figure=None):

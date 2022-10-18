@@ -542,3 +542,179 @@ def invertible_net(in_channels: int,
 
     return InvertibleNet(in_channels, num_blocks, activation,
                          batch_norm, in_spatial, net)
+
+
+##################################################################################################################
+#  Fourier Neural Operators
+#  source: https://github.com/zongyi-li/fourier_neural_operator
+###################################################################################################################
+RFFT = [None, tf.signal.rfft, tf.signal.rfft2d, tf.signal.rfft3d]
+FFT = [None, tf.signal.fft, tf.signal.fft2d, tf.signal.fft3d]
+IRFFT = [None, tf.signal.irfft, tf.signal.irfft2d, tf.signal.irfft3d]
+
+class SpectralConv(keras.Model):
+
+    def __init__(self, in_channels, out_channels, modes, in_spatial):
+
+        super(SpectralConv, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.in_spatial = in_spatial
+        assert in_spatial >= 1 and in_spatial <= 3
+        if isinstance(modes, int):
+            mode = modes
+            modes = [mode for i in range(in_spatial)]
+
+        self.scale = 1 / (in_channels * out_channels)
+
+        self.modes = {i + 1: modes[i] for i in range(len(modes))}
+        self.weights_ = {}
+
+        rand_shape = [in_channels, out_channels]
+        rand_shape += [self.modes[i] for i in range(1, in_spatial + 1)]
+
+        for i in range(2 ** (in_spatial - 1)):
+            self.weights_[f'w{i + 1}'] = tf.complex(tf.Variable(self.scale * tf.random.normal(shape=rand_shape, dtype=tf.dtypes.float32), trainable=True),
+                                                tf.Variable(self.scale * tf.random.normal(shape=rand_shape, dtype=tf.dtypes.float32), trainable=True))
+
+    def complex_mul(self, input, weights):
+
+        if self.in_spatial == 1:
+            return tf.einsum("bix,iox->box", input, weights)
+        elif self.in_spatial == 2:
+            return tf.einsum("bixy,ioxy->boxy", input, weights)
+        elif self.in_spatial == 3:
+            return tf.einsum("bixyz,ioxyz->boxyz", input, weights)
+
+
+    def call(self, x):
+        batch_size = x.shape[0]
+
+        x_ft = RFFT[self.in_spatial](x)
+
+        outft_dims = [batch_size, self.out_channels] + \
+                     [x.shape[-i] for i in range(self.in_spatial, 1, -1)] + [x.shape[-1] // 2 + 1]
+        out_ft0 = tf.complex(tf.Variable(tf.zeros(outft_dims, dtype=tf.dtypes.float32)),
+                            tf.Variable(tf.zeros(outft_dims, dtype=tf.dtypes.float32)))
+
+        if self.in_spatial == 1:
+            out_ft1 = self.complex_mul(x_ft[:, :, :self.modes[1]],
+                                      self.weights_['w1'])
+            out_ft = tf.concat([out_ft1, out_ft0[:, :, self.modes[1]:]], axis=-1)
+        elif self.in_spatial == 2:
+            out_ft1 = self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2]],
+                                 self.weights_['w1'])
+            out_ft2 = self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2]],
+                                 self.weights_['w2'])
+            out_ft3 = tf.concat([out_ft1, out_ft0[:, :, self.modes[1]:-self.modes[1],
+                                         :self.modes[2]], out_ft2], axis=-2)
+            out_ft = tf.concat([out_ft3, out_ft0[:, :, :, self.modes[2]:]], axis=-1)
+        elif self.in_spatial == 3:
+            out_ft1 = self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2], :self.modes[3]],
+                                 self.weights_['w1'])
+            out_ft2 = self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2], :self.modes[3]],
+                                 self.weights_['w2'])
+            out_ft3 = self.complex_mul(x_ft[:, :, :self.modes[1], -self.modes[2]:, :self.modes[3]],
+                                 self.weights_['w3'])
+            out_ft4 = self.complex_mul(x_ft[:, :, -self.modes[1]:, -self.modes[2]:, :self.modes[3]],
+                                 self.weights_['w4'])
+
+            out_ft5 = tf.concat([out_ft1, out_ft0[:, :, self.modes[1]:-self.modes[1], :self.modes[2], :self.modes[3]]
+                                    , out_ft2], axis=-3)
+            out_ft6 = tf.concat([out_ft3, out_ft0[:, :, self.modes[1]:-self.modes[1], -self.modes[2]:, :self.modes[3]]
+                                    , out_ft4], axis=-3)
+            out_ft7 = tf.concat([out_ft5, out_ft0[:, :, :, self.modes[2]:-self.modes[2], :self.modes[3]], out_ft6],
+                                axis=-2)
+            out_ft = tf.concat([out_ft7, out_ft0[:, :, :, :, self.modes[3]:]], axis=-1)
+
+        ##Return to Physical Space
+        x = IRFFT[self.in_spatial](out_ft)
+
+        return x
+
+
+class FNO(keras.Model):
+
+    def __init__(self, in_channels, out_channels, width, modes, activation, batch_norm, in_spatial):
+        super(FNO, self).__init__()
+
+        """
+        The overall network. It contains 4 layers of the Fourier layer.
+        1. Lift the input to the desire channel dimension by self.fc0 .
+        2. 4 layers of the integral operators u' = (W + K)(u).
+            W defined by self.w; K defined by self.conv .
+        3. Project from the channel space to the output space by self.fc1 and self.fc2.
+
+        input shape and output shape: (batchsize b, channels c, *spatial)
+        """
+
+        self.activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+        self.width = width
+        self.in_spatial = in_spatial
+
+        self.fc0 = kl.Dense(self.width)
+
+        self.model_dict = {}
+        for i in range(4):
+            self.model_dict[f'conv{i}'] = SpectralConv(self.width, self.width, modes, in_spatial)
+            self.model_dict[f'w{i}'] = CONV[self.in_spatial](self.width, kernel_size=1)
+            self.model_dict[f'bn{i}'] = kl.BatchNormalization()
+
+        self.fc1 = kl.Dense(128)
+        self.fc2 = kl.Dense(out_channels)
+
+    # Adding extra spatial channels eg. x, y, z, .... to input x
+    def get_grid(self, shape, device):
+        batch_size = shape[0]
+        grid_channel_sizes = shape[1:-1]  # shape =  (batch_size, *spatial, channels)
+        self.grid_channels = {}
+        for i in range(self.in_spatial):
+            self.grid_channels[f'dim{i}'] = tf.cast(tf.linspace(0, 1,
+                                        grid_channel_sizes[i]), dtype=tf.dtypes.float32)  #tf.tensor(tf.linspace(0, 1, grid_channel_sizes[i]), dtype=tf.dtypes.float32)
+            reshape_dim_tuple = [1,] + [1 if i != j else grid_channel_sizes[j]
+                                        for j in range(self.in_spatial)] + [1,]
+            repeat_dim_tuple = [batch_size,] + [1 if i == j else grid_channel_sizes[j]
+                                                for j in range(self.in_spatial)] + [1,]
+
+            self.grid_channels[f'dim{i}'] = tf.tile(tf.reshape(self.grid_channels[f'dim{i}'], reshape_dim_tuple), repeat_dim_tuple)
+
+        return tf.concat([self.grid_channels[f'dim{i}'] for i in range(self.in_spatial)], axis=-1)
+
+    def call(self, x):
+        grid = self.get_grid(x.shape, x.device)
+        x = tf.concat([x, grid], axis=-1)
+
+        permute_tuple= [0] + [self.in_spatial + 1] + [i + 1 for i in range(self.in_spatial)]
+        permute_tuple_reverse = [0] + [2 + i for i in range(self.in_spatial)] + [1]
+
+        # No need to Transpose x such that channels shape lies
+        # at the end to pass it through linear layers as it's the default in tf
+        #x = tf.transpose(x, permute_tuple)
+
+        x = self.fc0(x)
+
+        for i in range(4):
+            x1 = self.model_dict[f'w{i}'](x)
+            # Spectral conv expects a shape : [batch, channel, *spatial]
+            # hence the transpose:
+            x2 = self.model_dict[f'conv{i}'](tf.transpose(x, permute_tuple))
+            x2 = tf.transpose(x2, permute_tuple_reverse)
+            x = self.model_dict[f'bn{i}'](x1) + self.model_dict[f'bn{i}'](x2)
+            x = self.activation(x)
+
+        x = self.activation(self.fc1(x))
+        x = self.fc2(x)
+
+        return x
+
+
+def fno(in_channels: int,
+        out_channels: int,
+        mid_channels: int,
+        modes: Tuple[int, ...] or List[int],
+        activation: str or type = 'ReLU',
+        batch_norm: bool = False,
+        in_spatial: int = 2):
+    net = FNO(in_channels, out_channels, mid_channels, modes, activation, batch_norm, in_spatial)
+    return net

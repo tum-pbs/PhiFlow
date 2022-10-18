@@ -651,9 +651,13 @@ class SpectralConv(nn.Module):
 
         for i in range(2 ** (in_spatial - 1)):
             self.weights[f'w{i + 1}'] = nn.Parameter(self.scale * torch.randn(rand_shape, dtype=torch.cfloat))
-
+            #print('TORCH self.weights:', self.weights_[f'w{i + 1}'].shape)
+            #print(self.weights[f'w{i + 1}'].shape)
     def complex_mul(self, input, weights):
 
+        #print(input.shape)
+        #print(weights.shape)
+        #exit(1)
         if self.in_spatial == 1:
             return torch.einsum("bix,iox->box", input, weights)
         elif self.in_spatial == 2:
@@ -664,14 +668,15 @@ class SpectralConv(nn.Module):
     def forward(self, x):
         batch_size = x.shape[0]
 
+        #print('x.shape:', x.shape)
         ##Convert to Fourier space
         dims = [-i for i in range(self.in_spatial, 0, -1)]
         x_ft = torch.fft.rfftn(x, dim=dims)
-
+        #print('After RFFT torch', x_ft.shape)
         outft_dims = [batch_size, self.out_channels] + \
                      [x.size(-i) for i in range(self.in_spatial, 1, -1)] + [x.size(-1) // 2 + 1]
         out_ft = torch.zeros(outft_dims, dtype=torch.cfloat, device=x.device)
-
+        #print('outft shape before', out_ft.shape)
         ##Multiply relevant fourier modes
         if self.in_spatial == 1:
             out_ft[:, :, :self.modes[1]] = \
@@ -700,7 +705,6 @@ class SpectralConv(nn.Module):
 
         ##Return to Physical Space
         x = torch.fft.irfftn(out_ft, s=[x.size(-i) for i in range(self.in_spatial, 0, -1)])
-
         return x
 
 

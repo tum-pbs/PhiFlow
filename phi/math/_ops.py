@@ -1797,7 +1797,7 @@ def gather(values: Tensor, indices: Tensor, dims: DimFilter or None = None):
 
 def scatter(base_grid: Tensor or Shape,
             indices: Tensor,
-            values: Tensor,
+            values: Tensor or float,
             mode: str = 'update',
             outside_handling: str = 'discard',
             indices_gradient=False):
@@ -1843,6 +1843,7 @@ def scatter(base_grid: Tensor or Shape,
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert indices.shape.channel.names == ('vector',) or (grid_shape.spatial_rank + grid_shape.instance_rank == 1 and indices.shape.channel_rank == 0)
+    values = wrap(values)
     batches = values.shape.non_channel.non_instance & indices.shape.non_channel.non_instance
     channels = grid_shape.channel & values.shape.channel
     # --- Set up grid ---
@@ -1855,10 +1856,14 @@ def scatter(base_grid: Tensor or Shape,
     if outside_handling == 'clamp':
         indices = clip(indices, 0, tensor(grid_shape.spatial, channel('vector')) - 1)
     elif outside_handling == 'discard':
-        indices_inside = min_((round_(indices) >= 0) & (round_(indices) < tensor(grid_shape.spatial, channel('vector'))), 'vector')
-        indices = boolean_mask(indices, indices.shape.instance.name, indices_inside)
+        indices_linear = pack_dims(indices, instance, instance(_scatter_instance=1))
+        indices_inside = min_((round_(indices_linear) >= 0) & (round_(indices_linear) < tensor(grid_shape.spatial, channel('vector'))), 'vector')
+        indices_linear = boolean_mask(indices_linear, '_scatter_instance', indices_inside)
         if instance(values).rank > 0:
-            values = boolean_mask(values, values.shape.instance.name, indices_inside)
+            values_linear = pack_dims(values, instance, instance(_scatter_instance=1))
+            values_linear = boolean_mask(values_linear, '_scatter_instance', indices_inside)
+            values = unpack_dim(values_linear, '_scatter_instance', instance(values))
+        indices = unpack_dim(indices_linear, '_scatter_instance', instance(indices))
         if indices.shape.is_non_uniform:
             raise NotImplementedError()
     lists = indices.shape.instance & values.shape.instance
