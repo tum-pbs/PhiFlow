@@ -6252,7 +6252,7 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
 </details>
 </dd>
 <dt id="phi.math.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: Union[str, tuple, list, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: Optional[phi.math._shape.Shape] = (shiftᶜ=None)) ‑> list</span>
+<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: Union[str, tuple, list, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: Optional[phi.math._shape.Shape] = (shiftᶜ=None), extend_bounds=0) ‑> list</span>
 </code></dt>
 <dd>
 <div class="desc"><p>shift Tensor by a fixed offset and abiding by extrapolation</p>
@@ -6282,7 +6282,8 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
           offsets: tuple,
           dims: DimFilter = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
-          stack_dim: Optional[Shape] = channel(&#39;shift&#39;)) -&gt; list:
+          stack_dim: Optional[Shape] = channel(&#39;shift&#39;),
+          extend_bounds=0) -&gt; list:
     &#34;&#34;&#34;
     shift Tensor by a fixed offset and abiding by extrapolation
 
@@ -6306,7 +6307,9 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
     if padding:
-        x = math.pad(x, {axis: (pad_lower, pad_upper) for axis in dims}, mode=padding)
+        x = math.pad(x, {axis: (pad_lower + extend_bounds, pad_upper + extend_bounds) for axis in dims}, mode=padding)
+    if extend_bounds:
+        assert padding is not None
     offset_tensors = []
     for offset in offsets:
         components = []
@@ -6660,7 +6663,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: Union[str, tuple, list, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, stack_dim: phi.math._shape.Shape = (gradientᶜ=None)) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: Union[str, tuple, list, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, stack_dim: phi.math._shape.Shape = (gradientᶜ=None), pad=0) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -6680,6 +6683,9 @@ When passing a vector-valued <code><a title="phi.math.Tensor" href="#phi.math.Te
 <dd>tensor padding mode</dd>
 <dt><strong><code>stack_dim</code></strong></dt>
 <dd>name of the new vector dimension listing the spatial_gradient w.r.t. the various axes</dd>
+<dt><strong><code>pad</code></strong></dt>
+<dd>How many cells to extend the result compared to <code>grid</code>.
+This value is added to the internal padding. For non-trivial extrapolations, this gives the correct result while manual padding before or after this operation would not respect the boundary locations.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
@@ -6692,7 +6698,8 @@ When passing a vector-valued <code><a title="phi.math.Tensor" href="#phi.math.Te
                      difference: str = &#39;central&#39;,
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: DimFilter = spatial,
-                     stack_dim: Shape or None = channel(&#39;gradient&#39;)) -&gt; Tensor:
+                     stack_dim: Shape or None = channel(&#39;gradient&#39;),
+                     pad=0) -&gt; Tensor:
     &#34;&#34;&#34;
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
@@ -6705,6 +6712,8 @@ When passing a vector-valued <code><a title="phi.math.Tensor" href="#phi.math.Te
         difference: type of difference, one of (&#39;forward&#39;, &#39;backward&#39;, &#39;central&#39;) (default &#39;forward&#39;)
         padding: tensor padding mode
         stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
+        pad: How many cells to extend the result compared to `grid`.
+            This value is added to the internal padding. For non-trivial extrapolations, this gives the correct result while manual padding before or after this operation would not respect the boundary locations.
 
     Returns:
         `Tensor`
@@ -6720,13 +6729,13 @@ When passing a vector-valued <code><a title="phi.math.Tensor" href="#phi.math.Te
         if dx.vector.size in (None, 1):
             dx = dx.vector[0]
     if difference.lower() == &#39;central&#39;:
-        left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
+        left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim, extend_bounds=pad)
         return (right - left) / (dx * 2)
     elif difference.lower() == &#39;forward&#39;:
-        left, right = shift(grid, (0, 1), dims, padding, stack_dim=stack_dim)
+        left, right = shift(grid, (0, 1), dims, padding, stack_dim=stack_dim, extend_bounds=pad)
         return (right - left) / dx
     elif difference.lower() == &#39;backward&#39;:
-        left, right = shift(grid, (-1, 0), dims, padding, stack_dim=stack_dim)
+        left, right = shift(grid, (-1, 0), dims, padding, stack_dim=stack_dim, extend_bounds=pad)
         return (right - left) / dx
     else:
         raise ValueError(&#39;Invalid difference type: {}. Can be CENTRAL or FORWARD&#39;.format(difference))</code></pre>
