@@ -451,6 +451,13 @@ class TestMathFunctions(TestCase):
         updated = math.scatter(base, indices, values, mode='update', outside_handling='discard')
         math.assert_close(updated, math.tensor([[1, 1, 1], [12, 1, 1]], spatial('y,x')))
 
+    def test_scatter_single(self):
+        base = math.zeros(spatial(x=3, y=2))
+        indices = vec(x=1, y=0)
+        values = 1
+        updated = math.scatter(base, indices, values, outside_handling='discard')
+        math.assert_close(updated, math.tensor([[0, 1, 0], [0, 0, 0]], spatial('y,x')))
+
     def test_sin(self):
         for backend in BACKENDS:
             with backend:
