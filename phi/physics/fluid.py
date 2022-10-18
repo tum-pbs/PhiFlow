@@ -102,7 +102,7 @@ def make_incompressible(velocity: GridType,
     pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
     # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
-    velocity = velocity - grad_pressure
+    velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure
 
 
@@ -123,8 +123,8 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid)
     Returns:
         `CenteredGrid`
     """
-    grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
-    valid_grad = grad * hard_bcs
+    grad = spatial_gradient(pressure, extrapolation.NONE, type=type(hard_bcs))
+    valid_grad = grad * field.bake_extrapolation(hard_bcs)
     div = divergence(valid_grad)
     laplace = where(active, div, pressure)
     return laplace
@@ -189,10 +189,8 @@ def _pressure_extrapolation(vext: Extrapolation):
         return extrapolation.ZERO
     elif isinstance(vext, extrapolation.ConstantExtrapolation):
         return extrapolation.BOUNDARY
-    elif isinstance(vext, extrapolation._MixedExtrapolation):
-        return combine_sides(**{dim: (_pressure_extrapolation(lo), _pressure_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
     else:
-        raise ValueError(f"Unsupported extrapolation: {type(vext)}")
+        return extrapolation.map(_pressure_extrapolation, vext)
 
 
 def _accessible_extrapolation(vext: Extrapolation):
