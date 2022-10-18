@@ -70,8 +70,10 @@ def spatial_gradient(field: Field,
     if extrapolation is None:
         extrapolation = field.extrapolation.spatial_gradient()
     if type == CenteredGrid:
-        values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim.name), difference='central', padding=field.extrapolation, stack_dim=stack_dim)
-        return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
+        pad = 1 if extrapolation == math.extrapolation.NONE else 0
+        values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim.name), difference='central', padding=field.extrapolation, stack_dim=stack_dim, pad=pad)
+        bounds = Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx) if extrapolation == math.extrapolation.NONE else field.bounds
+        return CenteredGrid(values, bounds=bounds, extrapolation=extrapolation)
     elif type == StaggeredGrid:
         assert stack_dim.name == 'vector'
         return stagger(field, lambda lower, upper: (upper - lower) / field.dx, extrapolation)
@@ -175,6 +177,8 @@ def divergence(field: Grid) -> CenteredGrid:
         grad = (right - left) / (field.dx * 2)
         components = [grad.vector[i].div_[i] for i in range(grad.div_.size)]
         result = sum(components)
+        if field.extrapolation == math.extrapolation.NONE:
+            result = result.with_bounds(Box(field.bounds.lower + field.dx, field.bounds.upper - field.dx))
         return result
     else:
         raise NotImplementedError(f"{type(field)} not supported. Only StaggeredGrid allowed.")
