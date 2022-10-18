@@ -2499,10 +2499,16 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     all_lower = []
     all_upper = []
     if type == StaggeredGrid:
-        for dim in field.shape.spatial.names:
-            lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
-            width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
-            width_upper = {dim: (int(lo_valid or up_valid) - 1, int(lo_valid and up_valid))}
+        for dim in field.resolution.names:
+            valid_lo, valid_up = extrapolation.valid_outer_faces(dim)
+            if valid_lo and valid_up:
+                width_lower, width_upper = {dim: (1, 0)}, {dim: (0, 1)}
+            elif valid_lo and not valid_up:
+                width_lower, width_upper = {dim: (1, -1)}, {dim: (0, 0)}
+            elif not valid_lo and valid_up:
+                width_lower, width_upper = {dim: (0, 0)}, {dim: (-1, 1)}
+            else:
+                width_lower, width_upper = {dim: (0, -1)}, {dim: (-1, 0)}
             all_lower.append(math.pad(field.values, width_lower, field.extrapolation, bounds=field.bounds))
             all_upper.append(math.pad(field.values, width_upper, field.extrapolation, bounds=field.bounds))
         all_upper = math.stack(all_upper, channel(&#39;vector&#39;))
