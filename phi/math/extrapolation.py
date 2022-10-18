@@ -243,7 +243,7 @@ class ConstantExtrapolation(Extrapolation):
         if isinstance(value, NativeTensor):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
-            backend = choose_backend(native)
+            backend = choose_backend(native, pad_value.native())
             result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
             if result_tensor is NotImplemented:
                 return Extrapolation.pad(self, value, widths, **kwargs)
