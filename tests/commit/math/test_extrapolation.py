@@ -201,3 +201,9 @@ class TestExtrapolation(TestCase):
         self.assertEqual(ext, extrapolation.map(lambda e: e, ext))
         ext = combine_sides(x=PERIODIC, y=(ONE, BOUNDARY))
         self.assertEqual(ext, extrapolation.map(lambda e: e, ext))
+
+    def test_slice_normal_tangential(self):
+        INFLOW_LEFT = combine_by_direction(normal=1, tangential=0)
+        ext = combine_sides(x=(INFLOW_LEFT, BOUNDARY), y=0)
+        self.assertEqual(combine_sides(x=(1, BOUNDARY), y=0), ext[{'vector': 'x'}])
+        self.assertEqual(combine_sides(x=(0, BOUNDARY), y=0), ext[{'vector': 'y'}])
