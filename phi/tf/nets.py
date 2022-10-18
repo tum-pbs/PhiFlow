@@ -548,9 +548,9 @@ def invertible_net(in_channels: int,
 #  Fourier Neural Operators
 #  source: https://github.com/zongyi-li/fourier_neural_operator
 ###################################################################################################################
-RFFT = [tf.signal.rfft, tf.signal.rfft2d, tf.signal.rfft3d]
-FFT = [tf.signal.fft, tf.signal.fft2d, tf.signal.fft3d]
-IRFFT = [tf.signal.irfft, tf.signal.irfft2d, tf.signal.irfft3d]
+RFFT = [None, tf.signal.rfft, tf.signal.rfft2d, tf.signal.rfft3d]
+FFT = [None, tf.signal.fft, tf.signal.fft2d, tf.signal.fft3d]
+IRFFT = [None, tf.signal.irfft, tf.signal.irfft2d, tf.signal.irfft3d]
 
 class SpectralConv(keras.Model):
 
@@ -569,14 +569,14 @@ class SpectralConv(keras.Model):
         self.scale = 1 / (in_channels * out_channels)
 
         self.modes = {i + 1: modes[i] for i in range(len(modes))}
-        self.weights = {}
+        self.weights_ = {}
 
         rand_shape = [in_channels, out_channels]
         rand_shape += [self.modes[i] for i in range(1, in_spatial + 1)]
 
         for i in range(2 ** (in_spatial - 1)):
-            self.weights[f'w{i + 1}'] = tf.Variable(self.scale * tf.random.normal(shape=rand_shape, dtype=tf.dtypes.complex64), trainable=True)
-            #self.weights[f'w{i + 1}'] = nn.Parameter(self.scale * torch.randn(rand_shape, dtype=torch.cfloat))
+            self.weights_[f'w{i + 1}'] = tf.complex(tf.Variable(self.scale * tf.random.normal(shape=rand_shape, dtype=tf.dtypes.float32), trainable=True),
+                                                tf.Variable(self.scale * tf.random.normal(shape=rand_shape, dtype=tf.dtypes.float32), trainable=True))
 
     def complex_mul(self, input, weights):
 
@@ -588,47 +588,48 @@ class SpectralConv(keras.Model):
             return tf.einsum("bixyz,ioxyz->boxyz", input, weights)
 
 
-    def forward(self, x):
+    def call(self, x):
         batch_size = x.shape[0]
 
-        ##Convert to Fourier space
-        #dims = [-i for i in range(self.in_spatial, 0, -1)]
-        #x_ft = tf.signal.fft.rfftn(x, dim=dims)
         x_ft = RFFT[self.in_spatial](x)
 
         outft_dims = [batch_size, self.out_channels] + \
-                     [x.size(-i) for i in range(self.in_spatial, 1, -1)] + [x.size(-1) // 2 + 1]
-        out_ft = tf.zeros(outft_dims, dtype=tf.dtypes.complex64)
+                     [x.shape[-i] for i in range(self.in_spatial, 1, -1)] + [x.shape[-1] // 2 + 1]
+        out_ft0 = tf.complex(tf.Variable(tf.zeros(outft_dims, dtype=tf.dtypes.float32)),
+                            tf.Variable(tf.zeros(outft_dims, dtype=tf.dtypes.float32)))
 
-        ##Multiply relevant fourier modes
         if self.in_spatial == 1:
-            out_ft[:, :, :self.modes[1]] = \
-                self.complex_mul(x_ft[:, :, :self.modes[1]],
-                                 self.weights['w1'].to(x_ft.device))
+            out_ft1 = self.complex_mul(x_ft[:, :, :self.modes[1]],
+                                      self.weights_['w1'])
+            out_ft = tf.concat([out_ft1, out_ft0[:, :, self.modes[1]:]], axis=-1)
         elif self.in_spatial == 2:
-            out_ft[:, :, :self.modes[1], :self.modes[2]] = \
-                self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2]],
-                                 self.weights['w1'].to(x_ft.device))
-            out_ft[:, :, -self.modes[1]:, :self.modes[2]] = \
-                self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2]],
-                                 self.weights['w2'].to(x_ft.device))
+            out_ft1 = self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2]],
+                                 self.weights_['w1'])
+            out_ft2 = self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2]],
+                                 self.weights_['w2'])
+            out_ft3 = tf.concat([out_ft1, out_ft0[:, :, self.modes[1]:-self.modes[1],
+                                         :self.modes[2]], out_ft2], axis=-2)
+            out_ft = tf.concat([out_ft3, out_ft0[:, :, :, self.modes[2]:]], axis=-1)
         elif self.in_spatial == 3:
-            out_ft[:, :, :self.modes[1], :self.modes[2], :self.modes[3]] = \
-                self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2], :self.modes[3]],
-                                 self.weights['w1'].to(x_ft.device))
-            out_ft[:, :, -self.modes[1]:, :self.modes[2], :self.modes[3]] = \
-                self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2], :self.modes[3]],
-                                 self.weights['w2'].to(x_ft.device))
-            out_ft[:, :, :self.modes[1], -self.modes[2]:, :self.modes[3]] = \
-                self.complex_mul(x_ft[:, :, :self.modes[1], -self.modes[2]:, :self.modes[3]],
-                                 self.weights['w3'].to(x_ft.device))
-            out_ft[:, :, -self.modes[1]:, -self.modes[2]:, :self.modes[3]] = \
-                self.complex_mul(x_ft[:, :, -self.modes[1]:, -self.modes[2]:, :self.modes[3]],
-                                 self.weights['w4'].to(x_ft.device))
+            out_ft1 = self.complex_mul(x_ft[:, :, :self.modes[1], :self.modes[2], :self.modes[3]],
+                                 self.weights_['w1'])
+            out_ft2 = self.complex_mul(x_ft[:, :, -self.modes[1]:, :self.modes[2], :self.modes[3]],
+                                 self.weights_['w2'])
+            out_ft3 = self.complex_mul(x_ft[:, :, :self.modes[1], -self.modes[2]:, :self.modes[3]],
+                                 self.weights_['w3'])
+            out_ft4 = self.complex_mul(x_ft[:, :, -self.modes[1]:, -self.modes[2]:, :self.modes[3]],
+                                 self.weights_['w4'])
+
+            out_ft5 = tf.concat([out_ft1, out_ft0[:, :, self.modes[1]:-self.modes[1], :self.modes[2], :self.modes[3]]
+                                    , out_ft2], axis=-3)
+            out_ft6 = tf.concat([out_ft3, out_ft0[:, :, self.modes[1]:-self.modes[1], -self.modes[2]:, :self.modes[3]]
+                                    , out_ft4], axis=-3)
+            out_ft7 = tf.concat([out_ft5, out_ft0[:, :, :, self.modes[2]:-self.modes[2], :self.modes[3]], out_ft6],
+                                axis=-2)
+            out_ft = tf.concat([out_ft7, out_ft0[:, :, :, :, self.modes[3]:]], axis=-1)
 
         ##Return to Physical Space
         x = IRFFT[self.in_spatial](out_ft)
-        #x = torch.fft.irfftn(out_ft, s=[x.size(-i) for i in range(self.in_spatial, 0, -1)])
 
         return x
 
@@ -653,7 +654,6 @@ class FNO(keras.Model):
         self.in_spatial = in_spatial
 
         self.fc0 = kl.Dense(self.width)
-        #self.fc0 = nn.Linear(in_channels + in_spatial, self.width)
 
         self.model_dict = {}
         for i in range(4):
@@ -667,45 +667,44 @@ class FNO(keras.Model):
     # Adding extra spatial channels eg. x, y, z, .... to input x
     def get_grid(self, shape, device):
         batch_size = shape[0]
-        grid_channel_sizes = shape[2:]  # shape =  (batch_size, channels, *spatial)
+        grid_channel_sizes = shape[1:-1]  # shape =  (batch_size, *spatial, channels)
         self.grid_channels = {}
         for i in range(self.in_spatial):
-            self.grid_channels[f'dim{i}'] = tf.tensor(tf.linspace(0, 1, grid_channel_sizes[i]),
-                                                         dtype=tf.dtypes.float32)
-            reshape_dim_tuple = [1, 1] + [1 if i != j else grid_channel_sizes[j] for j in range(self.in_spatial)]
-            repeat_dim_tuple = [batch_size, 1] + [1 if i == j else grid_channel_sizes[j] for j in
-                                                  range(self.in_spatial)]
-            self.grid_channels[f'dim{i}'] = self.grid_channels[f'dim{i}'].reshape(reshape_dim_tuple) \
-                .repeat(repeat_dim_tuple)
+            self.grid_channels[f'dim{i}'] = tf.cast(tf.linspace(0, 1,
+                                        grid_channel_sizes[i]), dtype=tf.dtypes.float32)  #tf.tensor(tf.linspace(0, 1, grid_channel_sizes[i]), dtype=tf.dtypes.float32)
+            reshape_dim_tuple = [1,] + [1 if i != j else grid_channel_sizes[j]
+                                        for j in range(self.in_spatial)] + [1,]
+            repeat_dim_tuple = [batch_size,] + [1 if i == j else grid_channel_sizes[j]
+                                                for j in range(self.in_spatial)] + [1,]
 
-        return torch.cat([self.grid_channels[f'dim{i}'] for i in range(self.in_spatial)], dim=1).to(device)
+            self.grid_channels[f'dim{i}'] = tf.tile(tf.reshape(self.grid_channels[f'dim{i}'], reshape_dim_tuple), repeat_dim_tuple)
 
-    def forward(self, x):
+        return tf.concat([self.grid_channels[f'dim{i}'] for i in range(self.in_spatial)], axis=-1)
+
+    def call(self, x):
         grid = self.get_grid(x.shape, x.device)
-        x = torch.cat([x, grid], dim=1)
+        x = tf.concat([x, grid], axis=-1)
 
-        permute_tuple = [0] + [2 + i for i in range(self.in_spatial)] + [1]
-        permute_tuple_reverse = [0] + [self.in_spatial + 1] + [i + 1 for i in range(self.in_spatial)]
+        permute_tuple= [0] + [self.in_spatial + 1] + [i + 1 for i in range(self.in_spatial)]
+        permute_tuple_reverse = [0] + [2 + i for i in range(self.in_spatial)] + [1]
 
-        # Transpose x such that channels shape lies at the end to pass it through linear layers
-        x = x.permute(permute_tuple)
+        # No need to Transpose x such that channels shape lies
+        # at the end to pass it through linear layers as it's the default in tf
+        #x = tf.transpose(x, permute_tuple)
 
         x = self.fc0(x)
 
-        # Transpose x back to its original shape to pass it through convolutional layers
-        x = x.permute(permute_tuple_reverse)
-
         for i in range(4):
-            x1 = getattr(self, f'w{i}')(x)
-            x2 = getattr(self, f'conv{i}')(x)
-            x = getattr(self, f'bn{i}')(x1) + getattr(self, f'bn{i}')(x2)
-            x = self.activation()(x)
+            x1 = self.model_dict[f'w{i}'](x)
+            # Spectral conv expects a shape : [batch, channel, *spatial]
+            # hence the transpose:
+            x2 = self.model_dict[f'conv{i}'](tf.transpose(x, permute_tuple))
+            x2 = tf.transpose(x2, permute_tuple_reverse)
+            x = self.model_dict[f'bn{i}'](x1) + self.model_dict[f'bn{i}'](x2)
+            x = self.activation(x)
 
-        x = x.permute(permute_tuple)
-        x = self.activation()(self.fc1(x))
+        x = self.activation(self.fc1(x))
         x = self.fc2(x)
-
-        x = x.permute(permute_tuple_reverse)
 
         return x
 
@@ -718,5 +717,4 @@ def fno(in_channels: int,
         batch_norm: bool = False,
         in_spatial: int = 2):
     net = FNO(in_channels, out_channels, mid_channels, modes, activation, batch_norm, in_spatial)
-    net = net.to(TORCH.get_default_device().ref)
     return net
