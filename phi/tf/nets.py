@@ -173,6 +173,18 @@ def dense_net(in_channels: int,
               layers: Tuple[int, ...] or List[int],
               batch_norm=False,
               activation='ReLU') -> keras.Model:
+    """
+    Fully-connected neural networks are available in ΦFlow via dense_net().
+    Arguments:
+        in_channels : size of input layer, int
+        out_channels = size of output layer, int
+        layers : tuple of linear layers between input and output neurons, list or tuple
+        activation : activation function used within the layers, string
+        batch_norm : use of batch norm after each linear layer, bool
+
+    Returns:
+        Dense net model as specified by input arguments
+    """
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     keras_layers = []
     for neuron_count in layers:
@@ -192,6 +204,25 @@ def u_net(in_channels: int,
           activation: str or Callable = 'ReLU',
           in_spatial: tuple or int = 2,
           use_res_blocks: bool = False, **kwargs) -> keras.Model:
+    """
+    ΦFlow provides a built-in U-net architecture, classically popular for Semantic Segmentation in Computer Vision, composed of downsampling and upsampling layers.
+
+    Arguments:
+
+        in_channels: input channels of the feature map, dtype : int
+        out_channels : output channels of the feature map, dtype : int
+        levels : number of levels of down-sampling and upsampling, dtype : int
+        filters : filter sizes at each down/up sampling convolutional layer, if the input is integer all conv layers have the same filter size,
+        dtype : int or tuple
+        activation : activation function used within the layers, dtype : string
+        batch_norm : use of batchnorm after each conv layer, dtype : bool
+        in_spatial : spatial dimensions of the input feature map, dtype : int
+        use_res_blocks : use convolutional blocks with skip connections instead of regular convolutional blocks, dtype : bool
+
+    Returns:
+
+        U-net model as specified by input arguments
+    """
     if isinstance(in_spatial, int):
         d = in_spatial
         in_spatial = (None,) * d
@@ -260,6 +291,21 @@ def conv_net(in_channels: int,
              batch_norm: bool = False,
              activation: str or Callable = 'ReLU',
              in_spatial: int or tuple = 2, **kwargs) -> keras.Model:
+    """
+    Built in Conv-Nets are also provided. Contrary to the classical convolutional neural networks, the feature map spatial size remains the same throughout the layers. Each layer of the network is essentially a convolutional block comprising of two conv layers. A filter size of 3 is used in the convolutional layers.
+    Arguments:
+
+        in_channels : input channels of the feature map, dtype : int
+        out_channels : output channels of the feature map, dtype : int
+        layers : list or tuple of output channels for each intermediate layer between the input and final output channels, dtype : list or tuple
+        activation : activation function used within the layers, dtype : string
+        batch_norm : use of batchnorm after each conv layer, dtype : bool
+        in_spatial : spatial dimensions of the input feature map, dtype : int
+
+    Returns:
+
+        Conv-net model as specified by input arguments
+    """
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -267,7 +313,7 @@ def conv_net(in_channels: int,
         d = in_spatial
         in_spatial = len(d)
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-    x = inputs = keras.Input(shape=d + (in_channels,))
+    x = inputs = keras.InpuΦFlowt(shape=d + (in_channels,))
     if len(layers) < 1:
         layers.append(out_channels)
     for i in range(len(layers)):
@@ -320,6 +366,24 @@ def res_net(in_channels: int,
             batch_norm: bool = False,
             activation: str or Callable = 'ReLU',
             in_spatial: int or tuple = 2, **kwargs):
+    """
+    Built in Res-Nets are provided in the ΦFlow framework. Similar to the conv-net, the feature map spatial size remains the same throughout the layers.
+    These networks use residual blocks composed of two conv layers with a skip connection added from the input to the output feature map.
+    A default filter size of 3 is used in the convolutional layers.
+
+    Arguments:
+
+        in_channels : input channels of the feature map, dtype : int
+        out_channels : output channels of the feature map, dtype : int
+        layers : list or tuple of output channels for each intermediate layer between the input and final output channels, dtype : list or tuple
+        activation : activation function used within the layers, dtype : string
+        batch_norm : use of batchnorm after each conv layer, dtype : bool
+        in_spatial : spatial dimensions of the input feature map, dtype : int
+
+    Returns:
+
+        Res-net model as specified by input arguments
+    """
     if isinstance(in_spatial, int):
         d = (None,) * in_spatial
     else:
@@ -395,6 +459,7 @@ def conv_classifier(input_shape: list, num_classes: int, batch_norm: bool, in_sp
 
 
 def get_mask(inputs, reverse_mask, data_format='NHWC'):
+    """ Compute mask for slicing input feature map for Invertible Nets """
     shape = inputs.shape
     if len(shape) == 2:
         N = shape[-1]
@@ -537,6 +602,29 @@ def invertible_net(in_channels: int,
                    net: str = 'u_net',
                    activation: str or type = 'ReLU',
                    in_spatial: tuple or int = 2, **kwargs):
+    """
+    ΦFlow also provides invertible neural networks that are capable of inverting the output tensor back to the input tensor initially passed.\ These networks have far reaching applications in predicting input parameters of a problem given its observations.\ Invertible nets are composed of multiple concatenated coupling blocks wherein each such block consists of arbitrary neural networks.
+
+    Currently, these arbitrary neural networks could be set to u_net(default), conv_net, res_net or dense_net blocks with in_channels = out_channels.
+    The architecture used is popularized by ["Real NVP"](https://arxiv.org/abs/1605.08803).
+
+    Arguments:
+
+        in_channels : input channels of the feature map, dtype : int
+        num_blocks : number of coupling blocks inside the invertible net, dtype : int
+        activation : activation function used within the layers, dtype : string
+        batch_norm : use of batchnorm after each layer, dtype : bool
+        in_spatial : spatial dimensions of the input feature map, dtype : int
+        net : type of neural network blocks used in coupling layers, dtype : str
+        **kwargs : placeholder for arguments not supported by the function
+
+    Returns:
+
+        Invertible Net model as specified by input arguments
+
+    Note: Currently supported values for net are 'u_net'(default), 'conv_net' and 'res_net'.
+    For choosing 'dense_net' as the network block in coupling layers in_spatial must be set to zero.
+    """
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
@@ -716,5 +804,25 @@ def fno(in_channels: int,
         activation: str or type = 'ReLU',
         batch_norm: bool = False,
         in_spatial: int = 2):
+    """
+    ["Fourier Neural Operator"](https://github.com/zongyi-li/fourier_neural_operator) network contains 4 layers of the Fourier layer.
+    1. Lift the input to the desire channel dimension by self.fc0 .
+    2. 4 layers of the integral operators u' = (W + K)(u). W defined by self.w; K defined by self.conv .
+    3. Project from the channel space to the output space by self.fc1 and self.fc2.
+
+    Arguments:
+
+        in_channels : input channels of the feature map, dtype : int
+        out_channels : output channels of the feature map, dtype : int
+        mid_channels : channels used in Spectral Convolution Layers, dtype : int
+        modes : Fourier modes for each spatial channel, dtype : List[int] or int (in case all number modes are to be the same for each spatial channel)
+        activation : activation function used within the layers, dtype : string
+        batch_norm : use of batchnorm after each conv layer, dtype : bool
+        in_spatial : spatial dimensions of the input feature map, dtype : int
+
+    Returns:
+
+        Fourier Neural Operator model as specified by input arguments.
+    """
     net = FNO(in_channels, out_channels, mid_channels, modes, activation, batch_norm, in_spatial)
     return net

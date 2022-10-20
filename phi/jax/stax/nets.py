@@ -281,6 +281,18 @@ def dense_net(in_channels: int,
               layers: Tuple[int, ...] or List[int],
               batch_norm=False,
               activation='ReLU') -> StaxNet:
+    """
+    Fully-connected neural networks are available in ΦFlow via dense_net().
+    Arguments:
+        in_channels : size of input layer, int
+        out_channels = size of output layer, int
+        layers : tuple of linear layers between input and output neurons, list or tuple
+        activation : activation function used within the layers, string
+        batch_norm : use of batch norm after each linear layer, bool
+
+    Returns:
+        Dense net model as specified by input arguments
+    """
     activation = {'ReLU': stax.Relu, 'Sigmoid': stax.Sigmoid, 'tanh': stax.Tanh}[activation]
     stax_layers = []
     for neuron_count in layers:
@@ -303,6 +315,25 @@ def u_net(in_channels: int,
           activation='ReLU',
           in_spatial: tuple or int = 2,
           use_res_blocks: bool = False) -> StaxNet:
+    """
+     ΦFlow provides a built-in U-net architecture, classically popular for Semantic Segmentation in Computer Vision, composed of downsampling and upsampling layers.
+
+     Arguments:
+
+         in_channels: input channels of the feature map, dtype : int
+         out_channels : output channels of the feature map, dtype : int
+         levels : number of levels of down-sampling and upsampling, dtype : int
+         filters : filter sizes at each down/up sampling convolutional layer, if the input is integer all conv layers have the same filter size,
+         dtype : int or tuple
+         activation : activation function used within the layers, dtype : string
+         batch_norm : use of batchnorm after each conv layer, dtype : bool
+         in_spatial : spatial dimensions of the input feature map, dtype : int
+         use_res_blocks : use convolutional blocks with skip connections instead of regular convolutional blocks, dtype : bool
+
+     Returns:
+
+         U-net model as specified by input arguments
+     """
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
@@ -537,6 +568,21 @@ def conv_net(in_channels: int,
              batch_norm: bool = False,
              activation: str or Callable = 'ReLU',
              in_spatial: int or tuple = 2) -> StaxNet:
+    """
+    Built in Conv-Nets are also provided. Contrary to the classical convolutional neural networks, the feature map spatial size remains the same throughout the layers. Each layer of the network is essentially a convolutional block comprising of two conv layers. A filter size of 3 is used in the convolutional layers.
+    Arguments:
+
+        in_channels : input channels of the feature map, dtype : int
+        out_channels : output channels of the feature map, dtype : int
+        layers : list or tuple of output channels for each intermediate layer between the input and final output channels, dtype : list or tuple
+        activation : activation function used within the layers, dtype : string
+        batch_norm : use of batchnorm after each conv layer, dtype : bool
+        in_spatial : spatial dimensions of the input feature map, dtype : int
+
+    Returns:
+
+        Conv-net model as specified by input arguments
+    """
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -592,6 +638,24 @@ def res_net(in_channels: int,
             batch_norm: bool = False,
             activation: str or Callable = 'ReLU',
             in_spatial: int or tuple = 2) -> StaxNet:
+    """
+    Built in Res-Nets are provided in the ΦFlow framework. Similar to the conv-net, the feature map spatial size remains the same throughout the layers.
+    These networks use residual blocks composed of two conv layers with a skip connection added from the input to the output feature map.
+    A default filter size of 3 is used in the convolutional layers.
+
+    Arguments:
+
+        in_channels : input channels of the feature map, dtype : int
+        out_channels : output channels of the feature map, dtype : int
+        layers : list or tuple of output channels for each intermediate layer between the input and final output channels, dtype : list or tuple
+        activation : activation function used within the layers, dtype : string
+        batch_norm : use of batchnorm after each conv layer, dtype : bool
+        in_spatial : spatial dimensions of the input feature map, dtype : int
+
+    Returns:
+
+        Res-net model as specified by input arguments
+    """
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -674,6 +738,7 @@ def resnet_block(in_channels: int,
 
 
 def get_mask(inputs, reverse_mask, data_format='NHWC'):
+    """ Compute mask for slicing input feature map for Invertible Nets """
     shape = inputs.shape
     if len(shape) == 2:
         N = shape[-1]
@@ -756,6 +821,7 @@ def conv_net_unit(in_channels: int,
                   batch_norm: bool = False,
                   activation: str or Callable = 'ReLU',
                   in_spatial: int or tuple = 2, **kwargs):
+    """ Conv-net unit for Invertible Nets"""
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -823,6 +889,7 @@ def u_net_unit(in_channels: int,
                activation='ReLU',
                in_spatial: tuple or int = 2,
                use_res_blocks: bool = False, **kwargs):
+    """ U-net unit for Invertible Nets"""
     if isinstance(filters, (tuple, list)):
         assert len(filters) == levels, f"List of filters has length {len(filters)} but u-net has {levels} levels."
     else:
@@ -898,6 +965,7 @@ def res_net_unit(in_channels: int,
                  batch_norm: bool = False,
                  activation: str or Callable = 'ReLU',
                  in_spatial: int or tuple = 2, **kwargs):
+    """ Res-net unit for Invertible Nets"""
     if isinstance(in_spatial, tuple):
         d = in_spatial
         in_spatial = len(in_spatial)
@@ -1014,6 +1082,29 @@ def invertible_net(in_channels: int,
                    net: str = 'u_net',
                    activation: str or type = 'ReLU',
                    in_spatial: tuple or int = 2, **kwargs):
+    """
+    ΦFlow also provides invertible neural networks that are capable of inverting the output tensor back to the input tensor initially passed.\ These networks have far reaching applications in predicting input parameters of a problem given its observations.\ Invertible nets are composed of multiple concatenated coupling blocks wherein each such block consists of arbitrary neural networks.
+
+    Currently, these arbitrary neural networks could be set to u_net(default), conv_net, res_net or dense_net blocks with in_channels = out_channels.
+    The architecture used is popularized by ["Real NVP"](https://arxiv.org/abs/1605.08803).
+
+    Arguments:
+
+        in_channels : input channels of the feature map, dtype : int
+        num_blocks : number of coupling blocks inside the invertible net, dtype : int
+        activation : activation function used within the layers, dtype : string
+        batch_norm : use of batchnorm after each layer, dtype : bool
+        in_spatial : spatial dimensions of the input feature map, dtype : int
+        net : type of neural network blocks used in coupling layers, dtype : str
+        **kwargs : placeholder for arguments not supported by the function
+
+    Returns:
+
+        Invertible Net model as specified by input arguments
+
+    Note: Currently supported values for net are 'u_net'(default), 'conv_net' and 'res_net'.
+    For choosing 'dense_net' as the network block in coupling layers in_spatial must be set to zero.
+    """
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
