@@ -218,30 +218,38 @@ class TorchBackend(Backend):
         mode = {'constant': 'constant', 'reflect': 'reflect', 'boundary': 'replicate', 'periodic': 'circular'}.get(mode, None)
         if not mode:
             return NotImplemented
-        # transpose for leading zero-pad: [(0, 0), (0, 0), ...]
+        # for PyTorch, we have to reshape value such that the outer 2 dimensions are not padded.
         ndims = self.ndims(value)
-        if ndims > 2 and pad_width[0] == pad_width[1] == (0, 0):
-            reordered = value
-            pad_width_reordered = pad_width[2:]
-            undo_transform = lambda x: x
-        elif ndims > 2 and pad_width[0] == (0, 0) and self.ndims(value) < 5:
-            reordered = torch.unsqueeze(value, 0)
-            pad_width_reordered = pad_width[1:]
-            undo_transform = lambda x: torch.squeeze(x, 0)
-        elif ndims < 4:
-            reordered = torch.unsqueeze(torch.unsqueeze(value, 0), 0)
-            pad_width_reordered = pad_width
+        no_pad_dims = [i for i in range(ndims) if pad_width[i] == (0, 0)]
+        pad_dims = [i for i in range(ndims) if pad_width[i] != (0, 0)]
+        if not pad_dims:
+            return value
+        if len(pad_dims) > 3:
+            return NotImplemented
+        value = torch.permute(value, no_pad_dims + pad_dims)
+        if len(no_pad_dims) == 0:
+            value = torch.unsqueeze(torch.unsqueeze(value, 0), 0)
             undo_transform = lambda x: torch.squeeze(torch.squeeze(x, 0), 0)
+        elif len(no_pad_dims) == 1:
+            value = torch.unsqueeze(value, 0)
+            undo_transform = lambda x: torch.squeeze(x, 0)
+        elif len(no_pad_dims) == 2:
+            undo_transform = lambda x: x
         else:
-            raise NotImplementedError()  # TODO transpose to get (0, 0) to the front
+            old_shape = value.shape
+            value = self.reshape(value, (1, np.prod([value.shape[i] for i in range(len(no_pad_dims))]), *value.shape[len(no_pad_dims):]))
+            undo_transform = lambda x: x.view(*[old_shape[i] for i in range(len(no_pad_dims))], *x.shape[2:])
+        pad_width_reordered = [pad_width[i] for i in pad_dims]
         pad_width_spatial = [item for sublist in reversed(pad_width_reordered) for item in sublist]  # flatten
         try:
             constant_values = self.dtype(value).kind(constant_values)
-            result = torchf.pad(reordered, pad_width_spatial, mode, value=constant_values)  # supports 3D to 5D (2 + 1D to 3D)
+            result = torchf.pad(value, pad_width_spatial, mode, value=constant_values)  # supports 3D to 5D (batch, channel, 1D to 3D)
         except RuntimeError as err:
             warnings.warn(f"PyTorch error {err}", RuntimeWarning)
             return NotImplemented
         result = undo_transform(result)
+        inv_perm = tuple(np.argsort(no_pad_dims + pad_dims))
+        result = torch.permute(result, inv_perm)
         return result
 
     def grid_sample(self, grid, coordinates, extrapolation: str):
@@ -270,7 +278,11 @@ class TorchBackend(Backend):
         return result
 
     def reshape(self, value, shape):
-        return torch.reshape(self.as_tensor(value), shape)
+        value = self.as_tensor(value)
+        if value.is_contiguous():
+            return value.view(*shape)
+        else:
+            return torch.reshape(value, shape)
 
     def sum(self, value, axis=None, keepdims=False):
         if axis is None:

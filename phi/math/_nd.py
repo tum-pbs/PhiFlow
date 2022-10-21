@@ -321,7 +321,8 @@ def shift(x: Tensor,
           offsets: tuple,
           dims: DimFilter = math.spatial,
           padding: Extrapolation or None = extrapolation.BOUNDARY,
-          stack_dim: Optional[Shape] = channel('shift')) -> list:
+          stack_dim: Optional[Shape] = channel('shift'),
+          extend_bounds=0) -> list:
     """
     shift Tensor by a fixed offset and abiding by extrapolation
 
@@ -345,7 +346,9 @@ def shift(x: Tensor,
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
     if padding:
-        x = math.pad(x, {axis: (pad_lower, pad_upper) for axis in dims}, mode=padding)
+        x = math.pad(x, {axis: (pad_lower + extend_bounds, pad_upper + extend_bounds) for axis in dims}, mode=padding)
+    if extend_bounds:
+        assert padding is not None
     offset_tensors = []
     for offset in offsets:
         components = []
@@ -437,7 +440,8 @@ def spatial_gradient(grid: Tensor,
                      difference: str = 'central',
                      padding: Extrapolation or None = extrapolation.BOUNDARY,
                      dims: DimFilter = spatial,
-                     stack_dim: Shape or None = channel('gradient')) -> Tensor:
+                     stack_dim: Shape or None = channel('gradient'),
+                     pad=0) -> Tensor:
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
     The spatial_gradient vectors are in reverse order, lowest dimension first.
@@ -450,6 +454,8 @@ def spatial_gradient(grid: Tensor,
         difference: type of difference, one of ('forward', 'backward', 'central') (default 'forward')
         padding: tensor padding mode
         stack_dim: name of the new vector dimension listing the spatial_gradient w.r.t. the various axes
+        pad: How many cells to extend the result compared to `grid`.
+            This value is added to the internal padding. For non-trivial extrapolations, this gives the correct result while manual padding before or after this operation would not respect the boundary locations.
 
     Returns:
         `Tensor`
@@ -465,13 +471,13 @@ def spatial_gradient(grid: Tensor,
         if dx.vector.size in (None, 1):
             dx = dx.vector[0]
     if difference.lower() == 'central':
-        left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim)
+        left, right = shift(grid, (-1, 1), dims, padding, stack_dim=stack_dim, extend_bounds=pad)
         return (right - left) / (dx * 2)
     elif difference.lower() == 'forward':
-        left, right = shift(grid, (0, 1), dims, padding, stack_dim=stack_dim)
+        left, right = shift(grid, (0, 1), dims, padding, stack_dim=stack_dim, extend_bounds=pad)
         return (right - left) / dx
     elif difference.lower() == 'backward':
-        left, right = shift(grid, (-1, 0), dims, padding, stack_dim=stack_dim)
+        left, right = shift(grid, (-1, 0), dims, padding, stack_dim=stack_dim, extend_bounds=pad)
         return (right - left) / dx
     else:
         raise ValueError('Invalid difference type: {}. Can be CENTRAL or FORWARD'.format(difference))

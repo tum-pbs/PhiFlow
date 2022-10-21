@@ -166,6 +166,9 @@ def spatial_gradient(field: CenteredGrid,
         gradient_extrapolation = map(_ex_map_f(extrapol_map_rhs), gradient_extrapolation)
 
     if type == CenteredGrid:
+        # ToDo if extrapolation == math.extrapolation.NONE, extend size by 1
+        # pad = 1 if extrapolation == math.extrapolation.NONE else 0
+        # bounds = Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx) if extrapolation == math.extrapolation.NONE else field.bounds
         padded_components = [pad(field, {dim: base_widths}) for dim in field.shape.spatial.names]
     else:
         base_widths = (base_widths[0], base_widths[1]-1)
@@ -278,10 +281,16 @@ def stagger(field: CenteredGrid,
     all_lower = []
     all_upper = []
     if type == StaggeredGrid:
-        for dim in field.shape.spatial.names:
-            lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
-            width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
-            width_upper = {dim: (int(lo_valid or up_valid) - 1, int(lo_valid and up_valid))}
+        for dim in field.resolution.names:
+            valid_lo, valid_up = extrapolation.valid_outer_faces(dim)
+            if valid_lo and valid_up:
+                width_lower, width_upper = {dim: (1, 0)}, {dim: (0, 1)}
+            elif valid_lo and not valid_up:
+                width_lower, width_upper = {dim: (1, -1)}, {dim: (0, 0)}
+            elif not valid_lo and valid_up:
+                width_lower, width_upper = {dim: (0, 0)}, {dim: (-1, 1)}
+            else:
+                width_lower, width_upper = {dim: (0, -1)}, {dim: (-1, 0)}
             all_lower.append(math.pad(field.values, width_lower, field.extrapolation, bounds=field.bounds))
             all_upper.append(math.pad(field.values, width_upper, field.extrapolation, bounds=field.bounds))
         all_upper = math.stack(all_upper, channel('vector'))
@@ -372,6 +381,9 @@ def divergence(field: Grid, scheme: Scheme = Scheme(2)) -> CenteredGrid:
 
     result_components = [component.with_bounds(field.bounds) for component in result_components]
     result = sum(result_components)
+    # ToDo adjust bounds if extrapolation was NONE
+    #         if field.extrapolation == math.extrapolation.NONE:
+    #             result = result.with_bounds(Box(field.bounds.lower + field.dx, field.bounds.upper - field.dx))
     return result
 
 

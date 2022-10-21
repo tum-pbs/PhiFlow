@@ -398,6 +398,10 @@ class StaggeredGrid(Grid):
         item = slicing_dict(self, item)
         if not item:
             return self
+        if 'vector' in item:
+            selection = item['vector']
+            if isinstance(selection, int):
+                item['vector'] = self.resolution.names[selection]
         values = self._values[{dim: sel for dim, sel in item.items() if dim not in self.shape.spatial}]
         for dim, sel in item.items():
             if dim in self.shape.spatial:
@@ -421,7 +425,7 @@ class StaggeredGrid(Grid):
                 assert selection in item_names, f"Accessing field.vector['{selection}'] failed. Item names are {item_names}."
                 selection = item_names.index(selection)
             if isinstance(selection, int):
-                dim = self.shape.spatial.names[selection]
+                dim = self.resolution.names[selection]
                 comp_cells = GridCell(self.resolution, bounds).stagger(dim, *self.extrapolation.valid_outer_faces(dim))
                 return CenteredGrid(values, bounds=comp_cells.bounds, extrapolation=extrapolation)
             else:

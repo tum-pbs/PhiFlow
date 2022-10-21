@@ -152,6 +152,9 @@ class Extrapolation:
     def __getitem__(self, item):
         return self
 
+    def _getitem_with_domain(self, item: dict, dim: str, upper_edge: bool, all_dims: tuple):
+        return self[item]
+
     def __abs__(self):
         raise NotImplementedError(self.__class__)
 
@@ -240,8 +243,10 @@ class ConstantExtrapolation(Extrapolation):
         if isinstance(value, NativeTensor):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
-            backend = choose_backend(native)
+            backend = choose_backend(native, pad_value.native())
             result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
+            if result_tensor is NotImplemented:
+                return Extrapolation.pad(self, value, widths, **kwargs)
             new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
             return NativeTensor(result_tensor, new_shape)
         elif isinstance(value, CollapsedTensor):
@@ -1099,7 +1104,8 @@ class _MixedExtrapolation(Extrapolation):
 
     def __getitem__(self, item):
         if isinstance(item, dict):
-            return combine_sides(**{dim: (e1[item], e2[item]) for dim, (e1, e2) in self.ext.items()})
+            all_dims = tuple(self.ext.keys())
+            return combine_sides(**{dim: (e1._getitem_with_domain(item, dim, False, all_dims), e2._getitem_with_domain(item, dim, True, all_dims)) for dim, (e1, e2) in self.ext.items()})
         else:
             dim, face = item
             return self.ext[dim][face]
@@ -1189,8 +1195,21 @@ class _NormalTangentialExtrapolation(Extrapolation):
         result = stack(result, value.shape.only('vector'))
         return result
 
+    def _getitem_with_domain(self, item: dict, dim: str, upper_edge: bool, all_dims: tuple):
+        if 'vector' not in item:
+            return self
+        component = item['vector']
+        assert isinstance(component, str), f"Selecting a component of normal/tangential must be done by dimension name but got {component}"
+        if component == dim:
+            return self.normal
+        else:
+            return self.tangential
+
     def __eq__(self, other):
         return isinstance(other, _NormalTangentialExtrapolation) and self.normal == other.normal and self.tangential == other.tangential
+
+    def __hash__(self):
+        return hash(self.normal) + hash(self.tangential)
 
     def __add__(self, other):
         return self._op2(other, lambda e1, e2: e1 + e2)
