@@ -313,7 +313,7 @@ def conv_net(in_channels: int,
         d = in_spatial
         in_spatial = len(d)
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-    x = inputs = keras.InpuΦFlowt(shape=d + (in_channels,))
+    x = inputs = keras.Input(shape=d + (in_channels,))
     if len(layers) < 1:
         layers.append(out_channels)
     for i in range(len(layers)):
