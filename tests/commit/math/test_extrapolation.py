@@ -66,7 +66,7 @@ class TestExtrapolation(TestCase):
             # TypeError('__bool__ should return bool, returned NotImplementedType')
             # self.assertEqual(val_out, func(val_in))
 
-    def test_pad_tensor(self):
+    def test_pad_2d(self):
         for backend in BACKENDS:
             with backend:
                 a = math.meshgrid(x=4, y=3)
@@ -114,6 +114,35 @@ class TestExtrapolation(TestCase):
                 math.assert_close(p.x[1:-2].y[:-1], a)  # copy inner
                 math.assert_close(p.x[0].y[:-1], a.x[-1])  # periodic
                 math.assert_close(p.x[-2:].y[:-1], a.x[:2])  # periodic
+
+    def test_pad_3d(self):
+        for t in [
+            math.ones(spatial(x=2, y=2, z=2)),
+            math.ones(spatial(x=2, y=2, z=2), batch(b1=2)),
+            math.ones(spatial(x=2, y=2, z=2), batch(b1=2, b2=2)),
+            math.ones(spatial(x=2, y=2, z=2), batch(b1=2, b2=2, b3=2)),
+        ]:
+            results = []
+            for backend in BACKENDS:
+                with backend:
+                    p = math.pad(t, {i: (1, 1) for i in 'xyz'}, 0)
+                    results.append(p)
+            math.assert_close(*results)
+
+    def test_pad_4d(self):
+        for t in [
+            math.ones(spatial(x=2, y=2, z=2, w=2)),
+            math.ones(spatial(x=2, y=2, z=2, w=2), batch(b1=2)),
+            math.ones(spatial(x=2, y=2, z=2, w=2), batch(b1=2, b2=2)),
+            math.ones(spatial(x=2, y=2, z=2, w=2), batch(b1=2, b2=2, b3=2)),
+        ]:
+            results = []
+            for backend in BACKENDS:
+                with backend:
+                    p = math.pad(t, {i: (1, 1) for i in 'xyzw'}, 0)
+                    results.append(p)
+            math.assert_close(*results)
+
 
     def test_pad_collapsed(self):
         a = math.zeros(spatial(b=2, x=10, y=10) & batch(batch=10))
@@ -172,3 +201,9 @@ class TestExtrapolation(TestCase):
         self.assertEqual(ext, extrapolation.map(lambda e: e, ext))
         ext = combine_sides(x=PERIODIC, y=(ONE, BOUNDARY))
         self.assertEqual(ext, extrapolation.map(lambda e: e, ext))
+
+    def test_slice_normal_tangential(self):
+        INFLOW_LEFT = combine_by_direction(normal=1, tangential=0)
+        ext = combine_sides(x=(INFLOW_LEFT, BOUNDARY), y=0)
+        self.assertEqual(combine_sides(x=(1, BOUNDARY), y=0), ext[{'vector': 'x'}])
+        self.assertEqual(combine_sides(x=(0, BOUNDARY), y=0), ext[{'vector': 'y'}])

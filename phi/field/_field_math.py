@@ -70,8 +70,10 @@ def spatial_gradient(field: Field,
     if extrapolation is None:
         extrapolation = field.extrapolation.spatial_gradient()
     if type == CenteredGrid:
-        values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim.name), difference='central', padding=field.extrapolation, stack_dim=stack_dim)
-        return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
+        pad = 1 if extrapolation == math.extrapolation.NONE else 0
+        values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim.name), difference='central', padding=field.extrapolation, stack_dim=stack_dim, pad=pad)
+        bounds = Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx) if extrapolation == math.extrapolation.NONE else field.bounds
+        return CenteredGrid(values, bounds=bounds, extrapolation=extrapolation)
     elif type == StaggeredGrid:
         assert stack_dim.name == 'vector'
         return stagger(field, lambda lower, upper: (upper - lower) / field.dx, extrapolation)
@@ -121,10 +123,16 @@ def stagger(field: CenteredGrid,
     all_lower = []
     all_upper = []
     if type == StaggeredGrid:
-        for dim in field.shape.spatial.names:
-            lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
-            width_lower = {dim: (int(lo_valid), int(up_valid) - 1)}
-            width_upper = {dim: (int(lo_valid or up_valid) - 1, int(lo_valid and up_valid))}
+        for dim in field.resolution.names:
+            valid_lo, valid_up = extrapolation.valid_outer_faces(dim)
+            if valid_lo and valid_up:
+                width_lower, width_upper = {dim: (1, 0)}, {dim: (0, 1)}
+            elif valid_lo and not valid_up:
+                width_lower, width_upper = {dim: (1, -1)}, {dim: (0, 0)}
+            elif not valid_lo and valid_up:
+                width_lower, width_upper = {dim: (0, 0)}, {dim: (-1, 1)}
+            else:
+                width_lower, width_upper = {dim: (0, -1)}, {dim: (-1, 0)}
             all_lower.append(math.pad(field.values, width_lower, field.extrapolation, bounds=field.bounds))
             all_upper.append(math.pad(field.values, width_upper, field.extrapolation, bounds=field.bounds))
         all_upper = math.stack(all_upper, channel('vector'))
@@ -169,6 +177,8 @@ def divergence(field: Grid) -> CenteredGrid:
         grad = (right - left) / (field.dx * 2)
         components = [grad.vector[i].div_[i] for i in range(grad.div_.size)]
         result = sum(components)
+        if field.extrapolation == math.extrapolation.NONE:
+            result = result.with_bounds(Box(field.bounds.lower + field.dx, field.bounds.upper - field.dx))
         return result
     else:
         raise NotImplementedError(f"{type(field)} not supported. Only StaggeredGrid allowed.")

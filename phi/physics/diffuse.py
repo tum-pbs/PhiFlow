@@ -31,8 +31,10 @@ def explicit(field: FieldType,
     amount = diffusivity * dt
     if isinstance(amount, Field):
         amount = amount.at(field)
+    ext = field.extrapolation
     for i in range(substeps):
-        field += amount / substeps * laplace(field).with_extrapolation(field.extrapolation)
+        field += amount / substeps * laplace(field).with_extrapolation(ext)
+        field = field.with_extrapolation(ext)
     return field
 
 
