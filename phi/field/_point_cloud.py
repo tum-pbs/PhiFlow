@@ -163,8 +163,9 @@ class PointCloud(SampledField):
 
     def __and__(self, other):
         assert isinstance(other, PointCloud)
+        assert instance(self).rank == instance(other).rank == 1, f"Can only use & on PointClouds that have a single instance dimension but got shapes {self.shape} & {other.shape}"
         from ._field_math import concat
-        return concat([self, other], instance('points'))
+        return concat([self, other], instance(self))
 
 
 def nonzero(field: SampledField):
