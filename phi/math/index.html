@@ -7182,7 +7182,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             shape = channel(&#39;dims&#39;)
         else:
             assert shape.rank == 1, &#34;Can only convert 1D shapes to Tensors&#34;
-        shape = shape._with_item_names((data.names,))
+        shape = shape.with_size(data.names)
         data = data.sizes
     elif isinstance(data, str):
         return layout(data)
@@ -7225,7 +7225,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             for size, s in zip(sizes, shape.sizes):
                 if s is not None:
                     assert s == size, f&#34;Given shape {shape} does not match data with sizes {sizes}. Consider leaving the sizes undefined.&#34;
-            shape = shape.with_sizes(sizes)
+            shape = shape.with_sizes(sizes, keep_item_names=True)
         if convert:
             data = convert_(data, use_dlpack=False)
         return NativeTensor(data, shape)
@@ -9377,7 +9377,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         assert self.rank == 1, &#34;Shape.with_size() is only defined for shapes of rank 1.&#34;
         return self.with_sizes([size])
 
-    def with_sizes(self, sizes: tuple or list or &#39;Shape&#39;):
+    def with_sizes(self, sizes: tuple or list or &#39;Shape&#39;, keep_item_names=False):
         &#34;&#34;&#34;
         Returns a new `Shape` matching the dimension names and types of `self` but with different sizes.
 
@@ -9401,13 +9401,16 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             assert len(sizes) == len(self.sizes), f&#34;Cannot create shape from {self} with sizes {sizes}&#34;
             sizes_ = []
             item_names = []
-            for obj in sizes:
+            for i, obj in enumerate(sizes):
                 if isinstance(obj, str):
                     obj = [s.strip() for s in obj.split(&#39;,&#39;)]
                 if isinstance(obj, (tuple, list)):
                     sizes_.append(len(obj))
                     item_names.append(tuple(obj))
-                elif isinstance(obj, (int, math.Tensor)) or obj is None:
+                elif isinstance(obj, Number):
+                    sizes_.append(obj)
+                    item_names.append(self.item_names[i] if keep_item_names and obj == self.sizes[i] else None)
+                elif isinstance(obj, math.Tensor) or obj is None:
                     sizes_.append(obj)
                     item_names.append(None)
                 else:
@@ -9421,12 +9424,12 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         &#34;&#34;&#34;
         return Shape((None,) * self.rank, self.names, self.types, (None,) * self.rank)
 
-    def _replace_single_size(self, dim: str, size: int):
+    def _replace_single_size(self, dim: str, size: int, keep_item_names: bool = False):
         new_sizes = list(self.sizes)
         new_sizes[self.index(dim)] = size
-        return self.with_sizes(new_sizes)
+        return self.with_sizes(new_sizes, keep_item_names=keep_item_names)
 
-    def with_dim_size(self, dim: str or &#39;Shape&#39;, size):
+    def with_dim_size(self, dim: str or &#39;Shape&#39;, size, keep_item_names=False):
         &#34;&#34;&#34;
         Returns a new `Shape` that has a different size for `dim`.
 
@@ -9440,7 +9443,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         if isinstance(dim, Shape):
             dim = dim.name
         assert isinstance(dim, str)
-        return self._replace_single_size(dim, size)
+        return self._replace_single_size(dim, size, keep_item_names=keep_item_names)
 
     def _with_names(self, names: str or tuple or list):
         if isinstance(names, str):
@@ -9594,6 +9597,8 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
                 result = result._replace_single_size(name, new_size)
                 if step &lt; 0:
                     result = result.flipped([name])
+                if self.get_item_names(name) is not None:
+                    result = result._with_item_name(name, tuple(self.get_item_names(name)[selection]))
             elif isinstance(selection, (tuple, list)):
                 result = result._replace_single_size(name, len(selection))
                 if self.get_item_names(name) is not None:
@@ -10266,6 +10271,8 @@ def well_defined(self):
             result = result._replace_single_size(name, new_size)
             if step &lt; 0:
                 result = result.flipped([name])
+            if self.get_item_names(name) is not None:
+                result = result._with_item_name(name, tuple(self.get_item_names(name)[selection]))
         elif isinstance(selection, (tuple, list)):
             result = result._replace_single_size(name, len(selection))
             if self.get_item_names(name) is not None:
@@ -10853,7 +10860,7 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
 </details>
 </dd>
 <dt id="phi.math.Shape.with_dim_size"><code class="name flex">
-<span>def <span class="ident">with_dim_size</span></span>(<span>self, dim: str, size)</span>
+<span>def <span class="ident">with_dim_size</span></span>(<span>self, dim: str, size, keep_item_names=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> that has a different size for <code>dim</code>.</p>
@@ -10870,7 +10877,7 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_dim_size(self, dim: str or &#39;Shape&#39;, size):
+<pre><code class="python">def with_dim_size(self, dim: str or &#39;Shape&#39;, size, keep_item_names=False):
     &#34;&#34;&#34;
     Returns a new `Shape` that has a different size for `dim`.
 
@@ -10884,7 +10891,7 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
     if isinstance(dim, Shape):
         dim = dim.name
     assert isinstance(dim, str)
-    return self._replace_single_size(dim, size)</code></pre>
+    return self._replace_single_size(dim, size, keep_item_names=keep_item_names)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.with_size"><code class="name flex">
@@ -10925,7 +10932,7 @@ Returns a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code
 </details>
 </dd>
 <dt id="phi.math.Shape.with_sizes"><code class="name flex">
-<span>def <span class="ident">with_sizes</span></span>(<span>self, sizes: tuple)</span>
+<span>def <span class="ident">with_sizes</span></span>(<span>self, sizes: tuple, keep_item_names=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> matching the dimension names and types of <code>self</code> but with different sizes.</p>
@@ -10948,7 +10955,7 @@ Returns a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_sizes(self, sizes: tuple or list or &#39;Shape&#39;):
+<pre><code class="python">def with_sizes(self, sizes: tuple or list or &#39;Shape&#39;, keep_item_names=False):
     &#34;&#34;&#34;
     Returns a new `Shape` matching the dimension names and types of `self` but with different sizes.
 
@@ -10972,13 +10979,16 @@ Returns a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code
         assert len(sizes) == len(self.sizes), f&#34;Cannot create shape from {self} with sizes {sizes}&#34;
         sizes_ = []
         item_names = []
-        for obj in sizes:
+        for i, obj in enumerate(sizes):
             if isinstance(obj, str):
                 obj = [s.strip() for s in obj.split(&#39;,&#39;)]
             if isinstance(obj, (tuple, list)):
                 sizes_.append(len(obj))
                 item_names.append(tuple(obj))
-            elif isinstance(obj, (int, math.Tensor)) or obj is None:
+            elif isinstance(obj, Number):
+                sizes_.append(obj)
+                item_names.append(self.item_names[i] if keep_item_names and obj == self.sizes[i] else None)
+            elif isinstance(obj, math.Tensor) or obj is None:
                 sizes_.append(obj)
                 item_names.append(None)
             else:
