@@ -721,7 +721,7 @@ class Shape:
         assert self.rank == 1, "Shape.with_size() is only defined for shapes of rank 1."
         return self.with_sizes([size])
 
-    def with_sizes(self, sizes: tuple or list or 'Shape', keep_item_names=False):
+    def with_sizes(self, sizes: tuple or list or 'Shape', keep_item_names=True):
         """
         Returns a new `Shape` matching the dimension names and types of `self` but with different sizes.
 
@@ -746,20 +746,23 @@ class Shape:
             sizes_ = []
             item_names = []
             for i, obj in enumerate(sizes):
-                if isinstance(obj, str):
-                    obj = [s.strip() for s in obj.split(',')]
-                if isinstance(obj, (tuple, list)):
-                    sizes_.append(len(obj))
-                    item_names.append(tuple(obj))
-                elif isinstance(obj, Number):
-                    sizes_.append(obj)
-                    item_names.append(self.item_names[i] if keep_item_names and obj == self.sizes[i] else None)
-                elif isinstance(obj, math.Tensor) or obj is None:
-                    sizes_.append(obj)
-                    item_names.append(None)
-                else:
-                    raise ValueError(f"sizes can only contain int, str or Tensor but got {type(obj)}")
+                new_size, new_item_names = Shape._size_and_item_names_from_obj(obj, self.sizes[i], self.item_names[i], keep_item_names)
+                sizes_.append(new_size)
+                item_names.append(new_item_names)
             return Shape(tuple(sizes_), self.names, self.types, tuple(item_names))
+
+    @staticmethod
+    def _size_and_item_names_from_obj(obj, prev_size, prev_item_names, keep_item_names=True):
+        if isinstance(obj, str):
+            obj = [s.strip() for s in obj.split(',')]
+        if isinstance(obj, (tuple, list)):
+            return len(obj), tuple(obj)
+        elif isinstance(obj, Number):
+            return obj, prev_item_names if keep_item_names and obj == prev_size else None
+        elif isinstance(obj, math.Tensor) or obj is None:
+            return obj, None
+        else:
+            raise ValueError(f"sizes can only contain int, str or Tensor but got {type(obj)}")
 
     def without_sizes(self):
         """
@@ -773,7 +776,7 @@ class Shape:
         new_sizes[self.index(dim)] = size
         return self.with_sizes(new_sizes, keep_item_names=keep_item_names)
 
-    def with_dim_size(self, dim: str or 'Shape', size, keep_item_names=False):
+    def with_dim_size(self, dim: str or 'Shape', size: int or 'math.Tensor' or str or tuple or list, keep_item_names=True):
         """
         Returns a new `Shape` that has a different size for `dim`.
 
@@ -787,7 +790,8 @@ class Shape:
         if isinstance(dim, Shape):
             dim = dim.name
         assert isinstance(dim, str)
-        return self._replace_single_size(dim, size, keep_item_names=keep_item_names)
+        new_size, new_item_names = Shape._size_and_item_names_from_obj(size, self.get_size(dim), self.get_item_names(dim), keep_item_names)
+        return self.replace(dim, Shape((new_size,), (dim,), (self.get_type(dim),), (new_item_names,)))
 
     def _with_names(self, names: str or tuple or list):
         if isinstance(names, str):
@@ -832,7 +836,34 @@ class Shape:
                     names[self.index(old_name)] = new_name
             return Shape(tuple(sizes), tuple(names), self.types, self.item_names)
 
-    replace = _replace_names_and_types
+    def replace(self, dims: 'Shape' or str or tuple or list, new: 'Shape') -> 'Shape':
+        """
+        Returns a copy of `self` with `dims` replaced by `new`.
+        Dimensions that are not present in `self` are ignored.
+
+        The dimension order is preserved.
+
+        Args:
+            dims: Dimensions to replace.
+            new: New dimensions, must have same length as `dims`.
+                If a `Shape` is given, replaces the dimension types and item names as well.
+
+        Returns:
+            `Shape` with same rank and dimension order as `self`.
+        """
+        dims = parse_dim_order(dims)
+        assert isinstance(new, Shape), f"new must be a Shape but got {new}"
+        names = list(self.names)
+        sizes = list(self.sizes)
+        types = list(self.types)
+        item_names = list(self.item_names)
+        for old_name, new_dim in zip(dims, new):
+            if old_name in self:
+                names[self.index(old_name)] = new_dim.name
+                types[self.index(old_name)] = new_dim.type
+                item_names[self.index(old_name)] = new_dim.item_names[0]
+                sizes[self.index(old_name)] = new_dim.size
+        return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
 
     def _with_types(self, types: 'Shape'):
         return Shape(self.sizes, self.names, tuple([types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)]), self.item_names)
@@ -924,7 +955,7 @@ class Shape:
                 else:
                     from phi.math import Tensor
                     gathered_sizes = [(s[{sel_dim: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
-                    result = result.with_sizes(gathered_sizes).without(sel_dim)
+                    result = result.with_sizes(gathered_sizes, keep_item_names=True).without(sel_dim)
             elif isinstance(selection, slice):
                 step = selection.step or 1
                 start = selection.start if isinstance(selection.start, int) else (0 if step > 0 else self.get_size(sel_dim)-1)

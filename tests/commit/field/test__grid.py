@@ -26,13 +26,13 @@ class GridTest(TestCase):
         s = spatial(x=20, y=10)
         for initializer in [0, Noise(vector=2), (0, 1), Sphere(x=0, y=0, radius=1)]:
             g_const = StaggeredGrid(initializer, extrapolation.ZERO, resolution=s)
-            self.assertEqual(g_const.shape, spatial(x=20, y=10) & channel(vector=2))
+            self.assertEqual(g_const.shape, spatial(x=20, y=10) & channel(vector='x,y'))
             self.assertEqual(g_const.values.vector[0].shape, spatial(x=19, y=10))
             g_periodic = StaggeredGrid(initializer, extrapolation.PERIODIC, resolution=s)
-            self.assertEqual(g_periodic.shape, spatial(x=20, y=10) & channel(vector=2))
+            self.assertEqual(g_periodic.shape, spatial(x=20, y=10) & channel(vector='x,y'))
             self.assertEqual(g_periodic.values.vector[0].shape, spatial(x=20, y=10))
             g_boundary = StaggeredGrid(initializer, extrapolation.BOUNDARY, resolution=s)
-            self.assertEqual(g_boundary.shape, spatial(x=20, y=10) & channel(vector=2))
+            self.assertEqual(g_boundary.shape, spatial(x=20, y=10) & channel(vector='x,y'))
             self.assertEqual(g_boundary.values.vector[0].shape, spatial(x=21, y=10))
 
     def test_slice_staggered_grid_along_vector(self):

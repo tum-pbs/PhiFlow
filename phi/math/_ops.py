@@ -703,13 +703,15 @@ def concat_tensor(values: tuple or list, dim: str) -> Tensor:
     assert isinstance(dim, str), f"dim must be a single-dimension Shape but got '{dim}' of type {type(dim)}"
 
     def inner_concat(*values):
-        broadcast_shape = merge_shapes(*[t.shape._with_item_name(dim, None).with_sizes([None] * t.shape.rank) for t in values])
+        broadcast_shape: Shape = values[0].shape  # merge_shapes(*[t.shape.with_sizes([None] * t.shape.rank) for t in values])
+        dim_index = broadcast_shape.index(dim)
         natives = [v.native(order=broadcast_shape.names) for v in values]
-        backend = choose_backend(*natives)
-        concatenated = backend.concat(natives, broadcast_shape.index(dim))
+        concatenated = choose_backend(*natives).concat(natives, dim_index)
         if all([v.shape.get_item_names(dim) is not None for v in values]):
-            broadcast_shape = broadcast_shape._with_item_name(dim, sum([v.shape.get_item_names(dim) for v in values], ()))
-        return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
+            broadcast_shape = broadcast_shape.with_dim_size(dim, sum([v.shape.get_item_names(dim) for v in values], ()))
+        else:
+            broadcast_shape = broadcast_shape.with_dim_size(dim, sum([v.shape.get_size(dim) for v in values]))
+        return NativeTensor(concatenated, broadcast_shape)
 
     result = broadcast_op(inner_concat, values)
     return result

@@ -117,10 +117,10 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
         # --- Fallback: use expand and concat ---
         for v in values:
             if not hasattr(v, '__stack__') and hasattr(v, '__concat__') and hasattr(v, '__expand__'):
-                exp_values = tuple([expand(v, dim.with_size(1), **kwargs) for v in values])
-                if len(exp_values) > 8:
-                    warnings.warn(f"stack() default implementation is slow on large dimensions ({dim.name}={len(exp_values)}). Please implement __stack__()", RuntimeWarning, stacklevel=2)
-                result = v.__concat__(exp_values, dim.name, **kwargs)
+                expanded_values = tuple([expand(v, dim.with_size(1 if dim.item_names[0] is None else dim.item_names[0][i]), **kwargs) for i, v in enumerate(values)])
+                if len(expanded_values) > 8:
+                    warnings.warn(f"stack() default implementation is slow on large dimensions ({dim.name}={len(expanded_values)}). Please implement __stack__()", RuntimeWarning, stacklevel=2)
+                result = v.__concat__(expanded_values, dim.name, **kwargs)
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), "__concat__ must return a Shapable object"
                     return result
@@ -239,7 +239,7 @@ def expand(value, dims: Shape, **kwargs):
     """
     merge_shapes(value, dims.only(shape(value)))  # check that existing sizes match
     if not dims.without(shape(value)):  # no new dims to add
-        if set(dims) == set(shape(value)):  # sizes and item names might differ, though
+        if set(dims) == set(shape(value).only(dims)):  # sizes and item names might differ, though
             return value
     if hasattr(value, '__expand__'):
         result = value.__expand__(dims, **kwargs)

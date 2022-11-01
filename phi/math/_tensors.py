@@ -1719,7 +1719,7 @@ def layout(objects, *shape: Shape) -> Tensor:
                 return shape
             if isinstance(native, dict):
                 assert all([isinstance(k, str) for k in native.keys()]), f"All dict keys in PyTrees must be str but got {tuple(native.keys())}"
-                shape = shape._with_item_name(shape.names[0], tuple(native.keys()))
+                shape = shape.replace(shape[0], shape[0].with_size(tuple(native.keys())))
             if shape.rank == 1:
                 return shape.with_sizes((len(native),))
             inner_shape = shape[1:]
