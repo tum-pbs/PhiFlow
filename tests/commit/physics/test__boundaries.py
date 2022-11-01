@@ -47,4 +47,4 @@ class TestFieldMath(TestCase):
         grid = CenteredGrid(1, a=4, b=3)
         self.assertEqual(spatial(a=4, b=3), grid.shape)
         grid = StaggeredGrid(1, a=4, b=3)
-        self.assertEqual(spatial(a=4, b=3) & channel(vector=2), grid.shape)
+        self.assertEqual(spatial(a=4, b=3) & channel(vector='a,b'), grid.shape)
