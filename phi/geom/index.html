@@ -83,7 +83,8 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenates a sequence of <code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code> objects, e.g. <code>Tensor</code>, along one dimension.
-The shapes of all values must be equal, except for the size of the concat dimension.</p>
+All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for <code>dim</code>.
+Batch dimensions will be added as needed.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
@@ -112,7 +113,8 @@ concat([vec(x=1, y=0), vec(z=2.)], 'vector')
 <pre><code class="python">def concat(values: tuple or list, dim: str or Shape, **kwargs):
     &#34;&#34;&#34;
     Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
-    The shapes of all values must be equal, except for the size of the concat dimension.
+    All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
+    Batch dimensions will be added as needed.
 
     Args:
         values: Tuple or list of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
@@ -140,7 +142,10 @@ concat([vec(x=1, y=0), vec(z=2.)], 'vector')
         dim = dim.name
     assert isinstance(dim, str), f&#34;dim must be a str or Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
     for v in values[1:]:
-        assert set(shape(v).names) == set(shape(values[0]).names), f&#34;Concatenated values must have the same dimensions but got {values[0].shape} and {v.shape}&#34;
+        assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}&#34;
+    # Add missing batch dimensions
+    all_batch_dims = merge_shapes(*[batch(v) for v in values])
+    values = [expand(v, all_batch_dims) for v in values]
     # First try __concat__
     for v in values:
         if isinstance(v, Shapable):
@@ -384,9 +389,11 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <span>def <span class="ident">stack</span></span>(<span>values: tuple, dim: phi.math._shape.Shape, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.</p>
+<div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.
+All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
+Batch dimensions will be added as needed.</p>
 <p>Stacking tensors is performed lazily, i.e. the memory is allocated only when needed.
-This makes repeated stacking and slicing along the same dimension very efficient.</p>
+This makes repeated stacking and slicing along the same dimension very efficient, i.e. jit-compiled functions will not perform these operations.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
@@ -420,9 +427,11 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
 <pre><code class="python">def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     &#34;&#34;&#34;
     Stacks `values` along the new dimension `dim`.
+    All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
+    Batch dimensions will be added as needed.
 
     Stacking tensors is performed lazily, i.e. the memory is allocated only when needed.
-    This makes repeated stacking and slicing along the same dimension very efficient.
+    This makes repeated stacking and slicing along the same dimension very efficient, i.e. jit-compiled functions will not perform these operations.
 
     Args:
         values: Collection of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
@@ -452,6 +461,11 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
     &#34;&#34;&#34;
     assert len(values) &gt; 0, f&#34;stack() got empty sequence {values}&#34;
     assert isinstance(dim, Shape)
+    for v in values[1:]:
+        assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Stacked values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}&#34;
+    # --- Add missing batch dimensions ---
+    all_batch_dims = merge_shapes(*[batch(v) for v in values])
+    values = [expand(v, all_batch_dims) for v in values]
     if dim.rank == 1:
         assert dim.size == len(values) or dim.size is None, f&#34;stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values&#34;
         if dim.size is None:
@@ -460,16 +474,14 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
             dim_item_names = tuple(values.keys())
             values = tuple(values.values())
             dim = dim._with_item_names((dim_item_names,))
-        for v in values[1:]:
-            assert set(shape(v).names) == set(shape(values[0]).names), f&#34;Stacked values must have the same dimensions but got {shape(values[0])} and {shape(v)}&#34;
-        # if any value implements Shapable, use their implementation
+        # --- if any value implements Shapable, use their implementation ---
         for v in values:
             if hasattr(v, &#39;__stack__&#39;):
                 result = v.__stack__(values, dim, **kwargs)
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), &#34;__stack__ must return a Shapable object&#34;
                     return result
-        # Fallback: use expand and concat
+        # --- Fallback: use expand and concat ---
         for v in values:
             if not hasattr(v, &#39;__stack__&#39;) and hasattr(v, &#39;__concat__&#39;) and hasattr(v, &#39;__expand__&#39;):
                 exp_values = tuple([expand(v, dim.with_size(1), **kwargs) for v in values])
@@ -479,19 +491,19 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), &#34;__concat__ must return a Shapable object&#34;
                     return result
-        # else maybe all values are native scalars
+        # --- else maybe all values are native scalars ---
         from ._tensors import wrap
         try:
             values = tuple([wrap(v) for v in values])
         except ValueError:
             raise MagicNotImplemented(f&#34;At least one item in values must be Shapable but got types {[type(v) for v in values]}&#34;)
         return values[0].__stack__(values, dim, **kwargs)
-    else:
+    else:  # multi-dim stack
         assert dim.volume == len(values), f&#34;When passing multiple stack dims, their volume must equal len(values) but got {dim} for {len(values)} values&#34;
         if isinstance(values, dict):
             warnings.warn(f&#34;When stacking a dict along multiple dimensions, the key names are discarded. Got keys {tuple(values.keys())}&#34;, RuntimeWarning, stacklevel=2)
             values = tuple(values.values())
-        # if any value implements Shapable, use stack and unpack_dim
+        # --- if any value implements Shapable, use stack and unpack_dim ---
         for v in values:
             if hasattr(v, &#39;__stack__&#39;) and hasattr(v, &#39;__unpack_dim__&#39;):
                 stack_dim = batch(&#39;_stack&#39;)
@@ -504,7 +516,7 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
                         warnings.warn(&#34;__unpack_dim__ is overridden but returned NotImplemented during multi-dimensional stack. This results in unnecessary stack operations.&#34;, RuntimeWarning, stacklevel=2)
                     else:
                         return reshaped
-        # Fallback: multi-level stack
+        # --- Fallback: multi-level stack ---
         for dim_ in reversed(dim):
             values = [stack(values[i:i + dim_.size], dim_, **kwargs) for i in range(0, len(values), dim_.size)]
         return values[0]</code></pre>

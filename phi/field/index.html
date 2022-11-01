@@ -4313,8 +4313,9 @@ When sampling this field on a grid, scatter functions may be used.</p>
 
     def __and__(self, other):
         assert isinstance(other, PointCloud)
+        assert instance(self).rank == instance(other).rank == 1, f&#34;Can only use &amp; on PointClouds that have a single instance dimension but got shapes {self.shape} &amp; {other.shape}&#34;
         from ._field_math import concat
-        return concat([self, other], instance(&#39;points&#39;))</code></pre>
+        return concat([self, other], instance(self))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">

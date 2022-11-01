@@ -15010,7 +15010,7 @@ Otherwise, they are determined automatically.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(batchᵇ=1, xˢ=5, yˢ=4, vectorᶜ=x,y)</span> <span class="ansi-yellow-intense-fg">float64</span> <span class="ansi-blue-intense-fg">const 0.0</span></pre>
+<pre><span class="ansi-green-intense-fg">(batchᵇ=1, xˢ=5, yˢ=4, vectorᶜ=2)</span> <span class="ansi-yellow-intense-fg">float64</span> <span class="ansi-blue-intense-fg">const 0.0</span></pre>
 </div>
 
 </div>
@@ -15149,7 +15149,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(x=0.935, y=0.714)</span></pre>
+<pre><span class="ansi-blue-intense-fg">(x=0.068, y=0.449)</span></pre>
 </div>
 
 </div>
@@ -15188,7 +15188,7 @@ In the latter case, the dimension types are inferred from the names.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(0, -1, 0, 0, 2, 0)</span> along <span class="ansi-green-intense-fg">examplesᵇ</span></pre>
+<pre><span class="ansi-blue-intense-fg">(0, 0, 0, 1, 0, -1)</span> along <span class="ansi-green-intense-fg">examplesᵇ</span></pre>
 </div>
 
 </div>
@@ -15378,17 +15378,39 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputArea-child">
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[17]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In [17], line 2</span>
+<span class="ansi-green-intense-fg ansi-bold">      1</span> data <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>random_uniform(spatial(x<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">10</span>, y<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">10</span>, z<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">10</span>), channel(vector<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">x,y,z</span><span style="color: rgb(175,0,0)">&#39;</span>))
+<span class="ansi-green-fg">----&gt; 2</span> <span class="ansi-yellow-bg">data</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">0</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">1</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">-</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">1</span><span class="ansi-yellow-bg">]</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">vector</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">x</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">]</span>
 
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/magic.py:487</span>, in <span class="ansi-cyan-fg">BoundDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    486</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__getitem__</span>(<span style="color: rgb(0,135,0)">self</span>, item):
+<span class="ansi-green-fg">--&gt; 487</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">obj</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg">{</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">name</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">item</span><span class="ansi-yellow-bg">}</span><span class="ansi-yellow-bg">]</span>
 
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.515 ± 0.286</span> <span class="ansi-white-fg">(1e-02...1e+00)</span></pre>
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_tensors.py:391</span>, in <span class="ansi-cyan-fg">Tensor.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
+<span class="ansi-green-intense-fg ansi-bold">    389</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> dim <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape:
+<span class="ansi-green-intense-fg ansi-bold">    390</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">continue</span>
+<span class="ansi-green-fg">--&gt; 391</span> selection <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">shape</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">prepare_gather</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">dim</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">selection</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    392</span> <span style="color: rgb(95,135,135)"># Either handle slicing directly or add it to the dict</span>
+<span class="ansi-green-intense-fg ansi-bold">    393</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(selection, (<span style="color: rgb(0,135,0)">tuple</span>, <span style="color: rgb(0,135,0)">list</span>)):
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_shape.py:891</span>, in <span class="ansi-cyan-fg">Shape.prepare_gather</span><span class="ansi-blue-fg">(self, dim, selection)</span>
+<span class="ansi-green-intense-fg ansi-bold">    889</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(selection, <span style="color: rgb(0,135,0)">str</span>):  <span style="color: rgb(95,135,135)"># single item name</span>
+<span class="ansi-green-intense-fg ansi-bold">    890</span>     item_names <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>get_item_names(dim, fallback_spatial<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">True</span>)
+<span class="ansi-green-fg">--&gt; 891</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> item_names <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">No item names defined for dim </span><span style="color: rgb(175,0,0)">&#39;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dim<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> in tensor </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)"> and dimension size does not match spatial rank.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    892</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> selection <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> item_names, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Accessing tensor.</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dim<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">[</span><span style="color: rgb(175,0,0)">&#39;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>selection<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">] failed. Item names are </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>item_names<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    893</span>     selection <span style="color: rgb(98,98,98)">=</span> item_names<span style="color: rgb(98,98,98)">.</span>index(selection)
+
+<span class="ansi-red-fg">AssertionError</span>: No item names defined for dim &#39;vector&#39; in tensor (dimsᶜ=y,z,vector) and dimension size does not match spatial rank.</pre>
 </div>
-
 </div>
 
 </div>
@@ -15437,7 +15459,7 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.515 ± 0.286</span> <span class="ansi-white-fg">(1e-02...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(yˢ=8, zˢ=10)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.267</span> <span class="ansi-white-fg">(2e-02...1e+00)</span></pre>
 </div>
 
 </div>
@@ -15487,16 +15509,16 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.501 ± 0.272</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.518 ± 0.272</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.470 ± 0.295</span> <span class="ansi-white-fg">(3e-04...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.492 ± 0.287</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.513 ± 0.276</span> <span class="ansi-white-fg">(7e-04...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.476 ± 0.281</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.505 ± 0.294</span> <span class="ansi-white-fg">(4e-04...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.497 ± 0.291</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.475 ± 0.299</span> <span class="ansi-white-fg">(8e-04...1e+00)</span>
-<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.500 ± 0.287</span> <span class="ansi-white-fg">(9e-04...1e+00)</span>
+<pre><span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.480 ± 0.290</span> <span class="ansi-white-fg">(8e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.492 ± 0.286</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.486 ± 0.282</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.289</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.284</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.281</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.505 ± 0.297</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.494 ± 0.292</span> <span class="ansi-white-fg">(7e-04...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.492 ± 0.285</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
+<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.509 ± 0.286</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
 </pre>
 </div>
 </div>
@@ -15535,16 +15557,16 @@ This syntax can be chained to index or slice multiple dimensions.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>(<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.501 ± 0.272</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.518 ± 0.272</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.470 ± 0.295</span> <span class="ansi-white-fg">(3e-04...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.492 ± 0.287</span> <span class="ansi-white-fg">(4e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.513 ± 0.276</span> <span class="ansi-white-fg">(7e-04...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.476 ± 0.281</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.505 ± 0.294</span> <span class="ansi-white-fg">(4e-04...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.497 ± 0.291</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.475 ± 0.299</span> <span class="ansi-white-fg">(8e-04...1e+00)</span>,
- <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.500 ± 0.287</span> <span class="ansi-white-fg">(9e-04...1e+00)</span>)</pre>
+<pre>(<span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.480 ± 0.290</span> <span class="ansi-white-fg">(8e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.492 ± 0.286</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.486 ± 0.282</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.289</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.284</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.498 ± 0.281</span> <span class="ansi-white-fg">(1e-02...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.505 ± 0.297</span> <span class="ansi-white-fg">(1e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.494 ± 0.292</span> <span class="ansi-white-fg">(7e-04...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.492 ± 0.285</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>,
+ <span class="ansi-green-intense-fg">(yˢ=10, zˢ=10, vectorᶜ=x,y,z)</span> <span class="ansi-blue-intense-fg">0.509 ± 0.286</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>)</pre>
 </div>
 
 </div>
