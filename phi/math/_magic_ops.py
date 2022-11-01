@@ -5,7 +5,7 @@ from typing import TypeVar, Tuple
 
 from .backend import choose_backend, NoBackendFound
 from .backend._dtype import DType
-from ._shape import Shape, DimFilter, batch, instance, shape
+from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes
 from .magic import Sliceable, Shaped, Shapable, PhiTreeNode
 
 
@@ -56,9 +56,11 @@ def unstack(value, dim: DimFilter):
 def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     """
     Stacks `values` along the new dimension `dim`.
+    All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
+    Batch dimensions will be added as needed.
 
     Stacking tensors is performed lazily, i.e. the memory is allocated only when needed.
-    This makes repeated stacking and slicing along the same dimension very efficient.
+    This makes repeated stacking and slicing along the same dimension very efficient, i.e. jit-compiled functions will not perform these operations.
 
     Args:
         values: Collection of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
@@ -88,6 +90,11 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     """
     assert len(values) > 0, f"stack() got empty sequence {values}"
     assert isinstance(dim, Shape)
+    for v in values[1:]:
+        assert set(non_batch(v).names) == set(non_batch(values[0]).names), f"Stacked values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}"
+    # --- Add missing batch dimensions ---
+    all_batch_dims = merge_shapes(*[batch(v) for v in values])
+    values = [expand(v, all_batch_dims) for v in values]
     if dim.rank == 1:
         assert dim.size == len(values) or dim.size is None, f"stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values"
         if dim.size is None:
@@ -96,16 +103,14 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
             dim_item_names = tuple(values.keys())
             values = tuple(values.values())
             dim = dim._with_item_names((dim_item_names,))
-        for v in values[1:]:
-            assert set(shape(v).names) == set(shape(values[0]).names), f"Stacked values must have the same dimensions but got {shape(values[0])} and {shape(v)}"
-        # if any value implements Shapable, use their implementation
+        # --- if any value implements Shapable, use their implementation ---
         for v in values:
             if hasattr(v, '__stack__'):
                 result = v.__stack__(values, dim, **kwargs)
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), "__stack__ must return a Shapable object"
                     return result
-        # Fallback: use expand and concat
+        # --- Fallback: use expand and concat ---
         for v in values:
             if not hasattr(v, '__stack__') and hasattr(v, '__concat__') and hasattr(v, '__expand__'):
                 exp_values = tuple([expand(v, dim.with_size(1), **kwargs) for v in values])
@@ -115,19 +120,19 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), "__concat__ must return a Shapable object"
                     return result
-        # else maybe all values are native scalars
+        # --- else maybe all values are native scalars ---
         from ._tensors import wrap
         try:
             values = tuple([wrap(v) for v in values])
         except ValueError:
             raise MagicNotImplemented(f"At least one item in values must be Shapable but got types {[type(v) for v in values]}")
         return values[0].__stack__(values, dim, **kwargs)
-    else:
+    else:  # multi-dim stack
         assert dim.volume == len(values), f"When passing multiple stack dims, their volume must equal len(values) but got {dim} for {len(values)} values"
         if isinstance(values, dict):
             warnings.warn(f"When stacking a dict along multiple dimensions, the key names are discarded. Got keys {tuple(values.keys())}", RuntimeWarning, stacklevel=2)
             values = tuple(values.values())
-        # if any value implements Shapable, use stack and unpack_dim
+        # --- if any value implements Shapable, use stack and unpack_dim ---
         for v in values:
             if hasattr(v, '__stack__') and hasattr(v, '__unpack_dim__'):
                 stack_dim = batch('_stack')
@@ -140,7 +145,7 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
                         warnings.warn("__unpack_dim__ is overridden but returned NotImplemented during multi-dimensional stack. This results in unnecessary stack operations.", RuntimeWarning, stacklevel=2)
                     else:
                         return reshaped
-        # Fallback: multi-level stack
+        # --- Fallback: multi-level stack ---
         for dim_ in reversed(dim):
             values = [stack(values[i:i + dim_.size], dim_, **kwargs) for i in range(0, len(values), dim_.size)]
         return values[0]
@@ -149,7 +154,8 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
 def concat(values: tuple or list, dim: str or Shape, **kwargs):
     """
     Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
-    The shapes of all values must be equal, except for the size of the concat dimension.
+    All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
+    Batch dimensions will be added as needed.
 
     Args:
         values: Tuple or list of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
@@ -177,7 +183,10 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
         dim = dim.name
     assert isinstance(dim, str), f"dim must be a str or Shape but got '{dim}' of type {type(dim)}"
     for v in values[1:]:
-        assert set(shape(v).names) == set(shape(values[0]).names), f"Concatenated values must have the same dimensions but got {values[0].shape} and {v.shape}"
+        assert set(non_batch(v).names) == set(non_batch(values[0]).names), f"Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}"
+    # Add missing batch dimensions
+    all_batch_dims = merge_shapes(*[batch(v) for v in values])
+    values = [expand(v, all_batch_dims) for v in values]
     # First try __concat__
     for v in values:
         if isinstance(v, Shapable):
@@ -224,6 +233,9 @@ def expand(value, dims: Shape, **kwargs):
     Returns:
         Same type as `value`.
     """
+    merge_shapes(value, dims.only(shape(value)))  # check that existing sizes match
+    if not dims.without(shape(value)):  # no new dims to add
+        return value
     if hasattr(value, '__expand__'):
         result = value.__expand__(dims, **kwargs)
         if result is not NotImplemented:
