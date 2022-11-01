@@ -247,8 +247,7 @@ class ConstantExtrapolation(Extrapolation):
             result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
             if result_tensor is NotImplemented:
                 return Extrapolation.pad(self, value, widths, **kwargs)
-            new_shape = value.shape.with_sizes(backend.staticshape(result_tensor))
-            return NativeTensor(result_tensor, new_shape)
+            return NativeTensor(result_tensor, value.shape.after_pad(widths))
         elif isinstance(value, CollapsedTensor):
             if value._inner.shape.volume > 1 or not math.all_available(pad_value, value) or not math.close(pad_value, value._inner):  # .inner should be safe after _simplify
                 return self.pad(value._cache(), widths)
@@ -260,8 +259,7 @@ class ConstantExtrapolation(Extrapolation):
                     else:
                         delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                         new_sizes.append(size + int(delta))
-                new_shape = value.shape.with_sizes(new_sizes)
-                return CollapsedTensor(value._inner, new_shape)
+                return CollapsedTensor(value._inner, value.shape.after_pad(widths))
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
@@ -387,24 +385,13 @@ class _CopyExtrapolation(Extrapolation):
             result_tensor = choose_backend(native).pad(native, ordered_pad_widths, repr(self))
             if result_tensor is NotImplemented:
                 return Extrapolation.pad(self, value, widths)
-            new_shape = value.shape.with_sizes(result_tensor.shape)
-            return NativeTensor(result_tensor, new_shape)
+            return NativeTensor(result_tensor, value.shape.after_pad(widths))
         elif isinstance(value, CollapsedTensor):
             inner = value._inner  # should be fine after _simplify
             inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
             if len(inner_widths) > 0:
                 inner = self.pad(inner, widths)
-            new_sizes = []
-            for size, dim, *_ in value.shape._dimensions:
-                if dim not in widths:
-                    new_sizes.append(size)
-                else:
-                    delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
-                    new_sizes.append(size + int(delta))
-            new_shape = value.shape.with_sizes(new_sizes)
-            return CollapsedTensor(inner, new_shape)
-        # elif isinstance(value, SparseLinearOperation):
-        #     return pad_operator(value, widths, mode)
+            return CollapsedTensor(inner, value.shape.after_pad(widths))
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
