@@ -9574,39 +9574,39 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
 
     def after_gather(self, selection: dict) -&gt; &#39;Shape&#39;:
         result = self
-        for name, selection in selection.items():
-            if name not in self.names:
+        for sel_dim, selection in selection.items():
+            if sel_dim not in self.names:
                 continue
-            selection = self.prepare_gather(name, selection)
+            selection = self.prepare_gather(sel_dim, selection)
             if isinstance(selection, int):
                 if result.is_uniform:
-                    result = result.without(name)
+                    result = result.without(sel_dim)
                 else:
                     from phi.math import Tensor
-                    gathered_sizes = [(s[{name: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
-                    result = result.with_sizes(gathered_sizes).without(name)
+                    gathered_sizes = [(s[{sel_dim: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
+                    result = result.with_sizes(gathered_sizes).without(sel_dim)
             elif isinstance(selection, slice):
                 step = selection.step or 1
-                start = selection.start if isinstance(selection.start, int) else (0 if step &gt; 0 else self.get_size(name)-1)
-                stop = selection.stop if isinstance(selection.stop, int) else (self.get_size(name) if step &gt; 0 else -1)
+                start = selection.start if isinstance(selection.start, int) else (0 if step &gt; 0 else self.get_size(sel_dim)-1)
+                stop = selection.stop if isinstance(selection.stop, int) else (self.get_size(sel_dim) if step &gt; 0 else -1)
                 if stop &lt; 0 and step &gt; 0:
-                    stop += self.get_size(name)
+                    stop += self.get_size(sel_dim)
                     assert stop &gt;= 0
                 if start &lt; 0 and step &gt; 0:
-                    start += self.get_size(name)
+                    start += self.get_size(sel_dim)
                     assert start &gt;= 0
                 new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
                 if new_size.rank == 0:
                     new_size = int(new_size)  # NumPy array not allowed because not hashable
-                result = result._replace_single_size(name, new_size)
+                result = result._replace_single_size(sel_dim, new_size, keep_item_names=True)
                 if step &lt; 0:
-                    result = result.flipped([name])
-                if self.get_item_names(name) is not None:
-                    result = result._with_item_name(name, tuple(self.get_item_names(name)[selection]))
+                    result = result.flipped([sel_dim])
+                if self.get_item_names(sel_dim) is not None:
+                    result = result._with_item_name(sel_dim, tuple(self.get_item_names(sel_dim)[selection]))
             elif isinstance(selection, (tuple, list)):
-                result = result._replace_single_size(name, len(selection))
-                if self.get_item_names(name) is not None:
-                    result = result._with_item_name(name, tuple([self.get_item_names(name)[i] for i in selection]))
+                result = result._replace_single_size(sel_dim, len(selection))
+                if self.get_item_names(sel_dim) is not None:
+                    result = result._with_item_name(sel_dim, tuple([self.get_item_names(sel_dim)[i] for i in selection]))
             else:
                 raise NotImplementedError(f&#34;{type(selection)} not supported. Only (int, slice) allowed.&#34;)
         return result
@@ -10248,39 +10248,39 @@ def well_defined(self):
 </summary>
 <pre><code class="python">def after_gather(self, selection: dict) -&gt; &#39;Shape&#39;:
     result = self
-    for name, selection in selection.items():
-        if name not in self.names:
+    for sel_dim, selection in selection.items():
+        if sel_dim not in self.names:
             continue
-        selection = self.prepare_gather(name, selection)
+        selection = self.prepare_gather(sel_dim, selection)
         if isinstance(selection, int):
             if result.is_uniform:
-                result = result.without(name)
+                result = result.without(sel_dim)
             else:
                 from phi.math import Tensor
-                gathered_sizes = [(s[{name: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
-                result = result.with_sizes(gathered_sizes).without(name)
+                gathered_sizes = [(s[{sel_dim: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
+                result = result.with_sizes(gathered_sizes).without(sel_dim)
         elif isinstance(selection, slice):
             step = selection.step or 1
-            start = selection.start if isinstance(selection.start, int) else (0 if step &gt; 0 else self.get_size(name)-1)
-            stop = selection.stop if isinstance(selection.stop, int) else (self.get_size(name) if step &gt; 0 else -1)
+            start = selection.start if isinstance(selection.start, int) else (0 if step &gt; 0 else self.get_size(sel_dim)-1)
+            stop = selection.stop if isinstance(selection.stop, int) else (self.get_size(sel_dim) if step &gt; 0 else -1)
             if stop &lt; 0 and step &gt; 0:
-                stop += self.get_size(name)
+                stop += self.get_size(sel_dim)
                 assert stop &gt;= 0
             if start &lt; 0 and step &gt; 0:
-                start += self.get_size(name)
+                start += self.get_size(sel_dim)
                 assert start &gt;= 0
             new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
             if new_size.rank == 0:
                 new_size = int(new_size)  # NumPy array not allowed because not hashable
-            result = result._replace_single_size(name, new_size)
+            result = result._replace_single_size(sel_dim, new_size, keep_item_names=True)
             if step &lt; 0:
-                result = result.flipped([name])
-            if self.get_item_names(name) is not None:
-                result = result._with_item_name(name, tuple(self.get_item_names(name)[selection]))
+                result = result.flipped([sel_dim])
+            if self.get_item_names(sel_dim) is not None:
+                result = result._with_item_name(sel_dim, tuple(self.get_item_names(sel_dim)[selection]))
         elif isinstance(selection, (tuple, list)):
-            result = result._replace_single_size(name, len(selection))
-            if self.get_item_names(name) is not None:
-                result = result._with_item_name(name, tuple([self.get_item_names(name)[i] for i in selection]))
+            result = result._replace_single_size(sel_dim, len(selection))
+            if self.get_item_names(sel_dim) is not None:
+                result = result._with_item_name(sel_dim, tuple([self.get_item_names(sel_dim)[i] for i in selection]))
         else:
             raise NotImplementedError(f&#34;{type(selection)} not supported. Only (int, slice) allowed.&#34;)
     return result</code></pre>
