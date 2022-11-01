@@ -5,7 +5,7 @@ import numpy as np
 from . import _ops as math
 from . import extrapolation as extrapolation
 from ._magic_ops import stack, rename_dims, concat, variable_values
-from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order
+from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order, shape
 from ._tensors import Tensor, wrap
 from .magic import PhiTreeNode
 from .extrapolation import Extrapolation
@@ -146,7 +146,7 @@ def dim_mask(all_dims: Shape or tuple or list, dims: DimFilter, mask_dim=channel
         all_dims = spatial(*all_dims)
     dims = all_dims.only(dims)
     mask = [1 if dim in dims else 0 for dim in all_dims]
-    mask_dim = mask_dim._with_item_names((all_dims.names,))
+    mask_dim = mask_dim.with_size(all_dims.names)
     return wrap(mask, mask_dim)
 
 

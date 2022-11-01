@@ -90,11 +90,15 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     """
     assert len(values) > 0, f"stack() got empty sequence {values}"
     assert isinstance(dim, Shape)
-    for v in values[1:]:
-        assert set(non_batch(v).names) == set(non_batch(values[0]).names), f"Stacked values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}"
+    values_ = tuple(values.values()) if isinstance(values, dict) else values
+    for v in values_[1:]:
+        assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f"Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}"
     # --- Add missing batch dimensions ---
-    all_batch_dims = merge_shapes(*[batch(v) for v in values])
-    values = [expand(v, all_batch_dims) for v in values]
+    all_batch_dims = merge_shapes(*[batch(v) for v in values_])
+    if isinstance(values, dict):
+        values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+    else:
+        values = [expand(v, all_batch_dims) for v in values]
     if dim.rank == 1:
         assert dim.size == len(values) or dim.size is None, f"stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values"
         if dim.size is None:
@@ -102,7 +106,7 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
         if isinstance(values, dict):
             dim_item_names = tuple(values.keys())
             values = tuple(values.values())
-            dim = dim._with_item_names((dim_item_names,))
+            dim = dim.with_size(dim_item_names)
         # --- if any value implements Shapable, use their implementation ---
         for v in values:
             if hasattr(v, '__stack__'):
@@ -235,7 +239,8 @@ def expand(value, dims: Shape, **kwargs):
     """
     merge_shapes(value, dims.only(shape(value)))  # check that existing sizes match
     if not dims.without(shape(value)):  # no new dims to add
-        return value
+        if set(dims) == set(shape(value)):  # sizes and item names might differ, though
+            return value
     if hasattr(value, '__expand__'):
         result = value.__expand__(dims, **kwargs)
         if result is not NotImplemented:

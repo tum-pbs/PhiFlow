@@ -1115,19 +1115,16 @@ class NativeTensor(Tensor):
     def _getitem(self, selection: dict):
         if len(selection) == 0:
             return self
-        new_shape = self.shape
         selections = [slice(None)] * self.rank
         for name, sel in selection.items():
             if name in self.shape:
                 selections[self.shape.index(name)] = sel
-                if isinstance(sel, int):
-                    new_shape = new_shape.without(name)
             else:
                 assert isinstance(sel, int), f"Attempting slice missing dimension {name} with {selection}"
         if len(selections) == 0:
             return self
         gathered = self.default_backend.multi_slice(self._native, tuple(selections))
-        new_shape = new_shape.with_sizes(choose_backend(gathered).staticshape(gathered))
+        new_shape = self._shape.after_gather(selection)
         return NativeTensor(gathered, new_shape)
 
     def flip(self, *dims: str) -> 'Tensor':
@@ -1374,7 +1371,7 @@ class TensorStack(Tensor):
             assert t.dtype == components[0].dtype, f"Stacked tensors must have the same data type but got {[t.dtype for t in components]}"
             assert stack_dim.name not in t.shape, f"Cannot stack along '{stack_dim.name}' because the dimension already exists."
         self._tensors = tuple(components)
-        self.stack_dim = stack_dim.with_sizes([len(components)])
+        self.stack_dim = stack_dim.with_sizes([len(components)], keep_item_names=True)
         try:
             merge_shapes(*self._tensors)
             self._varying_shapes = False
@@ -1625,7 +1622,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             shape = channel('dims')
         else:
             assert shape.rank == 1, "Can only convert 1D shapes to Tensors"
-        shape = shape._with_item_names((data.names,))
+        shape = shape.with_size(data.names)
         data = data.sizes
     elif isinstance(data, str):
         return layout(data)
@@ -1668,7 +1665,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             for size, s in zip(sizes, shape.sizes):
                 if s is not None:
                     assert s == size, f"Given shape {shape} does not match data with sizes {sizes}. Consider leaving the sizes undefined."
-            shape = shape.with_sizes(sizes)
+            shape = shape.with_sizes(sizes, keep_item_names=True)
         if convert:
             data = convert_(data, use_dlpack=False)
         return NativeTensor(data, shape)
@@ -1754,7 +1751,7 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
     elif isinstance(data, Shape):
         assert compat_shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
         assert data.rank == compat_shape.channel.volume
-        return wrap(data.spatial.sizes, *compat_shape.channel._with_item_names((data.names,)))
+        return wrap(data.spatial.sizes, *compat_shape.channel.with_size(data.names))
     else:
         data_type = type(data)
         backend = choose_backend(*compat_natives, data)

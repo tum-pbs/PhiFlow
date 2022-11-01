@@ -609,7 +609,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), assign_item_names=Tr
     grid_shape = dim_type(**{dim: size for dim, size in zip(dimensions.keys(), dim_sizes)})
     channels = [NativeTensor(t, grid_shape) for t in indices_list]
     if assign_item_names:
-        return stack_tensors(channels, stack_dim._with_item_names((tuple(dimensions.keys()),)))
+        return stack_tensors(channels, stack_dim.with_size(tuple(dimensions.keys())))
     else:
         return stack_tensors(channels, stack_dim)
 
@@ -1978,6 +1978,8 @@ def dtype(x) -> DType:
 
 
 def expand_tensor(value: float or Tensor, dims: Shape):
+    if not dims:
+        return value
     value = wrap(value)
     shape = value.shape
     for dim in reversed(dims):
@@ -1987,7 +1989,12 @@ def expand_tensor(value: float or Tensor, dims: Shape):
             if dim.size is None:
                 dim = dim.with_sizes([1])
             shape = concat_shapes(dim, shape)
-    return CollapsedTensor(value, shape)
+    if shape == value.shape:  # no changes made
+        return value
+    elif shape.rank == value.rank:  # changes made but same dims
+        return value._with_shape_replaced(shape._reorder(value.shape))
+    else:
+        return CollapsedTensor(value, shape)
 
 
 def close(*tensors, rel_tolerance=1e-5, abs_tolerance=0) -> bool:
