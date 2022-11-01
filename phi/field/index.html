@@ -1416,7 +1416,7 @@ For <code>PhiTreeNode</code> objects, only value the sum over all value attribut
 </details>
 </dd>
 <dt id="phi.field.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>field: ~GridType, axes=&lt;function spatial&gt;) ‑> ~GridType</span>
+<span>def <span class="ident">laplace</span></span>(<span>field: ~GridType, axes=&lt;function spatial&gt;, weights: phi.math._tensors.Tensor = None) ‑> ~GridType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finite-difference laplace operator for Grids. See <code><a title="phi.math.laplace" href="../math/index.html#phi.math.laplace">laplace()</a></code>.</p></div>
@@ -1424,9 +1424,11 @@ For <code>PhiTreeNode</code> objects, only value the sum over all value attribut
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def laplace(field: GridType, axes=spatial) -&gt; GridType:
+<pre><code class="python">def laplace(field: GridType, axes=spatial, weights: Tensor or Field = None) -&gt; GridType:
     &#34;&#34;&#34; Finite-difference laplace operator for Grids. See `phi.math.laplace()`. &#34;&#34;&#34;
-    result = field._op1(lambda tensor: math.laplace(tensor, dx=field.dx, padding=field.extrapolation, dims=axes))
+    if isinstance(weights, Field):
+        weights = weights.at(field).values
+    result = field._op1(lambda tensor: math.laplace(tensor, dx=field.dx, padding=field.extrapolation, dims=axes, weights=weights))
     return result</code></pre>
 </details>
 </dd>

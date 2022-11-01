@@ -34,7 +34,7 @@ from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phi.math import copy_with
+from phi.math import copy_with, shape
 
 
 def explicit(field: FieldType,
@@ -50,20 +50,21 @@ def explicit(field: FieldType,
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+            Can be a number, `phi.math.Tensor` or `phi.field.Field`.
+            If a channel dimension is present, it will be interpreted as non-isotropic diffusion.
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         substeps: number of iterations to use (Default value = 1)
-        field: FieldType:
 
     Returns:
         Diffused field of same type as `field`.
     &#34;&#34;&#34;
-    amount = diffusivity * dt
+    amount = diffusivity * dt / substeps
     if isinstance(amount, Field):
         amount = amount.at(field)
     ext = field.extrapolation
     for i in range(substeps):
-        field += amount / substeps * laplace(field).with_extrapolation(ext)
-        field = field.with_extrapolation(ext)
+        delta = laplace(field, weights=amount) if &#39;vector&#39; in shape(amount) else amount * laplace(field)
+        field = (field + delta.with_extrapolation(ext)).with_extrapolation(ext)
     return field
 
 
@@ -141,13 +142,13 @@ Otherwise, finite differencing is used to approximate the</p>
 <dt><strong><code>field</code></strong></dt>
 <dd>CenteredGrid, StaggeredGrid or ConstantField</dd>
 <dt><strong><code>diffusivity</code></strong></dt>
-<dd>Diffusion per time. <code>diffusion_amount = diffusivity * dt</code></dd>
+<dd>Diffusion per time. <code>diffusion_amount = diffusivity * dt</code>
+Can be a number, <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code>.
+If a channel dimension is present, it will be interpreted as non-isotropic diffusion.</dd>
 <dt><strong><code>dt</code></strong></dt>
 <dd>Time interval. <code>diffusion_amount = diffusivity * dt</code></dd>
 <dt><strong><code>substeps</code></strong></dt>
 <dd>number of iterations to use (Default value = 1)</dd>
-<dt><strong><code>field</code></strong></dt>
-<dd>FieldType:</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Diffused field of same type as <code>field</code>.</p></div>
@@ -168,20 +169,21 @@ Otherwise, finite differencing is used to approximate the</p>
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+            Can be a number, `phi.math.Tensor` or `phi.field.Field`.
+            If a channel dimension is present, it will be interpreted as non-isotropic diffusion.
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         substeps: number of iterations to use (Default value = 1)
-        field: FieldType:
 
     Returns:
         Diffused field of same type as `field`.
     &#34;&#34;&#34;
-    amount = diffusivity * dt
+    amount = diffusivity * dt / substeps
     if isinstance(amount, Field):
         amount = amount.at(field)
     ext = field.extrapolation
     for i in range(substeps):
-        field += amount / substeps * laplace(field).with_extrapolation(ext)
-        field = field.with_extrapolation(ext)
+        delta = laplace(field, weights=amount) if &#39;vector&#39; in shape(amount) else amount * laplace(field)
+        field = (field + delta.with_extrapolation(ext)).with_extrapolation(ext)
     return field</code></pre>
 </details>
 </dd>

@@ -14743,7 +14743,7 @@ We will compare supervised training to differentiable physics training, both num
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/tmp/ipykernel_2566/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
+<pre>/tmp/ipykernel_2445/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
   return CenteredGrid(y, x=2000, bounds=Box(x=(min(pos.min, hit.min), max(pos.max, hit.max))))
 </pre>
 </div>
@@ -14952,7 +14952,7 @@ vel=<span class="ansi-blue-intense-fg">-7.0222654</span> - loss=<span class="ans
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/tmp/ipykernel_2566/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
+<pre>/tmp/ipykernel_2445/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
   return CenteredGrid(y, x=2000, bounds=Box(x=(min(pos.min, hit.min), max(pos.max, hit.max))))
 </pre>
 </div>
@@ -15268,8 +15268,8 @@ For supervised training, we compare the network prediction to the ground truth f
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.846 ± 0.859</span> <span class="ansi-white-fg">(3e-01...8e+00)</span>
-Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.888 ± 0.934</span> <span class="ansi-white-fg">(3e-01...1e+01)</span>
+<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.850 ± 0.867</span> <span class="ansi-white-fg">(3e-01...7e+00)</span>
+Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.832 ± 0.885</span> <span class="ansi-white-fg">(3e-01...1e+01)</span>
 </pre>
 </div>
 </div>
@@ -15310,8 +15310,8 @@ Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=100
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.272 ± 0.177</span> <span class="ansi-white-fg">(5e-03...1e+00)</span>
-Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.272 ± 0.181</span> <span class="ansi-white-fg">(6e-03...1e+00)</span>
+<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.265 ± 0.175</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
+Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.272 ± 0.183</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
 </pre>
 </div>
 </div>
@@ -15383,8 +15383,8 @@ Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=100
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.655 ± 0.836</span> <span class="ansi-white-fg">(3e-01...8e+00)</span>
-Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.675 ± 0.906</span> <span class="ansi-white-fg">(3e-01...1e+01)</span>
+<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.695 ± 0.817</span> <span class="ansi-white-fg">(3e-01...6e+00)</span>
+Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.649 ± 0.820</span> <span class="ansi-white-fg">(3e-01...6e+00)</span>
 </pre>
 </div>
 </div>
@@ -15435,8 +15435,8 @@ Well, we're not trying to match the ground truth, though. Let's instead measure 
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Supervised network (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.006 ± 0.018</span> <span class="ansi-white-fg">(3e-08...5e-01)</span>
-Diff.Phys. network (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">7.78e-04 ± 2.1e-02</span> <span class="ansi-white-fg">(4e-11...7e-01)</span>
+<pre>Supervised network (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.005 ± 0.007</span> <span class="ansi-white-fg">(3e-07...5e-02)</span>
+Diff.Phys. network (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">2.54e-04 ± 4.7e-03</span> <span class="ansi-white-fg">(1e-11...1e-01)</span>
 </pre>
 </div>
 </div>
@@ -15497,7 +15497,7 @@ The network only gets the target position and must decide on a single initial st
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
 <pre>/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_shape.py:1525: RuntimeWarning: Stacking shapes with incompatible item names will result in item names being lost. Got (&#39;pos&#39;, &#39;height&#39;, &#39;vel&#39;, &#39;angle&#39;) and None
   warnings.warn(f&#34;Stacking shapes with incompatible item names will result in item names being lost. Got {item_names[index]} and {items}&#34;, RuntimeWarning)
-/tmp/ipykernel_2566/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
+/tmp/ipykernel_2445/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
   return CenteredGrid(y, x=2000, bounds=Box(x=(min(pos.min, hit.min), max(pos.max, hit.max))))
 </pre>
 </div>

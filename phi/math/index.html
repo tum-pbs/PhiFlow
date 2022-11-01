@@ -3543,7 +3543,7 @@ For <code>PhiTreeNode</code> objects, only value the sum over all value attribut
 </details>
 </dd>
 <dt id="phi.math.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>x: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor = 1, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: Union[str, tuple, list, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;)</span>
+<span>def <span class="ident">laplace</span></span>(<span>x: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor = 1, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: Union[str, tuple, list, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, weights: phi.math._tensors.Tensor = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spatial Laplace operator as defined for scalar fields.
@@ -3558,6 +3558,9 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <dd>extrapolation</dd>
 <dt><strong><code>dims</code></strong></dt>
 <dd>The second derivative along these dimensions is summed over</dd>
+<dt><strong><code>weights</code></strong></dt>
+<dd>(Optional) Multiply the axis terms by these factors before summation.
+Must be a Tensor with a single channel dimension that lists all laplace dims by name.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> of same shape as <code>x</code></p></div>
@@ -3568,7 +3571,8 @@ If a vector field is passed, the laplace is computed component-wise.</p>
 <pre><code class="python">def laplace(x: Tensor,
             dx: Tensor or float = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
-            dims: DimFilter = spatial):
+            dims: DimFilter = spatial,
+            weights: Tensor = None):
     &#34;&#34;&#34;
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -3578,6 +3582,8 @@ If a vector field is passed, the laplace is computed component-wise.</p>
         dx: scalar or 1d tensor
         padding: extrapolation
         dims: The second derivative along these dimensions is summed over
+        weights: (Optional) Multiply the axis terms by these factors before summation.
+            Must be a Tensor with a single channel dimension that lists all laplace dims by name.
 
     Returns:
         `phi.math.Tensor` of same shape as `x`
@@ -3590,6 +3596,11 @@ If a vector field is passed, the laplace is computed component-wise.</p>
         return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch(&#39;_laplace&#39;))
     result = (left + right - 2 * center) / (dx ** 2)
+    if weights is not None:
+        dim_names = x.shape.only(dims).names
+        assert channel(weights).rank == 1 and channel(weights).item_names is not None, f&#34;weights must have one channel dimension listing the laplace dims but got {shape(weights)}&#34;
+        assert set(channel(weights).item_names[0]) &gt;= set(dim_names), f&#34;the channel dim of weights must contain all laplace dims {dim_names} but only has {channel(weights).item_names}&#34;
+        result *= rename_dims(weights, channel, batch(&#39;_laplace&#39;))
     result = math.sum_(result, &#39;_laplace&#39;)
     return result</code></pre>
 </details>
