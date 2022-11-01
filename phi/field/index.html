@@ -1956,7 +1956,7 @@ Currently, <code>geometry</code> may have at most one channel dimension.</p>
             sampled = [c._sample(p, scheme=scheme) for c, p in zip(components, geometry.unstack(geom_ch.name))]
         else:
             sampled = [field._sample(p, scheme=scheme) for p in geometry.unstack(channel(geometry).without(&#39;vector&#39;).name)]
-        dim = dim._with_item_names(geometry.shape.channel.item_names)
+        dim = dim.with_size(geometry.shape.channel.item_names[0])
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
         return field._sample(geometry, scheme=scheme)</code></pre>

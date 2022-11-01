@@ -14686,7 +14686,7 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -14707,92 +14707,6 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
      </div>
 </div>
 </div>
-</div>
-
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-
-
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-    
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-
-
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In [2], line 6</span>
-<span class="ansi-green-intense-fg ansi-bold">      4</span> grid <span style="color: rgb(98,98,98)">=</span> StaggeredGrid(Noise(), <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>domain)  <span style="color: rgb(95,135,135)"># sample analytic field</span>
-<span class="ansi-green-intense-fg ansi-bold">      5</span> grid <span style="color: rgb(98,98,98)">=</span> StaggeredGrid(grid, <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>domain)  <span style="color: rgb(95,135,135)"># resample existing field</span>
-<span class="ansi-green-fg">----&gt; 6</span> grid <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">StaggeredGrid</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg ansi-bold" style="color: rgb(0,135,0)">lambda</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">exp</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">-</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">domain</span><span class="ansi-yellow-bg">)</span>  <span style="color: rgb(95,135,135)"># function value(location)</span>
-<span class="ansi-green-intense-fg ansi-bold">      7</span> grid <span style="color: rgb(98,98,98)">=</span> StaggeredGrid(Sphere(x<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">0</span>, y<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">0</span>, radius<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">1</span>), <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>domain)  <span style="color: rgb(95,135,135)"># no anti-aliasing</span>
-<span class="ansi-green-intense-fg ansi-bold">      8</span> grid <span style="color: rgb(98,98,98)">=</span> StaggeredGrid(SoftGeometryMask(Sphere(x<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">0</span>, y<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">0</span>, radius<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">1</span>)), <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>domain)  <span style="color: rgb(95,135,135)"># with anti-aliasing</span>
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/field/_grid.py:332</span>, in <span class="ansi-cyan-fg">StaggeredGrid.__init__</span><span class="ansi-blue-fg">(self, values, extrapolation, bounds, resolution, scheme, **resolution_)</span>
-<span class="ansi-green-intense-fg ansi-bold">    330</span>     values <span style="color: rgb(98,98,98)">=</span> reduce_sample(values, elements, scheme<span style="color: rgb(98,98,98)">=</span>scheme)
-<span class="ansi-green-intense-fg ansi-bold">    331</span> <span class="ansi-bold" style="color: rgb(0,135,0)">elif</span> callable(values):
-<span class="ansi-green-fg">--&gt; 332</span>     values <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">_sample_function</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">elements</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">    333</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> elements<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>rank <span style="color: rgb(98,98,98)">&gt;</span> <span style="color: rgb(98,98,98)">1</span>:  <span style="color: rgb(95,135,135)"># Different number of X and Y faces</span>
-<span class="ansi-green-intense-fg ansi-bold">    334</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(values, TensorStack), <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">values function must return a staggered Tensor but returned </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">type</span>(values)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/field/_grid.py:520</span>, in <span class="ansi-cyan-fg">_sample_function</span><span class="ansi-blue-fg">(f, elements)</span>
-<span class="ansi-green-intense-fg ansi-bold">    518</span>     values <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>map_s2b(f)(<span style="color: rgb(98,98,98)">*</span>elements<span style="color: rgb(98,98,98)">.</span>center<span style="color: rgb(98,98,98)">.</span>vector)
-<span class="ansi-green-intense-fg ansi-bold">    519</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
-<span class="ansi-green-fg">--&gt; 520</span>     values <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">map_s2b</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">f</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">elements</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">center</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">    521</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(values, math<span style="color: rgb(98,98,98)">.</span>Tensor), <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">values function must return a Tensor but returned </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">type</span>(values)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    522</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> values
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_functional.py:1810</span>, in <span class="ansi-cyan-fg">map_types.&lt;locals&gt;.retyped_f</span><span class="ansi-blue-fg">(*args, **kwargs)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1808</span> retyped_args <span style="color: rgb(98,98,98)">=</span> []
-<span class="ansi-green-intense-fg ansi-bold">   1809</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> arg <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> args:
-<span class="ansi-green-fg">-&gt; 1810</span>     retyped_arg, input_types <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">forward_retype</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">arg</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">input_types</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1811</span>     retyped_args<span style="color: rgb(98,98,98)">.</span>append(retyped_arg)
-<span class="ansi-green-intense-fg ansi-bold">   1812</span> output <span style="color: rgb(98,98,98)">=</span> f(<span style="color: rgb(98,98,98)">*</span>retyped_args, <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>kwargs)
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_functional.py:1791</span>, in <span class="ansi-cyan-fg">map_types.&lt;locals&gt;.forward_retype</span><span class="ansi-blue-fg">(obj, input_types)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1789</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> t <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> tensors:
-<span class="ansi-green-intense-fg ansi-bold">   1790</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> dim <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> t<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>only(dims):
-<span class="ansi-green-fg">-&gt; 1791</span>         t <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">t</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">dimension</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">dim</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">as_type</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">dim_type</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1792</span>         input_types <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>merge_shapes(input_types, dim<span style="color: rgb(98,98,98)">.</span>with_size(<span class="ansi-bold" style="color: rgb(0,135,0)">None</span>))
-<span class="ansi-green-intense-fg ansi-bold">   1793</span>     retyped<span style="color: rgb(98,98,98)">.</span>append(t)
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_tensors.py:759</span>, in <span class="ansi-cyan-fg">TensorDim.as_type</span><span class="ansi-blue-fg">(self, dim_type)</span>
-<span class="ansi-green-intense-fg ansi-bold">    758</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">as_type</span>(<span style="color: rgb(0,135,0)">self</span>, dim_type: Callable <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">str</span>):
-<span class="ansi-green-fg">--&gt; 759</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">_as</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">dim_type</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">d</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">type</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg ansi-bold" style="color: rgb(0,135,0)">if</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">callable</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">dim_type</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg ansi-bold" style="color: rgb(0,135,0)">else</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">dim_type</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg ansi-bold" style="color: rgb(0,135,0)">None</span><span class="ansi-yellow-bg">)</span>
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_tensors.py:772</span>, in <span class="ansi-cyan-fg">TensorDim._as</span><span class="ansi-blue-fg">(self, dim_type, name)</span>
-<span class="ansi-green-intense-fg ansi-bold">    770</span>     new_names[shape<span style="color: rgb(98,98,98)">.</span>index(<span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>name)] <span style="color: rgb(98,98,98)">=</span> name
-<span class="ansi-green-intense-fg ansi-bold">    771</span> new_shape <span style="color: rgb(98,98,98)">=</span> Shape(shape<span style="color: rgb(98,98,98)">.</span>sizes, <span style="color: rgb(0,135,0)">tuple</span>(new_names), <span style="color: rgb(0,135,0)">tuple</span>(new_types), shape<span style="color: rgb(98,98,98)">.</span>item_names)
-<span class="ansi-green-fg">--&gt; 772</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">tensor</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">_with_shape_replaced</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">new_shape</span><span class="ansi-yellow-bg">)</span>
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_tensors.py:1444</span>, in <span class="ansi-cyan-fg">TensorStack._with_shape_replaced</span><span class="ansi-blue-fg">(self, new_shape)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1442</span>     inner_indices <span style="color: rgb(98,98,98)">=</span> [<span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>index(d) <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> d <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> t<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>names]
-<span class="ansi-green-intense-fg ansi-bold">   1443</span>     new_inner_shape <span style="color: rgb(98,98,98)">=</span> new_shape[inner_indices]
-<span class="ansi-green-fg">-&gt; 1444</span>     new_tensors<span style="color: rgb(98,98,98)">.</span>append(<span class="ansi-yellow-bg">t</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">_with_shape_replaced</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">new_inner_shape</span><span class="ansi-yellow-bg">)</span>)
-<span class="ansi-green-intense-fg ansi-bold">   1445</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> TensorStack(new_tensors, new_stack_dim)
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_tensors.py:1268</span>, in <span class="ansi-cyan-fg">CollapsedTensor._with_shape_replaced</span><span class="ansi-blue-fg">(self, new_shape)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1266</span> inner_indices <span style="color: rgb(98,98,98)">=</span> [<span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>index(d) <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> d <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_inner<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>names]
-<span class="ansi-green-intense-fg ansi-bold">   1267</span> new_inner_shape <span style="color: rgb(98,98,98)">=</span> new_shape[inner_indices]
-<span class="ansi-green-fg">-&gt; 1268</span> result <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">CollapsedTensor</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">_inner</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">_with_shape_replaced</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">new_inner_shape</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">new_shape</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1269</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> result
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_tensors.py:1192</span>, in <span class="ansi-cyan-fg">CollapsedTensor.__init__</span><span class="ansi-blue-fg">(self, tensor, shape)</span>
-<span class="ansi-green-intense-fg ansi-bold">   1190</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> name <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> shape
-<span class="ansi-green-intense-fg ansi-bold">   1191</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> size, name, dim_type, <span style="color: rgb(98,98,98)">*</span>_ <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> tensor<span style="color: rgb(98,98,98)">.</span>shape<span style="color: rgb(98,98,98)">.</span>_dimensions:
-<span class="ansi-green-fg">-&gt; 1192</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> wrap(shape<span style="color: rgb(98,98,98)">.</span>get_size(name) <span style="color: rgb(98,98,98)">==</span> size)<span style="color: rgb(98,98,98)">.</span>all, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Shape mismatch while trying to set </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>name<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">=</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>shape<span style="color: rgb(98,98,98)">.</span>get_size(name)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)"> but has size </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>size<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">   1193</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> shape<span style="color: rgb(98,98,98)">.</span>get_type(name) <span style="color: rgb(98,98,98)">==</span> dim_type, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Dimension type mismatch for dimension </span><span style="color: rgb(175,0,0)">&#39;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>name<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>shape<span style="color: rgb(98,98,98)">.</span>get_type(name)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">, </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dim_type<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">   1194</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(tensor, CollapsedTensor):
-
-<span class="ansi-red-fg">AssertionError</span>: Shape mismatch while trying to set x=<span class="ansi-blue-intense-fg">(x=9, y=10)</span> along <span class="ansi-green-intense-fg">staggered_directionᶜ</span> but has size 9</pre>
-</div>
-</div>
-
-</div>
-
 </div>
 
 </div>
@@ -14916,7 +14830,7 @@ to reflect the different number of sample points for each component.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(9, 10)</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(10, 9)</span><span class="ansi-green-intense-fg">, vectorᶜ=2)</span> <span class="ansi-blue-intense-fg">const 2.814663835337683e-09</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=9, y=10)</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">const 0.8081634640693665</span></pre>
 </div>
 
 </div>
@@ -14972,7 +14886,7 @@ to reflect the different number of sample points for each component.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=11, yˢ=11, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">3.94e-09 ± 8.6e-01</span> <span class="ansi-white-fg">(-3e+00...2e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=11, yˢ=11, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.601 ± 0.480</span> <span class="ansi-white-fg">(0e+00...1e+00)</span></pre>
 </div>
 
 </div>
@@ -15076,7 +14990,7 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=1, yˢ=</span><span class="ansi-blue-intense-fg">(10, 9)</span><span class="ansi-green-intense-fg">, vectorᶜ=2)</span> <span class="ansi-blue-intense-fg">-0.243 ± 0.197</span> <span class="ansi-white-fg">(-2e+00...9e-01)</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=1, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.950 ± 0.138</span> <span class="ansi-white-fg">(6e-02...1e+00)</span></pre>
 </div>
 
 </div>
@@ -15115,7 +15029,7 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=</span><span class="ansi-blue-intense-fg">(10, 9)</span><span class="ansi-green-intense-fg">, vectorᶜ=2)</span> <span class="ansi-blue-intense-fg">0.037 ± 0.226</span> <span class="ansi-white-fg">(-1e+00...2e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">const 1.0</span></pre>
 </div>
 
 </div>
@@ -15166,7 +15080,7 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>StaggeredGrid[(xˢ=10, yˢ=10, vectorᶜ=2), size=<span class="ansi-blue-intense-fg">(x=1, y=1)</span> <span class="ansi-yellow-intense-fg">int64</span>, extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
+<pre>StaggeredGrid[(xˢ=10, yˢ=10, vectorᶜ=x,y), size=<span class="ansi-blue-intense-fg">(x=1, y=1)</span> <span class="ansi-yellow-intense-fg">int64</span>, extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
 </div>
 
 </div>

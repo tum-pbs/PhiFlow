@@ -14743,7 +14743,7 @@ We will compare supervised training to differentiable physics training, both num
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/tmp/ipykernel_2393/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
+<pre>/tmp/ipykernel_2518/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
   return CenteredGrid(y, x=2000, bounds=Box(x=(min(pos.min, hit.min), max(pos.max, hit.max))))
 </pre>
 </div>
@@ -14952,7 +14952,7 @@ vel=<span class="ansi-blue-intense-fg">-7.0222654</span> - loss=<span class="ans
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/tmp/ipykernel_2393/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
+<pre>/tmp/ipykernel_2518/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
   return CenteredGrid(y, x=2000, bounds=Box(x=(min(pos.min, hit.min), max(pos.max, hit.max))))
 </pre>
 </div>
@@ -15022,7 +15022,7 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/pyth
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -15046,48 +15046,6 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/pyth
      </div>
 </div>
 </div>
-</div>
-
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-
-
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-    
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-
-
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">TypeError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In [8], line 8</span>
-<span class="ansi-green-intense-fg ansi-bold">      5</span>   angle <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>random_uniform(shape) <span style="color: rgb(98,98,98)">*</span> PI<span style="color: rgb(98,98,98)">/</span><span style="color: rgb(98,98,98)">2</span>
-<span class="ansi-green-intense-fg ansi-bold">      6</span>   <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> math<span style="color: rgb(98,98,98)">.</span>stack(<span style="color: rgb(0,135,0)">dict</span>(pos<span style="color: rgb(98,98,98)">=</span>pos, height<span style="color: rgb(98,98,98)">=</span>height, vel<span style="color: rgb(98,98,98)">=</span>vel, angle<span style="color: rgb(98,98,98)">=</span>angle), channel(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">vector</span><span style="color: rgb(175,0,0)">&#39;</span>))
-<span class="ansi-green-fg">----&gt; 8</span> x_train <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">generate_data</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">batch</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">examples</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">1000</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">      9</span> x_test <span style="color: rgb(98,98,98)">=</span> generate_data(batch(examples<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(98,98,98)">1000</span>))
-<span class="ansi-green-intense-fg ansi-bold">     10</span> y_train <span style="color: rgb(98,98,98)">=</span> simulate_hit(<span style="color: rgb(98,98,98)">*</span>x_train<span style="color: rgb(98,98,98)">.</span>vector)[<span style="color: rgb(98,98,98)">0</span>]
-
-Cell <span class="ansi-green-fg">In [8], line 6</span>, in <span class="ansi-cyan-fg">generate_data</span><span class="ansi-blue-fg">(shape)</span>
-<span class="ansi-green-intense-fg ansi-bold">      4</span> vel <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>random_uniform(shape)
-<span class="ansi-green-intense-fg ansi-bold">      5</span> angle <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>random_uniform(shape) <span style="color: rgb(98,98,98)">*</span> PI<span style="color: rgb(98,98,98)">/</span><span style="color: rgb(98,98,98)">2</span>
-<span class="ansi-green-fg">----&gt; 6</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">stack</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">dict</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">pos</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">pos</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">height</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">height</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">vel</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">vel</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">angle</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">angle</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">channel</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">vector</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span>
-
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_magic_ops.py:93</span>, in <span class="ansi-cyan-fg">stack</span><span class="ansi-blue-fg">(values, dim, **kwargs)</span>
-<span class="ansi-green-intense-fg ansi-bold">     91</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">len</span>(values) <span style="color: rgb(98,98,98)">&gt;</span> <span style="color: rgb(98,98,98)">0</span>, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">stack() got empty sequence </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>values<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">     92</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(dim, Shape)
-<span class="ansi-green-fg">---&gt; 93</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> v <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg">[</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">1</span><span class="ansi-yellow-bg">:</span><span class="ansi-yellow-bg">]</span>:
-<span class="ansi-green-intense-fg ansi-bold">     94</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">set</span>(non_batch(v)<span style="color: rgb(98,98,98)">.</span>names) <span style="color: rgb(98,98,98)">==</span> <span style="color: rgb(0,135,0)">set</span>(non_batch(values[<span style="color: rgb(98,98,98)">0</span>])<span style="color: rgb(98,98,98)">.</span>names), <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Stacked values must have the same non-batch dimensions but got </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>non_batch(values[<span style="color: rgb(98,98,98)">0</span>])<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)"> and </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>non_batch(v)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">     95</span> <span style="color: rgb(95,135,135)"># --- Add missing batch dimensions ---</span>
-
-<span class="ansi-red-fg">TypeError</span>: unhashable type: &#39;slice&#39;</pre>
-</div>
-</div>
-
-</div>
-
 </div>
 
 </div>
@@ -15309,17 +15267,10 @@ For supervised training, we compare the network prediction to the ground truth f
     <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In [12], line 7</span>
-<span class="ansi-green-intense-fg ansi-bold">      4</span>   prediction <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>native_call(net, y)
-<span class="ansi-green-intense-fg ansi-bold">      5</span>   <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> math<span style="color: rgb(98,98,98)">.</span>l2_loss(prediction <span style="color: rgb(98,98,98)">-</span> x)
-<span class="ansi-green-fg">----&gt; 7</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Supervised loss (training set): </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>supervised_loss(x_train, y_train)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-intense-fg ansi-bold">      8</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Supervised loss (test set): </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>supervised_loss(x_test, y_test)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-
-<span class="ansi-red-fg">NameError</span>: name &#39;x_train&#39; is not defined</pre>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.870 ± 0.851</span> <span class="ansi-white-fg">(4e-01...7e+00)</span>
+Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.863 ± 0.837</span> <span class="ansi-white-fg">(5e-01...8e+00)</span>
+</pre>
 </div>
 </div>
 
@@ -15358,17 +15309,10 @@ Cell <span class="ansi-green-fg">In [12], line 7</span>
     <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In [13], line 2</span>
-<span class="ansi-green-intense-fg ansi-bold">      1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> i <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">range</span>(<span style="color: rgb(98,98,98)">100</span>):
-<span class="ansi-green-fg">----&gt; 2</span>   update_weights(net_sup, opt_sup, supervised_loss, <span class="ansi-yellow-bg">x_train</span>, y_train)
-<span class="ansi-green-intense-fg ansi-bold">      4</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Supervised loss (training set): </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>supervised_loss(x_train, y_train)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-intense-fg ansi-bold">      5</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Supervised loss (test set): </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>supervised_loss(x_test, y_test)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-
-<span class="ansi-red-fg">NameError</span>: name &#39;x_train&#39; is not defined</pre>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.269 ± 0.182</span> <span class="ansi-white-fg">(3e-03...1e+00)</span>
+Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.271 ± 0.181</span> <span class="ansi-white-fg">(2e-03...1e+00)</span>
+</pre>
 </div>
 </div>
 
@@ -15438,18 +15382,10 @@ Cell <span class="ansi-green-fg">In [13], line 2</span>
     <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In [14], line 9</span>
-<span class="ansi-green-intense-fg ansi-bold">      6</span> opt_dp <span style="color: rgb(98,98,98)">=</span> adam(net_dp)
-<span class="ansi-green-intense-fg ansi-bold">      8</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> i <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">range</span>(<span style="color: rgb(98,98,98)">100</span>):
-<span class="ansi-green-fg">----&gt; 9</span>   update_weights(net_dp, opt_dp, physics_loss, <span class="ansi-yellow-bg">y_train</span>)
-<span class="ansi-green-intense-fg ansi-bold">     11</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Supervised loss (training set): </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>supervised_loss(x_train, y_train, net<span style="color: rgb(98,98,98)">=</span>net_dp)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-intense-fg ansi-bold">     12</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Supervised loss (test set): </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>supervised_loss(x_test, y_test, net<span style="color: rgb(98,98,98)">=</span>net_dp)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-
-<span class="ansi-red-fg">NameError</span>: name &#39;y_train&#39; is not defined</pre>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>Supervised loss (training set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.694 ± 0.843</span> <span class="ansi-white-fg">(3e-01...5e+00)</span>
+Supervised loss (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">1.675 ± 0.801</span> <span class="ansi-white-fg">(3e-01...7e+00)</span>
+</pre>
 </div>
 </div>
 
@@ -15498,15 +15434,10 @@ Well, we're not trying to match the ground truth, though. Let's instead measure 
     <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In [15], line 1</span>
-<span class="ansi-green-fg">----&gt; 1</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Supervised network (test set): </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>physics_loss(y_test, net<span style="color: rgb(98,98,98)">=</span>net_sup)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-intense-fg ansi-bold">      2</span> <span style="color: rgb(0,135,0)">print</span>(<span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Diff.Phys. network (test set): </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>physics_loss(y_test, net<span style="color: rgb(98,98,98)">=</span>net_dp)<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>)
-
-<span class="ansi-red-fg">NameError</span>: name &#39;y_test&#39; is not defined</pre>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>Supervised network (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">0.005 ± 0.005</span> <span class="ansi-white-fg">(4e-04...4e-02)</span>
+Diff.Phys. network (test set): <span class="ansi-green-intense-fg">(examplesᵇ=1000)</span> <span class="ansi-blue-intense-fg">3.08e-04 ± 4.1e-03</span> <span class="ansi-white-fg">(2e-11...1e-01)</span>
+</pre>
 </div>
 </div>
 
@@ -15564,18 +15495,48 @@ The network only gets the target position and must decide on a single initial st
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>/tmp/ipykernel_2518/4173505827.py:7: DeprecationWarning: Creating a Box without item names prevents certain operations like project()
+  return CenteredGrid(y, x=2000, bounds=Box(x=(min(pos.min, hit.min), max(pos.max, hit.max))))
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
 <pre>
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
-Cell <span class="ansi-green-fg">In [16], line 2</span>
+<span class="ansi-red-fg">TypeError</span>                                 Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In [16], line 6</span>
 <span class="ansi-green-intense-fg ansi-bold">      1</span> predictions <span style="color: rgb(98,98,98)">=</span> math<span style="color: rgb(98,98,98)">.</span>stack({
-<span class="ansi-green-fg">----&gt; 2</span>     <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Ground Truth</span><span style="color: rgb(175,0,0)">&#34;</span>: <span class="ansi-yellow-bg">x_test</span><span style="color: rgb(98,98,98)">.</span>examples[:<span style="color: rgb(98,98,98)">4</span>],
+<span class="ansi-green-intense-fg ansi-bold">      2</span>     <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Ground Truth</span><span style="color: rgb(175,0,0)">&#34;</span>: x_test<span style="color: rgb(98,98,98)">.</span>examples[:<span style="color: rgb(98,98,98)">4</span>],
 <span class="ansi-green-intense-fg ansi-bold">      3</span>     <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Supervised</span><span style="color: rgb(175,0,0)">&#34;</span>: math<span style="color: rgb(98,98,98)">.</span>native_call(net_sup, y_test<span style="color: rgb(98,98,98)">.</span>examples[:<span style="color: rgb(98,98,98)">4</span>]),
 <span class="ansi-green-intense-fg ansi-bold">      4</span>     <span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Diff.Phys</span><span style="color: rgb(175,0,0)">&#34;</span>: math<span style="color: rgb(98,98,98)">.</span>native_call(net_dp, y_test<span style="color: rgb(98,98,98)">.</span>examples[:<span style="color: rgb(98,98,98)">4</span>]),
 <span class="ansi-green-intense-fg ansi-bold">      5</span> }, channel(<span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">curves</span><span style="color: rgb(175,0,0)">&#39;</span>))
-<span class="ansi-green-intense-fg ansi-bold">      6</span> vis<span style="color: rgb(98,98,98)">.</span>plot(sample_trajectory(<span style="color: rgb(98,98,98)">*</span>predictions<span style="color: rgb(98,98,98)">.</span>vector), size<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">16</span>, <span style="color: rgb(98,98,98)">4</span>))
+<span class="ansi-green-fg">----&gt; 6</span> vis<span style="color: rgb(98,98,98)">.</span>plot(<span class="ansi-yellow-bg">sample_trajectory</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">predictions</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">vector</span><span class="ansi-yellow-bg">)</span>, size<span style="color: rgb(98,98,98)">=</span>(<span style="color: rgb(98,98,98)">16</span>, <span style="color: rgb(98,98,98)">4</span>))
 
-<span class="ansi-red-fg">NameError</span>: name &#39;x_test&#39; is not defined</pre>
+Cell <span class="ansi-green-fg">In [4], line 7</span>, in <span class="ansi-cyan-fg">sample_trajectory</span><span class="ansi-blue-fg">(pos, height, vel, angle, gravity)</span>
+<span class="ansi-green-intense-fg ansi-bold">      5</span>     y_ <span style="color: rgb(98,98,98)">=</span> height <span style="color: rgb(98,98,98)">+</span> vel_y <span style="color: rgb(98,98,98)">*</span> t <span style="color: rgb(98,98,98)">-</span> gravity <span style="color: rgb(98,98,98)">/</span> <span style="color: rgb(98,98,98)">2</span> <span style="color: rgb(98,98,98)">*</span> t <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span> <span style="color: rgb(98,98,98)">2</span>
+<span class="ansi-green-intense-fg ansi-bold">      6</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> math<span style="color: rgb(98,98,98)">.</span>where((y_ <span style="color: rgb(98,98,98)">&gt;</span> <span style="color: rgb(98,98,98)">0</span>) <span style="color: rgb(98,98,98)">&amp;</span> (t <span style="color: rgb(98,98,98)">&gt;</span> <span style="color: rgb(98,98,98)">0</span>), y_, NAN)
+<span class="ansi-green-fg">----&gt; 7</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg">CenteredGrid</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">2000</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">Box</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">min</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">pos</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">min</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">hit</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">min</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">max</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">pos</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">max</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">hit</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">max</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span>
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/field/_grid.py:181</span>, in <span class="ansi-cyan-fg">CenteredGrid.__init__</span><span class="ansi-blue-fg">(self, values, extrapolation, bounds, resolution, scheme, **resolution_)</span>
+<span class="ansi-green-intense-fg ansi-bold">    179</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-intense-fg ansi-bold">    180</span>     resolution <span style="color: rgb(98,98,98)">=</span> _get_resolution(resolution, resolution_, bounds)
+<span class="ansi-green-fg">--&gt; 181</span>     bounds <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">_get_bounds</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">resolution</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    182</span>     elements <span style="color: rgb(98,98,98)">=</span> GridCell(resolution, bounds)
+<span class="ansi-green-intense-fg ansi-bold">    183</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(values, math<span style="color: rgb(98,98,98)">.</span>Tensor):
+
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/field/_grid.py:529</span>, in <span class="ansi-cyan-fg">_get_bounds</span><span class="ansi-blue-fg">(bounds, resolution)</span>
+<span class="ansi-green-intense-fg ansi-bold">    527</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> Box(math<span style="color: rgb(98,98,98)">.</span>const_vec(<span style="color: rgb(98,98,98)">0</span>, resolution), math<span style="color: rgb(98,98,98)">.</span>wrap(resolution, channel(vector<span style="color: rgb(98,98,98)">=</span>resolution<span style="color: rgb(98,98,98)">.</span>names)))
+<span class="ansi-green-intense-fg ansi-bold">    528</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(bounds, Box):
+<span class="ansi-green-fg">--&gt; 529</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">set</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">vector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">item_names</span><span class="ansi-yellow-bg">)</span> <span style="color: rgb(98,98,98)">==</span> <span style="color: rgb(0,135,0)">set</span>(resolution<span style="color: rgb(98,98,98)">.</span>names), <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">bounds dimensions </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>bounds<span style="color: rgb(98,98,98)">.</span>vector<span style="color: rgb(98,98,98)">.</span>item_names<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)"> must match resolution </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>resolution<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    530</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> bounds
+<span class="ansi-green-intense-fg ansi-bold">    531</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(bounds, (<span style="color: rgb(0,135,0)">int</span>, <span style="color: rgb(0,135,0)">float</span>)):
+
+<span class="ansi-red-fg">TypeError</span>: &#39;NoneType&#39; object is not iterable</pre>
 </div>
 </div>
 
