@@ -5,6 +5,7 @@ from phi import field
 from phi.field import Noise, CenteredGrid, StaggeredGrid
 from phi.geom import Box, Sphere
 from phi.math import extrapolation, spatial, channel, batch
+from phi.math.magic import PhiTreeNode
 
 
 class GridTest(TestCase):
@@ -132,3 +133,8 @@ class GridTest(TestCase):
         math.assert_close(grid.points['x'], grid.values)
         grid = CenteredGrid(lambda t, *x: t, t=5, x=10, y=10)
         math.assert_close(grid.points['t'], grid.values)
+
+    def test_is_phi_tree_node(self):
+        self.assertTrue(issubclass(CenteredGrid, PhiTreeNode))
+        grid = CenteredGrid(0, x=4)
+        self.assertTrue(isinstance(grid, PhiTreeNode))

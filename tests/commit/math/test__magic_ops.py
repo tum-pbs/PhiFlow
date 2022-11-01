@@ -167,5 +167,3 @@ class TestMagicOps(TestCase):
         self.assertTrue(issubclass(list, PhiTreeNode))
         self.assertTrue(issubclass(dict, PhiTreeNode))
         self.assertTrue(issubclass(Dict, PhiTreeNode))
-        from phi.field import CenteredGrid
-        self.assertTrue(issubclass(CenteredGrid, PhiTreeNode))
