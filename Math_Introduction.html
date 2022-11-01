@@ -14903,7 +14903,7 @@ We can use an instance dimension to list the points.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(0.500, 0.174)</span>; <span class="ansi-blue-intense-fg">(1.174, 0.166)</span>; <span class="ansi-blue-intense-fg">(-0.226, -0.136)</span> <span class="ansi-green-intense-fg">(pointsⁱ=3, vectorᶜ=x,y)</span></pre>
+<pre><span class="ansi-blue-intense-fg">(0.040, -0.950)</span>; <span class="ansi-blue-intense-fg">(-0.279, 0.695)</span>; <span class="ansi-blue-intense-fg">(-0.909, 2.382)</span> <span class="ansi-green-intense-fg">(pointsⁱ=3, vectorᶜ=x,y)</span></pre>
 </div>
 
 </div>
@@ -15046,7 +15046,7 @@ This syntax can also be used on all Φ<sub>Flow</sub> objects, not just tensors.
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(0.500, 0.174)</span></pre>
+<pre><span class="ansi-blue-intense-fg">(0.040, -0.950)</span></pre>
 </div>
 
 </div>
@@ -15097,7 +15097,7 @@ This syntax can also be used on all Φ<sub>Flow</sub> objects, not just tensors.
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(0.500, 1.174, -0.226)</span> along <span class="ansi-green-intense-fg">pointsⁱ</span></pre>
+<pre><span class="ansi-blue-intense-fg">(0.040, -0.279, -0.909)</span> along <span class="ansi-green-intense-fg">pointsⁱ</span></pre>
 </div>
 
 </div>
@@ -15148,7 +15148,7 @@ This syntax can also be used on all Φ<sub>Flow</sub> objects, not just tensors.
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(0.500, 1.174, -0.226)</span> along <span class="ansi-green-intense-fg">pointsⁱ</span></pre>
+<pre><span class="ansi-blue-intense-fg">(0.040, -0.279, -0.909)</span> along <span class="ansi-green-intense-fg">pointsⁱ</span></pre>
 </div>
 
 </div>
@@ -15214,12 +15214,12 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/pyth
 <span class="ansi-green-intense-fg ansi-bold">    392</span> <span style="color: rgb(95,135,135)"># Either handle slicing directly or add it to the dict</span>
 <span class="ansi-green-intense-fg ansi-bold">    393</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(selection, (<span style="color: rgb(0,135,0)">tuple</span>, <span style="color: rgb(0,135,0)">list</span>)):
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_shape.py:891</span>, in <span class="ansi-cyan-fg">Shape.prepare_gather</span><span class="ansi-blue-fg">(self, dim, selection)</span>
-<span class="ansi-green-intense-fg ansi-bold">    889</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(selection, <span style="color: rgb(0,135,0)">str</span>):  <span style="color: rgb(95,135,135)"># single item name</span>
-<span class="ansi-green-intense-fg ansi-bold">    890</span>     item_names <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>get_item_names(dim, fallback_spatial<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">True</span>)
-<span class="ansi-green-fg">--&gt; 891</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> item_names <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">No item names defined for dim </span><span style="color: rgb(175,0,0)">&#39;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dim<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> in tensor </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)"> and dimension size does not match spatial rank.</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    892</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> selection <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> item_names, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Accessing tensor.</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dim<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">[</span><span style="color: rgb(175,0,0)">&#39;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>selection<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">] failed. Item names are </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>item_names<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">.</span><span style="color: rgb(175,0,0)">&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    893</span>     selection <span style="color: rgb(98,98,98)">=</span> item_names<span style="color: rgb(98,98,98)">.</span>index(selection)
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_shape.py:896</span>, in <span class="ansi-cyan-fg">Shape.prepare_gather</span><span class="ansi-blue-fg">(self, dim, selection)</span>
+<span class="ansi-green-intense-fg ansi-bold">    894</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(selection, <span style="color: rgb(0,135,0)">str</span>):  <span style="color: rgb(95,135,135)"># single item name</span>
+<span class="ansi-green-intense-fg ansi-bold">    895</span>     item_names <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>get_item_names(dim, fallback_spatial<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">True</span>)
+<span class="ansi-green-fg">--&gt; 896</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> item_names <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">No item names defined for dim </span><span style="color: rgb(175,0,0)">&#39;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dim<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)"> in tensor </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)"> and dimension size does not match spatial rank.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    897</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> selection <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> item_names, <span style="color: rgb(175,0,0)">f</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Accessing tensor.</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dim<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">[</span><span style="color: rgb(175,0,0)">&#39;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>selection<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">] failed. Item names are </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>item_names<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span style="color: rgb(175,0,0)">.</span><span style="color: rgb(175,0,0)">&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    898</span>     selection <span style="color: rgb(98,98,98)">=</span> item_names<span style="color: rgb(98,98,98)">.</span>index(selection)
 
 <span class="ansi-red-fg">AssertionError</span>: No item names defined for dim &#39;vector&#39; in tensor (dimsᶜ=vector) and dimension size does not match spatial rank.</pre>
 </div>
@@ -15259,7 +15259,7 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.14/x64/lib/pyth
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">0.4996375</span></pre>
+<pre><span class="ansi-blue-intense-fg">0.039550908</span></pre>
 </div>
 
 </div>
@@ -15313,7 +15313,7 @@ The grid resolution is equal to the</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=10)</span> <span class="ansi-blue-intense-fg">0.513 ± 0.256</span> <span class="ansi-white-fg">(9e-02...9e-01)</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=10)</span> <span class="ansi-blue-intense-fg">0.502 ± 0.283</span> <span class="ansi-white-fg">(1e-01...1e+00)</span></pre>
 </div>
 
 </div>

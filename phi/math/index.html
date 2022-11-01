@@ -1831,7 +1831,8 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     &#34;&#34;&#34;
     merge_shapes(value, dims.only(shape(value)))  # check that existing sizes match
     if not dims.without(shape(value)):  # no new dims to add
-        return value
+        if set(dims) == set(shape(value)):  # sizes and item names might differ, though
+            return value
     if hasattr(value, &#39;__expand__&#39;):
         result = value.__expand__(dims, **kwargs)
         if result is not NotImplemented:
@@ -8702,7 +8703,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         self.types: Tuple[str] = types  # undocumented, may be private
         self.item_names: Tuple[str or &#39;Shape&#39;] = (None,) * len(sizes) if item_names is None else item_names
         # Debug asserts
-        # assert len(sizes) == len(names) == len(types), f&#34;sizes={sizes} ({len(sizes)}), names={names} ({len(names)}), types={types} ({len(types)})&#34;
+        # assert len(sizes) == len(names) == len(types) == len(item_names), f&#34;sizes={sizes}, names={names}, types={types}, item_names={item_names}&#34;
         # assert all(isinstance(n, str) for n in names), f&#34;All names must be of type string but got {names}&#34;
         # assert isinstance(self.item_names, tuple)
         # assert all([items is None or isinstance(items, tuple) for items in self.item_names])
@@ -9139,6 +9140,9 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
                 equal = equal.all
             if not equal:
                 return False
+        for names1, names2 in zip(self.item_names, other.item_names):
+            if names1 != names2:
+                return False
         return True
 
     def __ne__(self, other):
@@ -9390,9 +9394,9 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             `Shape` with same names and types as `self`.
         &#34;&#34;&#34;
         if isinstance(sizes, Shape):
-            item_names = sizes.item_names
-            sizes = [sizes.get_size(dim) if dim in sizes else self.sizes[i] for i, dim in enumerate(self.names)]
-            return Shape(tuple(sizes), self.names, self.types, item_names)
+            item_names = [sizes.get_item_names(dim) if dim in sizes else self.get_item_names(dim) for dim in self.names]
+            sizes = [sizes.get_size(dim) if dim in sizes else s for dim, s in self._named_sizes]
+            return Shape(tuple(sizes), self.names, self.types, tuple(item_names))
         else:
             assert len(sizes) == len(self.sizes), f&#34;Cannot create shape from {self} with sizes {sizes}&#34;
             sizes_ = []
@@ -9403,9 +9407,11 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
                 if isinstance(obj, (tuple, list)):
                     sizes_.append(len(obj))
                     item_names.append(tuple(obj))
-                elif isinstance(obj, (int, math.Tensor)):
+                elif isinstance(obj, (int, math.Tensor)) or obj is None:
                     sizes_.append(obj)
                     item_names.append(None)
+                else:
+                    raise ValueError(f&#34;sizes can only contain int, str or Tensor but got {type(obj)}&#34;)
             return Shape(tuple(sizes_), self.names, self.types, tuple(item_names))
 
     def without_sizes(self):
@@ -10959,9 +10965,9 @@ Returns a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code
         `Shape` with same names and types as `self`.
     &#34;&#34;&#34;
     if isinstance(sizes, Shape):
-        item_names = sizes.item_names
-        sizes = [sizes.get_size(dim) if dim in sizes else self.sizes[i] for i, dim in enumerate(self.names)]
-        return Shape(tuple(sizes), self.names, self.types, item_names)
+        item_names = [sizes.get_item_names(dim) if dim in sizes else self.get_item_names(dim) for dim in self.names]
+        sizes = [sizes.get_size(dim) if dim in sizes else s for dim, s in self._named_sizes]
+        return Shape(tuple(sizes), self.names, self.types, tuple(item_names))
     else:
         assert len(sizes) == len(self.sizes), f&#34;Cannot create shape from {self} with sizes {sizes}&#34;
         sizes_ = []
@@ -10972,9 +10978,11 @@ Returns a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code
             if isinstance(obj, (tuple, list)):
                 sizes_.append(len(obj))
                 item_names.append(tuple(obj))
-            elif isinstance(obj, (int, math.Tensor)):
+            elif isinstance(obj, (int, math.Tensor)) or obj is None:
                 sizes_.append(obj)
                 item_names.append(None)
+            else:
+                raise ValueError(f&#34;sizes can only contain int, str or Tensor but got {type(obj)}&#34;)
         return Shape(tuple(sizes_), self.names, self.types, tuple(item_names))</code></pre>
 </details>
 </dd>
