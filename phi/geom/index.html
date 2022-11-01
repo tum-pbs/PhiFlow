@@ -488,10 +488,10 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
         # --- Fallback: use expand and concat ---
         for v in values:
             if not hasattr(v, &#39;__stack__&#39;) and hasattr(v, &#39;__concat__&#39;) and hasattr(v, &#39;__expand__&#39;):
-                exp_values = tuple([expand(v, dim.with_size(1), **kwargs) for v in values])
-                if len(exp_values) &gt; 8:
-                    warnings.warn(f&#34;stack() default implementation is slow on large dimensions ({dim.name}={len(exp_values)}). Please implement __stack__()&#34;, RuntimeWarning, stacklevel=2)
-                result = v.__concat__(exp_values, dim.name, **kwargs)
+                expanded_values = tuple([expand(v, dim.with_size(1 if dim.item_names[0] is None else dim.item_names[0][i]), **kwargs) for i, v in enumerate(values)])
+                if len(expanded_values) &gt; 8:
+                    warnings.warn(f&#34;stack() default implementation is slow on large dimensions ({dim.name}={len(expanded_values)}). Please implement __stack__()&#34;, RuntimeWarning, stacklevel=2)
+                result = v.__concat__(expanded_values, dim.name, **kwargs)
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), &#34;__concat__ must return a Shapable object&#34;
                     return result
