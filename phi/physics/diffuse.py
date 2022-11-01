@@ -5,7 +5,7 @@ from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phi.math import copy_with
+from phi.math import copy_with, shape
 
 
 def explicit(field: FieldType,
@@ -21,20 +21,21 @@ def explicit(field: FieldType,
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+            Can be a number, `phi.math.Tensor` or `phi.field.Field`.
+            If a channel dimension is present, it will be interpreted as non-isotropic diffusion.
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         substeps: number of iterations to use (Default value = 1)
-        field: FieldType:
 
     Returns:
         Diffused field of same type as `field`.
     """
-    amount = diffusivity * dt
+    amount = diffusivity * dt / substeps
     if isinstance(amount, Field):
         amount = amount.at(field)
     ext = field.extrapolation
     for i in range(substeps):
-        field += amount / substeps * laplace(field).with_extrapolation(ext)
-        field = field.with_extrapolation(ext)
+        delta = laplace(field, weights=amount) if 'vector' in shape(amount) else amount * laplace(field)
+        field = (field + delta.with_extrapolation(ext)).with_extrapolation(ext)
     return field
 
 

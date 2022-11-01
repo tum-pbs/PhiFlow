@@ -486,7 +486,8 @@ def spatial_gradient(grid: Tensor,
 def laplace(x: Tensor,
             dx: Tensor or float = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
-            dims: DimFilter = spatial):
+            dims: DimFilter = spatial,
+            weights: Tensor = None):
     """
     Spatial Laplace operator as defined for scalar fields.
     If a vector field is passed, the laplace is computed component-wise.
@@ -496,6 +497,8 @@ def laplace(x: Tensor,
         dx: scalar or 1d tensor
         padding: extrapolation
         dims: The second derivative along these dimensions is summed over
+        weights: (Optional) Multiply the axis terms by these factors before summation.
+            Must be a Tensor with a single channel dimension that lists all laplace dims by name.
 
     Returns:
         `phi.math.Tensor` of same shape as `x`
@@ -508,6 +511,11 @@ def laplace(x: Tensor,
         return x.spatial_gradient()
     left, center, right = shift(wrap(x), (-1, 0, 1), dims, padding, stack_dim=batch('_laplace'))
     result = (left + right - 2 * center) / (dx ** 2)
+    if weights is not None:
+        dim_names = x.shape.only(dims).names
+        assert channel(weights).rank == 1 and channel(weights).item_names is not None, f"weights must have one channel dimension listing the laplace dims but got {shape(weights)}"
+        assert set(channel(weights).item_names[0]) >= set(dim_names), f"the channel dim of weights must contain all laplace dims {dim_names} but only has {channel(weights).item_names}"
+        result *= rename_dims(weights, channel, batch('_laplace'))
     result = math.sum_(result, '_laplace')
     return result
 

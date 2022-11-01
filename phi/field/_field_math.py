@@ -38,9 +38,11 @@ def bake_extrapolation(grid: GridType) -> GridType:
         raise ValueError(f"Not a valid grid: {grid}")
 
 
-def laplace(field: GridType, axes=spatial) -> GridType:
+def laplace(field: GridType, axes=spatial, weights: Tensor or Field = None) -> GridType:
     """ Finite-difference laplace operator for Grids. See `phi.math.laplace()`. """
-    result = field._op1(lambda tensor: math.laplace(tensor, dx=field.dx, padding=field.extrapolation, dims=axes))
+    if isinstance(weights, Field):
+        weights = weights.at(field).values
+    result = field._op1(lambda tensor: math.laplace(tensor, dx=field.dx, padding=field.extrapolation, dims=axes, weights=weights))
     return result
 
 
