@@ -850,6 +850,10 @@ class Layout(Tensor):
         assert order is None or order == self._shape.names, "Layout.native() does not allow for changing the dimension order"
         return self._obj
 
+    def numpy(self, order: str or tuple or list or Shape = None) -> np.ndarray:
+        native = self.native(order=order)
+        return numpy.asarray(native)
+
     def _getitem(self, selection: dict) -> 'Tensor':
         selection_list = [selection.get(dim, None) for dim in self._shape.names]
         native = self._getitem_recursive(self._obj, tuple(selection_list))
