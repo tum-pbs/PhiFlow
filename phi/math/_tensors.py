@@ -16,7 +16,7 @@ from ._shape import (Shape,
                      TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, batch)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend, ComputeDevice
-from .backend._dtype import DType
+from .backend._dtype import DType, combine_types
 from .magic import BoundDim, PhiTreeNode, slicing_dict
 
 
@@ -1368,7 +1368,6 @@ class TensorStack(Tensor):
         assert isinstance(stack_dim, Shape) and stack_dim.rank == 1, f"stack_dim must be a single-dimension Shape object but got {type(stack_dim)}"
         for t in components:
             assert isinstance(t, Tensor)
-            assert t.dtype == components[0].dtype, f"Stacked tensors must have the same data type but got {[t.dtype for t in components]}"
             assert stack_dim.name not in t.shape, f"Cannot stack along '{stack_dim.name}' because the dimension already exists."
         self._tensors = tuple(components)
         self.stack_dim = stack_dim.with_sizes([len(components)], keep_item_names=True)
@@ -1408,7 +1407,7 @@ class TensorStack(Tensor):
 
     @property
     def dtype(self):
-        return self._tensors[0].dtype
+        return combine_types(*[t.dtype for t in self._tensors])
 
     @property
     def shape(self):

@@ -138,7 +138,7 @@ _FROM_NUMPY = {np: dtype for dtype, np in _TO_NUMPY.items()}
 _FROM_NUMPY[np.bool] = DType(bool)
 
 
-def combine_types(*dtypes: DType, fp_precision: int) -> DType:
+def combine_types(*dtypes: DType, fp_precision: int = None) -> DType:
     # all bool?
     if all(dt.kind == bool for dt in dtypes):
         return dtypes[0]
@@ -148,10 +148,18 @@ def combine_types(*dtypes: DType, fp_precision: int) -> DType:
         return largest
     # all real?
     if all(dt.kind in (float, int, bool) for dt in dtypes):
-        return DType(float, fp_precision)
+        if isinstance(fp_precision, int):
+            return DType(float, fp_precision)
+        else:
+            highest_fp = max([dt.precision for dt in dtypes if dt.kind == float])
+            return DType(float, highest_fp)
     # complex
     if all(dt.kind in (complex, float, int, bool) for dt in dtypes):
-        return DType(complex, 2 * fp_precision)
+        if isinstance(fp_precision, int):
+            return DType(complex, 2 * fp_precision)
+        else:
+            highest_fp = max([dt.precision for dt in dtypes if dt.kind in (float, complex)])
+            return DType(complex, highest_fp * 2)
     # string
     if any(dt.kind == str for dt in dtypes):
         largest = max([dt for dt in dtypes if dt.kind == str], key=lambda dt: dt.bits)
