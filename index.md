@@ -21,7 +21,7 @@
 #### Differentiation
 
 * [Learning to Throw](Learn_to_Throw_Tutorial.html)
-* [Billiards](Billiards.ipynb)
+* [Billiards](Billiards.html)
 * [Differentiable fluid simulations](Fluids_Tutorial.html)
 
 #### Fluids
