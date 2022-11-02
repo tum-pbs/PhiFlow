@@ -41,6 +41,18 @@ class TestMathFunctions(TestCase):
         math.assert_close(c.b[:3], 0)
         math.assert_close(c.b[3:], 1)
 
+    def test_concat_missing_batch(self):
+        t = math.random_normal(instance(particles=2))
+        b = math.expand(t, batch(b=2))
+        c = math.concat([t, b], 'particles')
+        self.assertEqual(batch(b=2) & instance(particles=4), c.shape)
+
+    def test_stack_missing_batch(self):
+        t = math.random_normal(instance(particles=2))
+        b = math.expand(t, batch(b=2))
+        s = math.stack([t, b], channel(c='t,b'))
+        self.assertEqual(batch(b=2) & instance(particles=2) & channel(c='t,b'), s.shape)
+
     def test_nonzero(self):
         c = math.concat([math.zeros(spatial(b=3, a=2)), math.ones(spatial(a=2, b=4))], spatial('b'))
         nz = math.nonzero(c)

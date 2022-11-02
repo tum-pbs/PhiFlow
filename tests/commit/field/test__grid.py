@@ -5,6 +5,7 @@ from phi import field
 from phi.field import Noise, CenteredGrid, StaggeredGrid
 from phi.geom import Box, Sphere
 from phi.math import extrapolation, spatial, channel, batch
+from phi.math.magic import PhiTreeNode
 
 
 class GridTest(TestCase):
@@ -25,13 +26,13 @@ class GridTest(TestCase):
         s = spatial(x=20, y=10)
         for initializer in [0, Noise(vector=2), (0, 1), Sphere(x=0, y=0, radius=1)]:
             g_const = StaggeredGrid(initializer, extrapolation.ZERO, resolution=s)
-            self.assertEqual(g_const.shape, spatial(x=20, y=10) & channel(vector=2))
+            self.assertEqual(g_const.shape, spatial(x=20, y=10) & channel(vector='x,y'))
             self.assertEqual(g_const.values.vector[0].shape, spatial(x=19, y=10))
             g_periodic = StaggeredGrid(initializer, extrapolation.PERIODIC, resolution=s)
-            self.assertEqual(g_periodic.shape, spatial(x=20, y=10) & channel(vector=2))
+            self.assertEqual(g_periodic.shape, spatial(x=20, y=10) & channel(vector='x,y'))
             self.assertEqual(g_periodic.values.vector[0].shape, spatial(x=20, y=10))
             g_boundary = StaggeredGrid(initializer, extrapolation.BOUNDARY, resolution=s)
-            self.assertEqual(g_boundary.shape, spatial(x=20, y=10) & channel(vector=2))
+            self.assertEqual(g_boundary.shape, spatial(x=20, y=10) & channel(vector='x,y'))
             self.assertEqual(g_boundary.values.vector[0].shape, spatial(x=21, y=10))
 
     def test_slice_staggered_grid_along_vector(self):
@@ -132,3 +133,8 @@ class GridTest(TestCase):
         math.assert_close(grid.points['x'], grid.values)
         grid = CenteredGrid(lambda t, *x: t, t=5, x=10, y=10)
         math.assert_close(grid.points['t'], grid.values)
+
+    def test_is_phi_tree_node(self):
+        self.assertTrue(issubclass(CenteredGrid, PhiTreeNode))
+        grid = CenteredGrid(0, x=4)
+        self.assertTrue(isinstance(grid, PhiTreeNode))

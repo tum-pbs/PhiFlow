@@ -23,13 +23,11 @@ from ._shape import Shape, shape, batch, spatial, instance, channel, non_batch
 
 class _ShapedType(type):
     def __instancecheck__(self, instance):
-        if hasattr(instance, '__shape__'):
+        try:
+            shape(instance)
             return True
-        if isinstance(instance, (int, float, complex, bool)):
-            return True
-        if hasattr(instance, 'shape') and isinstance(instance.shape, Shape):
-            return True
-        return False
+        except ValueError:
+            return False
 
     def __subclasscheck__(self, subclass):
         return True

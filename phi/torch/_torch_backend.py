@@ -145,7 +145,10 @@ class TorchBackend(Backend):
     nonzero = torch.nonzero
     flip = torch.flip
     seed = staticmethod(torch.manual_seed)
-    einsum = staticmethod(torch.einsum)
+
+    def einsum(self, equation, *tensors):
+        tensors = self.auto_cast(*tensors)
+        return torch.einsum(equation, *tensors)
 
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(self, f)

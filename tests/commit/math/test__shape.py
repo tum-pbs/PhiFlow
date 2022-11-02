@@ -127,3 +127,19 @@ class TestShape(TestCase):
 
     def test_concat_shaped(self):
         self.assertEqual(spatial(x=4, y=3, z=2), math.concat_shapes(ShapedDummy(spatial(x=4, y=3)), spatial(z=2)))
+
+    def test_with_size_item_names(self):
+        s = channel(vector='x,y')
+        s1 = s.with_size(1)
+        self.assertIsNone(s1.get_item_names('vector'))
+        sxy = s1.with_sizes(s)
+        self.assertEqual(('x', 'y'), sxy.get_item_names('vector'))
+        sxy = s1.with_size('x,y')
+        self.assertEqual(('x', 'y'), sxy.get_item_names('vector'))
+        sxy = s1.with_size(['x', 'y'])
+        self.assertEqual(('x', 'y'), sxy.get_item_names('vector'))
+        sx = s.with_size('x')
+        self.assertEqual(('x',), sx.get_item_names('vector'))
+        wo = s.without_sizes()
+        self.assertIsNone(wo.get_item_names('vector'))
+

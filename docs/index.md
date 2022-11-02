@@ -20,7 +20,8 @@
 
 #### Differentiation
 
-* [Learning to Throw](https://tum-pbs.github.io/PhiFlow/Learn_to_Throw_Tutorial.html)
+* [Learning to Throw](Learn_to_Throw_Tutorial.html)
+* [Billiards](Billiards.html)
 * [Differentiable fluid simulations](Fluids_Tutorial.html)
 
 #### Fluids

@@ -6,7 +6,7 @@ from phi import geom
 from phi import math
 from phi.geom import Box, Geometry, Sphere, Cuboid
 from phi.math import Tensor, spatial, instance, tensor, masked_fill, channel, Shape, batch, unstack, wrap, vec, \
-    rename_dims, solve_linear, jit_compile_linear
+    rename_dims, solve_linear, jit_compile_linear, shape
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
@@ -40,7 +40,7 @@ def bake_extrapolation(grid: GridType) -> GridType:
         raise ValueError(f"Not a valid grid: {grid}")
 
 
-def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2)) -> GridType:
+def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2), weights: Tensor or Field = None) -> GridType:
     """
     Spatial Laplace operator for scalar grid.
     If a vector grid is passed, it is assumed to be centered and the laplace is computed component-wise.
@@ -50,11 +50,14 @@ def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2)) -> GridTy
         axes: The second derivative along these dimensions is summed over
         scheme: finite difference `Scheme` used for differentiation
             supported: explicit 2/4th order - implicit 6th order
+        weights: (Optional) Multiply the axis terms by these factors before summation.
+            Must be a `phi.math.Tensor` or `phi.field.Field` with a single channel dimension that lists all laplace axes by name.
 
     Returns:
         laplacian field as `CenteredGrid`
     """
-
+    if isinstance(weights, Field):
+        weights = weights.at(field).values
     axes_names = field.shape.only(axes).names
     extrapol_map = {}
     if not scheme.is_implicit:
@@ -94,7 +97,11 @@ def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2)) -> GridTy
         extrapol_map = extrapol_map_rhs
 
     result_components = [component.with_bounds(field.bounds) for component in result_components]
-    result = sum(result_components)
+    if weights is not None:
+        assert channel(weights).rank == 1 and channel(weights).item_names is not None, f"weights must have one channel dimension listing the laplace dims but got {shape(weights)}"
+        assert set(channel(weights).item_names[0]) >= set(axes_names), f"the channel dim of weights must contain all laplace dims {axes_names} but only has {channel(weights).item_names}"
+        result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
+    result = sum(result_components * weights)
     result = result.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
 
     return result
@@ -203,6 +210,7 @@ def _ex_map_f(ext_dict: dict):
 
 @partial(jit_compile_linear, auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")
 def _lhs_for_implicit_scheme(x, values_rhs, needed_shifts_rhs, stack_dim, staggered_output=False):
+    from phi.math._nd import shift
     result = []
     for dim, component in zip(x.shape.only(math.spatial).names, unstack(x, stack_dim.name)):
         shifted = shift(component, needed_shifts_rhs, stack_dim=None, dims=dim)

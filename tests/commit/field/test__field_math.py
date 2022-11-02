@@ -1,3 +1,4 @@
+from itertools import product
 from unittest import TestCase
 
 import numpy
@@ -180,3 +181,68 @@ class TestFieldMath(TestCase):
         t = math.random_normal(instance(points=5), channel(vector='x,y'))
         points = field.tensor_as_field(t)
         self.assertIsInstance(points, PointCloud)
+
+
+    def test__periodic_2d_arakawa_poisson_bracket(self):
+        """test _periodic_2d_arakawa_poisson_bracket implementation"""
+        with math.precision(64):
+            # Define parameters to test
+            test_params = {
+                'grid_size': [(4, 4), (32, 32)],
+                'dx': [0.1, 1],
+                'gen_func': [lambda grid_size: numpy.random.rand(*grid_size).reshape(grid_size)]
+            }
+            # Generate test cases as the product
+            test_cases = [dict(zip(test_params, v)) for v in product(*test_params.values())]
+            for params in test_cases:
+                grid_size = params['grid_size']
+                d1 = params['gen_func'](grid_size)
+                d2 = params['gen_func'](grid_size)
+                dx = params['dx']
+                padding = extrapolation.PERIODIC
+                ref = self.arakawa_reference_implementation(numpy.pad(d1.copy(), 1, mode='wrap'), numpy.pad(d2.copy(), 1, mode='wrap'), dx)[1:-1, 1:-1]
+                d1_tensor = field.CenteredGrid(values=math.tensor(d1, spatial('x,y')), bounds=geom.Box(x=grid_size[0], y=grid_size[1]), extrapolation=padding)
+                d2_tensor = field.CenteredGrid(values=math.tensor(d2, spatial('x,y')), bounds=geom.Box(x=grid_size[0], y=grid_size[1]), extrapolation=padding)
+                val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor.values, d2_tensor.values, dx)
+                # try:
+                math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)
+                # except BaseException as e:  # Enable the try/catch to get more info about the deviation
+                #     abs_error = math.abs(control - ref)
+                #     max_abs_error = math.max(abs_error)
+                #     max_rel_error = math.max(math.abs(abs_error / ref))
+                #     variation_str = "\n".join([
+                #         f"max_absolute_error: {max_abs_error}",
+                #         f"max_relative_error: {max_rel_error}",
+                #     ])
+                #     print(ref)
+                #     print(control)
+                #     raise AssertionError(e, params, variation_str)
+
+    @staticmethod
+    def arakawa_reference_implementation(zeta, psi, d):
+        """pure Python exact implementation from paper"""
+
+        def jpp(zeta, psi, d, i, j):
+            return ((zeta[i + 1, j] - zeta[i - 1, j]) * (psi[i, j + 1] - psi[i, j - 1])
+                    - (zeta[i, j + 1] - zeta[i, j - 1]) * (psi[i + 1, j] - psi[i - 1, j])) / (4 * d ** 2)
+
+        def jpx(zeta, psi, d, i, j):
+            return (zeta[i + 1, j] * (psi[i + 1, j + 1] - psi[i + 1, j - 1])
+                    - zeta[i - 1, j] * (psi[i - 1, j + 1] - psi[i - 1, j - 1])
+                    - zeta[i, j + 1] * (psi[i + 1, j + 1] - psi[i - 1, j + 1])
+                    + zeta[i, j - 1] * (psi[i + 1, j - 1] - psi[i - 1, j - 1])) / (4 * d ** 2)
+
+        def jxp(zeta, psi, d, i, j):
+            return (zeta[i + 1, j + 1] * (psi[i, j + 1] - psi[i + 1, j])
+                    - zeta[i - 1, j - 1] * (psi[i - 1, j] - psi[i, j - 1])
+                    - zeta[i - 1, j + 1] * (psi[i, j + 1] - psi[i - 1, j])
+                    + zeta[i + 1, j - 1] * (psi[i + 1, j] - psi[i, j - 1])) / (4 * d ** 2)
+
+        val = numpy.zeros_like(zeta)
+        for i in range(0, zeta.shape[0] - 1):
+            for j in range(0, zeta.shape[1] - 1):
+                val[i, j] += (jpp(zeta, psi, d, i, j) + jpx(zeta, psi, d, i, j) + jxp(zeta, psi, d, i, j))
+        val = val / 3
+        return val
+
+

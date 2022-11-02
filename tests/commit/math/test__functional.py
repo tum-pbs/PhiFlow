@@ -2,9 +2,8 @@ from functools import partial
 from unittest import TestCase
 
 import phi
-from phi import math, field
-from phi.field import CenteredGrid
-from phi.math import Solve, Diverged, wrap, tensor, SolveTape, extrapolation, spatial, batch, channel
+from phi import math
+from phi.math import Solve, Diverged, tensor, SolveTape, extrapolation, spatial, batch, channel
 from phi.math.backend import Backend
 
 BACKENDS = phi.detect_backends()
@@ -172,68 +171,68 @@ class TestFunctional(TestCase):
     def test_solve_linear_matrix(self):
         for backend in BACKENDS:
             with backend:
-                y = CenteredGrid(1, extrapolation.ZERO, x=3)
-                x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
+                y = math.ones(spatial(x=3))
+                x0 = math.zeros(spatial(x=3))
                 for method in ['CG', 'CG-adaptive', 'auto']:
                     solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
-                    x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-                    math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3, msg=backend)
+                    x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
+                    math.assert_close(x, [-1.5, -2, -1.5], abs_tolerance=1e-3, msg=backend)
 
     def test_linear_solve_matrix_batched(self):  # TODO also test batched matrix
-        y = CenteredGrid(1, extrapolation.ZERO, x=3) * (1, 2)
-        x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
+        y = math.ones(spatial(x=3)) * math.vec(x=1, y=2)
+        x0 = math.zeros(spatial(x=3))
         for method in ['CG', 'CG-adaptive', 'auto']:
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
-            x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-            math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+            x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
+            math.assert_close(x, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
 
     def test_linear_solve_matrix_jit(self):
         @math.jit_compile
         def solve(y, method):
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
-            return field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+            return math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
 
         for backend in BACKENDS:
             with backend:
-                x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
+                x0 = math.zeros(spatial(x=3))
                 for method in ['CG']:
-                    x = solve(CenteredGrid(0, extrapolation.ZERO, x=3), method=method)
-                    math.assert_close(x.values, 0, abs_tolerance=1e-3)
-                    x = solve(CenteredGrid(1, extrapolation.ZERO, x=3), method=method)
-                    math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
+                    x = solve(math.zeros(spatial(x=3)), method=method)
+                    math.assert_close(x, 0, abs_tolerance=1e-3)
+                    x = solve(math.ones(spatial(x=3)), method=method)
+                    math.assert_close(x, [-1.5, -2, -1.5], abs_tolerance=1e-3)
 
     def test_linear_solve_matrix_tape(self):
-        y = CenteredGrid(1, extrapolation.ZERO, x=3) * (1, 2)
-        x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
+        y = math.ones(spatial(x=3)) * math.vec(x=1, y=2)
+        x0 = math.zeros(spatial(x=3))
         for method in ['CG', 'CG-adaptive', 'auto']:
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             with math.SolveTape() as solves:
-                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-            math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+                x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
+            math.assert_close(x, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
             assert len(solves) == 1
             assert solves[0] == solves[solve]
-            math.assert_close(solves[solve].residual.values, 0, abs_tolerance=1e-3)
+            math.assert_close(solves[solve].residual, 0, abs_tolerance=1e-3)
             assert math.close(solves[solve].iterations, 2) or math.close(solves[solve].iterations, -1)
             with math.SolveTape(record_trajectories=True) as solves:
-                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-            math.assert_close(x.values, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
+                x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
+            math.assert_close(x, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
             assert solves[solve].x.trajectory.size == 3
-            math.assert_close(solves[solve].residual.trajectory[-1].values, 0, abs_tolerance=1e-3)
+            math.assert_close(solves[solve].residual.trajectory[-1], 0, abs_tolerance=1e-3)
             # math.print(solves[solve].x.vector[1])
 
     def test_solve_linear_function_batched(self):
-        y = CenteredGrid(1, extrapolation.ZERO, x=3) * (1, 2)
-        x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
+        y = math.ones(spatial(x=3)) * math.vec(x=1, y=2)
+        x0 = math.zeros(spatial(x=3))
         for method in ['CG', 'CG-adaptive', 'auto']:
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
-            x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], channel('vector'), spatial('x')), abs_tolerance=1e-3)
+            x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
+            math.assert_close(x, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], channel('vector'), spatial('x')), abs_tolerance=1e-3)
             with math.SolveTape() as solves:
-                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-            math.assert_close(x.values, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], channel('vector'), spatial('x')), abs_tolerance=1e-3)
+                x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
+            math.assert_close(x, math.wrap([[-1.5, -2, -1.5], [-3, -4, -3]], channel('vector'), spatial('x')), abs_tolerance=1e-3)
             assert len(solves) == 1
             assert solves[0] == solves[solve]
-            math.assert_close(solves[solve].residual.values, 0, abs_tolerance=1e-3)
+            math.assert_close(solves[solve].residual, 0, abs_tolerance=1e-3)
 
     def test_solve_diverge(self):
         y = math.ones(spatial(x=2)) * [1, 2]
@@ -241,13 +240,13 @@ class TestFunctional(TestCase):
         for method in ['CG']:
             solve = Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             try:
-                field.solve_linear(math.jit_compile_linear(math.laplace), y, solve)
+                math.solve_linear(math.jit_compile_linear(math.laplace), y, solve)
                 assert False
             except Diverged:
                 pass
             with math.SolveTape(record_trajectories=True) as solves:
                 try:
-                    field.solve_linear(math.jit_compile_linear(math.laplace), y, solve)  # impossible
+                    math.solve_linear(math.jit_compile_linear(math.laplace), y, solve)  # impossible
                     assert False
                 except Diverged:
                     pass
@@ -255,12 +254,12 @@ class TestFunctional(TestCase):
     def test_solve_linear_matrix_dirichlet(self):
         for backend in BACKENDS:
             with backend:
-                y = CenteredGrid(1, extrapolation.ONE, x=3)
-                x0 = CenteredGrid(0, extrapolation.ONE, x=3)
+                y = math.ones(spatial(x=3))
+                x0 = math.zeros(spatial(x=3))
                 solve = math.Solve('CG', 0, 1e-3, x0=x0, max_iterations=100)
-                x_ref = field.solve_linear(field.laplace, y, solve)
-                x_jit = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
-                math.assert_close(x_ref.values, x_jit.values, [-0.5, -1, -0.5], abs_tolerance=1e-3, msg=backend)
+                x_ref = math.solve_linear(partial(math.laplace, padding=extrapolation.ONE), y, solve)
+                x_jit = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ONE)), y, solve)
+                math.assert_close(x_ref, x_jit, [-0.5, -1, -0.5], abs_tolerance=1e-3, msg=backend)
 
     def test_jit_solves(self):
         @math.jit_compile
@@ -268,18 +267,18 @@ class TestFunctional(TestCase):
             print(f"Tracing {method} with {backend}...")
             solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
             with SolveTape() as solves:
-                x = field.solve_linear(math.jit_compile_linear(field.laplace), y, solve)
+                x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
             return x
 
         for backend in BACKENDS:
             with backend:
-                x0 = CenteredGrid(0, extrapolation.ZERO, x=3)
+                x0 = math.zeros(spatial(x=3))
 
                 for method in ['CG', 'CG-adaptive', 'auto']:
-                    x = solve(CenteredGrid(0, extrapolation.ZERO, x=3), method=method)
-                    math.assert_close(x.values, 0, abs_tolerance=1e-3)
-                    x = solve(CenteredGrid(1, extrapolation.ZERO, x=3), method=method)
-                    math.assert_close(x.values, [-1.5, -2, -1.5], abs_tolerance=1e-3)
+                    x = solve(math.zeros(spatial(x=3)), method=method)
+                    math.assert_close(x, 0, abs_tolerance=1e-3)
+                    x = solve(math.ones(spatial(x=3)), method=method)
+                    math.assert_close(x, [-1.5, -2, -1.5], abs_tolerance=1e-3)
 
     def test_gradient_descent_minimize(self):
         def loss(x):
