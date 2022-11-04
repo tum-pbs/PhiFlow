@@ -3743,6 +3743,10 @@ The values will be laid out along <code>dim</code>.</dd>
     &#34;&#34;&#34;
     assert isinstance(dim, Shape) and dim.rank == 1, f&#34;dim must be a single-dimension Shape but got {dim}&#34;
     if is_scalar(start) and is_scalar(stop):
+        if isinstance(start, Tensor):
+            start = start.native()
+        if isinstance(stop, Tensor):
+            stop = stop.native()
         native_linspace = choose_backend(start, stop, prefer_default=True).linspace(start, stop, dim.size)
         return NativeTensor(native_linspace, dim)
     else:
