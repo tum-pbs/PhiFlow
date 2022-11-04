@@ -633,6 +633,10 @@ def linspace(start: int or Tensor, stop, dim: Shape) -> Tensor:
     """
     assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
     if is_scalar(start) and is_scalar(stop):
+        if isinstance(start, Tensor):
+            start = start.native()
+        if isinstance(stop, Tensor):
+            stop = stop.native()
         native_linspace = choose_backend(start, stop, prefer_default=True).linspace(start, stop, dim.size)
         return NativeTensor(native_linspace, dim)
     else:
