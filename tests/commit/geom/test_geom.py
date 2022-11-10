@@ -14,7 +14,8 @@ class TestGeom(TestCase):
 
     def test_infinite_cylinder(self):
         cylinder = geom.infinite_cylinder(x=.5, y=.5, radius=.5, inf_dim=math.spatial('z'))
-        self.assertEqual(cylinder.spatial_rank, 3)
+        self.assertEqual(3, cylinder.spatial_rank)
+        self.assertEqual(('x', 'y', 'z'), cylinder.shape.get_item_names('vector'))
         cylinder = geom.infinite_cylinder(x=.5, y=.5, radius=.5, inf_dim='z')
         loc = math.wrap([(0, 0, 0), (.5, .5, 0), (1, 1, 0), (0, 0, 100), (.5, .5, 100)], math.instance('points'), math.channel(vector='x,y,z'))
         inside = math.wrap([False, True, False, False, True], math.instance('points'))
