@@ -609,7 +609,7 @@ def meshgrid(dim_type=spatial, stack_dim=channel('vector'), assign_item_names=Tr
     grid_shape = dim_type(**{dim: size for dim, size in zip(dimensions.keys(), dim_sizes)})
     channels = [NativeTensor(t, grid_shape) for t in indices_list]
     if assign_item_names:
-        return stack_tensors(channels, stack_dim._with_item_names((tuple(dimensions.keys()),)))
+        return stack_tensors(channels, stack_dim.with_size(tuple(dimensions.keys())))
     else:
         return stack_tensors(channels, stack_dim)
 
@@ -633,6 +633,10 @@ def linspace(start: int or Tensor, stop, dim: Shape) -> Tensor:
     """
     assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
     if is_scalar(start) and is_scalar(stop):
+        if isinstance(start, Tensor):
+            start = start.native()
+        if isinstance(stop, Tensor):
+            stop = stop.native()
         native_linspace = choose_backend(start, stop, prefer_default=True).linspace(start, stop, dim.size)
         return NativeTensor(native_linspace, dim)
     else:
@@ -703,13 +707,15 @@ def concat_tensor(values: tuple or list, dim: str) -> Tensor:
     assert isinstance(dim, str), f"dim must be a single-dimension Shape but got '{dim}' of type {type(dim)}"
 
     def inner_concat(*values):
-        broadcast_shape = merge_shapes(*[t.shape._with_item_name(dim, None).with_sizes([None] * t.shape.rank) for t in values])
+        broadcast_shape: Shape = values[0].shape  # merge_shapes(*[t.shape.with_sizes([None] * t.shape.rank) for t in values])
+        dim_index = broadcast_shape.index(dim)
         natives = [v.native(order=broadcast_shape.names) for v in values]
-        backend = choose_backend(*natives)
-        concatenated = backend.concat(natives, broadcast_shape.index(dim))
+        concatenated = choose_backend(*natives).concat(natives, dim_index)
         if all([v.shape.get_item_names(dim) is not None for v in values]):
-            broadcast_shape = broadcast_shape._with_item_name(dim, sum([v.shape.get_item_names(dim) for v in values], ()))
-        return NativeTensor(concatenated, broadcast_shape.with_sizes(backend.staticshape(concatenated)))
+            broadcast_shape = broadcast_shape.with_dim_size(dim, sum([v.shape.get_item_names(dim) for v in values], ()))
+        else:
+            broadcast_shape = broadcast_shape.with_dim_size(dim, sum([v.shape.get_size(dim) for v in values]))
+        return NativeTensor(concatenated, broadcast_shape)
 
     result = broadcast_op(inner_concat, values)
     return result
@@ -1978,6 +1984,8 @@ def dtype(x) -> DType:
 
 
 def expand_tensor(value: float or Tensor, dims: Shape):
+    if not dims:
+        return value
     value = wrap(value)
     shape = value.shape
     for dim in reversed(dims):
@@ -1987,7 +1995,12 @@ def expand_tensor(value: float or Tensor, dims: Shape):
             if dim.size is None:
                 dim = dim.with_sizes([1])
             shape = concat_shapes(dim, shape)
-    return CollapsedTensor(value, shape)
+    if shape == value.shape:  # no changes made
+        return value
+    elif shape.rank == value.rank:  # changes made but same dims
+        return value._with_shape_replaced(shape._reorder(value.shape))
+    else:
+        return CollapsedTensor(value, shape)
 
 
 def close(*tensors, rel_tolerance=1e-5, abs_tolerance=0) -> bool:

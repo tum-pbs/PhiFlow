@@ -441,7 +441,7 @@ class StaggeredGrid(Grid):
             widths = {d: (0, 1) for d in self.resolution.names}
             lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
             widths[dim] = (int(not lo_valid), int(not up_valid))
-            padded.append(math.pad(component, widths, self.extrapolation, bounds=self.bounds))
+            padded.append(math.pad(component, widths, self.extrapolation[{'vector': dim}], bounds=self.bounds))
         result = math.stack(padded, channel(vector=self.resolution))
         assert result.shape.is_uniform
         return result

@@ -1,4 +1,5 @@
 from numbers import Number
+from typing import Tuple
 
 from phi import math
 from phi.math import Tensor, Shape
@@ -105,13 +106,13 @@ def rotate(geometry: Geometry, angle: Number or Tensor) -> Geometry:
 
 class _EmbeddedGeometry(Geometry):
 
-    def __init__(self, geometry, projected_dims: math.Shape):
+    def __init__(self, geometry, axes: Tuple[str]):
         self.geometry = geometry
-        self.projected_dims = projected_dims
+        self.axes = axes  # spatial axis order
 
     @property
     def spatial_rank(self) -> int:
-        return self.geometry.spatial_rank + self.projected_dims.rank
+        return len(self.axes)
 
     @property
     def center(self) -> Tensor:
@@ -121,7 +122,7 @@ class _EmbeddedGeometry(Geometry):
 
     @property
     def shape(self) -> Shape:
-        return math.concat_shapes(self.geometry.shape, self.projected_dims)
+        return self.geometry.shape.with_dim_size('vector', self.axes)
 
     @property
     def volume(self) -> Tensor:
@@ -136,8 +137,9 @@ class _EmbeddedGeometry(Geometry):
 
     def _down_project(self, location: Tensor):
         item_names = list(location.shape.get_item_names('vector'))
-        for dim in self.projected_dims.names:
-            item_names.remove(dim)
+        for dim in self.axes:
+            if dim not in self.geometry.shape.get_item_names('vector'):
+                item_names.remove(dim)
         projected_loc = location.vector[item_names]
         return projected_loc
 
@@ -169,7 +171,7 @@ class _EmbeddedGeometry(Geometry):
         raise NotImplementedError()
 
     def __hash__(self):
-        return hash(self.geometry) + hash(self.projected_dims)
+        return hash(self.geometry) + hash(self.axes)
 
 
 def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list or None) -> Geometry:
@@ -188,15 +190,17 @@ def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list
     """
     if projected_dims is None:
         return geometry
-    if not isinstance(projected_dims, Shape):
-        projected_dims = math.spatial(*parse_dim_order(projected_dims))
-    projected_dims = projected_dims.without(geometry.shape.get_item_names('vector'))  # avoid dim duplication
-    if not projected_dims:
+    axes = parse_dim_order(projected_dims)
+    embedded_axes = [a for a in axes if a not in geometry.shape.get_item_names('vector')]
+    if not embedded_axes:
         return geometry
+    for name in reversed(geometry.shape.get_item_names('vector')):
+        if name not in projected_dims:
+            axes = (name,) + axes
     if isinstance(geometry, BaseBox):
         box = geometry.corner_representation()
-        return box * Box(**{dim: None for dim in projected_dims.names})
-    return _EmbeddedGeometry(geometry, projected_dims) if projected_dims.rank > 0 else geometry
+        return box * Box(**{dim: None for dim in embedded_axes})
+    return _EmbeddedGeometry(geometry, axes)
 
 
 def infinite_cylinder(center=None, radius=None, inf_dim: str or Shape or tuple or list = None, **center_) -> Geometry:

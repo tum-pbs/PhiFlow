@@ -147,6 +147,16 @@ def function_parameters(f):
         return tuple(params)
 
 
+def f_name(f):
+    assert callable(f), f
+    if hasattr(f, '__name__'):
+        return f.__name__
+    if isinstance(f, partial):
+        return f"partial({f.func})"
+    else:
+        return "unknown"
+
+
 class JitFunction:
 
     def __init__(self, f: Callable, auxiliary_args: Set[str]):
@@ -158,10 +168,10 @@ class JitFunction:
         self.grad_jit = GradientFunction(f.f, f.wrt, f.get_output, f.is_f_scalar, jit=True) if isinstance(f, GradientFunction) else None
 
     def _jit_compile(self, in_key: SignatureKey):
-        PHI_LOGGER.debug(f"Φ-jit: '{self.f.__name__}' called with new key. shapes={[s.volume for s in in_key.shapes]}, args={in_key.tree}")
+        PHI_LOGGER.debug(f"Φ-jit: '{f_name(self.f)}' called with new key. shapes={[s.volume for s in in_key.shapes]}, args={in_key.tree}")
 
         def jit_f_native(*natives):
-            PHI_LOGGER.debug(f"Φ-jit: Tracing '{self.f.__name__}'")
+            PHI_LOGGER.debug(f"Φ-jit: Tracing '{f_name(self.f)}'")
             in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             kwargs = assemble_tree(in_key.tree, in_tensors)
             result = self.f(**kwargs, **in_key.auxiliary_kwargs)  # Tensor or tuple/list of Tensors
@@ -170,7 +180,7 @@ class JitFunction:
             self.recorded_mappings[in_key] = SignatureKey(jit_f_native, tree, result_shapes, None, in_key.backend, in_key.tracing)
             return result_natives
 
-        jit_f_native.__name__ = f"native({self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)})"
+        jit_f_native.__name__ = f"native({f_name(self.f) if isinstance(self.f, types.FunctionType) else str(self.f)})"
         return in_key.backend.jit_compile(jit_f_native)
 
     def __call__(self, *args, **kwargs):
@@ -178,12 +188,12 @@ class JitFunction:
         if isinstance(self.f, GradientFunction) and key.backend.supports(Backend.jit_compile_grad):
             return self.grad_jit(*args, **kwargs)
         if not key.backend.supports(Backend.jit_compile):
-            warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.", RuntimeWarning)
+            warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{f_name(self.f)}' as-is.", RuntimeWarning)
             return self.f(*args, **kwargs)
         if key not in self.traces:
             self.traces[key] = self._jit_compile(key)
             if len(self.traces) >= 10:
-                warnings.warn(f"""Φ-lin: The jit-compiled function '{self.f.__name__}' was traced {len(self.traces)} times.
+                warnings.warn(f"""Φ-lin: The jit-compiled function '{f_name(self.f)}' was traced {len(self.traces)} times.
 Performing many traces may be slow and cause memory leaks.
 Re-tracing occurs when the number or types of arguments vary or tensor shapes vary between calls.""", RuntimeWarning)
         native_result = self.traces[key](*natives)
@@ -192,11 +202,11 @@ Re-tracing occurs when the number or types of arguments vary or tensor shapes va
         return assemble_tree(output_key.tree, output_tensors)
 
     def __repr__(self):
-        return f"jit({self.f.__name__})"
+        return f"jit({f_name(self.f)})"
 
     @property
     def __name__(self):
-        return self.f.__name__
+        return f_name(self.f)
 
 
 def jit_compile(f: Callable, auxiliary_args: str = '') -> Callable:
@@ -268,7 +278,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         _, result_tensors = disassemble_tree(result)
         assert len(result_tensors) == 1, f"Linear function must return a single Tensor or tensor-like but got {result}"
         result_tensor = result_tensors[0]
-        assert isinstance(result_tensor, ShiftLinTracer), f"Tracing linear function '{self.f.__name__}' failed. Make sure only linear operations are used."
+        assert isinstance(result_tensor, ShiftLinTracer), f"Tracing linear function '{f_name(self.f)}' failed. Make sure only linear operations are used."
         return result_tensor
 
     def _get_or_trace(self, key: SignatureKey, prefer_numpy: bool):
@@ -279,7 +289,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
             if not key.tracing:
                 self.tracers[key] = tracer
                 if len(self.tracers) >= 4:
-                    warnings.warn(f"""Φ-lin: The compiled linear function '{self.f.__name__}' was traced {len(self.tracers)} times.
+                    warnings.warn(f"""Φ-lin: The compiled linear function '{f_name(self.f)}' was traced {len(self.tracers)} times.
 Performing many traces may be slow and cause memory leaks.
 Tensors in conditioning arguments (all except the first parameter unless specified otherwise) are compared by reference, not by tensor values.
 Auxiliary arguments: {key.auxiliary_kwargs}
@@ -295,7 +305,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         if not key.backend.supports(Backend.sparse_coo_tensor):
             # warnings.warn(f"Sparse matrices are not supported by {backend}. Falling back to regular jit compilation.", RuntimeWarning)
             if not all_available(*tensors):  # avoid nested tracing, Typical case jax.scipy.sparse.cg(LinearFunction). Nested traces cannot be reused which results in lots of traces per cg.
-                PHI_LOGGER.debug(f"Φ-lin: Running '{self.f.__name__}' as-is with {key.backend} because it is being traced.")
+                PHI_LOGGER.debug(f"Φ-lin: Running '{f_name(self.f)}' as-is with {key.backend} because it is being traced.")
                 return self.f(*args, **kwargs)
             else:
                 return self.nl_jit(*args, **kwargs)
@@ -319,12 +329,12 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
 
         def print_stencil(**indices):
             pos = spatial(**indices)
-            print(f"{self.f.__name__}: {pos} = {' + '.join(f'{val[indices]} * {vector_add(pos, offset)}' for offset, val in tracer.val.items() if (val[indices] != 0).all)}")
+            print(f"{f_name(self.f)}: {pos} = {' + '.join(f'{val[indices]} * {vector_add(pos, offset)}' for offset, val in tracer.val.items() if (val[indices] != 0).all)}")
 
         return print_stencil
 
     def __repr__(self):
-        return f"lin({self.f.__name__})"
+        return f"lin({f_name(self.f)})"
 
 
 def jit_compile_linear(f: Callable[[X], Y], auxiliary_args: str = None) -> 'LinearFunction[X, Y]':  # TODO add cache control method, e.g. max_traces
@@ -400,7 +410,7 @@ class GradientFunction:
 
     def _trace_grad(self, in_key: SignatureKey, wrt_natives):
         def f_native(*natives):
-            PHI_LOGGER.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
+            PHI_LOGGER.debug(f"Φ-grad: Evaluating gradient of {f_name(self.f)}")
             in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             kwargs = assemble_tree(in_key.tree, in_tensors)
             with functional_derivative_evaluation(order=1):
@@ -413,7 +423,7 @@ class GradientFunction:
                 loss_native = loss
                 loss_shape = in_key.backend.staticshape(loss_native)
                 assert len(
-                    loss_shape) == 0, f"Only scalar losses are allowed when returning a native tensor but {self.f.__name__} returned {type(loss_native).__name__} of shape {loss_shape}. For higher-dimensional values, use Φ-Tensors instead."
+                    loss_shape) == 0, f"Only scalar losses are allowed when returning a native tensor but {f_name(self.f)} returned {type(loss_native).__name__} of shape {loss_shape}. For higher-dimensional values, use Φ-Tensors instead."
             nest, out_tensors = disassemble_tree(result)
             result_natives, result_shapes, _ = disassemble_tensors(out_tensors, expand=True)
             self.recorded_mappings[in_key] = SignatureKey(f_native, nest, result_shapes, None, in_key.backend, in_key.tracing)
@@ -451,11 +461,11 @@ class GradientFunction:
             return grad_tuple if isinstance(self.wrt, tuple) else grad_tuple[0]
 
     def __repr__(self):
-        return f"grad({self.f.__name__})"
+        return f"grad({f_name(self.f)})"
 
     @property
     def __name__(self):
-        return self.f.__name__
+        return f_name(self.f)
 
     def _track_wrt(self, kwargs: dict):
         wrt_tensors = []
@@ -574,7 +584,7 @@ class HessianFunction:
 
     def _trace_hessian(self, in_key: SignatureKey, wrt_natives):
         def f_native(*natives):
-            PHI_LOGGER.debug(f"Φ-grad: Evaluating gradient of {self.f.__name__}")
+            PHI_LOGGER.debug(f"Φ-grad: Evaluating gradient of {f_name(self.f)}")
             in_tensors = assemble_tensors(natives, in_key.shapes, in_key.native_dims)
             kwargs = assemble_tree(in_key.tree, in_tensors)
             with functional_derivative_evaluation(order=2):
@@ -637,11 +647,11 @@ class HessianFunction:
         return shape._with_names([n + suffix for n in shape.names])
 
     def __repr__(self):
-        return f"grad({self.f.__name__})"
+        return f"grad({f_name(self.f)})"
 
     @property
     def __name__(self):
-        return self.f.__name__
+        return f_name(self.f)
 
     def _track_wrt(self, kwargs: dict):
         wrt_tensors = []
@@ -735,13 +745,13 @@ class CustomGradientFunction:
             dy = assemble_tree(out_key.tree, dy_tensors)
             result = self.gradient(kwargs, y, dy)
             assert isinstance(result, dict) and all(key in kwargs for key in
-                                                    result.keys()), f"gradient function must return a dict containing only parameter names of the forward function. Forward '{self.f.__name__}' has arguments {kwargs}."
+                                                    result.keys()), f"gradient function must return a dict containing only parameter names of the forward function. Forward '{f_name(self.f)}' has arguments {kwargs}."
             full_result = tuple(result.get(name, None) for name in in_key.tree.keys())
             result_natives = self.incomplete_tree_to_natives(full_result, tuple(in_key.tree.values()), list(in_key.shapes))
             return result_natives
 
-        forward_native.__name__ = f"forward '{self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)}'"
-        backward_native.__name__ = f"{self.gradient.__name__ if isinstance(self.gradient, types.FunctionType) else str(self.gradient)} (of '{self.f.__name__ if isinstance(self.f, types.FunctionType) else str(self.f)}')"
+        forward_native.__name__ = f"forward '{f_name(self.f) if isinstance(self.f, types.FunctionType) else str(self.f)}'"
+        backward_native.__name__ = f"{self.gradient.__name__ if isinstance(self.gradient, types.FunctionType) else str(self.gradient)} (of '{f_name(self.f) if isinstance(self.f, types.FunctionType) else str(self.f)}')"
 
         return in_key.backend.custom_gradient(forward_native, backward_native, get_external_cache=lambda: self.recorded_mappings[in_key], on_call_skipped=partial(self.recorded_mappings.__setitem__, in_key))
 
@@ -750,13 +760,13 @@ class CustomGradientFunction:
         if not key.backend.supports(Backend.jacobian) and not key.backend.supports(Backend.jacobian):
             return self.f(*args, **kwargs)  # no need to use custom gradient if gradients aren't supported anyway
         elif not key.backend.supports(Backend.custom_gradient):
-            warnings.warn(f"custom_gradient() not supported by {key.backend}. Running function '{self.f.__name__}' as-is.", RuntimeWarning)
+            warnings.warn(f"custom_gradient() not supported by {key.backend}. Running function '{f_name(self.f)}' as-is.", RuntimeWarning)
             return self.f(*args, **kwargs)
         if key not in self.traces:
             self.traces[key] = self._trace(key)
             if len(self.traces) >= 8:
                 warnings.warn(f"""{self.__name__} has been traced {len(self.traces)} times.
-To avoid memory leaks, call {self.f.__name__}.traces.clear(), {self.f.__name__}.recorded_mappings.clear().
+To avoid memory leaks, call {f_name(self.f)}.traces.clear(), {f_name(self.f)}.recorded_mappings.clear().
 Traces can be avoided by jit-compiling the code that calls custom gradient functions.
 """, RuntimeWarning, stacklevel=2)
         native_result = self.traces[key](*natives)  # With PyTorch + jit, this does not call forward_native every time
@@ -765,11 +775,11 @@ Traces can be avoided by jit-compiling the code that calls custom gradient funct
         return assemble_tree(output_key.tree, output_tensors)
 
     def __repr__(self):
-        return f"custom_gradient(forward={self.f.__name__}, backward={self.gradient.__name__}, id={id(self)})"
+        return f"custom_gradient(forward={f_name(self.f)}, backward={self.gradient.__name__}, id={id(self)})"
 
     @property
     def __name__(self):
-        return f"custom_grad({self.f.__name__})"
+        return f"custom_grad({f_name(self.f)})"
 
     @staticmethod
     def incomplete_tree_to_natives(incomplete, tree, complete_shapes: List[Shape]) -> list:

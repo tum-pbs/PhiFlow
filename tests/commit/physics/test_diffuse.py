@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math, field
 from phi.field import CenteredGrid, Noise, StaggeredGrid
-from phi.math import extrapolation, NotConverged, batch
+from phi.math import extrapolation, NotConverged, batch, spatial, wrap, vec
 from phi.physics import diffuse
 
 
@@ -73,3 +73,20 @@ class TestDiffusion(TestCase):
         except NotConverged as err:
             print(err)
             pass  # solve_linear did not converge
+
+    def test_explicit_centered_non_isotropic(self):
+        grid = CenteredGrid(wrap([[0, 0, 0], [0, 1, 0], [0, 0, 0]], spatial('x,y')), 0)
+        # Isotropic
+        result = diffuse.explicit(grid, 1, 1).values
+        math.assert_close(wrap([[0, 1, 0], [1, -3, 1], [0, 1, 0]], spatial('x,y')), result)
+        # Non-isotropic
+        diffusivity = vec(x=1, y=2)
+        result = diffuse.explicit(grid, diffusivity, 1).values
+        math.assert_close(wrap([[0, 1, 0], [2, -5, 2], [0, 1, 0]], spatial('x,y')), result)
+        # Non-isotropic field
+        diffusivity = CenteredGrid(1, x=4, y=4) * (1, 2)
+        result = diffuse.explicit(grid, diffusivity, 1).values
+        math.assert_close(wrap([[0, 1, 0], [2, -5, 2], [0, 1, 0]], spatial('x,y')), result)
+
+
+
