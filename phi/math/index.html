@@ -4448,9 +4448,12 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        assert not non_batch(
-            y_tensors[0]), f&#34;Failed to minimize &#39;{f.__name__}&#39; because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()&#34;
-        return y_tensors[0].sum, (reshaped_native(y_tensors[0], [batch_dims]),)
+        assert not non_batch(y_tensors[0]), f&#34;Failed to minimize &#39;{f.__name__}&#39; because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()&#34;
+        try:
+            loss_native = reshaped_native(y_tensors[0], [batch_dims])
+        except AssertionError:
+            raise AssertionError(f&#34;Failed to minimize &#39;{f.__name__}&#39; because its output loss {shape(y_tensors[0])} has more batch dimensions than the initial guess {batch_dims}.&#34;)
+        return y_tensors[0].sum, (loss_native,)
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
@@ -5277,13 +5280,14 @@ math.jacobian(f)(math.ones(x=6))
         `identity(value)` which when differentiated, prints the gradient vector.
     &#34;&#34;&#34;
 
-    def print_grad(_x, _y, dx):
-        if all_available(_x, dx):
+    def print_grad(params: dict, _y, dx):
+        param_name, x = next(iter(params.items()))
+        if all_available(x, dx):
             if detailed:
                 print_(dx, name=name)
             else:
                 print(f&#34;{name}:  \t{dx}&#34;)
-        return dx,
+        return {param_name: dx}
 
     identity = custom_gradient(lambda x: x, print_grad)
     return identity(value)</code></pre>
