@@ -1769,13 +1769,14 @@ def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
         `identity(value)` which when differentiated, prints the gradient vector.
     """
 
-    def print_grad(_x, _y, dx):
-        if all_available(_x, dx):
+    def print_grad(params: dict, _y, dx):
+        param_name, x = next(iter(params.items()))
+        if all_available(x, dx):
             if detailed:
                 print_(dx, name=name)
             else:
                 print(f"{name}:  \t{dx}")
-        return dx,
+        return {param_name: dx}
 
     identity = custom_gradient(lambda x: x, print_grad)
     return identity(value)
