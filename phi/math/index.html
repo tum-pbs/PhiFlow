@@ -5287,6 +5287,8 @@ math.jacobian(f)(math.ones(x=6))
                 print_(dx, name=name)
             else:
                 print(f&#34;{name}:  \t{dx}&#34;)
+        else:
+            print(f&#34;Cannot print gradient for {param_name}, data not available.&#34;)
         return {param_name: dx}
 
     identity = custom_gradient(lambda x: x, print_grad)
