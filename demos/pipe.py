@@ -4,8 +4,7 @@ Simulates a viscous fluid flowing through a horizontal pipe.
 from phi.flow import *
 
 DT = 1.
-INFLOW_BC = extrapolation.combine_by_direction(normal=1, tangential=0)
-velocity = StaggeredGrid(0, extrapolation.combine_sides(x=(INFLOW_BC, extrapolation.BOUNDARY), y=0), x=50, y=32)
+velocity = StaggeredGrid(0, extrapolation.combine_sides(x=(vec(x=1, y=0), extrapolation.BOUNDARY), y=0), x=50, y=32)
 pressure = None
 
 for _ in view('velocity, pressure', namespace=globals()).range():

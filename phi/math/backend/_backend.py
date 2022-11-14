@@ -134,7 +134,7 @@ class Backend:
     def combine_types(self, *dtypes: DType) -> DType:
         return combine_types(*dtypes, fp_precision=self.precision)
 
-    def auto_cast(self, *tensors, bool_to_int=False) -> list:
+    def auto_cast(self, *tensors, bool_to_int=False, int_to_float=False) -> list:
         """
         Determins the appropriate values type resulting from operations involving the tensors as input.
         
@@ -152,6 +152,8 @@ class Backend:
         result_type = self.combine_types(*dtypes)
         if result_type.kind == bool and bool_to_int:
             result_type = DType(int, 32)
+        if result_type.kind == int and int_to_float:
+            result_type = DType(float, self.precision)
         if result_type.kind in (int, float, complex, bool):  # do not cast everything to string!
             tensors = [self.cast(t, result_type) for t in tensors]
         return tensors
