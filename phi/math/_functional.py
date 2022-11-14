@@ -1776,6 +1776,8 @@ def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
                 print_(dx, name=name)
             else:
                 print(f"{name}:  \t{dx}")
+        else:
+            print(f"Cannot print gradient for {param_name}, data not available.")
         return {param_name: dx}
 
     identity = custom_gradient(lambda x: x, print_grad)
