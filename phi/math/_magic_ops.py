@@ -406,7 +406,7 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
 
 
 
-def flatten(value, flat_dim: Shape = instance('flat'), **kwargs):
+def flatten(value, flat_dim: Shape = instance('flat'), flatten_batch=False, **kwargs):
     """
     Returns a `Tensor` with the same values as `value` but only a single dimension `flat_dim`.
     The order of the values in memory is not changed.
@@ -414,6 +414,8 @@ def flatten(value, flat_dim: Shape = instance('flat'), **kwargs):
     Args:
         value: `phi.math.magic.Shapable`, such as `Tensor`.
         flat_dim: Dimension name and type as `Shape` object. The size is ignored.
+        flatten_batch: Whether to flatten batch dimensions as well.
+            If `False`, batch dimensions are kept, only onn-batch dimensions are flattened.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -434,7 +436,7 @@ def flatten(value, flat_dim: Shape = instance('flat'), **kwargs):
         if result is not NotImplemented:
             return result
     # Fallback: pack_dims
-    return pack_dims(value, shape(value), flat_dim, **kwargs)
+    return pack_dims(value, shape(value) if flatten_batch else non_batch(value), flat_dim, **kwargs)
 
 
 # PhiTreeNode
