@@ -586,7 +586,7 @@ The output of math operations has the same precision as its inputs.</p>
     def combine_types(self, *dtypes: DType) -&gt; DType:
         return combine_types(*dtypes, fp_precision=self.precision)
 
-    def auto_cast(self, *tensors, bool_to_int=False) -&gt; list:
+    def auto_cast(self, *tensors, bool_to_int=False, int_to_float=False) -&gt; list:
         &#34;&#34;&#34;
         Determins the appropriate values type resulting from operations involving the tensors as input.
         
@@ -604,6 +604,8 @@ The output of math operations has the same precision as its inputs.</p>
         result_type = self.combine_types(*dtypes)
         if result_type.kind == bool and bool_to_int:
             result_type = DType(int, 32)
+        if result_type.kind == int and int_to_float:
+            result_type = DType(float, self.precision)
         if result_type.kind in (int, float, complex, bool):  # do not cast everything to string!
             tensors = [self.cast(t, result_type) for t in tensors]
         return tensors
@@ -1989,7 +1991,7 @@ If x is a Python number (numbers.Number instance), <code>convert_numbers</code> 
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.auto_cast"><code class="name flex">
-<span>def <span class="ident">auto_cast</span></span>(<span>self, *tensors, bool_to_int=False) ‑> list</span>
+<span>def <span class="ident">auto_cast</span></span>(<span>self, *tensors, bool_to_int=False, int_to_float=False) ‑> list</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Determins the appropriate values type resulting from operations involving the tensors as input.</p>
@@ -2008,7 +2010,7 @@ Backends can override this method to prevent unnecessary casting.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def auto_cast(self, *tensors, bool_to_int=False) -&gt; list:
+<pre><code class="python">def auto_cast(self, *tensors, bool_to_int=False, int_to_float=False) -&gt; list:
     &#34;&#34;&#34;
     Determins the appropriate values type resulting from operations involving the tensors as input.
     
@@ -2026,6 +2028,8 @@ Backends can override this method to prevent unnecessary casting.</p>
     result_type = self.combine_types(*dtypes)
     if result_type.kind == bool and bool_to_int:
         result_type = DType(int, 32)
+    if result_type.kind == int and int_to_float:
+        result_type = DType(float, self.precision)
     if result_type.kind in (int, float, complex, bool):  # do not cast everything to string!
         tensors = [self.cast(t, result_type) for t in tensors]
     return tensors</code></pre>

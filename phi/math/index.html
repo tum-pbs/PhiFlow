@@ -1654,10 +1654,11 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
         result_native = backend.tensordot(x_native, x.shape.indices(x_dims), y_native, y.shape.indices(y_dims))
         result_shape = concat_shapes(remaining_shape_x, remaining_shape_y)
     else:  # shared batch dimensions -&gt; einsum
+        result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))
         REDUCE_LETTERS = list(&#39;ijklmn&#39;)
         KEEP_LETTERS = list(&#39;abcdefgh&#39;)
         x_letters = [(REDUCE_LETTERS if dim in x_dims else KEEP_LETTERS).pop(0) for dim in x.shape.names]
-        x_letter_map = {dim: letter for dim, letter in zip(x.shape.names, x_letters)}
+        letter_map = {dim: letter for dim, letter in zip(x.shape.names, x_letters)}
         REDUCE_LETTERS = list(&#39;ijklmn&#39;)
         y_letters = []
         for dim in y.shape.names:
@@ -1665,13 +1666,14 @@ Contracts <code>x_dims</code> with <code>y_dims</code> by first multiplying the 
                 y_letters.append(REDUCE_LETTERS.pop(0))
             else:
                 if dim in x.shape and dim not in x_dims:
-                    y_letters.append(x_letter_map[dim])
+                    y_letters.append(letter_map[dim])
                 else:
-                    y_letters.append(KEEP_LETTERS.pop(0))
-        keep_letters = list(&#39;abcdefgh&#39;)[:-len(KEEP_LETTERS)]
+                    next_letter = KEEP_LETTERS.pop(0)
+                    letter_map[dim] = next_letter
+                    y_letters.append(next_letter)
+        keep_letters = [letter_map[dim] for dim in result_shape.names]
         subscripts = f&#39;{&#34;&#34;.join(x_letters)},{&#34;&#34;.join(y_letters)}-&gt;{&#34;&#34;.join(keep_letters)}&#39;
         result_native = backend.einsum(subscripts, x_native, y_native)
-        result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))  # don&#39;t check group match  ToDo the order might be incorrect here
     return NativeTensor(result_native, result_shape)</code></pre>
 </details>
 </dd>
@@ -2247,7 +2249,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 </details>
 </dd>
 <dt id="phi.math.flatten"><code class="name flex">
-<span>def <span class="ident">flatten</span></span>(<span>value, flat_dim: phi.math._shape.Shape = (flatⁱ=None), **kwargs)</span>
+<span>def <span class="ident">flatten</span></span>(<span>value, flat_dim: phi.math._shape.Shape = (flatⁱ=None), flatten_batch=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with the same values as <code>value</code> but only a single dimension <code>flat_dim</code>.
@@ -2258,6 +2260,9 @@ The order of the values in memory is not changed.</p>
 <dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
 <dt><strong><code>flat_dim</code></strong></dt>
 <dd>Dimension name and type as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object. The size is ignored.</dd>
+<dt><strong><code>flatten_batch</code></strong></dt>
+<dd>Whether to flatten batch dimensions as well.
+If <code>False</code>, batch dimensions are kept, only onn-batch dimensions are flattened.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
 Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
@@ -2273,7 +2278,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def flatten(value, flat_dim: Shape = instance(&#39;flat&#39;), **kwargs):
+<pre><code class="python">def flatten(value, flat_dim: Shape = instance(&#39;flat&#39;), flatten_batch=False, **kwargs):
     &#34;&#34;&#34;
     Returns a `Tensor` with the same values as `value` but only a single dimension `flat_dim`.
     The order of the values in memory is not changed.
@@ -2281,6 +2286,8 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     Args:
         value: `phi.math.magic.Shapable`, such as `Tensor`.
         flat_dim: Dimension name and type as `Shape` object. The size is ignored.
+        flatten_batch: Whether to flatten batch dimensions as well.
+            If `False`, batch dimensions are kept, only onn-batch dimensions are flattened.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -2301,7 +2308,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         if result is not NotImplemented:
             return result
     # Fallback: pack_dims
-    return pack_dims(value, shape(value), flat_dim, **kwargs)</code></pre>
+    return pack_dims(value, shape(value) if flatten_batch else non_batch(value), flat_dim, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.floor"><code class="name flex">
