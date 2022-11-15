@@ -1407,10 +1407,11 @@ def dot(x: Tensor,
         result_native = backend.tensordot(x_native, x.shape.indices(x_dims), y_native, y.shape.indices(y_dims))
         result_shape = concat_shapes(remaining_shape_x, remaining_shape_y)
     else:  # shared batch dimensions -> einsum
+        result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))
         REDUCE_LETTERS = list('ijklmn')
         KEEP_LETTERS = list('abcdefgh')
         x_letters = [(REDUCE_LETTERS if dim in x_dims else KEEP_LETTERS).pop(0) for dim in x.shape.names]
-        x_letter_map = {dim: letter for dim, letter in zip(x.shape.names, x_letters)}
+        letter_map = {dim: letter for dim, letter in zip(x.shape.names, x_letters)}
         REDUCE_LETTERS = list('ijklmn')
         y_letters = []
         for dim in y.shape.names:
@@ -1418,13 +1419,14 @@ def dot(x: Tensor,
                 y_letters.append(REDUCE_LETTERS.pop(0))
             else:
                 if dim in x.shape and dim not in x_dims:
-                    y_letters.append(x_letter_map[dim])
+                    y_letters.append(letter_map[dim])
                 else:
-                    y_letters.append(KEEP_LETTERS.pop(0))
-        keep_letters = list('abcdefgh')[:-len(KEEP_LETTERS)]
+                    next_letter = KEEP_LETTERS.pop(0)
+                    letter_map[dim] = next_letter
+                    y_letters.append(next_letter)
+        keep_letters = [letter_map[dim] for dim in result_shape.names]
         subscripts = f'{"".join(x_letters)},{"".join(y_letters)}->{"".join(keep_letters)}'
         result_native = backend.einsum(subscripts, x_native, y_native)
-        result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))  # don't check group match  ToDo the order might be incorrect here
     return NativeTensor(result_native, result_shape)
 
 
