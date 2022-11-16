@@ -101,6 +101,9 @@ def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2), weights: 
         assert channel(weights).rank == 1 and channel(weights).item_names is not None, f"weights must have one channel dimension listing the laplace dims but got {shape(weights)}"
         assert set(channel(weights).item_names[0]) >= set(axes_names), f"the channel dim of weights must contain all laplace dims {axes_names} but only has {channel(weights).item_names}"
         result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
+    else:
+        weights = 1
+
     result = sum(result_components * weights)
     result = result.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
 
@@ -210,7 +213,6 @@ def _ex_map_f(ext_dict: dict):
 
 @partial(jit_compile_linear, auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")
 def _lhs_for_implicit_scheme(x, values_rhs, needed_shifts_rhs, stack_dim, staggered_output=False):
-    from phi.math._nd import shift
     result = []
     for dim, component in zip(x.shape.only(math.spatial).names, unstack(x, stack_dim.name)):
         shifted = shift(component, needed_shifts_rhs, stack_dim=None, dims=dim)
