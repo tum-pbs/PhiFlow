@@ -758,7 +758,7 @@ class Shape:
         if isinstance(obj, (tuple, list)):
             return len(obj), tuple(obj)
         elif isinstance(obj, Number):
-            return obj, prev_item_names if keep_item_names and obj == prev_size else None
+            return obj, prev_item_names if keep_item_names and (obj == prev_size or prev_size is None) else None
         elif isinstance(obj, math.Tensor) or obj is None:
             return obj, None
         else:
