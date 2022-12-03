@@ -248,7 +248,7 @@ def expand(value, dims: Shape, **kwargs):
     # Fallback: stack
     if hasattr(value, '__stack__'):
         if dims.volume > 8:
-            warnings.warn(f"expand() default implementation is slow on large shapes {dims}. Please implement __expand__()", RuntimeWarning, stacklevel=2)
+            warnings.warn(f"expand() default implementation is slow on large shapes {dims}. Please implement __expand__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
         for dim in reversed(dims):
             value = stack((value,) * dim.size, dim, **kwargs)
             assert value is not NotImplemented, "Value must implement either __expand__ or __stack__"
@@ -295,7 +295,7 @@ def rename_dims(value,
             return result
     # Fallback: unstack and stack
     if shape(value).only(dims).volume > 8:
-        warnings.warn(f"rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__()", RuntimeWarning, stacklevel=2)
+        warnings.warn(f"rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     for old_name, new_dim in zip(dims.names, names):
         value = stack(unstack(value, old_name), new_dim, **kwargs)
     return value
@@ -352,7 +352,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
             return result
     # Fallback: unstack and stack
     if shape(value).only(dims).volume > 8:
-        warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__()", RuntimeWarning, stacklevel=2)
+        warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     return stack(unstack(value, dims), packed_dim, **kwargs)
 
 
@@ -398,7 +398,7 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
             return result
     # Fallback: unstack and stack
     if shape(value).only(dim).volume > 8:
-        warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__()", RuntimeWarning, stacklevel=2)
+        warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     unstacked = unstack(value, dim)
     for dim in reversed(unpacked_dims):
         unstacked = [stack(unstacked[i:i+dim.size], dim, **kwargs) for i in range(0, len(unstacked), dim.size)]

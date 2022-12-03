@@ -1148,11 +1148,11 @@ class NativeTensor(Tensor):
 
     def _op2(self, other, operator, native_function, op_name: str = 'unknown', op_symbol: str = '?'):
         try:
-            other = self._tensor(other)
+            other_tensor = self._tensor(other)
         except NoBackendFound:
             return NotImplemented
-        if isinstance(other, NativeTensor):
-            return op2_native(self, other, native_function)
+        if isinstance(other_tensor, NativeTensor) or (isinstance(other_tensor, Tensor) and not isinstance(other, Tensor)):
+            return op2_native(self, other_tensor, native_function)
         else:
             return NotImplemented
 
