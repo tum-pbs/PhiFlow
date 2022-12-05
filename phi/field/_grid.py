@@ -1,4 +1,4 @@
-from typing import TypeVar, Any
+from typing import TypeVar, Any, Tuple
 
 from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
@@ -69,6 +69,16 @@ class Grid(SampledField):
 
     def __variable_attrs__(self):
         return '_values',
+
+    def __expand__(self, dims: Shape, **kwargs) -> 'Grid':
+        return self.with_values(math.expand(self.values, dims, **kwargs))
+
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Grid':
+        for dim in dims:
+            assert dim not in self.resolution
+        values = math.rename_dims(self.values, dims, new_dims)
+        return self.with_values(values)
+
 
     def __eq__(self, other):
         if not type(self) == type(other):
@@ -487,10 +497,10 @@ def expand_staggered(values: Tensor, resolution: Shape, extrapolation: Extrapola
 
 def resolution_from_staggered_tensor(values: Tensor, extrapolation: Extrapolation):
     any_dim = values.shape.spatial.names[0]
-    x = values.vector[any_dim]
+    x_shape = values.shape.after_gather({'vector': any_dim})
     ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
     delta = int(ext_lower) + int(ext_upper) - 1
-    resolution = x.shape.spatial._replace_single_size(any_dim, x.shape.get_size(any_dim) - delta)
+    resolution = x_shape.spatial._replace_single_size(any_dim, x_shape.get_size(any_dim) - delta)
     return resolution
 
 
