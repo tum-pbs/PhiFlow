@@ -16063,7 +16063,7 @@ We noticed the loss landscape is highly dependent on the number of simulation st
   elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
 /opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/field/_field_math.py:407: RuntimeWarning: concat() default implementation is slow on large dimensions (balls=11). Please implement __concat__()
   colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
-/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_magic_ops.py:101: RuntimeWarning: expand() default implementation is slow on large shapes (alphaᵇ=1000). Please implement __expand__()
+/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_magic_ops.py:101: RuntimeWarning: expand() default implementation is slow on large shapes (alphaᵇ=1000). Please implement __expand__() for Sphere as defined in phi.math.magic
   values = [expand(v, all_batch_dims) for v in values]
 </pre>
 </div>
@@ -16180,7 +16180,7 @@ Final loss: <span class="ansi-blue-intense-fg">0.6168283</span>
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_magic_ops.py:101: RuntimeWarning: expand() default implementation is slow on large shapes (tᵇ=65). Please implement __expand__()
+<pre>/opt/hostedtoolcache/Python/3.8.14/x64/lib/python3.8/site-packages/phi/math/_magic_ops.py:101: RuntimeWarning: expand() default implementation is slow on large shapes (tᵇ=65). Please implement __expand__() for Box as defined in phi.math.magic
   values = [expand(v, all_batch_dims) for v in values]
 </pre>
 </div>

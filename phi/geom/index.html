@@ -383,7 +383,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # Fallback: unstack and stack
     if shape(value).only(dims).volume &gt; 8:
-        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__()&#34;, RuntimeWarning, stacklevel=2)
+        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phi.math.magic&#34;, RuntimeWarning, stacklevel=2)
     return stack(unstack(value, dims), packed_dim, **kwargs)</code></pre>
 </details>
 </dd>

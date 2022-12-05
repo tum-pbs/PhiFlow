@@ -1842,7 +1842,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     # Fallback: stack
     if hasattr(value, &#39;__stack__&#39;):
         if dims.volume &gt; 8:
-            warnings.warn(f&#34;expand() default implementation is slow on large shapes {dims}. Please implement __expand__()&#34;, RuntimeWarning, stacklevel=2)
+            warnings.warn(f&#34;expand() default implementation is slow on large shapes {dims}. Please implement __expand__() for {type(value).__name__} as defined in phi.math.magic&#34;, RuntimeWarning, stacklevel=2)
         for dim in reversed(dims):
             value = stack((value,) * dim.size, dim, **kwargs)
             assert value is not NotImplemented, &#34;Value must implement either __expand__ or __stack__&#34;
@@ -5081,7 +5081,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # Fallback: unstack and stack
     if shape(value).only(dims).volume &gt; 8:
-        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__()&#34;, RuntimeWarning, stacklevel=2)
+        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phi.math.magic&#34;, RuntimeWarning, stacklevel=2)
     return stack(unstack(value, dims), packed_dim, **kwargs)</code></pre>
 </details>
 </dd>
@@ -5715,7 +5715,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # Fallback: unstack and stack
     if shape(value).only(dims).volume &gt; 8:
-        warnings.warn(f&#34;rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__()&#34;, RuntimeWarning, stacklevel=2)
+        warnings.warn(f&#34;rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__() for {type(value).__name__} as defined in phi.math.magic&#34;, RuntimeWarning, stacklevel=2)
     for old_name, new_dim in zip(dims.names, names):
         value = stack(unstack(value, old_name), new_dim, **kwargs)
     return value</code></pre>
@@ -7536,7 +7536,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # Fallback: unstack and stack
     if shape(value).only(dim).volume &gt; 8:
-        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__()&#34;, RuntimeWarning, stacklevel=2)
+        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__() for {type(value).__name__} as defined in phi.math.magic&#34;, RuntimeWarning, stacklevel=2)
     unstacked = unstack(value, dim)
     for dim in reversed(unpacked_dims):
         unstacked = [stack(unstacked[i:i+dim.size], dim, **kwargs) for i in range(0, len(unstacked), dim.size)]
@@ -7615,7 +7615,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # Fallback: unstack and stack
     if shape(value).only(dim).volume &gt; 8:
-        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__()&#34;, RuntimeWarning, stacklevel=2)
+        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__() for {type(value).__name__} as defined in phi.math.magic&#34;, RuntimeWarning, stacklevel=2)
     unstacked = unstack(value, dim)
     for dim in reversed(unpacked_dims):
         unstacked = [stack(unstacked[i:i+dim.size], dim, **kwargs) for i in range(0, len(unstacked), dim.size)]
