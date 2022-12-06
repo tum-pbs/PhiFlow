@@ -5706,7 +5706,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     &#34;&#34;&#34;
     if isinstance(value, Shape):
         return value._replace_names_and_types(dims, names)
-    assert isinstance(value, Shapable) and isinstance(value, Shaped), &#34;value must be a Shape or Shapable.&#34;
+    assert isinstance(value, Shapable) and isinstance(value, Shaped), f&#34;value must be a Shape or Shapable but got {type(value).__name__}&#34;
     dims = shape(value).only(dims)
     names = dims._replace_names_and_types(dims, names)
     if hasattr(value, &#39;__replace_dims__&#39;):
@@ -11591,7 +11591,8 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return choose_backend(native).numpy(native)
 
     def __array__(self, dtype=None):  # NumPy conversion
-        warnings.warn(&#34;Automatic conversion of Φ-Flow tensors to NumPy can cause problems because the dimension order is not guaranteed.&#34;, SyntaxWarning, stacklevel=3)
+        if self.rank &gt; 1:
+            warnings.warn(&#34;Automatic conversion of Φ-Flow tensors to NumPy can cause problems because the dimension order is not guaranteed.&#34;, SyntaxWarning, stacklevel=3)
         return self.numpy(self._shape)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):  # NumPy interface
@@ -12169,8 +12170,9 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         elif self.rank == 0:
             return iter([self.native()])
         else:
-            from ._magic_ops import flatten
-            return iter(flatten(self))
+            from ._ops import reshaped_native
+            native = reshaped_native(self, [self.shape])
+            return iter(native)
 
     def _tensor(self, other):
         if isinstance(other, Tensor):

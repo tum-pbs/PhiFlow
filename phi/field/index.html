@@ -3693,6 +3693,19 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
     def __variable_attrs__(self):
         return &#39;_values&#39;,
 
+    def __expand__(self, dims: Shape, **kwargs) -&gt; &#39;Grid&#39;:
+        return self.with_values(math.expand(self.values, dims, **kwargs))
+
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;Grid&#39;:
+        for dim in dims:
+            if dim in self._resolution:
+                return NotImplemented
+        values = math.rename_dims(self.values, dims, new_dims)
+        extrapolation = math.rename_dims(self.extrapolation, dims, new_dims, **kwargs)
+        bounds = math.rename_dims(self.bounds, dims, new_dims, **kwargs)
+        return type(self)(values, extrapolation=extrapolation, bounds=bounds, resolution=self._resolution)
+
+
     def __eq__(self, other):
         if not type(self) == type(other):
             return False
