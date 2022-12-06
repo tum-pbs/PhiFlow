@@ -85,7 +85,8 @@ class Tensor:
         return choose_backend(native).numpy(native)
 
     def __array__(self, dtype=None):  # NumPy conversion
-        warnings.warn("Automatic conversion of Φ-Flow tensors to NumPy can cause problems because the dimension order is not guaranteed.", SyntaxWarning, stacklevel=3)
+        if self.rank > 1:
+            warnings.warn("Automatic conversion of Φ-Flow tensors to NumPy can cause problems because the dimension order is not guaranteed.", SyntaxWarning, stacklevel=3)
         return self.numpy(self._shape)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):  # NumPy interface
