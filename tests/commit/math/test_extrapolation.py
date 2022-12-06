@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 import phi
-from phi.math import NUMPY, spatial, batch, extrapolation
+from phi.math import NUMPY, spatial, batch, extrapolation, shape
 from phi.math.extrapolation import *
 from phi import math
 
@@ -207,3 +207,14 @@ class TestExtrapolation(TestCase):
         ext = combine_sides(x=(INFLOW_LEFT, BOUNDARY), y=0)
         self.assertEqual(combine_sides(x=(1, BOUNDARY), y=0), ext[{'vector': 'x'}])
         self.assertEqual(combine_sides(x=(0, BOUNDARY), y=0), ext[{'vector': 'y'}])
+
+    def test_shapes(self):
+        self.assertEqual(EMPTY_SHAPE, ONE.shape)
+        self.assertEqual(EMPTY_SHAPE, PERIODIC.shape)
+        self.assertEqual(EMPTY_SHAPE, BOUNDARY.shape)
+        self.assertEqual(EMPTY_SHAPE, SYMMETRIC.shape)
+        self.assertEqual(EMPTY_SHAPE, REFLECT.shape)
+        v = math.vec(x=1, y=0)
+        self.assertEqual(v.shape, shape(ZERO + v))
+        self.assertEqual(v.shape, shape(combine_sides(x=v, y=0)))
+        self.assertEqual(v.shape, shape(combine_by_direction(normal=v, tangential=0)))

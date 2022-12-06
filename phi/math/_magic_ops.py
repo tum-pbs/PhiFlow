@@ -286,7 +286,7 @@ def rename_dims(value,
     """
     if isinstance(value, Shape):
         return value._replace_names_and_types(dims, names)
-    assert isinstance(value, Shapable) and isinstance(value, Shaped), "value must be a Shape or Shapable."
+    assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be a Shape or Shapable but got {type(value).__name__}"
     dims = shape(value).only(dims)
     names = dims._replace_names_and_types(dims, names)
     if hasattr(value, '__replace_dims__'):

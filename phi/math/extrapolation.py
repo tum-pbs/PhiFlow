@@ -10,7 +10,7 @@ from typing import Union, Dict, Callable, Tuple
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
-from ._shape import Shape, channel, spatial
+from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes
 from ._magic_ops import concat, stack
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
@@ -196,6 +196,10 @@ class ConstantExtrapolation(Extrapolation):
         self.value = wrap(value)
         """ Extrapolation value """
 
+    @property
+    def shape(self):
+        return self.value.shape
+
     def __repr__(self):
         return repr(self.value)
 
@@ -363,6 +367,10 @@ class ConstantExtrapolation(Extrapolation):
 
 
 class _CopyExtrapolation(Extrapolation):
+
+    @property
+    def shape(self):
+        return EMPTY_SHAPE
 
     def is_copy_pad(self, dim: str, upper_edge: bool):
         return True
@@ -625,6 +633,11 @@ class _ReflectExtrapolation(_CopyExtrapolation):
 
 
 class _NoExtrapolation(Extrapolation):  # singleton
+
+    @property
+    def shape(self):
+        return EMPTY_SHAPE
+
     def to_dict(self) -> dict:
         return {'type': 'none'}
 
@@ -690,6 +703,10 @@ class Undefined(Extrapolation):
     def __init__(self, derived_from: Extrapolation):
         super().__init__(-1)
         self.derived_from = derived_from
+
+    @property
+    def shape(self):
+        return EMPTY_SHAPE
 
     def to_dict(self) -> dict:
         return {'type': 'undefined', 'derived_from': self.derived_from.to_dict()}
@@ -805,6 +822,10 @@ class _MixedExtrapolation(Extrapolation):
         """
         super().__init__(pad_rank=None)
         self.ext = extrapolations
+
+    @property
+    def shape(self):
+        return merge_shapes(*sum(self.ext.values(), ()))
 
     def to_dict(self) -> dict:
         return {
@@ -944,6 +965,10 @@ class _NormalTangentialExtrapolation(Extrapolation):
         super().__init__(pad_rank=min(normal.pad_rank, tangential.pad_rank))
         self.normal = normal
         self.tangential = tangential
+
+    @property
+    def shape(self):
+        return merge_shapes(self.normal, self.tangential)
 
     def to_dict(self) -> dict:
         return {

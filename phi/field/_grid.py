@@ -75,9 +75,12 @@ class Grid(SampledField):
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Grid':
         for dim in dims:
-            assert dim not in self.resolution
+            if dim in self._resolution:
+                return NotImplemented
         values = math.rename_dims(self.values, dims, new_dims)
-        return self.with_values(values)
+        extrapolation = math.rename_dims(self.extrapolation, dims, new_dims, **kwargs)
+        bounds = math.rename_dims(self.bounds, dims, new_dims, **kwargs)
+        return type(self)(values, extrapolation=extrapolation, bounds=bounds, resolution=self._resolution)
 
 
     def __eq__(self, other):
