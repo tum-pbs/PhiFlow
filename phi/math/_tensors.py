@@ -664,8 +664,9 @@ class Tensor:
         elif self.rank == 0:
             return iter([self.native()])
         else:
-            from ._magic_ops import flatten
-            return iter(flatten(self))
+            from ._ops import reshaped_native
+            native = reshaped_native(self, [self.shape])
+            return iter(native)
 
     def _tensor(self, other):
         if isinstance(other, Tensor):
