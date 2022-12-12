@@ -199,7 +199,7 @@ class Scene:
             id = math.wrap(id)
             paths = math.map(lambda d, i: join(d, f"sim_{i:06d}"), directory, id)
         # test all exist
-        for path in math.flatten(paths):
+        for path in math.flatten(paths, flatten_batch=True):
             if not isdir(path):
                 raise IOError(f"There is no scene at '{path}'")
         return Scene(paths)
@@ -266,7 +266,7 @@ class Scene:
         if self._properties is not None:
             return True  # must have been written or read
         else:
-            json_file = join(next(iter(math.flatten(self._paths))), "description.json")
+            json_file = join(next(iter(math.flatten(self._paths, flatten_batch=True))), "description.json")
             return isfile(json_file)
 
     def exists_config(self):
@@ -454,7 +454,7 @@ class Scene:
                 text = "\n\n".join(blocks)
                 self.copy_src_text('ipython.py', text)
         if include_context_information:
-            for path in math.flatten(self._paths):
+            for path in math.flatten(self._paths, flatten_batch=True):
                 with open(join(path, 'src', 'context.json'), 'w') as context_file:
                     json.dump({
                         'phi_version': phi_version,
@@ -462,23 +462,23 @@ class Scene:
                     }, context_file)
 
     def copy_src(self, script_path, only_external=True):
-        for path in math.flatten(self._paths):
+        for path in math.flatten(self._paths, flatten_batch=True):
             if not only_external or not _is_phi_file(script_path):
                 shutil.copy(script_path, join(path, 'src', basename(script_path)))
 
     def copy_src_text(self, filename, text):
-        for path in math.flatten(self._paths):
+        for path in math.flatten(self._paths, flatten_batch=True):
             target = join(path, 'src', filename)
             with open(target, "w") as file:
                 file.writelines(text)
 
     def mkdir(self):
-        for path in math.flatten(self._paths):
+        for path in math.flatten(self._paths, flatten_batch=True):
             isdir(path) or os.mkdir(path)
 
     def remove(self):
         """ Deletes the scene directory and all contained files. """
-        for p in math.flatten(self._paths):
+        for p in math.flatten(self._paths, flatten_batch=True):
             p = abspath(p)
             if isdir(p):
                 shutil.rmtree(p)

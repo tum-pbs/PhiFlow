@@ -380,7 +380,7 @@ def map_(function, *values, **kwargs) -> Tensor or None:
     values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
     values_reshaped = [expand(v, shape) for v in values]
-    flat = [flatten(v) for v in values_reshaped]
+    flat = [flatten(v, flatten_batch=True) for v in values_reshaped]
     result = []
     for items in zip(*flat):
         result.append(function(*items, **kwargs))

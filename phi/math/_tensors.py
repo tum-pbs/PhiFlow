@@ -1018,7 +1018,7 @@ class Layout(Tensor):
                 result = native_function(choose_backend(self._as_list()), self._obj, 0)
             return wrap(result)
         if not self._shape.without(dims):
-            return self.__flatten__(batch('_flat'))._tensor_reduce(('_flat',), dtype, native_function, collapsed_function, unaffected_function)
+            return self.__flatten__(batch('_flat'), flatten_batch=True)._tensor_reduce(('_flat',), dtype, native_function, collapsed_function, unaffected_function)
         else:
             raise NotImplementedError(f"Partial Layout reduction not yet supported. Shape={self._shape}, reduce={dims}")
         # # --- inner reduce ---
