@@ -387,7 +387,9 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     if isinstance(dim, Shape):
         dim = dim.name
-    assert isinstance(dim, str), f"dim must be a str but got {type(dim)}"
+    assert isinstance(dim, str), f"dim must be a str or Shape but got {type(dim)}"
+    if dim not in shape(value):
+        return value  # Nothing to do, maybe expand?
     if unpacked_dims.rank == 0:
         return value[{dim: 0}]  # remove dim
     elif unpacked_dims.rank == 1:
@@ -403,7 +405,6 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
     for dim in reversed(unpacked_dims):
         unstacked = [stack(unstacked[i:i+dim.size], dim, **kwargs) for i in range(0, len(unstacked), dim.size)]
     return unstacked[0]
-
 
 
 def flatten(value, flat_dim: Shape = instance('flat'), flatten_batch=False, **kwargs):
@@ -432,7 +433,7 @@ def flatten(value, flat_dim: Shape = instance('flat'), flatten_batch=False, **kw
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     if hasattr(value, '__flatten__'):
-        result = value.__flatten__(flat_dim, **kwargs)
+        result = value.__flatten__(flat_dim, flatten_batch, **kwargs)
         if result is not NotImplemented:
             return result
     # Fallback: pack_dims

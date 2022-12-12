@@ -923,7 +923,9 @@ class Layout(Tensor):
     def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Shapable':
         return NotImplemented
 
-    def __flatten__(self, flat_dim: Shape):
+    def __flatten__(self, flat_dim: Shape, flatten_batch: bool):
+        if not flatten_batch and self._shape.batch:
+            raise NotImplementedError
         return layout(self._as_list(), flat_dim)
 
     def __expand__(self, dims: Shape, **kwargs) -> 'Tensor':
