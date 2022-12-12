@@ -313,13 +313,15 @@ class Shapable(metaclass=_ShapableType):
         &#34;&#34;&#34;
         raise NotImplementedError
 
-    def __flatten__(self, flat_dim: Shape, **kwargs):
+    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -&gt; &#39;Shapable&#39;:
         &#34;&#34;&#34;
         Lays out all elements along a single dimension.
         This is equivalent to packing all dimensions.
 
         Args:
             flat_dim: Single dimension as `Shape`.
+            flatten_batch: Whether to flatten batch dimensions as well.
+            If `False`, batch dimensions are kept, only onn-batch dimensions are flattened.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
                 Adding batch dimensions must always work without keyword arguments.
@@ -328,7 +330,6 @@ class Shapable(metaclass=_ShapableType):
             New instance of `Shapable` or `NotImplemented` to revert to default behavior for this object.
         &#34;&#34;&#34;
         raise NotImplementedError
-
 
 
 class _PhiTreeNodeType(type):
@@ -1528,13 +1529,15 @@ If this method is not implemented, tensor attributes are replaced using <code>se
         &#34;&#34;&#34;
         raise NotImplementedError
 
-    def __flatten__(self, flat_dim: Shape, **kwargs):
+    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -&gt; &#39;Shapable&#39;:
         &#34;&#34;&#34;
         Lays out all elements along a single dimension.
         This is equivalent to packing all dimensions.
 
         Args:
             flat_dim: Single dimension as `Shape`.
+            flatten_batch: Whether to flatten batch dimensions as well.
+            If `False`, batch dimensions are kept, only onn-batch dimensions are flattened.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
                 Adding batch dimensions must always work without keyword arguments.
@@ -1630,7 +1633,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.magic.Shapable.__flatten__"><code class="name flex">
-<span>def <span class="ident">__flatten__</span></span>(<span>self, flat_dim: phi.math._shape.Shape, **kwargs)</span>
+<span>def <span class="ident">__flatten__</span></span>(<span>self, flat_dim: phi.math._shape.Shape, flatten_batch: bool, **kwargs) ‑> <a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lays out all elements along a single dimension.
@@ -1639,6 +1642,9 @@ This is equivalent to packing all dimensions.</p>
 <dl>
 <dt><strong><code>flat_dim</code></strong></dt>
 <dd>Single dimension as <code>Shape</code>.</dd>
+<dt><strong><code>flatten_batch</code></strong></dt>
+<dd>Whether to flatten batch dimensions as well.</dd>
+<dt>If <code>False</code>, batch dimensions are kept, only onn-batch dimensions are flattened.</dt>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
 Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
@@ -1650,13 +1656,15 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def __flatten__(self, flat_dim: Shape, **kwargs):
+<pre><code class="python">def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -&gt; &#39;Shapable&#39;:
     &#34;&#34;&#34;
     Lays out all elements along a single dimension.
     This is equivalent to packing all dimensions.
 
     Args:
         flat_dim: Single dimension as `Shape`.
+        flatten_batch: Whether to flatten batch dimensions as well.
+        If `False`, batch dimensions are kept, only onn-batch dimensions are flattened.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.

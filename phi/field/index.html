@@ -4250,6 +4250,15 @@ When sampling this field on a grid, scatter functions may be used.</p>
     def __variable_attrs__(self):
         return &#39;_values&#39;, &#39;_elements&#39;
 
+    def __expand__(self, dims: Shape, **kwargs) -&gt; &#39;PointCloud&#39;:
+        return self.with_values(math.expand(self.values, dims, **kwargs))
+
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;PointCloud&#39;:
+        elements = math.rename_dims(self.elements, dims, new_dims)
+        values = math.rename_dims(self.values, dims, new_dims)
+        extrapolation = math.rename_dims(self.extrapolation, dims, new_dims, **kwargs)
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, self._color)
+
     def __eq__(self, other):
         if not type(self) == type(other):
             return False
@@ -5033,7 +5042,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             id = math.wrap(id)
             paths = math.map(lambda d, i: join(d, f&#34;sim_{i:06d}&#34;), directory, id)
         # test all exist
-        for path in math.flatten(paths):
+        for path in math.flatten(paths, flatten_batch=True):
             if not isdir(path):
                 raise IOError(f&#34;There is no scene at &#39;{path}&#39;&#34;)
         return Scene(paths)
@@ -5100,7 +5109,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         if self._properties is not None:
             return True  # must have been written or read
         else:
-            json_file = join(next(iter(math.flatten(self._paths))), &#34;description.json&#34;)
+            json_file = join(next(iter(math.flatten(self._paths, flatten_batch=True))), &#34;description.json&#34;)
             return isfile(json_file)
 
     def exists_config(self):
@@ -5288,7 +5297,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
                 text = &#34;\n\n&#34;.join(blocks)
                 self.copy_src_text(&#39;ipython.py&#39;, text)
         if include_context_information:
-            for path in math.flatten(self._paths):
+            for path in math.flatten(self._paths, flatten_batch=True):
                 with open(join(path, &#39;src&#39;, &#39;context.json&#39;), &#39;w&#39;) as context_file:
                     json.dump({
                         &#39;phi_version&#39;: phi_version,
@@ -5296,23 +5305,23 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
                     }, context_file)
 
     def copy_src(self, script_path, only_external=True):
-        for path in math.flatten(self._paths):
+        for path in math.flatten(self._paths, flatten_batch=True):
             if not only_external or not _is_phi_file(script_path):
                 shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))
 
     def copy_src_text(self, filename, text):
-        for path in math.flatten(self._paths):
+        for path in math.flatten(self._paths, flatten_batch=True):
             target = join(path, &#39;src&#39;, filename)
             with open(target, &#34;w&#34;) as file:
                 file.writelines(text)
 
     def mkdir(self):
-        for path in math.flatten(self._paths):
+        for path in math.flatten(self._paths, flatten_batch=True):
             isdir(path) or os.mkdir(path)
 
     def remove(self):
         &#34;&#34;&#34; Deletes the scene directory and all contained files. &#34;&#34;&#34;
-        for p in math.flatten(self._paths):
+        for p in math.flatten(self._paths, flatten_batch=True):
             p = abspath(p)
             if isdir(p):
                 shutil.rmtree(p)</code></pre>
@@ -5366,7 +5375,7 @@ def at(directory: str or tuple or list or math.Tensor or &#39;Scene&#39;, id: in
         id = math.wrap(id)
         paths = math.map(lambda d, i: join(d, f&#34;sim_{i:06d}&#34;), directory, id)
     # test all exist
-    for path in math.flatten(paths):
+    for path in math.flatten(paths, flatten_batch=True):
         if not isdir(path):
             raise IOError(f&#34;There is no scene at &#39;{path}&#39;&#34;)
     return Scene(paths)</code></pre>
@@ -5675,7 +5684,7 @@ def shape(self):
             text = &#34;\n\n&#34;.join(blocks)
             self.copy_src_text(&#39;ipython.py&#39;, text)
     if include_context_information:
-        for path in math.flatten(self._paths):
+        for path in math.flatten(self._paths, flatten_batch=True):
             with open(join(path, &#39;src&#39;, &#39;context.json&#39;), &#39;w&#39;) as context_file:
                 json.dump({
                     &#39;phi_version&#39;: phi_version,
@@ -5693,7 +5702,7 @@ def shape(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def copy_src(self, script_path, only_external=True):
-    for path in math.flatten(self._paths):
+    for path in math.flatten(self._paths, flatten_batch=True):
         if not only_external or not _is_phi_file(script_path):
             shutil.copy(script_path, join(path, &#39;src&#39;, basename(script_path)))</code></pre>
 </details>
@@ -5708,7 +5717,7 @@ def shape(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def copy_src_text(self, filename, text):
-    for path in math.flatten(self._paths):
+    for path in math.flatten(self._paths, flatten_batch=True):
         target = join(path, &#39;src&#39;, filename)
         with open(target, &#34;w&#34;) as file:
             file.writelines(text)</code></pre>
@@ -5730,7 +5739,7 @@ def shape(self):
     if self._properties is not None:
         return True  # must have been written or read
     else:
-        json_file = join(next(iter(math.flatten(self._paths))), &#34;description.json&#34;)
+        json_file = join(next(iter(math.flatten(self._paths, flatten_batch=True))), &#34;description.json&#34;)
         return isfile(json_file)</code></pre>
 </details>
 </dd>
@@ -5761,7 +5770,7 @@ def shape(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def mkdir(self):
-    for path in math.flatten(self._paths):
+    for path in math.flatten(self._paths, flatten_batch=True):
         isdir(path) or os.mkdir(path)</code></pre>
 </details>
 </dd>
@@ -5940,7 +5949,7 @@ def shape(self):
 </summary>
 <pre><code class="python">def remove(self):
     &#34;&#34;&#34; Deletes the scene directory and all contained files. &#34;&#34;&#34;
-    for p in math.flatten(self._paths):
+    for p in math.flatten(self._paths, flatten_batch=True):
         p = abspath(p)
         if isdir(p):
             shutil.rmtree(p)</code></pre>

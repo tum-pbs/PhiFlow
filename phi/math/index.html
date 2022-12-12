@@ -2304,7 +2304,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
     if hasattr(value, &#39;__flatten__&#39;):
-        result = value.__flatten__(flat_dim, **kwargs)
+        result = value.__flatten__(flat_dim, flatten_batch, **kwargs)
         if result is not NotImplemented:
             return result
     # Fallback: pack_dims
@@ -3837,7 +3837,7 @@ The values will be laid out along <code>dim</code>.</dd>
     values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
     values_reshaped = [expand(v, shape) for v in values]
-    flat = [flatten(v) for v in values_reshaped]
+    flat = [flatten(v, flatten_batch=True) for v in values_reshaped]
     result = []
     for items in zip(*flat):
         result.append(function(*items, **kwargs))
@@ -7525,7 +7525,9 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
     if isinstance(dim, Shape):
         dim = dim.name
-    assert isinstance(dim, str), f&#34;dim must be a str but got {type(dim)}&#34;
+    assert isinstance(dim, str), f&#34;dim must be a str or Shape but got {type(dim)}&#34;
+    if dim not in shape(value):
+        return value  # Nothing to do, maybe expand?
     if unpacked_dims.rank == 0:
         return value[{dim: 0}]  # remove dim
     elif unpacked_dims.rank == 1:
@@ -7604,7 +7606,9 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
     if isinstance(dim, Shape):
         dim = dim.name
-    assert isinstance(dim, str), f&#34;dim must be a str but got {type(dim)}&#34;
+    assert isinstance(dim, str), f&#34;dim must be a str or Shape but got {type(dim)}&#34;
+    if dim not in shape(value):
+        return value  # Nothing to do, maybe expand?
     if unpacked_dims.rank == 0:
         return value[{dim: 0}]  # remove dim
     elif unpacked_dims.rank == 1:
