@@ -31,7 +31,7 @@ def unstack(value, dim: DimFilter):
         # Out: (0.0, 0.0, 0.0, 0.0, 0.0)
         ```
     """
-    assert isinstance(value, Sliceable) and isinstance(value, Shaped)
+    assert isinstance(value, Sliceable) and isinstance(value, Shaped), f"Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html"
     dims = shape(value).only(dim)
     assert dims.rank > 0, "unstack() requires at least one dimension"
     if dims.rank == 1:
@@ -45,9 +45,9 @@ def unstack(value, dim: DimFilter):
     else:  # multiple dimensions
         if hasattr(value, '__pack_dims__'):
             packed_dim = batch('_unstack')
-            value = value.__pack_dims__(dims.names, packed_dim, pos=None)
-            if value is not NotImplemented:
-                return unstack(value, packed_dim)
+            value_packed = value.__pack_dims__(dims.names, packed_dim, pos=None)
+            if value_packed is not NotImplemented:
+                return unstack(value_packed, packed_dim)
         first_unstacked = unstack(value, dims[0])
         inner_unstacked = [unstack(v, dims.without(dims[0])) for v in first_unstacked]
         return sum(inner_unstacked, ())
@@ -342,10 +342,6 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
         return value if packed_dim.size is None else expand(value, packed_dim, **kwargs)  # Inserting size=1 can cause shape errors
     elif len(dims) == 1:
         return rename_dims(value, dims, packed_dim, **kwargs)
-    if dims.rank == shape(value).rank and hasattr(value, '__flatten__'):
-        result = value.__flatten__(packed_dim, **kwargs)
-        if result is not NotImplemented:
-            return result
     if hasattr(value, '__pack_dims__'):
         result = value.__pack_dims__(dims.names, packed_dim, pos, **kwargs)
         if result is not NotImplemented:

@@ -154,7 +154,8 @@ class TestMagicOps(TestCase):
     def test_flatten(self):
         for test_class in TEST_CLASSES:
             a = test_class(spatial(x=5) & batch(b=2))
-            self.assertEqual(instance(points=10), flatten(a, instance('points')).shape)
+            self.assertEqual(instance(points=10), flatten(a, instance('points'), flatten_batch=True).shape)
+            self.assertEqual(batch(b=2) & instance(points=5), flatten(a, instance('points'), flatten_batch=False).shape)
 
     def test_bound_dim(self):
         for test_class in TEST_CLASSES:
