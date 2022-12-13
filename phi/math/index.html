@@ -5127,13 +5127,15 @@ Grid classes from <code><a title="phi.field" href="../field/index.html">phi.fiel
         Padded `Tensor`
     &#34;&#34;&#34;
     mode = mode if isinstance(mode, e_.Extrapolation) else e_.ConstantExtrapolation(mode)
-    has_negative_widths = any(w[0] &lt; 0 or w[1] &lt; 0 for w in widths.values())
+    has_negative_widths = any(w0 &lt; 0 or w1 &lt; 0 for w0, w1 in widths.values())
+    has_positive_widths = any(w0 &gt; 0 or w1 &gt; 0 for w0, w1 in widths.values())
     slices = None
     if has_negative_widths:
         slices = {dim: slice(max(0, -w[0]), min(0, w[1]) or None) for dim, w in widths.items()}
         widths = {dim: (max(0, w[0]), max(0, w[1])) for dim, w in widths.items()}
-    result = mode.pad(value, widths, **kwargs)
-    return result[slices] if has_negative_widths else result</code></pre>
+    result_padded = mode.pad(value, widths, **kwargs) if has_positive_widths else value
+    result_sliced = result_padded[slices] if has_negative_widths else result_padded
+    return result_sliced</code></pre>
 </details>
 </dd>
 <dt id="phi.math.precision"><code class="name flex">
@@ -8740,6 +8742,9 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         # assert isinstance(self.item_names, tuple)
         # assert all([items is None or isinstance(items, tuple) for items in self.item_names])
         # assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
+        # for size in sizes:
+        #     if size is not None and not isinstance(size, int):
+        #         assert size.rank &gt; 0
 
     def _to_dict(self, include_sizes=True):
         result = dict(names=self.names, types=self.types, item_names=self.item_names)
@@ -9643,6 +9648,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
                 else:
                     from phi.math import Tensor
                     gathered_sizes = [(s[{sel_dim: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
+                    gathered_sizes = [(int(s) if isinstance(s, Tensor) and s.rank == 0 else s) for s in gathered_sizes]
                     result = result.with_sizes(gathered_sizes, keep_item_names=True).without(sel_dim)
             elif isinstance(selection, slice):
                 step = selection.step or 1
@@ -10317,6 +10323,7 @@ def well_defined(self):
             else:
                 from phi.math import Tensor
                 gathered_sizes = [(s[{sel_dim: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
+                gathered_sizes = [(int(s) if isinstance(s, Tensor) and s.rank == 0 else s) for s in gathered_sizes]
                 result = result.with_sizes(gathered_sizes, keep_item_names=True).without(sel_dim)
         elif isinstance(selection, slice):
             step = selection.step or 1
