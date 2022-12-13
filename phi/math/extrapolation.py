@@ -248,7 +248,11 @@ class ConstantExtrapolation(Extrapolation):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             backend = choose_backend(native, pad_value.native())
-            result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
+            for dim in pad_value.shape.non_batch.names:
+                assert dim in value.shape, f"Cannot pad tensor {value.shape} with extrapolation {pad_value.shape} because non-batch dimension '{dim}' is missing."
+            result_tensor = NotImplemented
+            if pad_value.rank == 0:
+                result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
             if result_tensor is NotImplemented:
                 return Extrapolation.pad(self, value, widths, **kwargs)
             return NativeTensor(result_tensor, value.shape.after_pad(widths))
@@ -267,8 +271,8 @@ class ConstantExtrapolation(Extrapolation):
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
-            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
-            tensors = [self.pad(t, inner_widths) for t in value.dimension(value.stack_dim.name)]
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim.name}
+            tensors = [self[{value.stack_dim.name: i}].pad(t, inner_widths) for i, t in enumerate(value.dimension(value.stack_dim.name))]
             return TensorStack(tensors, value.stack_dim)
         else:
             return Extrapolation.pad(self, value, widths, **kwargs)

@@ -740,13 +740,15 @@ def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation' or Tensor or Numbe
         Padded `Tensor`
     """
     mode = mode if isinstance(mode, e_.Extrapolation) else e_.ConstantExtrapolation(mode)
-    has_negative_widths = any(w[0] < 0 or w[1] < 0 for w in widths.values())
+    has_negative_widths = any(w0 < 0 or w1 < 0 for w0, w1 in widths.values())
+    has_positive_widths = any(w0 > 0 or w1 > 0 for w0, w1 in widths.values())
     slices = None
     if has_negative_widths:
         slices = {dim: slice(max(0, -w[0]), min(0, w[1]) or None) for dim, w in widths.items()}
         widths = {dim: (max(0, w[0]), max(0, w[1])) for dim, w in widths.items()}
-    result = mode.pad(value, widths, **kwargs)
-    return result[slices] if has_negative_widths else result
+    result_padded = mode.pad(value, widths, **kwargs) if has_positive_widths else value
+    result_sliced = result_padded[slices] if has_negative_widths else result_padded
+    return result_sliced
 
 
 def closest_grid_values(grid: Tensor,
