@@ -255,3 +255,7 @@ class TestMathNDNumpy(TestCase):
     def test_dim_mask(self):
         math.assert_close((1, 0, 0), math.dim_mask(spatial('x,y,z'), 'x'))
         math.assert_close((1, 0, 1), math.dim_mask(spatial('x,y,z'), 'x,z'))
+
+    def test_vec_expand(self):
+        v = math.vec(x=0, y=math.linspace(0, 1, instance(points=10)))
+        self.assertEqual(instance(points=10) & channel(vector='x,y'), v.shape)

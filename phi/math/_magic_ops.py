@@ -53,7 +53,7 @@ def unstack(value, dim: DimFilter):
         return sum(inner_unstacked, ())
 
 
-def stack(values: tuple or list or dict, dim: Shape, **kwargs):
+def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwargs):
     """
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
@@ -68,6 +68,9 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
         dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
             If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
             If `dim` is a multi-dimension shape, its volume must be equal to `len(values)`.
+        expand_values: If `True`, will first add missing dimensions to all values, not just batch dimensions.
+            This allows tensors with different dimensions to be stacked.
+            The resulting tensor will have all dimensions that are present in `values`.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -91,14 +94,22 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     assert len(values) > 0, f"stack() got empty sequence {values}"
     assert isinstance(dim, Shape)
     values_ = tuple(values.values()) if isinstance(values, dict) else values
-    for v in values_[1:]:
-        assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f"Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}"
-    # --- Add missing batch dimensions ---
-    all_batch_dims = merge_shapes(*[batch(v) for v in values_])
-    if isinstance(values, dict):
-        values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+    if not expand_values:
+        for v in values_[1:]:
+            assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f"Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}"
+    # --- Add missing dimensions ---
+    if expand_values:
+        all_dims = merge_shapes(*values_)
+        if isinstance(values, dict):
+            values = {k: expand(v, all_dims.without(shape(v).non_batch)) for k, v in values.items()}
+        else:
+            values = [expand(v, all_dims.without(shape(v).non_batch)) for v in values]
     else:
-        values = [expand(v, all_batch_dims) for v in values]
+        all_batch_dims = merge_shapes(*[batch(v) for v in values_])
+        if isinstance(values, dict):
+            values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+        else:
+            values = [expand(v, all_batch_dims) for v in values]
     if dim.rank == 1:
         assert dim.size == len(values) or dim.size is None, f"stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values"
         if dim.size is None:

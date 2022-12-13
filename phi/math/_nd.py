@@ -5,7 +5,7 @@ import numpy as np
 from . import _ops as math
 from . import extrapolation as extrapolation
 from ._magic_ops import stack, rename_dims, concat, variable_values
-from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order, shape
+from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order, shape, merge_shapes
 from ._tensors import Tensor, wrap
 from .magic import PhiTreeNode
 from .extrapolation import Extrapolation
@@ -22,7 +22,7 @@ def vec(name='vector', **components) -> Tensor:
     Returns:
         `Tensor`
     """
-    return stack(components, channel(name))
+    return stack(components, channel(name), expand_values=True)
 
 
 def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):
