@@ -5071,10 +5071,6 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         return value if packed_dim.size is None else expand(value, packed_dim, **kwargs)  # Inserting size=1 can cause shape errors
     elif len(dims) == 1:
         return rename_dims(value, dims, packed_dim, **kwargs)
-    if dims.rank == shape(value).rank and hasattr(value, &#39;__flatten__&#39;):
-        result = value.__flatten__(packed_dim, **kwargs)
-        if result is not NotImplemented:
-            return result
     if hasattr(value, &#39;__pack_dims__&#39;):
         result = value.__pack_dims__(dims.names, packed_dim, pos, **kwargs)
         if result is not NotImplemented:
@@ -7668,7 +7664,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         # Out: (0.0, 0.0, 0.0, 0.0, 0.0)
         ```
     &#34;&#34;&#34;
-    assert isinstance(value, Sliceable) and isinstance(value, Shaped)
+    assert isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html&#34;
     dims = shape(value).only(dim)
     assert dims.rank &gt; 0, &#34;unstack() requires at least one dimension&#34;
     if dims.rank == 1:
@@ -7682,9 +7678,9 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     else:  # multiple dimensions
         if hasattr(value, &#39;__pack_dims__&#39;):
             packed_dim = batch(&#39;_unstack&#39;)
-            value = value.__pack_dims__(dims.names, packed_dim, pos=None)
-            if value is not NotImplemented:
-                return unstack(value, packed_dim)
+            value_packed = value.__pack_dims__(dims.names, packed_dim, pos=None)
+            if value_packed is not NotImplemented:
+                return unstack(value_packed, packed_dim)
         first_unstacked = unstack(value, dims[0])
         inner_unstacked = [unstack(v, dims.without(dims[0])) for v in first_unstacked]
         return sum(inner_unstacked, ())</code></pre>

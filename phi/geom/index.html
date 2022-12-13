@@ -373,10 +373,6 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         return value if packed_dim.size is None else expand(value, packed_dim, **kwargs)  # Inserting size=1 can cause shape errors
     elif len(dims) == 1:
         return rename_dims(value, dims, packed_dim, **kwargs)
-    if dims.rank == shape(value).rank and hasattr(value, &#39;__flatten__&#39;):
-        result = value.__flatten__(packed_dim, **kwargs)
-        if result is not NotImplemented:
-            return result
     if hasattr(value, &#39;__pack_dims__&#39;):
         result = value.__pack_dims__(dims.names, packed_dim, pos, **kwargs)
         if result is not NotImplemented:
