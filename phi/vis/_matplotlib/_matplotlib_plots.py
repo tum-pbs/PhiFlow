@@ -248,7 +248,7 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
-                _plot(axis, d, show_color_bar, vmin, vmax, **plt_args)
+                _plot(axis, d, space, show_color_bar, vmin, vmax, **plt_args)
         else:
             x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
             color = [d.native() for d in data.color.points.unstack(len(x))]
