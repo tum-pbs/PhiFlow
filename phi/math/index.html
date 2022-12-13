@@ -6791,7 +6791,7 @@ This value is added to the internal padding. For non-trivial extrapolations, thi
 </details>
 </dd>
 <dt id="phi.math.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>values: tuple, dim: phi.math._shape.Shape, **kwargs)</span>
+<span>def <span class="ident">stack</span></span>(<span>values: tuple, dim: phi.math._shape.Shape, expand_values=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.
@@ -6808,6 +6808,10 @@ If a <code>dict</code>, keys must be of type <code>str</code> and are used as it
 <dd><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with a least one dimension. None of these dimensions can be present with any of the <code>values</code>.
 If <code>dim</code> is a single-dimension shape, its size is determined from <code>len(values)</code> and can be left undefined (<code>None</code>).
 If <code>dim</code> is a multi-dimension shape, its volume must be equal to <code>len(values)</code>.</dd>
+<dt><strong><code>expand_values</code></strong></dt>
+<dd>If <code>True</code>, will first add missing dimensions to all values, not just batch dimensions.
+This allows tensors with different dimensions to be stacked.
+The resulting tensor will have all dimensions that are present in <code>values</code>.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
 Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
@@ -6829,7 +6833,7 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(values: tuple or list or dict, dim: Shape, **kwargs):
+<pre><code class="python">def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwargs):
     &#34;&#34;&#34;
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
@@ -6844,6 +6848,9 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
         dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
             If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
             If `dim` is a multi-dimension shape, its volume must be equal to `len(values)`.
+        expand_values: If `True`, will first add missing dimensions to all values, not just batch dimensions.
+            This allows tensors with different dimensions to be stacked.
+            The resulting tensor will have all dimensions that are present in `values`.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -6867,14 +6874,22 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
     assert len(values) &gt; 0, f&#34;stack() got empty sequence {values}&#34;
     assert isinstance(dim, Shape)
     values_ = tuple(values.values()) if isinstance(values, dict) else values
-    for v in values_[1:]:
-        assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f&#34;Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}&#34;
-    # --- Add missing batch dimensions ---
-    all_batch_dims = merge_shapes(*[batch(v) for v in values_])
-    if isinstance(values, dict):
-        values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+    if not expand_values:
+        for v in values_[1:]:
+            assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f&#34;Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}&#34;
+    # --- Add missing dimensions ---
+    if expand_values:
+        all_dims = merge_shapes(*values_)
+        if isinstance(values, dict):
+            values = {k: expand(v, all_dims.without(shape(v).non_batch)) for k, v in values.items()}
+        else:
+            values = [expand(v, all_dims.without(shape(v).non_batch)) for v in values]
     else:
-        values = [expand(v, all_batch_dims) for v in values]
+        all_batch_dims = merge_shapes(*[batch(v) for v in values_])
+        if isinstance(values, dict):
+            values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+        else:
+            values = [expand(v, all_batch_dims) for v in values]
     if dim.rank == 1:
         assert dim.size == len(values) or dim.size is None, f&#34;stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values&#34;
         if dim.size is None:
@@ -7774,7 +7789,7 @@ The grid values at the new points are determined via linear interpolation.</p>
     Returns:
         `Tensor`
     &#34;&#34;&#34;
-    return stack(components, channel(name))</code></pre>
+    return stack(components, channel(name), expand_values=True)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.vec_abs"><code class="name flex">
