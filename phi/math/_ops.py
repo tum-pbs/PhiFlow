@@ -630,6 +630,15 @@ def linspace(start: int or Tensor, stop, dim: Shape) -> Tensor:
 
     Returns:
         `Tensor`
+
+    Examples:
+        ```python
+        math.linspace(0, 1, spatial(x=5))
+        # Out: (0.000, 0.250, 0.500, 0.750, 1.000) along xˢ
+
+        math.linspace(0, (-1, 1), spatial(x=3))
+        # Out: (0.000, 0.000); (-0.500, 0.500); (-1.000, 1.000) (xˢ=3, vectorᶜ=2)
+        ```
     """
     assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
     if is_scalar(start) and is_scalar(stop):
@@ -738,6 +747,15 @@ def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation' or Tensor or Numbe
 
     Returns:
         Padded `Tensor`
+
+    Examples:
+        ```python
+        math.pad(math.ones(spatial(x=10, y=10)), {'x': (1, 1), 'y': (2, 1)}, 0)
+        # Out: (xˢ=12, yˢ=13) 0.641 ± 0.480 (0e+00...1e+00)
+
+        math.pad(math.ones(spatial(x=10, y=10)), {'x': (1, -1)}, 0)
+        # Out: (xˢ=10, yˢ=10) 0.900 ± 0.300 (0e+00...1e+00)
+        ```
     """
     mode = mode if isinstance(mode, e_.Extrapolation) else e_.ConstantExtrapolation(mode)
     has_negative_widths = any(w0 < 0 or w1 < 0 for w0, w1 in widths.values())
