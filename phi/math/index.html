@@ -12287,7 +12287,19 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     def _tensor(self, other):
         if isinstance(other, Tensor):
             return other
-        return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
+        elif isinstance(other, (tuple, list)):
+            if &#39;vector&#39; in self.shape:
+                outer_dim = self.shape[&#39;vector&#39;]
+            elif self.shape.channel_rank == 1:
+                outer_dim = self.shape.channel
+            else:
+                raise ValueError(f&#34;Cannot combine tensor of shape {self.shape} with tuple {tuple([type(v).__name__ for v in other])}&#34;)
+            remaining_shape = self.shape.without(outer_dim)
+            other_items = [v if isinstance(v, Tensor) else compatible_tensor(v, compat_shape=remaining_shape, compat_natives=self._natives(), convert=False) for v in other]
+            other_stacked = stack(other_items, outer_dim, expand_values=True)
+            return other_stacked
+        else:
+            return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
 
     def _op1(self, native_function):
         &#34;&#34;&#34;
