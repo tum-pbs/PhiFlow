@@ -3726,7 +3726,14 @@ The size determines how many values to linearly space between <code>start</code>
 The values will be laid out along <code>dim</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">math.linspace(0, 1, spatial(x=5))
+# Out: (0.000, 0.250, 0.500, 0.750, 1.000) along xˢ
+
+math.linspace(0, (-1, 1), spatial(x=3))
+# Out: (0.000, 0.000); (-0.500, 0.500); (-1.000, 1.000) (xˢ=3, vectorᶜ=2)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3747,6 +3754,15 @@ The values will be laid out along <code>dim</code>.</dd>
 
     Returns:
         `Tensor`
+
+    Examples:
+        ```python
+        math.linspace(0, 1, spatial(x=5))
+        # Out: (0.000, 0.250, 0.500, 0.750, 1.000) along xˢ
+
+        math.linspace(0, (-1, 1), spatial(x=3))
+        # Out: (0.000, 0.000); (-0.500, 0.500); (-1.000, 1.000) (xˢ=3, vectorᶜ=2)
+        ```
     &#34;&#34;&#34;
     assert isinstance(dim, Shape) and dim.rank == 1, f&#34;dim must be a single-dimension Shape but got {dim}&#34;
     if is_scalar(start) and is_scalar(stop):
@@ -5103,7 +5119,14 @@ These are ignored by the standard extrapolations defined in <code><a title="phi.
 Grid classes from <code><a title="phi.field" href="../field/index.html">phi.field</a></code> will pass the argument <code>bounds: Box</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Padded <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<p>Padded <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">math.pad(math.ones(spatial(x=10, y=10)), {'x': (1, 1), 'y': (2, 1)}, 0)
+# Out: (xˢ=12, yˢ=13) 0.641 ± 0.480 (0e+00...1e+00)
+
+math.pad(math.ones(spatial(x=10, y=10)), {'x': (1, -1)}, 0)
+# Out: (xˢ=10, yˢ=10) 0.900 ± 0.300 (0e+00...1e+00)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5125,6 +5148,15 @@ Grid classes from <code><a title="phi.field" href="../field/index.html">phi.fiel
 
     Returns:
         Padded `Tensor`
+
+    Examples:
+        ```python
+        math.pad(math.ones(spatial(x=10, y=10)), {&#39;x&#39;: (1, 1), &#39;y&#39;: (2, 1)}, 0)
+        # Out: (xˢ=12, yˢ=13) 0.641 ± 0.480 (0e+00...1e+00)
+
+        math.pad(math.ones(spatial(x=10, y=10)), {&#39;x&#39;: (1, -1)}, 0)
+        # Out: (xˢ=10, yˢ=10) 0.900 ± 0.300 (0e+00...1e+00)
+        ```
     &#34;&#34;&#34;
     mode = mode if isinstance(mode, e_.Extrapolation) else e_.ConstantExtrapolation(mode)
     has_negative_widths = any(w0 &lt; 0 or w1 &lt; 0 for w0, w1 in widths.values())
@@ -7160,7 +7192,23 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <dd>if <code>data</code> is not tensor-like</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Tensor containing same values as data</p></div>
+<p>Tensor containing same values as data</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">tensor([1, 2, 3], channel(vector='x,y,z'))
+# Out: (x=1, y=2, z=3)
+
+tensor([1., 2, 3], channel(vector='x,y,z'))
+# Out: (x=1.000, y=2.000, z=3.000) float64
+
+tensor(numpy.zeros([10, 8, 6, 2]), batch('batch'), spatial('x,y'), channel(vector='x,y'))
+# Out: (batchᵇ=10, xˢ=8, yˢ=6, vectorᶜ=x,y) float64 const 0.0
+
+tensor([(0, 1), (0, 2), (1, 3)], instance('particles'), channel(vector='x,y'))
+# Out: (x=0, y=1); (x=0, y=2); (x=1, y=3) (particlesⁱ=3, vectorᶜ=x,y)
+
+tensor(numpy.random.randn(10))
+# Out: (vectorᶜ=10) float64 -0.128 ± 1.197 (-2e+00...2e+00)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7197,17 +7245,35 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         `phi.math.wrap()` which uses `convert=False`, `layout()`.
 
     Args:
-      data: native tensor, scalar, sequence, Shape or Tensor
-      shape: Ordered dimensions and types. If sizes are defined, they will be checked against `data`.`
-      convert: If True, converts the data to the native format of the current default backend.
-        If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
+        data: native tensor, scalar, sequence, Shape or Tensor
+        shape: Ordered dimensions and types. If sizes are defined, they will be checked against `data`.`
+        convert: If True, converts the data to the native format of the current default backend.
+            If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
 
     Raises:
-      AssertionError: if dimension names are not provided and cannot automatically be inferred
-      ValueError: if `data` is not tensor-like
+        AssertionError: if dimension names are not provided and cannot automatically be inferred
+        ValueError: if `data` is not tensor-like
 
     Returns:
-      Tensor containing same values as data
+        Tensor containing same values as data
+
+    Examples:
+        ```python
+        tensor([1, 2, 3], channel(vector=&#39;x,y,z&#39;))
+        # Out: (x=1, y=2, z=3)
+
+        tensor([1., 2, 3], channel(vector=&#39;x,y,z&#39;))
+        # Out: (x=1.000, y=2.000, z=3.000) float64
+
+        tensor(numpy.zeros([10, 8, 6, 2]), batch(&#39;batch&#39;), spatial(&#39;x,y&#39;), channel(vector=&#39;x,y&#39;))
+        # Out: (batchᵇ=10, xˢ=8, yˢ=6, vectorᶜ=x,y) float64 const 0.0
+
+        tensor([(0, 1), (0, 2), (1, 3)], instance(&#39;particles&#39;), channel(vector=&#39;x,y&#39;))
+        # Out: (x=0, y=1); (x=0, y=2); (x=1, y=3) (particlesⁱ=3, vectorᶜ=x,y)
+
+        tensor(numpy.random.randn(10))
+        # Out: (vectorᶜ=10) float64 -0.128 ± 1.197 (-2e+00...2e+00)
+        ```
     &#34;&#34;&#34;
     assert all(isinstance(s, Shape) for s in shape), f&#34;Cannot create tensor because shape needs to be one or multiple Shape instances but got {shape}&#34;
     shape = None if len(shape) == 0 else concat_shapes(*shape)
@@ -7773,7 +7839,17 @@ The grid values at the new points are determined via linear interpolation.</p>
 <dd>Dimension name.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p></div>
+<p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python">vec(x=1, y=0, z=-1)
+# Out: (x=1, y=0, z=-1)
+
+vec(x=1., z=0)
+# Out: (x=1.000, z=0.000)
+
+vec(x=tensor([1, 2, 3], instance('particles')), y=0)
+# Out: (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
+</code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7788,6 +7864,18 @@ The grid values at the new points are determined via linear interpolation.</p>
 
     Returns:
         `Tensor`
+
+    Examples:
+        ```python
+        vec(x=1, y=0, z=-1)
+        # Out: (x=1, y=0, z=-1)
+
+        vec(x=1., z=0)
+        # Out: (x=1.000, z=0.000)
+
+        vec(x=tensor([1, 2, 3], instance(&#39;particles&#39;)), y=0)
+        # Out: (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
+        ```
     &#34;&#34;&#34;
     return stack(components, channel(name), expand_values=True)</code></pre>
 </details>
