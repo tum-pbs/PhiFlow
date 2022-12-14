@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import numpy
 import numpy as np
 
-from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with
+from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
@@ -671,7 +671,19 @@ class Tensor:
     def _tensor(self, other):
         if isinstance(other, Tensor):
             return other
-        return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
+        elif isinstance(other, (tuple, list)) and any(isinstance(v, Tensor) for v in other):
+            if 'vector' in self.shape:
+                outer_dim = self.shape['vector']
+            elif self.shape.channel_rank == 1:
+                outer_dim = self.shape.channel
+            else:
+                raise ValueError(f"Cannot combine tensor of shape {self.shape} with tuple {tuple([type(v).__name__ for v in other])}")
+            remaining_shape = self.shape.without(outer_dim)
+            other_items = [v if isinstance(v, Tensor) else compatible_tensor(v, compat_shape=remaining_shape, compat_natives=self._natives(), convert=False) for v in other]
+            other_stacked = stack(other_items, outer_dim, expand_values=True)
+            return other_stacked
+        else:
+            return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
 
     def _op1(self, native_function):
         """
@@ -1324,6 +1336,8 @@ class CollapsedTensor(Tensor):  # package-private
             else:
                 combined_shape = (self._shape & other_t._shape).with_sizes(inner.shape)
                 return CollapsedTensor(inner, combined_shape)
+        elif not isinstance(other, Tensor):  # was converted to Tensor, probably TensorStack
+            return operator(self, other_t)
         else:
             return NotImplemented
 
@@ -1798,7 +1812,7 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
             warnings.warn(f"Combining a phi.math.Tensor with a {data_type} of same shape is not invariant under shape permutations. Please convert the {data_type} to a phi.math.Tensor first. Shapes: {shape} and {compat_shape}", SyntaxWarning, stacklevel=5)
             return NativeTensor(data, compat_shape.with_sizes(shape))
         else:
-            raise ValueError(f"Cannot combine native tensor of shape {shape} with tensor of shape {compat_shape}")
+            raise ValueError(f"Cannot combine tensor of shape {shape} with tensor of shape {compat_shape}")
 
 
 def broadcastable_native_tensors(*tensors):
