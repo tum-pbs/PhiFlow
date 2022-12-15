@@ -52,6 +52,9 @@ class Shape:
         # assert isinstance(self.item_names, tuple)
         # assert all([items is None or isinstance(items, tuple) for items in self.item_names])
         # assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
+        # for size in sizes:
+        #     if size is not None and not isinstance(size, int):
+        #         assert size.rank > 0
 
     def _to_dict(self, include_sizes=True):
         result = dict(names=self.names, types=self.types, item_names=self.item_names)
@@ -758,7 +761,7 @@ class Shape:
         if isinstance(obj, (tuple, list)):
             return len(obj), tuple(obj)
         elif isinstance(obj, Number):
-            return obj, prev_item_names if keep_item_names and obj == prev_size else None
+            return obj, prev_item_names if keep_item_names and (prev_size is None or _size_equal(obj, prev_size)) else None
         elif isinstance(obj, math.Tensor) or obj is None:
             return obj, None
         else:
@@ -955,6 +958,7 @@ class Shape:
                 else:
                     from phi.math import Tensor
                     gathered_sizes = [(s[{sel_dim: selection}] if isinstance(s, Tensor) else s) for s in result.sizes]
+                    gathered_sizes = [(int(s) if isinstance(s, Tensor) and s.rank == 0 else s) for s in gathered_sizes]
                     result = result.with_sizes(gathered_sizes, keep_item_names=True).without(sel_dim)
             elif isinstance(selection, slice):
                 step = selection.step or 1

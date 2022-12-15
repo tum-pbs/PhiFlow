@@ -31,7 +31,7 @@ def unstack(value, dim: DimFilter):
         # Out: (0.0, 0.0, 0.0, 0.0, 0.0)
         ```
     """
-    assert isinstance(value, Sliceable) and isinstance(value, Shaped)
+    assert isinstance(value, Sliceable) and isinstance(value, Shaped), f"Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html"
     dims = shape(value).only(dim)
     assert dims.rank > 0, "unstack() requires at least one dimension"
     if dims.rank == 1:
@@ -45,15 +45,15 @@ def unstack(value, dim: DimFilter):
     else:  # multiple dimensions
         if hasattr(value, '__pack_dims__'):
             packed_dim = batch('_unstack')
-            value = value.__pack_dims__(dims.names, packed_dim, pos=None)
-            if value is not NotImplemented:
-                return unstack(value, packed_dim)
+            value_packed = value.__pack_dims__(dims.names, packed_dim, pos=None)
+            if value_packed is not NotImplemented:
+                return unstack(value_packed, packed_dim)
         first_unstacked = unstack(value, dims[0])
         inner_unstacked = [unstack(v, dims.without(dims[0])) for v in first_unstacked]
         return sum(inner_unstacked, ())
 
 
-def stack(values: tuple or list or dict, dim: Shape, **kwargs):
+def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwargs):
     """
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
@@ -68,6 +68,9 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
         dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
             If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
             If `dim` is a multi-dimension shape, its volume must be equal to `len(values)`.
+        expand_values: If `True`, will first add missing dimensions to all values, not just batch dimensions.
+            This allows tensors with different dimensions to be stacked.
+            The resulting tensor will have all dimensions that are present in `values`.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -91,14 +94,22 @@ def stack(values: tuple or list or dict, dim: Shape, **kwargs):
     assert len(values) > 0, f"stack() got empty sequence {values}"
     assert isinstance(dim, Shape)
     values_ = tuple(values.values()) if isinstance(values, dict) else values
-    for v in values_[1:]:
-        assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f"Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}"
-    # --- Add missing batch dimensions ---
-    all_batch_dims = merge_shapes(*[batch(v) for v in values_])
-    if isinstance(values, dict):
-        values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+    if not expand_values:
+        for v in values_[1:]:
+            assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f"Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}"
+    # --- Add missing dimensions ---
+    if expand_values:
+        all_dims = merge_shapes(*values_)
+        if isinstance(values, dict):
+            values = {k: expand(v, all_dims.without(shape(v).non_batch)) for k, v in values.items()}
+        else:
+            values = [expand(v, all_dims.without(shape(v).non_batch)) for v in values]
     else:
-        values = [expand(v, all_batch_dims) for v in values]
+        all_batch_dims = merge_shapes(*[batch(v) for v in values_])
+        if isinstance(values, dict):
+            values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+        else:
+            values = [expand(v, all_batch_dims) for v in values]
     if dim.rank == 1:
         assert dim.size == len(values) or dim.size is None, f"stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values"
         if dim.size is None:
@@ -248,7 +259,7 @@ def expand(value, dims: Shape, **kwargs):
     # Fallback: stack
     if hasattr(value, '__stack__'):
         if dims.volume > 8:
-            warnings.warn(f"expand() default implementation is slow on large shapes {dims}. Please implement __expand__()", RuntimeWarning, stacklevel=2)
+            warnings.warn(f"expand() default implementation is slow on large shapes {dims}. Please implement __expand__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
         for dim in reversed(dims):
             value = stack((value,) * dim.size, dim, **kwargs)
             assert value is not NotImplemented, "Value must implement either __expand__ or __stack__"
@@ -286,7 +297,7 @@ def rename_dims(value,
     """
     if isinstance(value, Shape):
         return value._replace_names_and_types(dims, names)
-    assert isinstance(value, Shapable) and isinstance(value, Shaped), "value must be a Shape or Shapable."
+    assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be a Shape or Shapable but got {type(value).__name__}"
     dims = shape(value).only(dims)
     names = dims._replace_names_and_types(dims, names)
     if hasattr(value, '__replace_dims__'):
@@ -295,7 +306,7 @@ def rename_dims(value,
             return result
     # Fallback: unstack and stack
     if shape(value).only(dims).volume > 8:
-        warnings.warn(f"rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__()", RuntimeWarning, stacklevel=2)
+        warnings.warn(f"rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     for old_name, new_dim in zip(dims.names, names):
         value = stack(unstack(value, old_name), new_dim, **kwargs)
     return value
@@ -342,17 +353,13 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
         return value if packed_dim.size is None else expand(value, packed_dim, **kwargs)  # Inserting size=1 can cause shape errors
     elif len(dims) == 1:
         return rename_dims(value, dims, packed_dim, **kwargs)
-    if dims.rank == shape(value).rank and hasattr(value, '__flatten__'):
-        result = value.__flatten__(packed_dim, **kwargs)
-        if result is not NotImplemented:
-            return result
     if hasattr(value, '__pack_dims__'):
         result = value.__pack_dims__(dims.names, packed_dim, pos, **kwargs)
         if result is not NotImplemented:
             return result
     # Fallback: unstack and stack
     if shape(value).only(dims).volume > 8:
-        warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__()", RuntimeWarning, stacklevel=2)
+        warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     return stack(unstack(value, dims), packed_dim, **kwargs)
 
 
@@ -387,7 +394,9 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     if isinstance(dim, Shape):
         dim = dim.name
-    assert isinstance(dim, str), f"dim must be a str but got {type(dim)}"
+    assert isinstance(dim, str), f"dim must be a str or Shape but got {type(dim)}"
+    if dim not in shape(value):
+        return value  # Nothing to do, maybe expand?
     if unpacked_dims.rank == 0:
         return value[{dim: 0}]  # remove dim
     elif unpacked_dims.rank == 1:
@@ -398,15 +407,14 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
             return result
     # Fallback: unstack and stack
     if shape(value).only(dim).volume > 8:
-        warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__()", RuntimeWarning, stacklevel=2)
+        warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     unstacked = unstack(value, dim)
     for dim in reversed(unpacked_dims):
         unstacked = [stack(unstacked[i:i+dim.size], dim, **kwargs) for i in range(0, len(unstacked), dim.size)]
     return unstacked[0]
 
 
-
-def flatten(value, flat_dim: Shape = instance('flat'), **kwargs):
+def flatten(value, flat_dim: Shape = instance('flat'), flatten_batch=False, **kwargs):
     """
     Returns a `Tensor` with the same values as `value` but only a single dimension `flat_dim`.
     The order of the values in memory is not changed.
@@ -414,6 +422,8 @@ def flatten(value, flat_dim: Shape = instance('flat'), **kwargs):
     Args:
         value: `phi.math.magic.Shapable`, such as `Tensor`.
         flat_dim: Dimension name and type as `Shape` object. The size is ignored.
+        flatten_batch: Whether to flatten batch dimensions as well.
+            If `False`, batch dimensions are kept, only onn-batch dimensions are flattened.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -430,11 +440,11 @@ def flatten(value, flat_dim: Shape = instance('flat'), **kwargs):
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     if hasattr(value, '__flatten__'):
-        result = value.__flatten__(flat_dim, **kwargs)
+        result = value.__flatten__(flat_dim, flatten_batch, **kwargs)
         if result is not NotImplemented:
             return result
     # Fallback: pack_dims
-    return pack_dims(value, shape(value), flat_dim, **kwargs)
+    return pack_dims(value, shape(value) if flatten_batch else non_batch(value), flat_dim, **kwargs)
 
 
 # PhiTreeNode

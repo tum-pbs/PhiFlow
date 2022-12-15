@@ -605,3 +605,15 @@ class TestTensors(TestCase):
                 self.assertFalse(np.equal(x, y))
                 self.assertTrue(x != y)
                 self.assertTrue(np.not_equal(x, y))
+
+    def test_broadcast_vector_tuple(self):
+        t = vec('something', x=0, y=1)
+        i = math.linspace(0, 1, instance(particles=10))
+        result = t + (0, i)
+        self.assertEqual(instance(particles=10) & channel(something='x,y'), result.shape)
+
+    def test_broadcast_matrix_tuple(self):
+        i = math.linspace(0, 1, instance(particles=10))
+        t = math.expand(vec(x=0, y=1), channel(c=2))
+        result = t + (0, i)
+        self.assertEqual(instance(particles=10) & channel(vector='x,y', c=2), result.shape)

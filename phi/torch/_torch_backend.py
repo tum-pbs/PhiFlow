@@ -147,7 +147,7 @@ class TorchBackend(Backend):
     seed = staticmethod(torch.manual_seed)
 
     def einsum(self, equation, *tensors):
-        tensors = self.auto_cast(*tensors)
+        tensors = self.auto_cast(*tensors, bool_to_int=True, int_to_float=True)
         return torch.einsum(equation, *tensors)
 
     def jit_compile(self, f: Callable) -> Callable:

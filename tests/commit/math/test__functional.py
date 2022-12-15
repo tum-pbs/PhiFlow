@@ -121,7 +121,7 @@ class TestFunctional(TestCase):
             return x.x[:2]
 
         def grad(_inputs, _y, df):
-            return {'x': math.flatten(math.expand(df * 0, batch(tmp=2)))}
+            return {'x': math.flatten(math.expand(df * 0, batch(tmp=2)), flatten_batch=True)}
 
         def loss(x):
             fg = math.custom_gradient(f, grad)

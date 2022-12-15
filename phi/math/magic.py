@@ -272,13 +272,15 @@ class Shapable(metaclass=_ShapableType):
         """
         raise NotImplementedError
 
-    def __flatten__(self, flat_dim: Shape, **kwargs):
+    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -> 'Shapable':
         """
         Lays out all elements along a single dimension.
         This is equivalent to packing all dimensions.
 
         Args:
             flat_dim: Single dimension as `Shape`.
+            flatten_batch: Whether to flatten batch dimensions as well.
+            If `False`, batch dimensions are kept, only onn-batch dimensions are flattened.
             **kwargs: Additional keyword arguments required by specific implementations.
                 Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
                 Adding batch dimensions must always work without keyword arguments.
@@ -287,7 +289,6 @@ class Shapable(metaclass=_ShapableType):
             New instance of `Shapable` or `NotImplemented` to revert to default behavior for this object.
         """
         raise NotImplementedError
-
 
 
 class _PhiTreeNodeType(type):

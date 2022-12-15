@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from phi import math, geom
+from phi.math import stack, vec, instance, expand, rename_dims, unpack_dim, pack_dims, spatial, flatten, batch, channel
 from phi.geom import Box, Sphere
 
 
@@ -24,3 +25,14 @@ class TestGeom(TestCase):
         corner_distance = math.sqrt(2) / 2 - .5
         distance = math.wrap([corner_distance, 0, corner_distance, corner_distance, 0], math.instance('points'))
         math.assert_close(cylinder.approximate_signed_distance(loc), distance)
+
+    def test_point_reshaping(self):
+        s = stack([geom.Point(vec(x=0, y=0))] * 50, instance('points'))
+        s = expand(s, batch(b=100))
+        s = rename_dims(s, 'b', 'bat')
+        s = unpack_dim(s, 'points', spatial(x=10, y=5))
+        assert batch(bat=100) & spatial(x=10, y=5) & channel(vector='x,y') == s.shape
+        s = pack_dims(s, 'x,y', instance('particles'))
+        assert batch(bat=100) & instance(particles=50) & channel(vector='x,y') == s.shape
+        s = flatten(s)
+        assert batch(bat=100) & instance(flat=50) & channel(vector='x,y') == s.shape

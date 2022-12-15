@@ -380,7 +380,7 @@ def map_(function, *values, **kwargs) -> Tensor or None:
     values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
     values_reshaped = [expand(v, shape) for v in values]
-    flat = [flatten(v) for v in values_reshaped]
+    flat = [flatten(v, flatten_batch=True) for v in values_reshaped]
     result = []
     for items in zip(*flat):
         result.append(function(*items, **kwargs))
@@ -630,6 +630,15 @@ def linspace(start: int or Tensor, stop, dim: Shape) -> Tensor:
 
     Returns:
         `Tensor`
+
+    Examples:
+        ```python
+        math.linspace(0, 1, spatial(x=5))
+        # Out: (0.000, 0.250, 0.500, 0.750, 1.000) along xˢ
+
+        math.linspace(0, (-1, 1), spatial(x=3))
+        # Out: (0.000, 0.000); (-0.500, 0.500); (-1.000, 1.000) (xˢ=3, vectorᶜ=2)
+        ```
     """
     assert isinstance(dim, Shape) and dim.rank == 1, f"dim must be a single-dimension Shape but got {dim}"
     if is_scalar(start) and is_scalar(stop):
@@ -738,15 +747,26 @@ def pad(value: Tensor, widths: dict, mode: 'e_.Extrapolation' or Tensor or Numbe
 
     Returns:
         Padded `Tensor`
+
+    Examples:
+        ```python
+        math.pad(math.ones(spatial(x=10, y=10)), {'x': (1, 1), 'y': (2, 1)}, 0)
+        # Out: (xˢ=12, yˢ=13) 0.641 ± 0.480 (0e+00...1e+00)
+
+        math.pad(math.ones(spatial(x=10, y=10)), {'x': (1, -1)}, 0)
+        # Out: (xˢ=10, yˢ=10) 0.900 ± 0.300 (0e+00...1e+00)
+        ```
     """
     mode = mode if isinstance(mode, e_.Extrapolation) else e_.ConstantExtrapolation(mode)
-    has_negative_widths = any(w[0] < 0 or w[1] < 0 for w in widths.values())
+    has_negative_widths = any(w0 < 0 or w1 < 0 for w0, w1 in widths.values())
+    has_positive_widths = any(w0 > 0 or w1 > 0 for w0, w1 in widths.values())
     slices = None
     if has_negative_widths:
         slices = {dim: slice(max(0, -w[0]), min(0, w[1]) or None) for dim, w in widths.items()}
         widths = {dim: (max(0, w[0]), max(0, w[1])) for dim, w in widths.items()}
-    result = mode.pad(value, widths, **kwargs)
-    return result[slices] if has_negative_widths else result
+    result_padded = mode.pad(value, widths, **kwargs) if has_positive_widths else value
+    result_sliced = result_padded[slices] if has_negative_widths else result_padded
+    return result_sliced
 
 
 def closest_grid_values(grid: Tensor,
@@ -1407,10 +1427,11 @@ def dot(x: Tensor,
         result_native = backend.tensordot(x_native, x.shape.indices(x_dims), y_native, y.shape.indices(y_dims))
         result_shape = concat_shapes(remaining_shape_x, remaining_shape_y)
     else:  # shared batch dimensions -> einsum
+        result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))
         REDUCE_LETTERS = list('ijklmn')
         KEEP_LETTERS = list('abcdefgh')
         x_letters = [(REDUCE_LETTERS if dim in x_dims else KEEP_LETTERS).pop(0) for dim in x.shape.names]
-        x_letter_map = {dim: letter for dim, letter in zip(x.shape.names, x_letters)}
+        letter_map = {dim: letter for dim, letter in zip(x.shape.names, x_letters)}
         REDUCE_LETTERS = list('ijklmn')
         y_letters = []
         for dim in y.shape.names:
@@ -1418,13 +1439,14 @@ def dot(x: Tensor,
                 y_letters.append(REDUCE_LETTERS.pop(0))
             else:
                 if dim in x.shape and dim not in x_dims:
-                    y_letters.append(x_letter_map[dim])
+                    y_letters.append(letter_map[dim])
                 else:
-                    y_letters.append(KEEP_LETTERS.pop(0))
-        keep_letters = list('abcdefgh')[:-len(KEEP_LETTERS)]
+                    next_letter = KEEP_LETTERS.pop(0)
+                    letter_map[dim] = next_letter
+                    y_letters.append(next_letter)
+        keep_letters = [letter_map[dim] for dim in result_shape.names]
         subscripts = f'{"".join(x_letters)},{"".join(y_letters)}->{"".join(keep_letters)}'
         result_native = backend.einsum(subscripts, x_native, y_native)
-        result_shape = merge_shapes(x.shape.without(x_dims), y.shape.without(y_dims))  # don't check group match  ToDo the order might be incorrect here
     return NativeTensor(result_native, result_shape)
 
 

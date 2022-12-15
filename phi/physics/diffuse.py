@@ -16,9 +16,6 @@ def explicit(field: FieldType,
     """
     Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` FieldType with diffusion coefficient α.
 
-    If `field` is periodic (set via `extrapolation='periodic'`), diffusion may be simulated in Fourier space.
-    Otherwise, finite differencing is used to approximate the
-
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`

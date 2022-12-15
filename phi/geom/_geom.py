@@ -1,4 +1,5 @@
 from numbers import Number
+from typing import Tuple
 
 import numpy as np
 
@@ -514,6 +515,30 @@ class Point(Geometry):
             return Point(math.stack([v.center for v in values], dim, **kwargs))
         else:
             return Geometry.__stack__(self, values, dim, **kwargs)
+
+    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Point':
+        if all(isinstance(v, Point) for v in values):
+            return Point(math.concat([v.center for v in values], dim, **kwargs))
+        else:
+            return NotImplemented
+
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Point':
+        return Point(math.rename_dims(self._location, dims, new_dims, **kwargs))
+
+    def __expand__(self, dims: Shape, **kwargs) -> 'Point':
+        return Point(math.expand(self._location, dims, **kwargs))
+
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Point':
+        return Point(math.pack_dims(self._location, dims, packed_dim, pos, **kwargs))
+
+    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Point':
+        return Point(math.unpack_dim(self._location, dim, unpacked_dims, **kwargs))
+
+    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -> 'Point':
+        dims = self.shape.without('vector')
+        if not flatten_batch:
+            dims = dims.non_batch
+        return Point(math.pack_dims(self._location, dims, flat_dim, **kwargs))
 
 
 def assert_same_rank(rank1, rank2, error_message):
