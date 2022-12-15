@@ -12287,7 +12287,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     def _tensor(self, other):
         if isinstance(other, Tensor):
             return other
-        elif isinstance(other, (tuple, list)):
+        elif isinstance(other, (tuple, list)) and any(isinstance(v, Tensor) for v in other):
             if &#39;vector&#39; in self.shape:
                 outer_dim = self.shape[&#39;vector&#39;]
             elif self.shape.channel_rank == 1:
