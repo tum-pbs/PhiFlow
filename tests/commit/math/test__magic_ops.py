@@ -2,7 +2,7 @@ from typing import Tuple
 from unittest import TestCase
 
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
-    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel
+    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace
 from phi.math.magic import BoundDim, Shaped, Sliceable, Shapable, PhiTreeNode, slicing_dict
 
 
@@ -111,10 +111,13 @@ class TestMagicOps(TestCase):
 
     def test_stack(self):
         for test_class in TEST_CLASSES:
-            test_class = TEST_CLASSES[1]
             a = test_class(spatial(x=5))
-            # self.assertEqual(spatial(x=5) & batch(b=2), stack([a, a], batch('b')).shape)
+            self.assertEqual(spatial(x=5) & batch(b=2), stack([a, a], batch('b')).shape)
             self.assertEqual(spatial(x=5) & batch(b='a1,a2'), stack({'a1': a, 'a2': a}, batch('b')).shape)
+
+    def test_stack_expand(self):
+        v = stack([0, linspace(0, 1, instance(points=10))], channel(vector='x,y'), expand_values=True)
+        self.assertEqual(instance(points=10) & channel(vector='x,y'), v.shape)
 
     def test_multi_dim_stack(self):
         for test_class in TEST_CLASSES:
@@ -154,7 +157,8 @@ class TestMagicOps(TestCase):
     def test_flatten(self):
         for test_class in TEST_CLASSES:
             a = test_class(spatial(x=5) & batch(b=2))
-            self.assertEqual(instance(points=10), flatten(a, instance('points')).shape)
+            self.assertEqual(instance(points=10), flatten(a, instance('points'), flatten_batch=True).shape)
+            self.assertEqual(batch(b=2) & instance(points=5), flatten(a, instance('points'), flatten_batch=False).shape)
 
     def test_bound_dim(self):
         for test_class in TEST_CLASSES:

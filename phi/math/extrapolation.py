@@ -10,7 +10,7 @@ from typing import Union, Dict, Callable, Tuple
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
-from ._shape import Shape, channel, spatial
+from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes
 from ._magic_ops import concat, stack
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
@@ -196,6 +196,10 @@ class ConstantExtrapolation(Extrapolation):
         self.value = wrap(value)
         """ Extrapolation value """
 
+    @property
+    def shape(self):
+        return self.value.shape
+
     def __repr__(self):
         return repr(self.value)
 
@@ -244,7 +248,11 @@ class ConstantExtrapolation(Extrapolation):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
             backend = choose_backend(native, pad_value.native())
-            result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
+            for dim in pad_value.shape.non_batch.names:
+                assert dim in value.shape, f"Cannot pad tensor {value.shape} with extrapolation {pad_value.shape} because non-batch dimension '{dim}' is missing."
+            result_tensor = NotImplemented
+            if pad_value.rank == 0:
+                result_tensor = backend.pad(native, ordered_pad_widths, 'constant', pad_value.native())
             if result_tensor is NotImplemented:
                 return Extrapolation.pad(self, value, widths, **kwargs)
             return NativeTensor(result_tensor, value.shape.after_pad(widths))
@@ -263,8 +271,8 @@ class ConstantExtrapolation(Extrapolation):
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
-            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
-            tensors = [self.pad(t, inner_widths) for t in value.dimension(value.stack_dim.name)]
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim.name}
+            tensors = [self[{value.stack_dim.name: i}].pad(t, inner_widths) for i, t in enumerate(value.dimension(value.stack_dim.name))]
             return TensorStack(tensors, value.stack_dim)
         else:
             return Extrapolation.pad(self, value, widths, **kwargs)
@@ -363,6 +371,10 @@ class ConstantExtrapolation(Extrapolation):
 
 
 class _CopyExtrapolation(Extrapolation):
+
+    @property
+    def shape(self):
+        return EMPTY_SHAPE
 
     def is_copy_pad(self, dim: str, upper_edge: bool):
         return True
@@ -625,6 +637,11 @@ class _ReflectExtrapolation(_CopyExtrapolation):
 
 
 class _NoExtrapolation(Extrapolation):  # singleton
+
+    @property
+    def shape(self):
+        return EMPTY_SHAPE
+
     def to_dict(self) -> dict:
         return {'type': 'none'}
 
@@ -690,6 +707,10 @@ class Undefined(Extrapolation):
     def __init__(self, derived_from: Extrapolation):
         super().__init__(-1)
         self.derived_from = derived_from
+
+    @property
+    def shape(self):
+        return EMPTY_SHAPE
 
     def to_dict(self) -> dict:
         return {'type': 'undefined', 'derived_from': self.derived_from.to_dict()}
@@ -805,6 +826,10 @@ class _MixedExtrapolation(Extrapolation):
         """
         super().__init__(pad_rank=None)
         self.ext = extrapolations
+
+    @property
+    def shape(self):
+        return merge_shapes(*sum(self.ext.values(), ()))
 
     def to_dict(self) -> dict:
         return {
@@ -944,6 +969,10 @@ class _NormalTangentialExtrapolation(Extrapolation):
         super().__init__(pad_rank=min(normal.pad_rank, tangential.pad_rank))
         self.normal = normal
         self.tangential = tangential
+
+    @property
+    def shape(self):
+        return merge_shapes(self.normal, self.tangential)
 
     def to_dict(self) -> dict:
         return {

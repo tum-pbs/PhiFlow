@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import numpy
 import numpy as np
 
-from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with
+from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
@@ -85,7 +85,8 @@ class Tensor:
         return choose_backend(native).numpy(native)
 
     def __array__(self, dtype=None):  # NumPy conversion
-        warnings.warn("Automatic conversion of Φ-Flow tensors to NumPy can cause problems because the dimension order is not guaranteed.", SyntaxWarning, stacklevel=3)
+        if self.rank > 1:
+            warnings.warn("Automatic conversion of Φ-Flow tensors to NumPy can cause problems because the dimension order is not guaranteed.", SyntaxWarning, stacklevel=3)
         return self.numpy(self._shape)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):  # NumPy interface
@@ -663,13 +664,26 @@ class Tensor:
         elif self.rank == 0:
             return iter([self.native()])
         else:
-            from ._magic_ops import flatten
-            return iter(flatten(self))
+            from ._ops import reshaped_native
+            native = reshaped_native(self, [self.shape])
+            return iter(native)
 
     def _tensor(self, other):
         if isinstance(other, Tensor):
             return other
-        return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
+        elif isinstance(other, (tuple, list)) and any(isinstance(v, Tensor) for v in other):
+            if 'vector' in self.shape:
+                outer_dim = self.shape['vector']
+            elif self.shape.channel_rank == 1:
+                outer_dim = self.shape.channel
+            else:
+                raise ValueError(f"Cannot combine tensor of shape {self.shape} with tuple {tuple([type(v).__name__ for v in other])}")
+            remaining_shape = self.shape.without(outer_dim)
+            other_items = [v if isinstance(v, Tensor) else compatible_tensor(v, compat_shape=remaining_shape, compat_natives=self._natives(), convert=False) for v in other]
+            other_stacked = stack(other_items, outer_dim, expand_values=True)
+            return other_stacked
+        else:
+            return compatible_tensor(other, compat_shape=self.shape, compat_natives=self._natives(), convert=False)
 
     def _op1(self, native_function):
         """
@@ -921,7 +935,9 @@ class Layout(Tensor):
     def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Shapable':
         return NotImplemented
 
-    def __flatten__(self, flat_dim: Shape):
+    def __flatten__(self, flat_dim: Shape, flatten_batch: bool):
+        if not flatten_batch and self._shape.batch:
+            raise NotImplementedError
         return layout(self._as_list(), flat_dim)
 
     def __expand__(self, dims: Shape, **kwargs) -> 'Tensor':
@@ -1014,7 +1030,7 @@ class Layout(Tensor):
                 result = native_function(choose_backend(self._as_list()), self._obj, 0)
             return wrap(result)
         if not self._shape.without(dims):
-            return self.__flatten__(batch('_flat'))._tensor_reduce(('_flat',), dtype, native_function, collapsed_function, unaffected_function)
+            return self.__flatten__(batch('_flat'), flatten_batch=True)._tensor_reduce(('_flat',), dtype, native_function, collapsed_function, unaffected_function)
         else:
             raise NotImplementedError(f"Partial Layout reduction not yet supported. Shape={self._shape}, reduce={dims}")
         # # --- inner reduce ---
@@ -1148,11 +1164,11 @@ class NativeTensor(Tensor):
 
     def _op2(self, other, operator, native_function, op_name: str = 'unknown', op_symbol: str = '?'):
         try:
-            other = self._tensor(other)
+            other_tensor = self._tensor(other)
         except NoBackendFound:
             return NotImplemented
-        if isinstance(other, NativeTensor):
-            return op2_native(self, other, native_function)
+        if isinstance(other_tensor, NativeTensor) or (isinstance(other_tensor, Tensor) and not isinstance(other, Tensor)):
+            return op2_native(self, other_tensor, native_function)
         else:
             return NotImplemented
 
@@ -1320,6 +1336,8 @@ class CollapsedTensor(Tensor):  # package-private
             else:
                 combined_shape = (self._shape & other_t._shape).with_sizes(inner.shape)
                 return CollapsedTensor(inner, combined_shape)
+        elif not isinstance(other, Tensor):  # was converted to Tensor, probably TensorStack
+            return operator(self, other_t)
         else:
             return NotImplemented
 
@@ -1595,17 +1613,35 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         `phi.math.wrap()` which uses `convert=False`, `layout()`.
 
     Args:
-      data: native tensor, scalar, sequence, Shape or Tensor
-      shape: Ordered dimensions and types. If sizes are defined, they will be checked against `data`.`
-      convert: If True, converts the data to the native format of the current default backend.
-        If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
+        data: native tensor, scalar, sequence, Shape or Tensor
+        shape: Ordered dimensions and types. If sizes are defined, they will be checked against `data`.`
+        convert: If True, converts the data to the native format of the current default backend.
+            If False, wraps the data in a `Tensor` but keeps the given data reference if possible.
 
     Raises:
-      AssertionError: if dimension names are not provided and cannot automatically be inferred
-      ValueError: if `data` is not tensor-like
+        AssertionError: if dimension names are not provided and cannot automatically be inferred
+        ValueError: if `data` is not tensor-like
 
     Returns:
-      Tensor containing same values as data
+        Tensor containing same values as data
+
+    Examples:
+        ```python
+        tensor([1, 2, 3], channel(vector='x,y,z'))
+        # Out: (x=1, y=2, z=3)
+
+        tensor([1., 2, 3], channel(vector='x,y,z'))
+        # Out: (x=1.000, y=2.000, z=3.000) float64
+
+        tensor(numpy.zeros([10, 8, 6, 2]), batch('batch'), spatial('x,y'), channel(vector='x,y'))
+        # Out: (batchᵇ=10, xˢ=8, yˢ=6, vectorᶜ=x,y) float64 const 0.0
+
+        tensor([(0, 1), (0, 2), (1, 3)], instance('particles'), channel(vector='x,y'))
+        # Out: (x=0, y=1); (x=0, y=2); (x=1, y=3) (particlesⁱ=3, vectorᶜ=x,y)
+
+        tensor(numpy.random.randn(10))
+        # Out: (vectorᶜ=10) float64 -0.128 ± 1.197 (-2e+00...2e+00)
+        ```
     """
     assert all(isinstance(s, Shape) for s in shape), f"Cannot create tensor because shape needs to be one or multiple Shape instances but got {shape}"
     shape = None if len(shape) == 0 else concat_shapes(*shape)
@@ -1776,7 +1812,7 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
             warnings.warn(f"Combining a phi.math.Tensor with a {data_type} of same shape is not invariant under shape permutations. Please convert the {data_type} to a phi.math.Tensor first. Shapes: {shape} and {compat_shape}", SyntaxWarning, stacklevel=5)
             return NativeTensor(data, compat_shape.with_sizes(shape))
         else:
-            raise ValueError(f"Cannot combine native tensor of shape {shape} with tensor of shape {compat_shape}")
+            raise ValueError(f"Cannot combine tensor of shape {shape} with tensor of shape {compat_shape}")
 
 
 def broadcastable_native_tensors(*tensors):

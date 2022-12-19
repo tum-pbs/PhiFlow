@@ -138,3 +138,13 @@ class GridTest(TestCase):
         self.assertTrue(issubclass(CenteredGrid, PhiTreeNode))
         grid = CenteredGrid(0, x=4)
         self.assertTrue(isinstance(grid, PhiTreeNode))
+
+    def test_reshape_centered_grid(self):
+        grid = math.expand(CenteredGrid(1, x=10, y=10), batch(b=100))
+        grid = math.rename_dims(grid, 'b', 'bat')
+        self.assertEqual(batch(bat=100) & spatial(x=10, y=10), grid.shape)
+
+    def test_reshape_staggered_grid(self):
+        grid = math.expand(StaggeredGrid(1, x=10, y=10), batch(b=100))
+        grid = math.rename_dims(grid, 'b', 'bat')
+        self.assertEqual(batch(bat=100) & spatial(x=10, y=10) & channel(vector='x,y'), grid.shape)

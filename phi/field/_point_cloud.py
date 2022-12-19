@@ -1,5 +1,5 @@
 import warnings
-from typing import Any
+from typing import Any, Tuple
 
 from phi import math
 from phi.geom import Geometry, GridCell, Box, Point
@@ -81,6 +81,15 @@ class PointCloud(SampledField):
 
     def __variable_attrs__(self):
         return '_values', '_elements'
+
+    def __expand__(self, dims: Shape, **kwargs) -> 'PointCloud':
+        return self.with_values(math.expand(self.values, dims, **kwargs))
+
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'PointCloud':
+        elements = math.rename_dims(self.elements, dims, new_dims)
+        values = math.rename_dims(self.values, dims, new_dims)
+        extrapolation = math.rename_dims(self.extrapolation, dims, new_dims, **kwargs)
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, self._color)
 
     def __eq__(self, other):
         if not type(self) == type(other):

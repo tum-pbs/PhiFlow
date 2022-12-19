@@ -1522,9 +1522,12 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         else:
             y = f(x)
         _, y_tensors = disassemble_tree(y)
-        assert not non_batch(
-            y_tensors[0]), f"Failed to minimize '{f.__name__}' because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()"
-        return y_tensors[0].sum, (reshaped_native(y_tensors[0], [batch_dims]),)
+        assert not non_batch(y_tensors[0]), f"Failed to minimize '{f.__name__}' because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()"
+        try:
+            loss_native = reshaped_native(y_tensors[0], [batch_dims])
+        except AssertionError:
+            raise AssertionError(f"Failed to minimize '{f.__name__}' because its output loss {shape(y_tensors[0])} has more batch dimensions than the initial guess {batch_dims}.")
+        return y_tensors[0].sum, (loss_native,)
 
     atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
@@ -1766,13 +1769,16 @@ def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
         `identity(value)` which when differentiated, prints the gradient vector.
     """
 
-    def print_grad(_x, _y, dx):
-        if all_available(_x, dx):
+    def print_grad(params: dict, _y, dx):
+        param_name, x = next(iter(params.items()))
+        if all_available(x, dx):
             if detailed:
                 print_(dx, name=name)
             else:
                 print(f"{name}:  \t{dx}")
-        return dx,
+        else:
+            print(f"Cannot print gradient for {param_name}, data not available.")
+        return {param_name: dx}
 
     identity = custom_gradient(lambda x: x, print_grad)
     return identity(value)
