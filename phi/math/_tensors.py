@@ -722,15 +722,8 @@ class Tensor:
         warnings.warn("Tensor._expand() is deprecated, use cached(Tensor) instead.", DeprecationWarning)
         raise NotImplementedError(self.__class__)
 
-    def _tensor_reduce(self,
-                       dims: Tuple[str],
-                       dtype: type or None,
-                       native_function: Callable,
-                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                       unaffected_function: Callable = lambda value: value):
-        raise NotImplementedError(self.__class__)
-
     def _simplify(self):
+        """ Does not cache this value but if it is already cached, returns the cached version. """
         return self
 
 
@@ -1010,46 +1003,13 @@ class Layout(Tensor):
 
     @staticmethod
     def _recursive_op1(obj, shape: Shape, native_function):
-        if shape:
-            if isinstance(obj, (tuple, list)):
-                return type(obj)([Layout._recursive_op1(i, shape[1:]) for i in obj])
-
-    def _tensor_reduce(self,
-                       dims: Tuple[str],
-                       dtype: type or None,
-                       native_function: Callable,
-                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                       unaffected_function: Callable = lambda value: value):
-        if all(dim not in self._shape for dim in dims):
-            return unaffected_function(self)
-        if self._shape[0].name in dims and len(dims) == 1:
-            if dtype is not None:
-                values = [dtype(i) for i in self._as_list()]
-                result = native_function(choose_backend(*values), self._obj, 0)
-            else:
-                result = native_function(choose_backend(self._as_list()), self._obj, 0)
-            return wrap(result)
-        if not self._shape.without(dims):
-            return self.__flatten__(batch('_flat'), flatten_batch=True)._tensor_reduce(('_flat',), dtype, native_function, collapsed_function, unaffected_function)
-        else:
-            raise NotImplementedError(f"Partial Layout reduction not yet supported. Shape={self._shape}, reduce={dims}")
-        # # --- inner reduce ---
-        # inner_axes = [dim for dim in dims if dim != self.stack_dim.name]
-        # red_inners = [t._tensor_reduce(inner_axes, dtype, native_function, collapsed_function, unaffected_function) for t in
-        #               self._tensors]
-        # # --- outer reduce ---
-        # if self.stack_dim.name in dims:
-        #     if any([t._is_tracer for t in red_inners]):
-        #         return sum(red_inners[1:], red_inners[0])  # TODO this may not always be the sum
+        raise NotImplementedError
+        # if shape:
+        #     if isinstance(obj, (tuple, list)):
+        #         return type(obj)([Layout._recursive_op1(i, shape[1:], native_function) for i in obj])
         #     else:
-        #         inner_order = red_inners[0].shape.names
-        #         natives = [t.native(inner_order) for t in red_inners]
-        #         backend = choose_backend(*natives)
-        #         result = native_function(backend, backend.stack(natives),
-        #                                  dim=0)  # TODO not necessary if tensors are CollapsedTensors
-        #         return NativeTensor(result, red_inners[0].shape)
         # else:
-        #     return TensorStack(red_inners, self.stack_dim)
+        #     return native_function(obj)
 
     @staticmethod
     def _recursive_cast(obj, shape: Shape, dtype: DType):
@@ -1178,19 +1138,6 @@ class NativeTensor(Tensor):
     def _expand(self):
         pass
 
-    def _tensor_reduce(self,
-                       dims: Tuple[str],
-                       dtype: type or None,
-                       native_function: Callable,
-                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                       unaffected_function: Callable = lambda value: value):
-        if all(dim not in self._shape for dim in dims):
-            return unaffected_function(self)
-        dims = [dim for dim in dims if dim in self.shape]
-        backend = choose_backend(self._native)
-        result = native_function(backend, self._native, dim=self._shape.indices(dims))
-        return NativeTensor(result, self._shape.without(dims))
-
 
 class CollapsedTensor(Tensor):  # package-private
     """
@@ -1218,6 +1165,10 @@ class CollapsedTensor(Tensor):  # package-private
             self._inner = tensor  # this will be set to None once cached. Otherwise gradients will be incorrect.
         self._shape = shape
         self._cached = None  # NativeTensor. Once cached, use only _cached
+
+    @property
+    def collapsed_dims(self):
+        return self._shape.without(self._inner.shape)
 
     def _cache(self):
         if self._cached is None:
@@ -1353,26 +1304,6 @@ class CollapsedTensor(Tensor):  # package-private
 
     def _expand(self):
         self._cache()
-        # from phi.math import all_available
-        # if not all_available(self._cached):
-        #     raise AssertionError("Cannot cache a Tensor while it is being traced.")
-
-    def _tensor_reduce(self,
-                       dims: Tuple[str],
-                       dtype: type or None,
-                       native_function: Callable,
-                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                       unaffected_function: Callable = lambda value: value):
-        if self.is_cached:
-            return self._cached._tensor_reduce(dims, dtype, native_function, collapsed_function, unaffected_function)
-        if all(dim not in self._shape for dim in dims):
-            return unaffected_function(self)
-        inner_dims = [dim for dim in dims if dim in self._inner.shape]
-        inner_reduce = self._inner._tensor_reduce(tuple(inner_dims), dtype, native_function, collapsed_function, unaffected_function)
-        collapsed_dims = self._shape.without(self._inner.shape)
-        final_shape = self._shape.without(dims)
-        total_reduce = collapsed_function(inner_reduce, collapsed_dims.only(dims))
-        return CollapsedTensor(total_reduce, final_shape)
 
 
 class TensorStack(Tensor):
@@ -1548,37 +1479,15 @@ class TensorStack(Tensor):
                 t._expand()
         self._cache()
 
+    @property
+    def is_cached(self):
+        return self._cached is not None
+
     def _simplify(self):
-        if self._cached is not None:
+        if self.is_cached:
             return self._cached
         else:
             return self
-
-    def _tensor_reduce(self,
-                       dims: Tuple[str],
-                       dtype: type or None,
-                       native_function: Callable,
-                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                       unaffected_function: Callable = lambda value: value):
-        if all(dim not in self._shape for dim in dims):
-            return unaffected_function(self)
-        if self._cached is not None:
-            return self._cached._tensor_reduce(dims, dtype, native_function, collapsed_function, unaffected_function)
-        # --- inner reduce ---
-        inner_axes = [dim for dim in dims if dim != self.stack_dim.name]
-        red_inners = [t._tensor_reduce(inner_axes, dtype, native_function, collapsed_function, unaffected_function) for t in self._tensors]
-        # --- outer reduce ---
-        if self.stack_dim.name in dims:
-            if any([t._is_tracer for t in red_inners]):
-                return sum(red_inners[1:], red_inners[0])  # TODO this may not always be the sum
-            else:
-                inner_order = red_inners[0].shape.names
-                natives = [t.native(inner_order) for t in red_inners]
-                backend = choose_backend(*natives)
-                result = native_function(backend, backend.stack(natives), dim=0)  # TODO not necessary if tensors are CollapsedTensors
-                return NativeTensor(result, red_inners[0].shape)
-        else:
-            return TensorStack(red_inners, self.stack_dim)
 
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,

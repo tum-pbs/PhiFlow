@@ -10,7 +10,8 @@ from . import extrapolation as e_
 from ._magic_ops import expand, pack_dims, flatten, unpack_dim, cast, copy_with, value_attributes
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
-                     IncompatibleShapes, DimFilter, non_batch)
+                     IncompatibleShapes, DimFilter, non_batch, non_channel)
+from ._sparse import CompressedSparseTensor
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
     cached, is_scalar, Layout
@@ -701,6 +702,8 @@ def range_tensor(shape: Shape):
 
 
 def stack_tensors(values: tuple or list, dim: Shape):
+    if len(values) == 1 and not dim:
+        return values[0]
     values = [wrap(v) for v in values]
     values = cast_same(*values)
 
@@ -1012,32 +1015,28 @@ def nonzero(value: Tensor, list_dim: Shape or str = instance('nonzero'), index_d
     return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)
 
 
-def _reduce(value: Tensor or list or tuple,
-            dim: DimFilter,
-            dtype: type or None,
-            native_function: Callable,
-            collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-            unaffected_function: Callable = lambda value: value) -> Tensor:
-    """
-    Args:
-        value:
-        dim: Which dimensions should be reduced
-        dtype: (Optional) Whether the reducing operation converts the data to a different type like bool.
-        native_function:
-        collapsed_function: handles collapsed dimensions, called as `collapsed_function(inner_reduced, collapsed_dims_to_reduce)`
-        unaffected_function: returns `unaffected_function(value)` if `len(dims) > 0` but none of them are part of `value`
-    """
-    if dim in ((), [], EMPTY_SHAPE):
+def reduce_(f, value, dims, require_all_dims_present=False, required_kind: type = None):
+    if dims in ((), [], EMPTY_SHAPE):
         return value
     else:
         if isinstance(value, (tuple, list)):
             values = [wrap(v) for v in value]
             value = stack_tensors(values, instance('0'))
-            assert dim in ('0', None), "dim must be '0' or None when passing a sequence of tensors"
+            assert dims in ('0', None), "dim must be '0' or None when passing a sequence of tensors"
+        elif isinstance(value, Layout):
+            if not value.shape.without(dims):  # reduce all
+                dims = batch('_flat_layout')
+                values = value._as_list()
+                if required_kind is not None:
+                    values = [required_kind(v) for v in values]
+                value = wrap(values, dims)
         else:
             value = wrap(value)
-        dims = value.shape.only(dim)
-        return value._tensor_reduce(dims.names, dtype, native_function, collapsed_function, unaffected_function)
+        dims = value.shape.only(dims)
+        if require_all_dims_present and any(d not in value.shape for d in dims):
+            raise ValueError(f"Cannot sum dimensions {dims} because tensor {value.shape} is missing at least one of them")
+        value = value._simplify()
+        return f(value, dims)
 
 
 def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1058,9 +1057,21 @@ def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim, float,
-                   native_function=lambda backend, native, dim: backend.sum(native, dim),
-                   collapsed_function=lambda inner, red_shape: inner * red_shape.volume)
+    return reduce_(_sum, value, dim, require_all_dims_present=True)
+
+
+def _sum(value: Tensor, dims: Shape) -> Tensor:
+    if isinstance(value, NativeTensor):
+        result = value.default_backend.sum(value.native(value.shape), value.shape.indices(dims))
+        return NativeTensor(result, value.shape.without(dims))
+    elif isinstance(value, CollapsedTensor):
+        result = _sum(value._inner, dims.only(value._inner.shape)) * value.collapsed_dims.only(dims).volume
+        return expand_tensor(result, value.shape.without(dims))
+    elif isinstance(value, TensorStack):
+        reduced_inners = [_sum(t, dims.without(value.stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x + y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+    else:
+        raise ValueError(type(value))
 
 
 def prod(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1081,9 +1092,21 @@ def prod(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim, None,
-                   native_function=lambda backend, native, dim: backend.prod(native, dim),
-                   collapsed_function=lambda inner, red_shape: inner ** red_shape.volume)
+    return reduce_(_prod, value, dim, require_all_dims_present=True)
+
+
+def _prod(value: Tensor, dims: Shape) -> Tensor:
+    if isinstance(value, NativeTensor):
+        result = value.default_backend.prod(value.native(value.shape), value.shape.indices(dims))
+        return NativeTensor(result, value.shape.without(dims))
+    elif isinstance(value, CollapsedTensor):
+        result = _prod(value._inner, dims.only(value._inner.shape)) ** value.collapsed_dims.only(dims).volume
+        return expand_tensor(result, value.shape.without(dims))
+    elif isinstance(value, TensorStack):
+        reduced_inners = [_prod(t, dims.without(value.stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x * y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+    else:
+        raise ValueError(type(value))
 
 
 def mean(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1104,7 +1127,21 @@ def mean(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim, float, native_function=lambda backend, native, dim: backend.mean(native, dim))
+    return reduce_(_mean, value, dim)
+
+
+def _mean(value: Tensor, dims: Shape) -> Tensor:
+    if isinstance(value, NativeTensor):
+        result = value.default_backend.mean(value.native(value.shape), value.shape.indices(dims))
+        return NativeTensor(result, value.shape.without(dims))
+    elif isinstance(value, CollapsedTensor):
+        result = _mean(value._inner, dims.only(value._inner.shape))
+        return expand_tensor(result, value.shape.without(dims))
+    elif isinstance(value, TensorStack):
+        reduced_inners = [_mean(t, dims.without(value.stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x + y, reduced_inners) / len(reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+    else:
+        raise ValueError(type(value))
 
 
 def std(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1127,10 +1164,12 @@ def std(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(cached(value), dim, float,
-                   native_function=lambda backend, native, dim: backend.std(native, dim),
-                   collapsed_function=lambda inner, red_shape: inner,
-                   unaffected_function=lambda value: value * 0)
+    return reduce_(_std, value, dim)
+
+
+def _std(value: Tensor, dims: Shape) -> Tensor:
+    result = value.default_backend.std(value.native(value.shape), value.shape.indices(dims))
+    return NativeTensor(result, value.shape.without(dims))
 
 
 def any_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1151,7 +1190,21 @@ def any_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) ->
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(boolean_tensor, dim, bool, native_function=lambda backend, native, dim: backend.any(native, dim))
+    return reduce_(_any, boolean_tensor, dim)
+
+
+def _any(value: Tensor, dims: Shape) -> Tensor:
+    if isinstance(value, NativeTensor):
+        result = value.default_backend.any(value.native(value.shape), value.shape.indices(dims))
+        return NativeTensor(result, value.shape.without(dims))
+    elif isinstance(value, CollapsedTensor):
+        result = _any(value._inner, dims.only(value._inner.shape))
+        return expand_tensor(result, value.shape.without(dims))
+    elif isinstance(value, TensorStack):
+        reduced_inners = [_any(t, dims.without(value.stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x | y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+    else:
+        raise ValueError(type(value))
 
 
 def all_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1172,7 +1225,21 @@ def all_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) ->
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(boolean_tensor, dim, bool, native_function=lambda backend, native, dim: backend.all(native, dim))
+    return reduce_(_all, boolean_tensor, dim)
+
+
+def _all(value: Tensor, dims: Shape) -> Tensor:
+    if isinstance(value, NativeTensor):
+        result = value.default_backend.all(value.native(value.shape), value.shape.indices(dims))
+        return NativeTensor(result, value.shape.without(dims))
+    elif isinstance(value, CollapsedTensor):
+        result = _all(value._inner, dims.only(value._inner.shape))
+        return expand_tensor(result, value.shape.without(dims))
+    elif isinstance(value, TensorStack):
+        reduced_inners = [_all(t, dims.without(value.stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x & y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+    else:
+        raise ValueError(type(value))
 
 
 def max_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1193,7 +1260,21 @@ def max_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim, None, native_function=lambda backend, native, dim: backend.max(native, dim))
+    return reduce_(_max, value, dim)
+
+
+def _max(value: Tensor, dims: Shape) -> Tensor:
+    if isinstance(value, NativeTensor):
+        result = value.default_backend.max(value.native(value.shape), value.shape.indices(dims))
+        return NativeTensor(result, value.shape.without(dims))
+    elif isinstance(value, CollapsedTensor):
+        result = _max(value._inner, dims.only(value._inner.shape))
+        return expand_tensor(result, value.shape.without(dims))
+    elif isinstance(value, TensorStack):
+        reduced_inners = [_max(t, dims.without(value.stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: maximum(x, y), reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+    else:
+        raise ValueError(type(value))
 
 
 def min_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1214,7 +1295,21 @@ def min_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return _reduce(value, dim, None, native_function=lambda backend, native, dim: backend.min(native, dim))
+    return reduce_(_min, value, dim)
+
+
+def _min(value: Tensor, dims: Shape) -> Tensor:
+    if isinstance(value, NativeTensor):
+        result = value.default_backend.min(value.native(value.shape), value.shape.indices(dims))
+        return NativeTensor(result, value.shape.without(dims))
+    elif isinstance(value, CollapsedTensor):
+        result = _min(value._inner, dims.only(value._inner.shape))
+        return expand_tensor(result, value.shape.without(dims))
+    elif isinstance(value, TensorStack):
+        reduced_inners = [_min(t, dims.without(value.stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: minimum(x, y), reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+    else:
+        raise ValueError(type(value))
 
 
 def finite_min(value, dim: DimFilter = non_batch, default: complex or float = float('NaN')):
@@ -2176,3 +2271,66 @@ def stop_gradient(x):
         return assemble_tree(nest, new_values)
     else:
         return wrap(choose_backend(x).stop_gradient(x))
+
+
+def pairwise_distances(positions: Tensor, max_distance: float or Tensor = None, others_dims=instance('others'), format='dense') -> Tensor:
+    """
+
+
+
+    Args:
+        positions: `Tensor`.
+            Channel dimensions are interpreted as position components.
+            Instance and spatial dimensions list nodes.
+        max_distance: Scalar or `Tensor` specifying a max_radius for each point separately.
+            Can contain additional batch dimensions but spatial/instance dimensions must match `positions` if present.
+            If not specified, uses an infinite cutoff radius, i.e. all points will be considered neighbors.
+        others_dims: These dimensions will be added to the result to list the neighbours of each point.
+            If `positions` contains multiple spatial/instance dimensions, it is recommended to specify a neighbor dim for each of them.
+        format:
+            One of `'dense', 'csr'`
+
+    Returns:
+        `Tensor`
+    """
+    if format == 'dense':
+        # if not count_self:
+        #     warnings.warn(f"count_self has no effect when using format '{format}'", SyntaxWarning, stacklevel=2)
+        dx = positions - unpack_dim(pack_dims(positions, non_batch(positions).non_channel, instance('_tmp')), '_tmp', others_dims)
+        if max_distance is not None:
+            neighbors = dx ** 2 <= max_distance ** 2
+            dx = where(neighbors, dx, 0)
+        return dx
+    else:  # sparse
+        backend = choose_backend_t(positions, max_distance)
+        batch_shape = batch(positions) & batch(max_distance)
+        pos_i_shape = non_batch(positions).non_channel
+        native_positions = reshaped_native(positions, [batch_shape, pos_i_shape, channel(positions)], force_expand=True)
+        if isinstance(max_distance, Tensor):
+            if max_distance.shape:
+                rad_i_shape = non_batch(max_distance).non_channel
+                if rad_i_shape:  # different values for each particle
+                    assert rad_i_shape == pos_i_shape, f"spatial/instance dimensions of max_radius {rad_i_shape} must match positions {pos_i_shape} if present."
+                    max_distance = reshaped_native(max_distance, [batch_shape, rad_i_shape], force_expand=True)
+                else:
+                    max_distance = reshaped_native(max_distance, [batch_shape], force_expand=True)
+            else:
+                max_distance = max_distance.native()
+        if not others_dims.well_defined:
+            assert others_dims.rank == 1, f"others_dims sizes must be specified when passing more then one dimension but got {others_dims}"
+            others_dims = others_dims.with_size(pos_i_shape.volume)
+        sparse_natives = backend.pairwise_distances(native_positions, max_distance, format)
+        tensors = []
+        if format == 'csr':
+            for indices, pointers, values in sparse_natives:
+                indices = wrap(indices, instance('nnz'))
+                pointers = wrap(pointers, instance('pointers'))
+                values = wrap(values, instance('nnz'), channel(positions))
+                tensors.append(CompressedSparseTensor(indices, pointers, others_dims, values, concat_shapes(pos_i_shape, others_dims)))
+        elif format == 'coo':
+            raise NotImplementedError
+        elif format == 'csc':
+            raise NotImplementedError
+        else:
+            raise ValueError(format)
+        return stack_tensors(tensors, batch_shape)

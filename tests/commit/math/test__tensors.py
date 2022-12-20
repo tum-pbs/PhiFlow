@@ -438,6 +438,16 @@ class TestTensors(TestCase):
                 self.assertEqual(False, t.all)
                 self.assertEqual(True, t.any)
 
+    def test_nested_reduce(self):
+        t = math.expand(stack([math.ones(spatial(x=4, y=3)), -math.ones(spatial(x=4, y=3))], channel(vector='x,y')), batch(b=10))
+        self.assertEqual(0, t.mean)
+        self.assertEqual(1, t.std)
+        self.assertEqual(-1, t.min)
+        self.assertEqual(1, t.max)
+        self.assertEqual(0, t.sum)
+        self.assertEqual(True, t.all)
+        self.assertEqual(True, t.any)
+
     def test_iter_dim(self):
         slices = tuple(math.zeros(channel(vector='x,y')).vector)
         self.assertEqual(2, len(slices))

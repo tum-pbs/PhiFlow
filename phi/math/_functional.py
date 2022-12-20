@@ -1120,16 +1120,6 @@ class ShiftLinTracer(Tensor):
             else:
                 raise ValueError(f"Unsupported operation encountered while tracing linear function: {native_function}")
 
-    def _tensor_reduce(self,
-                       dims: Tuple[str],
-                       dtype: type or None,
-                       native_function: Callable,
-                       collapsed_function: Callable = lambda inner_reduced, collapsed_dims_to_reduce: inner_reduced,
-                       unaffected_function: Callable = lambda value: value):
-        if all(dim not in self._shape for dim in dims):
-            return unaffected_function(self)
-        raise NotImplementedError("Reducing linear tracers is not yet supported.")
-
     def _natives(self) -> tuple:
         """
         This function should only be used to determine the compatible backends, this tensor should be regarded as not available.
