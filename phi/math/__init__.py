@@ -24,6 +24,7 @@ from ._shape import (
 )
 from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten, copy_with
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
+from ._sparse import dense, get_sparsity
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
@@ -50,7 +51,8 @@ from ._ops import (
     fft, ifft, convolve, cumulative_sum,
     dtype, cast,
     close, assert_close,
-    stop_gradient
+    stop_gradient,
+    pairwise_distances,
 )
 from ._nd import (
     shift,

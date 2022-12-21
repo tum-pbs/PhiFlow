@@ -864,6 +864,39 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def pairwise_distances(self, positions, max_radius, format: str) -> list:
+        """
+
+        Args:
+            positions: Point locations of shape (batch, instances, vector)
+            max_radius: Scalar or (batch,) or (batch, instances)
+            format: 'csr', 'coo' or 'csc'
+
+        Returns:
+            Sequence of batch_size sparse distance matrices
+        """
+        from sklearn import neighbors
+        batch_size, point_count, _vec_count = self.staticshape(positions)
+        positions_np_batched = self.numpy(positions)
+        result = []
+        for i in range(batch_size):
+            tree = neighbors.KDTree(positions_np_batched[i])
+            radius = float(max_radius) if len(self.staticshape(max_radius)) == 0 else max_radius[i]
+            nested_neighbors = tree.query_radius(positions_np_batched[i], r=radius)  # ndarray[ndarray]
+            if format == 'csr':
+                column_indices = numpy.concatenate(nested_neighbors)  # flattened_neighbors
+                neighbor_counts = [len(nlist) for nlist in nested_neighbors]
+                row_pointers = numpy.concatenate([[0], numpy.cumsum(neighbor_counts)])
+                pos_neighbors = positions[i, column_indices]
+                pos_self = numpy.repeat(positions[i], neighbor_counts, axis=0)
+                values = pos_neighbors - pos_self
+                result.append((column_indices, row_pointers, values))
+                # sparse_matrix = self.csr_matrix(column_indices, row_pointers, values, (point_count, point_count))
+                # sparse_matrix.eliminate_zeros()  # setdiag(0) keeps zero entries
+            else:
+                raise NotImplementedError(format)
+        return result
+
     def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
         if method == 'GD':
             return self._minimize_gradient_descent(f, x0, atol, max_iter, trj)

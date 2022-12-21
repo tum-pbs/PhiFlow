@@ -1070,6 +1070,20 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
     elif isinstance(value, TensorStack):
         reduced_inners = [_sum(t, dims.without(value.stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x + y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+    elif isinstance(value, CompressedSparseTensor):
+        if value.sparse_dims in dims:  # reduce all sparse dims
+            return _sum(value._values, dims.without(value.sparse_dims) & instance(value._values))
+        value_only_dims = dims.only(value._values.shape).without(value.sparsity_batch)
+        value = value._with_values(_sum(value._values, value_only_dims))
+        dims = dims.without(value_only_dims)
+        if value._uncompressed_dims in dims and value._compressed_dims.only(dims).is_empty:
+            # We can ignore the pointers
+            result_base = zeros(value.shape.without(value._uncompressed_dims))
+            return scatter(result_base, value._indices, value._values, mode='add', outside_handling='undefined')
+        elif value.sparse_dims.only(dims):  # reduce some sparse dims
+            raise NotImplementedError(f"only sum along non-pointer dimensions supported at the moment, i.e. sum along {value.shape.without(value._compressed_dims)}")
+        return value
+        # first sum value dims that are not part of indices
     else:
         raise ValueError(type(value))
 
@@ -2326,7 +2340,7 @@ def pairwise_distances(positions: Tensor, max_distance: float or Tensor = None, 
                 indices = wrap(indices, instance('nnz'))
                 pointers = wrap(pointers, instance('pointers'))
                 values = wrap(values, instance('nnz'), channel(positions))
-                tensors.append(CompressedSparseTensor(indices, pointers, others_dims, values, concat_shapes(pos_i_shape, others_dims)))
+                tensors.append(CompressedSparseTensor(indices, pointers, values, others_dims, pos_i_shape))
         elif format == 'coo':
             raise NotImplementedError
         elif format == 'csc':
