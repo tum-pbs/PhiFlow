@@ -1774,11 +1774,11 @@ def layout(objects, *shape: Shape) -> Tensor:
 
     return Layout(objects, shape)
     # if shape.volume == 1:
-    #     objects = np.asarray(objects, dtype=np.object)
+    #     objects = np.asarray(objects, dtype=object)
     #
     # if isinstance(objects, (tuple, list)):
-    #     objects = np.asarray(objects, dtype=np.object)
-    # if isinstance(objects, np.ndarray) and objects.dtype == np.object:
+    #     objects = np.asarray(objects, dtype=object)
+    # if isinstance(objects, np.ndarray) and objects.dtype == object:
     #     return Layout(objects, shape)
     # else:
     #     assert shape.volume == 1, f"Cannot layout object of type {objects} along {shape}, a tuple, list or object array is required."

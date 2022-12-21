@@ -132,7 +132,7 @@ _TO_NUMPY = {
     DType(int, 32): np.int32,
     DType(int, 64): np.int64,
     DType(bool): np.bool_,
-    DType(object): np.object,
+    DType(object): object,
 }
 _FROM_NUMPY = {np: dtype for dtype, np in _TO_NUMPY.items()}
 _FROM_NUMPY[np.bool] = DType(bool)
