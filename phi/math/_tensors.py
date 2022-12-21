@@ -1788,6 +1788,8 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
     if isinstance(data, Tensor):
         return data
     elif isinstance(data, Shape):
+        if data.spatial.rank == 1:
+            return wrap(data.spatial.size)
         assert compat_shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
         assert data.rank == compat_shape.channel.volume
         return wrap(data.spatial.sizes, *compat_shape.channel.with_size(data.names))
