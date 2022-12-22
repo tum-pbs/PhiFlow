@@ -11,7 +11,7 @@ from ._magic_ops import expand, pack_dims, flatten, unpack_dim, cast, copy_with,
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, non_channel)
-from ._sparse import CompressedSparseTensor
+from ._sparse import CompressedSparseTensor, dot_compressed_dense
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
     cached, is_scalar, Layout
@@ -1083,12 +1083,12 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
         value_only_dims = dims.only(value._values.shape).without(value.sparsity_batch)
         value = value._with_values(_sum(value._values, value_only_dims))
         dims = dims.without(value_only_dims)
-        if value._uncompressed_dims in dims and value._compressed_dims.only(dims).is_empty:
+        if value._compressed_dims in dims and value._uncompressed_dims.only(dims).is_empty:
             # We can ignore the pointers
-            result_base = zeros(value.shape.without(value._uncompressed_dims))
+            result_base = zeros(value.shape.without(value._compressed_dims))
             return scatter(result_base, value._indices, value._values, mode='add', outside_handling='undefined')
         elif value.sparse_dims.only(dims):  # reduce some sparse dims
-            raise NotImplementedError(f"only sum along non-pointer dimensions supported at the moment, i.e. sum along {value.shape.without(value._compressed_dims)}")
+            return dot(value, dims, ones(dims), dims)  # this is what SciPy does in both axes, actually.
         return value
         # first sum value dims that are not part of indices
     else:
@@ -1533,6 +1533,14 @@ def dot(x: Tensor,
         assert x_dims.volume == 1, f"Cannot compute dot product between dimensions {x_dims} on {x.shape} and {y_dims} on {y.shape}"
         x = x[{d: 0 for d in x_dims.names}]
         return x * y
+    if isinstance(x, CompressedSparseTensor):
+        if isinstance(y, CompressedSparseTensor):
+            raise NotImplementedError
+        return dot_compressed_dense(x, x_dims, y, y_dims)
+    elif isinstance(y, CompressedSparseTensor):
+        if isinstance(x, CompressedSparseTensor):
+            raise NotImplementedError
+        return dot_compressed_dense(y, y_dims, x, x_dims)
     x_native = x.native(x.shape)
     y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)

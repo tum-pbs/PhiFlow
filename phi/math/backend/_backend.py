@@ -830,6 +830,27 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def mul_csr_dense(self, column_indices, row_pointers, matrix_values, shape: tuple, rhs):
+        """
+        Create a sparse matrix in compressed sparse row (CSR) format.
+
+        Optional feature.
+
+        See Also:
+            `Backend.sparse_coo_tensor()`, `Backend.csc_matrix()`.
+
+        Args:
+            column_indices: (batch, nnz)
+            row_pointers: (batch, rows + 1)
+            matrix_values: (batch, nnz, channels)
+            shape: Shape of the full matrix (cols, rows)
+            rhs: (batch, channels, rhs_rows=cols, rhs_cols)
+
+        Returns:
+            (batch, channels, rhs_rows=cols, rhs_cols)
+        """
+        raise NotImplementedError(self)
+
     def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
         """
         Create a sparse matrix in compressed sparse column (CSC) format.

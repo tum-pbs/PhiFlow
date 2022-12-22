@@ -1,10 +1,10 @@
 import warnings
-from numbers import Number
-from typing import List, Tuple, Callable
+from typing import List, Callable
 
-from .backend._dtype import DType
 from ._shape import Shape, non_batch, merge_shapes, instance, batch, non_instance, shape, channel, spatial
 from ._tensors import Tensor, TensorStack, CollapsedTensor, NativeTensor, cached
+from .backend import choose_backend, Backend
+from .backend._dtype import DType
 
 
 class SparseCoordinateTensor(Tensor):
@@ -178,3 +178,22 @@ def stored_values(x: Tensor) -> List[Tensor]:
         if isinstance(x, ShiftLinTracer):
             return sum([stored_values(v) for v in x.val.values()], [])
         raise ValueError(x)
+
+
+def dot_compressed_dense(compressed: CompressedSparseTensor, cdims: Shape, dense: Tensor, ddims: Shape):
+    from phi.math import reshaped_native, reshaped_tensor
+    backend = choose_backend(*compressed._natives() + dense._natives())
+    if compressed._uncompressed_dims in cdims:  # proper matrix-vector multiplication
+        ind_batch = batch(compressed._indices & compressed._pointers)
+        channels = non_instance(compressed._values).without(ind_batch)
+        rhs_channels = shape(dense).without(ddims).without(channels)
+        native_indices = reshaped_native(compressed._indices, [ind_batch, instance], force_expand=True)
+        native_pointers = reshaped_native(compressed._pointers, [ind_batch, instance], force_expand=True)
+        native_values = reshaped_native(compressed._values, [ind_batch, instance, channels])
+        native_shape = compressed._uncompressed_dims.volume, compressed._compressed_dims.volume
+        dense_native = reshaped_native(dense, [ind_batch, channels, ddims, rhs_channels], force_expand=True)
+        result_native = backend.mul_csr_dense(native_indices, native_pointers, native_values, native_shape, dense_native)
+        result = reshaped_tensor(result_native, [ind_batch, channels, instance(compressed._compressed_dims), rhs_channels])
+        return result
+    else:  # transposed matrix vector multiplication. This is inefficient
+        raise NotImplementedError

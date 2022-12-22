@@ -344,6 +344,17 @@ class NumPyBackend(Backend):
     def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
         return scipy.sparse.csc_matrix((values, row_indices, column_pointers), shape=shape)
 
+    def mul_csr_dense(self, column_indices, row_pointers, matrix_values, shape: tuple, rhs):
+        batch_size, nnz, channel_count = self.staticshape(matrix_values)
+        result = []
+        for b in range(batch_size):
+            b_result = []
+            for c in range(channel_count):
+                mat = scipy.sparse.csr_matrix((matrix_values[b, :, c], column_indices[b], row_pointers[b]), shape=shape)
+                b_result.append(mat * rhs[b, c])
+            result.append(np.stack(b_result))
+        return np.stack(result)
+
     def coordinates(self, tensor):
         assert scipy.sparse.issparse(tensor)
         coo = tensor.tocoo()
