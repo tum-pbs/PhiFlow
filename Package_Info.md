@@ -8,7 +8,7 @@
 &nbsp;&nbsp;&nbsp; [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> **Playground**](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)
 
 PhiFlow is an open-source simulation toolkit built for optimization and machine learning applications.
-It is written mostly in Python and can be used with NumPy, TensorFlow or PyTorch.
+It is written mostly in Python and can be used with NumPy, TensorFlow, Jax or PyTorch.
 The close integration with machine learning frameworks allows it to leverage their automatic differentiation functionality,
 making it easy to build end-to-end differentiable functions involving both learning models and physics simulations.
 
