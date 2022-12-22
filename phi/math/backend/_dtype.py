@@ -135,7 +135,7 @@ _TO_NUMPY = {
     DType(object): object,
 }
 _FROM_NUMPY = {np: dtype for dtype, np in _TO_NUMPY.items()}
-_FROM_NUMPY[np.bool] = DType(bool)
+_FROM_NUMPY[np.bool_] = DType(bool)
 
 
 def combine_types(*dtypes: DType, fp_precision: int = None) -> DType:
