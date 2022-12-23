@@ -16,9 +16,10 @@ This is analogous to interfaces defined in the built-in `collections` package, s
 To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`.
 """
 import warnings
-from typing import Tuple, Dict, Any, Callable
+from typing import Tuple, Callable
+
+from ._shape import Shape, shape, channel, non_batch
 from .backend._dtype import DType
-from ._shape import Shape, shape, batch, spatial, instance, channel, non_batch
 
 
 class _ShapedType(type):
@@ -130,11 +131,11 @@ class Sliceable(metaclass=_SliceableType):
 class _ShapableType(type):
     def __instancecheck__(self, instance):
         return isinstance(instance, Sliceable) and isinstance(instance, Shaped) and\
-               (hasattr(instance, '__stack__') or (hasattr(instance, '__concat__') and hasattr(instance, '__expand__')))
+               (hasattr(instance, '__stack__') or (hasattr(instance, '__concat__') and hasattr(instance, '__expand__')) or isinstance(instance, PhiTreeNode))
 
     def __subclasscheck__(self, subclass):
         return issubclass(subclass, Sliceable) and\
-               (hasattr(subclass, '__stack__') or (hasattr(subclass, '__concat__') and hasattr(subclass, '__expand__')))
+               (hasattr(subclass, '__stack__') or (hasattr(subclass, '__concat__') and hasattr(subclass, '__expand__')) or issubclass(subclass, PhiTreeNode))
 
 
 class Shapable(metaclass=_ShapableType):
@@ -311,7 +312,7 @@ class _PhiTreeNodeType(type):
             return hasattr(instance, '__variable_attrs__') or hasattr(instance, '__value_attrs__')
 
     def __subclasscheck__(self, subclass):
-        from ._tensors import Tensor, MISSING_TENSOR, NATIVE_TENSOR, Dict
+        from ._tensors import Tensor, Dict
         if issubclass(subclass, Tensor):
             return True
         if subclass in (tuple, list, dict):
@@ -345,7 +346,7 @@ class PhiTreeNode(metaclass=_PhiTreeNodeType):
     Disassembly and assembly of Φ-tree nodes uses `phi.math.copy_with` which will call `__with_attrs__` if implemented.
     """
 
-    def __value_attrs__(self) -> Tuple[str]:
+    def __value_attrs__(self) -> Tuple[str, ...]:
         """
         Returns all `Tensor` or `PhiTreeNode` attribute names of `self` that should be transformed by single-operand math operations,
         such as `sin()`, `exp()`.
@@ -356,7 +357,7 @@ class PhiTreeNode(metaclass=_PhiTreeNodeType):
         """
         raise NotImplementedError
 
-    def __variable_attrs__(self) -> Tuple[str]:
+    def __variable_attrs__(self) -> Tuple[str, ...]:
         """
         Returns all `Tensor` or `PhiTreeNode` attribute names of `self` whose values are variable.
         Variables denote values that can change from one function call to the next or for which gradients can be recorded.
@@ -436,17 +437,17 @@ class BoundDim:
             raise AttributeError(f"'{type(self)}' object has no attribute '{name}'")
         if name == 'shape':
             raise AttributeError
-        assert isinstance(obj, Sliceable) and isinstance(obj, Shaped)
+        assert isinstance(obj, Sliceable) and isinstance(obj, Shaped), f"Cannot create BoundDim for {type(obj).__name__}. Objects must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html"
         self.obj = obj
         self.name = name
 
     @property
     def exists(self):
         """ Whether the dimension is listed in the `Shape` of the object. """
-        return self.name in self.obj.shape
+        return self.name in shape(self.obj)
 
     def __repr__(self):
-        if self.name not in self.obj.shape:
+        if self.name not in shape(self.obj):
             return f"{type(self.obj).__name__}.{self.name} (non-existent)"
         items = self.item_names
         if items is not None:
@@ -462,11 +463,11 @@ class BoundDim:
     @property
     def size(self):
         """ Length of this dimension as listed in the `Shape` of the bound object. """
-        return self.obj.shape.get_size(self.name) if self.exists else None
+        return shape(self.obj).get_size(self.name) if self.exists else None
 
     @property
     def size_or_1(self):
-        return self.obj.shape.get_size(self.name) if self.exists else 1
+        return shape(self.obj).get_size(self.name) if self.exists else 1
 
     @property
     def type(self) -> Callable:
@@ -476,11 +477,11 @@ class BoundDim:
         Returns:
 
         """
-        return self.obj.shape.get_dim_type(self.name)
+        return shape(self.obj).get_dim_type(self.name)
 
     @property
     def item_names(self):
-        return self.obj.shape.get_item_names(self.name)
+        return shape(self.obj).get_item_names(self.name)
 
     def __getitem__(self, item):
         return self.obj[{self.name: item}]

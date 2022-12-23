@@ -1,7 +1,7 @@
 import copy
 import warnings
 from numbers import Number
-from typing import TypeVar, Tuple
+from typing import TypeVar, Tuple, Set
 
 from .backend import choose_backend, NoBackendFound
 from .backend._dtype import DType
@@ -118,13 +118,25 @@ def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwar
             dim_item_names = tuple(values.keys())
             values = tuple(values.values())
             dim = dim.with_size(dim_item_names)
-        # --- if any value implements Shapable, use their implementation ---
+        # --- First try __stack__ ---
         for v in values:
             if hasattr(v, '__stack__'):
                 result = v.__stack__(values, dim, **kwargs)
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), "__stack__ must return a Shapable object"
                     return result
+        # --- Next: try stacking attributes for tree nodes ---
+        if all(isinstance(v, PhiTreeNode) for v in values):
+            attributes = all_attributes(values[0])
+            if attributes and all(all_attributes(v) == attributes for v in values):
+                new_attrs = {}
+                for a in attributes:
+                    assert all(shape(getattr(v, a)).only(dim).is_empty for v in values), f"Cannot stack attribute {a} because one values contains the stack dimension {dim}."
+                    a_values = [getattr(v, a) for v in values]
+                    new_attrs[a] = stack(a_values, dim, expand_values=expand_values, **kwargs)
+                return copy_with(values[0], **new_attrs)
+            else:
+                warnings.warn(f"Failed to concat values using value attributes because attributes differ among values {values}")
         # --- Fallback: use expand and concat ---
         for v in values:
             if not hasattr(v, '__stack__') and hasattr(v, '__concat__') and hasattr(v, '__expand__'):
@@ -197,12 +209,14 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
     if isinstance(dim, Shape):
         dim = dim.name
     assert isinstance(dim, str), f"dim must be a str or Shape but got '{dim}' of type {type(dim)}"
+    for v in values:
+        assert dim in shape(v), f"dim must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}"
     for v in values[1:]:
         assert set(non_batch(v).names) == set(non_batch(values[0]).names), f"Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}"
     # Add missing batch dimensions
     all_batch_dims = merge_shapes(*[batch(v) for v in values])
     values = [expand(v, all_batch_dims) for v in values]
-    # First try __concat__
+    # --- First try __concat__ ---
     for v in values:
         if isinstance(v, Shapable):
             if hasattr(v, '__concat__'):
@@ -210,7 +224,19 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), "__concat__ must return a Shapable object"
                     return result
-    # Fallback: slice and __stack__
+    # --- Next: try concat attributes for tree nodes ---
+    if all(isinstance(v, PhiTreeNode) for v in values):
+        attributes = all_attributes(values[0])
+        if attributes and all(all_attributes(v) == attributes for v in values):
+            new_attrs = {}
+            for a in attributes:
+                common_shape = merge_shapes(*[shape(getattr(v, a)).without(dim) for v in values])
+                a_values = [expand(getattr(v, a), common_shape & shape(v).only(dim)) for v in values]  # expand by dim if missing, and dims of others
+                new_attrs[a] = concat(a_values, dim, **kwargs)
+            return copy_with(values[0], **new_attrs)
+        else:
+            warnings.warn(f"Failed to concat values using value attributes because attributes differ among values {values}")
+    # --- Fallback: slice and stack ---
     try:
         unstacked = sum([unstack(v, dim) for v in values], ())
     except MagicNotImplemented:
@@ -252,11 +278,16 @@ def expand(value, dims: Shape, **kwargs):
     if not dims.without(shape(value)):  # no new dims to add
         if set(dims) == set(shape(value).only(dims)):  # sizes and item names might differ, though
             return value
+    # --- First try __stack__
     if hasattr(value, '__expand__'):
         result = value.__expand__(dims, **kwargs)
         if result is not NotImplemented:
             return result
-    # Fallback: stack
+    # --- Next try Tree Node ---
+    if isinstance(value, PhiTreeNode):
+        new_attributes = {a: expand(getattr(value, a), dims, **kwargs) for a in value_attributes(value)}
+        return copy_with(value, **new_attributes)
+    # --- Fallback: stack ---
     if hasattr(value, '__stack__'):
         if dims.volume > 8:
             warnings.warn(f"expand() default implementation is slow on large shapes {dims}. Please implement __expand__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
@@ -300,11 +331,16 @@ def rename_dims(value,
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be a Shape or Shapable but got {type(value).__name__}"
     dims = shape(value).only(dims)
     names = dims._replace_names_and_types(dims, names)
+    # --- First try __replace_dims__ ---
     if hasattr(value, '__replace_dims__'):
         result = value.__replace_dims__(dims.names, names, **kwargs)
         if result is not NotImplemented:
             return result
-    # Fallback: unstack and stack
+    # --- Next try Tree Node ---
+    if isinstance(value, PhiTreeNode):
+        new_attributes = {a: rename_dims(getattr(value, a), dims, names, **kwargs) for a in value_attributes(value)}
+        return copy_with(value, **new_attributes)
+    # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume > 8:
         warnings.warn(f"rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     for old_name, new_dim in zip(dims.names, names):
@@ -353,11 +389,16 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
         return value if packed_dim.size is None else expand(value, packed_dim, **kwargs)  # Inserting size=1 can cause shape errors
     elif len(dims) == 1:
         return rename_dims(value, dims, packed_dim, **kwargs)
+    # --- First try __pack_dims__ ---
     if hasattr(value, '__pack_dims__'):
         result = value.__pack_dims__(dims.names, packed_dim, pos, **kwargs)
         if result is not NotImplemented:
             return result
-    # Fallback: unstack and stack
+    # --- Next try Tree Node ---
+    if isinstance(value, PhiTreeNode):
+        new_attributes = {a: pack_dims(getattr(value, a), dims, packed_dim, pos=pos, **kwargs) for a in value_attributes(value)}
+        return copy_with(value, **new_attributes)
+    # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume > 8:
         warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     return stack(unstack(value, dims), packed_dim, **kwargs)
@@ -401,11 +442,16 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
         return value[{dim: 0}]  # remove dim
     elif unpacked_dims.rank == 1:
         return rename_dims(value, dim, unpacked_dims, **kwargs)
+    # --- First try __unpack_dim__
     if hasattr(value, '__unpack_dim__'):
         result = value.__unpack_dim__(dim, unpacked_dims, **kwargs)
         if result is not NotImplemented:
             return result
-    # Fallback: unstack and stack
+    # --- Next try Tree Node ---
+    if isinstance(value, PhiTreeNode):
+        new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in value_attributes(value)}
+        return copy_with(value, **new_attributes)
+    # --- Fallback: unstack and stack ---
     if shape(value).only(dim).volume > 8:
         warnings.warn(f"pack_dims() default implementation is slow on large dimensions ({shape(value).only(dim)}). Please implement __unpack_dim__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
     unstacked = unstack(value, dim)
@@ -439,11 +485,13 @@ def flatten(value, flat_dim: Shape = instance('flat'), flatten_batch=False, **kw
     """
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
+    # --- First try __flatten__ ---
     if hasattr(value, '__flatten__'):
         result = value.__flatten__(flat_dim, flatten_batch, **kwargs)
         if result is not NotImplemented:
             return result
-    # Fallback: pack_dims
+    # There is no tree node implementation for flatten because pack_dims is just as fast
+    # --- Fallback: pack_dims ---
     return pack_dims(value, shape(value) if flatten_batch else non_batch(value), flat_dim, **kwargs)
 
 
@@ -458,22 +506,33 @@ def variable_attributes(obj) -> Tuple[str]:
     elif hasattr(obj, '__value_attrs__'):
         return obj.__value_attrs__()
     else:
-        raise ValueError(f"Not PhiTreeNode: {type(obj)}")
+        raise ValueError(f"Not a PhiTreeNode: {type(obj).__name__}")
 
 
-def value_attributes(obj):
-    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
+def value_attributes(obj) -> Tuple[str, ...]:
+    assert hasattr(obj, '__value_attrs__'), f"{type(obj).__name__} must implement '__value_attrs__()' to be used with value functions."
     return obj.__value_attrs__()
 
 
-def variable_values(obj):
-    assert hasattr(obj, '__value_attrs__'), f"{type(obj)} must implement '__value_attrs__()' to be used with value functions."
+def variable_values(obj) -> Tuple[str, ...]:
+    assert hasattr(obj, '__value_attrs__'), f"{type(obj).__name__} must implement '__value_attrs__()' to be used with value functions."
     if hasattr(obj, '__variable_attrs__'):
         values = obj.__value_attrs__()
         variables = obj.__variable_attrs__()
-        return [a for a in values if a in variables]
+        return tuple([a for a in values if a in variables])
     else:
         return obj.__value_attrs__()
+
+
+def all_attributes(obj) -> Set[str]:
+    if not isinstance(obj, PhiTreeNode):
+        raise ValueError(f"Not a PhiTreeNode: {type(obj).__name__}")
+    result = set()
+    if hasattr(obj, '__variable_attrs__'):
+        result.update(obj.__variable_attrs__())
+    if hasattr(obj, '__value_attrs__'):
+        result.update(obj.__value_attrs__())
+    return result
 
 
 def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:

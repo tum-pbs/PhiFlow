@@ -117,11 +117,11 @@ class Sphere(Geometry):
         else:
             return Geometry.__stack__(self, values, dim, **kwargs)
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Sphere':
-        if all(isinstance(v, Sphere) for v in values):
-            return Sphere(math.concat([v.center for v in values], dim, **kwargs), radius=math.concat([v.radius for v in values], dim, **kwargs))
-        else:
-            return NotImplemented
+    # def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Sphere':
+    #     if all(isinstance(v, Sphere) for v in values):
+    #         return Sphere(math.concat([v.center for v in values], dim, **kwargs), radius=math.concat([v.radius for v in values], dim, **kwargs))
+    #     else:
+    #         return NotImplemented
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Sphere':
         return Sphere(math.rename_dims(self._center, dims, new_dims, **kwargs), radius=math.rename_dims(self._radius, dims, new_dims, **kwargs))

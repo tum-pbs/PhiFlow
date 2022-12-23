@@ -3,7 +3,6 @@ from numbers import Number
 from typing import Tuple, Callable, List, Union, Any
 
 from phi import math
-from phi.math.backend import PHI_LOGGER
 
 BATCH_DIM = 'batch'
 SPATIAL_DIM = 'spatial'
@@ -1164,6 +1163,7 @@ def shape(obj) -> Shape:
     Returns:
         `Shape`
     """
+    from phi.math.magic import PhiTreeNode
     if isinstance(obj, Shape):
         return obj
     elif hasattr(obj, '__shape__'):
@@ -1176,6 +1176,9 @@ def shape(obj) -> Shape:
         return channel('vector')
     elif isinstance(obj, (Number, bool)):
         return EMPTY_SHAPE
+    elif isinstance(obj, PhiTreeNode):
+        from phi.math._magic_ops import all_attributes
+        return merge_shapes(*[getattr(obj, a) for a in all_attributes(obj)])
     else:
         from .backend import choose_backend, NoBackendFound
         try:
