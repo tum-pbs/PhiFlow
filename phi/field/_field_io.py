@@ -53,7 +53,7 @@ def write_single_field(field: SampledField, file: str):
         np.savez_compressed(file,
                             dim_names=dim_names,
                             dim_types=field.values.shape.types,
-                            dim_item_names=field.values.shape.item_names,
+                            dim_item_names=np.asarray(field.values.shape.item_names, dtype=object),
                             field_type=type(field).__name__,
                             lower=lower,
                             upper=upper,
