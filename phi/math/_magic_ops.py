@@ -285,7 +285,8 @@ def expand(value, dims: Shape, **kwargs):
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: expand(getattr(value, a), dims, **kwargs) for a in value_attributes(value)}
+        attributes = value_attributes(value) if hasattr(value, '__value_attrs__') else variable_attributes(value)
+        new_attributes = {a: expand(getattr(value, a), dims, **kwargs) for a in attributes}
         return copy_with(value, **new_attributes)
     # --- Fallback: stack ---
     if hasattr(value, '__stack__'):
@@ -338,7 +339,7 @@ def rename_dims(value,
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: rename_dims(getattr(value, a), dims, names, **kwargs) for a in value_attributes(value)}
+        new_attributes = {a: rename_dims(getattr(value, a), dims, names, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume > 8:
@@ -396,7 +397,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: pack_dims(getattr(value, a), dims, packed_dim, pos=pos, **kwargs) for a in value_attributes(value)}
+        new_attributes = {a: pack_dims(getattr(value, a), dims, packed_dim, pos=pos, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume > 8:
@@ -449,7 +450,7 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in value_attributes(value)}
+        new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dim).volume > 8:

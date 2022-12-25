@@ -1,11 +1,8 @@
 from numbers import Number
-from typing import Tuple
-
-import numpy as np
 
 from phi import math
-from phi.math import Tensor, Shape, EMPTY_SHAPE
-from phi.math._tensors import variable_attributes
+from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap
+from phi.math._magic_ops import variable_attributes
 from phi.math.magic import BoundDim, slicing_dict
 
 
@@ -315,6 +312,19 @@ class Geometry:
                 return False
         return True
 
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(type(v) == type(self) for v in values):
+            return NotImplemented  # let attributes be stacked
+        else:
+            from ._stack import GeometryStack
+            return GeometryStack(math.layout(values, dim))
+
+    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -> 'Geometry':
+        dims = self.shape.without('vector')
+        if not flatten_batch:
+            dims = dims.non_batch
+        return math.pack_dims(self, dims, flat_dim, **kwargs)
+
     def __ne__(self, other):
         return not self == other
 
@@ -331,13 +341,8 @@ class Geometry:
         # attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
         # return copy_with(self, **attrs)
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
-        from ._stack import GeometryStack
-        return GeometryStack(math.layout(values, dim))
-
     def __getattr__(self, name: str) -> BoundDim:
         return BoundDim(self, name)
-
 
 
 class _InvertedGeometry(Geometry):
@@ -346,8 +351,25 @@ class _InvertedGeometry(Geometry):
         self.geometry = geometry
 
     @property
+    def volume(self) -> Tensor:
+        return math.wrap(math.INF)
+
+    @property
+    def shape_type(self) -> Tensor:
+        raise NotImplementedError
+
+    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+        raise NotImplementedError
+
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        return _InvertedGeometry(self.geometry.scaled(factor))
+
+    def __getitem__(self, item: dict):
+        return _InvertedGeometry(self.geometry[item])
+
+    @property
     def center(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @property
     def shape(self):
@@ -403,24 +425,44 @@ def invert(geometry: Geometry):
 class _NoGeometry(Geometry):
 
     @property
+    def shape_type(self) -> Tensor:
+        raise NotImplementedError
+
+    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
+        return positions
+
+    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+        raise NotImplementedError
+
+    def scaled(self, factor: float or Tensor) -> 'Geometry':
+        return self
+
+    def __getitem__(self, item: dict):
+        return self
+
+    @property
     def shape(self):
         return EMPTY_SHAPE
 
     @property
-    def center(self):
-        return 0
+    def volume(self) -> Tensor:
+        return wrap(0)
 
-    def bounding_radius(self):
-        return 0
+    @property
+    def center(self) -> Tensor:
+        return wrap(0)
 
-    def bounding_half_extent(self):
-        return 0
+    def bounding_radius(self) -> Tensor:
+        return wrap(0)
+
+    def bounding_half_extent(self) -> Tensor:
+        return wrap(0)
 
     def approximate_signed_distance(self, location):
-        return math.zeros(location.shape.non_channel) + np.inf
+        return math.expand(math.INF, non_channel(location))
 
     def lies_inside(self, location):
-        return math.zeros(location.shape.non_channel, dtype=math.DType(bool))
+        return math.zeros(non_channel(location), dtype=bool)
 
     def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
         return math.zeros(other_geometry.shape)
@@ -509,36 +551,6 @@ class Point(Geometry):
 
     def __getitem__(self, item):
         return Point(self._location[_keep_vector(slicing_dict(self, item))])
-
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
-        if all(isinstance(v, Point) for v in values):
-            return Point(math.stack([v.center for v in values], dim, **kwargs))
-        else:
-            return Geometry.__stack__(self, values, dim, **kwargs)
-
-    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Point':
-        if all(isinstance(v, Point) for v in values):
-            return Point(math.concat([v.center for v in values], dim, **kwargs))
-        else:
-            return NotImplemented
-
-    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Point':
-        return Point(math.rename_dims(self._location, dims, new_dims, **kwargs))
-
-    def __expand__(self, dims: Shape, **kwargs) -> 'Point':
-        return Point(math.expand(self._location, dims, **kwargs))
-
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Point':
-        return Point(math.pack_dims(self._location, dims, packed_dim, pos, **kwargs))
-
-    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Point':
-        return Point(math.unpack_dim(self._location, dim, unpacked_dims, **kwargs))
-
-    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -> 'Point':
-        dims = self.shape.without('vector')
-        if not flatten_batch:
-            dims = dims.non_batch
-        return Point(math.pack_dims(self._location, dims, flat_dim, **kwargs))
 
 
 def assert_same_rank(rank1, rank2, error_message):

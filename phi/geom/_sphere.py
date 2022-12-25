@@ -111,36 +111,6 @@ class Sphere(Geometry):
         item = slicing_dict(self, item)
         return Sphere(self._center[_keep_vector(item)], self._radius[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
-        if all(isinstance(v, Sphere) for v in values):
-            return Sphere(math.stack([v.center for v in values], dim, **kwargs), radius=math.stack([v.radius for v in values], dim, **kwargs))
-        else:
-            return Geometry.__stack__(self, values, dim, **kwargs)
-
-    # def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Sphere':
-    #     if all(isinstance(v, Sphere) for v in values):
-    #         return Sphere(math.concat([v.center for v in values], dim, **kwargs), radius=math.concat([v.radius for v in values], dim, **kwargs))
-    #     else:
-    #         return NotImplemented
-
-    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Sphere':
-        return Sphere(math.rename_dims(self._center, dims, new_dims, **kwargs), radius=math.rename_dims(self._radius, dims, new_dims, **kwargs))
-
-    def __expand__(self, dims: Shape, **kwargs) -> 'Sphere':
-        return Sphere(math.expand(self._center, dims, **kwargs), radius=self._radius)
-
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Sphere':
-        return Sphere(math.pack_dims(self._center, dims, packed_dim, pos, **kwargs), radius=math.pack_dims(self._radius, dims, packed_dim, pos, **kwargs))
-
-    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Sphere':
-        return Sphere(math.unpack_dim(self._center, dim, unpacked_dims, **kwargs), radius=math.unpack_dim(self._radius, dim, unpacked_dims, **kwargs))
-
-    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -> 'Shapable':
-        dims = self.shape.without('vector')
-        if not flatten_batch:
-            dims = dims.non_batch
-        return Sphere(math.pack_dims(self._center, dims, flat_dim, **kwargs), radius=math.pack_dims(self._radius, dims, flat_dim, **kwargs))
-
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         raise NotImplementedError()
 
