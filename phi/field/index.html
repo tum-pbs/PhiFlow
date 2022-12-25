@@ -4910,11 +4910,14 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
     def __getattr__(self, name: str) -&gt; BoundDim:
         return BoundDim(self, name)
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Scene&#39;:
-        if all(isinstance(v, Scene) for v in values):
-            return Scene(stack([v.paths for v in values], dim, **kwargs))
+    def __variable_attrs__(self) -&gt; Tuple[str, ...]:
+        return &#39;paths&#39;,
+
+    def __with_attrs__(self, **attrs):
+        if &#39;paths&#39; in attrs:
+            return Scene(attrs[&#39;paths&#39;])
         else:
-            return NotImplemented
+            return Scene(self._paths)
 
     @property
     def shape(self):

@@ -1797,8 +1797,8 @@ The grid values at the new points are determined via mean (linear interpolation)
 <span>def <span class="ident">expand</span></span>(<span>value, dims: phi.math._shape.Shape, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Adds dimensions to a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> by implicitly repeating the tensor values along the new dimensions.
-If <code>value</code> already contains some of the new dimensions, a size and type check is performed instead.</p>
+<div class="desc"><p>Adds dimensions to a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or tensor-like object by implicitly repeating the tensor values along the new dimensions.
+If <code>value</code> already contains any of the new dimensions, a size and type check is performed for these instead.</p>
 <p>This function replaces the usual <code>tile</code> / <code>repeat</code> functions of
 <a href="https://numpy.org/doc/stable/reference/generated/numpy.tile.html">NumPy</a>,
 <a href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor.repeat">PyTorch</a>,
@@ -1808,7 +1808,8 @@ If <code>value</code> already contains some of the new dimensions, a size and ty
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
+<dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>
+For tree nodes, expands all value attributes by <code>dims</code> or the first variable attribute if no value attributes are set.</dd>
 <dt><strong><code>dims</code></strong></dt>
 <dd>Dimensions to be added as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></dd>
 <dt><strong><code>**kwargs</code></strong></dt>
@@ -1824,8 +1825,8 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </summary>
 <pre><code class="python">def expand(value, dims: Shape, **kwargs):
     &#34;&#34;&#34;
-    Adds dimensions to a `Tensor` by implicitly repeating the tensor values along the new dimensions.
-    If `value` already contains some of the new dimensions, a size and type check is performed instead.
+    Adds dimensions to a `Tensor` or tensor-like object by implicitly repeating the tensor values along the new dimensions.
+    If `value` already contains any of the new dimensions, a size and type check is performed for these instead.
 
     This function replaces the usual `tile` / `repeat` functions of
     [NumPy](https://numpy.org/doc/stable/reference/generated/numpy.tile.html),
@@ -1837,6 +1838,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 
     Args:
         value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
+            For tree nodes, expands all value attributes by `dims` or the first variable attribute if no value attributes are set.
         dims: Dimensions to be added as `Shape`
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
@@ -1856,7 +1858,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        attributes = value_attributes(value) if hasattr(value, &#39;__value_attrs__&#39;) else variable_attributes(value)
+        attributes = value_attributes(value) if hasattr(value, &#39;__value_attrs__&#39;) else [variable_attributes(value)[0]]
         new_attributes = {a: expand(getattr(value, a), dims, **kwargs) for a in attributes}
         return copy_with(value, **new_attributes)
     # --- Fallback: stack ---
@@ -7665,7 +7667,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         if result is not NotImplemented:
             return result
     # --- Next try Tree Node ---
-    if isinstance(value, PhiTreeNode):
+    if isinstance(value, PhiTreeNode) and all_attributes(value):
         new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
@@ -7751,7 +7753,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         if result is not NotImplemented:
             return result
     # --- Next try Tree Node ---
-    if isinstance(value, PhiTreeNode):
+    if isinstance(value, PhiTreeNode) and all_attributes(value):
         new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
