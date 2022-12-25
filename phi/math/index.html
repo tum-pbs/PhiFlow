@@ -1856,7 +1856,8 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: expand(getattr(value, a), dims, **kwargs) for a in value_attributes(value)}
+        attributes = value_attributes(value) if hasattr(value, &#39;__value_attrs__&#39;) else variable_attributes(value)
+        new_attributes = {a: expand(getattr(value, a), dims, **kwargs) for a in attributes}
         return copy_with(value, **new_attributes)
     # --- Fallback: stack ---
     if hasattr(value, &#39;__stack__&#39;):
@@ -5115,7 +5116,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: pack_dims(getattr(value, a), dims, packed_dim, pos=pos, **kwargs) for a in value_attributes(value)}
+        new_attributes = {a: pack_dims(getattr(value, a), dims, packed_dim, pos=pos, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume &gt; 8:
@@ -5772,7 +5773,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: rename_dims(getattr(value, a), dims, names, **kwargs) for a in value_attributes(value)}
+        new_attributes = {a: rename_dims(getattr(value, a), dims, names, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume &gt; 8:
@@ -7665,7 +7666,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in value_attributes(value)}
+        new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dim).volume &gt; 8:
@@ -7751,7 +7752,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in value_attributes(value)}
+        new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dim).volume &gt; 8:

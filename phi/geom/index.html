@@ -394,7 +394,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: pack_dims(getattr(value, a), dims, packed_dim, pos=pos, **kwargs) for a in value_attributes(value)}
+        new_attributes = {a: pack_dims(getattr(value, a), dims, packed_dim, pos=pos, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume &gt; 8:
@@ -1301,7 +1301,7 @@ Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
         if all(isinstance(v, Box) for v in values):
-            return Box(math.stack([v.lower for v in values], dim, **kwargs), math.stack([v.upper for v in values], dim, **kwargs))
+            return NotImplemented  # stack attributes
         else:
             return Geometry.__stack__(self, values, dim, **kwargs)
 
@@ -2035,6 +2035,19 @@ All batch dimensions are listed in Geometry.shape.</p></div>
                 return False
         return True
 
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        if all(type(v) == type(self) for v in values):
+            return NotImplemented  # let attributes be stacked
+        else:
+            from ._stack import GeometryStack
+            return GeometryStack(math.layout(values, dim))
+
+    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -&gt; &#39;Geometry&#39;:
+        dims = self.shape.without(&#39;vector&#39;)
+        if not flatten_batch:
+            dims = dims.non_batch
+        return math.pack_dims(self, dims, flat_dim, **kwargs)
+
     def __ne__(self, other):
         return not self == other
 
@@ -2050,10 +2063,6 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         # item = {dim: sel for dim, sel in item.items() if dim != &#39;vector&#39;}
         # attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
         # return copy_with(self, **attrs)
-
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
-        from ._stack import GeometryStack
-        return GeometryStack(math.layout(values, dim))
 
     def __getattr__(self, name: str) -&gt; BoundDim:
         return BoundDim(self, name)</code></pre>
@@ -2737,6 +2746,10 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Cuboid&#39;:
         return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
 
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        from ._stack import GeometryStack
+        return GeometryStack(math.layout(values, dim))
+
     def list_cells(self, dim_name):
         center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size)
@@ -3146,37 +3159,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
         return self
 
     def __getitem__(self, item):
-        return Point(self._location[_keep_vector(slicing_dict(self, item))])
-
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
-        if all(isinstance(v, Point) for v in values):
-            return Point(math.stack([v.center for v in values], dim, **kwargs))
-        else:
-            return Geometry.__stack__(self, values, dim, **kwargs)
-
-    def __concat__(self, values: tuple, dim: str, **kwargs) -&gt; &#39;Point&#39;:
-        if all(isinstance(v, Point) for v in values):
-            return Point(math.concat([v.center for v in values], dim, **kwargs))
-        else:
-            return NotImplemented
-
-    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;Point&#39;:
-        return Point(math.rename_dims(self._location, dims, new_dims, **kwargs))
-
-    def __expand__(self, dims: Shape, **kwargs) -&gt; &#39;Point&#39;:
-        return Point(math.expand(self._location, dims, **kwargs))
-
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Point&#39;:
-        return Point(math.pack_dims(self._location, dims, packed_dim, pos, **kwargs))
-
-    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -&gt; &#39;Point&#39;:
-        return Point(math.unpack_dim(self._location, dim, unpacked_dims, **kwargs))
-
-    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -&gt; &#39;Point&#39;:
-        dims = self.shape.without(&#39;vector&#39;)
-        if not flatten_batch:
-            dims = dims.non_batch
-        return Point(math.pack_dims(self._location, dims, flat_dim, **kwargs))</code></pre>
+        return Point(self._location[_keep_vector(slicing_dict(self, item))])</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3592,36 +3575,6 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
     def __getitem__(self, item):
         item = slicing_dict(self, item)
         return Sphere(self._center[_keep_vector(item)], self._radius[item])
-
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
-        if all(isinstance(v, Sphere) for v in values):
-            return Sphere(math.stack([v.center for v in values], dim, **kwargs), radius=math.stack([v.radius for v in values], dim, **kwargs))
-        else:
-            return Geometry.__stack__(self, values, dim, **kwargs)
-
-    # def __concat__(self, values: tuple, dim: str, **kwargs) -&gt; &#39;Sphere&#39;:
-    #     if all(isinstance(v, Sphere) for v in values):
-    #         return Sphere(math.concat([v.center for v in values], dim, **kwargs), radius=math.concat([v.radius for v in values], dim, **kwargs))
-    #     else:
-    #         return NotImplemented
-
-    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;Sphere&#39;:
-        return Sphere(math.rename_dims(self._center, dims, new_dims, **kwargs), radius=math.rename_dims(self._radius, dims, new_dims, **kwargs))
-
-    def __expand__(self, dims: Shape, **kwargs) -&gt; &#39;Sphere&#39;:
-        return Sphere(math.expand(self._center, dims, **kwargs), radius=self._radius)
-
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Sphere&#39;:
-        return Sphere(math.pack_dims(self._center, dims, packed_dim, pos, **kwargs), radius=math.pack_dims(self._radius, dims, packed_dim, pos, **kwargs))
-
-    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -&gt; &#39;Sphere&#39;:
-        return Sphere(math.unpack_dim(self._center, dim, unpacked_dims, **kwargs), radius=math.unpack_dim(self._radius, dim, unpacked_dims, **kwargs))
-
-    def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -&gt; &#39;Shapable&#39;:
-        dims = self.shape.without(&#39;vector&#39;)
-        if not flatten_batch:
-            dims = dims.non_batch
-        return Sphere(math.pack_dims(self._center, dims, flat_dim, **kwargs), radius=math.pack_dims(self._radius, dims, flat_dim, **kwargs))
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
         raise NotImplementedError()
