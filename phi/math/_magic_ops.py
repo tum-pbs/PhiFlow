@@ -449,7 +449,7 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
         if result is not NotImplemented:
             return result
     # --- Next try Tree Node ---
-    if isinstance(value, PhiTreeNode):
+    if isinstance(value, PhiTreeNode) and all_attributes(value):
         new_attributes = {a: unpack_dim(getattr(value, a), dim, unpacked_dims, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
@@ -525,17 +525,6 @@ def variable_values(obj) -> Tuple[str, ...]:
         return obj.__value_attrs__()
 
 
-def all_attributes(obj) -> Set[str]:
-    if not isinstance(obj, PhiTreeNode):
-        raise ValueError(f"Not a PhiTreeNode: {type(obj).__name__}")
-    result = set()
-    if hasattr(obj, '__variable_attrs__'):
-        result.update(obj.__variable_attrs__())
-    if hasattr(obj, '__value_attrs__'):
-        result.update(obj.__value_attrs__())
-    return result
-
-
 def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
     """
     Creates a copy of the given `PhiTreeNode` with updated values as specified in `updates`.
@@ -559,6 +548,19 @@ def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
         for attr, value in updates.items():
             setattr(cpy, attr, value)
         return cpy
+
+
+def all_attributes(obj, assert_any=False) -> Set[str]:
+    if not isinstance(obj, PhiTreeNode):
+        raise ValueError(f"Not a PhiTreeNode: {type(obj).__name__}")
+    result = set()
+    if hasattr(obj, '__variable_attrs__'):
+        result.update(obj.__variable_attrs__())
+    if hasattr(obj, '__value_attrs__'):
+        result.update(obj.__value_attrs__())
+    if assert_any:
+        assert result, f"{type(obj).__name__} is not a valid tree node because it has no tensor-like attributes."
+    return result
 
 
 # Other Ops

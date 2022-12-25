@@ -6,6 +6,7 @@ import shutil
 import sys
 import warnings
 from os.path import join, isfile, isdir, abspath, expanduser, basename, split
+from typing import Tuple
 
 from phi import math, __version__ as phi_version
 from ._field import SampledField
@@ -67,11 +68,14 @@ class Scene:
     def __getattr__(self, name: str) -> BoundDim:
         return BoundDim(self, name)
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Scene':
-        if all(isinstance(v, Scene) for v in values):
-            return Scene(stack([v.paths for v in values], dim, **kwargs))
+    def __variable_attrs__(self) -> Tuple[str, ...]:
+        return 'paths',
+
+    def __with_attrs__(self, **attrs):
+        if 'paths' in attrs:
+            return Scene(attrs['paths'])
         else:
-            return NotImplemented
+            return Scene(self._paths)
 
     @property
     def shape(self):

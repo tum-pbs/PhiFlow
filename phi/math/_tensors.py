@@ -964,6 +964,17 @@ class Layout(Tensor):
         obj = self._recursive_cast(self._obj, self._shape, dtype)
         return Layout(obj, self._shape)
 
+    def __copy__(self):
+        return Layout(self._obj, self._shape)
+
+    def __iter__(self):
+        if self.rank == 1:
+            return iter(self._obj)
+        elif self.rank == 0:
+            return iter([self._obj])
+        else:
+            return iter(self._as_list())
+
     def __eq__(self, other):
         if _EQUALITY_BY_REF:
             return wrap(self is other)
@@ -1010,9 +1021,10 @@ class Layout(Tensor):
 
     @staticmethod
     def _recursive_op1(obj, shape: Shape, native_function):
+        raise NotImplementedError
         if shape:
             if isinstance(obj, (tuple, list)):
-                return type(obj)([Layout._recursive_op1(i, shape[1:]) for i in obj])
+                return type(obj)([Layout._recursive_op1(i, shape[1:], native_function) for i in obj])
 
     def _tensor_reduce(self,
                        dims: Tuple[str],

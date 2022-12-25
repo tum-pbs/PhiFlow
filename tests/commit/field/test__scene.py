@@ -60,7 +60,6 @@ class TestScene(TestCase):
         math.assert_close(vec(x=2, y=3), scenes.properties['non_batched_tensor'])
         scenes.remove()
 
-
     def test_create_remove_at_equality_batch(self):
         scene = Scene.create(DIR, batch=2, config=3)
         self.assertEqual(6, scene.shape.volume)
