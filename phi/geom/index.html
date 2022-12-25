@@ -141,12 +141,14 @@ concat([vec(x=1, y=0), vec(z=2.)], 'vector')
     if isinstance(dim, Shape):
         dim = dim.name
     assert isinstance(dim, str), f&#34;dim must be a str or Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
+    for v in values:
+        assert dim in shape(v), f&#34;dim must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}&#34;
     for v in values[1:]:
         assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}&#34;
     # Add missing batch dimensions
     all_batch_dims = merge_shapes(*[batch(v) for v in values])
     values = [expand(v, all_batch_dims) for v in values]
-    # First try __concat__
+    # --- First try __concat__ ---
     for v in values:
         if isinstance(v, Shapable):
             if hasattr(v, &#39;__concat__&#39;):
@@ -154,7 +156,19 @@ concat([vec(x=1, y=0), vec(z=2.)], 'vector')
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), &#34;__concat__ must return a Shapable object&#34;
                     return result
-    # Fallback: slice and __stack__
+    # --- Next: try concat attributes for tree nodes ---
+    if all(isinstance(v, PhiTreeNode) for v in values):
+        attributes = all_attributes(values[0])
+        if attributes and all(all_attributes(v) == attributes for v in values):
+            new_attrs = {}
+            for a in attributes:
+                common_shape = merge_shapes(*[shape(getattr(v, a)).without(dim) for v in values])
+                a_values = [expand(getattr(v, a), common_shape &amp; shape(v).only(dim)) for v in values]  # expand by dim if missing, and dims of others
+                new_attrs[a] = concat(a_values, dim, **kwargs)
+            return copy_with(values[0], **new_attrs)
+        else:
+            warnings.warn(f&#34;Failed to concat values using value attributes because attributes differ among values {values}&#34;)
+    # --- Fallback: slice and stack ---
     try:
         unstacked = sum([unstack(v, dim) for v in values], ())
     except MagicNotImplemented:
@@ -373,11 +387,16 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         return value if packed_dim.size is None else expand(value, packed_dim, **kwargs)  # Inserting size=1 can cause shape errors
     elif len(dims) == 1:
         return rename_dims(value, dims, packed_dim, **kwargs)
+    # --- First try __pack_dims__ ---
     if hasattr(value, &#39;__pack_dims__&#39;):
         result = value.__pack_dims__(dims.names, packed_dim, pos, **kwargs)
         if result is not NotImplemented:
             return result
-    # Fallback: unstack and stack
+    # --- Next try Tree Node ---
+    if isinstance(value, PhiTreeNode):
+        new_attributes = {a: pack_dims(getattr(value, a), dims, packed_dim, pos=pos, **kwargs) for a in value_attributes(value)}
+        return copy_with(value, **new_attributes)
+    # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume &gt; 8:
         warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phi.math.magic&#34;, RuntimeWarning, stacklevel=2)
     return stack(unstack(value, dims), packed_dim, **kwargs)</code></pre>
@@ -491,13 +510,25 @@ stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
             dim_item_names = tuple(values.keys())
             values = tuple(values.values())
             dim = dim.with_size(dim_item_names)
-        # --- if any value implements Shapable, use their implementation ---
+        # --- First try __stack__ ---
         for v in values:
             if hasattr(v, &#39;__stack__&#39;):
                 result = v.__stack__(values, dim, **kwargs)
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), &#34;__stack__ must return a Shapable object&#34;
                     return result
+        # --- Next: try stacking attributes for tree nodes ---
+        if all(isinstance(v, PhiTreeNode) for v in values):
+            attributes = all_attributes(values[0])
+            if attributes and all(all_attributes(v) == attributes for v in values):
+                new_attrs = {}
+                for a in attributes:
+                    assert all(shape(getattr(v, a)).only(dim).is_empty for v in values), f&#34;Cannot stack attribute {a} because one values contains the stack dimension {dim}.&#34;
+                    a_values = [getattr(v, a) for v in values]
+                    new_attrs[a] = stack(a_values, dim, expand_values=expand_values, **kwargs)
+                return copy_with(values[0], **new_attrs)
+            else:
+                warnings.warn(f&#34;Failed to concat values using value attributes because attributes differ among values {values}&#34;)
         # --- Fallback: use expand and concat ---
         for v in values:
             if not hasattr(v, &#39;__stack__&#39;) and hasattr(v, &#39;__concat__&#39;) and hasattr(v, &#39;__expand__&#39;):
@@ -3568,11 +3599,11 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         else:
             return Geometry.__stack__(self, values, dim, **kwargs)
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -&gt; &#39;Sphere&#39;:
-        if all(isinstance(v, Sphere) for v in values):
-            return Sphere(math.concat([v.center for v in values], dim, **kwargs), radius=math.concat([v.radius for v in values], dim, **kwargs))
-        else:
-            return NotImplemented
+    # def __concat__(self, values: tuple, dim: str, **kwargs) -&gt; &#39;Sphere&#39;:
+    #     if all(isinstance(v, Sphere) for v in values):
+    #         return Sphere(math.concat([v.center for v in values], dim, **kwargs), radius=math.concat([v.radius for v in values], dim, **kwargs))
+    #     else:
+    #         return NotImplemented
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;Sphere&#39;:
         return Sphere(math.rename_dims(self._center, dims, new_dims, **kwargs), radius=math.rename_dims(self._radius, dims, new_dims, **kwargs))

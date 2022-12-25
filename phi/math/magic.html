@@ -57,9 +57,10 @@ This is analogous to interfaces defined in the built-in `collections` package, s
 To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`.
 &#34;&#34;&#34;
 import warnings
-from typing import Tuple, Dict, Any, Callable
+from typing import Tuple, Callable
+
+from ._shape import Shape, shape, channel, non_batch
 from .backend._dtype import DType
-from ._shape import Shape, shape, batch, spatial, instance, channel, non_batch
 
 
 class _ShapedType(type):
@@ -171,11 +172,11 @@ class Sliceable(metaclass=_SliceableType):
 class _ShapableType(type):
     def __instancecheck__(self, instance):
         return isinstance(instance, Sliceable) and isinstance(instance, Shaped) and\
-               (hasattr(instance, &#39;__stack__&#39;) or (hasattr(instance, &#39;__concat__&#39;) and hasattr(instance, &#39;__expand__&#39;)))
+               (hasattr(instance, &#39;__stack__&#39;) or (hasattr(instance, &#39;__concat__&#39;) and hasattr(instance, &#39;__expand__&#39;)) or isinstance(instance, PhiTreeNode))
 
     def __subclasscheck__(self, subclass):
         return issubclass(subclass, Sliceable) and\
-               (hasattr(subclass, &#39;__stack__&#39;) or (hasattr(subclass, &#39;__concat__&#39;) and hasattr(subclass, &#39;__expand__&#39;)))
+               (hasattr(subclass, &#39;__stack__&#39;) or (hasattr(subclass, &#39;__concat__&#39;) and hasattr(subclass, &#39;__expand__&#39;)) or issubclass(subclass, PhiTreeNode))
 
 
 class Shapable(metaclass=_ShapableType):
@@ -352,7 +353,7 @@ class _PhiTreeNodeType(type):
             return hasattr(instance, &#39;__variable_attrs__&#39;) or hasattr(instance, &#39;__value_attrs__&#39;)
 
     def __subclasscheck__(self, subclass):
-        from ._tensors import Tensor, MISSING_TENSOR, NATIVE_TENSOR, Dict
+        from ._tensors import Tensor, Dict
         if issubclass(subclass, Tensor):
             return True
         if subclass in (tuple, list, dict):
@@ -386,7 +387,7 @@ class PhiTreeNode(metaclass=_PhiTreeNodeType):
     Disassembly and assembly of Φ-tree nodes uses `phi.math.copy_with` which will call `__with_attrs__` if implemented.
     &#34;&#34;&#34;
 
-    def __value_attrs__(self) -&gt; Tuple[str]:
+    def __value_attrs__(self) -&gt; Tuple[str, ...]:
         &#34;&#34;&#34;
         Returns all `Tensor` or `PhiTreeNode` attribute names of `self` that should be transformed by single-operand math operations,
         such as `sin()`, `exp()`.
@@ -397,7 +398,7 @@ class PhiTreeNode(metaclass=_PhiTreeNodeType):
         &#34;&#34;&#34;
         raise NotImplementedError
 
-    def __variable_attrs__(self) -&gt; Tuple[str]:
+    def __variable_attrs__(self) -&gt; Tuple[str, ...]:
         &#34;&#34;&#34;
         Returns all `Tensor` or `PhiTreeNode` attribute names of `self` whose values are variable.
         Variables denote values that can change from one function call to the next or for which gradients can be recorded.
@@ -477,17 +478,17 @@ class BoundDim:
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         if name == &#39;shape&#39;:
             raise AttributeError
-        assert isinstance(obj, Sliceable) and isinstance(obj, Shaped)
+        assert isinstance(obj, Sliceable) and isinstance(obj, Shaped), f&#34;Cannot create BoundDim for {type(obj).__name__}. Objects must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html&#34;
         self.obj = obj
         self.name = name
 
     @property
     def exists(self):
         &#34;&#34;&#34; Whether the dimension is listed in the `Shape` of the object. &#34;&#34;&#34;
-        return self.name in self.obj.shape
+        return self.name in shape(self.obj)
 
     def __repr__(self):
-        if self.name not in self.obj.shape:
+        if self.name not in shape(self.obj):
             return f&#34;{type(self.obj).__name__}.{self.name} (non-existent)&#34;
         items = self.item_names
         if items is not None:
@@ -503,11 +504,11 @@ class BoundDim:
     @property
     def size(self):
         &#34;&#34;&#34; Length of this dimension as listed in the `Shape` of the bound object. &#34;&#34;&#34;
-        return self.obj.shape.get_size(self.name) if self.exists else None
+        return shape(self.obj).get_size(self.name) if self.exists else None
 
     @property
     def size_or_1(self):
-        return self.obj.shape.get_size(self.name) if self.exists else 1
+        return shape(self.obj).get_size(self.name) if self.exists else 1
 
     @property
     def type(self) -&gt; Callable:
@@ -517,11 +518,11 @@ class BoundDim:
         Returns:
 
         &#34;&#34;&#34;
-        return self.obj.shape.get_dim_type(self.name)
+        return shape(self.obj).get_dim_type(self.name)
 
     @property
     def item_names(self):
-        return self.obj.shape.get_item_names(self.name)
+        return shape(self.obj).get_item_names(self.name)
 
     def __getitem__(self, item):
         return self.obj[{self.name: item}]
@@ -810,17 +811,17 @@ class MyClass:
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         if name == &#39;shape&#39;:
             raise AttributeError
-        assert isinstance(obj, Sliceable) and isinstance(obj, Shaped)
+        assert isinstance(obj, Sliceable) and isinstance(obj, Shaped), f&#34;Cannot create BoundDim for {type(obj).__name__}. Objects must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html&#34;
         self.obj = obj
         self.name = name
 
     @property
     def exists(self):
         &#34;&#34;&#34; Whether the dimension is listed in the `Shape` of the object. &#34;&#34;&#34;
-        return self.name in self.obj.shape
+        return self.name in shape(self.obj)
 
     def __repr__(self):
-        if self.name not in self.obj.shape:
+        if self.name not in shape(self.obj):
             return f&#34;{type(self.obj).__name__}.{self.name} (non-existent)&#34;
         items = self.item_names
         if items is not None:
@@ -836,11 +837,11 @@ class MyClass:
     @property
     def size(self):
         &#34;&#34;&#34; Length of this dimension as listed in the `Shape` of the bound object. &#34;&#34;&#34;
-        return self.obj.shape.get_size(self.name) if self.exists else None
+        return shape(self.obj).get_size(self.name) if self.exists else None
 
     @property
     def size_or_1(self):
-        return self.obj.shape.get_size(self.name) if self.exists else 1
+        return shape(self.obj).get_size(self.name) if self.exists else 1
 
     @property
     def type(self) -&gt; Callable:
@@ -850,11 +851,11 @@ class MyClass:
         Returns:
 
         &#34;&#34;&#34;
-        return self.obj.shape.get_dim_type(self.name)
+        return shape(self.obj).get_dim_type(self.name)
 
     @property
     def item_names(self):
-        return self.obj.shape.get_item_names(self.name)
+        return shape(self.obj).get_item_names(self.name)
 
     def __getitem__(self, item):
         return self.obj[{self.name: item}]
@@ -956,7 +957,7 @@ class MyClass:
 <pre><code class="python">@property
 def exists(self):
     &#34;&#34;&#34; Whether the dimension is listed in the `Shape` of the object. &#34;&#34;&#34;
-    return self.name in self.obj.shape</code></pre>
+    return self.name in shape(self.obj)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.magic.BoundDim.item_names"><code class="name">var <span class="ident">item_names</span></code></dt>
@@ -968,7 +969,7 @@ def exists(self):
 </summary>
 <pre><code class="python">@property
 def item_names(self):
-    return self.obj.shape.get_item_names(self.name)</code></pre>
+    return shape(self.obj).get_item_names(self.name)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.magic.BoundDim.size"><code class="name">var <span class="ident">size</span></code></dt>
@@ -981,7 +982,7 @@ def item_names(self):
 <pre><code class="python">@property
 def size(self):
     &#34;&#34;&#34; Length of this dimension as listed in the `Shape` of the bound object. &#34;&#34;&#34;
-    return self.obj.shape.get_size(self.name) if self.exists else None</code></pre>
+    return shape(self.obj).get_size(self.name) if self.exists else None</code></pre>
 </details>
 </dd>
 <dt id="phi.math.magic.BoundDim.size_or_1"><code class="name">var <span class="ident">size_or_1</span></code></dt>
@@ -993,7 +994,7 @@ def size(self):
 </summary>
 <pre><code class="python">@property
 def size_or_1(self):
-    return self.obj.shape.get_size(self.name) if self.exists else 1</code></pre>
+    return shape(self.obj).get_size(self.name) if self.exists else 1</code></pre>
 </details>
 </dd>
 <dt id="phi.math.magic.BoundDim.type"><code class="name">var <span class="ident">type</span> : Callable</code></dt>
@@ -1012,7 +1013,7 @@ def type(self) -&gt; Callable:
     Returns:
 
     &#34;&#34;&#34;
-    return self.obj.shape.get_dim_type(self.name)</code></pre>
+    return shape(self.obj).get_dim_type(self.name)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1214,7 +1215,7 @@ In key mode, <code>__eq__()</code> compares all non-variable properties that mig
     Disassembly and assembly of Φ-tree nodes uses `phi.math.copy_with` which will call `__with_attrs__` if implemented.
     &#34;&#34;&#34;
 
-    def __value_attrs__(self) -&gt; Tuple[str]:
+    def __value_attrs__(self) -&gt; Tuple[str, ...]:
         &#34;&#34;&#34;
         Returns all `Tensor` or `PhiTreeNode` attribute names of `self` that should be transformed by single-operand math operations,
         such as `sin()`, `exp()`.
@@ -1225,7 +1226,7 @@ In key mode, <code>__eq__()</code> compares all non-variable properties that mig
         &#34;&#34;&#34;
         raise NotImplementedError
 
-    def __variable_attrs__(self) -&gt; Tuple[str]:
+    def __variable_attrs__(self) -&gt; Tuple[str, ...]:
         &#34;&#34;&#34;
         Returns all `Tensor` or `PhiTreeNode` attribute names of `self` whose values are variable.
         Variables denote values that can change from one function call to the next or for which gradients can be recorded.
@@ -1265,7 +1266,7 @@ In key mode, <code>__eq__()</code> compares all non-variable properties that mig
 <h3>Methods</h3>
 <dl>
 <dt id="phi.math.magic.PhiTreeNode.__value_attrs__"><code class="name flex">
-<span>def <span class="ident">__value_attrs__</span></span>(<span>self) ‑> Tuple[str]</span>
+<span>def <span class="ident">__value_attrs__</span></span>(<span>self) ‑> Tuple[str, ...]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns all <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> attribute names of <code>self</code> that should be transformed by single-operand math operations,
@@ -1277,7 +1278,7 @@ Calling <code>getattr(self, attr)</code> must return a <code>Tensor</code> or <c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def __value_attrs__(self) -&gt; Tuple[str]:
+<pre><code class="python">def __value_attrs__(self) -&gt; Tuple[str, ...]:
     &#34;&#34;&#34;
     Returns all `Tensor` or `PhiTreeNode` attribute names of `self` that should be transformed by single-operand math operations,
     such as `sin()`, `exp()`.
@@ -1290,7 +1291,7 @@ Calling <code>getattr(self, attr)</code> must return a <code>Tensor</code> or <c
 </details>
 </dd>
 <dt id="phi.math.magic.PhiTreeNode.__variable_attrs__"><code class="name flex">
-<span>def <span class="ident">__variable_attrs__</span></span>(<span>self) ‑> Tuple[str]</span>
+<span>def <span class="ident">__variable_attrs__</span></span>(<span>self) ‑> Tuple[str, ...]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns all <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> attribute names of <code>self</code> whose values are variable.
@@ -1311,7 +1312,7 @@ Calling <code>getattr(self, attr)</code> must return a <code>Tensor</code> or <c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def __variable_attrs__(self) -&gt; Tuple[str]:
+<pre><code class="python">def __variable_attrs__(self) -&gt; Tuple[str, ...]:
     &#34;&#34;&#34;
     Returns all `Tensor` or `PhiTreeNode` attribute names of `self` whose values are variable.
     Variables denote values that can change from one function call to the next or for which gradients can be recorded.
