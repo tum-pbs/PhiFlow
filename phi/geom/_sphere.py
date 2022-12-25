@@ -105,7 +105,7 @@ class Sphere(Geometry):
         return Sphere(self.center, self.radius * factor)
 
     def __variable_attrs__(self):
-        return '_radius', '_center'
+        return '_center', '_radius'
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)

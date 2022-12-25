@@ -250,11 +250,10 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
         raise MagicNotImplemented(f"concat: No value implemented __concat__ and slices could not be stacked. values = {[type(v) for v in values]}")
 
 
-
 def expand(value, dims: Shape, **kwargs):
     """
-    Adds dimensions to a `Tensor` by implicitly repeating the tensor values along the new dimensions.
-    If `value` already contains some of the new dimensions, a size and type check is performed instead.
+    Adds dimensions to a `Tensor` or tensor-like object by implicitly repeating the tensor values along the new dimensions.
+    If `value` already contains any of the new dimensions, a size and type check is performed for these instead.
 
     This function replaces the usual `tile` / `repeat` functions of
     [NumPy](https://numpy.org/doc/stable/reference/generated/numpy.tile.html),
@@ -266,6 +265,7 @@ def expand(value, dims: Shape, **kwargs):
 
     Args:
         value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
+            For tree nodes, expands all value attributes by `dims` or the first variable attribute if no value attributes are set.
         dims: Dimensions to be added as `Shape`
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
@@ -285,7 +285,7 @@ def expand(value, dims: Shape, **kwargs):
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        attributes = value_attributes(value) if hasattr(value, '__value_attrs__') else variable_attributes(value)
+        attributes = value_attributes(value) if hasattr(value, '__value_attrs__') else [variable_attributes(value)[0]]
         new_attributes = {a: expand(getattr(value, a), dims, **kwargs) for a in attributes}
         return copy_with(value, **new_attributes)
     # --- Fallback: stack ---
