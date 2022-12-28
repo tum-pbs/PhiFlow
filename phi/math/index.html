@@ -5848,9 +5848,8 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
     &#34;&#34;&#34;
     assert isinstance(value, Tensor), f&#34;value must be a Tensor but got {type(value)}&#34;
     order = []
+    groups = [group(value) if callable(group) else group for group in groups]
     for i, group in enumerate(groups):
-        if callable(group):
-            group = group(value)
         if isinstance(group, Shape):
             present = value.shape.only(group)
             if force_expand is True or present.volume &gt; 1 or (force_expand is not False and group.only(force_expand).volume &gt; 1):
