@@ -957,6 +957,17 @@ class Layout(Tensor):
         obj = self._recursive_cast(self._obj, self._shape, dtype)
         return Layout(obj, self._shape)
 
+    def __copy__(self):
+        return Layout(self._obj, self._shape)
+
+    def __iter__(self):
+        if self.rank == 1:
+            return iter(self._obj)
+        elif self.rank == 0:
+            return iter([self._obj])
+        else:
+            return iter(self._as_list())
+
     def __eq__(self, other):
         if _EQUALITY_BY_REF:
             return wrap(self is other)
@@ -1683,11 +1694,11 @@ def layout(objects, *shape: Shape) -> Tensor:
 
     return Layout(objects, shape)
     # if shape.volume == 1:
-    #     objects = np.asarray(objects, dtype=np.object)
+    #     objects = np.asarray(objects, dtype=object)
     #
     # if isinstance(objects, (tuple, list)):
-    #     objects = np.asarray(objects, dtype=np.object)
-    # if isinstance(objects, np.ndarray) and objects.dtype == np.object:
+    #     objects = np.asarray(objects, dtype=object)
+    # if isinstance(objects, np.ndarray) and objects.dtype == object:
     #     return Layout(objects, shape)
     # else:
     #     assert shape.volume == 1, f"Cannot layout object of type {objects} along {shape}, a tuple, list or object array is required."
@@ -1697,6 +1708,8 @@ def compatible_tensor(data, compat_shape: Shape = None, compat_natives=(), conve
     if isinstance(data, Tensor):
         return data
     elif isinstance(data, Shape):
+        if data.spatial.rank == 1:
+            return wrap(data.spatial.size)
         assert compat_shape.channel.rank == 1, "Only single-channel tensors support implicit casting from Shape to tensor"
         assert data.rank == compat_shape.channel.volume
         return wrap(data.spatial.sizes, *compat_shape.channel.with_size(data.names))

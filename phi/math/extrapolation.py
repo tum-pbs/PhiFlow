@@ -1098,10 +1098,10 @@ class _MixedExtrapolation(Extrapolation):
         return extrap.pad_values(value, width, dim, upper_edge, **kwargs)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
-        coordinates = coordinates.vector.unstack()
-        assert len(self.ext) == len(shape.spatial) == len(coordinates)
+        assert len(self.ext) == len(shape.spatial) == coordinates.vector.size
         result = []
-        for dim, dim_coords in zip(shape.spatial.unstack(), coordinates):
+        for dim in shape.spatial.unstack():
+            dim_coords = coordinates[[dim.name]]
             dim_extrapolations = self.ext[dim.name]
             if dim_extrapolations[0] == dim_extrapolations[1]:
                 result.append(dim_extrapolations[0].transform_coordinates(dim_coords, dim, **kwargs))

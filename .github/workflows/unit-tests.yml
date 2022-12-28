@@ -14,9 +14,9 @@ jobs:
       - name: Checkout 🛎️
         uses: actions/checkout@v2
 
-      - name: Setup ffmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v1
-        id: setup-ffmpeg
+#      - name: Setup ffmpeg
+#        uses: FedericoCarboni/setup-ffmpeg@v1
+#        id: setup-ffmpeg
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2

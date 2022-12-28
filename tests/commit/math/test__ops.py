@@ -4,7 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN, vec
+from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN, vec, non_spatial
 from phi.math.backend import Backend
 
 
@@ -601,6 +601,8 @@ class TestMathFunctions(TestCase):
         except AssertionError as err:
             print(err)
             pass
+        nat = math.reshaped_native(a, [spatial, non_spatial])
+        self.assertEqual((12, 2), nat.shape)
 
     def test_native(self):
         nat = np.zeros(4)
