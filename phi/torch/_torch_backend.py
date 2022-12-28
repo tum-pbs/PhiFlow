@@ -606,6 +606,11 @@ class TorchBackend(Backend):
             multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
 
+    def repeat(self, x, repeats, axis: int):
+        if isinstance(repeats, (np.ndarray, tuple, list)):
+            repeats = self.as_tensor(repeats)
+        return torch.repeat_interleave(self.as_tensor(x), repeats, axis)
+
     def sparse_coo_tensor(self, indices, values, shape):
         indices_ = self.to_int64(indices)
         values_ = self.to_float(values)

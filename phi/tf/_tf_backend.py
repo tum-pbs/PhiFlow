@@ -155,6 +155,11 @@ class TFBackend(Backend):
                 value = self.expand_dims(value, axis=0, number=len(multiples) - self.ndims(value))
             return tf.tile(value, multiples)
 
+    def repeat(self, x, repeats, axis: int):
+        x = self.as_tensor(x)
+        with tf.device(x.device):
+            return tf.repeat(x, repeats, axis)
+
     def stack(self, values, axis=0):
         with self._device_for(*values):
             return tf.stack(values, axis=axis)

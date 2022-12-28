@@ -361,6 +361,9 @@ class JaxBackend(Backend):
             results.append(b_values[b_indices])
         return jnp.stack(results)
 
+    def repeat(self, x, repeats, axis: int):
+        return jnp.repeat(x, self.as_tensor(repeats), axis)
+
     def std(self, x, axis=None, keepdims=False):
         return jnp.std(x, axis, keepdims=keepdims)
 

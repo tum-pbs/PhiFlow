@@ -792,7 +792,7 @@ class Backend:
 
     def tile(self, value, multiples):
         """
-        Repeats the tensor along each axis the number of times given by multiples.
+        Repeats the full tensor along each axis the number of times given by multiples.
         If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
 
         Args:
@@ -800,8 +800,21 @@ class Backend:
           multiples: tuple or list of integers
 
         Returns:
-          tile tensor
+            tiled tensor
+        """
+        raise NotImplementedError(self)
 
+    def repeat(self, x, repeats, axis: int):
+        """
+        Repeats the elements along `axis` `repeats` times.
+
+        Args:
+            x: Tensor
+            repeats: How often to repeat each element. 1D tensor of length x.shape[axis]
+            axis: Which axis to repeat elements along
+
+        Returns:
+            repeated Tensor
         """
         raise NotImplementedError(self)
 

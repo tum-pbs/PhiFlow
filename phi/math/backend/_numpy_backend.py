@@ -41,6 +41,7 @@ class NumPyBackend(Backend):
     concat = staticmethod(np.concatenate)
     stack = staticmethod(np.stack)
     tile = staticmethod(np.tile)
+    repeat = staticmethod(np.repeat)
     transpose = staticmethod(np.transpose)
     sqrt = np.sqrt
     exp = np.exp
