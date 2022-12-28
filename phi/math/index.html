@@ -5797,7 +5797,14 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <dt><strong><code>value</code></strong></dt>
 <dd><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></dd>
 <dt><strong><code>groups</code></strong></dt>
-<dd>Sequence of dimension names as <code>str</code> or groups of dimensions to be packed_dim as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</dd>
+<dd>
+<p><code>tuple</code> or <code>list</code> of dimensions to be packed into one native dimension. Each entry must be one of the following:</p>
+<ul>
+<li><code>str</code>: the name of one dimension that is present on <code>value</code>.</li>
+<li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>: Dimensions to be packed. If <code>force_expand</code>, missing dimensions are first added, otherwise they are ignored.</li>
+<li>Filter function: Packs all dimensions of this type that are present on <code>value</code>.</li>
+</ul>
+</dd>
 <dt><strong><code>force_expand</code></strong></dt>
 <dd><code>bool</code> or sequence of dimensions.
 If <code>True</code>, repeats the tensor along missing dimensions.
@@ -5824,7 +5831,12 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 
     Args:
         value: `Tensor`
-        groups: Sequence of dimension names as `str` or groups of dimensions to be packed_dim as `Shape`.
+        groups: `tuple` or `list` of dimensions to be packed into one native dimension. Each entry must be one of the following:
+
+            * `str`: the name of one dimension that is present on `value`.
+            * `Shape`: Dimensions to be packed. If `force_expand`, missing dimensions are first added, otherwise they are ignored.
+            * Filter function: Packs all dimensions of this type that are present on `value`.
+
         force_expand: `bool` or sequence of dimensions.
             If `True`, repeats the tensor along missing dimensions.
             If `False`, puts singleton dimensions where possible.
@@ -5837,6 +5849,8 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
     assert isinstance(value, Tensor), f&#34;value must be a Tensor but got {type(value)}&#34;
     order = []
     for i, group in enumerate(groups):
+        if callable(group):
+            group = group(value)
         if isinstance(group, Shape):
             present = value.shape.only(group)
             if force_expand is True or present.volume &gt; 1 or (force_expand is not False and group.only(force_expand).volume &gt; 1):
@@ -5844,7 +5858,8 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
             value = pack_dims(value, group, batch(f&#34;group{i}&#34;))
             order.append(f&#34;group{i}&#34;)
         else:
-            assert isinstance(group, str), f&#34;Groups must be either str or Shape but got {group}&#34;
+            assert isinstance(group, str), f&#34;Groups must be either single-dim str or Shape but got {group}&#34;
+            assert &#39;,&#39; not in group, f&#34;When packing multiple dimensions, pass a well-defined Shape instead of a comma-separated str. Got {group}&#34;
             order.append(group)
     return value.numpy(order) if to_numpy else value.native(order)</code></pre>
 </details>
