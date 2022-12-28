@@ -496,6 +496,10 @@ class TorchBackend(Backend):
         else:
             return NUMPY.staticshape(tensor)
 
+    def gather(self, values, indices, axis: int):
+        slices = [indices if i == axis else slice(None) for i in range(self.ndims(values))]
+        return values[tuple(slices)]
+
     def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
         indices = self.as_tensor(indices).long()

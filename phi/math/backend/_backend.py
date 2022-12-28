@@ -644,6 +644,20 @@ class Backend:
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, self.precision * 2)))
 
+    def gather(self, values, indices, axis: int):
+        """
+        Gathers values from the tensor `values` at locations `indices`.
+
+        Args:
+            values: tensor
+            indices: 1D tensor
+            axis: Axis along which to gather slices
+
+        Returns:
+            tensor, with size along `axis` being the length of `indices`
+        """
+        raise NotImplementedError(self)
+
     def batched_gather_nd(self, values, indices):
         """
         Gathers values from the tensor `values` at locations `indices`.

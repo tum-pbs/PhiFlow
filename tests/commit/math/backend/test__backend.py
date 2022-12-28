@@ -34,3 +34,11 @@ class TestBackends(TestCase):
             t_ = backend.allocate_on_device(t, backend.get_default_device())
             assert backend.get_device(t_) == backend.get_default_device()
 
+    def test_gather(self):
+        for backend in BACKENDS:
+            t = backend.zeros((4, 3, 2))
+            indices = [0, 1]
+            result = backend.gather(t, indices, axis=0)
+            self.assertEqual((2, 3, 2), backend.staticshape(result))
+
+

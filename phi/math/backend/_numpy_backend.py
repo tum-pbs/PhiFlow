@@ -243,6 +243,10 @@ class NumPyBackend(Backend):
         else:
             return np.array(x, to_numpy_dtype(dtype))
 
+    def gather(self, values, indices, axis: int):
+        slices = [indices if i == axis else slice(None) for i in range(self.ndims(values))]
+        return values[tuple(slices)]
+
     def batched_gather_nd(self, values, indices):
         assert indices.shape[-1] == self.ndims(values) - 2
         batch_size = combined_dim(values.shape[0], indices.shape[0])

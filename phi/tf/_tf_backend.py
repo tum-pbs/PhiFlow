@@ -387,6 +387,10 @@ class TFBackend(Backend):
         else:
             return np.shape(tensor)
 
+    def gather(self, values, indices, axis: int):
+        with self._device_for(values, indices):
+            return tf.gather(values, indices, axis=axis)
+
     def batched_gather_nd(self, values, indices):
         with self._device_for(values, indices):
             values_shape = self.staticshape(values)
