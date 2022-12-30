@@ -350,7 +350,7 @@ class NumPyBackend(Backend):
         return scipy.sparse.csc_matrix((values, row_indices, column_pointers), shape=shape)
 
     def mul_csr_dense(self, column_indices, row_pointers, matrix_values, shape: tuple, rhs):
-        batch_size, nnz, channel_count = self.staticshape(matrix_values)
+        batch_size, nnz, channel_count = matrix_values.shape
         result = []
         for b in range(batch_size):
             b_result = []

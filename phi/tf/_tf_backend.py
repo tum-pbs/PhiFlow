@@ -567,6 +567,19 @@ class TFBackend(Backend):
             indices = tf.cast(tf.stack(indices, axis=-1), tf.int64)
             return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
 
+    def mul_coo_dense(self, indices, values, shape, dense):
+        values, dense = self.auto_cast(values, dense)
+        batch_size, nnz, channel_count = self.staticshape(values)
+        indices = tf.cast(indices, np.int64)
+        result = []
+        for b in range(batch_size):
+            b_result = []
+            for c in range(channel_count):
+                matrix = tf.SparseTensor(indices=indices[b], values=values[b, :, c], dense_shape=shape)
+                b_result.append(tf.sparse.sparse_dense_matmul(matrix, dense[b, c]))
+            result.append(tf.stack(b_result))
+        return tf.stack(result)
+
     def coordinates(self, tensor):
         assert isinstance(tensor, tf.SparseTensor)
         idx = tensor.indices

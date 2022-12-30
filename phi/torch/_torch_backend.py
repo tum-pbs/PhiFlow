@@ -625,6 +625,28 @@ class TorchBackend(Backend):
             result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
         return result
 
+    def mul_csr_dense(self, column_indices, row_pointers, matrix_values, shape: tuple, rhs):
+        matrix_values, rhs = self.auto_cast(matrix_values, rhs, bool_to_int=True, int_to_float=True)
+        batch_size, nnz, channel_count = matrix_values.shape
+        result = []
+        for b in range(batch_size):
+            b_result = []
+            for c in range(channel_count):
+                matrix = torch.sparse_csr_tensor(row_pointers[b], column_indices[b], matrix_values[b, :, c], shape, device=matrix_values.device)
+                # mat = scipy.sparse.csr_matrix((matrix_values[b, :, c], column_indices[b], row_pointers[b]), shape=shape)
+                b_result.append(torch.sparse.mm(matrix, self.as_tensor(rhs[b, c])))
+            result.append(torch.stack(b_result))
+        return torch.stack(result)
+        # if channel_count == 1:
+        #     matrix = torch.sparse_csr_tensor(row_pointers, column_indices, matrix_values[:, :, 0], (batch_size, *shape), device=matrix_values.device)
+        #     matrix.matmul(self.as_tensor(rhs[:, 0, :, :]))
+        #     # torch.sparse.mm(matrix, self.as_tensor(rhs[:, 0, :, :]))
+        #     raise NotImplementedError
+        # else:
+        #     # tile
+        #     raise NotImplementedError
+
+
     def coordinates(self, tensor):
         assert isinstance(tensor, torch.Tensor) and tensor.is_sparse
         idx = tensor._indices()

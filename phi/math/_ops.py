@@ -11,7 +11,7 @@ from ._magic_ops import expand, pack_dims, flatten, unpack_dim, cast, copy_with,
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, non_channel)
-from ._sparse import CompressedSparseTensor, dot_compressed_dense
+from ._sparse import CompressedSparseTensor, dot_compressed_dense, dense
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
     cached, is_scalar, Layout
@@ -1081,7 +1081,8 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
         if value.sparse_dims in dims:  # reduce all sparse dims
             return _sum(value._values, dims.without(value.sparse_dims) & instance(value._values))
         value_only_dims = dims.only(value._values.shape).without(value.sparsity_batch)
-        value = value._with_values(_sum(value._values, value_only_dims))
+        if value_only_dims:
+            value = value._with_values(_sum(value._values, value_only_dims))
         dims = dims.without(value_only_dims)
         if value._compressed_dims in dims and value._uncompressed_dims.only(dims).is_empty:
             # We can ignore the pointers
@@ -2227,6 +2228,17 @@ def _assert_close(tensor1: Tensor, tensor2: Tensor, rel_tolerance: float, abs_to
         tensor1._assert_close(tensor2, rel_tolerance, abs_tolerance, msg, verbose)
     elif isinstance(tensor2, Layout):
         tensor2._assert_close(tensor1, rel_tolerance, abs_tolerance, msg, verbose)
+    elif isinstance(tensor1, CompressedSparseTensor):
+        if isinstance(tensor2, CompressedSparseTensor):
+            _assert_close(tensor1._values, tensor2._values, rel_tolerance, abs_tolerance, msg, verbose)
+            _assert_close(tensor1._indices, tensor2._indices, 0, 0, msg, verbose)
+            _assert_close(tensor1._pointers, tensor2._pointers, 0, 0, msg, verbose)
+        elif tensor1._compressed_dims.only(tensor2.shape):
+            _assert_close(dense(tensor1), tensor2, rel_tolerance, abs_tolerance, msg, verbose)
+        else:
+            _assert_close(tensor1._values, tensor2._values, rel_tolerance, abs_tolerance, msg, verbose)
+    elif isinstance(tensor2, CompressedSparseTensor):
+        return _assert_close(tensor2, tensor1, rel_tolerance, abs_tolerance, msg, verbose)
     else:
         def inner_assert_close(tensor1, tensor2):
             new_shape, (native1, native2) = broadcastable_native_tensors(tensor1, tensor2)

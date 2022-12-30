@@ -8,7 +8,7 @@ from typing import List, Callable, TypeVar, Tuple
 import logging
 import numpy
 
-from ._dtype import DType, combine_types
+from ._dtype import DType, combine_types, to_numpy_dtype
 
 
 SolveResult = namedtuple('SolveResult', [
@@ -796,8 +796,8 @@ class Backend:
         If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
 
         Args:
-          value: tensor
-          multiples: tuple or list of integers
+            value: tensor
+            multiples: tuple or list of integers
 
         Returns:
             tiled tensor
@@ -837,6 +837,37 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def mul_coo_dense(self, indices, values, shape, dense):
+        """
+        Multiply a batch of sparse coordinate matrices by a batch of dense matrices.
+        Every backend should implement this feature.
+        This is the fallback if CSR multiplication is not supported.
+
+        Args:
+            indices: (batch, nnz, ndims)
+            values: (batch, nnz, channels)
+            shape: Shape of the full matrix, tuple of length ndims
+            dense: (batch, channels, rhs_rows=cols, rhs_cols)
+
+        Returns:
+            (batch, channels, rhs_rows=cols, rhs_cols)
+        """
+        values, dense = self.auto_cast(values, dense)
+        batch_size, nnz, channel_count = self.staticshape(values)
+        _, _, rhs_rows, rhs_cols = self.staticshape(dense)
+        dense_formatted = self.reshape(self.transpose(dense, [0, 2, 1, 3]), (batch_size, rhs_rows, rhs_cols * channel_count))  # (batch, channels, rhs_rows=cols, rhs_cols) -> (batch, spatial..., channel)
+        dense_gathered = self.batched_gather_nd(dense_formatted, indices[:, :, 1:2])
+        base_grid = self.zeros((batch_size, shape[0], dense.shape[3] * rhs_cols), self.dtype(dense))
+        assert rhs_cols == 1
+        result = self.scatter(base_grid, indices[:, :, 0:1], values * dense_gathered, mode='add')
+        return self.reshape(result, (batch_size, channel_count, rhs_rows, rhs_cols))
+
+    def coo_to_dense(self, indices, values, shape, contains_duplicates: bool):
+        batch_size, nnz, channel_count = self.staticshape(values)
+        base = self.zeros((batch_size, *shape, channel_count))
+        result = self.scatter(base, indices, values, mode='add' if contains_duplicates else 'update')
+        return result
+
     def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
         """
         Create a sparse matrix in compressed sparse row (CSR) format.
@@ -857,9 +888,9 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def mul_csr_dense(self, column_indices, row_pointers, matrix_values, shape: tuple, rhs):
+    def mul_csr_dense(self, column_indices, row_pointers, matrix_values, shape: tuple, dense):
         """
-        Create a sparse matrix in compressed sparse row (CSR) format.
+        Multiply a batch of compressed sparse row matrices by a batch of dense matrices.
 
         Optional feature.
 
@@ -871,12 +902,33 @@ class Backend:
             row_pointers: (batch, rows + 1)
             matrix_values: (batch, nnz, channels)
             shape: Shape of the full matrix (cols, rows)
-            rhs: (batch, channels, rhs_rows=cols, rhs_cols)
+            dense: (batch, channels, rhs_rows=cols, rhs_cols)
 
         Returns:
             (batch, channels, rhs_rows=cols, rhs_cols)
         """
         raise NotImplementedError(self)
+
+    def csr_to_coo(self, column_indices, row_pointers):
+        """
+        Convert a batch of compressed sparse matrices to sparse coordinate matrices.
+
+        Args:
+            column_indices: (batch, nnz)
+            row_pointers: (batch, rows + 1)
+
+        Returns:
+            indices: (batch, nnz, 2)
+        """
+        batch_size = self.staticshape(column_indices)[0]
+        repeats = row_pointers[:, 1:] - row_pointers[:, :-1]
+        row_count = self.shape(repeats)[-1]
+        row_indices = [self.repeat(self.range(row_count), repeats[b], -1) for b in range(batch_size)]
+        return self.stack([self.stack(row_indices), column_indices], axis=-1)
+
+    def csr_to_dense(self, column_indices, row_pointers, values, shape: tuple):
+        indices = self.csr_to_coo(column_indices, row_pointers)
+        return self.coo_to_dense(indices, values, shape, contains_duplicates=False)
 
     def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
         """
@@ -912,13 +964,14 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def pairwise_distances(self, positions, max_radius, format: str) -> list:
+    def pairwise_distances(self, positions, max_radius, format: str, index_dtype=DType(int, 32)) -> list:
         """
 
         Args:
             positions: Point locations of shape (batch, instances, vector)
             max_radius: Scalar or (batch,) or (batch, instances)
-            format: 'csr', 'coo' or 'csc'
+            format: 'csr',  Not yet implemented: 'sparse', 'coo', 'csc'
+            index_dtype: Either int32 or int64
 
         Returns:
             Sequence of batch_size sparse distance matrices
@@ -932,11 +985,11 @@ class Backend:
             radius = float(max_radius) if len(self.staticshape(max_radius)) == 0 else max_radius[i]
             nested_neighbors = tree.query_radius(positions_np_batched[i], r=radius)  # ndarray[ndarray]
             if format == 'csr':
-                column_indices = numpy.concatenate(nested_neighbors)  # flattened_neighbors
+                column_indices = numpy.concatenate(nested_neighbors).astype(to_numpy_dtype(index_dtype))  # flattened_neighbors
                 neighbor_counts = [len(nlist) for nlist in nested_neighbors]
-                row_pointers = numpy.concatenate([[0], numpy.cumsum(neighbor_counts)])
-                pos_neighbors = positions[i, column_indices]
-                pos_self = numpy.repeat(positions[i], neighbor_counts, axis=0)
+                row_pointers = numpy.concatenate([[0], numpy.cumsum(neighbor_counts)]).astype(to_numpy_dtype(index_dtype))
+                pos_neighbors = self.gather(positions[i], column_indices, 0)
+                pos_self = self.repeat(positions[i], neighbor_counts, axis=0)
                 values = pos_neighbors - pos_self
                 result.append((column_indices, row_pointers, values))
                 # sparse_matrix = self.csr_matrix(column_indices, row_pointers, values, (point_count, point_count))

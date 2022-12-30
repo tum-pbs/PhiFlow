@@ -1,4 +1,5 @@
 import warnings
+from numbers import Number
 from typing import List, Callable
 
 from ._shape import Shape, non_batch, merge_shapes, instance, batch, non_instance, shape, channel, spatial
@@ -27,6 +28,9 @@ class SparseCoordinateTensor(Tensor):
     def dtype(self) -> DType:
         return self._values.dtype
 
+    def native(self, order: str or tuple or list or Shape = None):
+        raise RuntimeError("Sparse tensors do not have a native representation. Use math.dense(tensor).native() instead")
+
 
 class CompressedSparseTensor(Tensor):
 
@@ -50,6 +54,7 @@ class CompressedSparseTensor(Tensor):
         assert instance(values) == instance(indices), "Instance dimensions of values and indices must match exactly"
         assert not channel(indices) and not spatial(indices), f"channel and spatial dimensions not allowed on indices but got {shape(indices)}"
         assert not channel(pointers) and not spatial(pointers), f"channel and spatial dimensions not allowed on pointers but got {shape(pointers)}"
+        assert uncompressed_dims.only(compressed_dims).is_empty, f"Dimensions cannot be compressed and uncompressed at the same time but got compressed={compressed_dims}, uncompressed={uncompressed_dims}"
         self._shape = merge_shapes(compressed_dims, uncompressed_dims, batch(indices), batch(pointers), non_instance(values))
         self._indices = indices
         self._pointers = pointers
@@ -96,29 +101,31 @@ class CompressedSparseTensor(Tensor):
         affects_only_values = self.sparse_dims not in other_shape and non_instance(self._indices).only(other_shape).is_empty
         if affects_only_values:
             return self._with_values(operator(self._values, other))
-        # if op_name == 'pow':
-        #     if affects_only_values:
-        #         return self._with_values(self._values ** other)
-        # if op_name == 'maximum':
-
+        elif isinstance(other, CompressedSparseTensor):
+            if other._indices is self._indices and other._pointers is self._pointers:
+                return self._with_values(operator(self._values, other._values))
+            elif op_symbol == '+':
+                raise NotImplementedError("Compressed addition not yet implemented")
+            else:
+                # convert to COO, then perform operation
+                raise NotImplementedError
         raise NotImplementedError
 
     def _with_values(self, new_values: Tensor):
         return CompressedSparseTensor(self._indices, self._pointers, new_values, self._uncompressed_dims, self._compressed_dims)
 
+    def _native_csr_components(self):
+        from phi.math import reshaped_native
+        ind_batch = batch(self._indices & self._pointers)
+        channels = non_instance(self._values).without(ind_batch)
+        native_indices = reshaped_native(self._indices, [ind_batch, instance], force_expand=True)
+        native_pointers = reshaped_native(self._pointers, [ind_batch, instance], force_expand=True)
+        native_values = reshaped_native(self._values, [ind_batch, instance, channels])
+        native_shape = self._uncompressed_dims.volume, self._compressed_dims.volume
+        return ind_batch, channels, native_indices, native_pointers, native_values, native_shape
 
-def dense(x: Tensor, order: str or tuple or list or Shape):
-    if isinstance(x, SparseCoordinateTensor):
-        native = x.default_backend.coo_to_dense(x.native())
-        # fallback: scatter
-        grid = x.default_backend.zeros([], dtype=x.dtype)
-        native = x.default_backend.scatter(grid, x.indices, x.values, 'update')
-        raise NotImplementedError
-    elif isinstance(x, CompressedSparseTensor):
-        raise NotImplementedError
-    else:
-        assert isinstance(x, Tensor), f"must be a Tensor but got {type(x).__name__}"
-        return x
+    def native(self, order: str or tuple or list or Shape = None):
+        raise RuntimeError("Sparse tensors do not have a native representation. Use math.dense(tensor).native() instead")
 
 
 def get_sparsity(x: Tensor):
@@ -180,20 +187,36 @@ def stored_values(x: Tensor) -> List[Tensor]:
         raise ValueError(x)
 
 
+def dense(x: Tensor):
+    from phi.math import reshaped_tensor
+    if isinstance(x, SparseCoordinateTensor):
+        raise NotImplementedError
+        native_dense = x.default_backend.coo_to_dense()
+    elif isinstance(x, CompressedSparseTensor):
+        ind_batch, channels, native_indices, native_pointers, native_values, native_shape = x._native_csr_components()
+        native_dense = x.default_backend.csr_to_dense(native_indices, native_pointers, native_values, native_shape)
+        return reshaped_tensor(native_dense, [ind_batch, x._compressed_dims, x._uncompressed_dims, channels])
+    elif isinstance(x, NativeTensor):
+        return x
+    elif isinstance(x, Tensor):
+        return cached(x)
+    elif isinstance(x, (Number, bool)):
+        return x
+
+
 def dot_compressed_dense(compressed: CompressedSparseTensor, cdims: Shape, dense: Tensor, ddims: Shape):
     from phi.math import reshaped_native, reshaped_tensor
     backend = choose_backend(*compressed._natives() + dense._natives())
     if compressed._uncompressed_dims in cdims:  # proper matrix-vector multiplication
-        ind_batch = batch(compressed._indices & compressed._pointers)
-        channels = non_instance(compressed._values).without(ind_batch)
+        ind_batch, channels, native_indices, native_pointers, native_values, native_shape = compressed._native_csr_components()
         rhs_channels = shape(dense).without(ddims).without(channels)
-        native_indices = reshaped_native(compressed._indices, [ind_batch, instance], force_expand=True)
-        native_pointers = reshaped_native(compressed._pointers, [ind_batch, instance], force_expand=True)
-        native_values = reshaped_native(compressed._values, [ind_batch, instance, channels])
-        native_shape = compressed._uncompressed_dims.volume, compressed._compressed_dims.volume
         dense_native = reshaped_native(dense, [ind_batch, channels, ddims, rhs_channels], force_expand=True)
-        result_native = backend.mul_csr_dense(native_indices, native_pointers, native_values, native_shape, dense_native)
-        result = reshaped_tensor(result_native, [ind_batch, channels, instance(compressed._compressed_dims), rhs_channels])
+        if backend.supports(Backend.mul_csr_dense):
+            result_native = backend.mul_csr_dense(native_indices, native_pointers, native_values, native_shape, dense_native)
+        else:
+            native_coo_indices = backend.csr_to_coo(native_indices, native_pointers)
+            result_native = backend.mul_coo_dense(native_coo_indices, native_values, native_shape, dense_native)
+        result = reshaped_tensor(result_native, [ind_batch, channels, compressed._compressed_dims, rhs_channels])
         return result
     else:  # transposed matrix vector multiplication. This is inefficient
-        raise NotImplementedError
+        raise NotImplementedError("Transposed sparse matrix multiplication not yet implemented")
