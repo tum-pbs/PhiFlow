@@ -8,6 +8,7 @@ import numpy as np
 import os
 import tensorflow as tf
 from tensorflow.python.client import device_lib
+from tensorflow.python.framework.errors_impl import NotFoundError
 
 from ..math.backend._backend import combined_dim, TensorType
 from ..math.backend._dtype import DType, to_numpy_dtype, from_numpy_dtype
@@ -576,7 +577,10 @@ class TFBackend(Backend):
             b_result = []
             for c in range(channel_count):
                 matrix = tf.SparseTensor(indices=indices[b], values=values[b, :, c], dense_shape=shape)
-                b_result.append(tf.sparse.sparse_dense_matmul(matrix, dense[b, c]))
+                try:
+                    b_result.append(tf.sparse.sparse_dense_matmul(matrix, dense[b, c]))
+                except NotFoundError:  # These data types are probably not supported by TensorFlow
+                    return Backend.mul_coo_dense(self, indices, values, shape, dense)
             result.append(tf.stack(b_result))
         return tf.stack(result)
 
