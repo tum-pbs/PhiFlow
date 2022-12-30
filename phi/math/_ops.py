@@ -1068,6 +1068,8 @@ def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
 
 
 def _sum(value: Tensor, dims: Shape) -> Tensor:
+    if not dims:
+        return value
     if isinstance(value, NativeTensor):
         result = value.default_backend.sum(value.native(value.shape), value.shape.indices(dims))
         return NativeTensor(result, value.shape.without(dims))

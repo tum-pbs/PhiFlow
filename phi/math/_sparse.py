@@ -3,7 +3,7 @@ from numbers import Number
 from typing import List, Callable
 
 from ._shape import Shape, non_batch, merge_shapes, instance, batch, non_instance, shape, channel, spatial
-from ._tensors import Tensor, TensorStack, CollapsedTensor, NativeTensor, cached
+from ._tensors import Tensor, TensorStack, CollapsedTensor, NativeTensor, cached, wrap
 from .backend import choose_backend, Backend
 from .backend._dtype import DType
 
@@ -187,7 +187,17 @@ def stored_values(x: Tensor) -> List[Tensor]:
         raise ValueError(x)
 
 
-def dense(x: Tensor):
+def dense(x: Tensor) -> Tensor:
+    """
+    Convert a sparse tensor representation to an equivalent dense one in which all values are explicitly stored contiguously in memory.
+
+    Args:
+        x: Any `Tensor`.
+            Python primitives like `float`, `int` or `bool` will be converted to `Tensors` in the process.
+
+    Returns:
+        Dense tensor.
+    """
     from phi.math import reshaped_tensor
     if isinstance(x, SparseCoordinateTensor):
         raise NotImplementedError
@@ -201,7 +211,7 @@ def dense(x: Tensor):
     elif isinstance(x, Tensor):
         return cached(x)
     elif isinstance(x, (Number, bool)):
-        return x
+        return wrap(x)
 
 
 def dot_compressed_dense(compressed: CompressedSparseTensor, cdims: Shape, dense: Tensor, ddims: Shape):
