@@ -923,7 +923,7 @@ class Backend:
         batch_size = self.staticshape(column_indices)[0]
         repeats = row_pointers[:, 1:] - row_pointers[:, :-1]
         row_count = self.shape(repeats)[-1]
-        row_indices = [self.repeat(self.range(row_count), repeats[b], -1) for b in range(batch_size)]
+        row_indices = [self.repeat(self.range(row_count, dtype=self.dtype(column_indices)), repeats[b], -1) for b in range(batch_size)]
         return self.stack([self.stack(row_indices), column_indices], axis=-1)
 
     def csr_to_dense(self, column_indices, row_pointers, values, shape: tuple):
