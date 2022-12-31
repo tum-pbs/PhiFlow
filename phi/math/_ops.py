@@ -2318,8 +2318,9 @@ def stop_gradient(x):
 
 def pairwise_distances(positions: Tensor, max_distance: float or Tensor = None, others_dims=instance('others'), format='dense') -> Tensor:
     """
-
-
+    Computes the distance matrix containing the pairwise position differences between each pair of points.
+    Points that are further apart than `max_distance` are assigned a distance value of `0`.
+    The diagonal of the matrix (self-distance) also consists purely of zero-vectors.
 
     Args:
         positions: `Tensor`.
@@ -2335,16 +2336,25 @@ def pairwise_distances(positions: Tensor, max_distance: float or Tensor = None, 
 
     Returns:
         `Tensor`
+
+    Examples:
+        ```python
+        pos = vec(x=0, y=tensor([0, 1, 2.5], instance('particles')))
+        dx = math.pairwise_distances(pos, format='dense', max_distance=2)
+        dx.particles[0]
+        # Out: (x=0.000, y=0.000); (x=0.000, y=1.000); (x=0.000, y=0.000) (othersⁱ=3, vectorᶜ=x,y)
+        ```
     """
     if format == 'dense':
         # if not count_self:
         #     warnings.warn(f"count_self has no effect when using format '{format}'", SyntaxWarning, stacklevel=2)
-        dx = positions - unpack_dim(pack_dims(positions, non_batch(positions).non_channel, instance('_tmp')), '_tmp', others_dims)
+        dx = unpack_dim(pack_dims(positions, non_batch(positions).non_channel, instance('_tmp')), '_tmp', others_dims) - positions
         if max_distance is not None:
-            neighbors = dx ** 2 <= max_distance ** 2
+            neighbors = sum_(dx ** 2, channel) <= max_distance ** 2
             dx = where(neighbors, dx, 0)
         return dx
     else:  # sparse
+        assert max_distance is not None, "max_distance must be specified when computing distance in sparse format"
         backend = choose_backend_t(positions, max_distance)
         batch_shape = batch(positions) & batch(max_distance)
         pos_i_shape = non_batch(positions).non_channel
