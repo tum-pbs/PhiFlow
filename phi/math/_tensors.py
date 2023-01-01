@@ -2405,6 +2405,8 @@ def _format_number(num, options: PrintOptions, dtype: DType):
 
 
 def format_tensor(self: Tensor, options: PrintOptions) -> str:
+    from ._sparse import dense
+    self = dense(self)
     if options.layout == 'auto':
         if not self.shape:
             return format_summary(self, options)

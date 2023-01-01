@@ -222,7 +222,7 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
             if hasattr(v, '__concat__'):
                 result = v.__concat__(values, dim, **kwargs)
                 if result is not NotImplemented:
-                    assert isinstance(result, Shapable), "__concat__ must return a Shapable object"
+                    assert isinstance(result, Shapable), f"__concat__ must return a Shapable object but got {type(result).__name__} from {type(v).__name__} {v}"
                     return result
     # --- Next: try concat attributes for tree nodes ---
     if all(isinstance(v, PhiTreeNode) for v in values):

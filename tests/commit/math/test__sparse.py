@@ -37,3 +37,21 @@ class TestSparse(TestCase):
                 # Simple arithmetic
                 assert_close(matrix, (matrix + matrix * 2) / 3)
 
+    def test_csr_slice_concat(self):
+        pos = tensor([(0, 0), (0, 1), (0, 2)], instance('particles'), channel(vector='x,y'))
+        dx = math.pairwise_distances(pos, max_distance=1.5, format='csr')
+        self.assertEqual(0, dx.sum)
+        dist = math.vec_length(dx, eps=1e-6)
+        self.assertEqual(instance(particles=3, others=3), dist.shape)
+        self.assertGreater(dist.sum, 0)
+        # Slice channel
+        dx_y = dx['y']
+        self.assertEqual(instance(particles=3, others=3), dx_y.shape)
+        # Slice / concat compressed
+        concat_particles = math.concat([dx.particles[:1], dx.particles[1:]], 'particles')
+        math.assert_close(dx, concat_particles)
+        # Slice / concat uncompressed
+        concat_others = math.concat([dx.others[:1], dx.others[1:]], 'others')
+        math.assert_close(dx, concat_others)
+
+

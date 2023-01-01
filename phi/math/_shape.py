@@ -960,6 +960,9 @@ class Shape:
                     gathered_sizes = [(int(s) if isinstance(s, Tensor) and s.rank == 0 else s) for s in gathered_sizes]
                     result = result.with_sizes(gathered_sizes, keep_item_names=True).without(sel_dim)
             elif isinstance(selection, slice):
+                assert isinstance(selection.step, int) or selection.step is None, f"slice step must be an int or None but got {type(selection.step).__name__}"
+                assert isinstance(selection.start, int) or selection.start is None, f"slice start must be an int or None but got {type(selection.start).__name__}"
+                assert isinstance(selection.stop, int) or selection.stop is None, f"slice stop must be an int or None but got {type(selection.stop).__name__}"
                 step = selection.step or 1
                 start = selection.start if isinstance(selection.start, int) else (0 if step > 0 else self.get_size(sel_dim)-1)
                 stop = selection.stop if isinstance(selection.stop, int) else (self.get_size(sel_dim) if step > 0 else -1)

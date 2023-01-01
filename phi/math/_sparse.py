@@ -3,6 +3,7 @@ from numbers import Number
 from typing import List, Callable
 
 from ._shape import Shape, non_batch, merge_shapes, instance, batch, non_instance, shape, channel, spatial
+from ._magic_ops import concat
 from ._tensors import Tensor, TensorStack, CollapsedTensor, NativeTensor, cached, wrap
 from .backend import choose_backend, Backend
 from .backend._dtype import DType
@@ -34,7 +35,7 @@ class SparseCoordinateTensor(Tensor):
 
 class CompressedSparseTensor(Tensor):
 
-    def __init__(self, indices: Tensor, pointers: Tensor, values: Tensor, uncompressed_dims: Shape, compressed_dims: Shape):
+    def __init__(self, indices: Tensor, pointers: Tensor, values: Tensor, uncompressed_dims: Shape, compressed_dims: Shape, uncompressed_offset: int = None):
         """
 
         Args:
@@ -48,6 +49,12 @@ class CompressedSparseTensor(Tensor):
                 These dimensions are indexed by `pointers`.
             uncompressed_dims: Sparse dimensions with full index storage.
                 These dimensions are indexed by `indices`.
+            uncompressed_offset: For sliced sparse tensors.
+                If `None`, indicates that all entries lie within bounds.
+                If an `int`, indicate that this is a slice of a larger compressed sparse matrix.
+                Indices actually refer to `indices - uncompressed_offset` within this matrix, i.e. they may reference phantom values to the left or right of the matrix.
+                The `values` corresponding to phantom entries must all be 0.
+                The size of the slice is given by `compressed_dims.volume`.
         """
         assert instance(indices), "indices must have an instance dimension"
         assert instance(pointers), "pointers must have an instance dimension"
@@ -61,6 +68,7 @@ class CompressedSparseTensor(Tensor):
         self._values = values
         self._uncompressed_dims = uncompressed_dims
         self._compressed_dims = compressed_dims
+        self._uncompressed_offset = uncompressed_offset
 
     @property
     def shape(self) -> Shape:
@@ -86,12 +94,77 @@ class CompressedSparseTensor(Tensor):
         return self._values._natives() + self._indices._natives() + self._pointers._natives()
 
     def _getitem(self, selection: dict) -> 'Tensor':
-        if self._compressed_dims.only(tuple(selection)):
-            raise NotImplementedError
-        if self._uncompressed_dims.only(tuple(selection)):
-            raise NotImplementedError
         batch_selection = {dim: selection[dim] for dim in self._shape.only(tuple(selection)).names}
-        return CompressedSparseTensor(self._indices[batch_selection], self._pointers[batch_selection], self._values[batch_selection], self._uncompressed_dims, self._compressed_dims)
+        indices = self._indices[batch_selection]
+        pointers = self._pointers[batch_selection]
+        values = self._values[batch_selection]
+        uncompressed = self._uncompressed_dims
+        compressed = self._compressed_dims
+        uncompressed_offset = self._uncompressed_offset
+        if compressed.only(tuple(selection)):
+            if compressed.rank > 1:
+                raise NotImplementedError
+            ptr_sel = selection[compressed.name]
+            if isinstance(ptr_sel, int):
+                raise NotImplementedError(f"Slicing with int not yet supported for sparse tensors. Use a range instead, e.g. [{ptr_sel}:{ptr_sel+1}] instead of [{ptr_sel}]")
+            elif isinstance(ptr_sel, slice):
+                assert ptr_sel.step in (None, 1), f"Only step size 1 supported for sparse indexing but got {ptr_sel.step}"
+                if batch(indices):
+                    raise NotImplementedError("Slicing not yet supported for batched sparse tensors")
+                start = ptr_sel.start or 0
+                stop = uncompressed.volume if ptr_sel.stop is None else ptr_sel.stop
+                pointers = pointers[start:stop+1]
+                indices = indices[{instance(indices).name: slice(int(pointers[0]), int(pointers[-1]))}]
+                values = values[{instance(values).name: slice(int(pointers[0]), int(pointers[-1]))}]
+                pointers -= pointers[0]
+                compressed = compressed.after_gather({compressed.name: ptr_sel})
+            else:
+                raise NotImplementedError
+        if uncompressed.only(tuple(selection)):
+            if self._uncompressed_dims.rank > 1:
+                raise NotImplementedError
+            ind_sel = selection[uncompressed.name]
+            if isinstance(ind_sel, int):
+                raise NotImplementedError(f"Slicing with int not yet supported for sparse tensors. Use a range instead, e.g. [{ind_sel}:{ind_sel+1}] instead of [{ind_sel}]")
+            elif isinstance(ind_sel, slice):
+                assert ind_sel.step in (None, 1), f"Only step size 1 supported for sparse indexing but got {ind_sel.step}"
+                start = ind_sel.start or 0
+                stop = uncompressed.volume if ind_sel.stop is None else ind_sel.stop
+                keep = (start <= self._indices) & (self._indices < stop)
+                from phi.math import where
+                values = where(keep, values, 0)
+                uncompressed_offset = start
+                uncompressed = uncompressed.after_gather({uncompressed.name: ind_sel})
+            else:
+                raise NotImplementedError
+        return CompressedSparseTensor(indices, pointers, values, uncompressed, compressed, uncompressed_offset)
+
+    def __concat__(self, tensors: tuple, dim: str, **kwargs) -> 'CompressedSparseTensor':
+        if not all(isinstance(t, CompressedSparseTensor) for t in tensors):
+            return NotImplemented
+        if dim == self._compressed_dims[0].name:
+            indices = concat([t._indices for t in tensors], instance(self._indices), **kwargs)
+            values = concat([t._values for t in tensors], instance(self._values), **kwargs)
+            pointers = []
+            pointer_offset = 0
+            for i, t in enumerate(tensors):
+                pointers.append((t._pointers[1:] if i else t._pointers) + pointer_offset)
+                pointer_offset += t._pointers[-1]
+            assert pointer_offset == instance(indices).volume
+            pointers = concat(pointers, instance(self._pointers))
+            compressed = self._compressed_dims.with_dim_size(dim, sum(t.shape.get_size(dim) for t in tensors))
+            return CompressedSparseTensor(indices, pointers, values, self._uncompressed_dims, compressed, self._uncompressed_offset)
+        elif dim == self._uncompressed_dims[0].name:
+            if all(t._indices is self._indices and t._pointers is self._pointers for t in tensors):
+                # ToDo test if offsets match and ordered correctly
+                from ._ops import sum_
+                values = sum_([t._values for t in tensors], '0')
+                uncompressed = self._uncompressed_dims.with_dim_size(dim, sum(t.shape.get_size(dim) for t in tensors))
+                return CompressedSparseTensor(self._indices, self._pointers, values, uncompressed, self._compressed_dims, uncompressed_offset=None)
+            else:
+                raise NotImplementedError("concatenating arbitrary compressed sparse tensors along uncompressed dim is not yet supported")
+        else:
+            raise NotImplementedError("concatenating compressed sparse tensors along non-sparse dims not yet supported")
 
     def _op1(self, native_function):
         return self._with_values(self._values._op1(native_function))
@@ -121,7 +194,10 @@ class CompressedSparseTensor(Tensor):
         native_indices = reshaped_native(self._indices, [ind_batch, instance], force_expand=True)
         native_pointers = reshaped_native(self._pointers, [ind_batch, instance], force_expand=True)
         native_values = reshaped_native(self._values, [ind_batch, instance, channels])
-        native_shape = self._uncompressed_dims.volume, self._compressed_dims.volume
+        native_shape = self._compressed_dims.volume, self._uncompressed_dims.volume
+        if self._uncompressed_offset is not None:
+            native_indices -= self._uncompressed_offset
+            native_indices = choose_backend(native_indices).clip(native_indices, 0, self._uncompressed_dims.volume - 1)
         return ind_batch, channels, native_indices, native_pointers, native_values, native_shape
 
     def native(self, order: str or tuple or list or Shape = None):
