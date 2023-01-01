@@ -373,6 +373,7 @@ class TFBackend(Backend):
             return result
 
     def expand_dims(self, a, axis=0, number=1):
+        a = self.as_tensor(a)
         with tf.device(a.device):
             if number == 0:
                 return a
@@ -571,6 +572,8 @@ class TFBackend(Backend):
     def mul_coo_dense(self, indices, values, shape, dense):
         values, dense = self.auto_cast(values, dense)
         batch_size, nnz, channel_count = self.staticshape(values)
+        if batch_size > 1:
+            return Backend.mul_coo_dense(self, indices, values, shape, dense)
         indices = tf.cast(indices, np.int64)
         result = []
         for b in range(batch_size):
@@ -578,7 +581,7 @@ class TFBackend(Backend):
             for c in range(channel_count):
                 matrix = tf.SparseTensor(indices=indices[b], values=values[b, :, c], dense_shape=shape)
                 try:
-                    b_result.append(tf.sparse.sparse_dense_matmul(matrix, dense[b, c]))
+                    b_result.append(tf.sparse.sparse_dense_matmul(matrix, dense[b, :, c, :]))
                 except NotFoundError:  # These data types are probably not supported by TensorFlow
                     return Backend.mul_coo_dense(self, indices, values, shape, dense)
             result.append(tf.stack(b_result))

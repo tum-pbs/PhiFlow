@@ -335,6 +335,9 @@ class NumPyBackend(Backend):
             array = np.array(array)
         return from_numpy_dtype(array.dtype)
 
+    def indexed_segment_sum(self, x, indices, axis: int):
+        return np.stack([np.add.reduceat(x[b], indices[b], axis-1) for b in range(x.shape[0])])
+
     def sparse_coo_tensor(self, indices, values, shape):
         if not isinstance(indices, (tuple, list)):
             indices = self.unstack(indices, -1)
@@ -349,14 +352,14 @@ class NumPyBackend(Backend):
     def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
         return scipy.sparse.csc_matrix((values, row_indices, column_pointers), shape=shape)
 
-    def mul_csr_dense(self, column_indices, row_pointers, matrix_values, shape: tuple, rhs):
-        batch_size, nnz, channel_count = matrix_values.shape
+    def mul_csr_dense(self, column_indices, row_pointers, values, shape: tuple, dense):
+        batch_size, nnz, channel_count = values.shape
         result = []
         for b in range(batch_size):
             b_result = []
             for c in range(channel_count):
-                mat = scipy.sparse.csr_matrix((matrix_values[b, :, c], column_indices[b], row_pointers[b]), shape=shape)
-                b_result.append(mat * rhs[b, c])
+                mat = scipy.sparse.csr_matrix((values[b, :, c], column_indices[b], row_pointers[b]), shape=shape)
+                b_result.append(mat * dense[b, :, c, :])
             result.append(np.stack(b_result))
         return np.stack(result)
 

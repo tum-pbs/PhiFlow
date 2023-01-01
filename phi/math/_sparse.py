@@ -296,12 +296,8 @@ def dot_compressed_dense(compressed: CompressedSparseTensor, cdims: Shape, dense
     if compressed._uncompressed_dims in cdims:  # proper matrix-vector multiplication
         ind_batch, channels, native_indices, native_pointers, native_values, native_shape = compressed._native_csr_components()
         rhs_channels = shape(dense).without(ddims).without(channels)
-        dense_native = reshaped_native(dense, [ind_batch, channels, ddims, rhs_channels], force_expand=True)
-        if backend.supports(Backend.mul_csr_dense):
-            result_native = backend.mul_csr_dense(native_indices, native_pointers, native_values, native_shape, dense_native)
-        else:
-            native_coo_indices = backend.csr_to_coo(native_indices, native_pointers)
-            result_native = backend.mul_coo_dense(native_coo_indices, native_values, native_shape, dense_native)
+        dense_native = reshaped_native(dense, [ind_batch, ddims, channels, rhs_channels], force_expand=True)
+        result_native = backend.mul_csr_dense(native_indices, native_pointers, native_values, native_shape, dense_native)
         result = reshaped_tensor(result_native, [ind_batch, channels, compressed._compressed_dims, rhs_channels])
         return result
     else:  # transposed matrix vector multiplication. This is inefficient

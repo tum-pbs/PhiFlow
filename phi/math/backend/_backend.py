@@ -818,6 +818,18 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def indexed_segment_sum(self, x, indices, axis: int):
+        """
+        Args:
+            x: Values to sum. Segments are laid out contiguously along `axis`. (batch, ...)
+            indices: should start with 0 along `axis`. (batch, indices)
+            axis: Axis along which to sum
+
+        Returns:
+            Tensor with `len(indices)` elements along `axis`. (batch, ..., indices, ...)
+        """
+        raise NotImplementedError(self)
+
     def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
         """
         Create a sparse matrix in coordinate list (COO) format.
@@ -847,20 +859,20 @@ class Backend:
             indices: (batch, nnz, ndims)
             values: (batch, nnz, channels)
             shape: Shape of the full matrix, tuple of length ndims
-            dense: (batch, channels, rhs_rows=cols, rhs_cols)
+            dense: (batch, dense_rows=sparse_cols, channels, dense_cols)
 
         Returns:
-            (batch, channels, rhs_rows=cols, rhs_cols)
+            (batch, channels, dense_rows=sparse_cols, dense_cols)
         """
         values, dense = self.auto_cast(values, dense)
         batch_size, nnz, channel_count = self.staticshape(values)
-        _, _, rhs_rows, rhs_cols = self.staticshape(dense)
-        dense_formatted = self.reshape(self.transpose(dense, [0, 2, 1, 3]), (batch_size, rhs_rows, rhs_cols * channel_count))  # (batch, channels, rhs_rows=cols, rhs_cols) -> (batch, spatial..., channel)
+        _, dense_rows, _, dense_cols = self.staticshape(dense)
+        dense_formatted = self.reshape(dense, (batch_size, dense_rows, dense_cols * channel_count))
         dense_gathered = self.batched_gather_nd(dense_formatted, indices[:, :, 1:2])
-        base_grid = self.zeros((batch_size, shape[0], dense.shape[3] * rhs_cols), self.dtype(dense))
-        assert rhs_cols == 1
+        base_grid = self.zeros((batch_size, shape[0], dense.shape[3] * dense_cols), self.dtype(dense))
+        assert dense_cols == 1
         result = self.scatter(base_grid, indices[:, :, 0:1], values * dense_gathered, mode='add')
-        return self.reshape(result, (batch_size, channel_count, rhs_rows, rhs_cols))
+        return self.reshape(result, (batch_size, channel_count, dense_rows, dense_cols))
 
     def coo_to_dense(self, indices, values, shape, contains_duplicates: bool):
         batch_size, nnz, channel_count = self.staticshape(values)
@@ -888,7 +900,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def mul_csr_dense(self, column_indices, row_pointers, matrix_values, shape: tuple, dense):
+    def mul_csr_dense(self, column_indices, row_pointers, values, shape: tuple, dense):
         """
         Multiply a batch of compressed sparse row matrices by a batch of dense matrices.
 
@@ -900,14 +912,26 @@ class Backend:
         Args:
             column_indices: (batch, nnz)
             row_pointers: (batch, rows + 1)
-            matrix_values: (batch, nnz, channels)
+            values: (batch, nnz, channels)
             shape: Shape of the full matrix (cols, rows)
-            dense: (batch, channels, rhs_rows=cols, rhs_cols)
+            dense: (batch, dense_rows=sparse_cols, channels, dense_cols)
 
         Returns:
-            (batch, channels, rhs_rows=cols, rhs_cols)
+            (batch, channels, dense_rows=sparse_cols, dense_cols)
         """
-        raise NotImplementedError(self)
+        # if not self.supports(Backend.indexed_segment_sum):
+        native_coo_indices = self.csr_to_coo(column_indices, row_pointers)
+        return self.mul_coo_dense(native_coo_indices, values, shape, dense)
+        # values, dense = self.auto_cast(values, dense)
+        # batch_size, nnz, channel_count = self.staticshape(values)
+        # _, dense_rows, _, dense_cols = self.staticshape(dense)
+        # assert dense_cols == 1
+        # dense_formatted = self.reshape(dense, (batch_size, dense_rows, channel_count * dense_cols))
+        # dense_gathered = self.batched_gather_nd(dense_formatted, self.expand_dims(column_indices, -1))  # (batch, nnz, channels*rhs_cols)
+        # dense_gathered = self.reshape(dense_gathered, (batch_size, nnz, channel_count, dense_cols))
+        # values = self.reshape(values, (batch_size, nnz, channel_count, 1))
+        # result = self.indexed_segment_sum(values * dense_gathered, row_pointers[:, :-1], 1)
+        # return self.reshape(result, (batch_size, channel_count, rhs_rows, rhs_cols))
 
     def csr_to_coo(self, column_indices, row_pointers):
         """
