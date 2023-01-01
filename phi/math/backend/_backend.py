@@ -774,6 +774,30 @@ class Backend:
     def tan(self, x):
         raise NotImplementedError(self)
 
+    def arctan(self, x):
+        raise NotImplementedError(self)
+
+    def arctan2(self, y, x):
+        raise NotImplementedError(self)
+
+    def sinh(self, x):
+        raise NotImplementedError(self)
+
+    def arcsinh(self, x):
+        raise NotImplementedError(self)
+
+    def cosh(self, x):
+        raise NotImplementedError(self)
+
+    def arccosh(self, x):
+        raise NotImplementedError(self)
+
+    def tanh(self, x):
+        raise NotImplementedError(self)
+
+    def arctanh(self, x):
+        raise NotImplementedError(self)
+
     def log(self, x):
         """ Natural logarithm """
         raise NotImplementedError(self)

@@ -1760,28 +1760,35 @@ def op2_native(x: Tensor, y: Tensor, native_function: Callable):
     return NativeTensor(result_tensor, new_shape)
 
 
-def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_function, r_operator=None, r_native_function=None, op_name: str = 'unknown') -> Tensor:
+def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_function, r_operator=None, r_native_function=None, op_name: str = 'unknown', op_symbol: str = None) -> Tensor:
     """
     Perform a custom operator on two tensors.
     This method first tries calling _op2() on the first tensor and if that fails, tries it on the second tensor.
 
     Args:
-      x: Tensor or float: 
-      y: Tensor or float: 
-      l_operator: 
-      l_native_function: 
-      r_operator:  (Default value = None)
-      r_native_function:  (Default value = None)
+      x: Left argument
+      y: Right argument
+      l_operator: Operator function acting on Tensors
+      l_native_function: Operator function acting on natives
+      r_operator:  Argument-reversed operator function acting on Tensors
+      r_native_function:  Argument-reversed operator function acting on natives
       op_name: Name of the operator function for debugging purposes. Leading 'r' will be added for the operand-reversed version.
+      op_symbol: Short name for the operator, independent of argument order.
 
     Returns:
         `Tensor`
     """
+    if op_symbol is None:
+        op_symbol = op_name
     x = wrap(x)
     y = wrap(y)
-    result = x._op2(y, l_operator, l_native_function, op_name, op_name)
+    result = x._op2(y, l_operator, l_native_function, op_name, op_symbol)
     if result is NotImplemented:
-        result = y._op2(x, r_operator or l_operator, r_native_function or l_native_function, f'r{op_name}', op_name)
+        if r_operator is None:
+            r_operator = lambda a, b: l_operator(b, a)
+        if r_native_function is None:
+            r_native_function = lambda a, b: l_native_function(b, a)
+        result = y._op2(x, r_operator, r_native_function, f'r{op_name}', op_symbol)
         if result is NotImplemented:
             raise NotImplementedError(f"Operation not supported between {type(x)} and {type(y)}")
     return result

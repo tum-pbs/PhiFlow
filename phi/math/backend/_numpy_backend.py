@@ -50,6 +50,14 @@ class NumPyBackend(Backend):
     cos = np.cos
     arccos = np.arccos
     tan = np.tan
+    arctan = np.arctan
+    arctan2 = staticmethod(np.arctan2)
+    sinh = np.sinh
+    arcsinh = np.arcsinh
+    cosh = np.cosh
+    arccosh = np.arccosh
+    tanh = np.tanh
+    arctanh = np.arctanh
     log = np.log
     log2 = np.log2
     log10 = np.log10

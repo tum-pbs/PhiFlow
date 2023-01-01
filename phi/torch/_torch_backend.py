@@ -132,6 +132,13 @@ class TorchBackend(Backend):
     cos = torch.cos
     arccos = torch.arccos
     tan = torch.tan
+    arctan = torch.arctan
+    sinh = torch.sinh
+    arcsinh = torch.arcsinh
+    cosh = torch.cosh
+    arccosh = torch.arccosh
+    tanh = torch.tanh
+    arctanh = torch.arctanh
     log = torch.log
     log2 = torch.log2
     log10 = torch.log10
@@ -551,6 +558,10 @@ class TorchBackend(Backend):
         indices = indices.long().repeat([1, 1, values.shape[-1]])
         result = scatter(base_grid_flat, dim=1, index=indices, src=values)
         return torch.reshape(result, base_grid.shape)
+
+    def arctan2(self, y, x):
+        y, x = self.auto_cast(y, x)
+        return torch.arctan2(y, x)
 
     def fft(self, x, axes: tuple or list):
         if not x.is_complex():

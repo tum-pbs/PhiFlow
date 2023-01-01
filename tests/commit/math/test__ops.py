@@ -486,6 +486,32 @@ class TestMathFunctions(TestCase):
                 math.assert_close(math.cos(math.tensor(math.PI)), -1, abs_tolerance=1e-6, msg=backend.name)
                 math.assert_close(math.cos(math.tensor(math.PI * 3 / 2)), 0, abs_tolerance=1e-6, msg=backend.name)
 
+    def test_trigonometric_hyperbolic(self):
+        for f in [math.sin, math.cos, math.tan, math.sinh, math.cosh, math.tanh,
+                  math.arcsin, math.arccos, math.arctan, math.arcsinh, math.arccosh, math.arctanh]:
+            results = []
+            for backend in BACKENDS:
+                with backend:
+                    value = math.tensor(0.3421)
+                    results.append(f(value))
+            math.assert_close(results, msg=f.__name__)
+
+    def test_arccosh(self):
+        results = []
+        for backend in BACKENDS:
+            with backend:
+                value = math.tensor(1.3421)
+                results.append(math.arccosh(value))
+        math.assert_close(results)
+
+    def test_arctan(self):
+        results = []
+        for backend in BACKENDS:
+            with backend:
+                value = math.tensor(1.3421)
+                results.append(math.arctan(value, divide_by=0))
+        math.assert_close(results)
+
     def test_any(self):
         for backend in BACKENDS:
             with backend:

@@ -1781,6 +1781,52 @@ def tan(x) -> Tensor or PhiTreeNode:
     return _backend_op1(x, Backend.tan)
 
 
+def arctan(x, divide_by=None) -> Tensor or PhiTreeNode:
+    """
+    Computes the inverse of *tan(x)* of the `Tensor` or `PhiTreeNode` `x`.
+
+    Args:
+        x: Input. The single-argument `arctan` function cannot output π/2 or -π/2 since tan(π/2) is infinite.
+        divide_by: If specified, computes `arctan(x/divide_by)` so that it can return π/2 and -π/2.
+            This is equivalent to the common `arctan2` function.
+    """
+    if divide_by is None:
+        return _backend_op1(x, Backend.arctan)
+    else:
+        divide_by = to_float(divide_by)
+        return custom_op2(x, divide_by, arctan, lambda a, b: choose_backend(a, b).arctan2(a, b), 'arctan')
+
+
+def sinh(x) -> Tensor or PhiTreeNode:
+    """ Computes *sinh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    return _backend_op1(x, Backend.sinh)
+
+
+def arcsinh(x) -> Tensor or PhiTreeNode:
+    """ Computes the inverse of *sinh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    return _backend_op1(x, Backend.arcsinh)
+
+
+def cosh(x) -> Tensor or PhiTreeNode:
+    """ Computes *cosh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    return _backend_op1(x, Backend.cosh)
+
+
+def arccosh(x) -> Tensor or PhiTreeNode:
+    """ Computes the inverse of *cosh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    return _backend_op1(x, Backend.arccosh)
+
+
+def tanh(x) -> Tensor or PhiTreeNode:
+    """ Computes *tanh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    return _backend_op1(x, Backend.tanh)
+
+
+def arctanh(x) -> Tensor or PhiTreeNode:
+    """ Computes the inverse of *tanh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    return _backend_op1(x, Backend.arctanh)
+
+
 def log(x) -> Tensor or PhiTreeNode:
     """ Computes the natural logarithm of the `Tensor` or `PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.log)

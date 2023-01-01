@@ -540,6 +540,39 @@ class TFBackend(Backend):
         with tf.device(x.device):
             return tf.math.tan(x)
 
+    def arctan(self, x):
+        with tf.device(x.device):
+            return tf.math.atan(x)
+
+    def arctan2(self, y, x):
+        y, x = self.auto_cast(y, x)
+        with tf.device(x.device):
+            return tf.math.atan2(y, x)
+
+    def sinh(self, x):
+        with tf.device(x.device):
+            return tf.math.sinh(x)
+
+    def arcsinh(self, x):
+        with tf.device(x.device):
+            return tf.math.asinh(x)
+
+    def cosh(self, x):
+        with tf.device(x.device):
+            return tf.math.cosh(x)
+
+    def arccosh(self, x):
+        with tf.device(x.device):
+            return tf.math.acosh(x)
+
+    def tanh(self, x):
+        with tf.device(x.device):
+            return tf.math.tanh(x)
+
+    def arctanh(self, x):
+        with tf.device(x.device):
+            return tf.math.atanh(x)
+
     def log(self, x):
         with tf.device(x.device):
             return tf.math.log(x)
