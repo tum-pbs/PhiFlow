@@ -40,7 +40,7 @@ class TorchBackend(Backend):
             return True
         if isinstance(x, (tuple, list)) and all(isinstance(c, numbers.Number) for c in x):
             return True
-        if isinstance(x, np.ndarray) and x.dtype != np.object:
+        if isinstance(x, np.ndarray) and x.dtype != object:
             return True  # this is pretty much required, else we couldn't perform NP+PyTorch operations
         return False
 

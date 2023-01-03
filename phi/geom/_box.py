@@ -231,7 +231,7 @@ class Box(BaseBox, metaclass=BoxType):
 
     def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Box) for v in values):
-            return Box(math.stack([v.lower for v in values], dim, **kwargs), math.stack([v.upper for v in values], dim, **kwargs))
+            return NotImplemented  # stack attributes
         else:
             return Geometry.__stack__(self, values, dim, **kwargs)
 
@@ -469,6 +469,10 @@ class GridCell(BaseBox):
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Cuboid':
         return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
+
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        from ._stack import GeometryStack
+        return GeometryStack(math.layout(values, dim))
 
     def list_cells(self, dim_name):
         center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)

@@ -168,7 +168,12 @@ def reshaped_native(value: Tensor,
 
     Args:
         value: `Tensor`
-        groups: Sequence of dimension names as `str` or groups of dimensions to be packed_dim as `Shape`.
+        groups: `tuple` or `list` of dimensions to be packed into one native dimension. Each entry must be one of the following:
+
+            * `str`: the name of one dimension that is present on `value`.
+            * `Shape`: Dimensions to be packed. If `force_expand`, missing dimensions are first added, otherwise they are ignored.
+            * Filter function: Packs all dimensions of this type that are present on `value`.
+
         force_expand: `bool` or sequence of dimensions.
             If `True`, repeats the tensor along missing dimensions.
             If `False`, puts singleton dimensions where possible.
@@ -180,6 +185,7 @@ def reshaped_native(value: Tensor,
     """
     assert isinstance(value, Tensor), f"value must be a Tensor but got {type(value)}"
     order = []
+    groups = [group(value) if callable(group) else group for group in groups]
     for i, group in enumerate(groups):
         if isinstance(group, Shape):
             present = value.shape.only(group)
@@ -188,7 +194,8 @@ def reshaped_native(value: Tensor,
             value = pack_dims(value, group, batch(f"group{i}"))
             order.append(f"group{i}")
         else:
-            assert isinstance(group, str), f"Groups must be either str or Shape but got {group}"
+            assert isinstance(group, str), f"Groups must be either single-dim str or Shape but got {group}"
+            assert ',' not in group, f"When packing multiple dimensions, pass a well-defined Shape instead of a comma-separated str. Got {group}"
             order.append(group)
     return value.numpy(order) if to_numpy else value.native(order)
 

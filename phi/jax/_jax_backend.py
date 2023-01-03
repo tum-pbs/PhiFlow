@@ -70,15 +70,15 @@ class JaxBackend(Backend):
     def is_tensor(self, x, only_native=False):
         if isinstance(x, jnp.ndarray) and not isinstance(x, np.ndarray):  # NumPy arrays inherit from Jax arrays
             return True
-        # if scipy.sparse.issparse(x):  # TODO
-        #     return True
-        if isinstance(x, jnp.bool_):
+        if isinstance(x, jnp.bool_) and not isinstance(x, np.bool_):
             return True
         # --- Above considered native ---
         if only_native:
             return False
         # --- Non-native types ---
         if isinstance(x, np.ndarray):
+            return True
+        if isinstance(x, np.bool_):
             return True
         if isinstance(x, (numbers.Number, bool)):
             return True
