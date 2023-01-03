@@ -1794,7 +1794,7 @@ The grid values at the new points are determined via mean (linear interpolation)
 </details>
 </dd>
 <dt id="phi.math.expand"><code class="name flex">
-<span>def <span class="ident">expand</span></span>(<span>value, dims: phi.math._shape.Shape, **kwargs)</span>
+<span>def <span class="ident">expand</span></span>(<span>value, *dims: phi.math._shape.Shape, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Adds dimensions to a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or tensor-like object by implicitly repeating the tensor values along the new dimensions.
@@ -1810,7 +1810,7 @@ If <code>value</code> already contains any of the new dimensions, a size and typ
 <dt><strong><code>value</code></strong></dt>
 <dd><code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>
 For tree nodes, expands all value attributes by <code>dims</code> or the first variable attribute if no value attributes are set.</dd>
-<dt><strong><code>dims</code></strong></dt>
+<dt><strong><code>*dims</code></strong></dt>
 <dd>Dimensions to be added as <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code></dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
@@ -1823,7 +1823,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def expand(value, dims: Shape, **kwargs):
+<pre><code class="python">def expand(value, *dims: Shape, **kwargs):
     &#34;&#34;&#34;
     Adds dimensions to a `Tensor` or tensor-like object by implicitly repeating the tensor values along the new dimensions.
     If `value` already contains any of the new dimensions, a size and type check is performed for these instead.
@@ -1839,7 +1839,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     Args:
         value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
             For tree nodes, expands all value attributes by `dims` or the first variable attribute if no value attributes are set.
-        dims: Dimensions to be added as `Shape`
+        *dims: Dimensions to be added as `Shape`
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -1847,6 +1847,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     Returns:
         Same type as `value`.
     &#34;&#34;&#34;
+    dims = concat_shapes(*dims)
     merge_shapes(value, dims.only(shape(value)))  # check that existing sizes match
     if not dims.without(shape(value)):  # no new dims to add
         if set(dims) == set(shape(value).only(dims)):  # sizes and item names might differ, though
