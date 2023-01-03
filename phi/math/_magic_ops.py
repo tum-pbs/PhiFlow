@@ -5,7 +5,7 @@ from typing import TypeVar, Tuple, Set
 
 from .backend import choose_backend, NoBackendFound
 from .backend._dtype import DType
-from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes
+from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes
 from .magic import Sliceable, Shaped, Shapable, PhiTreeNode
 
 
@@ -250,7 +250,7 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
         raise MagicNotImplemented(f"concat: No value implemented __concat__ and slices could not be stacked. values = {[type(v) for v in values]}")
 
 
-def expand(value, dims: Shape, **kwargs):
+def expand(value, *dims: Shape, **kwargs):
     """
     Adds dimensions to a `Tensor` or tensor-like object by implicitly repeating the tensor values along the new dimensions.
     If `value` already contains any of the new dimensions, a size and type check is performed for these instead.
@@ -266,7 +266,7 @@ def expand(value, dims: Shape, **kwargs):
     Args:
         value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
             For tree nodes, expands all value attributes by `dims` or the first variable attribute if no value attributes are set.
-        dims: Dimensions to be added as `Shape`
+        *dims: Dimensions to be added as `Shape`
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -274,6 +274,7 @@ def expand(value, dims: Shape, **kwargs):
     Returns:
         Same type as `value`.
     """
+    dims = concat_shapes(*dims)
     merge_shapes(value, dims.only(shape(value)))  # check that existing sizes match
     if not dims.without(shape(value)):  # no new dims to add
         if set(dims) == set(shape(value).only(dims)):  # sizes and item names might differ, though

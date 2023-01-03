@@ -627,3 +627,13 @@ class TestTensors(TestCase):
         t = math.expand(vec(x=0, y=1), channel(c=2))
         result = t + (0, i)
         self.assertEqual(instance(particles=10) & channel(vector='x,y', c=2), result.shape)
+
+    def test_tensor_expand_vararg(self):
+        dims = [spatial(x=4, y=3), channel(vector='x,y')]
+        zeros = math.zeros(*dims)
+        wrapped = math.expand(0, *dims)
+        tens = math.expand(tensor(0), *dims)
+        math.assert_close(zeros, wrapped, tens)
+        self.assertEqual(zeros.shape, wrapped.shape)
+        self.assertEqual(zeros.shape, tens.shape)
+
