@@ -1832,7 +1832,7 @@ def map_i2b(f: Callable) -> Callable:
     return map_types(f, instance, batch)
 
 
-def iterate(f: Callable, iterations: int or Shape, *x0, f_kwargs: dict = None):
+def iterate(f: Callable, iterations: int or Shape, *x0, f_kwargs: dict = None, range=range, **f_kwargs_):
     """
     Repeatedly call `function`, passing the previous output as the next input.
 
@@ -1842,14 +1842,17 @@ def iterate(f: Callable, iterations: int or Shape, *x0, f_kwargs: dict = None):
             If `int`, returns the final output of `f`.
             If `Shape`, returns the trajectory (`x0` and all outputs of `f`), stacking the values along this dimension.
         x0: Initial positional arguments for `f`.
+        range: Range function. Can be used to generate tqdm output by passing `trange`.
         f_kwargs: Additional keyword arguments to be passed to `f`.
             These arguments can be of any type.
+        f_kwargs_: More keyword arguments.
 
     Returns:
         Trajectory of final output of `f`, depending on `iterations`.
     """
     if f_kwargs is None:
         f_kwargs = {}
+    f_kwargs.update(f_kwargs_)
     x = x0
     if isinstance(iterations, int):
         for i in range(iterations):
