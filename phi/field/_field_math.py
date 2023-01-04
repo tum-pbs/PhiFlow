@@ -101,10 +101,8 @@ def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2), weights: 
         assert channel(weights).rank == 1 and channel(weights).item_names is not None, f"weights must have one channel dimension listing the laplace dims but got {shape(weights)}"
         assert set(channel(weights).item_names[0]) >= set(axes_names), f"the channel dim of weights must contain all laplace dims {axes_names} but only has {channel(weights).item_names}"
         result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
-    else:
-        weights = 1
 
-    result = sum(result_components * weights)
+    result = sum(result_components)
     result = result.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
 
     return result
@@ -138,8 +136,8 @@ def spatial_gradient(field: CenteredGrid,
 
     """
 
-    if gradient_extrapolation == None:
-        gradient_extrapolation = field.extrapolation
+    if gradient_extrapolation is None or gradient_extrapolation is math.extrapolation.NONE:
+        gradient_extrapolation = field.extrapolation.spatial_gradient()
 
     extrapol_map = {}
     if not scheme.is_implicit:
