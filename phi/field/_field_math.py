@@ -136,7 +136,7 @@ def spatial_gradient(field: CenteredGrid,
 
     """
 
-    if gradient_extrapolation is None or gradient_extrapolation is math.extrapolation.NONE:
+    if gradient_extrapolation is None or gradient_extrapolation:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
 
     extrapol_map = {}
