@@ -136,7 +136,7 @@ def spatial_gradient(field: CenteredGrid,
 
     """
 
-    if gradient_extrapolation is None or gradient_extrapolation is math.extrapolation.NONE:
+    if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
 
     extrapol_map = {}
@@ -173,17 +173,22 @@ def spatial_gradient(field: CenteredGrid,
     if scheme.is_implicit:
         gradient_extrapolation = map(_ex_map_f(extrapol_map_rhs), gradient_extrapolation)
 
+    spatial_dims = field.shape.spatial.names
     if type == CenteredGrid:
         # ToDo if extrapolation == math.extrapolation.NONE, extend size by 1
         # pad = 1 if extrapolation == math.extrapolation.NONE else 0
         # bounds = Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx) if extrapolation == math.extrapolation.NONE else field.bounds
-        padded_components = [pad(field, {dim: base_widths}) for dim in field.shape.spatial.names]
+        std_widths = (0, 0)
+        if gradient_extrapolation == math.extrapolation.NONE:
+            base_widths = (abs(min(needed_shifts))+1, max(needed_shifts)+1)
+            std_widths = (1, 1)
+        padded_components = [pad(field, {dim_: base_widths if dim_ == dim else std_widths for dim_ in spatial_dims}) for dim in spatial_dims]
     else:
         base_widths = (base_widths[0], base_widths[1]-1)
         padded_components = pad_for_staggered_output(field, gradient_extrapolation,
                                                      field.shape.spatial.names, base_widths)
 
-    shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, field.shape.spatial.names)]
+    shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
     result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
 
     if type == CenteredGrid:
@@ -200,8 +205,12 @@ def spatial_gradient(field: CenteredGrid,
         result = solve_linear(_lhs_for_implicit_scheme, result, solve=scheme.solve,
                               f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs,
                                         "stack_dim": stack_dim, "staggered_output": type != CenteredGrid})
+    if type == CenteredGrid and gradient_extrapolation == math.extrapolation.NONE:
+        result = result.with_bounds(Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx))
+    else:
+        result = result.with_bounds(field.bounds)
 
-    return result.with_bounds(field.bounds)
+    return result
 
 def _ex_map_f(ext_dict: dict):
     def f(ext: Extrapolation):
@@ -364,7 +373,7 @@ def divergence(field: Grid, scheme: Scheme = Scheme(2)) -> CenteredGrid:
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
     field.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
 
-
+    spatial_dims = field.shape.spatial.names
     if isinstance(field, StaggeredGrid):
         base_widths = (base_widths[0]+1, base_widths[1])
         padded_components = []
@@ -373,10 +382,12 @@ def divergence(field: Grid, scheme: Scheme = Scheme(2)) -> CenteredGrid:
             padding_widths = (base_widths[0] - border_valid[0], base_widths[1] - border_valid[1])
             padded_components.append(pad(component, {dim: padding_widths}))
     elif isinstance(field, CenteredGrid):
-        padded_components = [pad(component, {dim: base_widths}) for dim, component in zip(field.shape.spatial.names, unstack(field, 'vector'))]
+        padded_components = [pad(component, {dim: base_widths}) for dim, component in zip(spatial_dims, unstack(field, 'vector'))]
+        if field.extrapolation == math.extrapolation.NONE:
+            padded_components = [pad(component, {dim_: (0, 0) if dim_ == dim else (-1, -1) for dim_ in spatial_dims}) for dim, component in zip(spatial_dims, padded_components)]
 
-    shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, field.shape.spatial.names)]
-    result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
+    shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
+    result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, spatial_dims)]
 
     if scheme.is_implicit:
         result_components = stack(result_components, channel('vector'))
@@ -389,9 +400,8 @@ def divergence(field: Grid, scheme: Scheme = Scheme(2)) -> CenteredGrid:
 
     result_components = [component.with_bounds(field.bounds) for component in result_components]
     result = sum(result_components)
-    # ToDo adjust bounds if extrapolation was NONE
-    #         if field.extrapolation == math.extrapolation.NONE:
-    #             result = result.with_bounds(Box(field.bounds.lower + field.dx, field.bounds.upper - field.dx))
+    if field.extrapolation == math.extrapolation.NONE and isinstance(field, CenteredGrid):
+        result = result.with_bounds(Box(field.bounds.lower + field.dx, field.bounds.upper - field.dx))
     return result
 
 
