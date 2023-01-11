@@ -17,6 +17,7 @@ from phi import math, field
 from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
 from phi.field._scene import _str
 from phi.geom import Sphere, BaseBox, Point, Box
+from phi.geom._stack import GeometryStack
 from phi.math import Tensor, batch, channel, spatial, instance, non_channel
 from phi.math.backend import PHI_LOGGER
 from phi.vis._plot_util import smooth_uniform_curve
@@ -226,7 +227,7 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
         norm = matplotlib.colors.Normalize(vmin=np.min(values), vmax=np.max(values))
         colors = cmap(norm(values))
         axis.voxels(x, y, z, values, facecolors=colors, edgecolor='k')
-    elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):
+    elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):  # vector cloud
         axis.set_aspect('equal', adjustable='box')
         vector = data.points.shape['vector']
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
@@ -236,10 +237,10 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
         else:
             color = data.color.native()
         axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
-    elif isinstance(data, PointCloud) and data.spatial_rank == 2:
+    elif isinstance(data, PointCloud) and data.spatial_rank == 2:  # point cloud
         axis.set_aspect('equal', adjustable='box')
-        if data.points.shape.without('vector').rank > 1:  # multiple instance / spatial dimensions
-            data_list = field.unstack(data, data.points.shape.without('vector')[0].name)
+        if channel(data.points).without('vector'):  # multiple channel dimensions
+            data_list = field.unstack(data, channel(data.points).without('vector')[0].name)
             for d in data_list:
                 _plot_points(axis, d, dims, vector, **plt_args)
         else:
@@ -273,9 +274,20 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
 
 def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
     x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-    color = [d.native() for d in data.color.points.unstack(len(x))]
-    if isinstance(data.elements, Point):
-        axis.scatter(x, y, marker='x', color=color, s=6 ** 2, alpha=0.8)
+    if data.color.dtype.kind == int:
+        cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        color = [cycle[int(d)] for d in data.color.points.unstack(len(x))]
+    else:
+        color = [d.native() for d in data.color.points.unstack(len(x))]
+    if isinstance(data.elements, GeometryStack):
+        stack_dim = data.elements.geometries.shape[0]
+        parts = math.unstack(data, stack_dim)
+        for part in parts:
+            _plot_points(axis, part, dims, vector, **plt_args)
+        return
+    elif isinstance(data.elements, Point):
+        if spatial(data.points).is_empty:
+            axis.scatter(x, y, marker='x', color=color, s=6 ** 2, alpha=0.8)
     else:
         if isinstance(data.elements, Sphere):
             rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
@@ -288,6 +300,9 @@ def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
             shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, color)]
         c = matplotlib.collections.PatchCollection(shapes, match_original=True)
         axis.add_collection(c)
+    if spatial(data.points):  # Connect by line
+        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, spatial(data), instance(data)])
+        axis.plot(x, y, color=color[0])
     if non_channel(data).rank == 1 and non_channel(data).item_names[0]:
         _annotate_points(axis, data.points, non_channel(data))
 

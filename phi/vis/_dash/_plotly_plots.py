@@ -170,6 +170,8 @@ def _plot(data: SampledField,
             for d in data_list:
                 _plot(d, fig, size, colormap, show_color_bar, vmin, vmax, row=row, col=col)
         else:
+            if spatial(data):
+                raise NotImplementedError("Plotly does not yet support plotting point clouds with spatial dimensions")
             x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
             color = data.color.native()
             subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1]

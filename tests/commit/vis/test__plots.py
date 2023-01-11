@@ -5,7 +5,7 @@ import plotly
 from phi import geom, field, math
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, SoftGeometryMask
 from phi.geom import Sphere, Box
-from phi.math import extrapolation, wrap, instance, channel, batch, spatial
+from phi.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack
 from phi.vis import show, overlay, plot, close
 import matplotlib.pyplot as plt
 
@@ -123,6 +123,15 @@ class TestPlots(TestCase):
 
     def test_plot_point_cloud_3d_points(self):
         self._test_plot(PointCloud(math.random_normal(instance(points=5), channel(vector='x,y,z'))))
+
+    def test_plot_arbitrary_lines(self):
+        points = vec(resolution=wrap([0, 1, 4], spatial('line')), error=wrap([0, 1, .5], spatial('line')))
+        points = stack([points, points + (0, -1)], instance('disconnected'))
+        points = stack([points, points * (1, -1)], channel('categories'))
+        try:
+            self._test_plot(PointCloud(points, color=wrap([0, 1], channel('categories'))))
+        except NotImplementedError:
+            pass
 
     def test_animate(self):
         values = math.random_uniform(batch(time=3), spatial(x=32, y=32))
