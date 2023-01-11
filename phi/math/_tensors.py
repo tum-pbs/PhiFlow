@@ -500,8 +500,8 @@ class Tensor:
             value = cached(self)
             assert isinstance(value, TensorStack)
             assert value.stack_dim.name in dims
-            concat_dim = value.shape.without(value.stack_dim)[0]
-            c = concat_tensor(value._tensors, concat_dim)
+            concat_dim = (value.shape.without(value.stack_dim).non_uniform or value.shape.without(value.stack_dim))[0]
+            c = concat_tensor(value._tensors, concat_dim.name)
             return pack_dims(c, [d for d in dims if d != value.stack_dim.name], packed_dim, pos=pos)
 
     def __cast__(self, dtype: DType):
