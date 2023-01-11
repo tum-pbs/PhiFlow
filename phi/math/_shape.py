@@ -706,6 +706,15 @@ class Shape:
                 return True
         return False
 
+    @property
+    def non_uniform(self) -> 'Shape':
+        """
+        Returns only the non-uniform dimensions of this shape, i.e. the dimensions whose size varies along another dimension.
+        """
+        from phi.math import Tensor
+        indices = [i for i, size in enumerate(self.sizes) if isinstance(size, Tensor) and size.rank > 0]
+        return self[indices]
+
     def with_size(self, size: int or None):
         """
         Only for single-dimension shapes.
