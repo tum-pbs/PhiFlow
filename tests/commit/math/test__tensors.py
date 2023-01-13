@@ -637,3 +637,12 @@ class TestTensors(TestCase):
         self.assertEqual(zeros.shape, wrapped.shape)
         self.assertEqual(zeros.shape, tens.shape)
 
+    def test_auto_layout(self):
+        t = wrap(['a', object()])
+        self.assertEqual(channel(vector=2), t.shape)
+        try:
+            tensor(['a', object()])
+            raise RuntimeError
+        except AssertionError:
+            pass
+

@@ -1596,20 +1596,21 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             assert array.dtype != object
             data = array
         elif all(isinstance(d, str) for d in data):
-            if shape:
-                return layout(data, shape)
-            else:
-                return layout(data, channel('vector'))
+            return layout(data, shape or default_list_dim)
         else:
-            inner_shape = [] if shape is None else [shape[1:]]
-            tensors = [d if isinstance(d, Tensor) else tensor(d, *inner_shape, convert=convert) for d in data]
-            common_shape = merge_shapes(*[e.shape for e in tensors])
-            stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(tensors)])
-            assert all(stack_dim not in t.shape for t in tensors), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
-            elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in tensors]
-            from ._ops import cast_same
-            elements = cast_same(*elements)
-            return TensorStack(elements, stack_dim)
+            try:
+                inner_shape = [] if shape is None else [shape[1:]]
+                tensors = [d if isinstance(d, Tensor) else tensor(d, *inner_shape, convert=convert) for d in data]
+                common_shape = merge_shapes(*[e.shape for e in tensors])
+                stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(tensors)])
+                assert all(stack_dim not in t.shape for t in tensors), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
+                elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in tensors]
+                from ._ops import cast_same
+                elements = cast_same(*elements)
+                return TensorStack(elements, stack_dim)
+            except ValueError:
+                assert not convert, f"Cannot convert {data} to tensor"
+                return layout(data, shape or default_list_dim)
     try:
         backend = choose_backend(data)
         if shape is None:
