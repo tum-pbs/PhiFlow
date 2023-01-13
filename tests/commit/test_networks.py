@@ -16,23 +16,23 @@ class TestNetworks(TestCase):
     def test_u_net_2d_network_sizes(self):
         for lib in LIBRARIES:
             net = lib.u_net(2, 3, levels=3, filters=8, batch_norm=False, activation='ReLU', in_spatial=(64, 32))
-            self.assertEqual(6587, lib.parameter_count(net))
+            self.assertEqual(6587, lib.parameter_count(net), msg=lib)
             net_res = lib.u_net(2, 3, batch_norm=False, activation='SiLU', in_spatial=2, use_res_blocks=True)
-            self.assertEqual(39059, lib.parameter_count(net_res))
+            self.assertEqual(39059, lib.parameter_count(net_res), msg=lib)
 
     def test_u_net_3d_norm_network_sizes(self):
         for lib in LIBRARIES:
             net = lib.u_net(2, 3, levels=3, filters=8, batch_norm=True, activation='Sigmoid', in_spatial=3)
-            self.assertEqual(19707, lib.parameter_count(net))
+            self.assertEqual(19707, lib.parameter_count(net), msg=lib)
             net_res = lib.u_net(2, 3, batch_norm=True, activation='SiLU', in_spatial=3, use_res_blocks=True)
-            self.assertEqual(113939, lib.parameter_count(net_res))
+            self.assertEqual(113939, lib.parameter_count(net_res), msg=lib)
 
     def test_u_net_1d_norm_network_sizes(self):
         for lib in LIBRARIES:
             net = lib.u_net(2, 3, levels=2, filters=16, batch_norm=True, activation='tanh', in_spatial=1)
-            self.assertEqual(5043, lib.parameter_count(net))
+            self.assertEqual(5043, lib.parameter_count(net), msg=lib)
             net_res = lib.u_net(2, 3, batch_norm=True, activation='SiLU', in_spatial=1, use_res_blocks=True)
-            self.assertEqual(14867, lib.parameter_count(net_res))
+            self.assertEqual(14867, lib.parameter_count(net_res), msg=lib)
 
     def test_optimize_u_net(self):
         for lib in LIBRARIES:

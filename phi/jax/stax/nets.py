@@ -14,6 +14,7 @@ import jax
 import jax.numpy as jnp
 import keras
 import numpy
+import numpy as np
 from jax import random
 
 from packaging import version
@@ -145,10 +146,10 @@ def get_parameters(model: StaxNet, wrap=True) -> dict:
 def _recursive_add_parameters(param, wrap: bool, prefix: tuple, result: dict):
     if isinstance(param, dict):
         for name, obj in param.items():
-            _recursive_add_parameters(obj, wrap, prefix + (name,), result)
+            _recursive_add_parameters(obj, wrap, prefix + (str(name),), result)
     elif isinstance(param, (tuple, list)):
         for i, obj in enumerate(param):
-            _recursive_add_parameters(obj, wrap, prefix + (i,), result)
+            _recursive_add_parameters(obj, wrap, prefix + (str(i),), result)
     else:
         rank = len(param.shape)
         if prefix[-1] == 0 and rank == 2:
@@ -164,8 +165,14 @@ def _recursive_add_parameters(param, wrap: bool, prefix: tuple, result: dict):
                 phi_tensor = math.wrap(param, math.channel('output'))
             elif rank == 2:
                 phi_tensor = math.wrap(param, math.channel('input,output'))
+            elif rank == 3:
+                phi_tensor = math.wrap(param, math.channel('x,input,output'))
+            elif rank == 4:
+                phi_tensor = math.wrap(param, math.channel('x,y,input,output'))
+            elif rank == 5:
+                phi_tensor = math.wrap(param, math.channel('x,y,z,input,output'))
             else:
-                raise NotImplementedError
+                raise NotImplementedError(rank)
             result[name] = phi_tensor
 
 
@@ -280,7 +287,8 @@ def dense_net(in_channels: int,
               out_channels: int,
               layers: Tuple[int, ...] or List[int],
               batch_norm=False,
-              activation='ReLU') -> StaxNet:
+              activation='ReLU',
+              softmax=False) -> StaxNet:
     """
     Fully-connected neural networks are available in ΦFlow via dense_net().
     Arguments:
@@ -301,6 +309,8 @@ def dense_net(in_channels: int,
         if batch_norm:
             stax_layers.append(stax.BatchNorm(axis=(0,)))
     stax_layers.append(stax.Dense(out_channels))
+    if softmax:
+        stax_layers.append(stax.elementwise(stax.softmax, axis=-1))
     net_init, net_apply = stax.serial(*stax_layers)
     net = StaxNet(net_init, net_apply, (-1, in_channels))
     net.initialize()
@@ -314,6 +324,7 @@ def u_net(in_channels: int,
           batch_norm: bool = True,
           activation='ReLU',
           in_spatial: tuple or int = 2,
+          periodic=False,
           use_res_blocks: bool = False) -> StaxNet:
     """
      ΦFlow provides a built-in U-net architecture, classically popular for Semantic Segmentation in Computer Vision, composed of downsampling and upsampling layers.
@@ -347,22 +358,17 @@ def u_net(in_channels: int,
         d = len(in_spatial)
     # Create layers
     if use_res_blocks:
-        inc_init, inc_apply = resnet_block(in_channels, filters[0], batch_norm, activation, d)
+        inc_init, inc_apply = resnet_block(in_channels, filters[0], periodic, batch_norm, activation, d)
     else:
-        inc_init, inc_apply = create_double_conv(d, filters[0], filters[0], batch_norm, activation)
+        inc_init, inc_apply = create_double_conv(d, filters[0], filters[0], batch_norm, activation, periodic)
     init_functions, apply_functions = {}, {}
     for i in range(1, levels):
         if use_res_blocks:
-            init_functions[f'down{i}'], apply_functions[f'down{i}'] = resnet_block(filters[i - 1], filters[i],
-                                                                                   batch_norm, activation, d)
-            init_functions[f'up{i}'], apply_functions[f'up{i}'] = resnet_block(filters[i] + filters[i - 1],
-                                                                               filters[i - 1], batch_norm, activation,
-                                                                               d)
+            init_functions[f'down{i}'], apply_functions[f'down{i}'] = resnet_block(filters[i - 1], filters[i], periodic, batch_norm, activation, d)
+            init_functions[f'up{i}'], apply_functions[f'up{i}'] = resnet_block(filters[i] + filters[i - 1], filters[i - 1], periodic, batch_norm, activation, d)
         else:
-            init_functions[f'down{i}'], apply_functions[f'down{i}'] = create_double_conv(d, filters[i], filters[i],
-                                                                                         batch_norm, activation)
-            init_functions[f'up{i}'], apply_functions[f'up{i}'] = create_double_conv(d, filters[i - 1], filters[i - 1],
-                                                                                     batch_norm, activation)
+            init_functions[f'down{i}'], apply_functions[f'down{i}'] = create_double_conv(d, filters[i], filters[i], batch_norm, activation, periodic)
+            init_functions[f'up{i}'], apply_functions[f'up{i}'] = create_double_conv(d, filters[i - 1], filters[i - 1], batch_norm, activation, periodic)
     outc_init, outc_apply = CONV[d](out_channels, (1,) * d, padding='same')
     max_pool_init, max_pool_apply = stax.MaxPool((2,) * d, padding='same', strides=(2,) * d)
     _, up_apply = create_upsample()
@@ -425,16 +431,10 @@ def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm:
 
 
 # Periodic Implementation
-def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
+def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable, periodic: bool):
     init_fn, apply_fn = {}, {}
-    init_fn['conv1'], apply_fn['conv1'] = stax.serial(CONV[d](mid_channels, (3,) * d, padding='valid'),
-                                                      stax.BatchNorm(
-                                                          axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                                      activation)
-    init_fn['conv2'], apply_fn['conv2'] = stax.serial(CONV[d](mid_channels, (3,) * d, padding='valid'),
-                                                      stax.BatchNorm(
-                                                          axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
-                                                      activation)
+    init_fn['conv1'], apply_fn['conv1'] = stax.serial(CONV[d](mid_channels, (3,) * d, padding='valid'), stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity, activation)
+    init_fn['conv2'], apply_fn['conv2'] = stax.serial(CONV[d](mid_channels, (3,) * d, padding='valid'), stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity, activation)
 
     def net_init(rng, input_shape):
         params = {}
@@ -447,9 +447,9 @@ def create_double_conv(d: int, out_channels: int, mid_channels: int, batch_norm:
     def net_apply(params, inputs):
         x = inputs
         pad_tuple = [[0, 0]] + [[1, 1] for i in range(d)] + [[0, 0]]
-        out = jnp.pad(x, pad_width=pad_tuple, mode='wrap')
+        out = jnp.pad(x, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
         out = apply_fn['conv1'](params['conv1'], out)
-        out = jnp.pad(out, pad_width=pad_tuple, mode='wrap')
+        out = jnp.pad(out, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
         out = apply_fn['conv2'](params['conv2'], out)
         return out
 
@@ -468,96 +468,77 @@ def create_upsample():
     return NotImplemented, upsample_apply
 
 
-def conv_classifier(input_shape_list: list, num_classes: int, batch_norm: bool, in_spatial: int or tuple):
+def conv_classifier(in_features: int,
+                    in_spatial: tuple or list,
+                    num_classes: int,
+                    blocks=(64, 128, 256, 256, 512, 512),
+                    dense_layers=(4096, 4096, 100),
+                    batch_norm=True,
+                    activation='ReLU',
+                    softmax=True,
+                    periodic=False):
+    """
+    Based on VGG16.
+    """
     if isinstance(in_spatial, int):
         d = in_spatial
         in_spatial = (1,) * d
     else:
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
-    stax_conv_layers = []
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     stax_dense_layers = []
-    spatial_shape_list = list(input_shape_list[1:])
-    in_channels = input_shape_list[0]
-    channels = [64, 128, 256, 512, 512]
     init_fn, apply_fn = {}, {}
-    init_fn['conv1'], apply_fn['conv1'] = create_double_conv(d, 64, 64, batch_norm, ACTIVATIONS['ReLU'])
-    init_fn['max_pool1'], apply_fn['max_pool1'] = stax.MaxPool((2,) * d, padding='valid', strides=(2,) * d)
 
-    init_fn['conv2'], apply_fn['conv2'] = create_double_conv(d, 128, 128, batch_norm, ACTIVATIONS['ReLU'])
-    init_fn['max_pool2'], apply_fn['max_pool2'] = stax.MaxPool((2,) * d, padding='valid', strides=(2,) * d)
-
-    init_fn['conv3_1'], apply_fn['conv3_1'] = create_double_conv(d, 256, 256, batch_norm, ACTIVATIONS['ReLU'])
-    init_fn['conv3_2'], apply_fn['conv3_2'] = stax.serial(CONV[d](256, (3,) * d, padding='valid'),
-                                                          stax.BatchNorm(axis=tuple(
-                                                              range(d + 1))) if batch_norm else stax.Identity,
-                                                          ACTIVATIONS['ReLU'])
-
-    init_fn['max_pool3'], apply_fn['max_pool3'] = stax.MaxPool((2,) * d, padding='valid', strides=(2,) * d)
-
-    init_fn['conv4_1'], apply_fn['conv4_1'] = create_double_conv(d, 512, 512, batch_norm, ACTIVATIONS['ReLU'])
-    init_fn['conv4_2'], apply_fn['conv4_2'] = stax.serial(CONV[d](512, (3,) * d, padding='valid'),
-                                                          stax.BatchNorm(axis=tuple(
-                                                              range(d + 1))) if batch_norm else stax.Identity,
-                                                          ACTIVATIONS['ReLU'])
-    init_fn['max_pool4'], apply_fn['max_pool4'] = stax.MaxPool((2,) * d, padding='valid', strides=(2,) * d)
-
-    init_fn['conv5_1'], apply_fn['conv5_1'] = create_double_conv(d, 512, 512, batch_norm, ACTIVATIONS['ReLU'])
-    init_fn['conv5_2'], apply_fn['conv5_2'] = stax.serial(CONV[d](512, (3,) * d, padding='valid'),
-                                                          stax.BatchNorm(axis=tuple(
-                                                              range(d + 1))) if batch_norm else stax.Identity,
-                                                          ACTIVATIONS['ReLU'])
-    init_fn['max_pool5'], apply_fn['max_pool5'] = stax.MaxPool((2,) * d, padding='valid', strides=(2,) * d)
-
-    net_list = ['conv1', 'max_pool1', 'conv2', 'max_pool2',
-                'conv3_1', 'conv3_2', 'max_pool3',
-                'conv4_1', 'conv4_2', 'max_pool4',
-                'conv5_1', 'conv5_2', 'max_pool5']
+    net_list = []
+    for i, (prev, next) in enumerate(zip((in_features,) + blocks[:-1], blocks)):
+        if i in (0, 1):
+            net_list.append(f'conv{i+1}')
+            init_fn[net_list[-1]], apply_fn[net_list[-1]] = create_double_conv(d, next, next, batch_norm, activation, periodic)
+        else:
+            net_list.append(f'conv{i+1}_1')
+            init_fn[net_list[-1]], apply_fn[net_list[-1]] = create_double_conv(d, 256, 256, batch_norm, activation, periodic)
+            net_list.append(f'conv{i+1}_2')
+            init_fn[net_list[-1]], apply_fn[net_list[-1]] = stax.serial(CONV[d](256, (3,) * d, padding='valid'),
+                                                                        stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
+                                                                        activation)
+        net_list.append(f'max_pool{i+1}')
+        init_fn[net_list[-1]], apply_fn[net_list[-1]] = stax.MaxPool((2,) * d, padding='valid', strides=(2,) * d)
     init_fn['flatten'], apply_fn['flatten'] = stax.Flatten
-
-    dense_layers = [4096, 4096, 100]
     for i, neuron_count in enumerate(dense_layers):
         stax_dense_layers.append(stax.Dense(neuron_count))
-        stax_dense_layers.append(ACTIVATIONS['ReLU'])
+        stax_dense_layers.append(activation)
         if batch_norm:
             stax_dense_layers.append(stax.BatchNorm(axis=(0,)))
     stax_dense_layers.append(stax.Dense(num_classes))
-    softmax = stax.elementwise(stax.softmax, axis=-1)
-    stax_dense_layers.append(softmax)
+    if softmax:
+        stax_dense_layers.append(stax.elementwise(stax.softmax, axis=-1))
     dense_init, dense_apply = stax.serial(*stax_dense_layers)
 
     def net_init(rng, input_shape):
         params = {}
         rngs = random.split(rng, 2)
-        for i in range(5):
-            for j in range(len(spatial_shape_list)):
-                spatial_shape_list[j] = math.floor((spatial_shape_list[j] - 2) / 2) + 1
-        flattened_input_dim = 1
-        for i in range(len(spatial_shape_list)):
-            flattened_input_dim *= spatial_shape_list[i]
-        flattened_input_dim *= 512
-        flattened_input_dim = int(flattened_input_dim)
         shape = input_shape
         N = len(net_list)
         for i in range(N):
-            shape, params[f'{net_list[i]}'] = \
-                init_fn[f'{net_list[i]}'](rngs[i], shape)
+            shape, params[f'{net_list[i]}'] = init_fn[f'{net_list[i]}'](rngs[i], shape)
         shape, params['flatten'] = init_fn['flatten'](rngs[N], shape)
-        shape, params['dense'] = dense_init(rngs[N + 1], (1,) + (flattened_input_dim,))
+        flat_size = int(np.prod(in_spatial) * blocks[-1] / (2**d) ** len(blocks))
+        shape, params['dense'] = dense_init(rngs[N + 1], (1,) + (flat_size,))
         return shape, params
 
     def net_apply(params, inputs, **kwargs):
         x = inputs
-        pad_tuple = [[0, 0]] + [[1, 1] for i in range(d)] + [[0, 0]]
+        pad_tuple = [[0, 0]] + [[1, 1]] * d + [[0, 0]]
         for i in range(len(net_list)):
             if net_list[i] in ['conv3_2', 'conv4_2', 'conv5_2']:
-                x = jnp.pad(x, pad_width=pad_tuple, mode='wrap')
+                x = jnp.pad(x, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
             x = apply_fn[f'{net_list[i]}'](params[f'{net_list[i]}'], x)
         x = apply_fn['flatten'](params['flatten'], x)
         out = dense_apply(params['dense'], x, **kwargs)
         return out
 
-    net = StaxNet(net_init, net_apply, (1,) + in_spatial + (in_channels,))
+    net = StaxNet(net_init, net_apply, (1,) + in_spatial + (in_features,))
     net.initialize()
     return net
 
@@ -567,6 +548,7 @@ def conv_net(in_channels: int,
              layers: Tuple[int, ...] or List[int],
              batch_norm: bool = False,
              activation: str or Callable = 'ReLU',
+             periodic=False,
              in_spatial: int or tuple = 2) -> StaxNet:
     """
     Built in Conv-Nets are also provided. Contrary to the classical convolutional neural networks, the feature map spatial size remains the same throughout the layers. Each layer of the network is essentially a convolutional block comprising of two conv layers. A filter size of 3 is used in the convolutional layers.
@@ -583,26 +565,26 @@ def conv_net(in_channels: int,
 
         Conv-net model as specified by input arguments
     """
-    if isinstance(in_spatial, tuple):
+    if isinstance(in_spatial, int):
         d = in_spatial
-        in_spatial = len(in_spatial)
+        in_spatial = (1,) * d
     else:
-        d = (1,) * in_spatial
-    if isinstance(activation, str):
-        activation = ACTIVATIONS[activation]
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     init_fn, apply_fn = {}, {}
     if len(layers) < 1:
         layers.append(out_channels)
     init_fn['conv_in'], apply_fn['conv_in'] = stax.serial(
-        CONV[in_spatial](layers[0], (3,) * in_spatial, padding='valid'),
-        stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+        CONV[d](layers[0], (3,) * d, padding='valid'),
+        stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
         activation)
     for i in range(1, len(layers)):
         init_fn[f'conv{i}'], apply_fn[f'conv{i}'] = stax.serial(
-            CONV[in_spatial](layers[i], (3,) * in_spatial, padding='valid'),
-            stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+            CONV[d](layers[i], (3,) * d, padding='valid'),
+            stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
             activation)
-    init_fn['conv_out'], apply_fn['conv_out'] = CONV[in_spatial](out_channels, (1,) * in_spatial)
+    init_fn['conv_out'], apply_fn['conv_out'] = CONV[d](out_channels, (1,) * d)
 
     def net_init(rng, input_shape):
         params = {}
@@ -616,18 +598,18 @@ def conv_net(in_channels: int,
     def net_apply(params, inputs):
         x = inputs
         pad_tuple = [(0, 0)]
-        for i in range(in_spatial):
+        for i in range(d):
             pad_tuple.append((1, 1))
         pad_tuple.append((0, 0))
-        out = jnp.pad(x, pad_width=pad_tuple, mode='wrap')
+        out = jnp.pad(x, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
         out = apply_fn['conv_in'](params['conv_in'], out)
         for i in range(1, len(layers)):
-            out = jnp.pad(out, pad_width=pad_tuple, mode='wrap')
+            out = jnp.pad(out, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
             out = apply_fn[f'conv{i + 1}'](params[f'conv{i + 1}'], out)
         out = apply_fn['conv_out'](params['conv_out'], out)
         return out
 
-    net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
+    net = StaxNet(net_init, net_apply, (1,) + in_spatial + (in_channels,))
     net.initialize()
     return net
 
@@ -637,6 +619,7 @@ def res_net(in_channels: int,
             layers: Tuple[int, ...] or List[int],
             batch_norm: bool = False,
             activation: str or Callable = 'ReLU',
+            periodic=False,
             in_spatial: int or tuple = 2) -> StaxNet:
     """
     Built in Res-Nets are provided in the ΦFlow framework. Similar to the conv-net, the feature map spatial size remains the same throughout the layers.
@@ -656,56 +639,51 @@ def res_net(in_channels: int,
 
         Res-net model as specified by input arguments
     """
-    if isinstance(in_spatial, tuple):
+    if isinstance(in_spatial, int):
         d = in_spatial
-        in_spatial = len(in_spatial)
+        in_spatial = (1,) * d
     else:
-        d = (1,) * in_spatial
-
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     stax_layers = []
     if len(layers) > 0:
-        stax_layers.append(resnet_block(in_channels, layers[0], batch_norm, activation, in_spatial))
+        stax_layers.append(resnet_block(in_channels, layers[0], periodic, batch_norm, activation, d))
 
         for i in range(1, len(layers)):
-            stax_layers.append(resnet_block(layers[i - 1], layers[i], batch_norm, activation, in_spatial))
+            stax_layers.append(resnet_block(layers[i - 1], layers[i], periodic, batch_norm, activation, d))
 
-        stax_layers.append(resnet_block(layers[len(layers) - 1], out_channels, batch_norm, activation, in_spatial))
+        stax_layers.append(resnet_block(layers[len(layers) - 1], out_channels, periodic, batch_norm, activation, d))
     else:
-        stax_layers.append(resnet_block(in_channels, out_channels, batch_norm, activation, in_spatial))
+        stax_layers.append(resnet_block(in_channels, out_channels, periodic, batch_norm, activation, d))
     net_init, net_apply = stax.serial(*stax_layers)
-    net = StaxNet(net_init, net_apply, (1,) + d + (in_channels,))
+    net = StaxNet(net_init, net_apply, (1,) + in_spatial + (in_channels,))
     net.initialize()
     return net
 
 
 def resnet_block(in_channels: int,
                  out_channels: int,
+                 periodic: bool,
                  batch_norm: bool,
                  activation: str or Callable = 'ReLU',
-                 in_spatial: int or tuple = 2):
-    if isinstance(in_spatial, int):
-        d = (1,) * in_spatial
-    else:
-        d = in_spatial
-        in_spatial = len(in_spatial)
-
+                 d: int or tuple = 2):
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     init_fn, apply_fn = {}, {}
     init_fn['conv1'], apply_fn['conv1'] = stax.serial(
-        CONV[in_spatial](out_channels, (3,) * in_spatial, padding='valid'),
-        stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+        CONV[d](out_channels, (3,) * d, padding='valid'),
+        stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
         activation)
     init_fn['conv2'], apply_fn['conv2'] = stax.serial(
-        CONV[in_spatial](out_channels, (3,) * in_spatial, padding='valid'),
-        stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+        CONV[d](out_channels, (3,) * d, padding='valid'),
+        stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
         activation)
 
     init_activation, apply_activation = activation
     if in_channels != out_channels:
         init_fn['sample_conv'], apply_fn['sample_conv'] = stax.serial(
-            CONV[in_spatial](out_channels, (1,) * in_spatial, padding='VALID'),
-            stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity)
+            CONV[d](out_channels, (1,) * d, padding='VALID'),
+            stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity)
     else:
         init_fn['sample_conv'], apply_fn['sample_conv'] = stax.Identity
 
@@ -723,11 +701,11 @@ def resnet_block(in_channels: int,
     def net_apply(params, inputs, **kwargs):
         x = inputs
 
-        pad_tuple = [[0, 0]] + [[1, 1] for i in range(in_spatial)] + [[0, 0]]
+        pad_tuple = [[0, 0]] + [[1, 1] for i in range(d)] + [[0, 0]]
 
-        out = jnp.pad(x, pad_width=pad_tuple, mode='wrap')
+        out = jnp.pad(x, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
         out = apply_fn['conv1'](params['conv1'], out)
-        out = jnp.pad(out, pad_width=pad_tuple, mode='wrap')
+        out = jnp.pad(out, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
         out = apply_fn['conv2'](params['conv2'], out)
         skip_x = apply_fn['sample_conv'](params['sample_conv'], x, **kwargs)
         out = jnp.add(out, skip_x)
@@ -818,15 +796,16 @@ def Dense_resnet_block(in_channels: int,
 def conv_net_unit(in_channels: int,
                   out_channels: int,
                   layers: Tuple[int, ...] or List[int, ...],
+                  periodic: bool = False,
                   batch_norm: bool = False,
                   activation: str or Callable = 'ReLU',
                   in_spatial: int or tuple = 2, **kwargs):
     """ Conv-net unit for Invertible Nets"""
-    if isinstance(in_spatial, tuple):
+    if isinstance(in_spatial, int):
         d = in_spatial
-        in_spatial = len(in_spatial)
     else:
-        d = (1,) * in_spatial
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
     if isinstance(activation, str):
         activation = ACTIVATIONS[activation]
 
@@ -834,16 +813,16 @@ def conv_net_unit(in_channels: int,
     if len(layers) < 1:
         layers.append(out_channels)
     init_fn['conv_in'], apply_fn['conv_in'] = stax.serial(
-        CONV[in_spatial](layers[0], (3,) * in_spatial, padding='valid'),
-        stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+        CONV[d](layers[0], (3,) * d, padding='valid'),
+        stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
         activation)
     for i in range(1, len(layers)):
         init_fn[f'conv{i}'], apply_fn[f'conv{i}'] = stax.serial(
-            CONV[in_spatial](layers[i], (3,) * in_spatial, padding='valid'),
-            stax.BatchNorm(axis=tuple(range(in_spatial + 1))) if batch_norm else stax.Identity,
+            CONV[d](layers[i], (3,) * d, padding='valid'),
+            stax.BatchNorm(axis=tuple(range(d + 1))) if batch_norm else stax.Identity,
             activation)
 
-    init_fn['conv_out'], apply_fn['conv_out'] = CONV[in_spatial](out_channels, (1,) * in_spatial)
+    init_fn['conv_out'], apply_fn['conv_out'] = CONV[d](out_channels, (1,) * d)
 
     def net_init(rng, input_shape):
         params = {}
@@ -862,16 +841,16 @@ def conv_net_unit(in_channels: int,
         x = inputs
 
         pad_tuple = [(0, 0)]
-        for i in range(in_spatial):
+        for i in range(d):
             pad_tuple.append((1, 1))
         pad_tuple.append((0, 0))
 
-        out = jnp.pad(x, pad_width=pad_tuple, mode='wrap')
+        out = jnp.pad(x, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
 
         out = apply_fn['conv_in'](params['conv_in'], out)
 
         for i in range(1, len(layers)):
-            out = jnp.pad(out, pad_width=pad_tuple, mode='wrap')
+            out = jnp.pad(out, pad_width=pad_tuple, mode='wrap' if periodic else 'constant')
             out = apply_fn[f'conv{i + 1}'](params[f'conv{i + 1}'], out)
 
         out = apply_fn['conv_out'](params['conv_out'], out)
@@ -887,6 +866,7 @@ def u_net_unit(in_channels: int,
                filters: int or tuple or list = 16,
                batch_norm: bool = True,
                activation='ReLU',
+               periodic=False,
                in_spatial: tuple or int = 2,
                use_res_blocks: bool = False, **kwargs):
     """ U-net unit for Invertible Nets"""
@@ -903,22 +883,17 @@ def u_net_unit(in_channels: int,
         d = len(in_spatial)
     # Create layers
     if use_res_blocks:
-        inc_init, inc_apply = resnet_block(in_channels, filters[0], batch_norm, activation, d)
+        inc_init, inc_apply = resnet_block(in_channels, filters[0], periodic, batch_norm, activation, d)
     else:
-        inc_init, inc_apply = create_double_conv(d, filters[0], filters[0], batch_norm, activation)
+        inc_init, inc_apply = create_double_conv(d, filters[0], filters[0], batch_norm, activation, periodic)
     init_functions, apply_functions = {}, {}
     for i in range(1, levels):
         if use_res_blocks:
-            init_functions[f'down{i}'], apply_functions[f'down{i}'] = resnet_block(filters[i - 1], filters[i],
-                                                                                   batch_norm, activation, d)
-            init_functions[f'up{i}'], apply_functions[f'up{i}'] = resnet_block(filters[i] + filters[i - 1],
-                                                                               filters[i - 1], batch_norm, activation,
-                                                                               d)
+            init_functions[f'down{i}'], apply_functions[f'down{i}'] = resnet_block(filters[i - 1], filters[i], periodic, batch_norm, activation, d)
+            init_functions[f'up{i}'], apply_functions[f'up{i}'] = resnet_block(filters[i] + filters[i - 1], filters[i - 1], periodic, batch_norm, activation, d)
         else:
-            init_functions[f'down{i}'], apply_functions[f'down{i}'] = create_double_conv(d, filters[i], filters[i],
-                                                                                         batch_norm, activation)
-            init_functions[f'up{i}'], apply_functions[f'up{i}'] = create_double_conv(d, filters[i - 1], filters[i - 1],
-                                                                                     batch_norm, activation)
+            init_functions[f'down{i}'], apply_functions[f'down{i}'] = create_double_conv(d, filters[i], filters[i], batch_norm, activation, periodic)
+            init_functions[f'up{i}'], apply_functions[f'up{i}'] = create_double_conv(d, filters[i - 1], filters[i - 1], batch_norm, activation, periodic)
     outc_init, outc_apply = CONV[d](out_channels, (1,) * d, padding='same')
     max_pool_init, max_pool_apply = stax.MaxPool((2,) * d, padding='same', strides=(2,) * d)
     _, up_apply = create_upsample()
@@ -964,26 +939,22 @@ def res_net_unit(in_channels: int,
                  layers: Tuple[int, ...] or List[int],
                  batch_norm: bool = False,
                  activation: str or Callable = 'ReLU',
+                 periodic=False,
                  in_spatial: int or tuple = 2, **kwargs):
     """ Res-net unit for Invertible Nets"""
-    if isinstance(in_spatial, tuple):
+    if isinstance(in_spatial, int):
         d = in_spatial
-        in_spatial = len(in_spatial)
     else:
-        d = (1,) * in_spatial
-
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-
     stax_layers = []
     if len(layers) < 1:
         layers.append(out_channels)
-    stax_layers.append(resnet_block(in_channels, layers[0], batch_norm, activation, in_spatial))
-
+    stax_layers.append(resnet_block(in_channels, layers[0], periodic, batch_norm, activation, d))
     for i in range(1, len(layers)):
-        stax_layers.append(resnet_block(layers[i - 1], layers[i], batch_norm, activation, in_spatial))
-
-    stax_layers.append(CONV[in_spatial](out_channels, (1,) * in_spatial))
-
+        stax_layers.append(resnet_block(layers[i - 1], layers[i], periodic, batch_norm, activation, d))
+    stax_layers.append(CONV[d](out_channels, (1,) * d))
     return stax.serial(*stax_layers)
 
 
@@ -995,13 +966,16 @@ def coupling_layer(in_channels: int,
                    batch_norm: bool = False,
                    in_spatial: int or tuple = 2,
                    net: str = 'u_net',
-                   reverse_mask: bool = False):
-    if isinstance(in_spatial, tuple):
-        in_spatial = len(in_spatial)
-
+                   reverse_mask: bool = False,
+                   **kwargs):
+    if isinstance(in_spatial, int):
+        d = in_spatial
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     init_fn, apply_fn = {}, {}
-    if in_spatial == 0:
+    if d == 0:
         init_fn['s1'], apply_fn['s1'] = stax.serial(
             Dense_resnet_block(in_channels, in_channels, batch_norm, activation),
             stax.Tanh)
@@ -1012,19 +986,10 @@ def coupling_layer(in_channels: int,
             stax.Tanh)
         init_fn['t2'], apply_fn['t2'] = Dense_resnet_block(in_channels, in_channels, batch_norm, activation)
     else:
-        init_fn['s1'], apply_fn['s1'] = NET[net](in_channels=in_channels, out_channels=in_channels,
-                                                 layers=[], batch_norm=batch_norm, activation=activation,
-                                                 in_spatial=in_spatial)
-        init_fn['t1'], apply_fn['t1'] = NET[net](in_channels=in_channels, out_channels=in_channels,
-                                                 layers=[], batch_norm=batch_norm, activation=activation,
-                                                 in_spatial=in_spatial)
-
-        init_fn['s2'], apply_fn['s2'] = NET[net](in_channels=in_channels, out_channels=in_channels,
-                                                 layers=[], batch_norm=batch_norm, activation=activation,
-                                                 in_spatial=in_spatial)
-        init_fn['t2'], apply_fn['t2'] = NET[net](in_channels=in_channels, out_channels=in_channels,
-                                                 layers=[], batch_norm=batch_norm, activation=activation,
-                                                 in_spatial=in_spatial)
+        init_fn['s1'], apply_fn['s1'] = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[], batch_norm=batch_norm, activation=activation, in_spatial=in_spatial, **kwargs)
+        init_fn['t1'], apply_fn['t1'] = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[], batch_norm=batch_norm, activation=activation, in_spatial=in_spatial, **kwargs)
+        init_fn['s2'], apply_fn['s2'] = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[], batch_norm=batch_norm, activation=activation, in_spatial=in_spatial, **kwargs)
+        init_fn['t2'], apply_fn['t2'] = NET[net](in_channels=in_channels, out_channels=in_channels, layers=[], batch_norm=batch_norm, activation=activation, in_spatial=in_spatial, **kwargs)
 
     def net_init(rng, input_shape):
         params = {}
@@ -1105,41 +1070,35 @@ def invertible_net(in_channels: int,
     Note: Currently supported values for net are 'u_net'(default), 'conv_net' and 'res_net'.
     For choosing 'dense_net' as the network block in coupling layers in_spatial must be set to zero.
     """
-    if isinstance(in_spatial, tuple):
-        in_spatial = len(in_spatial)
-
+    if isinstance(in_spatial, int):
+        d = in_spatial
+    else:
+        assert isinstance(in_spatial, tuple)
+        d = len(in_spatial)
     init_fn, apply_fn = {}, {}
-
     for i in range(num_blocks):
-        init_fn[f'CouplingLayer{i + 1}'], apply_fn[f'CouplingLayer{i + 1}'] = \
-            coupling_layer(in_channels, activation, batch_norm, in_spatial, net, (i % 2 == 0))
+        init_fn[f'CouplingLayer{i + 1}'], apply_fn[f'CouplingLayer{i + 1}'] = coupling_layer(in_channels, activation, batch_norm, d, net, (i % 2 == 0), **kwargs)
 
     def net_init(rng, input_shape):
         params = {}
         rngs = random.split(rng, 2)
-
         for i in range(num_blocks):
             shape, params[f'CouplingLayer{i + 1}'] = init_fn[f'CouplingLayer{i + 1}'](rngs[i], input_shape)
-
         return shape, params
 
     def net_apply(params, inputs, invert=False):
         out = inputs
-
         if invert:
             for i in range(num_blocks, 0, -1):
-                out = apply_fn[f'CouplingLayer{i}'](
-                    params[f'CouplingLayer{i}'], out, invert)
+                out = apply_fn[f'CouplingLayer{i}'](params[f'CouplingLayer{i}'], out, invert)
         else:
             for i in range(1, num_blocks + 1):
-                out = apply_fn[f'CouplingLayer{i}'](
-                    params[f'CouplingLayer{i}'], out)
-
+                out = apply_fn[f'CouplingLayer{i}'](params[f'CouplingLayer{i}'], out)
         return out
 
-    if in_spatial == 0:
+    if d == 0:
         net = StaxNet(net_init, net_apply, (1,) + (in_channels,))
     else:
-        net = StaxNet(net_init, net_apply, (1,) + (1,) * in_spatial + (in_channels,))
+        net = StaxNet(net_init, net_apply, (1,) + (1,) * d + (in_channels,))
     net.initialize()
     return net

@@ -10,6 +10,7 @@ from typing import Callable
 from typing import Tuple, List
 
 import numpy
+import numpy as np
 import tensorflow as tf
 from tensorflow import Tensor
 from tensorflow import keras
@@ -53,11 +54,20 @@ def get_parameters(model: keras.Model, wrap=True) -> dict:
             result[name] = var
         else:
             if name.endswith('.weight'):
-                phi_tensor = math.wrap(var, math.channel('input,output'))
+                if var.ndim == 2:
+                    phi_tensor = math.wrap(var, math.channel('input,output'))
+                elif var.ndim == 3:
+                    phi_tensor = math.wrap(var, math.channel('x,input,output'))
+                elif var.ndim == 4:
+                    phi_tensor = math.wrap(var, math.channel('x,y,input,output'))
+                elif var.ndim == 5:
+                    phi_tensor = math.wrap(var, math.channel('x,y,z,input,output'))
             elif name.endswith('.bias'):
                 phi_tensor = math.wrap(var, math.channel('output'))
+            elif var.ndim == 1:
+                phi_tensor = math.wrap(var, math.channel('output'))
             else:
-                raise NotImplementedError(name)
+                raise NotImplementedError(name, var)
             result[name] = phi_tensor
     return result
 
@@ -172,7 +182,8 @@ def dense_net(in_channels: int,
               out_channels: int,
               layers: Tuple[int, ...] or List[int],
               batch_norm=False,
-              activation='ReLU') -> keras.Model:
+              activation='ReLU',
+              softmax=False) -> keras.Model:
     """
     Fully-connected neural networks are available in ΦFlow via dense_net().
     Arguments:
@@ -193,7 +204,8 @@ def dense_net(in_channels: int,
             keras_layers.append(kl.BatchNormalization())
     return keras.models.Sequential([kl.InputLayer(input_shape=(in_channels,)),
                                     *keras_layers,
-                                    kl.Dense(out_channels, activation='linear')])
+                                    kl.Dense(out_channels, activation='linear'),
+                                    *([kl.Softmax()] if softmax else [])])
 
 
 def u_net(in_channels: int,
@@ -203,6 +215,7 @@ def u_net(in_channels: int,
           batch_norm: bool = True,
           activation: str or Callable = 'ReLU',
           in_spatial: tuple or int = 2,
+          periodic=False,
           use_res_blocks: bool = False, **kwargs) -> keras.Model:
     """
     ΦFlow provides a built-in U-net architecture, classically popular for Semantic Segmentation in Computer Vision, composed of downsampling and upsampling layers.
@@ -236,16 +249,16 @@ def u_net(in_channels: int,
         filters = (filters,) * levels
     # --- Construct the U-Net ---
     x = inputs = keras.Input(shape=in_spatial + (in_channels,))
-    x = resnet_block(x.shape[-1], filters[0], batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[0], filters[0], batch_norm, activation)
+    x = resnet_block(x.shape[-1], filters[0], periodic, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[0], filters[0], batch_norm, activation, periodic)
     xs = [x]
     for i in range(1, levels):
         x = MAX_POOL[d](2, padding="same")(x)
-        x = resnet_block(x.shape[-1], filters[i], batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i], filters[i], batch_norm, activation)
+        x = resnet_block(x.shape[-1], filters[i], periodic, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i], filters[i], batch_norm, activation, periodic)
         xs.insert(0, x)
     for i in range(1, levels):
         x = UPSAMPLE[d](2)(x)
         x = kl.Concatenate()([x, xs[i]])
-        x = resnet_block(x.shape[-1], filters[i - 1], batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation)
+        x = resnet_block(x.shape[-1], filters[i - 1], periodic, batch_norm, activation, d)(x) if use_res_blocks else double_conv(x, d, filters[i - 1], filters[i - 1], batch_norm, activation, periodic)
     x = CONV[d](out_channels, 1)(x)
     return keras.Model(inputs, x)
 
@@ -268,17 +281,12 @@ def pad_periodic(x: Tensor):
     return x
 
 
-def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable):
-    x = pad_periodic(x)
-    x = CONV[d](mid_channels, 3, padding='valid')(x)
-    # x = CONV[d](mid_channels, 3, padding='same')(x)
+def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: bool, activation: Callable, periodic: bool):
+    x = CONV[d](mid_channels, 3, padding='valid')(pad_periodic(x)) if periodic else CONV[d](mid_channels, 3, padding='same')(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
-
-    x = pad_periodic(x)
-    x = CONV[d](out_channels, 3, padding='valid')(x)
-    # x = CONV[d](out_channels, 3, padding='same')(x)
+    x = CONV[d](out_channels, 3, padding='valid')(pad_periodic(x)) if periodic else CONV[d](out_channels, 3, padding='same')(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
@@ -290,6 +298,7 @@ def conv_net(in_channels: int,
              layers: Tuple[int, ...] or List[int],
              batch_norm: bool = False,
              activation: str or Callable = 'ReLU',
+             periodic=False,
              in_spatial: int or tuple = 2, **kwargs) -> keras.Model:
     """
     Built in Conv-Nets are also provided. Contrary to the classical convolutional neural networks, the feature map spatial size remains the same throughout the layers. Each layer of the network is essentially a convolutional block comprising of two conv layers. A filter size of 3 is used in the convolutional layers.
@@ -307,53 +316,47 @@ def conv_net(in_channels: int,
         Conv-net model as specified by input arguments
     """
     if isinstance(in_spatial, int):
-        d = (None,) * in_spatial
+        d = in_spatial
+        in_spatial = (None,) * d
     else:
         assert isinstance(in_spatial, tuple)
-        d = in_spatial
-        in_spatial = len(d)
+        d = len(in_spatial)
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-    x = inputs = keras.Input(shape=d + (in_channels,))
+    x = inputs = keras.Input(shape=in_spatial + (in_channels,))
     if len(layers) < 1:
         layers.append(out_channels)
     for i in range(len(layers)):
-        x = pad_periodic(x)
-        x = CONV[in_spatial](layers[i], 3, padding='valid')(x)
+        x = CONV[d](layers[i], 3, padding='valid')(pad_periodic(x)) if periodic else CONV[d](layers[i], 3, padding='same')(x)
         if batch_norm:
             x = kl.BatchNormalization()(x)
         x = activation(x)
-    # x = pad_periodic(x)
-    x = CONV[in_spatial](out_channels, 1)(x)
+    x = CONV[d](out_channels, 1)(x)
     return keras.Model(inputs, x)
 
 
 def resnet_block(in_channels: int,
                  out_channels: int,
+                 periodic: bool,
                  batch_norm: bool = False,
                  activation: str or Callable = 'ReLU',
                  in_spatial: int or tuple = 2):
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     if isinstance(in_spatial, int):
-        d = (None,) * in_spatial
+        d = in_spatial
     else:
         assert isinstance(in_spatial, tuple)
-        d = in_spatial
-        in_spatial = len(d)
-    d = (None,) * in_spatial
-    inputs = keras.Input(shape=d + (in_channels,))
-    x_1 = inputs
-    x = pad_periodic(inputs)
-    x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
+        d = len(in_spatial)
+    x = x_1 = inputs = keras.Input(shape=(None,) * d + (in_channels,))
+    x = CONV[d](out_channels, 3, padding='valid')(pad_periodic(x)) if periodic else CONV[d](out_channels, 3, padding='same')(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
-    x = pad_periodic(x)
-    x = CONV[in_spatial](out_channels, 3, padding='valid')(x)
+    x = CONV[d](out_channels, 3, padding='valid')(pad_periodic(x)) if periodic else CONV[d](out_channels, 3, padding='same')(x)
     if batch_norm:
         x = kl.BatchNormalization()(x)
     x = activation(x)
     if in_channels != out_channels:
-        x_1 = CONV[in_spatial](out_channels, 1)(x_1)
+        x_1 = CONV[d](out_channels, 1)(x_1)
         if batch_norm:
             x_1 = kl.BatchNormalization()(x_1)
     x = kl.Add()([x, x_1])
@@ -365,6 +368,7 @@ def res_net(in_channels: int,
             layers: Tuple[int, ...] or List[int],
             batch_norm: bool = False,
             activation: str or Callable = 'ReLU',
+            periodic=False,
             in_spatial: int or tuple = 2, **kwargs):
     """
     Built in Res-Nets are provided in the ΦFlow framework. Similar to the conv-net, the feature map spatial size remains the same throughout the layers.
@@ -385,76 +389,52 @@ def res_net(in_channels: int,
         Res-net model as specified by input arguments
     """
     if isinstance(in_spatial, int):
-        d = (None,) * in_spatial
-    else:
-        assert isinstance(in_spatial, tuple)
-        d = in_spatial
-        in_spatial = len(d)
-
-    x = inputs = keras.Input(shape=d + (in_channels,))
-    if len(layers) < 1:
-        layers.append(out_channels)
-    out = resnet_block(in_channels, layers[0], batch_norm, activation, in_spatial)(x)
-    for i in range(1, len(layers)):
-        out = resnet_block(layers[i - 1], layers[i], batch_norm, activation, in_spatial)(out)
-    out = CONV[in_spatial](out_channels, 1)(out)
-    return keras.Model(inputs, out)
-
-
-def conv_classifier(input_shape: list, num_classes: int, batch_norm: bool, in_spatial: int or tuple):
-    if isinstance(in_spatial, int):
         d = in_spatial
         in_spatial = (None,) * d
     else:
         assert isinstance(in_spatial, tuple)
         d = len(in_spatial)
-    # input_shape[0] = Channels
-    spatial_shape_list = list(input_shape[1:])
-    x = inputs = keras.Input(shape=in_spatial + (input_shape[0],))
-    x = double_conv(x, d, 64, 64, batch_norm, ACTIVATIONS['ReLU'])
-    x = MAX_POOL[d](2)(x)
 
-    x = double_conv(x, d, 128, 128, batch_norm, ACTIVATIONS['ReLU'])
-    x = MAX_POOL[d](2)(x)
+    x = inputs = keras.Input(shape=in_spatial + (in_channels,))
+    if len(layers) < 1:
+        layers.append(out_channels)
+    out = resnet_block(in_channels, layers[0], periodic, batch_norm, activation, d)(x)
+    for i in range(1, len(layers)):
+        out = resnet_block(layers[i - 1], layers[i], periodic, batch_norm, activation, d)(out)
+    out = CONV[d](out_channels, 1)(out)
+    return keras.Model(inputs, out)
 
-    x = double_conv(x, d, 256, 256, batch_norm, ACTIVATIONS['ReLU'])
-    x = pad_periodic(x)
-    x = CONV[d](256, 3, padding='valid')(x)
-    if batch_norm:
-        x = kl.BatchNormalization()(x)
-    x = ACTIVATIONS['ReLU'](x)
-    x = MAX_POOL[d](2)(x)
 
-    x = double_conv(x, d, 512, 512, batch_norm, ACTIVATIONS['ReLU'])
-    x = pad_periodic(x)
-    x = CONV[d](512, 3, padding='valid')(x)
-    if batch_norm:
-        x = kl.BatchNormalization()(x)
-    x = ACTIVATIONS['ReLU'](x)
-    x = MAX_POOL[d](2)(x)
-
-    x = double_conv(x, d, 512, 512, batch_norm, ACTIVATIONS['ReLU'])
-    x = pad_periodic(x)
-    x = CONV[d](512, 3, padding='valid')(x)
-    if batch_norm:
-        x = kl.BatchNormalization()(x)
-    x = ACTIVATIONS['ReLU'](x)
-    x = MAX_POOL[d](2)(x)
-
-    for i in range(5):
-        for j in range(len(spatial_shape_list)):
-            spatial_shape_list[j] = math.floor((spatial_shape_list[j] - 2) / 2) + 1
-
-    flattened_input_dim = 1
-    for i in range(len(spatial_shape_list)):
-        flattened_input_dim *= spatial_shape_list[i]
-    flattened_input_dim *= 512
-
+def conv_classifier(in_features: int,
+                    in_spatial: tuple or list,
+                    num_classes: int,
+                    blocks=(64, 128, 256, 256, 512, 512),
+                    dense_layers=(4096, 4096, 100),
+                    batch_norm=True,
+                    activation='ReLU',
+                    softmax=True,
+                    periodic=False):
+    """
+    Based on VGG16.
+    """
+    assert isinstance(in_spatial, (tuple, list))
+    activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
+    d = len(in_spatial)
+    x = inputs = keras.Input(shape=in_spatial + (in_features,))
+    for i, next in enumerate(blocks):
+        if i in (0, 1):
+            x = double_conv(x, d, next, next, batch_norm, activation, periodic)
+            x = MAX_POOL[d](2)(x)
+        else:
+            x = double_conv(x, d, next, next, batch_norm, activation, periodic)
+            x = CONV[d](next, 3, padding='valid')(pad_periodic(x)) if periodic else CONV[d](next, 3, padding='same')(x)
+            if batch_norm:
+                x = kl.BatchNormalization()(x)
+            x = activation(x)
+            x = MAX_POOL[d](2)(x)
     x = kl.Flatten()(x)
-    x = dense_net(flattened_input_dim, num_classes, [4096, 4096, 100], batch_norm, 'ReLU')(x)
-
-    x = kl.Softmax()(x)
-
+    flat_size = int(np.prod(in_spatial) * blocks[-1] / (2**d) ** len(blocks))
+    x = dense_net(flat_size, num_classes, dense_layers, batch_norm, activation, softmax)(x)
     return keras.Model(inputs, x)
 
 
