@@ -26,7 +26,8 @@ class PlotlyPlots(PlottingLibrary):
                       rows: int,
                       cols: int,
                       subplots: Dict[Tuple[int, int], Box],
-                      titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      titles: Dict[Tuple[int, int], str],
+                      log_dims: Tuple[str, ...]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         titles = [titles.get((r, c), None) for r in range(rows) for c in range(cols)]
         specs = [[{'type': 'xy' if subplots.get((row, col), Box()).spatial_rank < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
         fig = self.current_figure = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=specs)

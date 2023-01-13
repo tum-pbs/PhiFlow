@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import warnings
 from numbers import Number
 from typing import Callable, Tuple, Any, Dict
 
@@ -10,6 +11,7 @@ import numpy
 import numpy as np
 from matplotlib import animation, cbook
 from matplotlib import rc
+from matplotlib.patches import Patch
 from matplotlib.transforms import Bbox
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -34,7 +36,8 @@ class MatplotlibPlots(PlottingLibrary):
                       rows: int,
                       cols: int,
                       spaces: Dict[Tuple[int, int], Box],
-                      titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      titles: Dict[Tuple[int, int], str],
+                      log_dims: Tuple[str, ...]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         figure, axes = plt.subplots(rows, cols, figsize=size)
         self.current_figure = figure
         axes = np.reshape(axes, (rows, cols))
@@ -49,12 +52,26 @@ class MatplotlibPlots(PlottingLibrary):
                     if bounds.spatial_rank == 1:
                         axis.set_xlabel(bounds.vector.item_names[0])
                         axis.set_xlim(_get_range(bounds, 0))
+                        if bounds.vector.item_names[0] in log_dims:
+                            axis.set_xscale('log')
+                        if '_' in log_dims:
+                            axis.set_yscale('log')
                     elif bounds.spatial_rank == 2:
                         axis.set_xlabel(bounds.vector.item_names[0])
                         axis.set_ylabel(bounds.vector.item_names[1])
-                        axis.set_xlim(_get_range(bounds, 0))
-                        axis.set_ylim(_get_range(bounds, 1))
-                        axis.set_aspect('equal', adjustable='box')
+                        x_range, y_range = [_get_range(bounds, i) for i in (0, 1)]
+                        axis.set_xlim(x_range)
+                        axis.set_ylim(y_range)
+                        x_size, y_size = x_range[1] - x_range[0], y_range[1] - y_range[0]
+                        any_log = False
+                        if bounds.vector.item_names[0] in log_dims:
+                            axis.set_xscale('log')
+                            any_log = True
+                        if bounds.vector.item_names[1] in log_dims:
+                            axis.set_yscale('log')
+                            any_log = True
+                        if not any_log and max(x_size/y_size, y_size/x_size) < 5:
+                            axis.set_aspect('equal', adjustable='box')
                     elif bounds.spatial_rank == 3:
                         axis.remove()
                         axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
@@ -64,6 +81,14 @@ class MatplotlibPlots(PlottingLibrary):
                         axis.set_xlim(_get_range(bounds, 0))
                         axis.set_ylim(_get_range(bounds, 1))
                         axis.set_zlim(_get_range(bounds, 2))
+                        if bounds.vector.item_names[0] in log_dims:
+                            warnings.warn("Only z axis can be log scaled in 3D plot with Matplotlib. Please reorder the dimensions.", RuntimeWarning)
+                            # axis.set_xscale('log')
+                        if bounds.vector.item_names[1] in log_dims:
+                            warnings.warn("Only z axis can be log scaled in 3D plot with Matplotlib. Please reorder the dimensions.", RuntimeWarning)
+                            # axis.set_yscale('log')
+                        if bounds.vector.item_names[2] in log_dims:
+                            axis.set_zscale('log')
                     axis.set_title(titles.get((row, col), None))
                     axes_by_pos[(row, col)] = axes[row, col]
         return figure, axes_by_pos
@@ -181,8 +206,6 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
                 requires_legend = requires_legend or label
         if requires_legend:
             axis.legend()
-        if data.values.dtype.kind != complex and data.values.min > 0 and data.values.max > 100 * data.values.min:
-            axis.set_yscale('log')
         elif vmin is not None and vmax is not None:
             axis.set_ylim((vmin - .02 * (vmax - vmin), vmax + .02 * (vmax - vmin)))
     elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
@@ -228,7 +251,6 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
         colors = cmap(norm(values))
         axis.voxels(x, y, z, values, facecolors=colors, edgecolor='k')
     elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):  # vector cloud
-        axis.set_aspect('equal', adjustable='box')
         vector = data.points.shape['vector']
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
@@ -238,11 +260,14 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
             color = data.color.native()
         axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
     elif isinstance(data, PointCloud) and data.spatial_rank == 2:  # point cloud
-        axis.set_aspect('equal', adjustable='box')
         if channel(data.points).without('vector'):  # multiple channel dimensions
-            data_list = field.unstack(data, channel(data.points).without('vector')[0].name)
-            for d in data_list:
-                _plot_points(axis, d, dims, vector, **plt_args)
+            channel_dim = channel(data.points).without('vector')[0]
+            legend_patches = []
+            for name, d in zip(channel_dim.item_names[0] or (None,) * channel_dim.size, field.unstack(data, channel_dim.name)):
+                col = _plot_points(axis, d, dims, vector, **plt_args)
+                legend_patches.append(Patch(color=_rgba(col), label=name))
+            if channel_dim.item_names:
+                axis.legend(handles=legend_patches)
         else:
             _plot_points(axis, data, dims, vector, **plt_args)
     elif isinstance(data, PointCloud) and data.spatial_rank == 3:
@@ -284,7 +309,7 @@ def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
         parts = math.unstack(data, stack_dim)
         for part in parts:
             _plot_points(axis, part, dims, vector, **plt_args)
-        return
+        return color
     elif isinstance(data.elements, Point):
         if spatial(data.points).is_empty:
             axis.scatter(x, y, marker='x', color=color, s=6 ** 2, alpha=0.8)
@@ -305,6 +330,7 @@ def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
         axis.plot(x, y, color=color[0])
     if non_channel(data).rank == 1 and non_channel(data).item_names[0]:
         _annotate_points(axis, data.points, non_channel(data))
+    return color[0]
 
 
 def _annotate_points(axis, points: math.Tensor, labelled_dim: math.Shape):
@@ -315,6 +341,15 @@ def _annotate_points(axis, points: math.Tensor, labelled_dim: math.Shape):
             y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
             for x_, y_, label in zip(x, y, labelled_dim.item_names[0]):
                 axis.annotate(label, (x_ + .01 * x_view, y_ + .01 * y_view))
+
+
+def _rgba(col):
+    if isinstance(col, str) and col.startswith('#'):
+        col = tuple(int(col.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+    col = np.asarray(col)
+    if col.dtype.kind == 'i':
+        col = col / 255.
+    return col
 
 
 

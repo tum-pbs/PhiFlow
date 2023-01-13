@@ -339,7 +339,8 @@ class PlottingLibrary:
                       rows: int,
                       cols: int,
                       spaces: Dict[Tuple[int, int], Box],
-                      titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      titles: Dict[Tuple[int, int], str],
+                      log_dims: Tuple[str, ...]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         """
         Args:
             size: Figure size in inches.
@@ -348,6 +349,7 @@ class PlottingLibrary:
             spaces: Axes and range per sub-plot: `(x,y) -> Box`. Only subplot locations contained as keys should be plotted.
                 To indicate automatic limit, the box will have a lower or upper limit of -inf or inf, respectively.
             titles: Subplot titles.
+            log_dims: Dimensions along which axes should be log-scaled
 
         Returns:
             figure: Native figure object

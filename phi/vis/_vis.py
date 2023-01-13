@@ -15,6 +15,7 @@ from ..field import SampledField, Scene, Field, PointCloud, Grid
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from ..math import Tensor, layout, batch, Shape, spatial, channel
+from ..math._shape import parse_dim_names, parse_dim_order
 from ..math._tensors import Layout
 
 
@@ -277,6 +278,7 @@ def plot(*fields: SampledField or Tensor or Layout,
          title: str or Tensor = None,
          size=(12, 5),
          same_scale=True,
+         log_dims: str or tuple or list or Shape='',
          show_color_bar=True,
          frame_time=100,
          repeat=True,
@@ -296,6 +298,9 @@ def plot(*fields: SampledField or Tensor or Layout,
         title: String `Tensor` with dimensions `rows` and `cols`.
         size: Figure size in inches, `(width, height)`.
         same_scale: Whether to use the same axis limits for all sub-figures.
+        log_dims: Dimensions for which the plot axes should be scaled logarithmically.
+            Can be given as a comma-separated `str`, a sequence of dimension names or a `Shape`.
+            Use `'_'` to scale unnamed axes logarithmically, e.g. the y-axis of scalar functions.
         show_color_bar: Whether to display color bars for heat maps.
         animate: Time dimension to animate.
             If not present in the data, will produce a regular plot instead.
@@ -330,8 +335,9 @@ def plot(*fields: SampledField or Tensor or Layout,
     else:
         assert title is None, f"title must be a str or Tensor but got {title}"
         title = {pos: ", ".join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
+    log_dims = parse_dim_order(log_dims) or ()
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
