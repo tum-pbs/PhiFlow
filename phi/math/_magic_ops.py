@@ -384,7 +384,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
         ```
     """
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
-    dims = shape(value).only(dims)
+    dims = shape(value).only(dims, reorder=True)
     if packed_dim in shape(value):
         assert packed_dim in dims, f"Cannot pack dims into new dimension {packed_dim} because it already exists on value {value} and is not packed."
     if len(dims) == 0 or all(dim not in shape(value) for dim in dims):

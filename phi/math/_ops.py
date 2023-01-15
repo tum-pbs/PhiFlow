@@ -387,15 +387,29 @@ def map_(function, *values, **kwargs) -> Tensor or None:
     """
     values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
-    values_reshaped = [expand(v, shape) for v in values]
-    flat = [flatten(v, flatten_batch=True) for v in values_reshaped]
+    flat = [pack_dims(expand(v, shape), shape, batch('flat')) for v in values]
     result = []
+    results = None
     for items in zip(*flat):
-        result.append(function(*items, **kwargs))
-    if None in result:
-        assert all(r is None for r in result), f"map function returned None for some elements, {result}"
-        return None
-    return unpack_dim(wrap(result, channel('_c')), '_c', shape)
+        f_output = function(*items, **kwargs)
+        if isinstance(f_output, tuple):
+            if results is None:
+                results = [[] for _ in f_output]
+            for result_i, output_i in zip(results, f_output):
+                result_i.append(output_i)
+        else:
+            result.append(f_output)
+    if results is None:
+        if None in result:
+            assert all(r is None for r in result), f"map function returned None for some elements, {result}"
+            return None
+        return unpack_dim(wrap(result, channel('_c')), '_c', shape)
+    else:
+        for i, result_i in enumerate(results):
+            if None in result_i:
+                assert all(r is None for r in result_i), f"map function returned None for some elements at output index {i}, {result_i}"
+                results[i] = None
+        return tuple([unpack_dim(wrap(result_i, channel('_c')), '_c', shape) for result_i in results])
 
 
 def _initialize(uniform_initializer, shapes: tuple) -> Tensor:

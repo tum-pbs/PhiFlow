@@ -572,7 +572,7 @@ class Shape:
         else:
             raise ValueError(dims)
 
-    def only(self, dims: 'DimFilter'):
+    def only(self, dims: 'DimFilter', reorder=False):
         """
         Builds a new shape from this one that only contains the given dimensions.
         Dimensions in `dims` that are not part of this Shape are ignored.
@@ -581,23 +581,28 @@ class Shape:
 
         Args:
           dims: comma-separated dimension names (str) or instance of dimensions (tuple, list, Shape) or filter function.
+          reorder: If `False`, keeps the dimension order as defined in this shape.
+            If `True`, reorders the dimensions of this shape to match the order of `dims`.
 
         Returns:
           Shape containing only specified dimensions
 
         """
+        if dims is None:  # keep none
+            return EMPTY_SHAPE
         if callable(dims):
             dims = dims(self)
         if isinstance(dims, str):
             dims = parse_dim_order(dims)
-        if isinstance(dims, (tuple, list)):
-            return self[[i for i in range(self.rank) if self.names[i] in dims]]
-        elif isinstance(dims, Shape):
-            return self[[i for i in range(self.rank) if self.names[i] in dims.names]]
-        elif dims is None:  # keep none
-            return EMPTY_SHAPE
+        if isinstance(dims, Shape):
+            dims = dims.names
+        if reorder:
+            if isinstance(dims, (tuple, list)):
+                return self[[self.names.index(d) for d in dims if d in self.names]]
         else:
-            raise ValueError(dims)
+            if isinstance(dims, (tuple, list)):
+                return self[[i for i in range(self.rank) if self.names[i] in dims]]
+        raise ValueError(dims)
 
     @property
     def rank(self) -> int:
