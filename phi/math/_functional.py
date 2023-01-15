@@ -209,7 +209,7 @@ Re-tracing occurs when the number or types of arguments vary or tensor shapes va
         return f_name(self.f)
 
 
-def jit_compile(f: Callable, auxiliary_args: str = '') -> Callable:
+def jit_compile(f: Callable = None, auxiliary_args: str = '') -> Callable:
     """
     Compiles a graph based on the function `f`.
     The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.
@@ -250,6 +250,8 @@ def jit_compile(f: Callable, auxiliary_args: str = '') -> Callable:
     Returns:
         Function with similar signature and return values as `f`.
     """
+    if f is None:
+        return partial(jit_compile, auxiliary_args=auxiliary_args)
     auxiliary_args = set(s.strip() for s in auxiliary_args.split(',') if s.strip())
     return f if isinstance(f, (JitFunction, LinearFunction)) and f.auxiliary_args == auxiliary_args else JitFunction(f, auxiliary_args)
 
@@ -361,6 +363,8 @@ def jit_compile_linear(f: Callable[[X], Y], auxiliary_args: str = None) -> 'Line
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
     """
+    if f is None:
+        return partial(jit_compile_linear, auxiliary_args=auxiliary_args)
     if isinstance(f, JitFunction):
         f = f.f  # cannot trace linear function from jitted version
     if isinstance(auxiliary_args, str):
