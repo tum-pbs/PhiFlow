@@ -122,6 +122,11 @@ class Tensor:
                 return self._op2(inputs[1], lambda x, y: x % y, lambda x, y: choose_backend(x, y).mod(x, y), 'remainder', '%')
             else:
                 return self._op2(inputs[0], lambda x, y: y % x, lambda x, y: choose_backend(x, y).mod(y, x), 'r_remainder', '%')
+        if ufunc.__name__ == 'power':
+            if inputs[0] is self:
+                return self._op2(inputs[1], lambda x, y: x ** y, lambda x, y: choose_backend(x, y).pow(x, y), 'power', '**')
+            else:
+                return self._op2(inputs[0], lambda x, y: y ** x, lambda x, y: choose_backend(x, y).pow(y, x), 'r_power', '**')
         if ufunc.__name__ == 'equal':
             if _EQUALITY_BY_REF:
                 return wrap(inputs[0] is inputs[1])
