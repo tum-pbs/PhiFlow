@@ -373,14 +373,17 @@ def print_(obj: Tensor or PhiTreeNode or Number or tuple or list or None = None,
         print(f"{wrap(obj):full}")
 
 
-def map_(function, *values, **kwargs) -> Tensor or None:
+def map_(function, *values, range=range, **kwargs) -> Tensor or None:
     """
-    Calls `function` on all elements of `value`.
+    Calls `function` on all elements of `values`.
 
     Args:
         function: Function to be called on single elements contained in `value`. Must return a value that can be stored in tensors.
-        values: Tensors to iterate over. Number of tensors must match `function` signature.
-        kwargs: Keyword arguments for `function`.
+        *values: `Tensors` containing positional arguments for `function`.
+            Number of tensors must match `function` signature.
+        range: Range function. Can be used to generate tqdm output by passing `trange`.
+        **kwargs: Non-`Tensor` keyword arguments for `function`.
+            Their shapes are not broadcast with the positional arguments.
 
     Returns:
         `Tensor` of same shape as `value`.
@@ -390,7 +393,7 @@ def map_(function, *values, **kwargs) -> Tensor or None:
     flat = [pack_dims(expand(v, shape), shape, batch('flat')) for v in values]
     result = []
     results = None
-    for items in zip(*flat):
+    for _, items in zip(range(flat[0].flat.size), zip(*flat)):
         f_output = function(*items, **kwargs)
         if isinstance(f_output, tuple):
             if results is None:
