@@ -50,15 +50,15 @@ class MatplotlibPlots(PlottingLibrary):
                 else:
                     bounds = spaces[(row, col)]
                     if bounds.spatial_rank == 1:
-                        axis.set_xlabel(bounds.vector.item_names[0])
+                        axis.set_xlabel(display_name(bounds.vector.item_names[0]))
                         axis.set_xlim(_get_range(bounds, 0))
                         if bounds.vector.item_names[0] in log_dims:
                             axis.set_xscale('log')
                         if '_' in log_dims:
                             axis.set_yscale('log')
                     elif bounds.spatial_rank == 2:
-                        axis.set_xlabel(bounds.vector.item_names[0])
-                        axis.set_ylabel(bounds.vector.item_names[1])
+                        axis.set_xlabel(display_name(bounds.vector.item_names[0]))
+                        axis.set_ylabel(display_name(bounds.vector.item_names[1]))
                         x_range, y_range = [_get_range(bounds, i) for i in (0, 1)]
                         axis.set_xlim(x_range)
                         axis.set_ylim(y_range)
@@ -75,9 +75,9 @@ class MatplotlibPlots(PlottingLibrary):
                     elif bounds.spatial_rank == 3:
                         axis.remove()
                         axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
-                        axis.set_xlabel(bounds.vector.item_names[0])
-                        axis.set_ylabel(bounds.vector.item_names[1])
-                        axis.set_zlabel(bounds.vector.item_names[2])
+                        axis.set_xlabel(display_name(bounds.vector.item_names[0]))
+                        axis.set_ylabel(display_name(bounds.vector.item_names[1]))
+                        axis.set_zlabel(display_name(bounds.vector.item_names[2]))
                         axis.set_xlim(_get_range(bounds, 0))
                         axis.set_ylim(_get_range(bounds, 1))
                         axis.set_zlim(_get_range(bounds, 2))
@@ -340,7 +340,9 @@ def _annotate_points(axis, points: math.Tensor, labelled_dim: math.Shape):
             x_view = axis.get_xlim()[1] - axis.get_xlim()[0]
             y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
             for x_, y_, label in zip(x, y, labelled_dim.item_names[0]):
-                axis.annotate(label, (x_ + .01 * x_view, y_ + .01 * y_view))
+                offset_x = x_ * (1 + .0003 * x_view) if axis.get_xscale() == 'log' else x_ + .01 * x_view
+                offset_y = y_ * (1 + .0003 * y_view) if axis.get_yscale() == 'log' else y_ + .01 * y_view
+                axis.text(offset_x, offset_y, label)
 
 
 def _rgba(col):
