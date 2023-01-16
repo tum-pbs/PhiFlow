@@ -2410,8 +2410,10 @@ def _format_vector(self: Tensor, options: PrintOptions) -> str:
 def _format_number(num, options: PrintOptions, dtype: DType):
     if options.float_format is not None:
         return format(num, options.float_format)
-    if dtype.kind in (bool, int):
-        return str(num)
+    if dtype.kind == int:
+        return format(num, 'd')
+    if dtype.kind == bool:
+        return str(bool(num))
     if dtype.kind == float:
         return format(num, options.float_format or '.3f')
     return str(num)
