@@ -159,10 +159,11 @@ def f_name(f):
 
 class JitFunction:
 
-    def __init__(self, f: Callable, auxiliary_args: Set[str]):
+    def __init__(self, f: Callable, auxiliary_args: Set[str], forget_traces: bool):
         self.f = f
         self.f_params = function_parameters(f)
         self.auxiliary_args = auxiliary_args
+        self.forget_traces = forget_traces
         self.traces: Dict[SignatureKey, Callable] = {}
         self.recorded_mappings: Dict[SignatureKey, SignatureKey] = {}
         self.grad_jit = GradientFunction(f.f, f.wrt, f.get_output, f.is_f_scalar, jit=True) if isinstance(f, GradientFunction) else None
@@ -191,11 +192,15 @@ class JitFunction:
             warnings.warn(f"jit_copmile() not supported by {key.backend}. Running function '{f_name(self.f)}' as-is.", RuntimeWarning)
             return self.f(*args, **kwargs)
         if key not in self.traces:
+            if self.forget_traces:
+                self.traces.clear()
+                self.recorded_mappings.clear()
             self.traces[key] = self._jit_compile(key)
             if len(self.traces) >= 10:
                 warnings.warn(f"""Φ-lin: The jit-compiled function '{f_name(self.f)}' was traced {len(self.traces)} times.
 Performing many traces may be slow and cause memory leaks.
-Re-tracing occurs when the number or types of arguments vary or tensor shapes vary between calls.""", RuntimeWarning)
+Re-tracing occurs when the number or types of arguments vary, tensor shapes vary between calls or different auxiliary arguments are given (compared by reference).
+Set forget_traces=True to avoid memory leaks when many traces are required.""", RuntimeWarning)
         native_result = self.traces[key](*natives)
         output_key = match_output_signature(key, self.recorded_mappings, self)
         output_tensors = assemble_tensors(native_result, output_key.shapes, output_key.native_dims)
@@ -209,7 +214,7 @@ Re-tracing occurs when the number or types of arguments vary or tensor shapes va
         return f_name(self.f)
 
 
-def jit_compile(f: Callable = None, auxiliary_args: str = '') -> Callable:
+def jit_compile(f: Callable = None, auxiliary_args: str = '', forget_traces: bool = None) -> Callable:
     """
     Compiles a graph based on the function `f`.
     The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.
@@ -246,14 +251,17 @@ def jit_compile(f: Callable = None, auxiliary_args: str = '') -> Callable:
         f: Function to be traced.
             All positional arguments must be of type `Tensor` or `PhiTreeNode` returning a single `Tensor` or `PhiTreeNode`.
         auxiliary_args: Comma-separated parameter names of arguments that are not relevant to backpropagation.
+        forget_traces: If `True`, only remembers the most recent compiled instance of this function.
+            Upon tracing with new instance (due to changed shapes or auxiliary args), deletes the previous traces.
 
     Returns:
         Function with similar signature and return values as `f`.
     """
     if f is None:
-        return partial(jit_compile, auxiliary_args=auxiliary_args)
+        kwargs = {k: v for k, v in locals().items() if v is not None}
+        return partial(jit_compile_linear, **kwargs)
     auxiliary_args = set(s.strip() for s in auxiliary_args.split(',') if s.strip())
-    return f if isinstance(f, (JitFunction, LinearFunction)) and f.auxiliary_args == auxiliary_args else JitFunction(f, auxiliary_args)
+    return f if isinstance(f, (JitFunction, LinearFunction)) and f.auxiliary_args == auxiliary_args else JitFunction(f, auxiliary_args, forget_traces or False)
 
 
 class LinearFunction(Generic[X, Y], Callable[[X], Y]):
@@ -263,12 +271,13 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
     Use `jit_compile_linear()` to create a linear function representation.
     """
 
-    def __init__(self, f, auxiliary_args: Set[str]):
+    def __init__(self, f, auxiliary_args: Set[str], forget_traces: bool):
         self.f = f
         self.f_params = function_parameters(f)
         self.auxiliary_args = auxiliary_args
+        self.forget_traces = forget_traces
         self.tracers: Dict[SignatureKey, ShiftLinTracer] = {}
-        self.nl_jit = JitFunction(f, self.auxiliary_args)  # for backends that do not support sparse matrices
+        self.nl_jit = JitFunction(f, self.auxiliary_args, forget_traces)  # for backends that do not support sparse matrices
 
     def _trace(self, in_key: SignatureKey, prefer_numpy: bool) -> 'ShiftLinTracer':
         assert in_key.shapes[0].is_uniform, f"math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}"
@@ -287,15 +296,17 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         if not key.tracing and key in self.tracers:
             return self.tracers[key]
         else:
+            if self.forget_traces:
+                self.tracers.clear()
             tracer = self._trace(key, prefer_numpy=prefer_numpy)
             if not key.tracing:
                 self.tracers[key] = tracer
                 if len(self.tracers) >= 4:
                     warnings.warn(f"""Φ-lin: The compiled linear function '{f_name(self.f)}' was traced {len(self.tracers)} times.
 Performing many traces may be slow and cause memory leaks.
-Tensors in conditioning arguments (all except the first parameter unless specified otherwise) are compared by reference, not by tensor values.
+Tensors in auxiliary arguments (all except the first parameter unless specified otherwise) are compared by reference, not by tensor values.
 Auxiliary arguments: {key.auxiliary_kwargs}
-Multiple linear traces can be avoided by jit-compiling the code that calls the linear function.""", RuntimeWarning, stacklevel=3)
+Multiple linear traces can be avoided by jit-compiling the code that calls the linear function or setting forget_traces=True.""", RuntimeWarning, stacklevel=3)
             return tracer
 
     def __call__(self, *args: X, **kwargs) -> Y:
@@ -339,7 +350,7 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
         return f"lin({f_name(self.f)})"
 
 
-def jit_compile_linear(f: Callable[[X], Y], auxiliary_args: str = None) -> 'LinearFunction[X, Y]':  # TODO add cache control method, e.g. max_traces
+def jit_compile_linear(f: Callable[[X], Y] = None, auxiliary_args: str = None, forget_traces: bool = None) -> 'LinearFunction[X, Y]':
     """
     Compile an optimized representation of the linear function `f`.
     For backends that support sparse tensors, a sparse matrix will be constructed for `f`.
@@ -359,12 +370,15 @@ def jit_compile_linear(f: Callable[[X], Y], auxiliary_args: str = None) -> 'Line
         f: Function that is linear in its positional arguments.
             All positional arguments must be of type `Tensor` and `f` must return a `Tensor`.
         auxiliary_args: Which parameters `f` is not linear in. These arguments are treated as conditioning arguments and will cause re-tracing on change.
+        forget_traces: If `True`, only remembers the most recent compiled instance of this function.
+            Upon tracing with new instance (due to changed shapes or auxiliary args), deletes the previous traces.
 
     Returns:
         `LinearFunction` with similar signature and return values as `f`.
     """
     if f is None:
-        return partial(jit_compile_linear, auxiliary_args=auxiliary_args)
+        kwargs = {k: v for k, v in locals().items() if v is not None}
+        return partial(jit_compile_linear, **kwargs)
     if isinstance(f, JitFunction):
         f = f.f  # cannot trace linear function from jitted version
     if isinstance(auxiliary_args, str):
@@ -373,7 +387,7 @@ def jit_compile_linear(f: Callable[[X], Y], auxiliary_args: str = None) -> 'Line
         assert auxiliary_args is None
         f_params = function_parameters(f)
         auxiliary_args = f_params[1:]
-    return f if isinstance(f, LinearFunction) and f.auxiliary_args == auxiliary_args else LinearFunction(f, auxiliary_args)
+    return f if isinstance(f, LinearFunction) and f.auxiliary_args == auxiliary_args else LinearFunction(f, auxiliary_args, forget_traces or False)
 
 
 def simplify_wrt(f, wrt: str or int or tuple or list):

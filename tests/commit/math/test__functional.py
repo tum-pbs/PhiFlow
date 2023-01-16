@@ -353,3 +353,16 @@ class TestFunctional(TestCase):
 
         self.assertEqual(4, math.iterate(f, 2, 1, f_kwargs=dict(fac=2.)))
         math.assert_close([1, 2, 4], math.iterate(f, batch(trajectory=2), 1, f_kwargs=dict(fac=2.)))
+
+    def test_delayed_decorator(self):
+        def f(x, y):
+            return x + y
+        for jit in [math.jit_compile, math.jit_compile_linear]:
+            f_ = jit(auxiliary_args='y', forget_traces=True)(f)
+            self.assertTrue(f_.forget_traces)
+            f_ = jit(auxiliary_args='y')(f)
+            self.assertFalse(f_.forget_traces)
+            f_ = jit(forget_traces=True)(f)
+            self.assertTrue(f_.forget_traces)
+            f_ = jit()(f)
+            self.assertFalse(f_.forget_traces)
