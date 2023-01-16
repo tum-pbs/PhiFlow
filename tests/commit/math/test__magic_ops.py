@@ -2,7 +2,7 @@ from typing import Tuple
 from unittest import TestCase
 
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
-    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros
+    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros, meshgrid, assert_close
 from phi.math.magic import BoundDim, Shaped, Sliceable, Shapable, PhiTreeNode, slicing_dict
 
 
@@ -187,3 +187,18 @@ class TestMagicOps(TestCase):
         self.assertTrue(issubclass(list, PhiTreeNode))
         self.assertTrue(issubclass(dict, PhiTreeNode))
         self.assertTrue(issubclass(Dict, PhiTreeNode))
+
+    def test_bound_dims(self):
+        v = meshgrid(x=4, y=3)
+        assert_close(1, v.x.y.vector[1, 0, 0])
+        assert ('x', 'y') == instance(v.x.y.as_instance()).names
+        assert instance(points=12) & channel(vector='x,y') == v.x.y.pack(instance('points')).shape
+        assert 12 == v.x.y.volume
+        assert 24 == v.x.y.vector.volume
+        assert 24 == len(v.x.y.vector.unstack())
+        assert 24 == len(tuple(v.x.y.vector))
+        try:
+            v.x.y.size
+            self.fail()
+        except SyntaxError:
+            pass

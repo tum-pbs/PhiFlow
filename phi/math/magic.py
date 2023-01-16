@@ -18,7 +18,7 @@ To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`
 import warnings
 from typing import Tuple, Callable
 
-from ._shape import Shape, shape, channel, non_batch
+from ._shape import Shape, shape, channel, non_batch, batch, spatial, instance, concat_shapes
 from .backend._dtype import DType
 
 
@@ -416,8 +416,8 @@ class BoundDim:
 
     **Usage**
 
-    * `obj.dim.size` return the dimension size.
-    * `obj.dim.item_names` return the dimension item names.
+    * `obj.dim.size` returns the dimension size.
+    * `obj.dim.item_names` returns the dimension item names.
     * `obj.dim.exists` checks whether a dimension is listed in the shape of the bound object.
     * `obj.dim[0]` picks the first element along `dim`. The shape of the result will not contain `dim`.
     * `obj.dim[1:-1]` discards the first and last element along `dim`.
@@ -425,6 +425,16 @@ class BoundDim:
     * `obj.dim.as_channel()` changes the type of `dim` to *channel*.
     * `obj.dim.unstack()` un-stacks the bound value along `dim`.
     * `for slice in obj.dim` loops over all slices of `dim`.
+
+    Multiple dimensions can also be chained together using `obj.dim1.dim2...`.
+    This supports the following operations:
+
+    * `obj.dim1.dim2...volume` returns the product of the sizes
+    * `obj.dim1.dim2...[0, -1]` takes the first element along `dim1` and the last element along `dim2`
+    * `obj.dim1.dim2...pack(new_dim)` packs the dimensions into a new dimension with size equal to their volume
+    * `obj.dim1.dim2...unstack()` un-stacks `obj` along multiple dimensions
+    * `obj.dim1.dim2...retype(type)` Changes the type of all selected dimensions
+    * `for slice in obj.dim1.dim2...` loops over all slices as if unstacking first
     """
 
     def __init__(self, obj, name: str):
@@ -465,6 +475,8 @@ class BoundDim:
         """ Length of this dimension as listed in the `Shape` of the bound object. """
         return shape(self.obj).get_size(self.name) if self.exists else None
 
+    volume = size
+
     @property
     def size_or_1(self):
         return shape(self.obj).get_size(self.name) if self.exists else 1
@@ -488,6 +500,9 @@ class BoundDim:
 
     def __setitem__(self, key, value):
         self.obj[{self.name: key}] = value
+
+    def __getattr__(self, item):
+        return _BoundDims(self.obj, (self.name, item))
 
     def unstack(self, size: int or None = None) -> tuple:
         """
@@ -540,12 +555,25 @@ class BoundDim:
         See Also:
             `phi.math.rename_dims()`
         """
-        if self.item_names is not None:
-            new_dim = dim_type(**{self.name: self.item_names})
-        else:
-            new_dim = dim_type(**{self.name: self.size})
+        new_dim = dim_type(**{self.name: self.item_names or self.size})
         from ._magic_ops import rename_dims
         return rename_dims(self.obj, self.name, new_dim, **kwargs)
+
+    def as_batch(self, name: str = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. """
+        return self.retype(batch) if name is None else self.replace(batch(name=self.item_names or self.size))
+
+    def as_spatial(self, name: str = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. """
+        return self.retype(spatial) if name is None else self.replace(spatial(name=self.item_names or self.size))
+
+    def as_channel(self, name: str = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. """
+        return self.retype(channel) if name is None else self.replace(channel(name=self.item_names or self.size))
+
+    def as_instance(self, name: str = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
+        return self.retype(instance) if name is None else self.replace(instance(name=self.item_names or self.size))
 
     def replace(self, dim: Shape, **kwargs):
         """
@@ -566,6 +594,72 @@ class BoundDim:
         """
         from ._magic_ops import unpack_dim
         return unpack_dim(self.obj, self.name, dims, **kwargs)
+
+
+class _BoundDims:
+
+    def __init__(self, obj, dims: Tuple[str, ...]):
+        self.obj = obj
+        self.dims = dims
+
+    def __getitem__(self, item):
+        assert isinstance(item, tuple), f"A tuple of slices is required for slicing multiple dimensions at once but got {type(item)}"
+        assert len(item) == len(self.dims), f"Number of slices must equal number of dimensions but got {len(item)} for dims {self.dims}"
+        return self.obj[{dim: i for dim, i in zip(self.dims, item)}]
+
+    def __getattr__(self, item):
+        return _BoundDims(self.obj, self.dims + (item,))
+
+    def __len__(self):
+        return self.volume
+
+    @property
+    def size(self):
+        raise SyntaxError("dim.size only exists for single dimensions. Use .volume for multiple dimensions")
+
+    @property
+    def volume(self):
+        return shape(self.obj).only(self.dims).volume
+
+    def pack(self, packed_dim: Shape, pos=None, **kwargs):
+        from ._magic_ops import pack_dims
+        return pack_dims(self.obj, self.dims, packed_dim, pos=pos, **kwargs)
+
+    def unstack(self) -> tuple:
+        from ._magic_ops import unstack
+        return unstack(self.obj, self.dims)
+
+    def __iter__(self):
+        """ Iterate over slices along this dim """
+        return iter(self.unstack())
+
+    def retype(self, dim_type: Callable, **kwargs):
+        """
+        Returns a shallow copy of the `Tensor` where this dimension has the specified type.
+
+        See Also:
+            `phi.math.rename_dims()`
+        """
+        s = shape(self.obj)
+        new_dims = concat_shapes(*[dim_type(**{dim: s.get_item_names(dim) or s.get_size(dim)}) for dim in self.dims])
+        from ._magic_ops import rename_dims
+        return rename_dims(self.obj, self.dims, new_dims, **kwargs)
+
+    def as_batch(self):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. """
+        return self.retype(batch)
+
+    def as_spatial(self):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. """
+        return self.retype(spatial)
+
+    def as_channel(self):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. """
+        return self.retype(channel)
+
+    def as_instance(self):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
+        return self.retype(instance)
 
 
 def slicing_dict(obj, item) -> dict:
