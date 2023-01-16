@@ -952,10 +952,13 @@ class Layout(Tensor):
         new_shape = self._shape.replace(dims, new_dims)
         return Layout(self._obj, new_shape)
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Shapable':
-        return NotImplemented
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Layout':
+        if dims == self.shape.names:
+            native = self._as_list()
+            return Layout(native, packed_dim.with_size(len(native)))
+        raise NotImplementedError
 
-    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Shapable':
+    def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Layout':
         return NotImplemented
 
     def __cast__(self, dtype: DType):
