@@ -393,7 +393,7 @@ def map_(function, *values, range=range, **kwargs) -> Tensor or None:
     flat = [pack_dims(expand(v, shape), shape, batch('flat')) for v in values]
     result = []
     results = None
-    for _, items in zip(range(flat[0].flat.size), zip(*flat)):
+    for _, items in zip(range(flat[0].flat.size_or_1), zip(*flat)):
         f_output = function(*items, **kwargs)
         if isinstance(f_output, tuple):
             if results is None:
