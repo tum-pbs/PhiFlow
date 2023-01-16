@@ -4,8 +4,7 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.field import assert_close
-from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN, vec, non_spatial, wrap
+from phi.math import extrapolation, spatial, channel, instance, batch, DType, IncompatibleShapes, NAN, vec, non_spatial, wrap, assert_close
 from phi.math.backend import Backend
 
 
