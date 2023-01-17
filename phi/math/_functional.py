@@ -1850,7 +1850,13 @@ def map_i2b(f: Callable) -> Callable:
     return map_types(f, instance, batch)
 
 
-def iterate(f: Callable, iterations: int or Shape, *x0, f_kwargs: dict = None, range=range, **f_kwargs_):
+def iterate(f: Callable,
+            iterations: int or Shape,
+            *x0,
+            f_kwargs: dict = None,
+            range: Callable = range,
+            measure: Callable = None,
+            **f_kwargs_):
     """
     Repeatedly call `function`, passing the previous output as the next input.
 
@@ -1872,20 +1878,24 @@ def iterate(f: Callable, iterations: int or Shape, *x0, f_kwargs: dict = None, r
         f_kwargs = {}
     f_kwargs.update(f_kwargs_)
     x = x0
+    start_time = measure() if measure else None
     if isinstance(iterations, int):
-        for i in range(iterations):
+        for _ in range(iterations):
             x = f(*x, **f_kwargs)
             if not isinstance(x, tuple):
                 x = (x,)
             assert len(x) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {x}"
-        return x[0] if len(x0) == 1 else x
+        result = x[0] if len(x0) == 1 else x
     elif isinstance(iterations, Shape):
         xs = [x0]
-        for i in range(iterations.size):
+        for _ in range(iterations.size):
             x = f(*x, **f_kwargs)
             if not isinstance(x, tuple):
                 x = (x,)
             assert len(x) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {x}"
             xs.append(x)
         xs = [stack(item, iterations.with_size(None)) for item in zip(*xs)]
-        return xs[0] if len(x0) == 1 else xs
+        result = xs[0] if len(x0) == 1 else xs
+    else:
+        raise ValueError(f"iterations must be an int or Shape but got {type(iterations)}")
+    return (result, measure() - start_time) if measure else result
