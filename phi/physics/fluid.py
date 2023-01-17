@@ -3,14 +3,14 @@ Functions for simulating incompressible fluids, both grid-based and particle-bas
 
 The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 """
-from typing import Tuple
+from typing import Tuple, Callable
 
 from phi import math, field
-from phi.math import wrap, channel
+from phi.math import wrap, channel, Solve
 from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
-from ..field._grid import GridType
+from ..field._grid import GridType, StaggeredGrid
 from ..field.numerical import Scheme
 from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
 from ..math._magic_ops import copy_with
@@ -53,7 +53,7 @@ class Obstacle:
 
 def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
-                        solve=math.Solve('auto', 1e-5, 1e-5, gradient_solve=math.Solve('auto', 1e-5, 1e-5)),
+                        solve=Solve('auto', 1e-5, 1e-5, gradient_solve=Solve('auto', 1e-5, 1e-5)),
                         active: CenteredGrid = None,
                         scheme: Scheme = Scheme(2)) -> Tuple[GridType, CenteredGrid]:
     """
@@ -106,7 +106,7 @@ def make_incompressible(velocity: GridType,
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
     if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
-    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active],  f_kwargs={"scheme": scheme}, y=div, solve=solve)
+    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], f_kwargs={"scheme": scheme}, y=div, solve=solve)
     # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity), scheme=scheme) * hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
@@ -220,3 +220,43 @@ def _accessible_extrapolation(vext: Extrapolation):
         return _accessible_extrapolation(vext.normal)
     else:
         raise ValueError(f"Unsupported extrapolation: {type(vext)}")
+
+
+def incompressible_rk4(pde: Callable, velocity, pressure, dt, pressure_order=4, pressure_solve=Solve('CG', 1e-12, 1e-12)):
+    """
+
+    Args:
+        pde:
+        velocity:
+        pressure:
+        dt:
+        pressure_order:
+        pressure_solve:
+
+    Returns:
+        velocity:
+        pressure:
+    """
+    v_1, p_1 = velocity, pressure
+    # PDE at current point
+    rhs_1 = pde(v_1, p_1) - field.spatial_gradient(p_1, type=StaggeredGrid, scheme=Scheme(pressure_order))
+    v_2_old = velocity + (dt / 2) * rhs_1
+    v_2, delta_p = make_incompressible(v_2_old, solve=pressure_solve, scheme=Scheme(pressure_order))
+    p_2 = p_1 + delta_p / dt
+    # PDE at half-point
+    rhs_2 = pde(v_2, p_2) - field.spatial_gradient(p_2, type=StaggeredGrid, scheme=Scheme(pressure_order))
+    v_3_old = velocity + (dt / 2) * rhs_2
+    v_3, delta_p = make_incompressible(v_3_old, solve=pressure_solve, scheme=Scheme(pressure_order))
+    p_3 = p_2 + delta_p / dt
+    # PDE at corrected half-point
+    rhs_3 = pde(v_3, p_3) - field.spatial_gradient(p_3, type=StaggeredGrid, scheme=Scheme(pressure_order))
+    v_4_old = velocity + dt * rhs_2
+    v_4, delta_p = make_incompressible(v_4_old, solve=pressure_solve, scheme=Scheme(pressure_order))
+    p_4 = p_3 + delta_p / dt
+    # PDE at RK4 point
+    rhs_4 = pde(v_4, p_4) - field.spatial_gradient(p_4, type=StaggeredGrid, scheme=Scheme(pressure_order))
+    v_p1_old = velocity + (dt / 6) * (rhs_1 + 2 * rhs_2 + 2 * rhs_3 + rhs_4)
+    p_p1_old = (1 / 6) * (p_1 + 2 * p_2 + 2 * p_3 + p_4)
+    v_p1, delta_p = make_incompressible(v_p1_old, solve=pressure_solve, scheme=Scheme(pressure_order))
+    p_p1 = p_p1_old + delta_p / dt
+    return v_p1, p_p1
