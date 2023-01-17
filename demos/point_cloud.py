@@ -16,7 +16,7 @@ points = advect.advect(points, points * (-1, 1), -5)  # Euler
 
 # Grid sampling
 scattered_data = field.sample(points, velocity.elements)
-scattered_grid = points @ velocity
-scattered_sgrid = points @ StaggeredGrid(0, 0, velocity.bounds, velocity.resolution)
+scattered_grid = points.at(velocity)
+scattered_sgrid = points.at(StaggeredGrid(0, 0, velocity.bounds, velocity.resolution))
 
 view(namespace=globals())

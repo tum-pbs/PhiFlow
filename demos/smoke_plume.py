@@ -17,7 +17,7 @@ pressure = None
 # @jit_compile  # Only for PyTorch, TensorFlow and Jax
 def step(v, s, p, dt=1.):
     s = advect.mac_cormack(s, v, dt) + INFLOW
-    buoyancy = s * (0, 0.1) @ v  # resamples smoke to velocity sample points
+    buoyancy = (s * (0, 0.1)).at(v)
     v = advect.semi_lagrangian(v, v, dt) + buoyancy * dt
     v, p = fluid.make_incompressible(v, (), Solve('auto', 1e-5, 0, x0=p))
     return v, s, p
