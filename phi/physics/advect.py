@@ -81,7 +81,6 @@ def advect(field: SampledField,
 
 def finite_difference(grid: Grid,
                       velocity: Field,
-                      dt: float or math.Tensor,
                       scheme: Scheme = Scheme(2)) -> Field:
 
     """
@@ -90,7 +89,6 @@ def finite_difference(grid: Grid,
     Args:
         grid: Grid to be advected
         velocity: `Grid` that can be sampled in the elements of `grid`.
-        dt: Time increment
         scheme: finite difference `Scheme` used for differentiation
             supported: explicit 2/4th order - implicit 6th order
 
@@ -100,20 +98,17 @@ def finite_difference(grid: Grid,
 
     if isinstance(grid, StaggeredGrid):
         field_components = unstack(grid, 'vector')
-        grad_list = [spatial_gradient(field_component, stack_dim=math.channel('gradient'), scheme=scheme) for
-                     field_component in field_components]
+        grad_list = [spatial_gradient(field_component, stack_dim=math.channel('gradient'), scheme=scheme) for field_component in field_components]
         grad_grid = grid.with_values(math.stack([component.values for component in grad_list], math.channel('vector')))
         velocity._scheme = True
-        ammounts = [grad * vel.at(grad, scheme=scheme) for grad, vel in
-                    zip(unstack(grad_grid, dim='gradient'), unstack(velocity, dim='vector'))]
-        ammount = sum(ammounts)
+        amounts = [grad * vel.at(grad, scheme=scheme) for grad, vel in zip(unstack(grad_grid, dim='gradient'), unstack(velocity, dim='vector'))]
+        amount = sum(amounts)
     else:
         grad = spatial_gradient(grid, stack_dim=math.channel('gradient'), scheme=scheme)
         velocity = stack(unstack(velocity, dim='vector'), dim=math.channel('gradient'))
-        ammounts = velocity * grad
-        ammount = sum(unstack(ammounts, dim='gradient'))
-
-    return grid - dt * ammount
+        amounts = velocity * grad
+        amount = sum(unstack(amounts, dim='gradient'))
+    return - amount
 
 
 def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
