@@ -70,7 +70,7 @@ class MatplotlibPlots(PlottingLibrary):
                         if bounds.vector.item_names[1] in log_dims:
                             axis.set_yscale('log')
                             any_log = True
-                        if not any_log and max(x_size/y_size, y_size/x_size) < 5:
+                        if not any_log and x_size > 0 and y_size > 0 and max(x_size/y_size, y_size/x_size) < 5:
                             axis.set_aspect('equal', adjustable='box')
                     elif bounds.spatial_rank == 3:
                         axis.remove()
@@ -334,6 +334,8 @@ def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
 
 
 def _annotate_points(axis, points: math.Tensor, labelled_dim: math.Shape):
+    if labelled_dim.name in points.shape.get_item_names('vector'):
+        return  # The point labels match one of the figure axes, so they are redundant
     if points.shape['vector'].size == 2:
         x, y = math.reshaped_native(points, ['vector', points.shape.without('vector')], to_numpy=True, force_expand=True)
         if labelled_dim.item_names[0]:
