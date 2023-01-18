@@ -1,5 +1,6 @@
 from functools import partial
 from unittest import TestCase
+import time
 
 import phi
 from phi import math
@@ -352,7 +353,14 @@ class TestFunctional(TestCase):
             return x * fac
 
         self.assertEqual(4, math.iterate(f, 2, 1, f_kwargs=dict(fac=2.)))
-        math.assert_close([1, 2, 4], math.iterate(f, batch(trajectory=2), 1, f_kwargs=dict(fac=2.)))
+        math.assert_close([1, 2, 4], math.iterate(f, batch(trajectory=2), 1, fac=2.))
+        # With measure
+        r, t = math.iterate(f, 2, 1, fac=2., measure=time.perf_counter)
+        self.assertEqual(4, r)
+        self.assertIsInstance(t, float)
+        r, t = math.iterate(f, batch(trajectory=2), 1, fac=2., measure=time.perf_counter)
+        math.assert_close([1, 2, 4], r)
+        self.assertEqual(batch(trajectory=2), t.shape)
 
     def test_delayed_decorator(self):
         def f(x, y):

@@ -1867,35 +1867,43 @@ def iterate(f: Callable,
             If `Shape`, returns the trajectory (`x0` and all outputs of `f`), stacking the values along this dimension.
         x0: Initial positional arguments for `f`.
         range: Range function. Can be used to generate tqdm output by passing `trange`.
+        measure: Function without arguments to call at the start and end (and in between if `isinstance(iterations, Shape)`) calls to `f`.
+            The measure of each call to `f` is `measure()` after minus `measure()` before the call.
         f_kwargs: Additional keyword arguments to be passed to `f`.
             These arguments can be of any type.
         f_kwargs_: More keyword arguments.
 
     Returns:
-        Trajectory of final output of `f`, depending on `iterations`.
+        trajectory: Trajectory of final output of `f`, depending on `iterations`.
+        measured: Only if `measure` was specified, returns the measured value or trajectory tensor.
     """
     if f_kwargs is None:
         f_kwargs = {}
     f_kwargs.update(f_kwargs_)
     x = x0
-    start_time = measure() if measure else None
     if isinstance(iterations, int):
+        start_time = measure() if measure else None
         for _ in range(iterations):
             x = f(*x, **f_kwargs)
             if not isinstance(x, tuple):
                 x = (x,)
             assert len(x) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {x}"
         result = x[0] if len(x0) == 1 else x
+        return (result, measure() - start_time) if measure else result
     elif isinstance(iterations, Shape):
         xs = [x0]
+        ts = [measure()] if measure else None
         for _ in range(iterations.size):
             x = f(*x, **f_kwargs)
             if not isinstance(x, tuple):
                 x = (x,)
             assert len(x) == len(x0), f"Function to iterate must return {len(x0)} outputs to match input but got {x}"
             xs.append(x)
+            if measure:
+                ts.append(measure())
         xs = [stack(item, iterations.with_size(None)) for item in zip(*xs)]
         result = xs[0] if len(x0) == 1 else xs
+        ts = np.asarray(ts)
+        return (result, wrap(ts[1:] - ts[:-1], iterations.with_size(None))) if measure else result
     else:
         raise ValueError(f"iterations must be an int or Shape but got {type(iterations)}")
-    return (result, measure() - start_time) if measure else result
