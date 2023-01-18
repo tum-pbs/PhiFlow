@@ -1597,14 +1597,15 @@ def dot(x: Tensor,
 def _backend_op1(x, unbound_method) -> Tensor or PhiTreeNode:
     if isinstance(x, Tensor):
         def apply_op(native_tensor):
-            return getattr(choose_backend(native_tensor), unbound_method.__name__)(native_tensor)
+            backend = choose_backend(native_tensor)
+            return getattr(backend, unbound_method.__name__)(backend.auto_cast(native_tensor)[0])
         apply_op.__name__ = unbound_method.__name__
         return x._op1(apply_op)
     elif isinstance(x, PhiTreeNode):
         return copy_with(x, **{a: _backend_op1(getattr(x, a), unbound_method) for a in value_attributes(x)})
     else:
         backend = choose_backend(x)
-        y = getattr(backend, unbound_method.__name__)(x)
+        y = getattr(backend, unbound_method.__name__)(backend.auto_cast(x)[0])
         return y
 
 
