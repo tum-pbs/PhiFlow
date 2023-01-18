@@ -6,7 +6,6 @@ from phi.math import Shape, Tensor, channel
 from phi.math.extrapolation import Extrapolation
 from phi.geom import Geometry, Box, Point
 from phi.math.magic import BoundDim
-from .numerical import Scheme
 
 
 class Field:
@@ -56,11 +55,11 @@ class Field:
         """
         raise NotImplementedError
 
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
+    def _sample(self, geometry: Geometry, **kwargs) -> math.Tensor:
         """ For internal use only. Use `sample()` instead. """
         raise NotImplementedError(self)
 
-    def at(self, representation: 'SampledField', keep_extrapolation=False, scheme: Scheme = Scheme()) -> 'SampledField':
+    def at(self, representation: 'SampledField', keep_extrapolation=False, **kwargs) -> 'SampledFieldType':
         """
         Samples this field at the sample points of `representation`.
         The result will approximate the values of this field on the data structure of `representation`.
@@ -78,12 +77,14 @@ class Field:
             keep_extrapolation: Only available if `self` is a `SampledField`.
                 If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
                 This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
-            scheme: Numerical scheme for resampling. See `reduce_sample`
+            **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
+                By default, linear interpolation is used.
+                Grids also support 6th order implicit sampling at mid-points.
 
         Returns:
             Field object of same type as `representation`
         """
-        resampled = reduce_sample(self, representation.elements, scheme=scheme)
+        resampled = reduce_sample(self, representation.elements, **kwargs)
         extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
         return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
 
@@ -183,7 +184,7 @@ class SampledField(Field):
     def bounds(self) -> Box:
         raise NotImplementedError(self.__class__)
 
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
+    def _sample(self, geometry: Geometry, **kwargs) -> math.Tensor:
         raise NotImplementedError(self.__class__)
 
     def with_values(self, values):
@@ -216,7 +217,7 @@ class SampledField(Field):
     @property
     def elements(self) -> Geometry:
         """
-        Returns a geometrical representation of the discretized volume elements.
+        Returns a geometrical representation of the discrete volume elements.
         The result is a tuple of Geometry objects, each of which can have additional spatial (but not batch) dimensions.
         
         For grids, the geometries are boxes while particle fields may be represented as spheres.
@@ -314,7 +315,9 @@ class SampledField(Field):
             return self.with_values(values)
 
 
-def sample(field: Field, geometry: Geometry, scheme: Scheme = Scheme()) -> math.Tensor:
+def sample(field: Field,
+           geometry: Geometry or SampledField or Tensor,
+           **kwargs) -> math.Tensor:
     """
     Computes the field value inside the volume of the (batched) `geometry`.
 
@@ -329,24 +332,32 @@ def sample(field: Field, geometry: Geometry, scheme: Scheme = Scheme()) -> math.
 
     Args:
         field: Source `Field` to sample.
-        geometry: Single or batched `phi.geom.Geometry`.
-        scheme: Numerical scheme.
+        geometry: Single or batched `phi.geom.Geometry` or `SampledField` or location `Tensor`.
+            When passing a `SampledField`, its `elements` are used as sample points.
+            When passing a vector-valued `Tensor`, a `Point` geometry will be created.
+        **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
+            By default, linear interpolation is used.
+            Grids also support 6th order implicit sampling at mid-points.
 
     Returns:
         Sampled values as a `phi.math.Tensor`
     """
+    geometry = _get_geometry(geometry)
     geom_ch = channel(geometry).without('vector')
     assert all(dim not in field.shape for dim in geom_ch)
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geom_ch:
         return field.values
     if geom_ch:
-        sampled = [field._sample(p, scheme=scheme) for p in geometry.unstack(geom_ch.name)]
+        sampled = [field._sample(p, **kwargs) for p in geometry.unstack(geom_ch.name)]
         return math.stack(sampled, geom_ch)
     else:
-        return field._sample(geometry, scheme=scheme)
+        return field._sample(geometry, **kwargs)
 
 
-def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector'), scheme: Scheme = Scheme()) -> math.Tensor:
+def reduce_sample(field: Field,
+                  geometry: Geometry or SampledField or Tensor,
+                  dim=channel('vector'),
+                  **kwargs) -> math.Tensor:
     """
     Similar to `sample()`, but matches channel dimensions of `geometry` with channel dimensions of this field.
     Currently, `geometry` may have at most one channel dimension.
@@ -356,14 +367,18 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector'), schem
 
     Args:
         field: Source `Field` to sample.
-        geometry: Single or batched `phi.geom.Geometry`.
+        geometry: Single or batched `phi.geom.Geometry` or `SampledField` or location `Tensor`.
+            When passing a `SampledField`, its `elements` are used as sample points.
+            When passing a vector-valued `Tensor`, a `Point` geometry will be created.
         dim: Dimension of result, resulting from reduction of channel dimensions.
-        scheme: Numerical scheme. By default linear interpolation is used
-            supported: implicit 6th oder (only for sampling at mid-points, sampling at other locations and unsupported schemes result in automatic fallback to linear interpolation)
+        **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
+            By default, linear interpolation is used.
+            Grids also support 6th order implicit sampling at mid-points.
 
     Returns:
         Sampled values as a `phi.math.Tensor`
     """
+    geometry = _get_geometry(geometry)
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry):
         return field.values
     if channel(geometry).without('vector'):  # Reduce this dimension
@@ -372,13 +387,24 @@ def reduce_sample(field: Field, geometry: Geometry, dim=channel('vector'), schem
         if field.shape.channel.volume > 1:
             assert field.shape.channel.volume == geom_ch.volume, f"Cannot sample field with channels {field.shape.channel} at elements with channels {geometry.shape.channel}."
             components = math.unstack(field, field.shape.channel.name)
-            sampled = [c._sample(p, scheme=scheme) for c, p in zip(components, geometry.unstack(geom_ch.name))]
+            sampled = [c._sample(p, **kwargs) for c, p in zip(components, geometry.unstack(geom_ch.name))]
         else:
-            sampled = [field._sample(p, scheme=scheme) for p in geometry.unstack(channel(geometry).without('vector').name)]
+            sampled = [field._sample(p, **kwargs) for p in geometry.unstack(channel(geometry).without('vector').name)]
         dim = dim.with_size(geometry.shape.channel.item_names[0])
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
-        return field._sample(geometry, scheme=scheme)
+        return field._sample(geometry, **kwargs)
+
+
+def _get_geometry(geometry):
+    if isinstance(geometry, SampledField):
+        return geometry.elements
+    elif isinstance(geometry, Tensor) and 'vector' in geometry.shape:
+        return Point(geometry)
+    elif isinstance(geometry, Geometry):
+        return geometry
+    else:
+        raise ValueError(f"A Geometry, SampledField or location Tensor is required but got {geometry}")
 
 
 FieldType = TypeVar('FieldType', bound=Field)

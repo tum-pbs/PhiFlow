@@ -11,7 +11,6 @@ from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spati
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType, StaggeredGrid
-from ..field.numerical import Scheme
 from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
 from ..math._magic_ops import copy_with
 from ..math.extrapolation import combine_sides, Extrapolation
@@ -55,7 +54,7 @@ def make_incompressible(velocity: GridType,
                         obstacles: tuple or list = (),
                         solve=Solve('auto', 1e-5, 1e-5, gradient_solve=Solve('auto', 1e-5, 1e-5)),
                         active: CenteredGrid = None,
-                        scheme: Scheme = Scheme(2)) -> Tuple[GridType, CenteredGrid]:
+                        order=2) -> Tuple[GridType, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -64,13 +63,13 @@ def make_incompressible(velocity: GridType,
     Args:
         velocity: Vector field sampled on a grid
         obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
-        solve: Parameters for the pressure solve as.
+        solve: `Solve` object specifying method and tolerances for the implicit pressure solve.
         active: (Optional) Mask for which cells the pressure should be solved.
             If given, the velocity may take `NaN` values where it does not contribute to the pressure.
             Also, the total divergence will never be subtracted if active is given, even if all values are 1.
-        scheme: finite difference `Scheme` used for differentiation
-            For Higher-order schemes the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead,
-            while this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains
+        order: spatial order for derivative computations.
+            For Higher-order schemes, the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead.
+            While this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains.
             supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)
 
     Returns:
@@ -78,7 +77,7 @@ def make_incompressible(velocity: GridType,
         pressure: solved pressure field, `CenteredGrid`
     """
     assert isinstance(obstacles, (tuple, list)), f"obstacles must be a tuple or list but got {type(obstacles)}"
-    assert (scheme.order == 2 and not scheme.is_implicit) or obstacles == (), f"obstacles are not supported with higher order schemes"
+    assert order == 2 or obstacles == (), f"obstacles are not supported with higher order schemes"
     obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
     for obstacle in obstacles:
         assert obstacle.geometry.vector.item_names == velocity.vector.item_names, f"Obstacles must live in the same physical space as the velocity field {velocity.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}"
@@ -95,7 +94,7 @@ def make_incompressible(velocity: GridType,
         active *= accessible  # no pressure inside obstacles
     # --- Linear solve ---
     velocity = apply_boundary_conditions(velocity, obstacles)
-    div = divergence(velocity, scheme=scheme) * active
+    div = divergence(velocity, order=order) * active
     if not all_active:  # NaN in velocity allowed
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
@@ -106,15 +105,15 @@ def make_incompressible(velocity: GridType,
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
     if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
-    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], f_kwargs={"scheme": scheme}, y=div, solve=solve)
+    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], f_kwargs=dict(order=order), y=div, solve=solve)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity), scheme=scheme) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity), order=order) * hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure
 
 
 @math.jit_compile_linear  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
-def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid, scheme: Scheme) -> CenteredGrid:
+def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid, order=2, implicit: Solve = None) -> CenteredGrid:
     """
     Computes the laplace of `pressure` in the presence of obstacles.
 
@@ -126,18 +125,22 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid,
         active: Mask indicating for which cells the pressure value is valid.
             Linear solves will only determine the pressure for these cells.
             This is generally zero inside obstacles and in non-simulated regions.
-        scheme: finite difference `Scheme` used for laplace calculation
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.laplace()`).
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
 
     Returns:
         `CenteredGrid`
     """
-    if scheme.order == 2 and not scheme.is_implicit:
+    if order == 2 and not implicit:
         grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
         valid_grad = grad * field.bake_extrapolation(hard_bcs).with_extrapolation(grad.extrapolation)
         div = divergence(valid_grad)
         laplace = where(active, div, pressure)
     else:
-        laplace = field.laplace(pressure, scheme=scheme)
+        laplace = field.laplace(pressure, order=order, implicit=implicit)
     return laplace
 
 
@@ -222,41 +225,46 @@ def _accessible_extrapolation(vext: Extrapolation):
         raise ValueError(f"Unsupported extrapolation: {type(vext)}")
 
 
-def incompressible_rk4(pde: Callable, velocity, pressure, dt, pressure_order=4, pressure_solve=Solve('CG', 1e-12, 1e-12)):
+def incompressible_rk4(pde: Callable, velocity: GridType, pressure: CenteredGrid, dt, order=4, solve=Solve('CG', 1e-12, 1e-12)):
     """
+    Implements the 4th-order Runge-Kutta time advancement scheme for incompressible vector fields.
+    This approach is inspired by [Kampanis et. al., 2006](https://www.sciencedirect.com/science/article/pii/S0021999105005061) and incorporates the pressure treatment into the time step.
 
     Args:
-        pde:
-        velocity:
-        pressure:
-        dt:
-        pressure_order:
-        pressure_solve:
+        pde: Momentum equation. Function that computes all PDE terms not related to pressure, e.g. diffusion, advection, external forces.
+        velocity: Velocity grid at time `t`.
+        pressure: Pressure at time `t`.
+        dt: Time increment to integrate.
+        solve: `Solve` object specifying method and tolerances for the implicit pressure solve.
+        order: spatial order for derivative computations.
+            For Higher-order schemes, the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead.
+            While this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains.
+            supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)
 
     Returns:
-        velocity:
-        pressure:
+        velocity: Velocity at time `t+dt`, same type as `velocity`.
+        pressure: Pressure grid at time `t+dt`, `CenteredGrid`.
     """
     v_1, p_1 = velocity, pressure
     # PDE at current point
-    rhs_1 = pde(v_1, p_1) - field.spatial_gradient(p_1, type=StaggeredGrid, scheme=Scheme(pressure_order))
+    rhs_1 = pde(v_1) - field.spatial_gradient(p_1, type=StaggeredGrid, order=order)
     v_2_old = velocity + (dt / 2) * rhs_1
-    v_2, delta_p = make_incompressible(v_2_old, solve=pressure_solve, scheme=Scheme(pressure_order))
+    v_2, delta_p = make_incompressible(v_2_old, solve=solve, order=order)
     p_2 = p_1 + delta_p / dt
     # PDE at half-point
-    rhs_2 = pde(v_2, p_2) - field.spatial_gradient(p_2, type=StaggeredGrid, scheme=Scheme(pressure_order))
+    rhs_2 = pde(v_2) - field.spatial_gradient(p_2, type=StaggeredGrid, order=order)
     v_3_old = velocity + (dt / 2) * rhs_2
-    v_3, delta_p = make_incompressible(v_3_old, solve=pressure_solve, scheme=Scheme(pressure_order))
+    v_3, delta_p = make_incompressible(v_3_old, solve=solve, order=order)
     p_3 = p_2 + delta_p / dt
     # PDE at corrected half-point
-    rhs_3 = pde(v_3, p_3) - field.spatial_gradient(p_3, type=StaggeredGrid, scheme=Scheme(pressure_order))
+    rhs_3 = pde(v_3) - field.spatial_gradient(p_3, type=StaggeredGrid, order=order)
     v_4_old = velocity + dt * rhs_2
-    v_4, delta_p = make_incompressible(v_4_old, solve=pressure_solve, scheme=Scheme(pressure_order))
+    v_4, delta_p = make_incompressible(v_4_old, solve=solve, order=order)
     p_4 = p_3 + delta_p / dt
     # PDE at RK4 point
-    rhs_4 = pde(v_4, p_4) - field.spatial_gradient(p_4, type=StaggeredGrid, scheme=Scheme(pressure_order))
+    rhs_4 = pde(v_4) - field.spatial_gradient(p_4, type=StaggeredGrid, order=order)
     v_p1_old = velocity + (dt / 6) * (rhs_1 + 2 * rhs_2 + 2 * rhs_3 + rhs_4)
     p_p1_old = (1 / 6) * (p_1 + 2 * p_2 + 2 * p_3 + p_4)
-    v_p1, delta_p = make_incompressible(v_p1_old, solve=pressure_solve, scheme=Scheme(pressure_order))
+    v_p1, delta_p = make_incompressible(v_p1_old, solve=solve, order=order)
     p_p1 = p_p1_old + delta_p / dt
     return v_p1, p_p1

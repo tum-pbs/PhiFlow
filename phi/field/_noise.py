@@ -1,12 +1,9 @@
 import warnings
 
-import numpy as np
-
 from phi import math
 from phi.geom import GridCell, Geometry
 from phi.math import random_normal, Tensor, channel
 from ._field import Field
-from .numerical import Scheme
 
 
 class Noise(Field):
@@ -33,7 +30,7 @@ class Noise(Field):
     def shape(self):
         return self._shape
 
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
+    def _sample(self, geometry: Geometry, **kwargs) -> Tensor:
         if isinstance(geometry, GridCell):
             return self.grid_sample(geometry.resolution, geometry.grid_size)
         raise NotImplementedError(f"{type(geometry)} not supported. Only GridCell allowed.")

@@ -4,9 +4,8 @@ from numbers import Number
 from phi import math
 
 from ._field import Field
-from .numerical import Scheme
 from ..geom import Geometry
-from ..math import Shape, spatial, instance
+from ..math import Shape, spatial, instance, Tensor, wrap
 
 
 class AngularVelocity(Field):
@@ -19,12 +18,12 @@ class AngularVelocity(Field):
     """
 
     def __init__(self,
-                 location: math.Tensor or tuple or list or Number,
-                 strength: math.Tensor or Number = 1.0,
+                 location: Tensor or tuple or list or Number,
+                 strength: Tensor or Number = 1.0,
                  falloff: Callable = None,
                  component: str = None):
-        location = math.wrap(location)
-        strength = math.wrap(strength)
+        location = wrap(location)
+        strength = wrap(strength)
         assert location.shape.channel.names == ('vector',), "location must have a single channel dimension called 'vector'"
         assert location.shape.spatial.is_empty, "location tensor cannot have any spatial dimensions"
         assert not instance(location), "AngularVelocity does not support instance dimensions"
@@ -36,7 +35,7 @@ class AngularVelocity(Field):
         assert spatial_names is not None, "location.vector must list spatial dimensions as item names"
         self._shape = location.shape & spatial(**{dim: 1 for dim in spatial_names})
 
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
+    def _sample(self, geometry: Geometry, **kwargs) -> Tensor:
         points = geometry.center
         distances = points - self.location
         strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)

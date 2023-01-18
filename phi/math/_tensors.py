@@ -1928,7 +1928,7 @@ def assemble_tree(obj: PhiTreeNodeType, values: List[Tensor]) -> PhiTreeNodeType
         return None
     elif obj is NATIVE_TENSOR:
         value = values.pop(0)
-        assert isinstance(value, NativeTensor)
+        assert isinstance(value, NativeTensor), f"Failed to assemble tree structure. Encountered {value}"
         return value._native
     elif obj is None:
         value = values.pop(0)

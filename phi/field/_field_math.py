@@ -4,13 +4,11 @@ from typing import Callable, List, Tuple
 
 from phi import geom
 from phi import math
-from phi.geom import Box, Geometry, Sphere, Cuboid
-from phi.math import Tensor, spatial, instance, tensor, masked_fill, channel, Shape, batch, unstack, wrap, vec, \
-    rename_dims, solve_linear, jit_compile_linear, shape
+from phi.geom import Box, Geometry, Cuboid
+from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, wrap, solve_linear, jit_compile_linear, shape, Solve
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
-from .numerical import Scheme
 from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction, map
 
 
@@ -40,7 +38,7 @@ def bake_extrapolation(grid: GridType) -> GridType:
         raise ValueError(f"Not a valid grid: {grid}")
 
 
-def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2), weights: Tensor or Field = None) -> GridType:
+def laplace(field: GridType, axes=spatial, order=2, implicit: math.Solve = None, weights: Tensor or Field = None) -> GridType:
     """
     Spatial Laplace operator for scalar grid.
     If a vector grid is passed, it is assumed to be centered and the laplace is computed component-wise.
@@ -48,10 +46,13 @@ def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2), weights: 
     Args:
         field: n-dimensional `CenteredGrid`
         axes: The second derivative along these dimensions is summed over
-        scheme: finite difference `Scheme` used for differentiation
-            supported: explicit 2/4th order - implicit 6th order
         weights: (Optional) Multiply the axis terms by these factors before summation.
             Must be a `phi.math.Tensor` or `phi.field.Field` with a single channel dimension that lists all laplace axes by name.
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit.
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
 
     Returns:
         laplacian field as `CenteredGrid`
@@ -60,51 +61,39 @@ def laplace(field: GridType, axes=spatial, scheme: Scheme = Scheme(2), weights: 
         weights = weights.at(field).values
     axes_names = field.shape.only(axes).names
     extrapol_map = {}
-    if not scheme.is_implicit:
-        if scheme.order == 2:
+    if not implicit:
+        if order == 2:
                 values, needed_shifts = [1, -2, 1], (-1, 0, 1)
 
-        elif scheme.order == 4:
+        elif order == 4:
                 values, needed_shifts = [-1/12, 4/3, -5/2, 4/3, -1/12], (-2, -1, 0, 1, 2)
-
     else:
         extrapol_map_rhs = {}
-        if scheme.order == 6:
+        if order == 6:
             values, needed_shifts = [3/44, 12/11, -51/22, 12/11, 3/44], (-2, -1, 0, 1, 2)
             extrapol_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
-
             values_rhs, needed_shifts_rhs = [2/11, 1, 2/11], (-1, 0, 1)
             extrapol_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
-
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
     field.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
-
     padded_components = [pad(field, {dim: base_widths}) for dim in axes_names]
-
     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, axes_names)]
-    result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim]**2 for shifted_component, dim in zip(shifted_components, axes_names)]
-
-
-    if scheme.is_implicit:
+    result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim]**2 for shifted_component, dim in zip(shifted_components, axes_names)]
+    if implicit:
         result_components = stack(result_components, channel('laplacian'))
         result_components.with_values(result_components.values._cache())
         result_components = result_components.with_extrapolation(map(_ex_map_f(extrapol_map_rhs), field.extrapolation))
-        scheme.solve.x0 = result_components
-        result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=scheme.solve,
-                                         f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs,
-                                        "stack_dim": channel('laplacian')})
+        implicit.x0 = result_components
+        result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs, "stack_dim": channel('laplacian')})
         result_components = unstack(result_components, 'laplacian')
         extrapol_map = extrapol_map_rhs
-
     result_components = [component.with_bounds(field.bounds) for component in result_components]
     if weights is not None:
         assert channel(weights).rank == 1 and channel(weights).item_names is not None, f"weights must have one channel dimension listing the laplace dims but got {shape(weights)}"
         assert set(channel(weights).item_names[0]) >= set(axes_names), f"the channel dim of weights must contain all laplace dims {axes_names} but only has {channel(weights).item_names}"
         result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
-
     result = sum(result_components)
     result = result.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
-
     return result
 
 
@@ -112,7 +101,8 @@ def spatial_gradient(field: CenteredGrid,
                      gradient_extrapolation: Extrapolation = None,
                      type: type = CenteredGrid,
                      stack_dim: Shape = channel('vector'),
-                     scheme: Scheme = Scheme(2)):
+                     order=2,
+                     implicit: Solve = None):
 
     """
     Finite difference spatial_gradient.
@@ -128,8 +118,11 @@ def spatial_gradient(field: CenteredGrid,
         type: either `CenteredGrid` or `StaggeredGrid`
         stack_dim: Dimension to be added. This dimension lists the spatial_gradient w.r.t. the spatial dimensions.
             The `field` must not have a dimension of the same name.
-        scheme: finite difference `Scheme` used for differentiation
-            supported: explicit 2/4th order - implicit 6th order
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit.
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
 
     Returns:
         spatial_gradient field of type `type`.
@@ -140,21 +133,21 @@ def spatial_gradient(field: CenteredGrid,
         gradient_extrapolation = field.extrapolation.spatial_gradient()
 
     extrapol_map = {}
-    if not scheme.is_implicit:
-        if scheme.order == 2:
+    if not implicit:
+        if order == 2:
             if type == CenteredGrid:
                 values, needed_shifts = [-1/2, 1/2], (-1, 1)
             else:
                 values, needed_shifts = [-1, 1], (0, 1)
 
-        elif scheme.order == 4:
+        elif order == 4:
             if type == CenteredGrid:
                 values, needed_shifts = [1/12, -2/3, 2/3, -1/12], (-2, -1, 1, 2)
             else:
                 values, needed_shifts = [1/24, -27/24, 27/24, -1/24], (-1, 0, 1, 2)
     else:
         extrapol_map_rhs = {}
-        if scheme.order == 6:
+        if order == 6:
             if type == CenteredGrid:
                 values, needed_shifts = [-1/36, -14/18, 14/18, 1/36], (-2, -1, 1, 2)
                 values_rhs, needed_shifts_rhs = [1/3, 1, 1/3], (-1, 0, 1)
@@ -170,7 +163,7 @@ def spatial_gradient(field: CenteredGrid,
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
     field.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
 
-    if scheme.is_implicit:
+    if implicit:
         gradient_extrapolation = map(_ex_map_f(extrapol_map_rhs), gradient_extrapolation)
 
     spatial_dims = field.shape.spatial.names
@@ -199,10 +192,10 @@ def spatial_gradient(field: CenteredGrid,
 
     result = result.with_extrapolation(gradient_extrapolation)
 
-    if scheme.is_implicit:
-        scheme.solve.x0 = result
+    if implicit:
+        implicit.x0 = result
         result = result
-        result = solve_linear(_lhs_for_implicit_scheme, result, solve=scheme.solve,
+        result = solve_linear(_lhs_for_implicit_scheme, result, solve=implicit,
                               f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs,
                                         "stack_dim": stack_dim, "staggered_output": type != CenteredGrid})
     if type == CenteredGrid and gradient_extrapolation == math.extrapolation.NONE:
@@ -223,7 +216,7 @@ def _lhs_for_implicit_scheme(x, values_rhs, needed_shifts_rhs, stack_dim, stagge
     result = []
     for dim, component in zip(x.shape.only(math.spatial).names, unstack(x, stack_dim.name)):
         shifted = shift(component, needed_shifts_rhs, stack_dim=None, dims=dim)
-        result.append(sum([value * shift for value, shift in zip(values_rhs, shifted)]))
+        result.append(sum([value * shift_ for value, shift_ in zip(values_rhs, shifted)]))
 
     if staggered_output:
         result = x.with_values(math.stack([component.values for component in result], channel('vector')))
@@ -243,8 +236,7 @@ def pad_for_staggered_output(field: CenteredGrid, output_extrapolation: Extrapol
     return padded_components
 
 
-def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Shape = channel('shift'), dims=math.spatial,
-          pad: bool = True):
+def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Shape = channel('shift'), dims=spatial, pad=True):
     """
     Wraps :func:`math.shift` for CenteredGrid.
 
@@ -253,7 +245,6 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Shape = channel('shift'
       offsets: tuple: 
       stack_dim:  (Default value = 'shift')
     """
-
     if pad:
         padding = grid.extrapolation
         new_bounds = grid.bounds
@@ -324,7 +315,7 @@ def stagger(field: CenteredGrid,
         raise ValueError(type)
 
 
-def divergence(field: Grid, scheme: Scheme = Scheme(2)) -> CenteredGrid:
+def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
     """
     Computes the divergence of a grid using finite differences.
 
@@ -335,29 +326,32 @@ def divergence(field: Grid, scheme: Scheme = Scheme(2)) -> CenteredGrid:
 
     Args:
         field: vector field as `CenteredGrid` or `StaggeredGrid`
-        scheme: finite difference `Scheme` used for differentiation
-            supported: explicit 2/4th order - implicit 6th order
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit.
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
 
     Returns:
         Divergence field as `CenteredGrid`
     """
 
     extrapol_map = {}
-    if not scheme.is_implicit:
-        if scheme.order == 2:
+    if not implicit:
+        if order == 2:
             if isinstance(field, CenteredGrid):
                 values, needed_shifts = [-1 / 2, 1 / 2], (-1, 1)
             else:
                 values, needed_shifts = [-1, 1], (0, 1)
 
-        elif scheme.order == 4:
+        elif order == 4:
             if isinstance(field, CenteredGrid):
                 values, needed_shifts = [1 / 12, -2 / 3, 2 / 3, -1 / 12], (-2, -1, 1, 2)
             else:
                 values, needed_shifts = [1 / 24, -27 / 24, 27 / 24, -1 / 24], (-1, 0, 1, 2)
     else:
         extrapol_map_rhs = {}
-        if scheme.order == 6:
+        if order == 6:
             extrapol_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
             extrapol_map_rhs['symmetric'] = combine_by_direction(ANTIREFLECT, ANTISYMMETRIC)
 
@@ -389,11 +383,11 @@ def divergence(field: Grid, scheme: Scheme = Scheme(2)) -> CenteredGrid:
     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
     result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, spatial_dims)]
 
-    if scheme.is_implicit:
+    if implicit:
         result_components = stack(result_components, channel('vector'))
         result_components.with_values(result_components.values._cache())
-        scheme.solve.x0 = field
-        result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=scheme.solve,
+        implicit.x0 = field
+        result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit,
                                          f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs,
                                         "stack_dim": channel('vector')})
         result_components = unstack(result_components, 'vector')
@@ -786,7 +780,7 @@ def discretize(grid: Grid, filled_fraction=0.25):
     return grid.with_values(filled_t)
 
 
-def integrate(field: Field, region: Geometry, scheme: Scheme = Scheme()) -> Tensor:
+def integrate(field: Field, region: Geometry, **kwargs) -> Tensor:
     """
     Computes *∫<sub>R</sub> f(x) dx<sup>d</sup>* , where *f* denotes the `Field`, *R* the `region` and *d* the number of spatial dimensions (`d=field.shape.spatial_rank`).
     Depending on the `sample` implementation for `field`, the integral may be a rough approximation.
@@ -796,14 +790,14 @@ def integrate(field: Field, region: Geometry, scheme: Scheme = Scheme()) -> Tens
     Args:
         field: `Field` to integrate.
         region: Region to integrate over.
-        scheme: Numerical scheme.
+        **kwargs: Specify numerical scheme.
 
     Returns:
         Integral as `phi.Tensor`
     """
     if not isinstance(field, CenteredGrid):
         raise NotImplementedError()
-    return field._sample(region, scheme=scheme) * region.volume
+    return field._sample(region, **kwargs) * region.volume
 
 
 def tensor_as_field(t: Tensor):

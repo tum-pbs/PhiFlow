@@ -2,9 +2,8 @@ import warnings
 from typing import Any, Tuple
 
 from phi import math
-from phi.geom import Geometry, GridCell, Box, Point
+from phi.geom import Geometry, GridCell, Box
 from ._field import SampledField
-from .numerical import Scheme
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance, Shape
 from ..math.extrapolation import Extrapolation
@@ -29,7 +28,7 @@ class PointCloud(SampledField):
     def __init__(self,
                  elements: Tensor or Geometry,
                  values: Any = 1.,
-                 extrapolation: float or Extrapolation = 0.,
+                 extrapolation: Extrapolation or float = 0.,
                  add_overlapping=False,
                  bounds: Box = None,
                  color: str or Tensor or tuple or list or None = None):
@@ -126,13 +125,13 @@ class PointCloud(SampledField):
     def color(self) -> Tensor:
         return self._color
 
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
+    def _sample(self, geometry: Geometry, outside_handling="discard", **kwargs) -> Tensor:
         if geometry == self.elements:
             return self.values
         elif isinstance(geometry, GridCell):
-            return self.grid_scatter(geometry.bounds, geometry.resolution, scheme.outside_points)
+            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
         elif isinstance(geometry, GeometryStack):
-            sampled = [self._sample(g, scheme=scheme) for g in geometry.geometries]
+            sampled = [self._sample(g, **kwargs) for g in geometry.geometries]
             return math.stack(sampled, geometry.geometries.shape)
         else:
             raise NotImplementedError()

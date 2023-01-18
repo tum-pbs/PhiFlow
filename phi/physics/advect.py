@@ -7,11 +7,12 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 """
+from phi.math import Solve, channel
+
 from phi import math
 from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
 from phi.field._field import FieldType
 from phi.field._field_math import GridType
-from phi.field.numerical import Scheme
 from phi.geom import Geometry
 
 
@@ -48,8 +49,7 @@ def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = 
 def advect(field: SampledField,
            velocity: Field,
            dt: float or math.Tensor,
-           integrator=euler,
-           scheme: Scheme = None) -> FieldType:
+           integrator=euler) -> FieldType:
     """
     Advect `field` along the `velocity` vectors using the specified integrator.
 
@@ -63,15 +63,10 @@ def advect(field: SampledField,
         velocity: Any `phi.field.Field` that can be sampled in the elements of `field`.
         dt: Time increment
         integrator: ODE integrator for solving the movement.
-        scheme: differentiation 'Scheme' if provided 'finite_difference' is used
-            if 'None' is given other functions are used which is the case by default
 
     Returns:
         Advected field of same type as `field`
     """
-
-    if scheme is not None and isinstance(field, Grid):
-        return finite_difference(field, velocity, dt=dt, scheme=scheme)
     if isinstance(field, PointCloud):
         return points(field, velocity, dt=dt, integrator=integrator)
     elif isinstance(field, Grid):
@@ -81,7 +76,8 @@ def advect(field: SampledField,
 
 def finite_difference(grid: Grid,
                       velocity: Field,
-                      scheme: Scheme = Scheme(2)) -> Field:
+                      order=2,
+                      implicit: Solve = None) -> Field:
 
     """
     Finite difference advection using the differentiation Scheme indicated by `scheme` and a simple Euler step
@@ -89,25 +85,30 @@ def finite_difference(grid: Grid,
     Args:
         grid: Grid to be advected
         velocity: `Grid` that can be sampled in the elements of `grid`.
-        scheme: finite difference `Scheme` used for differentiation
-            supported: explicit 2/4th order - implicit 6th order
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
+            Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
 
     Returns:
         Advected grid of same type as `grid`
     """
-
     if isinstance(grid, StaggeredGrid):
-        field_components = unstack(grid, 'vector')
-        grad_list = [spatial_gradient(field_component, stack_dim=math.channel('gradient'), scheme=scheme) for field_component in field_components]
-        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], math.channel('vector')))
-        velocity._scheme = True
-        amounts = [grad * vel.at(grad, scheme=scheme) for grad, vel in zip(unstack(grad_grid, dim='gradient'), unstack(velocity, dim='vector'))]
+        grad_list = [spatial_gradient(field_component, stack_dim=channel('gradient'), order=order, implicit=implicit) for field_component in grid.vector]
+        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel('vector')))
+        if order == 4:
+            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
+        else:
+            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
         amount = sum(amounts)
     else:
-        grad = spatial_gradient(grid, stack_dim=math.channel('gradient'), scheme=scheme)
-        velocity = stack(unstack(velocity, dim='vector'), dim=math.channel('gradient'))
+        assert isinstance(grid, CenteredGrid), f"grid must be CenteredGrid or StaggeredGrid but got {type(grid)}"
+        grad = spatial_gradient(grid, stack_dim=channel('gradient'), order=order, implicit=implicit)
+        velocity = stack(unstack(velocity, dim='vector'), dim=channel('gradient'))
         amounts = velocity * grad
-        amount = sum(unstack(amounts, dim='gradient'))
+        amount = sum(amounts.gradient)
     return - amount
 
 

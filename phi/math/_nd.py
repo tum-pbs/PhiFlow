@@ -676,7 +676,7 @@ def sample_subgrid(grid: Tensor, start: Tensor, size: Shape) -> Tensor:
     return grid
 
 
-def _dyadic_interpolate(grid: Tensor, interpolation_dirs: List, padding: Extrapolation, scheme):
+def _dyadic_interpolate(grid: Tensor, interpolation_dirs: List, padding: Extrapolation, order: int, implicit):
     """
     Samples a sub-grid from `grid` with an offset of half a grid cell in directions defined by `interpolation_dirs`.
 
@@ -693,8 +693,8 @@ def _dyadic_interpolate(grid: Tensor, interpolation_dirs: List, padding: Extrapo
     Returns:
       Sub-grid as `Tensor`
     """
-    if scheme.is_implicit:
-        if scheme.order == 6:
+    if implicit:
+        if order == 6:
             values, needed_shifts = [1 / 20, 3 / 4, 3 / 4, 1 / 20], (-1, 0, 1, 2)
             values_rhs, needed_shifts_rhs = [3 / 10, 1, 3 / 10], (-1, 0, 1)
         else:
@@ -709,11 +709,11 @@ def _dyadic_interpolate(grid: Tensor, interpolation_dirs: List, padding: Extrapo
         current_widths = [abs(min(needed_shifts)) + is_neg_dir, max(needed_shifts) - is_neg_dir]
         padded = math.pad(result, {dim: tuple(current_widths)}, padding)
         shifted = shift(padded, needed_shifts, [dim], padding=None, stack_dim=None)
-        result = sum([value * shift for value, shift in zip(values, shifted)])
+        result = sum([value * shift_ for value, shift_ in zip(values, shifted)])
 
-        if scheme.is_implicit:
-            scheme.solve.x0 = result
-            result = solve_linear(dyadic_interpolate_lhs, result, solve=scheme.solve,
+        if implicit:
+            implicit.x0 = result
+            result = solve_linear(dyadic_interpolate_lhs, result, solve=implicit,
                                   f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs,
                                             "dim": dim, "padding": padding})
     return result
@@ -721,7 +721,7 @@ def _dyadic_interpolate(grid: Tensor, interpolation_dirs: List, padding: Extrapo
 @partial(jit_compile_linear, auxiliary_args="values_rhs, needed_shifts_rhs")
 def dyadic_interpolate_lhs(x, values_rhs, needed_shifts_rhs, dim, padding):
     shifted = shift(x, needed_shifts_rhs, stack_dim=None, dims=[dim], padding=padding)
-    return sum([value * shift for value, shift in zip(values_rhs, shifted)])
+    return sum([value * shift_ for value, shift_ in zip(values_rhs, shifted)])
 
 
 # Poisson Brackets

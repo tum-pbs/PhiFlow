@@ -21,7 +21,7 @@ scene = vis.overlay(particles, _OBSTACLE_POINTS)  # only for plotting
 # @jit_compile
 def step(particles):
     # --- Grid Operations ---
-    velocity = prev_velocity = field.finite_fill(StaggeredGrid(particles, 0, x=64, y=64, scheme=Scheme(outside_points='clamp')))
+    velocity = prev_velocity = field.finite_fill(particles.at(StaggeredGrid(0, 0, x=64, y=64), outside_handling='clamp'))
     occupied = CenteredGrid(particles.mask(), velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
     velocity, pressure = fluid.make_incompressible(velocity + GRAVITY * DT, [OBSTACLE], active=occupied)
     # --- Particle Operations ---

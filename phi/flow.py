@@ -21,7 +21,6 @@ from .physics import fluid, advect, diffuse
 from .math import Tensor, DType, Solve
 from .geom import Geometry, Sphere, Box, Cuboid
 from .field import Grid, CenteredGrid, StaggeredGrid, GeometryMask, SoftGeometryMask, HardGeometryMask, Noise, PointCloud, Scene
-from .field.numerical import Scheme
 from .vis import Viewer
 from .physics.fluid import Obstacle
 
