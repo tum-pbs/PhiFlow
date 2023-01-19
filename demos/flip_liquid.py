@@ -3,8 +3,8 @@
 A liquid block collides with a rotated obstacle and falls into a liquid pool.
 """
 from phi.field._point_cloud import distribute_points
-from phi.torch.flow import *
-# from phi.tf.flow import *
+# from phi.torch.flow import *
+from phi.tf.flow import *
 # from phi.jax.flow import *
 
 

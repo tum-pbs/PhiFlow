@@ -468,9 +468,9 @@ class TestTensors(TestCase):
             math.zeros(batch(b=2, c=2)),
             math.ones(batch(b=10)) * wrap((1, 2), channel('vector')),
         ]:
-            natives, shapes, native_dims = disassemble_tensors(t, expand=False)
-            restored = assemble_tensors(natives, shapes, native_dims)
-            math.assert_close(t, restored)
+            natives, shapes, specs = disassemble_tensors([t], expand=False)
+            restored = assemble_tensors(natives, specs)
+            math.assert_close(t, restored[0])
             print(restored)
 
     def test_is_number(self):

@@ -615,7 +615,7 @@ def concat(fields: List[SampledFieldType] or Tuple[SampledFieldType, ...], dim: 
         values = math.concat([f.values for f in fields], dim)
         return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
-        elements = geom.concat([f.elements for f in fields], dim, sizes=[f.shape.get_size(dim) for f in fields])
+        elements = geom.concat([f.elements for f in fields], dim)
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
         colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
         return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)

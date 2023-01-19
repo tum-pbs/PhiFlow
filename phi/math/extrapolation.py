@@ -11,7 +11,7 @@ from typing import Union, Dict, Callable, Tuple
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
 from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes
-from ._magic_ops import concat, stack
+from ._magic_ops import concat, stack, expand
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -76,7 +76,7 @@ class Extrapolation:
         Returns:
             Padded `Tensor`
         """
-        from phi.math._functional import ShiftLinTracer
+        from phi.math._trace import ShiftLinTracer
         if isinstance(value, ShiftLinTracer):
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
             return value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths, **kwargs), bias_fun=lambda b: self.pad(b, widths, **kwargs))
@@ -267,7 +267,7 @@ class ConstantExtrapolation(Extrapolation):
                     else:
                         delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                         new_sizes.append(size + int(delta))
-                return CollapsedTensor(value._inner, value.shape.after_pad(widths))
+                return expand(value._inner, value.shape.after_pad(widths))
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
@@ -390,7 +390,7 @@ class _CopyExtrapolation(Extrapolation):
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
         value = value._simplify()
-        from phi.math._functional import ShiftLinTracer
+        from phi.math._trace import ShiftLinTracer
         if isinstance(value, NativeTensor):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
@@ -403,7 +403,7 @@ class _CopyExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
             if len(inner_widths) > 0:
                 inner = self.pad(inner, widths)
-            return CollapsedTensor(inner, value.shape.after_pad(widths))
+            return expand(inner, value.shape.after_pad(widths))
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)

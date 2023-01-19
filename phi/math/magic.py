@@ -698,23 +698,22 @@ def slicing_dict(obj, item) -> dict:
     if isinstance(item, tuple):
         if item[0] == Ellipsis:
             assert len(item) - 1 == shape(obj).channel_rank
-            item = {name: selection for name, selection in zip(channel(obj).names, item[1:])}
+            return {name: selection for name, selection in zip(channel(obj).names, item[1:])}
         elif len(item) == shape(obj).channel_rank:
-            warnings.warn("NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html", SyntaxWarning, stacklevel=3)
-            item = {name: selection for name, selection in zip(channel(obj).names, item)}
-        elif len(item) == shape(obj).rank:  # legacy indexing
-            warnings.warn("NumPy-style slicing for non-channel dimensions is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html", SyntaxWarning, stacklevel=3)
-            item = {name: selection for name, selection in zip(obj.shape.names, item)}
+            if len(item) > 1:
+                warnings.warn("NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html", SyntaxWarning, stacklevel=3)
+            return {name: selection for name, selection in zip(channel(obj).names, item)}
+        elif shape(obj).channel_rank == 1 and all(isinstance(e, str) for e in item):
+            return {channel(obj).name: item}
         else:
             raise AssertionError(f"Cannot slice {obj}[{item}]. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html")
     else:
         if shape(obj).channel_rank == 1:
-            item = {channel(obj).name: item}
+            return {channel(obj).name: item}
         elif non_batch(obj).rank == 1:
-            item = {non_batch(obj).name: item}
+            return {non_batch(obj).name: item}
         else:
             raise AssertionError(f"Slicing {type(obj).__name__}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}")
-    return item
 
 
 class OtherMagicFunctions:

@@ -2,8 +2,9 @@ import sys
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
+from dataclasses import dataclass
 from threading import Barrier
-from typing import List, Callable, TypeVar, Tuple
+from typing import List, Callable, TypeVar, Tuple, Any
 
 import logging
 import numpy
@@ -864,12 +865,21 @@ class Backend:
             `Backend.csr_matrix()`, `Backend.csc_matrix()`.
 
         Args:
-            indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
+            indices: 2D tensor of shape `(nnz, dims)`.
             values: 1D values tensor matching `indices`
             shape: Shape of the sparse matrix
 
         Returns:
             Native representation of the sparse matrix
+        """
+        raise NotImplementedError(self)
+
+    def sparse_coo_tensor_batched(self, indices: tuple or list, values, shape: tuple):
+        """
+        Args:
+            indices: shape (batch_size, dims, nnz)
+            values: Values tensor matching `indices`, shape (batch_size, nnz)
+            shape: tuple of two ints representing the dense shape, (dims...)
         """
         raise NotImplementedError(self)
 
@@ -904,7 +914,7 @@ class Backend:
         result = self.scatter(base, indices, values, mode='add' if contains_duplicates else 'update')
         return result
 
-    def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
+    def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
         """
         Create a sparse matrix in compressed sparse row (CSR) format.
 
@@ -924,7 +934,17 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def mul_csr_dense(self, column_indices, row_pointers, values, shape: tuple, dense):
+    def csr_matrix_batched(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+        """
+        Args:
+            column_indices: Column indices corresponding to `values`, shape (batch_size, nnz)
+            row_pointers: Indices in `values` where any row starts, shape (batch_size, rows+1)
+            values: Non-zero values, shape (batch_size, nnz, channels)
+            shape: tuple of two ints representing the dense shape, (cols, rows)
+        """
+        raise NotImplementedError(self)
+
+    def mul_csr_dense(self, column_indices, row_pointers, values, shape: Tuple[int, int], dense):
         """
         Multiply a batch of compressed sparse row matrices by a batch of dense matrices.
 
@@ -974,11 +994,11 @@ class Backend:
         row_indices = [self.repeat(self.range(row_count, dtype=self.dtype(column_indices)), repeats[b], -1) for b in range(batch_size)]
         return self.stack([self.stack(row_indices), column_indices], axis=-1)
 
-    def csr_to_dense(self, column_indices, row_pointers, values, shape: tuple):
+    def csr_to_dense(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
         indices = self.csr_to_coo(column_indices, row_pointers)
         return self.coo_to_dense(indices, values, shape, contains_duplicates=False)
 
-    def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+    def csc_matrix(self, column_pointers, row_indices, values, shape: Tuple[int, int]):
         """
         Create a sparse matrix in compressed sparse column (CSC) format.
 
@@ -995,6 +1015,16 @@ class Backend:
 
         Returns:
             Native representation of the sparse matrix
+        """
+        raise NotImplementedError(self)
+
+    def csc_matrix_batched(self, column_pointers, row_indices, values, shape: Tuple[int, int]):
+        """
+        Args:
+            column_pointers: Indices in `values` where any row starts, shape (batch_size, cols+1)
+            row_indices: Row indices corresponding to `values`, shape (batch_size, nnz)
+            values: Non-zero values, shape (batch_size, nnz, channels)
+            shape: tuple of two ints representing the dense shape, (cols, rows)
         """
         raise NotImplementedError(self)
 

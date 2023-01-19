@@ -80,6 +80,15 @@ class Shape:
     def _dimensions(self):
         return zip(self.sizes, self.names, self.types, self.item_names)
 
+    @property
+    def untyped_dict(self):
+        """
+        Returns:
+            `dict` containing dimension names as keys.
+                The values are either the item names as `tuple` if available, otherwise the size.
+        """
+        return {name: self.get_item_names(i) or self.get_size(i) for i, name in enumerate(self.names)}
+
     def __len__(self):
         return len(self.sizes)
 
@@ -132,20 +141,20 @@ class Shape:
         Returns:
             Indices as `tuple[int]`.
         """
-        if isinstance(dims, (list, tuple)):
+        if isinstance(dims, (list, tuple, set)):
             return tuple([self.index(n) for n in dims])
         elif isinstance(dims, Shape):
             return tuple([self.index(n) for n in dims.names])
         else:
             raise ValueError(f"indices() requires a sequence of dimensions but got {dims}")
 
-    def get_size(self, dim: str or 'Shape'):
+    def get_size(self, dim: str or 'Shape' or int):
         """
         See Also:
             `Shape.get_sizes()`, `Shape.size`
 
         Args:
-            dim: Dimension, either as name `str` or single-dimension `Shape`.
+            dim: Dimension, either as name `str` or single-dimension `Shape` or index `int`.
 
         Returns:
             Size associated with `dim` as `int` or `Tensor`.
@@ -155,6 +164,8 @@ class Shape:
         elif isinstance(dim, Shape):
             assert dim.rank == 1, f"get_size() requires a single dimension but got {dim}. Use indices() to get multiple sizes."
             return self.sizes[self.names.index(dim.name)]
+        elif isinstance(dim, int):
+            return self.sizes[dim]
         else:
             raise ValueError(f"get_size() requires a single dimension but got {dim}. Use indices() to get multiple sizes.")
 
@@ -591,7 +602,7 @@ class Shape:
             dims = dims(self)
         if isinstance(dims, str):
             dims = parse_dim_order(dims)
-        if isinstance(dims, (tuple, list)):
+        if isinstance(dims, (tuple, list, set)):
             return self[[i for i in range(self.rank) if self.names[i] not in dims]]
         elif isinstance(dims, Shape):
             return self[[i for i in range(self.rank) if self.names[i] not in dims.names]]
@@ -624,13 +635,13 @@ class Shape:
             dims = parse_dim_order(dims)
         if isinstance(dims, Shape):
             dims = dims.names
+        if not isinstance(dims, (tuple, list, set)):
+            raise ValueError(dims)
         if reorder:
-            if isinstance(dims, (tuple, list)):
-                return self[[self.names.index(d) for d in dims if d in self.names]]
+            return self[[self.names.index(d) for d in dims if d in self.names]]
         else:
-            if isinstance(dims, (tuple, list)):
-                return self[[i for i in range(self.rank) if self.names[i] in dims]]
-        raise ValueError(dims)
+            return self[[i for i in range(self.rank) if self.names[i] in dims]]
+
 
     @property
     def rank(self) -> int:
@@ -778,6 +789,9 @@ class Shape:
                 * `tuple` / `list` of same length as `self` containing replacement sizes.
                 * `Shape` of any rank. Replaces sizes for dimensions shared by `sizes` and `self`.
 
+            keep_item_names: If `False`, forgets all item names.
+                If `True`, keeps item names where the size does not change.
+
         Returns:
             `Shape` with same names and types as `self`.
         """
@@ -901,13 +915,21 @@ class Shape:
         sizes = list(self.sizes)
         types = list(self.types)
         item_names = list(self.item_names)
+        if len(new) > len(dims):  # Put all in one spot
+            assert len(dims) == 1, "Cannot replace 2+ dims by more replacements"
+            index = self.index(dims[0])
+            return concat_shapes(self[:index], new, self[index+1:])
         for old_name, new_dim in zip(dims, new):
             if old_name in self:
                 names[self.index(old_name)] = new_dim.name
                 types[self.index(old_name)] = new_dim.type
                 item_names[self.index(old_name)] = new_dim.item_names[0]
                 sizes[self.index(old_name)] = new_dim.size
-        return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
+        replaced = Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
+        if len(new) == len(dims):
+            return replaced
+        to_remove = dims[len(dims) - len(new):]
+        return replaced.without(to_remove)
 
     def _with_types(self, types: 'Shape'):
         return Shape(self.sizes, self.names, tuple([types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)]), self.item_names)
@@ -1059,6 +1081,10 @@ class Shape:
             else:
                 return
 
+    def are_adjacent(self, dims: str or tuple or list or set or 'Shape'):
+        indices = self.indices(dims)
+        return (max(indices) - min(indices)) == len(dims) - 1
+
     def __add__(self, other):
         return self._op2(other, lambda s, o: s + o, 0)
 
@@ -1098,7 +1124,7 @@ class Shape:
 EMPTY_SHAPE = Shape((), (), (), ())
 """ Empty shape, `()` """
 
-DimFilter = Union[str, tuple, list, Shape, Callable]
+DimFilter = Union[str, tuple, list, set, Shape, Callable]
 try:
     DimFilter.__doc__ = """Dimension filters can be used with `Shape.only()` and `Shype.without()`, making them the standard tool for specifying sets of dimensions.
     

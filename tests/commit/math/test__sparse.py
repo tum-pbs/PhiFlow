@@ -2,8 +2,8 @@ from unittest import TestCase
 
 import phi
 from phi import math
-from phi.math import batch, get_sparsity, expand, wrap, stack, zeros, channel, spatial, ones, instance, tensor, sum, pairwise_distances, vec_length, dense, assert_close
-from phi.math._sparse import SparseCoordinateTensor, CompressedSparseTensor
+from phi.math import batch, get_sparsity, expand, wrap, stack, zeros, channel, spatial, ones, instance, tensor, sum, pairwise_distances, vec_length, dense, assert_close, non_dual
+from phi.math._sparse import SparseCoordinateTensor, CompressedSparseMatrix
 
 BACKENDS = phi.detect_backends()
 
@@ -15,8 +15,8 @@ class TestSparse(TestCase):
         self.assertEqual(0.25, get_sparsity(expand(1., batch(b=4))))
         self.assertEqual(0.25, get_sparsity(stack([zeros(batch(b=4))] * 3, channel('vector'))))
         self.assertEqual(0.3, get_sparsity(SparseCoordinateTensor(ones(instance(nnz=3), channel(vector='x')), ones(instance(nnz=3)), spatial(x=10), True, False)))
-        self.assertEqual(0.03, get_sparsity(CompressedSparseTensor(indices=ones(instance(nnz=3)),
-                                                                   pointers=ones(instance(y_pointers=4)),
+        self.assertEqual(0.03, get_sparsity(CompressedSparseMatrix(indices=ones(instance(nnz=3)),
+                                                                   pointers=ones(instance(y_pointers=11)),
                                                                    values=ones(instance(nnz=3)),
                                                                    uncompressed_dims=spatial(x=10),
                                                                    compressed_dims=spatial(y=10))))
@@ -27,7 +27,7 @@ class TestSparse(TestCase):
                 indices = tensor([0, 1, 0], instance('nnz'))
                 pointers = tensor([0, 2, 3, 3], instance('pointers'))
                 values = tensor([2, 3, 4], instance('nnz'))
-                matrix = CompressedSparseTensor(indices, pointers, values, channel(right=3), channel(down=3))
+                matrix = CompressedSparseMatrix(indices, pointers, values, channel(right=3), channel(down=3))
                 math.print(dense(matrix))
                 assert_close((2, 3, 0), dense(matrix).down[0])
                 assert_close((4, 0, 0), dense(matrix).down[1])
@@ -54,4 +54,13 @@ class TestSparse(TestCase):
         concat_others = math.concat([dx.others[:1], dx.others[1:]], 'others')
         math.assert_close(dx, concat_others)
 
+    def test_coo(self):
+        def f(x):
+            return math.laplace(x)
 
+        for backend in BACKENDS:
+            with backend:
+                x = math.ones(spatial(x=5))
+                coo, bias = math.matrix_from_function(f, x, auto_compress=False)
+                csr = coo.compress(non_dual)
+                math.assert_close(f(x), coo @ x, csr @ x)

@@ -22,5 +22,4 @@ for _ in view(velocity, obstacle_mask, play=True, namespace=globals()).range():
     obstacle = move_obstacle(obstacle)
     velocity = advect.mac_cormack(velocity, velocity, DT)
     velocity, pressure = fluid.make_incompressible(velocity, (obstacle,))
-    fluid.masked_laplace.tracers.clear()  # we will need to retrace because the matrix changes each step. This is not needed when JIT-compiling the physics.
     obstacle_mask = HardGeometryMask(obstacle.geometry).at(pressure)
