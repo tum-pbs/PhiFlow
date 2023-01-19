@@ -18,7 +18,7 @@ To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`
 import warnings
 from typing import Tuple, Callable
 
-from ._shape import Shape, shape, channel, non_batch, batch, spatial, instance, concat_shapes
+from ._shape import Shape, shape, channel, non_batch, batch, spatial, instance, concat_shapes, dual
 from .backend._dtype import DType
 
 
@@ -452,6 +452,10 @@ class BoundDim:
         self.name = name
 
     @property
+    def dual(self):
+        return BoundDim(self.obj, '~' + self.name)
+
+    @property
     def exists(self):
         """ Whether the dimension is listed in the `Shape` of the object. """
         return self.name in shape(self.obj)
@@ -575,6 +579,10 @@ class BoundDim:
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
         return self.retype(instance) if name is None else self.replace(instance(name=self.item_names or self.size))
 
+    def as_dual(self, name: str = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
+        return self.retype(dual) if name is None else self.replace(dual(name=self.item_names or self.size))
+
     def replace(self, dim: Shape, **kwargs):
         """
         Returns a shallow copy of the `Tensor` where this dimension has been replaced by `dim`.
@@ -601,6 +609,11 @@ class _BoundDims:
     def __init__(self, obj, dims: Tuple[str, ...]):
         self.obj = obj
         self.dims = dims
+
+    @property
+    def dual(self):
+        last_dual = "~" + self.dims[-1]
+        return _BoundDims(self.obj, self.dims[:-1] + (last_dual,))
 
     def __getitem__(self, item):
         assert isinstance(item, tuple), f"A tuple of slices is required for slicing multiple dimensions at once but got {type(item)}"
@@ -660,6 +673,10 @@ class _BoundDims:
     def as_instance(self):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
         return self.retype(instance)
+
+    def as_dual(self):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
+        return self.retype(dual)
 
 
 def slicing_dict(obj, item) -> dict:
