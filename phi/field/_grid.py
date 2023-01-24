@@ -1,4 +1,4 @@
-from typing import TypeVar, Any, Tuple
+from typing import TypeVar, Any, Tuple, List
 
 from phi.math import Solve
 
@@ -254,7 +254,6 @@ class CenteredGrid(Grid):
         return resampled_values
 
     def _dyadic_interplate(self, resolution: Shape, bounds: Box, order=2, implicit: Solve = None):
-        from phi.math._nd import _dyadic_interpolate
         offsets = bounds.lower - self.bounds.lower
         interpolation_dirs = [0 if math.close(offset, 0) else int(math.sign(offset)) for offset in offsets]
         return _dyadic_interpolate(self.values, interpolation_dirs, self.extrapolation, order, implicit)
@@ -568,3 +567,48 @@ def _get_resolution(resolution: Shape, resolution_: dict, bounds: Box):
     except AssertionError as err:
         raise ValueError(f"Invalid grid resolution: {', '.join(f'{dim}={size}' for dim, size in resolution_.items())}. Pass an int for all sizes.") from err
     return (resolution or math.EMPTY_SHAPE) & resolution_
+
+
+def _dyadic_interpolate(grid: Tensor, interpolation_dirs: List, padding: Extrapolation, order: int, implicit: Solve):
+    """
+    Samples a sub-grid from `grid` with an offset of half a grid cell in directions defined by `interpolation_dirs`.
+
+    Args:
+        grid: `Tensor` to be resampled.
+        interpolation_dirs: List which defines for every spatial dimension of `grid` if interpolation should be performed,
+            in positive direction `1` / negative direction `-1` / no interpolation`0`
+            len(interpolation_dirs) == len(grid.shape.spatial.names) is assumed
+            Example: With `grid.shape.spatial.names=['x', 'y']` and `interpolation_dirs: [1, -1]`
+                     grid will be interpolated half a grid cell in positive x direction and half a grid cell in negative y direction
+        padding: Extrapolation used for the needed out of Domain values
+        order: finite difference `Scheme` used for interpolation
+
+    Returns:
+      Sub-grid as `Tensor`
+    """
+    if implicit:
+        if order == 6:
+            values, needed_shifts = [1 / 20, 3 / 4, 3 / 4, 1 / 20], (-1, 0, 1, 2)
+            values_rhs, needed_shifts_rhs = [3 / 10, 1, 3 / 10], (-1, 0, 1)
+        else:
+            return NotImplemented
+    else:
+        return NotImplemented
+    result = grid
+    for dim, dir in zip(grid.shape.spatial.names, interpolation_dirs):
+        if dir == 0: continue
+        is_neg_dir = dir == -1
+        current_widths = [abs(min(needed_shifts)) + is_neg_dir, max(needed_shifts) - is_neg_dir]
+        padded = math.pad(result, {dim: tuple(current_widths)}, padding)
+        shifted = math.shift(padded, needed_shifts, [dim], padding=None, stack_dim=None)
+        result = sum([value * shift_ for value, shift_ in zip(values, shifted)])
+        if implicit:
+            implicit.x0 = result
+            result = math.solve_linear(dyadic_interpolate_lhs, result, implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, dim=dim, padding=padding)
+    return result
+
+
+@math.jit_compile_linear(auxiliary_args="values_rhs, needed_shifts_rhs")
+def dyadic_interpolate_lhs(x, values_rhs, needed_shifts_rhs, dim, padding):
+    shifted = math.shift(x, needed_shifts_rhs, stack_dim=None, dims=[dim], padding=padding)
+    return sum([value * shift_ for value, shift_ in zip(values_rhs, shifted)])
