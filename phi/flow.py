@@ -33,7 +33,7 @@ from .math import (
     shape, spatial, channel, batch, instance, dual,
     non_spatial, non_channel, non_batch, non_instance, non_dual,  # Shape functions (magic)
     unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, cast,  # Magic Ops
-    jit_compile, jit_compile_linear, minimize, functional_gradient, solve_linear, solve_nonlinear, iterate,  # jacobian, hessian, custom_gradient # Functional magic
+    jit_compile, jit_compile_linear, minimize, functional_gradient, solve_linear, solve_nonlinear, iterate, identity,  # jacobian, hessian, custom_gradient # Functional magic
 )
 from .geom import union
 from .vis import show, view, control, plot

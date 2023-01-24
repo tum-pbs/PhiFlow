@@ -61,6 +61,7 @@ from ._functional import (
     jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient,
     map_types, map_s2b, map_i2b,
     iterate,
+    identity,
 )
 from ._optimize import solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape
 from ._nd import (

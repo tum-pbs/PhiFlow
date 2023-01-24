@@ -1025,3 +1025,16 @@ def iterate(f: Callable,
         return (result, wrap(ts[1:] - ts[:-1], iterations.with_size(None))) if measure else result
     else:
         raise ValueError(f"iterations must be an int or Shape but got {type(iterations)}")
+
+
+def identity(*args):
+    """
+    Identity function without keyword arguments.
+
+    Args:
+        *args: Positional arguments.
+
+    Returns:
+        `args`
+    """
+    return args
