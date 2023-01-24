@@ -168,19 +168,14 @@ class Box(BaseBox, metaclass=BoxType):
 
     Boxes can be constructed either from two positional vector arguments `(lower, upper)` or by specifying the limits by dimension name as `kwargs`.
 
-    **Examples**:
+    Examples:
+        >>> Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+        >>> Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
 
-    ```python
-    Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
-    Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
-    ```
+        The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.
 
-    The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.
-
-    ```python
-    Box['x,y', 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
-    Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
-    ```
+        >>> Box['x,y', 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+        >>> Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     """
 
     def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: int or Tensor):

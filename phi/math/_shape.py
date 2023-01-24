@@ -1287,16 +1287,13 @@ def spatial(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.
 
     Usage for filtering spatial dimensions:
-    ```python
-    spatial_dims = spatial(shape)
-    spatial_dims = spatial(tensor)
-    ```
+    >>> spatial_dims = spatial(shape)
+    >>> spatial_dims = spatial(tensor)
 
     Usage for creating a `Shape` with only spatial dimensions:
-    ```python
-    spatial_shape = spatial('undef', x=2, y=3)
-    # Out: (x=2, y=3, undef=None)
-    ```
+    >>> spatial_shape = spatial('undef', x=2, y=3)
+    (x=2, y=3, undef=None)
+
     Here, the dimension `undef` is created with an undefined size of `None`.
     Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
@@ -1332,16 +1329,13 @@ def channel(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     Returns the channel dimensions of an existing `Shape` or creates a new `Shape` with only channel dimensions.
 
     Usage for filtering channel dimensions:
-    ```python
-    channel_dims = channel(shape)
-    channel_dims = channel(tensor)
-    ```
+    >>> channel_dims = channel(shape)
+    >>> channel_dims = channel(tensor)
 
     Usage for creating a `Shape` with only channel dimensions:
-    ```python
-    channel_shape = channel('undef', vector=2)
-    # Out: (vector=2, undef=None)
-    ```
+    >>> channel_shape = channel('undef', vector=2)
+    (vector=2, undef=None)
+
     Here, the dimension `undef` is created with an undefined size of `None`.
     Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
@@ -1377,16 +1371,13 @@ def batch(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
     Usage for filtering batch dimensions:
-    ```python
-    batch_dims = batch(shape)
-    batch_dims = batch(tensor)
-    ```
+    >>> batch_dims = batch(shape)
+    >>> batch_dims = batch(tensor)
 
     Usage for creating a `Shape` with only batch dimensions:
-    ```python
-    batch_shape = batch('undef', batch=2)
-    # Out: (batch=2, undef=None)
-    ```
+    >>> batch_shape = batch('undef', batch=2)
+    (batch=2, undef=None)
+
     Here, the dimension `undef` is created with an undefined size of `None`.
     Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 
@@ -1422,16 +1413,13 @@ def instance(*args, **dims: int or str or tuple or list or Shape) -> Shape:
     Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
 
     Usage for filtering instance dimensions:
-    ```python
-    instance_dims = instance(shape)
-    instance_dims = instance(tensor)
-    ```
+    >>> instance_dims = instance(shape)
+    >>> instance_dims = instance(tensor)
 
     Usage for creating a `Shape` with only instance dimensions:
-    ```python
-    instance_shape = instance('undef', points=2)
-    # Out: (points=2, undef=None)
-    ```
+    >>> instance_shape = instance('undef', points=2)
+    (points=2, undef=None)
+
     Here, the dimension `undef` is created with an undefined size of `None`.
     Undefined sizes are automatically filled in by `tensor`, `wrap`, `stack` and `concat`.
 

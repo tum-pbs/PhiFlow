@@ -1613,22 +1613,20 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         Tensor containing same values as data
 
     Examples:
-        ```python
-        tensor([1, 2, 3], channel(vector='x,y,z'))
-        # Out: (x=1, y=2, z=3)
+        >>> tensor([1, 2, 3], channel(vector='x,y,z'))
+        (x=1, y=2, z=3)
 
-        tensor([1., 2, 3], channel(vector='x,y,z'))
-        # Out: (x=1.000, y=2.000, z=3.000) float64
+        >>> tensor([1., 2, 3], channel(vector='x,y,z'))
+        (x=1.000, y=2.000, z=3.000) float64
 
-        tensor(numpy.zeros([10, 8, 6, 2]), batch('batch'), spatial('x,y'), channel(vector='x,y'))
-        # Out: (batchᵇ=10, xˢ=8, yˢ=6, vectorᶜ=x,y) float64 const 0.0
+        >>> tensor(numpy.zeros([10, 8, 6, 2]), batch('batch'), spatial('x,y'), channel(vector='x,y'))
+        (batchᵇ=10, xˢ=8, yˢ=6, vectorᶜ=x,y) float64 const 0.0
 
-        tensor([(0, 1), (0, 2), (1, 3)], instance('particles'), channel(vector='x,y'))
-        # Out: (x=0, y=1); (x=0, y=2); (x=1, y=3) (particlesⁱ=3, vectorᶜ=x,y)
+        >>> tensor([(0, 1), (0, 2), (1, 3)], instance('particles'), channel(vector='x,y'))
+        (x=0, y=1); (x=0, y=2); (x=1, y=3) (particlesⁱ=3, vectorᶜ=x,y)
 
-        tensor(numpy.random.randn(10))
-        # Out: (vectorᶜ=10) float64 -0.128 ± 1.197 (-2e+00...2e+00)
-        ```
+        >>> tensor(numpy.random.randn(10))
+        (vectorᶜ=10) float64 -0.128 ± 1.197 (-2e+00...2e+00)
     """
     assert all(isinstance(s, Shape) for s in shape), f"Cannot create tensor because shape needs to be one or multiple Shape instances but got {shape}"
     shape = None if len(shape) == 0 else concat_shapes(*shape)
@@ -1717,10 +1715,9 @@ def layout(objects, *shape: Shape) -> Tensor:
     Strings may also be used as containers.
 
     Example:
-    ```python
-    t = layout({'a': 'text', 'b': [0, 1]}, channel('dict,inner'))
-    t.inner[1].dict['a'].native()  # returns 'e'
-    ```
+    >>> t = layout({'a': 'text', 'b': [0, 1]}, channel('dict,inner'))
+    >>> t.inner[1].dict['a'].native()
+    'e'
 
     See Also:
         `tensor()`, `wrap()`.

@@ -142,10 +142,8 @@ class Viewer(VisModel):
         """
         Similarly to `range()`, returns a generator that can be used in a `for` loop.
 
-        ```python
-        for step in ModuleViewer().range(100):
-            print(f'Running step {step}')
-        ```
+        >>> for step in ModuleViewer().range(100):
+        >>>     print(f'Running step {step}')
 
         However, `Viewer.range()` enables controlling the flow via the user interface.
         Each element returned by the generator waits for `progress` to be invoked once.

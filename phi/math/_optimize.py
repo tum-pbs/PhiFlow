@@ -217,13 +217,11 @@ class SolveTape:
     While a `SolveTape` is active, certain performance optimizations and algorithm implementations may be disabled.
 
     To access a `SolveInfo` of a recorded solve, use
-    ```python
-    solve = Solve(method, ...)
-    with SolveTape() as solves:
-        x = math.solve_linear(f, y, solve)
-    result: SolveInfo = solves[solve]  # get by Solve
-    result: SolveInfo = solves[0]  # get by index
-    ```
+    >>> solve = Solve(method, ...)
+    >>> with SolveTape() as solves:
+    >>>     x = math.solve_linear(f, y, solve)
+    >>> result: SolveInfo = solves[solve]  # get by Solve
+    >>> result: SolveInfo = solves[0]  # get by index
     """
 
     def __init__(self, record_trajectories=False):

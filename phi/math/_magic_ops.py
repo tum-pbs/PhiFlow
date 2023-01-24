@@ -3,9 +3,10 @@ import warnings
 from numbers import Number
 from typing import TypeVar, Tuple, Set
 
+from . import channel
 from .backend import choose_backend, NoBackendFound
 from .backend._dtype import DType
-from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes
+from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes, spatial
 from .magic import Sliceable, Shaped, Shapable, PhiTreeNode
 
 
@@ -26,10 +27,8 @@ def unstack(value, dim: DimFilter):
         `tuple` of `Tensor` objects.
 
     Examples:
-        ```python
-        unstack(math.zeros(spatial(x=5)), 'x')
-        # Out: (0.0, 0.0, 0.0, 0.0, 0.0)
-        ```
+        >>> unstack(expand(0, spatial(x=5)), 'x')
+        (0.0, 0.0, 0.0, 0.0, 0.0)
     """
     assert isinstance(value, Sliceable) and isinstance(value, Shaped), f"Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html"
     dims = shape(value).only(dim)
@@ -79,17 +78,14 @@ def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwar
         `Tensor` containing `values` stacked along `dim`.
 
     Examples:
+        >>> stack({'x': 0, 'y': 1}, channel('vector'))
+        (x=0, y=1)
 
-        ```python
-        stack({'x': 0, 'y': 1}, channel('vector'))
-        # Out: (x=0, y=1)
+        >>> stack([math.zeros(batch(b=2)), math.ones(batch(b=2))], channel(c='x,y'))
+        (x=0.000, y=1.000); (x=0.000, y=1.000) (bᵇ=2, cᶜ=x,y)
 
-        stack([math.zeros(batch(b=2)), math.ones(batch(b=2))], channel(c='x,y'))
-        # Out: (x=0.000, y=1.000); (x=0.000, y=1.000) (bᵇ=2, cᶜ=x,y)
-
-        stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
-        # Out: (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
-        ```
+        >>> stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
+        (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
     """
     assert len(values) > 0, f"stack() got empty sequence {values}"
     assert isinstance(dim, Shape)
@@ -196,14 +192,11 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
         Concatenated `Tensor`
 
     Examples:
+        >>> concat([math.zeros(batch(b=10)), math.ones(batch(b=10))], 'b')
+        (bᵇ=20) 0.500 ± 0.500 (0e+00...1e+00)
 
-        ```python
-        concat([math.zeros(batch(b=10)), math.ones(batch(b=10))], 'b')
-        # Out: (bᵇ=20) 0.500 ± 0.500 (0e+00...1e+00)
-
-        concat([vec(x=1, y=0), vec(z=2.)], 'vector')
-        # Out: (x=1.000, y=0.000, z=2.000) float64
-        ```
+        >>> concat([vec(x=1, y=0), vec(z=2.)], 'vector')
+        (x=1.000, y=0.000, z=2.000) float64
     """
     assert len(values) > 0, f"concat() got empty sequence {values}"
     if isinstance(dim, Shape):
@@ -378,10 +371,8 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
         Same type as `value`.
 
     Examples:
-        ```python
-        pack_dims(math.zeros(spatial(x=4, y=3)), spatial, instance('points'))
-        # Out: (pointsⁱ=12) const 0.0
-        ```
+        >>> pack_dims(math.zeros(spatial(x=4, y=3)), spatial, instance('points'))
+        (pointsⁱ=12) const 0.0
     """
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     dims = shape(value).only(dims, reorder=True)
@@ -429,10 +420,8 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
         Same type as `value`.
 
     Examples:
-        ```python
-        unpack_dim(math.zeros(instance(points=12)), 'points', spatial(x=4, y=3))
-        # Out: (xˢ=4, yˢ=3) const 0.0
-        ```
+        >>> unpack_dim(math.zeros(instance(points=12)), 'points', spatial(x=4, y=3))
+        (xˢ=4, yˢ=3) const 0.0
     """
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     if isinstance(dim, Shape):
@@ -480,10 +469,8 @@ def flatten(value, flat_dim: Shape = instance('flat'), flatten_batch=False, **kw
         Same type as `value`.
 
     Examples:
-        ```python
-        flatten(math.zeros(spatial(x=4, y=3)))
-        # Out: (flatⁱ=12) const 0.0
-        ```
+        >>> flatten(math.zeros(spatial(x=4, y=3)))
+        (flatⁱ=12) const 0.0
     """
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"

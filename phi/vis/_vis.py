@@ -218,9 +218,7 @@ def control(value, range: tuple = None, description="", **kwargs):
     Mark a variable as controllable by any GUI created via `view()`.
 
     Example:
-    ```python
-    dt = control(1.0, (0.1, 10), name="Time increment (dt)")
-    ```
+    >>> dt = control(1.0, (0.1, 10), name="Time increment (dt)")
 
     This will cause a control component (slider, checkbox, text field, drop-down, etc.) to be generated in the user interface.
     Changes to that component will immediately be reflected in the Python variable assigned to the control.
@@ -446,9 +444,7 @@ def overlay(*fields: SampledField or Tensor) -> Tensor:
     Specify that multiple fields should be drawn on top of one another in the same figure.
     The fields will be plotted in the order they are given, i.e. the last field on top.
 
-    ```python
-    vis.plot(vis.overlay(heatmap, points, velocity))
-    ```
+    >>> plot(vis.overlay(heatmap, points, velocity))
 
     Args:
         *fields: `SampledField` or `Tensor` instances

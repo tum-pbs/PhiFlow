@@ -1,9 +1,9 @@
 """
-Contains built-in physics functions, e.g. for fluids.
-The actual physics functions are located in the sub-modules of `phi.physics`.
-A common trait of many physics functions is the time increment (`dt`) argument.
+Contains built-in physics functions, mainly for partial differential equations, such as incompressible fluids.
+The actual physics functions are located in the submodules of `phi.physics`.
 
-Main class: `Domain`
+Some physics functions have built-in time advancement while others return the PDE term, i.e. the derivative.
+The time-advancing functions always take a time increment argument called `dt`.
 
 See the `phi.physics` module documentation at https://tum-pbs.github.io/PhiFlow/Physics.html
 """
