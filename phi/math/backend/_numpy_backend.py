@@ -347,8 +347,7 @@ class NumPyBackend(Backend):
         return np.stack([np.add.reduceat(x[b], indices[b], axis-1) for b in range(x.shape[0])])
 
     def sparse_coo_tensor(self, indices, values, shape):
-        if not isinstance(indices, (tuple, list)):
-            indices = self.unstack(indices, -1)
+        indices = self.unstack(indices, -1)
         if len(shape) == 2:
             return scipy.sparse.coo_matrix((values, indices), shape=shape)
         else:
@@ -356,9 +355,6 @@ class NumPyBackend(Backend):
 
     def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
         return scipy.sparse.csr_matrix((values, column_indices, row_pointers), shape=shape)
-
-    def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
-        return scipy.sparse.csc_matrix((values, row_indices, column_pointers), shape=shape)
 
     def mul_csr_dense(self, column_indices, row_pointers, values, shape: tuple, dense):
         batch_size, nnz, channel_count = values.shape
@@ -370,6 +366,9 @@ class NumPyBackend(Backend):
                 b_result.append(mat * dense[b, :, c, :])
             result.append(np.stack(b_result))
         return np.stack(result)
+
+    def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+        return scipy.sparse.csc_matrix((values, row_indices, column_pointers), shape=shape)
 
     def coordinates(self, tensor):
         assert scipy.sparse.issparse(tensor)
@@ -466,10 +465,6 @@ class NumPyBackend(Backend):
         batch_size = combined_dim(bs_y, bs_x0)
         # if callable(A):
         #     A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
-        if isinstance(lin, (tuple, list)):
-            assert len(lin) == batch_size
-        else:
-            lin = [lin] * batch_size
 
         def count_callback(x_n):  # called after each step, not with x0
             iterations[b] += 1
@@ -479,7 +474,8 @@ class NumPyBackend(Backend):
         converged = []
         diverged = []
         for b in range(batch_size):
-            x, ret_val = scipy_function(lin[b], y[b], x0=x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b], callback=count_callback)
+            lin_b = lin[min(b, len(lin)-1)] if isinstance(lin, (tuple, list, np.ndarray)) else lin
+            x, ret_val = scipy_function(lin_b, y[b], x0=x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b], callback=count_callback)
             # ret_val: 0=success, >0=not converged, <0=error
             xs.append(x)
             converged.append(ret_val == 0)

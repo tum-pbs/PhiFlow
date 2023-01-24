@@ -18,7 +18,7 @@ To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`
 import warnings
 from typing import Tuple, Callable
 
-from ._shape import Shape, shape, channel, non_batch, batch, spatial, instance, concat_shapes
+from ._shape import Shape, shape, channel, non_batch, batch, spatial, instance, concat_shapes, dual
 from .backend._dtype import DType
 
 
@@ -452,6 +452,10 @@ class BoundDim:
         self.name = name
 
     @property
+    def dual(self):
+        return BoundDim(self.obj, '~' + self.name)
+
+    @property
     def exists(self):
         """ Whether the dimension is listed in the `Shape` of the object. """
         return self.name in shape(self.obj)
@@ -575,6 +579,10 @@ class BoundDim:
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
         return self.retype(instance) if name is None else self.replace(instance(name=self.item_names or self.size))
 
+    def as_dual(self, name: str = None):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
+        return self.retype(dual) if name is None else self.replace(dual(name=self.item_names or self.size))
+
     def replace(self, dim: Shape, **kwargs):
         """
         Returns a shallow copy of the `Tensor` where this dimension has been replaced by `dim`.
@@ -601,6 +609,11 @@ class _BoundDims:
     def __init__(self, obj, dims: Tuple[str, ...]):
         self.obj = obj
         self.dims = dims
+
+    @property
+    def dual(self):
+        last_dual = "~" + self.dims[-1]
+        return _BoundDims(self.obj, self.dims[:-1] + (last_dual,))
 
     def __getitem__(self, item):
         assert isinstance(item, tuple), f"A tuple of slices is required for slicing multiple dimensions at once but got {type(item)}"
@@ -661,6 +674,10 @@ class _BoundDims:
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
         return self.retype(instance)
 
+    def as_dual(self):
+        """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
+        return self.retype(dual)
+
 
 def slicing_dict(obj, item) -> dict:
     """
@@ -681,23 +698,22 @@ def slicing_dict(obj, item) -> dict:
     if isinstance(item, tuple):
         if item[0] == Ellipsis:
             assert len(item) - 1 == shape(obj).channel_rank
-            item = {name: selection for name, selection in zip(channel(obj).names, item[1:])}
+            return {name: selection for name, selection in zip(channel(obj).names, item[1:])}
         elif len(item) == shape(obj).channel_rank:
-            warnings.warn("NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html", SyntaxWarning, stacklevel=3)
-            item = {name: selection for name, selection in zip(channel(obj).names, item)}
-        elif len(item) == shape(obj).rank:  # legacy indexing
-            warnings.warn("NumPy-style slicing for non-channel dimensions is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html", SyntaxWarning, stacklevel=3)
-            item = {name: selection for name, selection in zip(obj.shape.names, item)}
+            if len(item) > 1:
+                warnings.warn("NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html", SyntaxWarning, stacklevel=3)
+            return {name: selection for name, selection in zip(channel(obj).names, item)}
+        elif shape(obj).channel_rank == 1 and all(isinstance(e, str) for e in item):
+            return {channel(obj).name: item}
         else:
             raise AssertionError(f"Cannot slice {obj}[{item}]. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html")
     else:
         if shape(obj).channel_rank == 1:
-            item = {channel(obj).name: item}
+            return {channel(obj).name: item}
         elif non_batch(obj).rank == 1:
-            item = {non_batch(obj).name: item}
+            return {non_batch(obj).name: item}
         else:
             raise AssertionError(f"Slicing {type(obj).__name__}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}")
-    return item
 
 
 class OtherMagicFunctions:

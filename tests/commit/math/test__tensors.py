@@ -468,9 +468,9 @@ class TestTensors(TestCase):
             math.zeros(batch(b=2, c=2)),
             math.ones(batch(b=10)) * wrap((1, 2), channel('vector')),
         ]:
-            natives, shapes, native_dims = disassemble_tensors(t, expand=False)
-            restored = assemble_tensors(natives, shapes, native_dims)
-            math.assert_close(t, restored)
+            natives, shapes, specs = disassemble_tensors([t], expand=False)
+            restored = assemble_tensors(natives, specs)
+            math.assert_close(t, restored[0])
             print(restored)
 
     def test_is_number(self):
@@ -497,6 +497,9 @@ class TestTensors(TestCase):
         t = math.expand(math.random_normal(spatial(x=4)), batch(b=10))
         self.assertEqual(batch(b=10, a=4), t.x.as_batch('a').shape)
         self.assertEqual(t.shape, t.nodim.as_batch('a').shape)
+        self.assertEqual(('b', '~x'), t.x.as_dual().shape.names)
+        self.assertEqual(('b', 'x'), t.x.as_dual().x.dual.as_spatial().shape.names)
+        self.assertEqual(('b', 'x'), t.x.as_dual().b.x.dual.as_spatial().shape.names)
 
     def test_device(self):
         for backend in BACKENDS:

@@ -9,26 +9,26 @@ from phi.physics import diffuse
 class TestDiffusion(TestCase):
 
     def test_diffuse_centered_batched(self):
-        grid = CenteredGrid(Noise(batch=2, vector=2), extrapolation.PERIODIC, x=4, y=3)
+        grid = CenteredGrid(Noise(batch=2, vector=2), extrapolation.PERIODIC, x=6, y=5)
         diffuse.explicit(grid, 1, 1, substeps=10)
         diffuse.implicit(grid, 1, 1, order=2)
         diffuse.fourier(grid, 1, 1)
 
     def test_diffuse_staggered_batched(self):
         for diffusivity in [1, 0.5, math.wrap([1., 0.5], batch('batch'))]:
-            grid = StaggeredGrid(Noise(batch(batch=2), vector=2), extrapolation.PERIODIC, x=4, y=3)
+            grid = StaggeredGrid(Noise(batch(batch=2), vector=2), extrapolation.PERIODIC, x=6, y=5)
             diffuse.explicit(grid, diffusivity, 1, substeps=10)
             diffuse.implicit(grid, diffusivity, 1, order=2)
             diffuse.fourier(grid, diffusivity, 1)
-            grid = StaggeredGrid(Noise(batch(batch=2), vector=2), extrapolation.ZERO, x=4, y=3)
+            grid = StaggeredGrid(Noise(batch(batch=2), vector=2), extrapolation.ZERO, x=6, y=5)
             diffuse.explicit(grid, diffusivity, 1, substeps=10)
             # diffuse.implicit(grid, diffusivity, 1, order=2)  # not yet supported
-            grid = StaggeredGrid(Noise(batch(batch=2), vector=2), extrapolation.BOUNDARY, x=4, y=3)
+            grid = StaggeredGrid(Noise(batch(batch=2), vector=2), extrapolation.BOUNDARY, x=6, y=5)
             diffuse.explicit(grid, diffusivity, 1, substeps=10)
             # diffuse.implicit(grid, diffusivity, 1, order=2)  # not yet supported
 
     def test_constant_diffusion(self):
-        grid = CenteredGrid(1, extrapolation.PERIODIC, x=4, y=3)
+        grid = CenteredGrid(1, extrapolation.PERIODIC, x=5, y=5)
         explicit = diffuse.explicit(grid, 1, 1, substeps=10)
         implicit = diffuse.implicit(grid, 1, 1, order=2)
         fourier = diffuse.fourier(grid, 1, 1)
@@ -65,7 +65,7 @@ class TestDiffusion(TestCase):
 
     def test_implicit_stability(self):
         DIFFUSIVITY = 10
-        grid = CenteredGrid((1,) * 3 + (0,) * 3, extrapolation.PERIODIC, x=6)
+        grid = CenteredGrid((1,) * 3 + (0,) * 3, extrapolation.PERIODIC, x=21)
         try:
             implicit = diffuse.implicit(grid, DIFFUSIVITY, 1, order=10)
             print(implicit.values)

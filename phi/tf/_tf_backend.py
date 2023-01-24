@@ -598,9 +598,7 @@ class TFBackend(Backend):
 
     def sparse_coo_tensor(self, indices, values, shape):
         with self._device_for(indices, values):
-            indices = [tf.convert_to_tensor(i, tf.int64) for i in indices]
-            indices = tf.cast(tf.stack(indices, axis=-1), tf.int64)
-            return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
+            return tf.SparseTensor(indices=self.to_int64(indices), values=values, dense_shape=shape)
 
     def mul_coo_dense(self, indices, values, shape, dense):
         values, dense = self.auto_cast(values, dense)

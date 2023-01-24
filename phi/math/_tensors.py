@@ -9,11 +9,11 @@ from dataclasses import dataclass
 import numpy
 import numpy as np
 
-from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack
+from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack, pack_dims, expand
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
-                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, _construct_shape, batch)
+                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend, ComputeDevice
 from .backend._dtype import DType, combine_types
@@ -55,7 +55,7 @@ class Tensor:
         Raises:
             ValueError if the tensor cannot be transposed to match target_shape
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
 
     def numpy(self, order: str or tuple or list or Shape = None) -> np.ndarray:
         """
@@ -328,8 +328,11 @@ class Tensor:
         See Also:
             `phi.math.jit_compile()`.
         """
-        from ._ops import all_available
-        return all_available(self)
+        if self._is_tracer:
+            return False
+        natives = self._natives()
+        natives_available = [choose_backend(native).is_available(native) for native in natives]
+        return all(natives_available)
 
     @property
     def device(self) -> ComputeDevice or None:
@@ -673,6 +676,19 @@ class Tensor:
             native = reshaped_native(self, [self.shape])
             return iter(native)
 
+    def __matmul__(self, other):
+        assert isinstance(other, Tensor), f"Matmul '@' requires two Tensor arguments but got {type(other)}"
+        dims = batch(**self.shape.dual.untyped_dict).names
+        match = other.shape.only(dims)
+        assert len(dims) == match.rank, f"Dual dimensions {dual} do not match shape of second argument {other.shape}"
+        left_arg = pack_dims(self, dual, dual('_reduce')) if len(dims) > 1 else self
+        right_arg = pack_dims(other, match, channel('_reduce'))
+        from ._ops import dot
+        return dot(left_arg, dual, right_arg, '_reduce')
+
+    # def __rmatmul__(self, other):
+
+
     def _tensor(self, other):
         if isinstance(other, Tensor):
             return other
@@ -721,6 +737,13 @@ class Tensor:
 
     def _natives(self) -> tuple:
         raise NotImplementedError(self.__class__)
+
+    def _spec_dict(self) -> dict:
+        raise NotImplementedError(self.__class__)
+
+    @classmethod
+    def _from_spec_and_natives(cls, spec: dict, natives: list):
+        raise NotImplementedError(cls)
 
     def _expand(self):
         """ Expands all compressed tensors to their defined size as if they were being used in `Tensor.native()`. """
@@ -1070,7 +1093,7 @@ class NativeTensor(Tensor):
         for name in order:
             if name not in self.shape:
                 native = self.default_backend.expand_dims(native, axis=-1)
-                shape = concat_shapes(shape, _construct_shape('tmp_perm', **{name: 1}))
+                shape = concat_shapes(shape, batch(**{name: 1}))
         # --- Transpose ---
         perm = shape._perm(order)
         native = self.default_backend.transpose(native, perm)  # this will cast automatically
@@ -1154,6 +1177,13 @@ class NativeTensor(Tensor):
     def _natives(self) -> tuple:
         return self._native,
 
+    def _spec_dict(self) -> dict:
+        return {'type': NativeTensor, 'shape': self._shape}
+
+    @classmethod
+    def _from_spec_and_natives(cls, spec: dict, natives: list):
+        return NativeTensor(natives.pop(0), spec['shape'])
+
     def _expand(self):
         pass
 
@@ -1168,20 +1198,21 @@ class CollapsedTensor(Tensor):  # package-private
     The method `Tensor._expand()` causes a full Tensor structure to cache collapsed dimensions and must be called before gradients are recorded.
     """
 
-    def __init__(self, tensor: Tensor, shape: Shape):
-        for name in tensor.shape.names:
+    def __init__(self, inner: Tensor, shape: Shape):
+        assert inner.shape != shape
+        for name in inner.shape.names:
             assert name in shape
-        for size, name, dim_type, *_ in tensor.shape._dimensions:
+        for size, name, dim_type, *_ in inner.shape._dimensions:
             assert wrap(shape.get_size(name) == size).all, f"Shape mismatch while trying to set {name}={shape.get_size(name)} but has size {size}"
             assert shape.get_type(name) == dim_type, f"Dimension type mismatch for dimension '{name}': {shape.get_type(name)}, {dim_type}"
-        if isinstance(tensor, CollapsedTensor):
-            if tensor.is_cached:
-                self._inner = tensor._cached
+        if isinstance(inner, CollapsedTensor):
+            if inner.is_cached:
+                self._inner = inner._cached
             else:
-                self._inner = tensor._inner
+                self._inner = inner._inner
             assert self._inner is not None
         else:
-            self._inner = tensor  # this will be set to None once cached. Otherwise gradients will be incorrect.
+            self._inner = inner  # this will be set to None once cached. Otherwise gradients will be incorrect.
         self._shape = shape
         self._cached = None  # NativeTensor. Once cached, use only _cached
 
@@ -1244,7 +1275,7 @@ class CollapsedTensor(Tensor):  # package-private
             unstacked = self._inner.unstack(dimension)
             return tuple(CollapsedTensor(t, unstacked_shape) for t in unstacked)
         else:
-            return (CollapsedTensor(self._inner, unstacked_shape),) * self.shape.get_size(dimension)
+            return (expand(self._inner, unstacked_shape),) * self.shape.get_size(dimension)
 
     def _with_shape_replaced(self, new_shape: Shape):
         if self.is_cached:
@@ -1270,7 +1301,7 @@ class CollapsedTensor(Tensor):  # package-private
             inner = self._inner._getitem(inner_dict)
             new_shape = self.shape.after_gather(selection)
             merge_shapes(inner.shape, new_shape)  # check that sizes match
-            return CollapsedTensor(inner, new_shape)
+            return expand(inner, new_shape)
 
     def flip(self, *dims: str) -> 'Tensor':
         if self.is_cached:
@@ -1292,12 +1323,13 @@ class CollapsedTensor(Tensor):  # package-private
         if isinstance(other_t, CollapsedTensor) and other_t.is_cached:
             other_t = other_t._cached
         if isinstance(other_t, NativeTensor):
-            if all([dim in other_t.shape for dim in self._shape.names]):  # other is dense and has all dimensions
+            if self._shape in other_t.shape:
                 return op2_native(self, other_t, native_function)
+        if isinstance(other_t, (NativeTensor, CollapsedTensor)):
+            if isinstance(other_t, CollapsedTensor):
+                other_inner = other_t._inner  # case that other is cached handled above
             else:
-                other_t = CollapsedTensor(other_t, other_t.shape)
-        if isinstance(other_t, CollapsedTensor):
-            other_inner = other_t._inner  # case that other is cached handled above
+                other_inner = other_t
             self_inner = self._cached if self.is_cached else self._inner
             inner = operator(self_inner, other_inner)
             if all(dim in inner.shape for dim in self.shape.names + other_t.shape.names):  # shape already complete
@@ -1316,6 +1348,21 @@ class CollapsedTensor(Tensor):  # package-private
             return self._cached._natives()
         else:
             return self._inner._natives()
+
+    def _spec_dict(self) -> dict:
+        if self.is_cached:
+            return self._cached._spec_dict()
+        else:
+            return {'type': CollapsedTensor, 'shape': self._shape, 'inner': self._inner._spec_dict()}
+
+    @classmethod
+    def _from_spec_and_natives(cls, spec: dict, natives: list):
+        shape0 = choose_backend(natives[0]).staticshape(natives[0])
+        if len(shape0) > spec['inner']['shape'].rank:  # new native is expanded
+            assert len(shape0) == spec['shape'].rank
+            return NativeTensor(natives[0], spec['shape'])
+        inner = spec['inner']['type']._from_spec_and_natives(spec['inner'], natives)
+        return CollapsedTensor(inner, spec['shape'])
 
     def _with_natives_replaced(self, natives: list):
         assert self.is_cached, "Cannot replace natives in uncached state. Expand tensor beforehand."
@@ -1338,6 +1385,7 @@ class TensorStack(Tensor):
 
     def __init__(self, components: tuple or list, stack_dim: Shape):
         assert isinstance(stack_dim, Shape) and stack_dim.rank == 1, f"stack_dim must be a single-dimension Shape object but got {type(stack_dim)}"
+        # assert len(components) > 1, "Use a CollapsedTensor instead"
         for t in components:
             assert isinstance(t, Tensor)
             assert stack_dim.name not in t.shape, f"Cannot stack along '{stack_dim.name}' because the dimension already exists."
@@ -1484,6 +1532,17 @@ class TensorStack(Tensor):
             return self._cached._natives()
         else:
             return sum([t._natives() for t in self._tensors], ())
+
+    def _spec_dict(self) -> dict:
+        if self._cached is not None:
+            return self._cached._spec_dict()
+        else:
+            return {'type': TensorStack, 'stack_dim': self.stack_dim, 'tensors': [t._spec_dict() for t in self._tensors]}
+
+    @classmethod
+    def _from_spec_and_natives(cls, spec: dict, natives: list):
+        tensors = [t['type']._from_spec_and_natives(t, natives) for t in spec['tensors']]
+        return TensorStack(tensors, spec['stack_dim'])
 
     def _with_natives_replaced(self, natives: list):
         if self._cached is not None:
@@ -1803,64 +1862,33 @@ def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_func
     return result
 
 
-def disassemble_tensors(obj: Tensor or Tuple[Tensor, ...] or List[Tensor], expand: bool) -> tuple:
+def disassemble_tensors(tensors: Tuple[Tensor, ...] or List[Tensor], expand: bool) -> Tuple[tuple, Tuple[Shape], tuple]:
     """
     Args:
-        obj: Tuple or list of Tensors.
+        tensors: Tuple or list of Tensors.
         expand: Whether to add collapsed dimensions to the native tensors.
 
     Returns:
         natives: tuple of native tensors
-        shapes: tuple of Shapes encoding the tensor dimensions including collapsed dims.
-        native_dims: tuple of Shapes representing the dimensions of the natives in the correct order.
+        specs: Identification primitives from which the tensor can be reconstructed given the natives.
+            One per tensor.
     """
-    assert isinstance(obj, (Tensor, tuple, list)), f"jit-compiled function returned {type(obj)} but must return either a 'phi.math.Tensor' or tuple/list of tensors."
-    if isinstance(obj, Tensor):
-        if expand or isinstance(obj, TensorStack):
-            obj._expand()
-        if isinstance(obj, CollapsedTensor) and obj._inner is not None:
-            native_dims = obj._inner.shape
-        else:
-            native_dims = EMPTY_SHAPE
-        return obj._natives(), obj.shape, native_dims
-    else:
-        assert isinstance(obj, (tuple, list))
-        dis = [disassemble_tensors(t, expand=expand) for t in obj]
-        return sum([i[0] for i in dis], ()), tuple(i[1] for i in dis), tuple(i[2] for i in dis)
+    for t in tensors:
+        if isinstance(t, TensorStack) or expand:
+            t._expand()
+    natives = sum([t._natives() for t in tensors], ())
+    shapes = tuple([t.shape for t in tensors])
+    specs = tuple([t._spec_dict() for t in tensors])
+    return natives, shapes, specs
 
 
-def assemble_tensors(natives: tuple, shapes: Shape or Tuple[Shape], native_dims: Tuple[Shape, ...] or None):
+def assemble_tensors(natives: tuple or list, specs: Tuple[dict, ...] or List[dict]):
     natives = list(natives)
-    if isinstance(shapes, Shape):
-        return _assemble_pop(natives, shapes, native_dims)
-    else:
-        return [_assemble_pop(natives, shape, None if native_dims is None else native_dims[i]) for i, shape in enumerate(shapes)]
-
-
-def _assemble_pop(natives: list, shape: Shape, native_dims: Shape or None):
-    if shape.is_uniform:
-        native = natives.pop(0)
-        ndim = choose_backend(native).ndims(native)
-        if ndim != shape.rank:
-            if ndim == 0 and shape.rank > 0:
-                inner = NativeTensor(native, EMPTY_SHAPE)
-                return CollapsedTensor(inner, shape)
-            else:
-                assert native_dims is not None, "Cannot restore CollapsedTensor from native and shape when native_dims are not specified."
-                inner = NativeTensor(native, native_dims)
-                return CollapsedTensor(inner, shape)
-        return NativeTensor(native, shape)
-    else:
-        s2 = shape.shape.without('dims')
-        if len(s2) > 1:
-            raise NotImplementedError('More than one non-uniform dimension not supported.')
-        shapes = shape.unstack(s2.name)
-        tensors = [NativeTensor(natives.pop(0), s) for s in shapes]
-        return TensorStack(tensors, s2)
-
-
-
-
+    result = []
+    for spec in specs:
+        t = spec['type']._from_spec_and_natives(spec, natives)
+        result.append(t)
+    return result
 
 
 MISSING_TENSOR = 'missing'
@@ -2309,7 +2337,10 @@ def is_unexpected_dtype(dtype: DType):
 
 def format_tracer(self: Tensor, options: PrintOptions) -> str:
     colors = options.get_colors()
-    return f"{colors.shape(self.shape)} {colors.dtype(self.dtype)} {colors.value(f'{self.default_backend} tracer')}"
+    if self._is_tracer:
+        return f"{colors.shape(self.shape)} {colors.dtype(self.dtype)} {colors.value(f'linear tracer for {self.default_backend}')}"
+    else:
+        return f"{colors.shape(self.shape)} {colors.dtype(self.dtype)} {colors.value(f'{self.default_backend} tracer')}"
 
 
 def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line content
@@ -2332,18 +2363,21 @@ def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line cont
             else:
                 text = np.array2string(value.numpy(value.shape), separator=', ', max_line_width=np.inf)
                 lines.append(text)
-        elif value.shape.spatial_rank == 1:
-            for index_dict in value.shape.non_spatial.meshgrid(names=True):
+        elif value.shape.spatial_rank in (1, 2):
+            if value.shape.non_spatial.volume > 1:
+                indices = [f"{colors.shape(', '.join(f'{name}={idx}' for name, idx in index_dict.items()))}" for index_dict in value.shape.non_spatial.meshgrid(names=True)]
+                max_index_length = max(len(index) for index in indices)
+            for i, index_dict in enumerate(value.shape.non_spatial.meshgrid(names=True)):
+                row = ""
                 if value.shape.non_spatial.volume > 1:
-                    lines.append(f"--- {colors.shape(', '.join(f'{name}={idx}' for name, idx in index_dict.items()))} ---")
-                text = np.array2string(value[index_dict].numpy(dim_order), separator=', ', max_line_width=np.inf)
-                lines.append(' ' + re.sub('[\\[\\]]', '', text))
-        elif value.shape.spatial_rank == 2:
-            for index_dict in value.shape.non_spatial.meshgrid(names=True):
-                if value.shape.non_spatial.volume > 1:
-                    lines.append(f"--- {colors.shape(', '.join(f'{name}={idx}' for name, idx in index_dict.items()))} ---")
-                text = np.array2string(value[index_dict].numpy(dim_order)[::-1], separator=', ', max_line_width=np.inf)
-                lines.append(' ' + re.sub('[\\[\\]]', '', re.sub('\\],', '', text)))
+                    row += indices[i] + " " * (max_index_length - len(indices[i]) + 2)
+                    if value.shape.spatial_rank == 2:
+                        row += "\n"
+                if value.shape.spatial_rank == 1:
+                    text = np.array2string(value[index_dict].numpy(dim_order), separator=', ', max_line_width=np.inf)
+                else:
+                    text = " " + np.array2string(value[index_dict].numpy(dim_order)[::-1], separator=', ', max_line_width=np.inf)
+                lines.append(row + colors.value(re.sub('[\\[\\]]', '', text)) + (f"  along {colors.shape(spatial(value))}" if options.include_shape is not False else ""))
         else:
             raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
     return "\n".join(lines)
@@ -2423,6 +2457,8 @@ def _format_number(num, options: PrintOptions, dtype: DType):
 
 
 def format_tensor(self: Tensor, options: PrintOptions) -> str:
+    if not self.available:
+        return format_tracer(self, options)
     from ._sparse import dense
     self = dense(self)
     if options.layout == 'auto':

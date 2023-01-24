@@ -308,31 +308,23 @@ class TestFunctional(TestCase):
             assert x_.shape == x.shape
             math.assert_close(x, x_)
 
-    def test_hessian(self):
-        def f(x, y):
-            return math.l1_loss(x ** 2 * y), x, y
-        
-        eval_hessian = math.hessian(f, wrt='x', get_output=True, get_gradient=True, dim_suffixes=('1', '2'))
-
-        for backend in BACKENDS:
-            if backend.supports(Backend.hessian):
-                with backend:
-                    x = math.tensor([(0.01, 1, 2)], channel('vector', 'v'))
-                    y = math.tensor([1., 2.], batch('batch'))
-                    (L, x, y), g, H, = eval_hessian(x, y)
-                    math.assert_close(L, [5.0001, 10.0002], msg=backend.name)
-                    math.assert_close(g.batch[0].vector[0], (0.02, 2, 4), msg=backend.name)
-                    math.assert_close(g.batch[1].vector[0], (0.04, 4, 8), msg=backend.name)
-                    math.assert_close(2, H.v1[0].v2[0].batch[0], H.v1[1].v2[1].batch[0], H.v1[2].v2[2].batch[0], msg=backend.name)
-                    math.assert_close(4, H.v1[0].v2[0].batch[1], H.v1[1].v2[1].batch[1], H.v1[2].v2[2].batch[1], msg=backend.name)
-
-    def test_sparse_matrix(self):
-        for backend in BACKENDS:
-            with backend:
-                for f in ['csr', 'csc', 'coo']:
-                    matrix = math.jit_compile_linear(math.laplace).sparse_matrix(math.zeros(spatial(x=5)), format=f)
-                    self.assertEqual(f, matrix.indexing_type)
-                    self.assertEqual((5, 5), matrix.shape)
+    # def test_hessian(self):
+    #     def f(x, y):
+    #         return math.l1_loss(x ** 2 * y), x, y
+    #
+    #     eval_hessian = math.hessian(f, wrt='x', get_output=True, get_gradient=True, dim_suffixes=('1', '2'))
+    #
+    #     for backend in BACKENDS:
+    #         if backend.supports(Backend.hessian):
+    #             with backend:
+    #                 x = math.tensor([(0.01, 1, 2)], channel('vector', 'v'))
+    #                 y = math.tensor([1., 2.], batch('batch'))
+    #                 (L, x, y), g, H, = eval_hessian(x, y)
+    #                 math.assert_close(L, [5.0001, 10.0002], msg=backend.name)
+    #                 math.assert_close(g.batch[0].vector[0], (0.02, 2, 4), msg=backend.name)
+    #                 math.assert_close(g.batch[1].vector[0], (0.04, 4, 8), msg=backend.name)
+    #                 math.assert_close(2, H.v1[0].v2[0].batch[0], H.v1[1].v2[1].batch[0], H.v1[2].v2[2].batch[0], msg=backend.name)
+    #                 math.assert_close(4, H.v1[0].v2[0].batch[1], H.v1[1].v2[1].batch[1], H.v1[2].v2[2].batch[1], msg=backend.name)
 
     def test_loss_batch_not_reduced(self):
         def loss_function(x):

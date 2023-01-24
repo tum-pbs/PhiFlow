@@ -623,28 +623,65 @@ class TorchBackend(Backend):
         return torch.repeat_interleave(self.as_tensor(x), repeats, axis)
 
     def sparse_coo_tensor(self, indices, values, shape):
-        indices_ = self.to_int64(indices)
-        values_ = self.to_float(values)
-        if not self.is_available(values_):
-            # the output of torch.sparse_coo_tensor is considered constant
-            @torch.jit.script
-            def sparse_coo_tensor(values, indices, cols: int, rows: int, dtype: torch.dtype) -> torch.sparse.Tensor:
-                size = torch.Size([cols, rows])
-                return torch.sparse_coo_tensor(indices, values, size=size, dtype=dtype)
-            result = sparse_coo_tensor(values_, indices_, shape[0], shape[1], to_torch_dtype(self.float_type))
+        indices = self.to_int64(indices)
+        indices = self.transpose(indices, [1, 0])
+        values = self.to_float(values)
+
+        @torch.jit.script  # the output of torch.sparse_coo_tensor is considered constant
+        def sparse_coo_tensor(values, indices, cols: int, rows: int, dtype: torch.dtype) -> torch.sparse.Tensor:
+            size = torch.Size([cols, rows])
+            return torch.sparse_coo_tensor(indices, values, size=size, dtype=dtype)
+
+        return sparse_coo_tensor(values, indices, shape[0], shape[1], to_torch_dtype(self.float_type))
+
+    def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+        row_pointers = self.as_tensor(row_pointers)
+        column_indices = self.as_tensor(column_indices)
+        return torch.sparse_csr_tensor(row_pointers, column_indices, values, shape, device=values.device)
+
+    # def csr_matrix_batched(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+    #     batch_size, nnz, channels = values.shape
+    #     if version.parse(torch.__version__) >= version.parse('1.13.0'):
+    #         return torch.sparse_csr_tensor(row_pointers, column_indices, values, (batch_size, *shape, channels), device=values.device)
+    #     else:
+    #         warnings.warn("PyTorch >= 1.13 is required for batched CSR matrices. Visit https://pytorch.org/ to download the latest version.", RuntimeWarning)
+    #         raise NotImplementedError
+    #         # matrices = []
+    #         # for b in range(batch_size):
+    #         #     if values.shape[-1] == 1:
+    #         #         b_matrix = torch.sparse_csr_tensor(row_pointers[b], column_indices[b], values[b, :, 0], shape, device=values.device)
+    #         #     else:
+    #         #         raise NotImplementedError
+    #         #     matrices.append(b_matrix)
+    #         # return matrices
+
+    def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+        batch_size, nnz, channels = values.shape
+        if version.parse(torch.__version__) >= version.parse('1.13.0'):
+            return torch.sparse_csc_tensor(column_pointers, row_indices, values, (batch_size, *shape, channels), device=values.device)
         else:
-            result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
-        return result
+            warnings.warn("PyTorch >= 1.13 is required for batched CSC matrices. Visit https://pytorch.org/ to download the latest version.", RuntimeWarning)
+            raise NotImplementedError
+            # batch_size, nnz, channels = values.shape
+            # if batch_size == channels == 1:
+            #     return scipy.sparse.csc_matrix((values[0, :, 0], row_indices[0], column_pointers[0]), shape=shape)
+            # matrices = []
+            # for b in range(batch_size):
+            #     if values.shape[-1] == 1:
+            #         b_matrix = scipy.sparse.csc_matrix((values[b, :, 0], row_indices[b], column_pointers[b]), shape=shape)
+            #     else:
+            #         raise NotImplementedError
+            #     matrices.append(b_matrix)
+            # return matrices
 
     def mul_csr_dense(self, column_indices, row_pointers, values, shape: tuple, dense):
         values, dense = self.auto_cast(values, dense, bool_to_int=True, int_to_float=True)
-        batch_size, nnz, channel_count = values.shape
+        batch_size, nnz, channels = values.shape
         result = []
         for b in range(batch_size):
             b_result = []
-            for c in range(channel_count):
+            for c in range(channels):
                 matrix = torch.sparse_csr_tensor(row_pointers[b], column_indices[b], values[b, :, c], shape, device=values.device)
-                # mat = scipy.sparse.csr_matrix((values[b, :, c], column_indices[b], row_pointers[b]), shape=shape)
                 b_result.append(torch.sparse.mm(matrix, self.as_tensor(dense[b, :, c, :])))
             result.append(torch.stack(b_result))
         return torch.stack(result)
@@ -668,7 +705,7 @@ class TorchBackend(Backend):
         if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
             return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
-        assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
+        assert isinstance(lin, torch.Tensor) and (lin.is_sparse or lin.is_sparse_csr), "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
         rtol = self.as_tensor(rtol)
@@ -681,7 +718,7 @@ class TorchBackend(Backend):
         if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
             return Backend.conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj)
-        assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
+        assert isinstance(lin, torch.Tensor), "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
         rtol = self.as_tensor(rtol)

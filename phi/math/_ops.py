@@ -11,7 +11,7 @@ from ._magic_ops import expand, pack_dims, flatten, unpack_dim, cast, copy_with,
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, non_channel)
-from ._sparse import CompressedSparseTensor, dot_compressed_dense, dense
+from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
     cached, is_scalar, Layout
@@ -82,15 +82,7 @@ def all_available(*values: Tensor) -> bool:
     Returns:
         `True` if no value is a placeholder or being traced, `False` otherwise.
     """
-    from phi.math._functional import ShiftLinTracer
-    for value in values:
-        if isinstance(value, ShiftLinTracer):
-            return False
-        natives = value._natives()
-        natives_available = [choose_backend(native).is_available(native) for native in natives]
-        if not all(natives_available):
-            return False
-    return True
+    return all([v.available for v in values])
 
 
 def seed(seed: int):
@@ -415,7 +407,7 @@ def map_(function, *values, range=range, **kwargs) -> Tensor or None:
         return tuple([unpack_dim(wrap(result_i, channel('_c')), '_c', shape) for result_i in results])
 
 
-def _initialize(uniform_initializer, shapes: tuple) -> Tensor:
+def _initialize(uniform_initializer, shapes: Tuple[Shape]) -> Tensor:
     shape = concat_shapes(*shapes)
     if shape.is_non_uniform:
         stack_dim = shape.shape.without('dims')[0:1]
@@ -442,7 +434,7 @@ def zeros(*shape: Shape, dtype=None) -> Tensor:
     Returns:
         `Tensor`
     """
-    return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().zeros((), dtype=DType.as_dtype(dtype)), EMPTY_SHAPE), shape), shape)
+    return _initialize(lambda shape: expand_tensor(NativeTensor(default_backend().zeros((), dtype=DType.as_dtype(dtype)), EMPTY_SHAPE), shape), shape)
 
 
 def zeros_like(obj: Tensor or PhiTreeNode) -> Tensor or PhiTreeNode:
@@ -472,7 +464,7 @@ def ones(*shape: Shape, dtype=None) -> Tensor:
     Returns:
         `Tensor`
     """
-    return _initialize(lambda shape: CollapsedTensor(NativeTensor(default_backend().ones((), dtype=DType.as_dtype(dtype)), EMPTY_SHAPE), shape), shape)
+    return _initialize(lambda shape: expand_tensor(NativeTensor(default_backend().ones((), dtype=DType.as_dtype(dtype)), EMPTY_SHAPE), shape), shape)
 
 
 def ones_like(value: Tensor) -> Tensor:
@@ -550,7 +542,7 @@ def transpose(x: Tensor, axes):
         `Tensor` or native tensor, depending on `x`.
     """
     if isinstance(x, Tensor):
-        return CollapsedTensor(x, x.shape[axes])  # TODO avoid nesting
+        return expand(x, x.shape[axes])
     else:
         return choose_backend(x).transpose(x, axes)
 
@@ -732,7 +724,10 @@ def stack_tensors(values: tuple or list, dim: Shape):
     values = cast_same(*values)
 
     def inner_stack(*values):
-        return TensorStack(values, dim)
+        if len(values) > 1:
+            return TensorStack(values, dim)
+        else:
+            return CollapsedTensor(values[0], values[0].shape & dim.with_size(1))
 
     result = broadcast_op(inner_stack, values)
     return result
@@ -908,25 +903,9 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: 'e_.Extrapolation' o
     neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, '_closest_', pad_kwargs)
     binary = meshgrid(**{f'_closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, dim_type=channel, assign_item_names=False)
     right_weights = coordinates % 1
-    binary, right_weights = join_spaces(binary, right_weights)
     weights = prod(binary * right_weights + (1 - binary) * (1 - right_weights), 'vector')
     result = sum_(neighbors * weights, dim=[f"_closest_{dim}" for dim in grid.shape.spatial.names])
     return result
-
-
-def join_spaces(*tensors):
-    """
-    Adds the spatial dimensions of all tensors to all other tensors.
-    When spatial dimensions are present with multiple tensors, they must have the same size.
-
-    Args:
-        *tensors: Sequence of `Tensor`s.
-
-    Returns:
-        List of `Tensor`s with same values as `tensors` but additional spatial dimensions.
-    """
-    spatial_dims = merge_shapes(*[t.shape.spatial for t in tensors])
-    return [CollapsedTensor(t, t.shape.non_spatial & spatial_dims) for t in tensors]
 
 
 def broadcast_op(operation: Callable,
@@ -1059,8 +1038,7 @@ def reduce_(f, value, dims, require_all_dims_present=False, required_kind: type 
         dims = value.shape.only(dims)
         if require_all_dims_present and any(d not in value.shape for d in dims):
             raise ValueError(f"Cannot sum dimensions {dims} because tensor {value.shape} is missing at least one of them")
-        value = value._simplify()
-        return f(value, dims)
+        return f(value._simplify(), dims)
 
 
 def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -1096,7 +1074,7 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
     elif isinstance(value, TensorStack):
         reduced_inners = [_sum(t, dims.without(value.stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x + y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
-    elif isinstance(value, CompressedSparseTensor):
+    elif isinstance(value, CompressedSparseMatrix):
         if value.sparse_dims in dims:  # reduce all sparse dims
             return _sum(value._values, dims.without(value.sparse_dims) & instance(value._values))
         value_only_dims = dims.only(value._values.shape).without(value.sparsity_batch)
@@ -1172,6 +1150,8 @@ def mean(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
 
 
 def _mean(value: Tensor, dims: Shape) -> Tensor:
+    if not dims:
+        return value
     if isinstance(value, NativeTensor):
         result = value.default_backend.mean(value.native(value.shape), value.shape.indices(dims))
         return NativeTensor(result, value.shape.without(dims))
@@ -1553,14 +1533,22 @@ def dot(x: Tensor,
         assert x_dims.volume == 1, f"Cannot compute dot product between dimensions {x_dims} on {x.shape} and {y_dims} on {y.shape}"
         x = x[{d: 0 for d in x_dims.names}]
         return x * y
-    if isinstance(x, CompressedSparseTensor):
-        if isinstance(y, CompressedSparseTensor):
-            raise NotImplementedError
+    if isinstance(x, CompressedSparseMatrix):
+        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
         return dot_compressed_dense(x, x_dims, y, y_dims)
-    elif isinstance(y, CompressedSparseTensor):
-        if isinstance(x, CompressedSparseTensor):
-            raise NotImplementedError
+    elif isinstance(y, CompressedSparseMatrix):
+        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
         return dot_compressed_dense(y, y_dims, x, x_dims)
+    if isinstance(x, SparseCoordinateTensor):
+        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+        return dot_coordinate_dense(x, x_dims, y, y_dims)
+    elif isinstance(y, SparseCoordinateTensor):
+        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+        return dot_coordinate_dense(y, y_dims, x, x_dims)
     x_native = x.native(x.shape)
     y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)
@@ -2072,6 +2060,8 @@ def scatter(base_grid: Tensor or Shape,
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert indices.shape.channel.names == ('vector',) or (grid_shape.spatial_rank + grid_shape.instance_rank == 1 and indices.shape.channel_rank == 0)
+    if 'vector' in indices.shape and indices.shape.get_item_names('vector') and indices.shape.get_item_names('vector') != grid_shape.names:
+        indices = indices.vector[grid_shape.names]
     values = wrap(values)
     batches = values.shape.non_channel.non_instance & indices.shape.non_channel.non_instance
     channels = grid_shape.channel & values.shape.channel
@@ -2099,7 +2089,7 @@ def scatter(base_grid: Tensor or Shape,
 
     def scatter_forward(base_grid, indices, values):
         indices = to_int32(round_(indices))
-        native_grid = reshaped_native(base_grid, [batches, *base_grid.shape.instance, *base_grid.shape.spatial, channels], force_expand=True)
+        native_grid = reshaped_native(base_grid, [batches, *non_batch(base_grid).non_channel, channels], force_expand=True)
         native_values = reshaped_native(values, [batches, lists, channels], force_expand=True)
         native_indices = reshaped_native(indices, [batches, lists, 'vector'], force_expand=True)
         backend = choose_backend(native_indices, native_values, native_grid)
@@ -2111,7 +2101,7 @@ def scatter(base_grid: Tensor or Shape,
             count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode='add')
             native_result = summed / backend.maximum(count, 1)
             native_result = backend.where(count == 0, native_grid, native_result)
-        return reshaped_tensor(native_result, [batches, *instance(base_grid), *spatial(base_grid), channels], check_sizes=True)
+        return reshaped_tensor(native_result, [batches, *non_batch(base_grid).non_channel, channels], check_sizes=True)
 
     def scatter_backward(shaped_base_grid_, shaped_indices_, shaped_values_, output, d_output):
         from ._nd import spatial_gradient
@@ -2294,8 +2284,8 @@ def _assert_close(tensor1: Tensor, tensor2: Tensor, rel_tolerance: float, abs_to
         tensor1._assert_close(tensor2, rel_tolerance, abs_tolerance, msg, verbose)
     elif isinstance(tensor2, Layout):
         tensor2._assert_close(tensor1, rel_tolerance, abs_tolerance, msg, verbose)
-    elif isinstance(tensor1, CompressedSparseTensor):
-        if isinstance(tensor2, CompressedSparseTensor):
+    elif isinstance(tensor1, CompressedSparseMatrix):
+        if isinstance(tensor2, CompressedSparseMatrix):
             _assert_close(tensor1._values, tensor2._values, rel_tolerance, abs_tolerance, msg, verbose)
             _assert_close(tensor1._indices, tensor2._indices, 0, 0, msg, verbose)
             _assert_close(tensor1._pointers, tensor2._pointers, 0, 0, msg, verbose)
@@ -2303,7 +2293,7 @@ def _assert_close(tensor1: Tensor, tensor2: Tensor, rel_tolerance: float, abs_to
             _assert_close(dense(tensor1), tensor2, rel_tolerance, abs_tolerance, msg, verbose)
         else:
             _assert_close(tensor1._values, tensor2._values, rel_tolerance, abs_tolerance, msg, verbose)
-    elif isinstance(tensor2, CompressedSparseTensor):
+    elif isinstance(tensor2, CompressedSparseMatrix):
         return _assert_close(tensor2, tensor1, rel_tolerance, abs_tolerance, msg, verbose)
     else:
         def inner_assert_close(tensor1, tensor2):
@@ -2443,7 +2433,7 @@ def pairwise_distances(positions: Tensor, max_distance: float or Tensor = None, 
                 indices = wrap(indices, instance('nnz'))
                 pointers = wrap(pointers, instance('pointers'))
                 values = wrap(values, instance('nnz'), channel(positions))
-                tensors.append(CompressedSparseTensor(indices, pointers, values, others_dims, pos_i_shape))
+                tensors.append(CompressedSparseMatrix(indices, pointers, values, others_dims, pos_i_shape))
         elif format == 'coo':
             raise NotImplementedError
         elif format == 'csc':
