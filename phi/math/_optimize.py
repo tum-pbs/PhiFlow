@@ -415,8 +415,9 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
 def solve_linear(f: Callable[[X], Y],
                  y: Y,
                  solve: Solve[X, Y],
-                 f_args: tuple or list = (),
-                 f_kwargs: dict = None) -> X:
+                 *f_args,
+                 f_kwargs: dict = None,
+                 **f_kwargs_) -> X:
     """
     Solves the system of linear equations *f(x) = y* and returns *x*.
     This method will use the solver specified in `solve`.
@@ -445,9 +446,8 @@ def solve_linear(f: Callable[[X], Y],
             `f` can have additional arguments.
         y: Desired output of `f(x)` as `Tensor` or `PhiTreeNode`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
-        f_args: Additional `Tensor` or `PhiTreeNode` arguments to be passed to `f`.
-            `f` need not be linear in these arguments.
-            Use this instead of lambda function since a lambda will not be recognized as calling a jit-compiled function.
+        *f_args: Positional arguments to be passed to `f` after `solve.x0`. These arguments will not be solved for.
+            Supports vararg mode or pass all arguments as a `tuple`.
         f_kwargs: Additional keyword arguments to be passed to `f`.
             These arguments are treated as auxiliary arguments and can be of any type.
 
@@ -458,6 +458,11 @@ def solve_linear(f: Callable[[X], Y],
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the solve failed prematurely.
     """
+    # --- Handle parameters ---
+    f_kwargs = f_kwargs or {}
+    f_kwargs.update(f_kwargs_)
+    f_args = f_args[0] if len(f_args) == 1 and isinstance(f_args[0], tuple) else f_args
+    # --- Get input and output tensors ---
     y_tree, y_tensors = disassemble_tree(y)
     x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert len(x0_tensors) == len(y_tensors) == 1, "Only single-tensor linear solves are currently supported"
@@ -465,7 +470,7 @@ def solve_linear(f: Callable[[X], Y],
     prefer_explicit = backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)
 
     if isinstance(f, LinearFunction) and prefer_explicit:  # Matrix solve
-        matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **(f_kwargs or {}))
+        matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **f_kwargs)
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
             backend_matrix = native_matrix(matrix)
@@ -501,7 +506,7 @@ def solve_linear(f: Callable[[X], Y],
             return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
         _function_solve = attach_gradient_solve(_function_solve_forward, auxiliary_args='is_backprop,f_kwargs')
-        return _function_solve(y, solve, f_args, f_kwargs=f_kwargs or {})
+        return _function_solve(y, solve, f_args, f_kwargs=f_kwargs)
 
 
 def _linear_solve_forward(y,

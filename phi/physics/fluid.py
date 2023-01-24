@@ -105,7 +105,7 @@ def make_incompressible(velocity: GridType,
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
     if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
-    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], f_kwargs=dict(order=order), y=div, solve=solve)
+    pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
     # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity), order=order) * hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)

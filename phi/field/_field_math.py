@@ -84,7 +84,7 @@ def laplace(field: GridType, axes=spatial, order=2, implicit: math.Solve = None,
         result_components.with_values(result_components.values._cache())
         result_components = result_components.with_extrapolation(map(_ex_map_f(extrapol_map_rhs), field.extrapolation))
         implicit.x0 = result_components
-        result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs, "stack_dim": channel('laplacian')})
+        result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
         result_components = unstack(result_components, 'laplacian')
         extrapol_map = extrapol_map_rhs
     result_components = [component.with_bounds(field.bounds) for component in result_components]
@@ -195,9 +195,7 @@ def spatial_gradient(field: CenteredGrid,
     if implicit:
         implicit.x0 = result
         result = result
-        result = solve_linear(_lhs_for_implicit_scheme, result, solve=implicit,
-                              f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs,
-                                        "stack_dim": stack_dim, "staggered_output": type != CenteredGrid})
+        result = solve_linear(_lhs_for_implicit_scheme, result, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=stack_dim, staggered_output=type != CenteredGrid)
     if type == CenteredGrid and gradient_extrapolation == math.extrapolation.NONE:
         result = result.with_bounds(Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx))
     else:
@@ -211,7 +209,7 @@ def _ex_map_f(ext_dict: dict):
     return f
 
 
-@partial(jit_compile_linear, auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")
+@jit_compile_linear(auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")
 def _lhs_for_implicit_scheme(x, values_rhs, needed_shifts_rhs, stack_dim, staggered_output=False):
     result = []
     for dim, component in zip(x.shape.only(math.spatial).names, unstack(x, stack_dim.name)):
@@ -387,9 +385,7 @@ def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
         result_components = stack(result_components, channel('vector'))
         result_components.with_values(result_components.values._cache())
         implicit.x0 = field
-        result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit,
-                                         f_kwargs={"values_rhs": values_rhs, "needed_shifts_rhs": needed_shifts_rhs,
-                                        "stack_dim": channel('vector')})
+        result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('vector'))
         result_components = unstack(result_components, 'vector')
 
     result_components = [component.with_bounds(field.bounds) for component in result_components]
