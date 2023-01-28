@@ -110,7 +110,7 @@ class SparseCoordinateTensor(Tensor):
 
     def _pack_indices(self, row_dims: Shape, col_dims: Shape):
         assert self._indices.default_backend is NUMPY, "Can only compress NumPy indices as of yet"
-        assert row_dims.without(self._dense_shape).is_empty, f"Can only compress sparse dims but got {row_dims} which contains non-sparse dims"
+        assert self._dense_shape in row_dims, f"Can only compress sparse dims but got {row_dims} which contains non-sparse dims"
         from ._ops import reshaped_native
         row_idx = self._indices[row_dims.names]
         col_idx = self._indices[self._dense_shape.without(row_dims).names]
@@ -142,7 +142,7 @@ class SparseCoordinateTensor(Tensor):
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Tensor':
         dims = self._shape.only(dims)
-        assert dims.without(self._dense_shape).is_empty, "Can only pack sparse dimensions on SparseCoordinateTensor"
+        assert self._dense_shape in dims, "Can only pack sparse dimensions on SparseCoordinateTensor"
         assert self._indices.default_backend is NUMPY, "Can only pack NumPy indices as of yet"
         from ._ops import reshaped_native
         idx = self._indices.vector[dims.names]
@@ -190,7 +190,7 @@ class CompressedSparseMatrix(Tensor):
         assert instance(values) == instance(indices), "Instance dimensions of values and indices must match exactly"
         assert not channel(indices) and not spatial(indices), f"channel and spatial dimensions not allowed on indices but got {shape(indices)}"
         assert not channel(pointers) and not spatial(pointers), f"channel and spatial dimensions not allowed on pointers but got {shape(pointers)}"
-        assert uncompressed_dims.only(compressed_dims).is_empty, f"Dimensions cannot be compressed and uncompressed at the same time but got compressed={compressed_dims}, uncompressed={uncompressed_dims}"
+        assert uncompressed_dims.isdisjoint(compressed_dims), f"Dimensions cannot be compressed and uncompressed at the same time but got compressed={compressed_dims}, uncompressed={uncompressed_dims}"
         assert instance(pointers).size == compressed_dims.volume + 1
         self._shape = merge_shapes(compressed_dims, uncompressed_dims, batch(indices), batch(pointers), non_instance(values))
         self._indices = indices
@@ -335,7 +335,7 @@ class CompressedSparseMatrix(Tensor):
 
     def _op2(self, other, operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
         other_shape = shape(other)
-        affects_only_values = self.sparse_dims not in other_shape and non_instance(self._indices).only(other_shape).is_empty
+        affects_only_values = self.sparse_dims not in other_shape and non_instance(self._indices).isdisjoint(other_shape)
         if affects_only_values:
             return self._with_values(operator(self._values, other))
         elif isinstance(other, CompressedSparseMatrix):

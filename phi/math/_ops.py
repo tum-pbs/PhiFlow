@@ -912,7 +912,7 @@ def broadcast_op(operation: Callable,
         iter_dims = set()
         for tensor in tensors:
             if isinstance(tensor, TensorStack) and tensor.requires_broadcast:
-                iter_dims.add(tensor.stack_dim.name)
+                iter_dims.add(tensor._stack_dim.name)
     if len(iter_dims) == 0:
         return operation(*tensors)
     else:
@@ -1068,8 +1068,8 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
         result = _sum(value._inner, dims.only(value._inner.shape)) * value.collapsed_dims.only(dims).volume
         return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
-        reduced_inners = [_sum(t, dims.without(value.stack_dim)) for t in value._tensors]
-        return functools.reduce(lambda x, y: x + y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+        reduced_inners = [_sum(t, dims.without(value._stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x + y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
     elif isinstance(value, CompressedSparseMatrix):
         if value.sparse_dims in dims:  # reduce all sparse dims
             return _sum(value._values, dims.without(value.sparse_dims) & instance(value._values))
@@ -1077,7 +1077,7 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
         if value_only_dims:
             value = value._with_values(_sum(value._values, value_only_dims))
         dims = dims.without(value_only_dims)
-        if value._compressed_dims in dims and value._uncompressed_dims.only(dims).is_empty:
+        if value._compressed_dims in dims and value._uncompressed_dims.isdisjoint(dims):
             # We can ignore the pointers
             result_base = zeros(value.shape.without(value._compressed_dims))
             return scatter(result_base, value._indices, value._values, mode='add', outside_handling='undefined')
@@ -1118,8 +1118,8 @@ def _prod(value: Tensor, dims: Shape) -> Tensor:
         result = _prod(value._inner, dims.only(value._inner.shape)) ** value.collapsed_dims.only(dims).volume
         return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
-        reduced_inners = [_prod(t, dims.without(value.stack_dim)) for t in value._tensors]
-        return functools.reduce(lambda x, y: x * y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+        reduced_inners = [_prod(t, dims.without(value._stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x * y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
     else:
         raise ValueError(type(value))
 
@@ -1155,8 +1155,8 @@ def _mean(value: Tensor, dims: Shape) -> Tensor:
         result = _mean(value._inner, dims.only(value._inner.shape))
         return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
-        reduced_inners = [_mean(t, dims.without(value.stack_dim)) for t in value._tensors]
-        return functools.reduce(lambda x, y: x + y, reduced_inners) / len(reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+        reduced_inners = [_mean(t, dims.without(value._stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x + y, reduced_inners) / len(reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
     else:
         raise ValueError(type(value))
 
@@ -1218,8 +1218,8 @@ def _any(value: Tensor, dims: Shape) -> Tensor:
         result = _any(value._inner, dims.only(value._inner.shape))
         return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
-        reduced_inners = [_any(t, dims.without(value.stack_dim)) for t in value._tensors]
-        return functools.reduce(lambda x, y: x | y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+        reduced_inners = [_any(t, dims.without(value._stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x | y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
     else:
         raise ValueError(type(value))
 
@@ -1253,8 +1253,8 @@ def _all(value: Tensor, dims: Shape) -> Tensor:
         result = _all(value._inner, dims.only(value._inner.shape))
         return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
-        reduced_inners = [_all(t, dims.without(value.stack_dim)) for t in value._tensors]
-        return functools.reduce(lambda x, y: x & y, reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+        reduced_inners = [_all(t, dims.without(value._stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: x & y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
     else:
         raise ValueError(type(value))
 
@@ -1288,8 +1288,8 @@ def _max(value: Tensor, dims: Shape) -> Tensor:
         result = _max(value._inner, dims.only(value._inner.shape))
         return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
-        reduced_inners = [_max(t, dims.without(value.stack_dim)) for t in value._tensors]
-        return functools.reduce(lambda x, y: maximum(x, y), reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+        reduced_inners = [_max(t, dims.without(value._stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: maximum(x, y), reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
     else:
         raise ValueError(type(value))
 
@@ -1323,8 +1323,8 @@ def _min(value: Tensor, dims: Shape) -> Tensor:
         result = _min(value._inner, dims.only(value._inner.shape))
         return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
-        reduced_inners = [_min(t, dims.without(value.stack_dim)) for t in value._tensors]
-        return functools.reduce(lambda x, y: minimum(x, y), reduced_inners) if value.stack_dim in dims else TensorStack(reduced_inners, value.stack_dim)
+        reduced_inners = [_min(t, dims.without(value._stack_dim)) for t in value._tensors]
+        return functools.reduce(lambda x, y: minimum(x, y), reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
     else:
         raise ValueError(type(value))
 
@@ -1551,7 +1551,7 @@ def dot(x: Tensor,
     remaining_shape_x = x.shape.without(x_dims)
     remaining_shape_y = y.shape.without(y_dims)
     assert x_dims.volume == y_dims.volume, f"Failed to reduce {x_dims} against {y_dims} in dot product of {x.shape} and {y.shape}. Sizes do not match."
-    if remaining_shape_y.only(remaining_shape_x).is_empty:  # no shared batch dimensions -> tensordot
+    if remaining_shape_y.isdisjoint(remaining_shape_x):  # no shared batch dimensions -> tensordot
         result_native = backend.tensordot(x_native, x.shape.indices(x_dims), y_native, y.shape.indices(y_dims))
         result_shape = concat_shapes(remaining_shape_x, remaining_shape_y)
     else:  # shared batch dimensions -> einsum

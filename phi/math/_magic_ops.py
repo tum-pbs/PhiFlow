@@ -127,7 +127,7 @@ def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwar
             if attributes and all(all_attributes(v) == attributes for v in values):
                 new_attrs = {}
                 for a in attributes:
-                    assert all(shape(getattr(v, a)).only(dim).is_empty for v in values), f"Cannot stack attribute {a} because one values contains the stack dimension {dim}."
+                    assert all(dim not in shape(getattr(v, a)) for v in values), f"Cannot stack attribute {a} because one values contains the stack dimension {dim}."
                     a_values = [getattr(v, a) for v in values]
                     new_attrs[a] = stack(a_values, dim, expand_values=expand_values, **kwargs)
                 return copy_with(values[0], **new_attrs)

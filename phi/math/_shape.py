@@ -100,6 +100,11 @@ class Shape:
         else:
             raise ValueError(item)
 
+    def isdisjoint(self, other: 'Shape' or tuple or list or str):
+        """ Shapes are disjoint if all dimension names of one shape do not occur in the other shape. """
+        other = parse_dim_order(other)
+        return not any(dim in self.names for dim in other)
+
     def __iter__(self):
         return iter(self[i] for i in range(self.rank))
 
