@@ -7,7 +7,7 @@ from typing import Tuple, Callable
 
 from phi import math, field
 from phi.math import wrap, channel, Solve
-from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud
+from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType, StaggeredGrid
@@ -50,8 +50,17 @@ class Obstacle:
         return Obstacle(geometry, velocity, angular_velocity)
 
 
+def _get_obstacles_for(obstacles, space: Field):
+    obstacles = [obstacles] if isinstance(obstacles, (Obstacle, Geometry)) else obstacles
+    assert isinstance(obstacles, (tuple, list)), f"obstacles must be an Obstacle or Geometry or a tuple/list thereof but got {type(obstacles)}"
+    obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
+    for obstacle in obstacles:
+        assert obstacle.geometry.vector.item_names == space.vector.item_names, f"Obstacles must live in the same physical space as the velocity field {space.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}"
+    return obstacles
+
+
 def make_incompressible(velocity: GridType,
-                        obstacles: tuple or list = (),
+                        obstacles: Obstacle or Geometry or tuple or list = (),
                         solve=Solve('auto', 1e-5, 1e-5, gradient_solve=Solve('auto', 1e-5, 1e-5)),
                         active: CenteredGrid = None,
                         order=2) -> Tuple[GridType, CenteredGrid]:
@@ -61,8 +70,8 @@ def make_incompressible(velocity: GridType,
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     Args:
-        velocity: Vector field sampled on a grid
-        obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
+        velocity: Vector field sampled on a grid.
+        obstacles: `Obstacle` or `phi.geom.Geometry` or tuple/list thereof to specify boundary conditions inside the domain.
         solve: `Solve` object specifying method and tolerances for the implicit pressure solve.
         active: (Optional) Mask for which cells the pressure should be solved.
             If given, the velocity may take `NaN` values where it does not contribute to the pressure.
@@ -76,11 +85,8 @@ def make_incompressible(velocity: GridType,
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     """
-    assert isinstance(obstacles, (tuple, list)), f"obstacles must be a tuple or list but got {type(obstacles)}"
-    assert order == 2 or obstacles == (), f"obstacles are not supported with higher order schemes"
-    obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
-    for obstacle in obstacles:
-        assert obstacle.geometry.vector.item_names == velocity.vector.item_names, f"Obstacles must live in the same physical space as the velocity field {velocity.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}"
+    obstacles = _get_obstacles_for(obstacles, velocity)
+    assert order == 2 or len(obstacles) == 0, f"obstacles are not supported with higher order schemes"
     input_velocity = velocity
     # --- Create masks ---
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
@@ -148,7 +154,7 @@ def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or list):
+def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle or Geometry or tuple or list):
     """
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -156,11 +162,12 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or 
 
     Args:
       velocity: Velocity `Grid`.
-      obstacles: Obstacles as `tuple` or `list`
+        obstacles: `Obstacle` or `phi.geom.Geometry` or tuple/list thereof to specify boundary conditions inside the domain.
 
     Returns:
         Velocity of same type as `velocity`
     """
+    obstacles = _get_obstacles_for(obstacles, velocity)
     # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
         if isinstance(obstacle, Geometry):
