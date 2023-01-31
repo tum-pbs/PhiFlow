@@ -1,4 +1,3 @@
-from functools import partial
 from numbers import Number
 from typing import Callable, List, Tuple
 
@@ -38,7 +37,11 @@ def bake_extrapolation(grid: GridType) -> GridType:
         raise ValueError(f"Not a valid grid: {grid}")
 
 
-def laplace(field: GridType, axes=spatial, order=2, implicit: math.Solve = None, weights: Tensor or Field = None) -> GridType:
+def laplace(field: GridType,
+            axes=spatial,
+            order=2,
+            implicit: math.Solve = None,
+            weights: Tensor or Field = None) -> GridType:
     """
     Spatial Laplace operator for scalar grid.
     If a vector grid is passed, it is assumed to be centered and the laplace is computed component-wise.
@@ -60,7 +63,7 @@ def laplace(field: GridType, axes=spatial, order=2, implicit: math.Solve = None,
     if isinstance(weights, Field):
         weights = weights.at(field).values
     axes_names = field.shape.only(axes).names
-    extrapol_map = {}
+    extrap_map = {}
     if not implicit:
         if order == 2:
                 values, needed_shifts = [1, -2, 1], (-1, 0, 1)
@@ -68,32 +71,32 @@ def laplace(field: GridType, axes=spatial, order=2, implicit: math.Solve = None,
         elif order == 4:
                 values, needed_shifts = [-1/12, 4/3, -5/2, 4/3, -1/12], (-2, -1, 0, 1, 2)
     else:
-        extrapol_map_rhs = {}
+        extrap_map_rhs = {}
         if order == 6:
             values, needed_shifts = [3/44, 12/11, -51/22, 12/11, 3/44], (-2, -1, 0, 1, 2)
-            extrapol_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
+            extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
             values_rhs, needed_shifts_rhs = [2/11, 1, 2/11], (-1, 0, 1)
-            extrapol_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
+            extrap_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-    field.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
+    field.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))
     padded_components = [pad(field, {dim: base_widths}) for dim in axes_names]
     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, axes_names)]
     result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim]**2 for shifted_component, dim in zip(shifted_components, axes_names)]
     if implicit:
         result_components = stack(result_components, channel('laplacian'))
         result_components.with_values(result_components.values._cache())
-        result_components = result_components.with_extrapolation(map(_ex_map_f(extrapol_map_rhs), field.extrapolation))
+        result_components = result_components.with_extrapolation(map(_ex_map_f(extrap_map_rhs), field.extrapolation))
         implicit.x0 = result_components
         result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
         result_components = unstack(result_components, 'laplacian')
-        extrapol_map = extrapol_map_rhs
+        extrap_map = extrap_map_rhs
     result_components = [component.with_bounds(field.bounds) for component in result_components]
     if weights is not None:
         assert channel(weights).rank == 1 and channel(weights).item_names is not None, f"weights must have one channel dimension listing the laplace dims but got {shape(weights)}"
         assert set(channel(weights).item_names[0]) >= set(axes_names), f"the channel dim of weights must contain all laplace dims {axes_names} but only has {channel(weights).item_names}"
         result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
     result = sum(result_components)
-    result = result.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
+    result = result.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))
     return result
 
 
@@ -128,44 +131,39 @@ def spatial_gradient(field: CenteredGrid,
         spatial_gradient field of type `type`.
 
     """
-
     if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
-
-    extrapol_map = {}
+    extrap_map = {}
     if not implicit:
         if order == 2:
             if type == CenteredGrid:
                 values, needed_shifts = [-1/2, 1/2], (-1, 1)
             else:
                 values, needed_shifts = [-1, 1], (0, 1)
-
         elif order == 4:
             if type == CenteredGrid:
                 values, needed_shifts = [1/12, -2/3, 2/3, -1/12], (-2, -1, 1, 2)
             else:
                 values, needed_shifts = [1/24, -27/24, 27/24, -1/24], (-1, 0, 1, 2)
+        else:
+            raise NotImplementedError(f"explicit {order}th-order not supported")
     else:
-        extrapol_map_rhs = {}
+        extrap_map_rhs = {}
         if order == 6:
             if type == CenteredGrid:
                 values, needed_shifts = [-1/36, -14/18, 14/18, 1/36], (-2, -1, 1, 2)
                 values_rhs, needed_shifts_rhs = [1/3, 1, 1/3], (-1, 0, 1)
-
             else:
                 values, needed_shifts = [-17/186, -63/62, 63/62, 17/186], (-1, 0, 1, 2)
-                extrapol_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
-
+                extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
                 values_rhs, needed_shifts_rhs = [9/62, 1, 9/62], (-1, 0, 1)
-                extrapol_map_rhs['symmetric'] = combine_by_direction(ANTIREFLECT, ANTISYMMETRIC)
-
-
+                extrap_map_rhs['symmetric'] = combine_by_direction(ANTIREFLECT, ANTISYMMETRIC)
+        else:
+            raise NotImplementedError(f"implicit {order}th-order not supported")
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-    field.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
-
+    field.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
     if implicit:
-        gradient_extrapolation = map(_ex_map_f(extrapol_map_rhs), gradient_extrapolation)
-
+        gradient_extrapolation = map(_ex_map_f(extrap_map_rhs), gradient_extrapolation)
     spatial_dims = field.shape.spatial.names
     if type == CenteredGrid:
         # ToDo if extrapolation == math.extrapolation.NONE, extend size by 1
@@ -176,22 +174,18 @@ def spatial_gradient(field: CenteredGrid,
             base_widths = (abs(min(needed_shifts))+1, max(needed_shifts)+1)
             std_widths = (1, 1)
         padded_components = [pad(field, {dim_: base_widths if dim_ == dim else std_widths for dim_ in spatial_dims}) for dim in spatial_dims]
-    else:
+    elif type == StaggeredGrid:
         base_widths = (base_widths[0], base_widths[1]-1)
-        padded_components = pad_for_staggered_output(field, gradient_extrapolation,
-                                                     field.shape.spatial.names, base_widths)
-
+        padded_components = pad_for_staggered_output(field, gradient_extrapolation, field.shape.spatial.names, base_widths)
+    else:
+        raise ValueError(type)
     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
     result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
-
     if type == CenteredGrid:
         result = stack(result_components, stack_dim)
     else:
-        result = StaggeredGrid(math.stack([component.values for component in result_components], channel('vector')),
-                               bounds=field.bounds, extrapolation=gradient_extrapolation)
-
+        result = StaggeredGrid(math.stack([component.values for component in result_components], channel('vector')), bounds=field.bounds, extrapolation=gradient_extrapolation)
     result = result.with_extrapolation(gradient_extrapolation)
-
     if implicit:
         implicit.x0 = result
         result = result
@@ -200,8 +194,8 @@ def spatial_gradient(field: CenteredGrid,
         result = result.with_bounds(Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx))
     else:
         result = result.with_bounds(field.bounds)
-
     return result
+
 
 def _ex_map_f(ext_dict: dict):
     def f(ext: Extrapolation):
@@ -334,7 +328,7 @@ def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
         Divergence field as `CenteredGrid`
     """
 
-    extrapol_map = {}
+    extrap_map = {}
     if not implicit:
         if order == 2:
             if isinstance(field, CenteredGrid):
@@ -348,10 +342,10 @@ def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
             else:
                 values, needed_shifts = [1 / 24, -27 / 24, 27 / 24, -1 / 24], (-1, 0, 1, 2)
     else:
-        extrapol_map_rhs = {}
+        extrap_map_rhs = {}
         if order == 6:
-            extrapol_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
-            extrapol_map_rhs['symmetric'] = combine_by_direction(ANTIREFLECT, ANTISYMMETRIC)
+            extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
+            extrap_map_rhs['symmetric'] = combine_by_direction(ANTIREFLECT, ANTISYMMETRIC)
 
             if isinstance(field, CenteredGrid):
                 values, needed_shifts = [-1 / 36, -14 / 18, 14 / 18, 1 / 36], (-2, -1, 1, 2)
@@ -360,11 +354,8 @@ def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
             else:
                 values, needed_shifts = [-17 / 186, -63 / 62, 63 / 62, 17 / 186], (-1, 0, 1, 2)
                 values_rhs, needed_shifts_rhs = [9 / 62, 1, 9 / 62], (-1, 0, 1)
-
-
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-    field.with_extrapolation(map(_ex_map_f(extrapol_map), field.extrapolation))
-
+    field.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
     spatial_dims = field.shape.spatial.names
     if isinstance(field, StaggeredGrid):
         base_widths = (base_widths[0]+1, base_widths[1])
@@ -377,17 +368,14 @@ def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
         padded_components = [pad(component, {dim: base_widths}) for dim, component in zip(spatial_dims, unstack(field, 'vector'))]
         if field.extrapolation == math.extrapolation.NONE:
             padded_components = [pad(component, {dim_: (0, 0) if dim_ == dim else (-1, -1) for dim_ in spatial_dims}) for dim, component in zip(spatial_dims, padded_components)]
-
     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
     result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, spatial_dims)]
-
     if implicit:
         result_components = stack(result_components, channel('vector'))
         result_components.with_values(result_components.values._cache())
         implicit.x0 = field
         result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('vector'))
         result_components = unstack(result_components, 'vector')
-
     result_components = [component.with_bounds(field.bounds) for component in result_components]
     result = sum(result_components)
     if field.extrapolation == math.extrapolation.NONE and isinstance(field, CenteredGrid):
@@ -628,6 +616,7 @@ def stack(fields, dim: Shape, dim_bounds: Box = None):
     Args:
         fields: List of matching `SampledField` instances.
         dim: Stack dimension as `Shape`. Size is ignored.
+        dim_bounds: `Box` defining the physical size for `dim`.
 
     Returns:
         `SampledField` matching stacked fields.
