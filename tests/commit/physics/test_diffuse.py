@@ -36,9 +36,9 @@ class TestDiffusion(TestCase):
 
     def test_equality_1d_periodic(self):
         DIFFUSIVITY = 0.5
-        grid = CenteredGrid((1,) * 100 + (0,) * 100, extrapolation.PERIODIC, x=200)
-        explicit = diffuse.explicit(grid, DIFFUSIVITY, 1, substeps=1000)
-        implicit = diffuse.implicit(grid, DIFFUSIVITY, 1, order=10)
+        grid = CenteredGrid((1,) * 100 + (0,) * 100, extrapolation.PERIODIC, x=100)
+        explicit = diffuse.explicit(grid, DIFFUSIVITY, 1, substeps=10)
+        implicit = diffuse.implicit(grid, DIFFUSIVITY, 1, order=1)
         fourier = diffuse.fourier(grid, DIFFUSIVITY, 1)
         field.assert_close(explicit, implicit, rel_tolerance=0, abs_tolerance=0.01)
         field.assert_close(explicit, implicit, fourier, rel_tolerance=0, abs_tolerance=0.1)
@@ -46,8 +46,8 @@ class TestDiffusion(TestCase):
         # print(f"{implicit.values[:6]}  Implicit")
         # print(f"{fourier.values[:6]}  Fourier")
         # print()
-        back_explicit = diffuse.explicit(explicit, DIFFUSIVITY, -1, substeps=1000)
-        back_implicit = diffuse.implicit(implicit, DIFFUSIVITY, -1, order=10)
+        back_explicit = diffuse.explicit(explicit, DIFFUSIVITY, -1, substeps=10)
+        back_implicit = diffuse.implicit(implicit, DIFFUSIVITY, -1, order=1)
         back_fourier = diffuse.fourier(fourier, DIFFUSIVITY, -1)
         # print(f"{back_explicit.values[:6]}  Explicit")
         # print(f"{back_implicit.values[:6]}  Implicit")

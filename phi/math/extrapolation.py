@@ -407,7 +407,7 @@ class _CopyExtrapolation(Extrapolation):
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
-            inner_widths = {dim: w for dim, w in widths.items() if dim != value._stack_dim_name}
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value._stack_dim.name}
             tensors = [self.pad(t, inner_widths) for t in value.dimension(value._stack_dim.name)]
             return TensorStack(tensors, value._stack_dim)
         elif isinstance(value, ShiftLinTracer):

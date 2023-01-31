@@ -1,3 +1,4 @@
+from collections import namedtuple
 from typing import Callable, Dict, Set, Tuple
 
 import numpy
@@ -5,102 +6,13 @@ import numpy as np
 
 from .backend import choose_backend, NUMPY, Backend
 from ._shape import Shape, parse_dim_order, merge_shapes, spatial, instance, batch, concat_shapes, EMPTY_SHAPE, dual, channel, non_batch
-from ._tensors import Tensor, wrap, disassemble_tree, disassemble_tensors, assemble_tree
+from ._magic_ops import stack, expand
+from ._tensors import Tensor, wrap, disassemble_tree, disassemble_tensors, assemble_tree, CollapsedTensor, TensorStack
 from ._sparse import SparseCoordinateTensor
 from . import _ops as math
 
 
-def matrix_from_function(f: Callable,
-                         *args,
-                         auxiliary_args=None,
-                         auto_compress=True,
-                         sparsify_batch=None,
-                         **kwargs) -> Tuple[Tensor, Tensor]:
-    """
-    Trace a linear function and construct a (sparse) matrix.
-
-    Args:
-        f: Function to trace.
-        *args: Arguments for `f`.
-        auxiliary_args: Arguments in which the function is not linear.
-            These parameters are not traced but passed on as given in `args` and `kwargs`.
-        auto_compress: If `True`, returns a compressed matrix if supported by the backend.
-        sparsify_batch: If `False`, the matrix will be batched.
-            If `True`, will create dual dimensions for the involved batch dimensions.
-            This will result in one large matrix instead of a batch of matrices.
-        **kwargs: Keyword arguments for `f`.
-
-    Returns:
-        Matrix representing `f`.
-    """
-    assert isinstance(auxiliary_args, str) or auxiliary_args is None, f"auxiliary_args must be a comma-separated str but got {auxiliary_args}"
-    from ._functional import function_parameters, f_name
-    f_params = function_parameters(f)
-    aux = set(s.strip() for s in auxiliary_args.split(',') if s.strip()) if isinstance(auxiliary_args, str) else f_params[1:]
-    all_args = {**kwargs, **{f_params[i]: v for i, v in enumerate(args)}}
-    aux_args = {k: v for k, v in all_args.items() if k in aux}
-    trace_args = {k: v for k, v in all_args.items() if k not in aux}
-    tree, tensors = disassemble_tree(trace_args)
-    # tracing = not math.all_available(*tensors)
-    natives, shapes, native_dims = disassemble_tensors(tensors, expand=False)
-    # --- Trace function ---
-    with NUMPY:
-        x = math.ones(shapes[0])
-        tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
-        x_kwargs = assemble_tree(tree, [tracer])
-        result = f(**x_kwargs, **aux_args)
-    _, result_tensors = disassemble_tree(result)
-    assert len(result_tensors) == 1, f"Linear function output must be or contain a single Tensor but got {result}"
-    tracer_out = result_tensors[0]._simplify()
-    assert tracer_out._is_tracer, f"Tracing linear function '{f_name(f)}' failed. Make sure only linear operations are used. Output: {tracer_out.shape}"
-    assert isinstance(tracer_out, ShiftLinTracer), f"Tracing linear function '{f_name(f)}' returned a nested tracer with Shape {tracer_out.shape}. Make sure no additional dimensions get added to the output."
-    assert batch(tracer_out.pattern_dims).is_empty, f"Batch dimensions may not be sliced in linear operations but got pattern for {batch(tracer_out.pattern_dims)}"
-    # --- Convert to COO ---
-    if sparsify_batch is None:
-        if auto_compress:
-            sparsify_batch = not tracer_out.default_backend.supports(Backend.csr_matrix_batched)
-        else:
-            sparsify_batch = not tracer_out.default_backend.supports(Backend.sparse_coo_tensor_batched)
-    independent_dims = tracer_out.source.shape.without(tracer_out.dependent_dims if sparsify_batch else tracer_out.pattern_dim_names)  # these will be parallelized and not added to the matrix
-    out_shape = tracer_out.shape.without(independent_dims)
-    typed_src_shape = tracer_out.source.shape.without(independent_dims)
-    src_shape = dual(**typed_src_shape.untyped_dict)
-    batch_val = merge_shapes(*tracer_out.val.values()).without(out_shape)
-    if non_batch(out_shape).is_empty:
-        assert len(tracer_out.val) == 1 and non_batch(tracer_out.val[EMPTY_SHAPE]) == EMPTY_SHAPE
-        return tracer_out.val[EMPTY_SHAPE], tracer_out.bias
-    out_indices = []
-    src_indices = []
-    values = []
-    for shift_, shift_val in tracer_out.val.items():
-        if shift_val.default_backend is NUMPY:  # sparsify stencil further
-            native_shift_values = math.reshaped_native(shift_val, [batch_val, *out_shape], force_expand=True)
-            mask = np.sum(abs(native_shift_values), 0)  # only 0 where no batch entry has a non-zero value
-            out_indices.append(numpy.nonzero(mask))
-            src_indices.append([(component + shift_.get_size(dim)) % typed_src_shape.get_size(dim) if dim in shift_ else component for component, dim in zip(out_indices[-1], out_shape)])
-            values.append(native_shift_values[(slice(None), *out_indices[-1])])
-        else:  # add full stencil tensor
-            all_indices = np.unravel_index(np.arange(out_shape.volume), out_shape.sizes) if out_shape else 0
-            out_indices.append(all_indices)
-            src_indices.append([(component + shift_.get_size(dim)) % typed_src_shape.get_size(dim) if dim in shift_ else component for component, dim in zip(out_indices[-1], out_shape)])
-            values.append(math.reshaped_native(shift_val, [batch_val, out_shape], force_expand=True))
-    indices_np = np.concatenate([np.concatenate(src_indices, axis=1), np.concatenate(out_indices, axis=1)]).T
-    # _, counts = np.unique(indices_np, axis=1, return_counts=True)
-    # assert np.all(counts == 1)
-    indices = wrap(indices_np, instance('entries'), channel(vector=src_shape.names + out_shape.names))
-    backend = choose_backend(*values)
-    values = math.reshaped_tensor(backend.concat(values, axis=-1), [batch_val, instance('entries')])
-    dense_shape = concat_shapes(src_shape & out_shape)
-    matrix = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False)
-    if not auto_compress:
-        return matrix, tracer_out.bias
-    backend = choose_backend(*values._natives())
-    if backend.supports(Backend.mul_csr_dense):
-        return matrix.compress_rows(), tracer_out.bias
-    # elif backend.supports(Backend.mul_csc_dense):
-    #     return matrix.compress_cols(), tracer_out.bias
-    else:
-        return matrix, tracer_out.bias
+TracerSource = namedtuple('TracerSource', ['shape', 'dtype', 'name', 'index'])
 
 
 class ShiftLinTracer(Tensor):
@@ -111,7 +23,7 @@ class ShiftLinTracer(Tensor):
     Dimensions not contained in any `val` Tensor are treated as independent (batch dimensions).
     """
 
-    def __init__(self, source: Tensor, values_by_shift: dict, shape: Shape, bias: Tensor):
+    def __init__(self, source: TracerSource, values_by_shift: dict, shape: Shape, bias: Tensor):
         """
         Args:
             source: placeholder tensor
@@ -123,6 +35,7 @@ class ShiftLinTracer(Tensor):
                 When non-zero, this tracer technically represents an affine function, not a linear one.
                 However, the bias can be subtracted from the solution vector when solving a linear system, allowing this function to be solved with regular linear system solvers.
         """
+        assert isinstance(source, TracerSource)
         self.source = source
         self.val: Dict[Shape, Tensor] = simplify_add(values_by_shift)
         for shift_ in self.val.keys():
@@ -153,13 +66,13 @@ class ShiftLinTracer(Tensor):
         return result.native(result_order)
 
     @property
-    def dependent_dims(self):
+    def dependent_dims(self) -> Set[str]:
         """
         Dimensions relevant to the linear operation.
         This includes `pattern_dims` as well as dimensions along which only the values vary.
         These dimensions cannot be parallelized trivially with a non-batched matrix.
         """
-        return merge_shapes(*[t.shape for t in self.val.values()])
+        return self.pattern_dim_names | set(sum([t.shape.names for t in self.val.values()], ())) | set(self.bias.shape.names)
 
     @property
     def pattern_dim_names(self) -> Set[str]:
@@ -231,7 +144,7 @@ class ShiftLinTracer(Tensor):
     def _op1(self, native_function):
         # __neg__ is the only proper linear op1 and is implemented above.
         if native_function.__name__ == 'isfinite':
-            test_output = self.apply(math.ones_like(self.source))
+            test_output = self.apply(math.ones(self.source.shape, dtype=self.source.dtype))
             return math.is_finite(test_output)
         else:
             raise NotImplementedError('Only linear operations are supported')
@@ -303,3 +216,132 @@ def simplify_add(val: dict) -> Dict[Shape, Tensor]:
         else:
             result[shift] = values
     return result
+
+
+def matrix_from_function(f: Callable,
+                         *args,
+                         auxiliary_args=None,
+                         auto_compress=True,
+                         sparsify_batch=None,
+                         separate_independent=False,  # not fully implemented, requires auto_compress=False
+                         **kwargs) -> Tuple[Tensor, Tensor]:
+    """
+    Trace a linear function and construct a matrix.
+    Depending on the functional form of `f`, the returned matrix may be dense or sparse.
+
+    Args:
+        f: Function to trace.
+        *args: Arguments for `f`.
+        auxiliary_args: Arguments in which the function is not linear.
+            These parameters are not traced but passed on as given in `args` and `kwargs`.
+        auto_compress: If `True`, returns a compressed matrix if supported by the backend.
+        sparsify_batch: If `False`, the matrix will be batched.
+            If `True`, will create dual dimensions for the involved batch dimensions.
+            This will result in one large matrix instead of a batch of matrices.
+        **kwargs: Keyword arguments for `f`.
+
+    Returns:
+        matrix: Matrix representing the linear dependency of the output `f` on the input of `f`.
+            Input dimensions will be `dual` dimensions of the matrix while output dimensions will be regular.
+        bias: Bias for affine functions or zero-vector if the function is purely linear.
+    """
+    assert isinstance(auxiliary_args, str) or auxiliary_args is None, f"auxiliary_args must be a comma-separated str but got {auxiliary_args}"
+    from ._functional import function_parameters, f_name
+    f_params = function_parameters(f)
+    aux = set(s.strip() for s in auxiliary_args.split(',') if s.strip()) if isinstance(auxiliary_args, str) else f_params[1:]
+    all_args = {**kwargs, **{f_params[i]: v for i, v in enumerate(args)}}
+    aux_args = {k: v for k, v in all_args.items() if k in aux}
+    trace_args = {k: v for k, v in all_args.items() if k not in aux}
+    tree, tensors = disassemble_tree(trace_args)
+    # tracing = not math.all_available(*tensors)
+    natives, shapes, native_dims = disassemble_tensors(tensors, expand=False)
+    # --- Trace function ---
+    with NUMPY:
+        src = TracerSource(tensors[0].shape, tensors[0].dtype, tuple(trace_args.keys())[0], 0)
+        tracer = ShiftLinTracer(src, {EMPTY_SHAPE: math.ones()}, tensors[0].shape, math.zeros(tensors[0].shape, dtype=tensors[0].dtype))
+        x_kwargs = assemble_tree(tree, [tracer])
+        result = f(**x_kwargs, **aux_args)
+    _, result_tensors = disassemble_tree(result)
+    assert len(result_tensors) == 1, f"Linear function output must be or contain a single Tensor but got {result}"
+    tracer = result_tensors[0]._simplify()
+    assert tracer._is_tracer, f"Tracing linear function '{f_name(f)}' failed. Make sure only linear operations are used. Output: {tracer.shape}"
+    # --- Convert to COO ---
+    if sparsify_batch is None:
+        if auto_compress:
+            sparsify_batch = not tracer.default_backend.supports(Backend.csr_matrix_batched)
+        else:
+            sparsify_batch = not tracer.default_backend.supports(Backend.sparse_coo_tensor_batched)
+    matrix, bias = tracer_to_coo(tracer, sparsify_batch, separate_independent)
+    # --- Compress ---
+    if not auto_compress:
+        return matrix, bias
+    if matrix.default_backend.supports(Backend.mul_csr_dense):
+        return matrix.compress_rows(), bias
+    # elif backend.supports(Backend.mul_csc_dense):
+    #     return matrix.compress_cols(), tracer.bias
+    else:
+        return matrix, bias
+    
+
+def tracer_to_coo(tracer: Tensor, sparsify_batch: bool, separate_independent: bool):
+    if isinstance(tracer, CollapsedTensor):
+        tracer = tracer._cached if tracer.is_cached else tracer._inner  # ignore collapsed dimensions. Alternatively, we could expand the result
+        return tracer_to_coo(tracer, sparsify_batch, separate_independent)
+    elif isinstance(tracer, TensorStack):  # This indicates separable solves
+        matrices, biases = zip(*[tracer_to_coo(t, sparsify_batch, separate_independent) for t in tracer._tensors])
+        bias = stack(biases, tracer._stack_dim)
+        if not separate_independent:
+            indices = [math.concat_tensor([m._indices, expand(i, instance(m._indices), channel(vector=tracer._stack_dim.name))], 'vector') for i, m in enumerate(matrices)]
+            indices = math.concat_tensor(indices, 'entries')
+            values = math.concat_tensor([m._values for m in matrices], 'entries')
+            # matrix = stack(matrices, tracer._stack_dim)
+            dense_shape = concat_shapes(matrices[0]._dense_shape, tracer._stack_dim)
+            matrix = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False)
+        else:
+            matrix = stack(matrices, tracer._stack_dim)
+        return matrix, bias
+    elif not tracer._is_tracer:  # This part of the output is independent of the input
+        return expand(0, tracer.shape), tracer
+    assert isinstance(tracer, ShiftLinTracer), f"Tracing linear function returned an unsupported construct: {type(tracer)}"
+    assert batch(tracer.pattern_dims).is_empty, f"Batch dimensions may not be sliced in linear operations but got pattern for {batch(tracer.pattern_dims)}"
+    missing_dims = tracer.source.shape.without(tracer.shape)  # these were sliced off
+    ignored_dims = tracer.source.shape.without(tracer.shape.only(tracer.dependent_dims) if sparsify_batch else tracer.pattern_dim_names).without(missing_dims)  # these will be parallelized and not added to the matrix
+    out_shape = tracer.shape.without(ignored_dims)
+    typed_src_shape = tracer.source.shape.without(ignored_dims)
+    src_shape = dual(**typed_src_shape.untyped_dict)
+    sliced_src_shape = src_shape.without(dual(**missing_dims.untyped_dict))
+    batch_val = merge_shapes(*tracer.val.values()).without(out_shape)
+    if non_batch(out_shape).is_empty:
+        assert len(tracer.val) == 1 and non_batch(tracer.val[EMPTY_SHAPE]) == EMPTY_SHAPE
+        return tracer.val[EMPTY_SHAPE], tracer.bias
+    out_indices = []
+    src_indices = []
+    values = []
+    for shift_, shift_val in tracer.val.items():
+        if shift_val.default_backend is NUMPY:  # sparsify stencil further
+            native_shift_values = math.reshaped_native(shift_val, [batch_val, *out_shape], force_expand=True)
+            mask = np.sum(abs(native_shift_values), 0)  # only 0 where no batch entry has a non-zero value
+            out_idx = numpy.nonzero(mask)
+            src_idx = [(component + shift_.get_size(dim)) % typed_src_shape.get_size(dim) if dim in shift_ else component for component, dim in zip(out_idx, out_shape)]
+            values.append(native_shift_values[(slice(None), *out_idx)])
+        else:  # add full stencil tensor
+            out_idx = np.unravel_index(np.arange(out_shape.volume), out_shape.sizes) if out_shape else 0
+            src_idx = [(component + shift_.get_size(dim)) % typed_src_shape.get_size(dim) if dim in shift_ else component for component, dim in zip(out_idx, out_shape)]
+            values.append(math.reshaped_native(shift_val, [batch_val, out_shape], force_expand=True))
+        out_indices.append(out_idx)
+        src_idx_all = []
+        for dim in typed_src_shape:
+            if dim in missing_dims:
+                if not separate_independent:
+                    offset = shift_.get_size(dim, default=0)
+                    src_idx_all.append(np.zeros(out_shape.volume, dtype=np.int32) + offset)
+            else:
+                src_idx_all.append(src_idx[out_shape.index(dim)])
+        src_indices.append(src_idx_all)
+    indices_np = np.concatenate([np.concatenate(src_indices, axis=1), np.concatenate(out_indices, axis=1)]).T
+    indices = wrap(indices_np, instance('entries'), channel(vector=(sliced_src_shape if separate_independent else src_shape).names + out_shape.names))
+    backend = choose_backend(*values)
+    values = math.reshaped_tensor(backend.concat(values, axis=-1), [batch_val, instance('entries')])
+    dense_shape = concat_shapes((sliced_src_shape if separate_independent else src_shape) & out_shape)
+    matrix = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False)
+    return matrix, tracer.bias

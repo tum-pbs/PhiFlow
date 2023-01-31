@@ -153,24 +153,31 @@ class Shape:
         else:
             raise ValueError(f"indices() requires a sequence of dimensions but got {dims}")
 
-    def get_size(self, dim: str or 'Shape' or int):
+    def get_size(self, dim: str or 'Shape' or int, default=None):
         """
         See Also:
             `Shape.get_sizes()`, `Shape.size`
 
         Args:
             dim: Dimension, either as name `str` or single-dimension `Shape` or index `int`.
+            default: (Optional) If the dim does not exist, return this value instead of raising an error.
 
         Returns:
             Size associated with `dim` as `int` or `Tensor`.
         """
-        if isinstance(dim, str):
-            return self.sizes[self.names.index(dim)]
-        elif isinstance(dim, Shape):
-            assert dim.rank == 1, f"get_size() requires a single dimension but got {dim}. Use indices() to get multiple sizes."
-            return self.sizes[self.names.index(dim.name)]
-        elif isinstance(dim, int):
+        if isinstance(dim, int):
+            assert default is None, "Cannot use a default value when passing an int for dim"
             return self.sizes[dim]
+        if isinstance(dim, Shape):
+            assert dim.rank == 1, f"get_size() requires a single dimension but got {dim}. Use indices() to get multiple sizes."
+            dim = dim.name
+        if isinstance(dim, str):
+            if dim not in self.names:
+                if default is None:
+                    raise KeyError(f"get_size() failed because '{dim}' is not part of Shape {self} and no default value was provided")
+                else:
+                    return default
+            return self.sizes[self.names.index(dim)]
         else:
             raise ValueError(f"get_size() requires a single dimension but got {dim}. Use indices() to get multiple sizes.")
 
@@ -781,7 +788,7 @@ class Shape:
         assert self.rank == 1, "Shape.with_size() is only defined for shapes of rank 1."
         return self.with_sizes([size])
 
-    def with_sizes(self, sizes: tuple or list or 'Shape', keep_item_names=True):
+    def with_sizes(self, sizes: tuple or list or 'Shape' or int, keep_item_names=True):
         """
         Returns a new `Shape` matching the dimension names and types of `self` but with different sizes.
 
@@ -800,6 +807,8 @@ class Shape:
         Returns:
             `Shape` with same names and types as `self`.
         """
+        if isinstance(sizes, int):
+            sizes = [sizes] * len(self.sizes)
         if isinstance(sizes, Shape):
             item_names = [sizes.get_item_names(dim) if dim in sizes else self.get_item_names(dim) for dim in self.names]
             sizes = [sizes.get_size(dim) if dim in sizes else s for dim, s in self._named_sizes]
@@ -933,11 +942,20 @@ class Shape:
         replaced = Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
         if len(new) == len(dims):
             return replaced
-        to_remove = dims[len(dims) - len(new):]
+        to_remove = dims[-(len(dims) - len(new)):]
         return replaced.without(to_remove)
 
-    def _with_types(self, types: 'Shape'):
-        return Shape(self.sizes, self.names, tuple([types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)]), self.item_names)
+    def _with_types(self, types: 'Shape' or str):
+        """
+        Only for internal use.
+        Note: This method does not rename dimensions to comply with type requirements (e.g. ~ for dual dims).
+        """
+        if isinstance(types, Shape):
+            return Shape(self.sizes, self.names, tuple([types.get_type(name) if name in types else self_type for name, self_type in zip(self.names, self.types)]), self.item_names)
+        elif isinstance(types, str):
+            return Shape(self.sizes, self.names, (types,) * self.rank, self.item_names)
+        else:
+            raise ValueError(types)
 
     def _with_item_names(self, item_names: tuple):
         return Shape(self.sizes, self.names, self.types, item_names)

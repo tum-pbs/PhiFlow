@@ -13,7 +13,7 @@ from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack, 
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
-                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual)
+                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual, instance)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend, ComputeDevice
 from .backend._dtype import DType, combine_types
@@ -679,7 +679,7 @@ class Tensor:
     def __matmul__(self, other):
         assert isinstance(other, Tensor), f"Matmul '@' requires two Tensor arguments but got {type(other)}"
         dims = batch(**self.shape.dual.untyped_dict).names
-        match = other.shape.only(dims)
+        match = other.shape.only(dims, reorder=True)
         assert len(dims) == match.rank, f"Dual dimensions {dual} do not match shape of second argument {other.shape}"
         left_arg = pack_dims(self, dual, dual('_reduce')) if len(dims) > 1 else self
         right_arg = pack_dims(other, match, channel('_reduce'))
@@ -2301,32 +2301,48 @@ def format_summary(self: Tensor, options: PrintOptions) -> str:
     """
     if not self.available:
         return format_tracer(self, options)
+    from ._sparse import SparseCoordinateTensor, CompressedSparseMatrix
+    if isinstance(self, (SparseCoordinateTensor, CompressedSparseMatrix)):
+        return sparse_summary(self, options)
     colors = options.get_colors()
-    result = []
+    tokens = []
     if self.shape if options.include_shape is None else options.include_shape:
-        result.append(f"{colors.shape(self.shape)}")
+        tokens.append(f"{colors.shape(self.shape)}")
     if is_unexpected_dtype(self.dtype) if options.include_dtype is None else options.include_dtype:
-        result.append(f"{colors.dtype(self.dtype)}")
+        tokens.append(f"{colors.dtype(self.dtype)}")
     try:
         if self.rank == 0:
-            result.append(colors.value(self.numpy()))
+            tokens.append(colors.value(self.numpy()))
         elif self.dtype.kind == bool:
-            result.append(colors.value(f"{self.sum} / {self.shape.volume} True"))
+            tokens.append(colors.value(f"{self.sum} / {self.shape.volume} True"))
         elif self.dtype.kind in (float, int):
             min_val, max_val, mean, std = [float(f) for f in [self.finite_min, self.finite_max, self.finite_mean, self.std]]
             if std == 0:
-                result.append(colors.value(f"const {mean:{options.float_format or ''}}"))
+                tokens.append(colors.value(f"const {mean:{options.float_format or ''}}"))
             else:
                 if any([abs(val) < 0.001 or abs(val) > 1000 for val in [mean, std]]):
-                    result.append(colors.value(f"{mean:{options.float_format or '.2e'}} ± {std:{options.float_format or '.1e'}}"))
+                    tokens.append(colors.value(f"{mean:{options.float_format or '.2e'}} ± {std:{options.float_format or '.1e'}}"))
                 else:
-                    result.append(colors.value(f"{mean:{options.float_format or '.3f'}} ± {std:{options.float_format or '.3f'}}"))
-                result.append(colors.fine(f"({min_val:{options.float_format or '.0e'}}...{max_val:{options.float_format or '.0e'}})"))
+                    tokens.append(colors.value(f"{mean:{options.float_format or '.3f'}} ± {std:{options.float_format or '.3f'}}"))
+                tokens.append(colors.fine(f"({min_val:{options.float_format or '.0e'}}...{max_val:{options.float_format or '.0e'}})"))
         elif self.dtype.kind == complex:
-            result.append(colors.value(f"|...| < {abs(self).max}"))
+            tokens.append(colors.value(f"|...| < {abs(self).max}"))
     except BaseException as err:
-        result.append(f"failed to fetch values: {err}")
-    return " ".join(result)
+        tokens.append(f"failed to fetch values: {err}")
+    return " ".join(tokens)
+
+
+def sparse_summary(value: Tensor, options: PrintOptions) -> str:
+    colors = options.get_colors()
+    from ._sparse import SparseCoordinateTensor, CompressedSparseMatrix
+    tokens = []
+    if is_unexpected_dtype(value.dtype) if options.include_dtype is None else options.include_dtype:
+        tokens.append(f"{colors.dtype(value.dtype)}")
+    tokens.append("sparse" if isinstance(value, SparseCoordinateTensor) else "compressed sparse")
+    if options.include_shape is not False:
+        tokens.append(f"{colors.shape(value.shape)}")
+    tokens.append(f"with {instance(value._values).volume} entries")
+    return " ".join(tokens)
 
 
 def is_unexpected_dtype(dtype: DType):
@@ -2348,6 +2364,8 @@ def format_tracer(self: Tensor, options: PrintOptions) -> str:
 def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line content
     if not value.available:
         return format_tracer(value, options)
+    from ._sparse import dense
+    value = dense(value)
     import re
     colors = options.get_colors()
     dim_order = tuple(sorted(value.shape.spatial.names, reverse=True))
@@ -2400,6 +2418,8 @@ def format_row(self: Tensor, options: PrintOptions) -> str:  # all values in a s
     """
     if not self.available:
         return format_tracer(self, options)
+    from ._sparse import dense
+    self = dense(self)
     colors = options.get_colors()
     if self.shape.rank == 1:
         content = _format_vector(self, options)
@@ -2419,6 +2439,8 @@ def format_row(self: Tensor, options: PrintOptions) -> str:  # all values in a s
 
 
 def format_numpy(self: Tensor, options: PrintOptions) -> str:
+    from ._sparse import dense
+    self = dense(self)
     header = []
     colors = options.get_colors()
     if options.include_shape:
@@ -2461,8 +2483,6 @@ def _format_number(num, options: PrintOptions, dtype: DType):
 def format_tensor(self: Tensor, options: PrintOptions) -> str:
     if not self.available:
         return format_tracer(self, options)
-    from ._sparse import dense
-    self = dense(self)
     if options.layout == 'auto':
         if not self.shape:
             return format_summary(self, options)

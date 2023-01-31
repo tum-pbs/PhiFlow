@@ -5,7 +5,7 @@ from typing import List, Callable, Tuple
 import numpy as np
 import scipy.sparse
 
-from ._shape import Shape, non_batch, merge_shapes, instance, batch, non_instance, shape, channel, spatial, DimFilter, concat_shapes, EMPTY_SHAPE, dual
+from ._shape import Shape, non_batch, merge_shapes, instance, batch, non_instance, shape, channel, spatial, DimFilter, concat_shapes, EMPTY_SHAPE, dual, DUAL_DIM, SPATIAL_DIM
 from ._magic_ops import concat, pack_dims, expand, rename_dims
 from ._tensors import Tensor, TensorStack, CollapsedTensor, NativeTensor, cached, wrap
 from .backend import choose_backend, NUMPY
@@ -43,6 +43,7 @@ class SparseCoordinateTensor(Tensor):
         assert instance(indices), "indices must have an instance dimension"
         assert 'vector' in indices.shape, "indices must have a vector dimension"
         assert set(indices.vector.item_names) == set(dense_shape.names), "The 'vector' dimension of indices must list the dense dimensions as item names"
+        assert indices.dtype.kind == int, f"indices must have dtype=int but got {indices.dtype}"
         self._shape = merge_shapes(dense_shape, batch(indices), non_instance(values))
         self._dense_shape = dense_shape
         self._indices = indices
@@ -110,7 +111,7 @@ class SparseCoordinateTensor(Tensor):
 
     def _pack_indices(self, row_dims: Shape, col_dims: Shape):
         assert self._indices.default_backend is NUMPY, "Can only compress NumPy indices as of yet"
-        assert self._dense_shape in row_dims, f"Can only compress sparse dims but got {row_dims} which contains non-sparse dims"
+        assert row_dims in self._dense_shape, f"Can only compress sparse dims but got {row_dims} which contains non-sparse dims"
         from ._ops import reshaped_native
         row_idx = self._indices[row_dims.names]
         col_idx = self._indices[self._dense_shape.without(row_dims).names]
@@ -357,7 +358,7 @@ class CompressedSparseMatrix(Tensor):
 
     def _native_csr_components(self):
         from phi.math import reshaped_native
-        ind_batch = batch(self._indices & self._pointers)
+        ind_batch = batch(self._indices) & batch(self._pointers)
         channels = non_instance(self._values).without(ind_batch)
         native_indices = reshaped_native(self._indices, [ind_batch, instance], force_expand=True)
         native_pointers = reshaped_native(self._pointers, [ind_batch, instance], force_expand=True)
@@ -476,7 +477,7 @@ def dense(x: Tensor) -> Tensor:
     from phi.math import reshaped_tensor
     if isinstance(x, SparseCoordinateTensor):
         from ._ops import scatter, zeros
-        base_grid = zeros(spatial(**x.shape.untyped_dict), dtype=x.dtype)
+        base_grid = zeros(x.shape._with_types(SPATIAL_DIM), dtype=x.dtype)
         result_sp = scatter(base_grid, x._indices, x._values, mode='add', outside_handling='undefined')
         result = rename_dims(result_sp, shape, x.shape)
         return result
