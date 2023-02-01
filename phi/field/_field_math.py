@@ -1,5 +1,5 @@
 from numbers import Number
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Optional
 
 from phi import geom
 from phi import math
@@ -103,6 +103,7 @@ def laplace(field: GridType,
 def spatial_gradient(field: CenteredGrid,
                      gradient_extrapolation: Extrapolation = None,
                      type: type = CenteredGrid,
+                     dims: math.DimFilter = spatial,
                      stack_dim: Shape = channel('vector'),
                      order=2,
                      implicit: Solve = None):
@@ -119,6 +120,7 @@ def spatial_gradient(field: CenteredGrid,
         field: centered grid of any number of dimensions (scalar field, vector field, tensor field)
         gradient_extrapolation: Extrapolation of the output
         type: either `CenteredGrid` or `StaggeredGrid`
+        dims: Along which dimensions to compute the spatial gradient. Only supported when `type==CenteredGrid`.
         stack_dim: Dimension to be added. This dimension lists the spatial_gradient w.r.t. the spatial dimensions.
             The `field` must not have a dimension of the same name.
         order: Spatial order of accuracy.
@@ -164,7 +166,8 @@ def spatial_gradient(field: CenteredGrid,
     field.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
     if implicit:
         gradient_extrapolation = map(_ex_map_f(extrap_map_rhs), gradient_extrapolation)
-    spatial_dims = field.shape.spatial.names
+    spatial_dims = field.shape.only(dims).names
+    stack_dim = stack_dim._with_item_names((spatial_dims,))
     if type == CenteredGrid:
         # ToDo if extrapolation == math.extrapolation.NONE, extend size by 1
         # pad = 1 if extrapolation == math.extrapolation.NONE else 0
@@ -175,16 +178,18 @@ def spatial_gradient(field: CenteredGrid,
             std_widths = (1, 1)
         padded_components = [pad(field, {dim_: base_widths if dim_ == dim else std_widths for dim_ in spatial_dims}) for dim in spatial_dims]
     elif type == StaggeredGrid:
+        assert spatial_dims == field.shape.spatial.names, f"spatial_gradient with type=StaggeredGrid requires dims=spatial, i.e. dims='{','.join(field.shape.spatial.names)}'"
         base_widths = (base_widths[0], base_widths[1]-1)
         padded_components = pad_for_staggered_output(field, gradient_extrapolation, field.shape.spatial.names, base_widths)
     else:
         raise ValueError(type)
-    shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
-    result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
+    shifted_components = [shift(padded_component, needed_shifts, stack_dim=None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
+    result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
     if type == CenteredGrid:
         result = stack(result_components, stack_dim)
     else:
-        result = StaggeredGrid(math.stack([component.values for component in result_components], channel('vector')), bounds=field.bounds, extrapolation=gradient_extrapolation)
+        assert stack_dim.name == 'vector', f"spatial_gradient with type=StaggeredGrid requires stack_dim.name == 'vector' but got '{stack_dim.name}'"
+        result = StaggeredGrid(math.stack([component.values for component in result_components], channel(vector=spatial_dims)), bounds=field.bounds, extrapolation=gradient_extrapolation)
     result = result.with_extrapolation(gradient_extrapolation)
     if implicit:
         implicit.x0 = result
@@ -228,7 +233,7 @@ def pad_for_staggered_output(field: CenteredGrid, output_extrapolation: Extrapol
     return padded_components
 
 
-def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Shape = channel('shift'), dims=spatial, pad=True):
+def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Optional[Shape] = channel('shift'), dims=spatial, pad=True):
     """
     Wraps :func:`math.shift` for CenteredGrid.
 
