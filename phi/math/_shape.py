@@ -903,23 +903,19 @@ class Shape:
         """
         dims = parse_dim_order(dims)
         sizes = [math.rename_dims(s, dims, new) if isinstance(s, math.Tensor) else s for s in self.sizes]
-        if isinstance(new, Shape):  # replace names and types
-            names = list(self.names)
-            types = list(self.types)
-            item_names = list(self.item_names)
-            for old_name, new_dim in zip(dims, new):
-                if old_name in self:
+        new = parse_dim_order(new) if isinstance(new, str) else new
+        names = list(self.names)
+        types = list(self.types)
+        item_names = list(self.item_names)
+        for old_name, new_dim in zip(dims, new):
+            if old_name in self:
+                if isinstance(new_dim, Shape):
                     names[self.index(old_name)] = new_dim.name
                     types[self.index(old_name)] = new_dim.type
                     item_names[self.index(old_name)] = new_dim.item_names[0]
-            return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
-        else:  # replace only names
-            new = parse_dim_order(new)
-            names = list(self.names)
-            for old_name, new_name in zip(dims, new):
-                if old_name in self:
-                    names[self.index(old_name)] = new_name
-            return Shape(tuple(sizes), tuple(names), self.types, self.item_names)
+                else:
+                    names[self.index(old_name)] = new_dim
+        return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
 
     def replace(self, dims: 'Shape' or str or tuple or list, new: 'Shape') -> 'Shape':
         """
@@ -1302,7 +1298,7 @@ def shape(obj) -> Shape:
         return EMPTY_SHAPE
     elif isinstance(obj, PhiTreeNode):
         from phi.math._magic_ops import all_attributes
-        return merge_shapes(*[getattr(obj, a) for a in all_attributes(obj)])
+        return merge_shapes(*[getattr(obj, a) for a in all_attributes(obj, assert_any=True)])
     else:
         from .backend import choose_backend, NoBackendFound
         try:

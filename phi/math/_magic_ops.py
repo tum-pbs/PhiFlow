@@ -306,6 +306,8 @@ def rename_dims(value,
     """
     Change the name and optionally the type of some dimensions of `value`.
 
+    Dimensions that are not present on value will be ignored. The corresponding new dimensions given by `names` will not be added.
+
     Args:
         value: `Shape` or `Tensor` or `Shapable`.
         dims: Existing dimensions of `value`.
@@ -323,22 +325,31 @@ def rename_dims(value,
     """
     if isinstance(value, Shape):
         return value._replace_names_and_types(dims, names)
+    elif isinstance(value, (Number, bool)):
+        return value
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be a Shape or Shapable but got {type(value).__name__}"
-    dims = shape(value).only(dims)
-    names = dims._replace_names_and_types(dims, names)
+    dims = parse_dim_order(dims)
+    if isinstance(names, str):
+        names = parse_dim_order(names)
+    assert len(dims) == len(names), f"names and dims must be of equal length but got #dims={len(dims)} and #names={len(names)}"
+    existing_dims = shape(value).only(dims, reorder=True)
+    if not existing_dims:
+        return value
+    existing_names = [n for i, n in enumerate(names) if dims[i] in existing_dims]
+    existing_names = existing_dims._replace_names_and_types(existing_dims, existing_names)
     # --- First try __replace_dims__ ---
     if hasattr(value, '__replace_dims__'):
-        result = value.__replace_dims__(dims.names, names, **kwargs)
+        result = value.__replace_dims__(existing_dims.names, existing_names, **kwargs)
         if result is not NotImplemented:
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: rename_dims(getattr(value, a), dims, names, **kwargs) for a in all_attributes(value)}
+        new_attributes = {a: rename_dims(getattr(value, a), existing_dims, existing_names, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
-    if shape(value).only(dims).volume > 8:
+    if shape(value).only(existing_dims).volume > 8:
         warnings.warn(f"rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
-    for old_name, new_dim in zip(dims.names, names):
+    for old_name, new_dim in zip(existing_dims.names, existing_names):
         value = stack(unstack(value, old_name), new_dim, **kwargs)
     return value
 
@@ -353,7 +364,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
     The type of the new dimension will be equal to the types of `dims`.
     If `dims` have varying types, the new dimension will be a batch dimension.
 
-    If none of `dims` exist on `value`, `packed_dim` will be added only if it is given with a definite size.
+    If none of `dims` exist on `value`, `packed_dim` will be added only if it is given with a definite size and `value` is not a primitive type.
 
     See Also:
         `unpack_dim()`
@@ -374,6 +385,8 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
         >>> pack_dims(math.zeros(spatial(x=4, y=3)), spatial, instance('points'))
         (pointsⁱ=12) const 0.0
     """
+    if isinstance(value, (Number, bool)):
+        return value
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     dims = shape(value).only(dims, reorder=True)
     if packed_dim in shape(value):
@@ -405,6 +418,8 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
     This function replaces the traditional `reshape` for these cases.
     The compressed dimension `dim` is assumed to contain elements laid out according to the order of `unpacked_dims`.
 
+    If `dim` does not exist on `value`, this function will return `value` as-is. This includes primitive types.
+
     See Also:
         `pack_dims()`
 
@@ -423,6 +438,8 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
         >>> unpack_dim(math.zeros(instance(points=12)), 'points', spatial(x=4, y=3))
         (xˢ=4, yˢ=3) const 0.0
     """
+    if isinstance(value, (Number, bool)):
+        return value
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     if isinstance(dim, Shape):
         dim = dim.name
