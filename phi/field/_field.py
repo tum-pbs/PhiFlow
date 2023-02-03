@@ -206,11 +206,13 @@ class SampledField(Field):
     def __getitem__(self: 'FieldType', item) -> 'FieldType':
         raise NotImplementedError(self)
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'FieldType':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'FieldType':
         from ._field_math import stack
         return stack(values, dim, kwargs.get('bounds', None))
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'FieldType':
+    @staticmethod
+    def __concat__(values: tuple, dim: str, **kwargs) -> 'FieldType':
         from ._field_math import concat
         return concat(values, dim)
 

@@ -212,7 +212,8 @@ class ConstantExtrapolation(Extrapolation):
     def __getitem__(self, item):
         return ConstantExtrapolation(self.value[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'ConstantExtrapolation':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'ConstantExtrapolation':
         if all(isinstance(v, ConstantExtrapolation) for v in values):
             return ConstantExtrapolation(stack([v.value for v in values], dim, **kwargs))
         else:

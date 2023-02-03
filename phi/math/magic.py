@@ -163,10 +163,12 @@ class Shapable(metaclass=_ShapableType):
 
     Additionally, the `phi.math.BoundDim` syntax for dimension renaming and retyping is enabled, e.g. `obj.dim.as_channel('vector')`.
     """
-
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Shapable':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Shapable':
         """
         Stack all `values` into a single instance along the new dimension `dim`.
+
+        This method can be implemented as a bound method or as a `staticmethod` (without the `self` argument).
 
         Args:
             values: `tuple` of `Shapable` objects to be stacked. `self` is included in that list at least once.
@@ -183,9 +185,12 @@ class Shapable(metaclass=_ShapableType):
         """
         raise NotImplementedError
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Shapable':
+    @staticmethod
+    def __concat__(values: tuple, dim: str, **kwargs) -> 'Shapable':
         """
         Concatenate `values` along `dim`.
+
+        This method can be implemented as a bound method or as a `staticmethod` (without the `self` argument).
 
         Args:
             values: Values to concatenate. `self` is included in that list at least once.

@@ -312,8 +312,9 @@ class Geometry:
                 return False
         return True
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
-        if all(type(v) == type(self) for v in values):
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(type(v) == type(values[0]) for v in values):
             return NotImplemented  # let attributes be stacked
         else:
             from ._stack import GeometryStack

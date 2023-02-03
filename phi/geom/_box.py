@@ -224,11 +224,12 @@ class Box(BaseBox, metaclass=BoxType):
         item = _keep_vector(slicing_dict(self, item))
         return Box(self._lower[item], self._upper[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Box) for v in values):
             return NotImplemented  # stack attributes
         else:
-            return Geometry.__stack__(self, values, dim, **kwargs)
+            return Geometry.__stack__(values, dim, **kwargs)
 
     def __eq__(self, other):
         return isinstance(other, BaseBox)\
@@ -335,11 +336,12 @@ class Cuboid(BaseBox):
         item = _keep_vector(slicing_dict(self, item))
         return Cuboid(self._center[item], self._half_size[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Cuboid) for v in values):
             return Cuboid(math.stack([v.center for v in values], dim, **kwargs), math.stack([v.half_size for v in values], dim, **kwargs))
         else:
-            return Geometry.__stack__(self, values, dim, **kwargs)
+            return Geometry.__stack__(values, dim, **kwargs)
 
     def __variable_attrs__(self):
         return '_center', '_half_size'
@@ -465,7 +467,8 @@ class GridCell(BaseBox):
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Cuboid':
         return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         from ._stack import GeometryStack
         return GeometryStack(math.layout(values, dim))
 

@@ -14,7 +14,8 @@ class Stackable:
     def __getitem__(self, item: dict):
         return Stackable(self.shape.after_gather(slicing_dict(self, item)))
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Stackable':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Stackable':
         return Stackable(merge_shapes(dim, *[v.shape for v in values]))
 
 
@@ -26,7 +27,8 @@ class ConcatExpandable:
     def __getitem__(self, item: dict):
         return ConcatExpandable(self.shape.after_gather(slicing_dict(self, item)))
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'ConcatExpandable':
+    @staticmethod
+    def __concat__(values: tuple, dim: str, **kwargs) -> 'ConcatExpandable':
         try:
             new_size = sum([v.shape.get_item_names(dim) for v in values], ())
         except:

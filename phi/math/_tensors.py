@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import numpy
 import numpy as np
 
+from .magic import Shapable
 from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack, pack_dims, expand
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
@@ -467,7 +468,8 @@ class Tensor:
         """
         raise NotImplementedError()
 
-    def __stack__(self, values: tuple, dim: Shape, **_kwargs) -> 'Tensor':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **_kwargs) -> 'Tensor':
         from ._ops import stack_tensors
         return stack_tensors(values, dim)
 
@@ -475,7 +477,8 @@ class Tensor:
         from ._ops import expand_tensor
         return expand_tensor(self, dims)
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Tensor':
+    @staticmethod
+    def __concat__(values: tuple, dim: str, **kwargs) -> 'Tensor':
         from ._ops import concat_tensor
         return concat_tensor(values, dim)
 
@@ -948,12 +951,13 @@ class Layout(Tensor):
         assert self.rank == 0, f"Cannot convert tensor with non-empty shape {self.shape} to bool. Use tensor.any or tensor.all instead."
         return bool(self._obj)
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Shapable':
+    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Layout':
         obj = [v.native(self._shape) for v in values]
         new_shape = concat_shapes(dim, self._shape)
         return Layout(obj, new_shape)
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'Shapable':
+    @staticmethod
+    def __concat__(values: tuple, dim: str, **kwargs) -> 'Shapable':
         return NotImplemented
 
     def __flatten__(self, flat_dim: Shape, flatten_batch: bool):
