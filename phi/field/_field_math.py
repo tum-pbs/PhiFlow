@@ -107,7 +107,6 @@ def spatial_gradient(field: CenteredGrid,
                      stack_dim: Shape = channel('vector'),
                      order=2,
                      implicit: Solve = None):
-
     """
     Finite difference spatial_gradient.
 
@@ -131,7 +130,6 @@ def spatial_gradient(field: CenteredGrid,
 
     Returns:
         spatial_gradient field of type `type`.
-
     """
     if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
