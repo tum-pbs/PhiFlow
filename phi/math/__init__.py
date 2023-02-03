@@ -23,7 +23,7 @@ from ._shape import (
     merge_shapes, concat_shapes, IncompatibleShapes,
     enable_debug_checks,
 )
-from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten, copy_with, replace
+from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, copy_with, replace
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
 from ._sparse import dense, get_sparsity
 from .extrapolation import Extrapolation
