@@ -1,5 +1,7 @@
-from typing import Tuple
+from typing import Tuple, Union
 from unittest import TestCase
+
+import dataclasses
 
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
     pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros, meshgrid, assert_close
@@ -51,7 +53,17 @@ class ValuedPhiTreeNode:
         return ValuedPhiTreeNode(self.tensor[item].shape)
 
 
-TEST_CLASSES = [Stackable, ConcatExpandable, random_normal, ValuedPhiTreeNode]
+@dataclasses.dataclass
+class MyPoint:
+    x: Tensor or float
+    y: Union[Tensor, float]
+    is_normalized: bool = dataclasses.field(compare=False)
+
+    def __getitem__(self, item):
+        return MyPoint(self.x[item], self.y[item], is_normalized=self.is_normalized)
+
+
+TEST_CLASSES = [Stackable, ConcatExpandable, random_normal, ValuedPhiTreeNode, lambda shape: MyPoint(zeros(shape), zeros(shape), is_normalized=False)]
 
 
 class TestMagicOps(TestCase):
@@ -89,6 +101,12 @@ class TestMagicOps(TestCase):
         self.assertTrue(issubclass(ConcatExpandable, Shaped))
         self.assertTrue(issubclass(ConcatExpandable, Sliceable))
         self.assertTrue(issubclass(ConcatExpandable, Shapable))
+        self.assertTrue(issubclass(ValuedPhiTreeNode, Shaped))
+        self.assertTrue(issubclass(ValuedPhiTreeNode, Sliceable))
+        self.assertTrue(issubclass(ValuedPhiTreeNode, Sliceable))
+        self.assertTrue(issubclass(MyPoint, Shaped))
+        self.assertTrue(issubclass(MyPoint, Sliceable))
+        self.assertTrue(issubclass(MyPoint, Sliceable))
 
     def test_instancecheck(self):
         for test_class in TEST_CLASSES:

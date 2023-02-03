@@ -269,7 +269,7 @@ class TestTensors(TestCase):
             pass
         try:
             math.cos(t)
-        except AssertionError:
+        except ValueError:
             pass
 
     def test_Dict(self):

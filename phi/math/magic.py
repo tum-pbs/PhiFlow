@@ -18,6 +18,8 @@ To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`
 import warnings
 from typing import Tuple, Callable
 
+import dataclasses
+
 from ._shape import Shape, shape, channel, non_batch, batch, spatial, instance, concat_shapes, dual
 from .backend._dtype import DType
 
@@ -313,6 +315,8 @@ class _PhiTreeNodeType(type):
             return True
         elif isinstance(instance, dict):
             return all(isinstance(name, str) for name in instance.keys()) and all(isinstance(val, PhiTreeNode) for val in instance.values())
+        elif dataclasses.is_dataclass(instance):
+            return True
         else:
             return hasattr(instance, '__variable_attrs__') or hasattr(instance, '__value_attrs__')
 
@@ -324,6 +328,8 @@ class _PhiTreeNodeType(type):
             return True
         elif issubclass(subclass, Dict):
             return True
+        elif dataclasses.is_dataclass(subclass):
+            return True
         else:
             return hasattr(subclass, '__variable_attrs__') or hasattr(subclass, '__value_attrs__')
 
@@ -332,11 +338,14 @@ class PhiTreeNode(metaclass=_PhiTreeNodeType):
     """
     Φ-tree nodes can be iterated over and disassembled or flattened into elementary objects, such as tensors.
     `phi.math.Tensor` instances as well as PyTree nodes (`tuple`, `list`, `dict` with `str` keys) are Φ-tree nodes.
+    All data classes are also considered PhiTreeNodes as of version 2.3.
 
-    For custom classes to be considered Φ-tree nodes, they have to implement one of the following magic methods:
+    For custom classes to be considered Φ-tree nodes, they have to be a dataclass or implement one of the following magic methods:
 
     * `__variable_attrs__()`
     * `__value_attrs__()`
+
+    Dataclasses may also implement these functions to specify which attributes should be considered value / variable properties.
 
     Additionally, Φ-tree nodes must override `__eq__()` to allow comparison of data-stripped (key) instances.
 

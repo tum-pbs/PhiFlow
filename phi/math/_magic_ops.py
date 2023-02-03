@@ -3,10 +3,12 @@ import warnings
 from numbers import Number
 from typing import TypeVar, Tuple, Set
 
+import dataclasses
+
 from . import channel
 from .backend import choose_backend, NoBackendFound
 from .backend._dtype import DType
-from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes, spatial
+from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes, spatial, parse_dim_order
 from .magic import Sliceable, Shaped, Shapable, PhiTreeNode
 
 
@@ -511,26 +513,45 @@ def variable_attributes(obj) -> Tuple[str]:
         return obj.__variable_attrs__()
     elif hasattr(obj, '__value_attrs__'):
         return obj.__value_attrs__()
+    elif dataclasses.is_dataclass(obj):
+        return tuple([f.name for f in dataclasses.fields(obj)])
     else:
         raise ValueError(f"Not a PhiTreeNode: {type(obj).__name__}")
 
 
 def value_attributes(obj) -> Tuple[str, ...]:
-    assert hasattr(obj, '__value_attrs__'), f"{type(obj).__name__} must implement '__value_attrs__()' to be used with value functions."
-    return obj.__value_attrs__()
+    if hasattr(obj, '__value_attrs__'):
+        return obj.__value_attrs__()
+    if dataclasses.is_dataclass(obj):
+        return tuple([f.name for f in dataclasses.fields(obj)])
+    raise ValueError(f"{type(obj).__name__} must implement '__value_attrs__()' or be a dataclass to be used with value functions.")
 
 
 def variable_values(obj) -> Tuple[str, ...]:
-    assert hasattr(obj, '__value_attrs__'), f"{type(obj).__name__} must implement '__value_attrs__()' to be used with value functions."
     if hasattr(obj, '__variable_attrs__'):
         values = obj.__value_attrs__()
         variables = obj.__variable_attrs__()
         return tuple([a for a in values if a in variables])
     else:
-        return obj.__value_attrs__()
+        return obj.__value_attrs__()  # this takes care of dataclasses as well
 
 
-def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
+def all_attributes(obj, assert_any=False) -> Set[str]:
+    if not isinstance(obj, PhiTreeNode):
+        raise ValueError(f"Not a PhiTreeNode: {type(obj).__name__}")
+    result = set()
+    if hasattr(obj, '__variable_attrs__'):
+        result.update(obj.__variable_attrs__())
+    if hasattr(obj, '__value_attrs__'):
+        result.update(obj.__value_attrs__())
+    if dataclasses.is_dataclass(obj) and not hasattr(obj, '__variable_attrs__') and not hasattr(obj, '__value_attrs__'):
+        result.update([f.name for f in dataclasses.fields(obj)])
+    if assert_any:
+        assert result, f"{type(obj).__name__} is not a valid tree node because it has no tensor-like attributes."
+    return result
+
+
+def replace(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
     """
     Creates a copy of the given `PhiTreeNode` with updated values as specified in `updates`.
 
@@ -548,6 +569,8 @@ def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
         return obj.__with_attrs__(**updates)
     elif isinstance(obj, (Number, bool)):
         return obj
+    elif dataclasses.is_dataclass(obj):
+        return dataclasses.replace(obj, **updates)
     else:
         cpy = copy.copy(obj)
         for attr, value in updates.items():
@@ -555,17 +578,7 @@ def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
         return cpy
 
 
-def all_attributes(obj, assert_any=False) -> Set[str]:
-    if not isinstance(obj, PhiTreeNode):
-        raise ValueError(f"Not a PhiTreeNode: {type(obj).__name__}")
-    result = set()
-    if hasattr(obj, '__variable_attrs__'):
-        result.update(obj.__variable_attrs__())
-    if hasattr(obj, '__value_attrs__'):
-        result.update(obj.__value_attrs__())
-    if assert_any:
-        assert result, f"{type(obj).__name__} is not a valid tree node because it has no tensor-like attributes."
-    return result
+copy_with = replace
 
 
 # Other Ops
