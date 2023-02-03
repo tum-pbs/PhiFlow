@@ -20,7 +20,8 @@ from ._shape import (
     shape, Shape, EMPTY_SHAPE, DimFilter,
     spatial, channel, batch, instance, dual,
     non_batch, non_spatial, non_instance, non_channel, non_dual,
-    merge_shapes, concat_shapes, IncompatibleShapes
+    merge_shapes, concat_shapes, IncompatibleShapes,
+    enable_debug_checks,
 )
 from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, unpack_dim as unpack_dims, flatten, copy_with
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar

@@ -5,12 +5,25 @@ from typing import Tuple, Callable, List, Union, Any
 
 from phi import math
 
+
 BATCH_DIM = 'batch'
 SPATIAL_DIM = 'spatial'
 CHANNEL_DIM = 'channel'
 INSTANCE_DIM = 'înstance'
 DUAL_DIM = 'dual'
+
 TYPE_ABBR = {SPATIAL_DIM: "ˢ", CHANNEL_DIM: "ᶜ", INSTANCE_DIM: "ⁱ", BATCH_DIM: "ᵇ", DUAL_DIM: "ᵈ", None: "⁻"}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
+
+DEBUG_CHECKS = False
+
+
+def enable_debug_checks():
+    """
+    Once called, additional type checks are enabled.
+    This may result in a noticeable drop in performance.
+    """
+    global DEBUG_CHECKS
+    DEBUG_CHECKS = True
 
 
 class Shape:
@@ -46,16 +59,16 @@ class Shape:
             `Shape.name`.
         """
         self.types: Tuple[str] = types  # undocumented, may be private
-        self.item_names: Tuple[str or 'Shape'] = (None,) * len(sizes) if item_names is None else item_names
-        # Debug asserts
-        # assert len(sizes) == len(names) == len(types) == len(item_names), f"sizes={sizes}, names={names}, types={types}, item_names={item_names}"
-        # assert all(isinstance(n, str) for n in names), f"All names must be of type string but got {names}"
-        # assert isinstance(self.item_names, tuple)
-        # assert all([items is None or isinstance(items, tuple) for items in self.item_names])
-        # assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
-        # for size in sizes:
-        #     if size is not None and not isinstance(size, int):
-        #         assert size.rank > 0
+        self.item_names: Tuple[str or 'Shape'] = (None,) * len(sizes) if item_names is None else item_names  # undocumented
+        if DEBUG_CHECKS:
+            assert len(sizes) == len(names) == len(types) == len(item_names), f"sizes={sizes}, names={names}, types={types}, item_names={item_names}"
+            assert all(isinstance(n, str) for n in names), f"All names must be of type string but got {names}"
+            assert isinstance(self.item_names, tuple)
+            assert all([items is None or isinstance(items, tuple) for items in self.item_names])
+            assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
+            for size in sizes:
+                if size is not None and not isinstance(size, int):
+                    assert size.rank > 0
 
     def _to_dict(self, include_sizes=True):
         result = dict(names=self.names, types=self.types, item_names=self.item_names)
