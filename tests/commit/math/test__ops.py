@@ -605,8 +605,12 @@ class TestMathFunctions(TestCase):
                     [[1, 2, 3], [11, 12, 13]]], channel('out'), batch('batch'), spatial('x'))
                 assert_close(math.convolve(x, kernel, math.extrapolation.ZERO), expected, msg=backend.name)
 
-    # def test_convolution_2d(self):  # TODO
-    #     pass
+    def test_convolution_2d(self):
+        for backend in BACKENDS:
+            with backend:
+                values = math.random_normal(spatial(x=64, y=64))
+                kernel = math.random_normal(spatial(x=5, y=5))
+                values_conv = math.convolve(values, kernel, extrapolation.PERIODIC)
 
     def test_reshaped_native(self):
         a = math.random_uniform(channel(vector=2) & spatial(x=4, y=3))

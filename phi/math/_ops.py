@@ -1925,8 +1925,7 @@ def convolve(value: Tensor,
     out_channels = kernel.shape.channel.without(in_channels)
     batch = value.shape.batch & kernel.shape.batch
     if extrapolation is not None and extrapolation != e_.ZERO:
-        value = pad(value, {dim: (kernel.shape.get_size(dim) // 2, (kernel.shape.get_size(dim) - 1) // 2)
-                            for dim in conv_shape.name}, extrapolation)
+        value = pad(value, {dim: (kernel.shape.get_size(dim) // 2, (kernel.shape.get_size(dim) - 1) // 2) for dim in conv_shape.names}, extrapolation)
     native_kernel = reshaped_native(kernel, (batch, out_channels, in_channels, *conv_shape.names), force_expand=in_channels)
     native_value = reshaped_native(value, (batch, in_channels, *conv_shape.names), force_expand=batch)
     backend = choose_backend(native_value, native_kernel)
