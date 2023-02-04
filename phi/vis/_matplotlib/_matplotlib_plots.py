@@ -328,23 +328,39 @@ def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
     if spatial(data.points):  # Connect by line
         x, y = math.reshaped_numpy(data.points.vector[dims], [vector, spatial(data), instance(data)])
         axis.plot(x, y, color=color[0])
-    if non_channel(data).rank == 1 and non_channel(data).item_names[0]:
-        _annotate_points(axis, data.points, non_channel(data))
+    if any(non_channel(data).item_names):
+        _annotate_points(axis, data.points)
     return color[0]
 
 
-def _annotate_points(axis, points: math.Tensor, labelled_dim: math.Shape):
-    if labelled_dim.name in points.shape.get_item_names('vector'):
+def _annotate_points(axis, points: math.Tensor):
+    labelled_dims = non_channel(points)
+    labelled_dims = math.concat_shapes(*[d for d in labelled_dims if d.item_names[0]])
+    if not labelled_dims:
+        return
+    if all(dim.name in points.shape.get_item_names('vector') for dim in labelled_dims):
         return  # The point labels match one of the figure axes, so they are redundant
     if points.shape['vector'].size == 2:
-        x, y = math.reshaped_native(points, ['vector', points.shape.without('vector')], to_numpy=True, force_expand=True)
-        if labelled_dim.item_names[0]:
-            x_view = axis.get_xlim()[1] - axis.get_xlim()[0]
-            y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
-            for x_, y_, label in zip(x, y, labelled_dim.item_names[0]):
-                offset_x = x_ * (1 + .0003 * x_view) if axis.get_xscale() == 'log' else x_ + .01 * x_view
-                offset_y = y_ * (1 + .0003 * y_view) if axis.get_yscale() == 'log' else y_ + .01 * y_view
-                axis.text(offset_x, offset_y, label)
+        xs, ys = math.reshaped_numpy(points, ['vector', points.shape.without('vector')], force_expand=True)
+        if labelled_dims.rank == 1:
+            labels = labelled_dims.item_names[0]
+        else:
+            labels = labelled_dims.meshgrid(names=True)
+            labels = [" ".join(index_dict.values()) for index_dict in labels]
+        x_view = axis.get_xlim()[1] - axis.get_xlim()[0]
+        y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
+        x_c = .95 * axis.get_xlim()[1] + .1 * axis.get_xlim()[0]
+        y_c = .95 * axis.get_ylim()[1] + .1 * axis.get_ylim()[0]
+        for x, y, label in zip(xs, ys, labels):
+            if axis.get_xscale() == 'log':
+                offset_x = x * (1 + .0003 * x_view) if x < x_c else x * (1 - .0003 * x_view)
+            else:
+                offset_x = x + .01 * x_view if x < x_c else x - .01 * x_view
+            if axis.get_yscale() == 'log':
+                offset_y = y * (1 + .0003 * y_view) if y < y_c else y * (1 - .0003 * y_view)
+            else:
+                offset_y = y + .01 * y_view if y < y_c else y - .01 * y_view
+            axis.text(offset_x, offset_y, label)
 
 
 def _rgba(col):
