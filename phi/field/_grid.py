@@ -4,7 +4,6 @@ from phi.math import Solve
 
 from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
-from . import HardGeometryMask
 from ._embed import FieldEmbedding
 from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation
 from ..geom._stack import GeometryStack
@@ -196,7 +195,7 @@ class CenteredGrid(Grid):
             if isinstance(values, math.Tensor):
                 values = math.expand(values, resolution)
             elif isinstance(values, Geometry):
-                values = reduce_sample(HardGeometryMask(values), elements)
+                values = reduce_sample(values, elements)
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):
@@ -349,7 +348,7 @@ class StaggeredGrid(Grid):
                     else:  # Keep dim order from data and check it matches resolution
                         assert set(resolution_from_staggered_tensor(values, extrapolation)) == set(resolution), f"Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html"
             elif isinstance(values, Geometry):
-                values = reduce_sample(HardGeometryMask(values), elements)
+                values = reduce_sample(values, elements)
             elif isinstance(values, Field):
                 values = reduce_sample(values, elements)
             elif callable(values):

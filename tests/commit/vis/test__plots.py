@@ -3,7 +3,7 @@ from unittest import TestCase
 import plotly
 
 from phi import geom, field, math
-from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, SoftGeometryMask
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, resample
 from phi.geom import Sphere, Box
 from phi.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack
 from phi.vis import show, overlay, plot, close
@@ -104,12 +104,12 @@ class TestPlots(TestCase):
         self._test_plot(overlay(grid, grid * (0.1, 0.02), cloud), title='Overlay')
 
     def test_plot_density_3d_batched(self):
-        sphere = CenteredGrid(SoftGeometryMask(Sphere(x=.5, y=.5, z=.5, radius=.4)), x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1))
+        sphere = resample(Sphere(x=.5, y=.5, z=.5, radius=.4), CenteredGrid(0, x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1)), soft=True)
         cylinder = CenteredGrid(geom.infinite_cylinder(x=16, y=16, inf_dim='z', radius=10), x=32, y=32, z=32)
         self._test_plot(sphere, cylinder)
 
     def test_plot_vector_3d_batched(self):
-        sphere = CenteredGrid(SoftGeometryMask(Sphere(x=.5, y=.5, z=.5, radius=.4)), x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1)) * (.1, 0, 0)
+        sphere = resample(Sphere(x=.5, y=.5, z=.5, radius=.4), CenteredGrid(0, x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1)), soft=True) * (.1, 0, 0)
         cylinder = CenteredGrid(geom.infinite_cylinder(x=16, y=16, inf_dim='z', radius=10), x=32, y=32, z=32) * (0, 0, .1)
         self._test_plot(sphere, cylinder)
 

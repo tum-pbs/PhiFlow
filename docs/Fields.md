@@ -60,9 +60,6 @@ This results in the `values` having different shapes for the different vector co
 [`PointCloud`](phi/field/#phi.field.PointCloud)
 is a set of points or finite elements, each associated with a value.
 
-[`SoftGeometryMask`](phi/field/#phi.field.SoftGeometryMask) / [`HardGeometryMask`](phi/field/#phi.field.HardGeometryMask):
-1 inside the geometry, 0 outside.
-
 [`Noise`](phi/field/#phi.field.Noise)
 samples random fluctuations of certain sizes.
 Currently, it only supports resampling to grids.

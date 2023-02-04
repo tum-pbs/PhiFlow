@@ -2,8 +2,8 @@ import warnings
 from typing import Any, Tuple, Union
 
 from phi import math
-from phi.geom import Geometry, GridCell, Box
-from ._field import SampledField
+from phi.geom import Geometry, GridCell, Box, Point
+from ._field import SampledField, resample
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance, Shape
 from ..math.extrapolation import Extrapolation, ConstantExtrapolation
@@ -19,8 +19,18 @@ class PointCloud(SampledField):
 
     All points belonging to one example must be listed in the 'points' dimension.
 
-    Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-    When sampling this field on a grid, scatter functions may be used.
+    Sampling arguments:
+
+        soft: default=False.
+            If `True`, interpolates smoothly from 1 to 0 between the inside and outside of elements.
+            If `False`, only the center position of the new representation elements is checked against the point cloud elements.
+        scatter: default=False.
+            If `True`, scattering will be used to sample the point cloud onto grids.
+            Then, each element of the point cloud can only affect a single cell.
+            This is only recommended when the points are much smaller than the cells.
+        outside_handling: default='discard'. One of `discard`, `clamp`, `undefined`.
+        balance: default=0.5. Only used when `soft=True`.
+            See the description in `phi.geom.Geometry.approximate_fraction_inside()`.
 
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
@@ -30,8 +40,7 @@ class PointCloud(SampledField):
                  values: Any = 1.,
                  extrapolation: Union[Extrapolation, float] = 0.,
                  add_overlapping=False,
-                 bounds: Box = None,
-                 color: Any = None):
+                 bounds: Box = None):
         """
         Args:
           elements: `Tensor` or `Geometry` object specifying the sample points and sizes
@@ -42,8 +51,6 @@ class PointCloud(SampledField):
         """
         SampledField.__init__(self, elements, math.wrap(values), extrapolation, bounds)
         self._add_overlapping = add_overlapping
-        if color is not None:
-            warnings.warn("PointCloud.color is no longer in use. Use plot(data, color=...) instead.", SyntaxWarning)
 
     @property
     def shape(self):
@@ -116,16 +123,21 @@ class PointCloud(SampledField):
             radius = math.max(self.elements.bounding_radius())
             return Box(bounds.lower - radius, bounds.upper + radius)
 
-    def _sample(self, geometry: Geometry, outside_handling="discard", **kwargs) -> Tensor:
+    def _sample(self, geometry: Geometry, soft=False, scatter=False, outside_handling='discard', balance=0.5) -> Tensor:
         if geometry == self.elements:
             return self.values
-        elif isinstance(geometry, GridCell):
-            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
-        elif isinstance(geometry, GeometryStack):
-            sampled = [self._sample(g, **kwargs) for g in geometry.geometries]
+        if isinstance(geometry, GeometryStack):
+            sampled = [self._sample(g, soft, scatter, outside_handling, balance) for g in geometry.geometries]
             return math.stack(sampled, geometry.geometries.shape)
+        if isinstance(geometry, GridCell) and scatter:
+            assert not soft, "Cannot soft-sample when scatter=True"
+            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
         else:
-            raise NotImplementedError()
+            assert not isinstance(self._elements, Point), "Cannot sample Point-like elements with scatter=False"
+            if soft:
+                return self.elements.approximate_fraction_inside(geometry, balance)
+            else:
+                return math.to_float(self.elements.lies_inside(geometry.center))
 
     def grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling: str):
         """
@@ -138,7 +150,6 @@ class PointCloud(SampledField):
 
         Returns:
             `CenteredGrid`
-
         """
         closest_index = bounds.global_to_local(self.points) * resolution - 0.5
         mode = 'add' if self._add_overlapping else 'mean'
@@ -147,15 +158,6 @@ class PointCloud(SampledField):
             base += self._extrapolation.value
         scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=outside_handling)
         return scattered
-
-    def mask(self):
-        """
-        Returns an equivalent `PointCloud` with `values=1` and `extrapolation=0`
-
-        Returns:
-            `PointCloud`
-        """
-        return PointCloud(self.elements, bounds=self.bounds)
 
     def __repr__(self):
         return "PointCloud[%s]" % (self.shape,)
@@ -199,7 +201,7 @@ def distribute_points(geometries: tuple or list or Geometry or float,
     if isinstance(geometries, (tuple, list, Geometry)):
         from phi.geom import union
         geometries = union(geometries)
-    geometries = CenteredGrid(geometries, extrapolation, **domain)
+    geometries = resample(geometries, CenteredGrid(0, extrapolation, **domain), scatter=False)
     initial_points = _distribute_points(geometries.values, dim, points_per_cell, center=center)
     if radius is None:
         from phi.field._field_math import data_bounds

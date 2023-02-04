@@ -22,8 +22,8 @@ smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=smoke_res ** 2, y=smoke_res **
 viewer = view(smoke, velocity, namespace=globals(), play=False)
 for _ in viewer.range(warmup=1):
     # Resize grids if needed
-    inflow = SoftGeometryMask(INFLOW).at(CenteredGrid(0, smoke.extrapolation, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS))
-    smoke = smoke.at(inflow)
+    inflow = resample(INFLOW, CenteredGrid(0, smoke.extrapolation, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS), soft=True)
+    smoke = resample(smoke, inflow)
     velocity = velocity.at(StaggeredGrid(0, velocity.extrapolation, x=v_res ** 2, y=v_res ** 2, bounds=BOUNDS))
     # Physics step
     smoke = advect.mac_cormack(smoke, velocity, 1) + inflow

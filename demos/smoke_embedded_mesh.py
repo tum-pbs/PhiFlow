@@ -5,7 +5,7 @@ velocity_emb = velocity.at(StaggeredGrid(0, velocity, x=64, y=64, bounds=Box(x=(
 smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=200, y=200, bounds=Box(x=100, y=100))
 
 OBSTACLE = Obstacle(Sphere(x=50, y=60, radius=5))
-INFLOW = 0.2 * CenteredGrid(SoftGeometryMask(Sphere(x=50, y=9.5, radius=5)), 0, smoke.bounds, smoke.resolution)
+INFLOW = 0.2 * resample(Sphere(x=50, y=9.5, radius=5), CenteredGrid(0, 0, smoke.bounds, smoke.resolution), soft=True)
 pressure = None
 
 

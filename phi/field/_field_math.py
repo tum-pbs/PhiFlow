@@ -845,3 +845,22 @@ def support(field: SampledField, list_dim: Shape or str = instance('nonzero')) -
         `Tensor` with shape `(list_dim, vector)`
     """
     return field.points[math.nonzero(field.values, list_dim=list_dim)]
+
+
+def mask(obj: SampledFieldType or Geometry) -> SampledFieldType:
+    """
+    Returns a `Field` that masks the inside (or non-zero values when `obj` is a grid) of a physical object.
+    The mask takes the value 1 inside the object and 0 outside.
+    For `CenteredGrid` and `StaggeredGrid`, the mask labels non-zero non-NaN entries as 1 and all other values as 0
+
+    Returns:
+        `Grid` type or `PointCloud`
+    """
+    if isinstance(obj, PointCloud):
+        return PointCloud(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation), bounds=obj.bounds)
+    elif isinstance(obj, Geometry):
+        return PointCloud(obj, 1, 0)
+    elif isinstance(obj, CenteredGrid):
+        return math.cast(obj != 0, int)
+    else:
+        raise ValueError(obj)

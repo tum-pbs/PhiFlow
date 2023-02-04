@@ -583,10 +583,11 @@ copy_with = replace
 
 # Other Ops
 
+MagicType = TypeVar('MagicType')
 OtherMagicType = TypeVar('OtherMagicType')
 
 
-def cast(x: OtherMagicType, dtype: DType or type) -> OtherMagicType:
+def cast(x: MagicType, dtype: DType or type) -> OtherMagicType:
     """
     Casts `x` to a different data type.
 

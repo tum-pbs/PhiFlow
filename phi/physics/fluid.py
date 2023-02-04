@@ -7,7 +7,7 @@ from typing import Tuple, Callable
 
 from phi import math, field
 from phi.math import wrap, channel, Solve
-from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field
+from phi.field import AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field, resample
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType, StaggeredGrid
@@ -143,7 +143,7 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid,
     if order == 2 and not implicit:
         grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
         valid_grad = grad * hard_bcs
-        valid_grad = valid_grad.with_extrapolation(valid_grad.extrapolation - valid_grad.extrapolation)
+        valid_grad = valid_grad.with_extrapolation(extrapolation.remove_constant_offset(valid_grad.extrapolation))
         div = divergence(valid_grad)
         laplace = where(active, div, pressure)
     else:
@@ -174,7 +174,7 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle 
         if isinstance(obstacle, Geometry):
             obstacle = Obstacle(obstacle)
         assert isinstance(obstacle, Obstacle)
-        obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) @ velocity
+        obs_mask = resample(obstacle.geometry, velocity, soft=True, balance=1)
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
         else:

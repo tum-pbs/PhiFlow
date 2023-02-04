@@ -2,7 +2,7 @@ import warnings
 from numbers import Number
 
 from phi import math, field
-from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, HardGeometryMask
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, mask
 from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
 from phi.geom import Geometry
 from phi.math import Tensor, channel, instance
@@ -278,7 +278,7 @@ class Domain:
             Binary mask indicating valid fields w.r.t. the boundary conditions.
         """
         extrapolation = extrapolation if isinstance(extrapolation, math.Extrapolation) else self.boundaries[extrapolation]
-        accessible_mask = self.scalar_grid(HardGeometryMask(~union(not_accessible)), extrapolation=extrapolation)
+        accessible_mask = self.scalar_grid(mask(~union(not_accessible)), extrapolation=extrapolation)
         if type is CenteredGrid:
             return accessible_mask
         elif type is StaggeredGrid:
@@ -339,7 +339,7 @@ class Domain:
         Returns:
              PointCloud representation of `geometries`.
         """
-        geometries = HardGeometryMask(union(geometries)) @ self.grid()
+        geometries = mask(union(geometries)).at(self.grid())
         initial_points = _distribute_points(geometries.values, points_per_cell, center=center)
         return self.points(initial_points, color=color)
 

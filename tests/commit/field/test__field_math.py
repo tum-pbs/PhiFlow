@@ -5,7 +5,7 @@ import numpy
 
 import phi
 from phi import math, geom
-from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask, PointCloud
+from phi.field import StaggeredGrid, CenteredGrid, PointCloud
 from phi.geom import Box, Sphere
 from phi import field
 from phi.math import extrapolation, instance, channel, spatial, batch
@@ -245,4 +245,10 @@ class TestFieldMath(TestCase):
         val = val / 3
         return val
 
-
+    def test_mask(self):
+        mask = field.mask(Box(x=1, y=1))
+        self.assertEqual(2, mask.spatial_rank)
+        mask = field.mask(PointCloud(math.vec(x=0, y=0)))
+        self.assertEqual(2, mask.spatial_rank)
+        mask = field.mask(CenteredGrid(0, x=4, y=3))
+        self.assertEqual(2, mask.spatial_rank)

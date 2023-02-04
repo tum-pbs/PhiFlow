@@ -1366,3 +1366,23 @@ def map(f: Callable[[Extrapolation], Extrapolation], extrapolation):
         return combine_by_direction(map(f, extrapolation.normal), map(f, extrapolation.tangential))
     else:
         return f(extrapolation)
+
+
+def remove_constant_offset(extrapolation):
+    """
+    Removes all constant offsets from an extrapolation.
+    This also includes `NaN` values in constants (unlike `ext - ext`).
+
+    Args:
+        extrapolation: `Extrapolation` object.
+
+    Returns:
+        `Extrapolation` that has no constant offsets
+    """
+    def const_to_zero(extrapolation):
+        if isinstance(extrapolation, ConstantExtrapolation):
+            return ZERO
+        else:
+            return extrapolation
+    return map(const_to_zero, extrapolation)
+

@@ -61,32 +61,15 @@ class Field:
 
     def at(self, representation: 'SampledField', keep_extrapolation=False, **kwargs) -> 'SampledFieldType':
         """
-        Samples this field at the sample points of `representation`.
-        The result will approximate the values of this field on the data structure of `representation`.
-        
-        Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
+        Short for `resample(self, representation)`
 
-        Operator alias:
-            `self @ representation`.
-
-        See Also:
-            `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
-
-        Args:
-            representation: Field object defining the sample points. The values of `representation` are ignored.
-            keep_extrapolation: Only available if `self` is a `SampledField`.
-                If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
-                This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
-            **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
-                By default, linear interpolation is used.
-                Grids also support 6th order implicit sampling at mid-points.
+        See Also
+            `resample()`.
 
         Returns:
             Field object of same type as `representation`
         """
-        resampled = reduce_sample(self, representation.elements, **kwargs)
-        extrap = self.extrapolation if isinstance(self, SampledField) and keep_extrapolation else representation.extrapolation
-        return representation._op1(lambda old: extrap if isinstance(old, math.extrapolation.Extrapolation) else resampled)
+        return resample(self, representation, keep_extrapolation, **kwargs)
 
     def __matmul__(self, other: 'SampledField'):  # values @ representation
         """
@@ -163,7 +146,8 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Union[Geometry, Tensor],
+    def __init__(self,
+                 elements: Union[Geometry, Tensor],
                  values: Tensor,
                  extrapolation: float or Extrapolation or Field or None,
                  bounds: Box or None):
@@ -273,6 +257,12 @@ class SampledField(Field):
     def __neg__(self):
         return self._op1(lambda x: -x)
 
+    def __eq__(self, other):
+        return self._op2(other, lambda x, y: x == y)
+
+    def __ne__(self, other):
+        return self._op2(other, lambda x, y: x != y)
+
     def __gt__(self, other):
         return self._op2(other, lambda x, y: x > y)
 
@@ -304,8 +294,7 @@ class SampledField(Field):
 
     def _op2(self, other, operator) -> 'SampledField':
         if isinstance(other, Geometry):
-            from ._mask import HardGeometryMask
-            other = HardGeometryMask(other)
+            raise ValueError(f"Cannot combine {self.__class__.__name__} with a Geometry, got {type(other)}")
         if isinstance(other, Field):
             other_values = reduce_sample(other, self._elements)
             values = operator(self._values, other_values)
@@ -320,7 +309,7 @@ class SampledField(Field):
             return self.with_values(values)
 
 
-def sample(field: Field,
+def sample(field: Field or Geometry,
            geometry: Geometry or SampledField or Tensor,
            **kwargs) -> math.Tensor:
     """
@@ -348,6 +337,9 @@ def sample(field: Field,
         Sampled values as a `phi.math.Tensor`
     """
     geometry = _get_geometry(geometry)
+    if isinstance(field, Geometry):
+        from ._field_math import mask
+        field = mask(field)
     geom_ch = channel(geometry).without('vector')
     assert all(dim not in field.shape for dim in geom_ch)
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry) and not geom_ch:
@@ -359,7 +351,7 @@ def sample(field: Field,
         return field._sample(geometry, **kwargs)
 
 
-def reduce_sample(field: Field,
+def reduce_sample(field: Field or Geometry,
                   geometry: Geometry or SampledField or Tensor,
                   dim=channel('vector'),
                   **kwargs) -> math.Tensor:
@@ -384,6 +376,9 @@ def reduce_sample(field: Field,
         Sampled values as a `phi.math.Tensor`
     """
     geometry = _get_geometry(geometry)
+    if isinstance(field, Geometry):
+        from ._field_math import mask
+        field = mask(field)
     if isinstance(field, SampledField) and field.elements.shallow_equals(geometry):
         return field.values
     if channel(geometry).without('vector'):  # Reduce this dimension
@@ -399,6 +394,40 @@ def reduce_sample(field: Field,
         return math.stack(sampled, dim)
     else:  # Nothing to reduce
         return field._sample(geometry, **kwargs)
+
+
+def resample(obj: Union[Field, Geometry, Tensor, float], representation: SampledField, keep_extrapolation=False, **kwargs):
+    """
+    Samples this field at the sample points of `representation`.
+    The result will approximate the values of this field on the data structure of `representation`.
+
+    Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
+
+    Operator alias:
+        `self @ representation`.
+
+    See Also:
+        `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
+
+    Args:
+        obj: Object containing values to resample.
+            This can be
+        representation: Field object defining the sample points. The values of `representation` are ignored.
+        keep_extrapolation: Only available if `self` is a `SampledField`.
+            If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
+            This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
+        **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
+            By default, linear interpolation is used.
+            Grids also support 6th order implicit sampling at mid-points.
+
+    Returns:
+        Field object of same type as `representation`
+    """
+    if not isinstance(obj, (Field, Geometry)):
+        return representation.with_values(obj)
+    resampled = reduce_sample(obj, representation.elements, **kwargs)
+    extrap = obj.extrapolation if isinstance(obj, SampledField) and keep_extrapolation else representation.extrapolation
+    return representation.with_values(resampled).with_extrapolation(extrap)
 
 
 def _get_geometry(geometry):

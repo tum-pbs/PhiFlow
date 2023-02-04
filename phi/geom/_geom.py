@@ -1,8 +1,8 @@
 from numbers import Number
 
 from phi import math
-from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap
-from phi.math._magic_ops import variable_attributes
+from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
+from phi.math._magic_ops import variable_attributes, expand
 from phi.math.magic import BoundDim, slicing_dict
 
 
@@ -510,7 +510,7 @@ class Point(Geometry):
         return tuple(Point(loc) for loc in self._location.unstack(dimension))
 
     def lies_inside(self, location: Tensor) -> Tensor:
-        return math.wrap(False)
+        return expand(math.wrap(False), shape(location).without('vector'))
 
     def approximate_signed_distance(self, location: Tensor or tuple) -> Tensor:
         return math.vec_abs(location - self._location)

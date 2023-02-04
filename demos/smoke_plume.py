@@ -10,7 +10,7 @@ from phi.flow import *  # minimal dependencies
 
 velocity = StaggeredGrid((0, 0), 0, x=64, y=64, bounds=Box(x=100, y=100))  # or CenteredGrid(...)
 smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=200, y=200, bounds=Box(x=100, y=100))
-INFLOW = 0.2 * CenteredGrid(SoftGeometryMask(Sphere(x=50, y=9.5, radius=5)), 0, smoke.bounds, smoke.resolution)
+INFLOW = 0.2 * resample(Sphere(x=50, y=9.5, radius=5), smoke, soft=True)
 pressure = None
 
 
