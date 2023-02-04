@@ -268,8 +268,7 @@ class UNet(nn.Module):
             self.add_module('inc', DoubleConv(d, in_channels, filters[0], filters[0], batch_norm, activation, periodic))
         for i in range(1, self._levels):
             self.add_module(f'down{i}', Down(d, filters[i - 1], filters[i], batch_norm, activation, periodic, use_res_blocks))
-            self.add_module(f'up{i}', Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation, periodic,
-                                         use_res_blocks=use_res_blocks))
+            self.add_module(f'up{i}', Up(d, filters[i] + filters[i - 1], filters[i - 1], batch_norm, activation, periodic, use_res_blocks))
         self.add_module('outc', CONV[d](filters[0], out_channels, kernel_size=1))
 
     def forward(self, x):
@@ -328,21 +327,13 @@ class Up(nn.Module):
 
     _MODES = [None, 'linear', 'bilinear', 'trilinear']
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, periodic: bool, linear=True, use_res_blocks: bool = False):
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: type, periodic: bool, use_res_blocks: bool):
         super().__init__()
-        if linear:
-            # if bilinear, use the normal convolutions to reduce the number of channels
-            up = nn.Upsample(scale_factor=2, mode=Up._MODES[d])
-            if use_res_blocks:
-                conv = resnet_block(d, in_channels, out_channels, batch_norm, activation, periodic)
-            else:
-                conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation, periodic)
+        up = nn.Upsample(scale_factor=2, mode=Up._MODES[d])
+        if use_res_blocks:
+            conv = resnet_block(d, in_channels, out_channels, batch_norm, activation, periodic)
         else:
-            up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            if use_res_blocks:
-                conv = resnet_block(d, in_channels, out_channels, batch_norm, activation, periodic)
-            else:
-                conv = DoubleConv(d, in_channels, out_channels, out_channels, batch_norm, activation, periodic)
+            conv = DoubleConv(d, in_channels, out_channels, in_channels // 2, batch_norm, activation, periodic)
         self.add_module('up', up)
         self.add_module('conv', conv)
 
