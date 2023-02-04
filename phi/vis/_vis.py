@@ -276,11 +276,11 @@ def plot(*fields: SampledField or Tensor or Layout,
          title: str or Tensor = None,
          size=(12, 5),
          same_scale=True,
-         log_dims: str or tuple or list or Shape='',
+         log_dims: str or tuple or list or Shape = '',
          show_color_bar=True,
+         color=None,
          frame_time=100,
-         repeat=True,
-         **plt_args):
+         repeat=True):
     """
     Creates one or multiple figures and sub-figures and plots the given fields.
 
@@ -300,6 +300,7 @@ def plot(*fields: SampledField or Tensor or Layout,
             Can be given as a comma-separated `str`, a sequence of dimension names or a `Shape`.
             Use `'_'` to scale unnamed axes logarithmically, e.g. the y-axis of scalar functions.
         show_color_bar: Whether to display color bars for heat maps.
+        color: Tensor for line / marker colors.
         animate: Time dimension to animate.
             If not present in the data, will produce a regular plot instead.
         frame_time: Interval between frames in the animation.
@@ -316,6 +317,7 @@ def plot(*fields: SampledField or Tensor or Layout,
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
+    # --- Process arguments ---
     if same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
@@ -334,6 +336,8 @@ def plot(*fields: SampledField or Tensor or Layout,
         assert title is None, f"title must be a str or Tensor but got {title}"
         title = {pos: ", ".join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
+    color = math.wrap(color)
+    # --- animate or plot ---
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
         if animate:
@@ -341,7 +345,8 @@ def plot(*fields: SampledField or Tensor or Layout,
                 for pos, fields in positioning.items():
                     for f in fields:
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color)
+                plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
             plots.close(figure)
@@ -349,7 +354,8 @@ def plot(*fields: SampledField or Tensor or Layout,
         else:
             for pos, fields in positioning.items():
                 for f in fields:
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color)
+            plots.finalize(figure)
             LAST_FIGURE[0] = figure
             return layout(figure)
     else:

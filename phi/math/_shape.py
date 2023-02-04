@@ -667,7 +667,6 @@ class Shape:
         else:
             return self[[i for i in range(self.rank) if self.names[i] in dims]]
 
-
     @property
     def rank(self) -> int:
         """
@@ -1112,6 +1111,9 @@ class Shape:
                     break
             else:
                 return
+
+    def first_index(self, names=False):
+        return next(iter(self.meshgrid(names=names)))
 
     def are_adjacent(self, dims: str or tuple or list or set or 'Shape'):
         indices = self.indices(dims)

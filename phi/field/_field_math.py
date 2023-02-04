@@ -604,8 +604,7 @@ def concat(fields: List[SampledFieldType] or Tuple[SampledFieldType, ...], dim: 
     elif isinstance(fields[0], PointCloud):
         elements = geom.concat([f.elements for f in fields], dim)
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
-        colors = math.concat([math.expand(f.color, f.shape.only(dim)) for f in fields], dim)
-        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
+        return PointCloud(elements=elements, values=values, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))
 
 
@@ -639,8 +638,7 @@ def stack(fields, dim: Shape, dim_bounds: Box = None):
     elif isinstance(fields[0], PointCloud):
         elements = geom.stack([f.elements for f in fields], dim=dim)
         values = math.stack([f.values for f in fields], dim=dim)
-        colors = math.stack([f.color for f in fields], dim=dim)
-        return PointCloud(elements=elements, values=values, color=colors, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
+        return PointCloud(elements=elements, values=values, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))
 
 

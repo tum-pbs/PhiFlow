@@ -1657,7 +1657,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             assert shape.rank == 1, "Can only convert 1D shapes to Tensors"
         shape = shape.with_size(data.names)
         data = data.sizes
-    elif isinstance(data, str):
+    elif isinstance(data, str) or data is None:
         return layout(data)
     elif isinstance(data, (numbers.Number, bool)):
         assert not shape, f"Trying to create a zero-dimensional Tensor from value '{data}' but shape={shape}"

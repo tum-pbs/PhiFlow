@@ -1,29 +1,21 @@
-import logging
-import os
 import sys
 import warnings
-from numbers import Number
 from typing import Callable, Tuple, Any, Dict
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy
 import numpy as np
-from matplotlib import animation, cbook
+from matplotlib import animation
 from matplotlib import rc
 from matplotlib.patches import Patch
 from matplotlib.transforms import Bbox
-from mpl_toolkits.mplot3d import Axes3D
 
 from phi import math, field
-from phi.field import Grid, StaggeredGrid, PointCloud, Scene, SampledField
-from phi.field._scene import _str
+from phi.field import Grid, StaggeredGrid, PointCloud, SampledField
 from phi.geom import Sphere, BaseBox, Point, Box
 from phi.geom._stack import GeometryStack
-from phi.math import Tensor, batch, channel, spatial, instance, non_channel
-from phi.math.backend import PHI_LOGGER
-from phi.vis._plot_util import smooth_uniform_curve
-from phi.vis._vis_base import display_name, PlottingLibrary
+from phi.math import Tensor, channel, spatial, instance, non_channel, Shape
+from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label
 
 
 class MatplotlibPlots(PlottingLibrary):
@@ -83,10 +75,10 @@ class MatplotlibPlots(PlottingLibrary):
                         axis.set_zlim(_get_range(bounds, 2))
                         if bounds.vector.item_names[0] in log_dims:
                             warnings.warn("Only z axis can be log scaled in 3D plot with Matplotlib. Please reorder the dimensions.", RuntimeWarning)
-                            # axis.set_xscale('log')
+                            # subplot.set_xscale('log')
                         if bounds.vector.item_names[1] in log_dims:
                             warnings.warn("Only z axis can be log scaled in 3D plot with Matplotlib. Please reorder the dimensions.", RuntimeWarning)
-                            # axis.set_yscale('log')
+                            # subplot.set_yscale('log')
                         if bounds.vector.item_names[2] in log_dims:
                             axis.set_zscale('log')
                     axis.set_title(titles.get((row, col), None))
@@ -108,7 +100,7 @@ class MatplotlibPlots(PlottingLibrary):
                 if axis not in base_axes:  # colorbar etc.
                     axis.remove()
                 else:
-                    # axis.cla()  # this also clears titles and axis labels
+                    # subplot.cla()  # this also clears titles and subplot labels
                     axis.lines.clear()
                     axis.patches.clear()
                     axis.texts.clear()
@@ -120,29 +112,14 @@ class MatplotlibPlots(PlottingLibrary):
                     box = Bbox(positions[axis])
                     axis.set_position(box, which='active')
                     axis.set_subplotspec(specs[axis])
-                    # axis.set_title(titles[axis])
+                    # subplot.set_title(titles[subplot])
             # plt.tight_layout()
             plot_frame_function(frame)
 
         return animation.FuncAnimation(fig, clear_and_plot, repeat=repeat, frames=frames, interval=interval)
 
-    def plot(self,
-             data: SampledField,
-             figure,
-             subplot,
-             space: Box,
-             min_val: float = None,
-             max_val: float = None,
-             show_color_bar: bool = True,
-             **plt_args):
-        """
-        Returns:
-            [Matplotlib figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure).
-        """
-        # plt.tight_layout()
-        _plot(subplot, data, space, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val, **plt_args)
+    def finalize(self, figure):
         plt.tight_layout()
-        return figure
 
     def close(self, figure):
         if isinstance(figure, plt.Figure):
@@ -171,9 +148,6 @@ class MatplotlibPlots(PlottingLibrary):
             raise ValueError(figure)
 
 
-MATPLOTLIB = MatplotlibPlots()
-
-
 def _get_range(bounds: Box, index: int):
     lower = float(bounds.lower.vector[index].min)
     upper = float(bounds.upper.vector[index].max)
@@ -185,31 +159,40 @@ def _default_color(i: int):
     return default_colors[i % len(default_colors)]
 
 
-def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **plt_args):
-    dims = space.vector.item_names
-    # dims = data.bounds.vector.item_names
-    vector = data.bounds.shape['vector']
-    extra_channels = data.shape.channel.without('vector')
-    if isinstance(data, Grid) and data.spatial_rank == 1:  # Line plot
+class LinePlot(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, Grid) and data.spatial_rank == 1 and not instance(data)
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
         x = data.points.staggered_direction[0].vector[0].numpy()
         requires_legend = False
         for c in channel(data).meshgrid(names=True):
             label = ", ".join([i for dim, i in c.items() if isinstance(i, str)])
             values = data.values[c].numpy()
-            color = _default_color(len(axis.lines))
+            color = _default_color(len(subplot.lines))
             if values.dtype in (np.complex64, np.complex128):
-                axis.plot(x, values.real, label=f"real({label})" if label else "real", color=color)
-                axis.plot(x, values.imag, '--', label=f"imag({label})" if label else "imag", color=color)
+                subplot.plot(x, values.real, label=f"real({label})" if label else "real", color=color)
+                subplot.plot(x, values.imag, '--', label=f"imag({label})" if label else "imag", color=color)
                 requires_legend = True
             else:
-                axis.plot(x, values, label=label, color=color)
+                subplot.plot(x, values, label=label, color=color)
                 requires_legend = requires_legend or label
         if requires_legend:
-            axis.legend()
-        elif vmin is not None and vmax is not None:
-            axis.set_ylim((vmin - .02 * (vmax - vmin), vmax + .02 * (vmax - vmin)))
-    elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2:
+            subplot.legend()
+        elif min_val is not None and max_val is not None:
+            subplot.set_ylim((min_val - .02 * (max_val - min_val), max_val + .02 * (max_val - min_val)))
+        return True
+
+
+class Heatmap2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2 and not instance(data)
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
         dims = spatial(data)
+        vector = data.bounds.shape['vector']
         if data.bounds.upper.vector.item_names is not None:
             left, bottom = data.bounds.lower.vector[dims]
             right, top = data.bounds.upper.vector[dims]
@@ -221,64 +204,172 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
         if space.spatial_rank == 3:  # surface plot
             z = data.values.numpy(dims)
             x, y = math.reshaped_numpy(data.points, [vector, *spatial(data)])
-            im = axis.plot_surface(x, y, z, **plt_args)
+            im = subplot.plot_surface(x, y, z)
         else:  # heatmap
-            im = axis.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=vmin, vmax=vmax, **plt_args)
+            im = subplot.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=min_val, vmax=max_val)
         if show_color_bar:
-            figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in axis.figure.axes])
-            if vmin is None or vmax is None or not figure_has_color_bar:
-                axis.figure.colorbar(im, ax=axis)  # adds a new Axis to the figure
-    elif isinstance(data, Grid) and data.spatial_rank == 2:  # vector field
+            figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in subplot.figure.axes])
+            if min_val is None or max_val is None or not figure_has_color_bar:
+                subplot.figure.colorbar(im, ax=subplot)  # adds a new Axis to the figure
+        return True
+
+
+class VectorField2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, Grid) and data.spatial_rank == 2
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        dims = space.vector.item_names
+        vector = data.bounds.shape['vector']
+        extra_channels = data.shape.channel.without('vector')
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
         x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
         u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
-        color = axis.xaxis.label.get_color()
+        color = subplot.xaxis.label.get_color()
         for ch in range(u.shape[0]):
-            axis.quiver(x, y, u[ch], v[ch], color=color, units='xy', scale=1)
-    elif isinstance(data, Grid) and channel(data).volume > 1 and data.spatial_rank == 3:  # 3D vector field
+            subplot.quiver(x, y, u[ch], v[ch], color=color, units='xy', scale=1)
+        return True
+
+
+class VectorField3D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, Grid) and channel(data).volume > 1 and data.spatial_rank == 3
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        dims = space.vector.item_names
+        vector = data.bounds.shape['vector']
+        extra_channels = data.shape.channel.without('vector')
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
         u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
         for ch in range(u.shape[0]):
-            axis.quiver(x, y, z, u[ch], v[ch], w[ch])
-    elif isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 3:  # 3D heatmap
+            subplot.quiver(x, y, z, u[ch], v[ch], w[ch])
+
+
+class Heatmap3D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 3
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        dims = space.vector.item_names
         x, y, z = StaggeredGrid(lambda x: x, math.extrapolation.BOUNDARY, data.bounds, data.resolution).staggered_tensor().numpy(('vector',) + dims)
         values = data.values.numpy(dims)
         cmap = plt.get_cmap('viridis')
         norm = matplotlib.colors.Normalize(vmin=np.min(values), vmax=np.max(values))
         colors = cmap(norm(values))
-        axis.voxels(x, y, z, values, facecolors=colors, edgecolor='k')
-    elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):  # vector cloud
+        subplot.voxels(x, y, z, values, facecolors=colors, edgecolor='k')
+
+
+class VectorCloud2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data)
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
         vector = data.points.shape['vector']
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
-        if data.color.shape:
-            color = data.color.numpy(data.shape.non_channel).reshape(-1)
+        if color.shape:
+            color = color.numpy(data.shape.non_channel).reshape(-1)
         else:
-            color = data.color.native()
-        axis.quiver(x, y, u, v, color=color, units='xy', scale=1)
-    elif isinstance(data, PointCloud) and data.spatial_rank == 2:  # point cloud
-        if channel(data.points).without('vector'):  # multiple channel dimensions
-            channel_dim = channel(data.points).without('vector')[0]
-            legend_patches = []
-            for name, d in zip(channel_dim.item_names[0] or (None,) * channel_dim.size, field.unstack(data, channel_dim.name)):
-                col = _plot_points(axis, d, dims, vector, **plt_args)
-                legend_patches.append(Patch(color=_rgba(col), label=name))
-            if channel_dim.item_names:
-                axis.legend(handles=legend_patches)
+            color = color.native()
+        subplot.quiver(x, y, u, v, color=color, units='xy', scale=1)
+
+
+class PointCloud2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 2
+
+    def plot(self, data: PointCloud, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        dims = space.vector.item_names
+        vector = data.bounds.shape['vector']
+        channels = channel(data.points).without('vector')
+        legend_patches = []
+        for idx in channels.meshgrid(names=True):
+            col = color[idx]
+            PointCloud2D._plot_points(subplot, data[idx], dims, vector, col)
+            if col.rank < color.rank:  # There are multiple colors
+                legend_patches.append(Patch(color=_rgba(col), label=index_label(idx)))
+        if legend_patches:
+            subplot.legend(handles=legend_patches)
+
+    @staticmethod
+    def _plot_points(axis, data: PointCloud, dims, vector, color):
+        if isinstance(data.elements, GeometryStack):
+            for idx in data.elements.geometries.shape[0].meshgrid():
+                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx])
+            return
+        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)])
+        mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
+        if isinstance(data.elements, Point):
+            if spatial(data.points).is_empty:
+                axis.scatter(x, y, marker='x', color=mpl_colors, s=6 ** 2, alpha=0.8)
         else:
-            _plot_points(axis, data, dims, vector, **plt_args)
-    elif isinstance(data, PointCloud) and data.spatial_rank == 3:
-        if data.points.shape.non_channel.rank > 1:
-            data_list = field.unstack(data, data.points.shape.non_channel[0].name)
-            for d in data_list:
-                _plot(axis, d, space, show_color_bar, vmin, vmax, **plt_args)
-        else:
-            x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-            color = [d.native() for d in data.color.points.unstack(len(x))]
-            M = axis.transData.get_matrix()
+            if isinstance(data.elements, Sphere):
+                rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
+                shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, mpl_colors)]
+            elif isinstance(data.elements, BaseBox):
+                w2, h2 = math.reshaped_numpy(data.elements.bounding_half_extent(), ['vector', data.shape.non_channel], force_expand=True)
+                shapes = [plt.Rectangle((xi - w2i, yi - h2i), w2i * 2, h2i * 2, linewidth=1, edgecolor='white', alpha=0.8, facecolor=ci) for xi, yi, w2i, h2i, ci in zip(x, y, w2, h2, mpl_colors)]
+            else:
+                rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
+                shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, mpl_colors)]
+            c = matplotlib.collections.PatchCollection(shapes, match_original=True)
+            axis.add_collection(c)
+        if spatial(data.points):  # Connect by line
+            x, y = math.reshaped_numpy(data.points.vector[dims], [vector, instance(data), spatial(data)])
+            mpl_colors = matplotlib_colors(color, instance(data))
+            for i in range(instance(data).volume):
+                axis.plot(x[i], y[i], color=mpl_colors[i] if mpl_colors is not None else None)
+        if any(non_channel(data).item_names):
+            PointCloud2D._annotate_points(axis, data.points)
+
+    @staticmethod
+    def _annotate_points(axis, points: math.Tensor):
+        labelled_dims = non_channel(points)
+        labelled_dims = math.concat_shapes(*[d for d in labelled_dims if d.item_names[0]])
+        if not labelled_dims:
+            return
+        if all(dim.name in points.shape.get_item_names('vector') for dim in labelled_dims):
+            return  # The point labels match one of the figure axes, so they are redundant
+        if points.shape['vector'].size == 2:
+            xs, ys = math.reshaped_numpy(points, ['vector', points.shape.without('vector')], force_expand=True)
+            labels = [index_label(idx) for idx in labelled_dims.meshgrid(names=True)]
+            x_view = axis.get_xlim()[1] - axis.get_xlim()[0]
+            y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
+            x_c = .95 * axis.get_xlim()[1] + .1 * axis.get_xlim()[0]
+            y_c = .95 * axis.get_ylim()[1] + .1 * axis.get_ylim()[0]
+            for x, y, label in zip(xs, ys, labels):
+                if axis.get_xscale() == 'log':
+                    offset_x = x * (1 + .0003 * x_view) if x < x_c else x * (1 - .0003 * x_view)
+                else:
+                    offset_x = x + .01 * x_view if x < x_c else x - .01 * x_view
+                if axis.get_yscale() == 'log':
+                    offset_y = y * (1 + .0003 * y_view) if y < y_c else y * (1 - .0003 * y_view)
+                else:
+                    offset_y = y + .01 * y_view if y < y_c else y - .01 * y_view
+                axis.text(offset_x, offset_y, label)
+
+
+class PointCloud3D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 3
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        dims = space.vector.item_names
+        vector = data.bounds.shape['vector']
+        channels = channel(data.points).without('vector')
+        for idx in channels.meshgrid(names=True):
+            x, y, z = math.reshaped_numpy(data[idx].points.vector[dims], [vector, non_channel(data)])
+            mpl_colors = matplotlib_colors(color[idx], non_channel(data), default=0)
+            M = subplot.transData.get_matrix()
             x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
             if isinstance(data.elements, Sphere):
                 symbol = 'o'
@@ -292,78 +383,15 @@ def _plot(axis, data: SampledField, space: Box, show_color_bar, vmin, vmax, **pl
             else:
                 symbol = 'X'
                 size = data.elements.bounding_radius().numpy()
-            axis.scatter(x, y, z, marker=symbol, color=color, s=(size * 0.5 * (x_scale+y_scale+z_scale)/3) ** 2)
-    else:
-        raise NotImplementedError(f"No figure recipe for {data}")
-
-
-def _plot_points(axis, data: PointCloud, dims, vector, **plt_args):
-    x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-    if data.color.dtype.kind == int:
-        cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-        color = [cycle[int(d)] for d in data.color.points.unstack(len(x))]
-    else:
-        color = [d.native() for d in data.color.points.unstack(len(x))]
-    if isinstance(data.elements, GeometryStack):
-        stack_dim = data.elements.geometries.shape[0]
-        parts = math.unstack(data, stack_dim)
-        for part in parts:
-            _plot_points(axis, part, dims, vector, **plt_args)
-        return color
-    elif isinstance(data.elements, Point):
-        if spatial(data.points).is_empty:
-            axis.scatter(x, y, marker='x', color=color, s=6 ** 2, alpha=0.8)
-    else:
-        if isinstance(data.elements, Sphere):
-            rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
-            shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, color)]
-        elif isinstance(data.elements, BaseBox):
-            w2, h2 = math.reshaped_numpy(data.elements.bounding_half_extent(), ['vector', data.shape.non_channel], force_expand=True)
-            shapes = [plt.Rectangle((xi-w2i, yi-h2i), w2i*2, h2i*2, linewidth=1, edgecolor='white', alpha=0.8, facecolor=ci) for xi, yi, w2i, h2i, ci in zip(x, y, w2, h2, color)]
-        else:
-            rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
-            shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, color)]
-        c = matplotlib.collections.PatchCollection(shapes, match_original=True)
-        axis.add_collection(c)
-    if spatial(data.points):  # Connect by line
-        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, spatial(data), instance(data)])
-        axis.plot(x, y, color=color[0])
-    if any(non_channel(data).item_names):
-        _annotate_points(axis, data.points)
-    return color[0]
-
-
-def _annotate_points(axis, points: math.Tensor):
-    labelled_dims = non_channel(points)
-    labelled_dims = math.concat_shapes(*[d for d in labelled_dims if d.item_names[0]])
-    if not labelled_dims:
-        return
-    if all(dim.name in points.shape.get_item_names('vector') for dim in labelled_dims):
-        return  # The point labels match one of the figure axes, so they are redundant
-    if points.shape['vector'].size == 2:
-        xs, ys = math.reshaped_numpy(points, ['vector', points.shape.without('vector')], force_expand=True)
-        if labelled_dims.rank == 1:
-            labels = labelled_dims.item_names[0]
-        else:
-            labels = labelled_dims.meshgrid(names=True)
-            labels = [" ".join(index_dict.values()) for index_dict in labels]
-        x_view = axis.get_xlim()[1] - axis.get_xlim()[0]
-        y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
-        x_c = .95 * axis.get_xlim()[1] + .1 * axis.get_xlim()[0]
-        y_c = .95 * axis.get_ylim()[1] + .1 * axis.get_ylim()[0]
-        for x, y, label in zip(xs, ys, labels):
-            if axis.get_xscale() == 'log':
-                offset_x = x * (1 + .0003 * x_view) if x < x_c else x * (1 - .0003 * x_view)
-            else:
-                offset_x = x + .01 * x_view if x < x_c else x - .01 * x_view
-            if axis.get_yscale() == 'log':
-                offset_y = y * (1 + .0003 * y_view) if y < y_c else y * (1 - .0003 * y_view)
-            else:
-                offset_y = y + .01 * y_view if y < y_c else y - .01 * y_view
-            axis.text(offset_x, offset_y, label)
+            subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
 
 
 def _rgba(col):
+    if isinstance(col, Tensor):
+        col = next(iter(col))
+    if not isinstance(col, (str, tuple, list)):
+        cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        col = cycle[int(col)]
     if isinstance(col, str) and col.startswith('#'):
         col = tuple(int(col.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
     col = np.asarray(col)
@@ -372,181 +400,45 @@ def _rgba(col):
     return col
 
 
+def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> list or None:
+    if color.rank == 0 and color.native() is None:
+        if default is None:
+            return None
+        else:
+            color = math.wrap(default)
+    color = color[math.shape(color).without(dims).first_index()]  # Select first color along unlisted dimensions
+    if color.dtype.kind == int:
+        cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        return [cycle[int(color[idx])] for idx in dims.meshgrid()]
+    else:
+        return [color[idx].native() for idx in dims.meshgrid()]
+
+
 
 def _get_pixels_per_unit(fig: plt.Figure, axis: plt.Axes, dpi=90):
     M = axis.transData.get_matrix()
     x_scale, y_scale = M[0, 0], M[1, 1]  # fig_size_px/unit
-    # subplot_width = axis.figbox.width * axis.figure.bbox_inches.width
-    # subplot_height = axis.figbox.height * axis.figure.bbox_inches.height
-    # units_x = axis.get_xlim()[1] - axis.get_xlim()[0]
-    # units_y = axis.get_ylim()[1] - axis.get_ylim()[0]
+    # subplot_width = subplot.figbox.width * subplot.figure.bbox_inches.width
+    # subplot_height = subplot.figbox.height * subplot.figure.bbox_inches.height
+    # units_x = subplot.get_xlim()[1] - subplot.get_xlim()[0]
+    # units_y = subplot.get_ylim()[1] - subplot.get_ylim()[0]
     # result_x = subplot_width * dpi / units_x
     # result_y = subplot_height * dpi / units_y
     return min(x_scale, y_scale)
 
 
-
-def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
-                 names: str or tuple or list or math.Tensor = None,
-                 reduce: str or tuple or list or math.Shape = 'names',
-                 down='',
-                 smooth=1,
-                 smooth_alpha=0.2,
-                 smooth_linewidth=2.,
-                 size=(8, 6),
-                 transform: Callable = None,
-                 tight_layout=True,
-                 grid: str or dict = 'y',
-                 log_scale='',
-                 legend='upper right',
-                 x='steps',
-                 xlim=None,
-                 ylim=None,
-                 titles=True,
-                 labels: math.Tensor = None,
-                 xlabel: str = None,
-                 ylabel: str = None,
-                 colors: math.Tensor = 'default',
-                 dashed: math.Tensor = False):
-    """
-
-    Args:
-        scene: `str` or `Tensor`. Scene paths containing the data to plot.
-        names: Data files to plot for each scene. The file must be located inside the scene directory and have the name `log_<name>.txt`.
-        reduce: Tensor dimensions along which all curves are plotted in the same diagram.
-        down: Tensor dimensions along which diagrams are ordered top-to-bottom instead of left-to-right.
-        smooth: `int` or `Tensor`. Number of data points to average, -1 for all.
-        smooth_alpha: Opacity of the non-smoothed curves under the smoothed curves.
-        smooth_linewidth: Line width of the smoothed curves.
-        size: Figure size in inches.
-        transform: Function `T(x,y) -> (x,y)` transforming the curves.
-        tight_layout:
-        grid:
-        log_scale:
-        legend:
-        x:
-        xlim:
-        ylim:
-        titles:
-        labels:
-        xlabel:
-        ylabel:
-        colors: Line colors as `str`, `int` or `Tensor`. Integers are interpreted as indices of the default color list.
-
-    Returns:
-        MatPlotLib [figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure)
-    """
-    scene = Scene.at(scene)
-    additional_reduce = ()
-    if names is None:
-        first_path = next(iter(math.flatten(scene.paths)))
-        names = [_str(n) for n in os.listdir(first_path)]
-        names = [n[4:-4] for n in names if n.endswith('.txt') and n.startswith('log_')]
-        names = math.wrap(names, batch('names'))
-        additional_reduce = ['names']
-    elif isinstance(names, str):
-        names = math.wrap(names)
-    elif isinstance(names, (tuple, list)):
-        names = math.wrap(names, batch('names'))
-    else:
-        assert isinstance(names, math.Tensor), f"Invalid argument 'names': {type(names)}"
-    colors = math.wrap(colors)
-    dashed = math.wrap(dashed)
-    if xlabel is None:
-        xlabel = 'Iterations' if x == 'steps' else 'Time (s)'
-
-    shape = (scene.shape & names.shape)
-    batches = shape.without(reduce).without(additional_reduce)
-
-    cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-    fig, axes = plt.subplots(batches.only(down).volume, batches.without(down).volume, figsize=size)
-    MATPLOTLIB.current_figure = fig
-    axes = axes if isinstance(axes, numpy.ndarray) else np.array(axes)
-
-    for b, axis in zip(math.concat_shapes(batches.only(down), batches.without(down)).meshgrid(), axes.flatten()):
-        assert isinstance(axis, plt.Axes)
-        names_equal = names[b].rank == 0
-        paths_equal = scene.paths[b].rank == 0
-        if titles is not None and titles is not False:
-            if isinstance(titles, str):
-                axis.set_title(titles)
-            elif isinstance(titles, Tensor):
-                axis.set_title(titles[b].native())
-            elif names_equal:
-                axis.set_title(display_name(names[b].native()))
-            elif paths_equal:
-                axis.set_title(os.path.basename(scene.paths[b].native()))
-        if labels is not None:
-            curve_labels = labels
-        elif names_equal:
-            curve_labels = math.map(os.path.basename, scene.paths[b])
-        elif paths_equal:
-            curve_labels = names[b]
-        else:
-            curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
-
-        def single_plot(name, path, label, i, color, dashed_, smooth):
-            PHI_LOGGER.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
-            curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
-            if curve.ndim == 2:
-                x_values, values, *_ = curve.T
-            else:
-                values = curve
-                x_values = np.arange(len(values))
-            if x == 'steps':
-                pass
-            else:
-                assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
-                PHI_LOGGER.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
-                _, x_values, *_ = numpy.loadtxt(os.path.join(path, "log_step_time.txt")).T
-                values = values[:len(x_values+1)]
-                x_values = np.cumsum(x_values[:len(values)-1])
-                x_values = np.concatenate([[0.], x_values])
-            if transform:
-                x_values, values = transform(np.stack([x_values, values]))
-            if color == 'default':
-                color = cycle[i]
-            try:
-                color = int(color)
-            except ValueError:
-                pass
-            if isinstance(color, Number):
-                color = cycle[int(color)]
-            PHI_LOGGER.debug(f"Plotting curve {label}")
-            if smooth > 1:
-                axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
-                curve = np.stack([x_values, values], -1)
-                axis.plot(*smooth_uniform_curve(curve, smooth).T, *(['--'] if dashed_ else []), color=color, linewidth=smooth_linewidth, label=label)
-            else:
-                axis.plot(x_values, values, *(['--'] if dashed_ else []), color=color, linewidth=1, label=label)
-            if grid:
-                if isinstance(grid, dict):
-                    axis.grid(**grid)
-                else:
-                    grid_axis = 'both' if 'x' in grid and 'y' in grid else grid
-                    axis.grid(which='both', axis=grid_axis, linestyle='--', linewidth=size[1] * 0.3)
-            if 'x' in log_scale:
-                axis.set_xscale('log')
-            if 'y' in log_scale:
-                axis.set_yscale('log')
-            if xlim:
-                axis.set_xlim(xlim)
-            if ylim:
-                axis.set_ylim(ylim)
-            if xlabel:
-                axis.set_xlabel(xlabel)
-            if ylabel:
-                axis.set_ylabel(ylabel)
-            return name
-
-        math.map(single_plot, names[b], scene.paths[b], curve_labels, math.range_tensor(shape.after_gather(b)), colors, dashed, smooth)
-        if legend:
-            axis.legend(loc=legend)
-    # Final touches
-    if tight_layout:
-        plt.tight_layout()
-    return fig
-
-
 def savefig(filename: str, transparent=True):
     plt.savefig(filename, transparent=transparent)
+
+
+MATPLOTLIB = MatplotlibPlots()
+MATPLOTLIB.recipes.extend([
+            LinePlot(),
+            Heatmap2D(),
+            VectorField2D(),
+            VectorField3D(),
+            Heatmap3D(),
+            VectorCloud2D(),
+            PointCloud2D(),
+            PointCloud3D(),
+        ])

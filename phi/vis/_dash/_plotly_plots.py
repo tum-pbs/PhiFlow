@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple, Any, Dict, Optional, List, Callable
+from typing import Tuple, Any, Dict, List, Callable
 
 import numpy
 import numpy as np
@@ -10,10 +10,11 @@ from plotly.tools import DEFAULT_PLOTLY_COLORS
 from phi import math, field
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
 from phi.geom import Sphere, BaseBox, Point, Box
-from phi.math import instance, Tensor, spatial, channel
+from phi.geom._stack import GeometryStack
+from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
-from phi.vis._vis_base import PlottingLibrary
+from phi.vis._vis_base import PlottingLibrary, Recipe
 
 
 class PlotlyPlots(PlottingLibrary):
@@ -48,9 +49,8 @@ class PlotlyPlots(PlottingLibrary):
     def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
         raise NotImplementedError()
 
-    def plot(self, data: SampledField, figure: graph_objects.Figure, subplot, space: Box, min_val: float = None, max_val: float = None,
-             show_color_bar: bool = True, **plt_args):
-        _plot(data, figure, row=subplot[0], col=subplot[1], size=(800, 600), colormap=None, show_color_bar=show_color_bar, vmin=min_val, vmax=max_val)
+    def finalize(self, figure):
+        pass
 
     def close(self, figure):
         pass
@@ -65,57 +65,60 @@ class PlotlyPlots(PlottingLibrary):
         figure.write_image(path, width=width * dpi / scale, height=height * dpi / scale, scale=scale)
 
 
+class LinePlot(Recipe):
 
-PLOTLY = PlotlyPlots()
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return data.spatial_rank == 1 and isinstance(data, Grid)
 
-
-def _get_range(bounds: Box, index: int):
-    lower = bounds.lower.vector[index].numpy()
-    upper = bounds.upper.vector[index].numpy()
-    return lower, upper
-
-
-def _plot(data: SampledField,
-          fig: graph_objects.Figure,
-          size: tuple,
-          colormap: str or None,
-          show_color_bar: bool,
-          vmin,
-          vmax,
-          row: int = None,
-          col: int = None):
-    subplot = fig.get_subplot(row, col)
-    dims = data.bounds.vector.item_names
-    vector = data.bounds.shape['vector']
-    extra_channels = data.shape.channel.without('vector')
-    if data.spatial_rank == 1 and isinstance(data, Grid):  # Line plot
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        row, col = subplot
+        subplot = figure.get_subplot(row, col)
         x = data.points.vector[0].numpy().flatten()
         channels = data.values.shape.channel
         if channels.rank == 1 and channels.get_item_names(0) is not None:
             for i, name in enumerate(channels.get_item_names(0)):
                 y = math.reshaped_native(real_values(data[{channels.name: i}]), [data.shape.spatial], to_numpy=True)
-                fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name=name), row=row, col=col)
-            fig.update_layout(showlegend=True)
+                figure.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name=name), row=row, col=col)
+            figure.update_layout(showlegend=True)
         else:
             for ch_idx in channels.meshgrid():
                 y = math.reshaped_native(real_values(data[ch_idx]), [data.shape.spatial], to_numpy=True)
-                fig.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Multi-channel'), row=row, col=col)
-            fig.update_layout(showlegend=False)
-        if vmin is not None and vmax is not None:
-            subplot.yaxis.update(range=(vmin - .02 * (vmax - vmin), vmax + .02 * (vmax - vmin)))
-    elif data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape:  # heatmap
+                figure.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Multi-channel'), row=row, col=col)
+            figure.update_layout(showlegend=False)
+        if min_val is not None and max_val is not None:
+            subplot.yaxis.update(range=(min_val - .02 * (max_val - min_val), max_val + .02 * (max_val - min_val)))
+
+
+class Heatmap2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        row, col = subplot
         dims = spatial(data)
         values = real_values(data).numpy(dims.reversed)
         x = data.points.vector[dims[0].name].dimension(dims[1].name)[0].numpy()
         y = data.points.vector[dims[1].name].dimension(dims[0].name)[0].numpy()
         min_val, max_val = numpy.nanmin(values), numpy.nanmax(values)
         min_val, max_val = min_val if numpy.isfinite(min_val) else 0, max_val if numpy.isfinite(max_val) else 0
-        color_scale = get_div_map(min_val, max_val, equal_scale=True, colormap=colormap)
+        color_scale = get_div_map(min_val, max_val, equal_scale=True)
         # color_bar = graph_objects.heatmap.ColorBar(x=1.15)   , colorbar=color_bar
-        fig.add_heatmap(row=row, col=col, x=x, y=y, z=values, zauto=False, zmin=min_val, zmax=max_val, colorscale=color_scale, showscale=show_color_bar)
-    elif data.spatial_rank == 2 and isinstance(data, Grid):  # vector field
+        figure.add_heatmap(row=row, col=col, x=x, y=y, z=values, zauto=False, zmin=min_val, zmax=max_val, colorscale=color_scale, showscale=show_color_bar)
+
+
+class VectorField2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return data.spatial_rank == 2 and isinstance(data, Grid)
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
+        row, col = subplot
+        dims = data.bounds.vector.item_names
+        vector = data.bounds.shape['vector']
+        extra_channels = data.shape.channel.without('vector')
         x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel], force_expand=True)
         u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without(vector)], force_expand=True)
         for ch in range(u.shape[0]):
@@ -128,32 +131,62 @@ def _plot(data: SampledField,
             lines_x = numpy.stack([x, x + u_ch, [None] * len(x)], -1).flatten()
             lines_y = numpy.stack([y, y + v_ch, [None] * len(x)], -1).flatten()  # 3 points per arrow
             name = extra_channels.get_item_names(0)[ch] if extra_channels.rank == 1 and extra_channels.get_item_names(0) is not None else None
-            fig.add_scatter(x=lines_x, y=lines_y, mode='lines', row=row, col=col, name=name)
+            figure.add_scatter(x=lines_x, y=lines_y, mode='lines', row=row, col=col, name=name)
         if u.shape[0] == 1:
-            fig.update_layout(showlegend=False)
-    elif data.spatial_rank == 3 and isinstance(data, Grid) and data.shape.channel.volume == 1:  # 3D heatmap
+            figure.update_layout(showlegend=False)
+
+
+class Heatmap3D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return data.spatial_rank == 3 and isinstance(data, Grid) and data.shape.channel.volume == 1
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        row, col = subplot
+        dims = data.bounds.vector.item_names
+        vector = data.bounds.shape['vector']
         values = real_values(data).numpy(dims)
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, *data.points.shape.spatial])
         min_val, max_val = numpy.nanmin(values), numpy.nanmax(values)
         min_val, max_val = min_val if numpy.isfinite(min_val) else 0, max_val if numpy.isfinite(max_val) else 0
-        color_scale = get_div_map(min_val, max_val, equal_scale=True, colormap=colormap)
-        fig.add_volume(x=x.flatten(), y=y.flatten(), z=z.flatten(), value=values.flatten(),
-                       showscale=show_color_bar, colorscale=color_scale, cmin=min_val, cmax=max_val, cauto=False,
-                       isomin=0.1, isomax=0.8,
-                       opacity=0.1,  # needs to be small to see through all surfaces
-                       surface_count=17,  # needs to be a large number for good volume rendering
-                       row=row, col=col)
-        fig.update_layout(uirevision=True)
-    elif isinstance(data, Grid) and data.spatial_rank == 3:  # 3D vector field
+        color_scale = get_div_map(min_val, max_val, equal_scale=True)
+        figure.add_volume(x=x.flatten(), y=y.flatten(), z=z.flatten(), value=values.flatten(),
+                          showscale=show_color_bar, colorscale=color_scale, cmin=min_val, cmax=max_val, cauto=False,
+                          isomin=0.1, isomax=0.8,
+                          opacity=0.1,  # needs to be small to see through all surfaces
+                          surface_count=17,  # needs to be a large number for good volume rendering
+                          row=row, col=col)
+        figure.update_layout(uirevision=True)
+
+
+class VectorField3D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, Grid) and data.spatial_rank == 3
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        row, col = subplot
+        dims = data.bounds.vector.item_names
+        vector = data.bounds.shape['vector']
+        extra_channels = data.shape.channel.without('vector')
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
         u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
-        fig.add_cone(x=x.flatten(), y=y.flatten(), z=z.flatten(), u=u.flatten(), v=v.flatten(), w=w.flatten(),
-                     colorscale='Blues',
-                     sizemode="absolute", sizeref=1,
-                     row=row, col=col)
-    elif isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data):
+        figure.add_cone(x=x.flatten(), y=y.flatten(), z=z.flatten(), u=u.flatten(), v=v.flatten(), w=w.flatten(),
+                        colorscale='Blues',
+                        sizemode="absolute", sizeref=1,
+                        row=row, col=col)
+
+
+class VectorCloud2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data)
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        row, col = subplot
+        vector = data.bounds.shape['vector']
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
@@ -163,25 +196,37 @@ def _plot(data: SampledField,
         else:
             color = data.color.native()
             quiver.line.update(color=color)
-        fig.add_trace(quiver, row=row, col=col)
-    elif isinstance(data, PointCloud) and data.spatial_rank == 2:
+        figure.add_trace(quiver, row=row, col=col)
+
+
+class PointCloud2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 2
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        if isinstance(data.elements, GeometryStack):
+            for idx in data.elements.geometries.shape[0].meshgrid():
+                self.plot(data[idx], figure, subplot, space, min_val, max_val, show_color_bar, color[idx])
+            return
+        row, col = subplot
+        subplot = figure.get_subplot(row, col)
+        dims = data.bounds.vector.item_names
+        vector = data.bounds.shape['vector']
+        size = figure._phi_size
         yrange = subplot.yaxis.range
-        if data.points.shape.non_channel.rank > 1:
-            data_list = field.unstack(data, data.points.shape.non_channel[0].name)
-            for d in data_list:
-                _plot(d, fig, size, colormap, show_color_bar, vmin, vmax, row=row, col=col)
-        else:
-            if spatial(data):
-                raise NotImplementedError("Plotly does not yet support plotting point clouds with spatial dimensions")
-            x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-            color = data.color.native()
-            subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1]
+        if spatial(data):
+            raise NotImplementedError("Plotly does not yet support plotting point clouds with spatial dimensions")
+        for idx in non_channel(data.points).meshgrid(names=True):
+            x, y = math.reshaped_numpy(data[idx].points.vector[dims], [vector, data.shape.non_channel])
+            hex_color = color[idx].native()
+            subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100
             if isinstance(data.elements, Sphere):
                 symbol = 'circle'
                 marker_size = data.elements.bounding_radius().numpy() * 1.9
             elif isinstance(data.elements, BaseBox):
                 symbol = 'square'
-                marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
+                marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 2
             elif isinstance(data.elements, Point):
                 symbol = 'x'
                 marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
@@ -189,23 +234,31 @@ def _plot(data: SampledField,
                 symbol = 'asterisk'
                 marker_size = data.elements.bounding_radius().numpy()
             marker_size *= subplot_height / (yrange[1] - yrange[0])
-            marker = graph_objects.scatter.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
-            fig.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
-        fig.update_layout(showlegend=False)
-    elif isinstance(data, PointCloud) and data.spatial_rank == 3:
+            marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol)
+            figure.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
+        figure.update_layout(showlegend=False)
+
+
+class PointCloud3D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 3
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+        row, col = subplot
+        subplot = figure.get_subplot(row, col)
+        dims = data.bounds.vector.item_names
+        vector = data.bounds.shape['vector']
+        size = figure._phi_size
         yrange = subplot.yaxis.range
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             for d in data_list:
-                _plot(d, fig, size, colormap, show_color_bar, vmin, vmax, row=row, col=col)
+                self.plot(d, figure, (row, col), space, min_val, max_val, show_color_bar, color)
         else:
             x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-            color = data.color.native()
-            # if data.color.shape.instance_rank == 0:
-            #     color = str(data.color)
-            # else:
-            #     color = [str(d) for d in math.unstack(data.color, instance)]
-            domain_y = fig.layout[subplot.plotly_name].domain.y
+            color = color.native()
+            domain_y = figure.layout[subplot.plotly_name].domain.y
             if isinstance(data.elements, Sphere):
                 symbol = 'circle'
                 marker_size = data.elements.bounding_radius().numpy() * 2
@@ -220,10 +273,14 @@ def _plot(data: SampledField,
                 marker_size = data.elements.bounding_radius().numpy()
             marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
             marker = graph_objects.scatter3d.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
-            fig.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
-        fig.update_layout(showlegend=False)
-    else:
-        raise NotImplementedError(f"No figure recipe for {data}")
+            figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
+        figure.update_layout(showlegend=False)
+
+
+def _get_range(bounds: Box, index: int):
+    lower = bounds.lower.vector[index].numpy()
+    upper = bounds.upper.vector[index].numpy()
+    return lower, upper
 
 
 def real_values(field: SampledField):
@@ -376,3 +433,16 @@ def split_curve(curve: np.ndarray) -> List[np.ndarray]:
 def join_curves(curves: List[np.ndarray]) -> np.ndarray:
     curves = [np.append(np.array(c, numpy.float), [[numpy.nan, numpy.nan]], -2) for c in curves[:-1]] + [curves[-1]]
     return np.concatenate(curves, -2)
+
+
+PLOTLY = PlotlyPlots()
+PLOTLY.recipes.extend([
+            LinePlot(),
+            Heatmap2D(),
+            VectorField2D(),
+            VectorField3D(),
+            VectorCloud2D(),
+            Heatmap3D(),
+            PointCloud2D(),
+            PointCloud3D(),
+        ])

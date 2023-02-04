@@ -66,10 +66,10 @@ class TestPlots(TestCase):
         self._test_plot(spheres)
 
     def test_plot_point_cloud_2d(self):
-        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1), color='#994444')
-        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box['x,y', .4:.6, .2:.4]).elements, 'x,y', instance('points')), color='#000000')
+        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1))
+        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box['x,y', .4:.6, .2:.4]).elements, 'x,y', instance('points')))
         cloud = field.stack([spheres, cells], instance('stack'))
-        self._test_plot(cloud)
+        self._test_plot(cloud, color=wrap(['#994444', '#000000'], instance('stack')))
 
     def test_plot_point_cloud_2d_large(self):
         spheres = PointCloud(Sphere(wrap([(2, 4), (9, 8), (7, 8)], instance('points'), channel(vector='x,y')), radius=1))
@@ -129,7 +129,7 @@ class TestPlots(TestCase):
         points = stack([points, points + (0, -1)], instance('disconnected'))
         points = stack([points, points * (1, -1)], channel('categories'))
         try:
-            self._test_plot(PointCloud(points, color=wrap([0, 1], channel('categories'))))
+            self._test_plot(PointCloud(points), color=wrap([0, 1], channel('categories')))
         except NotImplementedError:
             pass
 

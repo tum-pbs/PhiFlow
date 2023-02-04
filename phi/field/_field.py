@@ -1,5 +1,5 @@
 import warnings
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Union
 
 from phi import math
 from phi.math import Shape, Tensor, channel
@@ -163,7 +163,10 @@ class SampledField(Field):
     Base class for fields that are sampled at specific locations such as grids or point clouds.
     """
 
-    def __init__(self, elements: Geometry or Tensor, values: Tensor, extrapolation: float or Extrapolation or Field or None, bounds: Box or None):
+    def __init__(self, elements: Union[Geometry, Tensor],
+                 values: Tensor,
+                 extrapolation: float or Extrapolation or Field or None,
+                 bounds: Box or None):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
