@@ -146,7 +146,15 @@ def rmsprop(net: nn.Module, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, 
     return optim.RMSprop(net.parameters(), learning_rate, alpha, eps, weight_decay, momentum, centered)
 
 
-CONV = [None, nn.Conv1d, nn.Conv2d, nn.Conv3d]
+def _bias0(conv):
+    def initialize(*args, **kwargs):
+        module = conv(*args, **kwargs)
+        module.bias.data.fill_(0)
+        return module
+    return initialize
+
+
+CONV = [None, _bias0(nn.Conv1d), _bias0(nn.Conv2d), _bias0(nn.Conv3d)]
 NORM = [None, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]
 ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh, 'SiLU': nn.SiLU, 'GeLU': nn.GELU}
 
@@ -187,7 +195,7 @@ class DenseNet(nn.Module):
         self._activation = activation
         self._batch_norm = batch_norm
         for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
-            self.add_module(f'linear{i}', nn.Linear(s1, s2, bias=True))
+            self.add_module(f'linear{i}', _bias0(nn.Linear)(s1, s2, bias=True))
             if batch_norm:
                 self.add_module(f'norm{i}', nn.BatchNorm1d(s2))
         self.softmax = nn.Softmax() if use_softmax else None
@@ -444,9 +452,9 @@ class Dense_resnet_block(nn.Module):
         super(Dense_resnet_block, self).__init__()
         self.activation = activation
         self.bn1 = NORM[1](in_channels) if batch_norm else nn.Identity()
-        self.linear1 = nn.Linear(in_channels, mid_channels)
+        self.linear1 = _bias0(nn.Linear)(in_channels, mid_channels)
         self.bn2 = NORM[1](mid_channels) if batch_norm else nn.Identity()
-        self.linear2 = nn.Linear(mid_channels, in_channels)
+        self.linear2 = _bias0(nn.Linear)(mid_channels, in_channels)
 
     def forward(self, x):
         x = TORCH.as_tensor(x)
@@ -821,15 +829,15 @@ class FNO(nn.Module):
         self.width = width
         self.in_spatial = in_spatial
 
-        self.fc0 = nn.Linear(in_channels + in_spatial, self.width)
+        self.fc0 = _bias0(nn.Linear)(in_channels + in_spatial, self.width)
 
         for i in range(4):
             self.add_module(f'conv{i}', SpectralConv(self.width, self.width, modes, in_spatial))
             self.add_module(f'w{i}', CONV[in_spatial](self.width, self.width, kernel_size=1))
             self.add_module(f'bn{i}', NORM[in_spatial](self.width) if batch_norm else nn.Identity())
 
-        self.fc1 = nn.Linear(self.width, 128)
-        self.fc2 = nn.Linear(128, out_channels)
+        self.fc1 = _bias0(nn.Linear)(self.width, 128)
+        self.fc2 = _bias0(nn.Linear)(128, out_channels)
 
     # Adding extra spatial channels eg. x, y, z, .... to input x
     def get_grid(self, shape, device):
