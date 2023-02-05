@@ -32,8 +32,8 @@ class BaseBox(Geometry):  # not a Subwoofer
     def center(self) -> Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta, **delta_by_dim) -> 'BaseBox':
-        raise NotImplementedError()
+    def at(self, center: Tensor) -> 'BaseBox':
+        return Cuboid(center, self._half_size)
 
     @property
     def size(self) -> Tensor:

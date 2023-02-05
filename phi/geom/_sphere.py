@@ -95,8 +95,8 @@ class Sphere(Geometry):
     def bounding_half_extent(self):
         return self.radius
 
-    def shifted(self, delta):
-        return Sphere(self._center + delta, self._radius)
+    def at(self, center: Tensor) -> 'Geometry':
+        return Sphere(center, self._radius)
 
     def rotated(self, angle):
         return self

@@ -219,9 +219,9 @@ class Geometry:
           Geometry: shifted geometry
 
         """
-        raise NotImplementedError(self.__class__)
+        return self.at(self.center + delta)
 
-    def at(self, center: Tensor):
+    def at(self, center: Tensor) -> 'Geometry':
         """
         Returns a copy of this `Geometry` with the center at `center`.
         This is equal to calling `self @ center`.
@@ -235,7 +235,7 @@ class Geometry:
         Returns:
             `Geometry`.
         """
-        return self.shifted(center - self.center)
+        raise NotImplementedError
 
     def __matmul__(self, other):
         return self.at(other)
@@ -394,8 +394,8 @@ class _InvertedGeometry(Geometry):
     def bounding_half_extent(self) -> Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta: Tensor) -> Geometry:
-        return _InvertedGeometry(self.geometry.shifted(delta))
+    def at(self, center: Tensor) -> 'Geometry':
+        return _InvertedGeometry(self.geometry.at(center))
 
     def rotated(self, angle) -> Geometry:
         return _InvertedGeometry(self.geometry.rotated(angle))
@@ -468,7 +468,7 @@ class _NoGeometry(Geometry):
     def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
         return math.zeros(other_geometry.shape)
 
-    def shifted(self, delta):
+    def at(self, center: Tensor) -> 'Geometry':
         return self
 
     def rotated(self, angle):
@@ -524,8 +524,8 @@ class Point(Geometry):
     def bounding_half_extent(self) -> Tensor:
         return math.zeros()
 
-    def shifted(self, delta: Tensor) -> 'Geometry':
-        return Point(self._location + delta)
+    def at(self, center: Tensor) -> 'Geometry':
+        return Point(center)
 
     def rotated(self, angle) -> 'Geometry':
         return self

@@ -8,7 +8,7 @@ from phi.physics import advect
 
 def _test_advection(adv):
         s = CenteredGrid(Noise(), x=4, y=3)
-        v = CenteredGrid(Noise(vector=2), x=4, y=3)
+        v = CenteredGrid(Noise(vector='x,y'), x=4, y=3)
         field.assert_close(s, adv(s, v, 0), adv(s, v * 0, 1))
         sv = StaggeredGrid(Noise(), x=4, y=3)
         field.assert_close(s, adv(s, sv, 0), adv(s, sv * 0, 1))
