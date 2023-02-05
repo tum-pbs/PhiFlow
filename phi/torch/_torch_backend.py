@@ -377,7 +377,11 @@ class TorchBackend(Backend):
             return torch.meshgrid(*coordinates)
 
     def linspace(self, start, stop, number):
-        return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+        if self.is_tensor(stop, only_native=True) or self.is_tensor(start, only_native=True):
+            unit = torch.linspace(0, 1, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+            return unit * (stop - start) + start
+        else:
+            return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
         a, b = self.auto_cast(a, b)
