@@ -305,7 +305,7 @@ class PointCloud2D(Recipe):
             for idx in data.elements.geometries.shape[0].meshgrid():
                 PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx])
             return
-        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)])
+        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)], force_expand=True)
         mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
         if isinstance(data.elements, Point):
             if spatial(data.points).is_empty:
