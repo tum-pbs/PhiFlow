@@ -1027,14 +1027,15 @@ def iterate(f: Callable,
         raise ValueError(f"iterations must be an int or Shape but got {type(iterations)}")
 
 
-def identity(*args):
+def identity(x):
     """
-    Identity function without keyword arguments.
+    Identity function for one argument.
+    Vararg functions cannot be transformed as the argument names are unknown.
 
     Args:
-        *args: Positional arguments.
+        x: Positional argument.
 
     Returns:
-        `args`
+        `x`
     """
-    return args
+    return x
