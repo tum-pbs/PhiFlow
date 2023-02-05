@@ -861,6 +861,7 @@ def mask(obj: SampledFieldType or Geometry) -> SampledFieldType:
     elif isinstance(obj, Geometry):
         return PointCloud(obj, 1, 0)
     elif isinstance(obj, CenteredGrid):
-        return math.cast(obj != 0, int)
+        values = math.cast(obj.values != 0, int)
+        return obj.with_values(values)
     else:
         raise ValueError(obj)

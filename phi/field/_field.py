@@ -1,4 +1,5 @@
 import warnings
+from numbers import Number
 from typing import TypeVar, Callable, Union
 
 from phi import math
@@ -71,22 +72,15 @@ class Field:
         """
         return resample(self, representation, keep_extrapolation, **kwargs)
 
-    def __matmul__(self, other: 'SampledField'):  # values @ representation
-        """
-        Resampling operator with change of extrapolation.
-
-        Args:
-            other: instance of SampledField
-
-        Returns:
-            Copy of other with values and extrapolation from this Field.
-        """
+    def __matmul__(self, other: 'SampledField'):  # value @ representation
+        # Deprecated. Use `resample(value, field)` instead.
+        warnings.warn("value @ field is deprecated. Use resample(value, field) instead.", DeprecationWarning)
         return self.at(other, keep_extrapolation=False)
 
     def __rmatmul__(self, other):  # values @ representation
         if not isinstance(self, SampledField):
             return NotImplemented
-        if isinstance(other, (Geometry, float, int, complex, tuple, list)):
+        if isinstance(other, (Geometry, Number, tuple, list)):
             return self.with_values(other)
         return NotImplemented
 
@@ -257,12 +251,6 @@ class SampledField(Field):
     def __neg__(self):
         return self._op1(lambda x: -x)
 
-    def __eq__(self, other):
-        return self._op2(other, lambda x, y: x == y)
-
-    def __ne__(self, other):
-        return self._op2(other, lambda x, y: x != y)
-
     def __gt__(self, other):
         return self._op2(other, lambda x, y: x > y)
 
@@ -396,23 +384,23 @@ def reduce_sample(field: Field or Geometry,
         return field._sample(geometry, **kwargs)
 
 
-def resample(obj: Union[Field, Geometry, Tensor, float], representation: SampledField, keep_extrapolation=False, **kwargs):
+def resample(value: Union[Field, Geometry, Tensor, float], to: SampledField, keep_extrapolation=False, **kwargs):
     """
-    Samples this field at the sample points of `representation`.
-    The result will approximate the values of this field on the data structure of `representation`.
+    Samples a `Field`, `Geometry` or value at the sample points of the field `to`.
+    The result will approximate `value` on the data structure of `to`.
+    Unlike `sample()`, this method returns a `Field` object, not a `Tensor`.
 
-    Unlike `Field.sample()`, this method returns a `Field` object, not a `Tensor`.
-
-    Operator alias:
-        `self @ representation`.
+    Aliases:
+        `value.at(to)`, (and the deprecated `value @ to`).
 
     See Also:
-        `sample()`, `reduce_sample()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
+        `sample()`, `reduce_sample()`, `Field.at()`, [Resampling overview](https://tum-pbs.github.io/PhiFlow/Fields.html#resampling-fields).
 
     Args:
-        obj: Object containing values to resample.
+        value: Object containing values to resample.
             This can be
-        representation: Field object defining the sample points. The values of `representation` are ignored.
+        to: `SampledField` (`CenteredGrid`, `StaggeredGrid` or `PointCloud`) object defining the sample points.
+            The current values of `to` are ignored.
         keep_extrapolation: Only available if `self` is a `SampledField`.
             If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
             This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
@@ -422,12 +410,23 @@ def resample(obj: Union[Field, Geometry, Tensor, float], representation: Sampled
 
     Returns:
         Field object of same type as `representation`
+
+    Examples:
+        >>> grid = CenteredGrid(x=64, y=32)
+        >>> field.resample(Noise(), to=grid)
+        CenteredGrid[(xˢ=64, yˢ=32), size=(x=64, y=32), extrapolation=float64 0.0]
+        >>> field.resample(1, to=grid)
+        CenteredGrid[(xˢ=64, yˢ=32), size=(x=64, y=32), extrapolation=float64 0.0]
+        >>> field.resample(Box(x=1, y=2), to=grid)
+        CenteredGrid[(xˢ=64, yˢ=32), size=(x=64, y=32), extrapolation=float64 0.0]
+        >>> field.resample(grid, to=grid) == grid
+        True
     """
-    if not isinstance(obj, (Field, Geometry)):
-        return representation.with_values(obj)
-    resampled = reduce_sample(obj, representation.elements, **kwargs)
-    extrap = obj.extrapolation if isinstance(obj, SampledField) and keep_extrapolation else representation.extrapolation
-    return representation.with_values(resampled).with_extrapolation(extrap)
+    if not isinstance(value, (Field, Geometry)):
+        return to.with_values(value)
+    resampled = reduce_sample(value, to.elements, **kwargs)
+    extrap = value.extrapolation if isinstance(value, SampledField) and keep_extrapolation else to.extrapolation
+    return to.with_values(resampled).with_extrapolation(extrap)
 
 
 def _get_geometry(geometry):

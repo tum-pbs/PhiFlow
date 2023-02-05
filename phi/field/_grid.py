@@ -157,7 +157,7 @@ class CenteredGrid(Grid):
     """
 
     def __init__(self,
-                 values: Any,
+                 values: Any = 0.,
                  extrapolation: Any = 0.,
                  bounds: Box or float = None,
                  resolution: int or Shape = None,
@@ -295,7 +295,7 @@ class StaggeredGrid(Grid):
     """
 
     def __init__(self,
-                 values: Any,
+                 values: Any = 0.,
                  extrapolation: float or Extrapolation = 0,
                  bounds: Box or float = None,
                  resolution: Shape or int = None,

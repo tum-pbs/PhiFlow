@@ -25,7 +25,7 @@ def step(particles):
     occupied = resample(field.mask(particles), CenteredGrid(0, velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution), scatter=True)
     velocity, pressure = fluid.make_incompressible(velocity + GRAVITY * DT, [OBSTACLE], active=occupied)
     # --- Particle Operations ---
-    particles += resample(velocity - prev_velocity, particles)  # FLIP update
+    particles += resample(velocity - prev_velocity, to=particles)  # FLIP update
     # particles = resample(velocity, particles)  # PIC update
     particles = advect.points(particles, velocity * mask(~OBSTACLE), DT, advect.finite_rk4)
     particles = fluid.boundary_push(particles, [OBSTACLE, ~particles.bounds])
