@@ -204,6 +204,17 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
+    def bounding_box(self) -> 'BaseBox':
+        """
+        Returns the approximately smallest axis-aligned box that contains this `Geometry`.
+        The center of the box may not be equal to `self.center`.
+
+        Returns:
+            `Box` or `Cuboid` that fully contains this `Geometry`.
+        """
+        from ._box import Cuboid
+        return Cuboid(self.center, half_size=self.bounding_half_extent())
+
     def shifted(self, delta: Tensor) -> 'Geometry':
         """
         Returns a translated version of this geometry.
