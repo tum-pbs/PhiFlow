@@ -36,10 +36,17 @@ making it easy to build end-to-end differentiable functions involving both learn
 
 Installation with [pip](https://pypi.org/project/pip/) on [Python 3.6](https://www.python.org/downloads/) and above:
 ``` bash
-$ pip install phiflow dash
+$ pip install phiflow
 ```
 Install PyTorch, TensorFlow or Jax in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
-See the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html) on how to compile the custom CUDA operators and verify your installation.
+To enable the web UI, also install [`dash`](https://pypi.org/project/dash/).
+For optimal GPU performance, you may compile the custom CUDA operators, see the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html).
+
+You can verify your installation by running
+```bash
+$ python3 -c "import phi; phi.verify()"
+```
+This will check for compatible PyTorch, Jax and TensorFlow installations as well.
 
 ## Documentation and Tutorials
 [**Documentation Overview**](https://tum-pbs.github.io/PhiFlow/)
