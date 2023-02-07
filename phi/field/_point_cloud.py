@@ -1,6 +1,8 @@
 import warnings
 from typing import Any, Tuple, Union
 
+from phi.math import wrap, expand, non_batch
+
 from phi import math
 from phi.geom import Geometry, GridCell, Box, Point
 from ._field import SampledField, resample
@@ -12,25 +14,25 @@ from ..math.magic import slicing_dict
 
 class PointCloud(SampledField):
     """
-    A point cloud consists of elements at arbitrary locations.
-    A value or vector is associated with each element.
+    A `PointCloud` comprises:
 
-    Outside of elements, the value of the field is determined by the extrapolation.
+    * `elements`: a `Geometry` representing all points or volumes
+    * `values`: a `Tensor` representing the values corresponding to `elements`
+    * `extrapolation`: an `Extrapolation` defining the field value outside of `values`
 
-    All points belonging to one example must be listed in the 'points' dimension.
+    The points / elements of the `PointCloud` are listed along *instance* or *spatial* dimensions of `elements`.
+    These dimensions are automatically added to `values` if not already present.
 
-    Sampling arguments:
+    When sampling or resampling a `PointCloud`, the following keyword arguments can be specified.
 
-        soft: default=False.
-            If `True`, interpolates smoothly from 1 to 0 between the inside and outside of elements.
-            If `False`, only the center position of the new representation elements is checked against the point cloud elements.
-        scatter: default=False.
-            If `True`, scattering will be used to sample the point cloud onto grids.
-            Then, each element of the point cloud can only affect a single cell.
-            This is only recommended when the points are much smaller than the cells.
-        outside_handling: default='discard'. One of `discard`, `clamp`, `undefined`.
-        balance: default=0.5. Only used when `soft=True`.
-            See the description in `phi.geom.Geometry.approximate_fraction_inside()`.
+    * `soft`: default=False.
+      If `True`, interpolates smoothly from 1 to 0 between the inside and outside of elements.
+      If `False`, only the center position of the new representation elements is checked against the point cloud elements.
+    * `scatter`: default=False.
+      If `True`, scattering will be used to sample the point cloud onto grids. Then, each element of the point cloud can only affect a single cell. This is only recommended when the points are much smaller than the cells.
+    * `outside_handling`: default='discard'. One of `'discard'`, `'clamp'`, `'undefined'`.
+    * `balance`: default=0.5. Only used when `soft=True`.
+      See the description in `phi.geom.Geometry.approximate_fraction_inside()`.
 
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
@@ -49,7 +51,7 @@ class PointCloud(SampledField):
           add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
         """
-        SampledField.__init__(self, elements, math.wrap(values), extrapolation, bounds)
+        SampledField.__init__(self, elements, expand(wrap(values), non_batch(elements).non_channel), extrapolation, bounds)
         self._add_overlapping = add_overlapping
 
     @property
@@ -67,6 +69,9 @@ class PointCloud(SampledField):
 
     def with_elements(self, elements: Geometry):
         return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
+
+    def shifted(self, delta):
+        return self.with_elements(self.elements.shifted(delta))
 
     def with_values(self, values):
         return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
@@ -160,7 +165,10 @@ class PointCloud(SampledField):
         return scattered
 
     def __repr__(self):
-        return "PointCloud[%s]" % (self.shape,)
+        try:
+            return "PointCloud[%s]" % (self.shape,)
+        except:
+            return "PointCloud[invalid]"
 
     def __and__(self, other):
         assert isinstance(other, PointCloud)

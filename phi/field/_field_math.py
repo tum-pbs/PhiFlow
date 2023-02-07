@@ -636,8 +636,8 @@ def stack(fields, dim: Shape, dim_bounds: Box = None):
         else:
             return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
-        elements = geom.stack([f.elements for f in fields], dim=dim)
-        values = math.stack([f.values for f in fields], dim=dim)
+        elements = geom.stack([f.elements for f in fields], dim, expand_values=True)
+        values = math.stack([f.values for f in fields], dim, expand_values=True)
         return PointCloud(elements=elements, values=values, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
     raise NotImplementedError(type(fields[0]))
 
