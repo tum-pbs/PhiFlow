@@ -101,7 +101,7 @@ class SparseCoordinateTensor(Tensor):
         ind_batch = batch(self._indices)
         channels = non_instance(self._values).without(ind_batch)
         if matrix:
-            native_indices = self.default_backend.stack([row_idx_packed, col_idx_packed], -1)
+            native_indices = choose_backend(row_idx_packed, col_idx_packed).stack([row_idx_packed, col_idx_packed], -1)
             native_shape = (row_dims.volume, col_dims.volume)
         else:
             native_indices = reshaped_native(self._indices, [ind_batch, instance, 'vector'], force_expand=True)
@@ -479,7 +479,7 @@ def dense(x: Tensor) -> Tensor:
         from ._ops import scatter, zeros
         base_grid = zeros(x.shape._with_types(SPATIAL_DIM), dtype=x.dtype)
         result_sp = scatter(base_grid, x._indices, x._values, mode='add', outside_handling='undefined')
-        result = rename_dims(result_sp, shape, x.shape)
+        result = rename_dims(result_sp, result_sp.shape, x.shape)
         return result
     elif isinstance(x, CompressedSparseMatrix):
         ind_batch, channels, native_indices, native_pointers, native_values, native_shape = x._native_csr_components()
@@ -547,3 +547,27 @@ def native_matrix(value: Tensor):
         v = pack_dims(v, cols, channel('_col'))
         from ._ops import reshaped_native
         return reshaped_native(v, [batch, '_row', '_col'])
+
+
+def factor_ilu(value: Tensor):
+    """
+    Incomplete LU factorization.
+
+    Args:
+        value: Matrix to factor. Currently only supports COO matrices.
+
+    Returns:
+        lower: L matrix as `Tensor`
+        upper: U matrix as `Tensor`
+    """
+    assert isinstance(value, SparseCoordinateTensor), "ILU currently only supports COO matrices"
+    ind_batch, channels, indices, values, shape = value._native_coo_components(dual, matrix=True)
+    (l_idx_nat, l_val_nat), (u_idx_nat, u_val_nat) = value.default_backend.ilu_coo(indices, values, shape)  # 3 is too few
+    from ._ops import reshaped_tensor
+    l_indices = reshaped_tensor(l_idx_nat, [ind_batch, instance(value._indices), channel(value._indices)], convert=False)
+    l_values = reshaped_tensor(l_val_nat, [ind_batch, instance(value._values), channels], convert=False)
+    u_indices = reshaped_tensor(u_idx_nat, [ind_batch, instance(value._indices), channel(value._indices)], convert=False)
+    u_values = reshaped_tensor(u_val_nat, [ind_batch, instance(value._values), channels], convert=False)
+    lower = SparseCoordinateTensor(l_indices, l_values, value._dense_shape, value._can_contain_double_entries, value._indices_sorted)
+    upper = SparseCoordinateTensor(u_indices, u_values, value._dense_shape, value._can_contain_double_entries, value._indices_sorted)
+    return lower, upper
