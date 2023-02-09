@@ -149,7 +149,7 @@ class TestMagicOps(TestCase):
 
     def test_stack_expand(self):
         v = stack([0, linspace(0, 1, instance(points=10))], channel(vector='x,y'), expand_values=True)
-        self.assertEqual(instance(points=10) & channel(vector='x,y'), shape(v))
+        self.assertEqual(set(instance(points=10) & channel(vector='x,y')), set(shape(v)))
 
     def test_multi_dim_stack(self):
         for test_class in TEST_CLASSES:

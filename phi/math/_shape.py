@@ -66,9 +66,12 @@ class Shape:
             assert isinstance(self.item_names, tuple)
             assert all([items is None or isinstance(items, tuple) for items in self.item_names])
             assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
-            for size in sizes:
-                if size is not None and not isinstance(size, int):
+            from ._tensors import Tensor
+            for name, size in zip(names, sizes):
+                if size is not None and isinstance(size, Tensor):
                     assert size.rank > 0
+                    # for dim in size.shape.names:
+                    #     assert dim in self.names, f"Dimension {name} varies along {dim} but {dim} is not part of the Shape {self}"
 
     def _to_dict(self, include_sizes=True):
         result = dict(names=self.names, types=self.types, item_names=self.item_names)
@@ -1713,10 +1716,10 @@ def concat_shapes(*shapes: Shape or Any) -> Shape:
 
 def shape_stack(stack_dim: Shape, *shapes: Shape):
     """ Returns the shape of a tensor created by stacking tensors with `shapes`. """
-    names = list(shapes[0].names)
-    types = list(shapes[0].types)
-    item_names = list(shapes[0].item_names)
-    for other in shapes[1:]:
+    names = list(stack_dim.names)
+    types = list(stack_dim.types)
+    item_names = list(stack_dim.item_names)
+    for other in shapes:
         for size, name, type, items in other._dimensions:
             if name not in names:
                 if type in types:
@@ -1744,16 +1747,19 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
                         item_names[index] = None
     sizes = []
     for name in names:
-        dim_sizes = [(shape.get_size(name) if name in shape else 1) for shape in shapes]
-        if all([math.close(s, dim_sizes[0]) for s in dim_sizes[1:]]):
-            dim_sizes = dim_sizes[0]
+        if name == stack_dim.name:
+            size = len(shapes)
         else:
-            from ._magic_ops import stack
-            from ._tensors import wrap
-            dim_sizes = [wrap(d) for d in dim_sizes]
-            dim_sizes = stack(dim_sizes, stack_dim)
-        sizes.append(dim_sizes)
-    return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))._expand(stack_dim.with_sizes([len(shapes)], keep_item_names=True))
+            dim_sizes = [(shape.get_size(name) if name in shape else 1) for shape in shapes]
+            if all([math.close(s, dim_sizes[0]) for s in dim_sizes[1:]]):
+                size = dim_sizes[0]
+            else:
+                from ._magic_ops import stack
+                from ._tensors import wrap
+                dim_sizes = [wrap(d) for d in dim_sizes]
+                size = stack(dim_sizes, stack_dim)
+        sizes.append(size)
+    return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
 
 
 def vector_add(*shapes: Shape):

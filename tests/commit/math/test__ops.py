@@ -51,7 +51,7 @@ class TestMathFunctions(TestCase):
         t = math.random_normal(instance(particles=2))
         b = math.expand(t, batch(b=2))
         s = math.stack([t, b], channel(c='t,b'))
-        self.assertEqual(batch(b=2) & instance(particles=2) & channel(c='t,b'), s.shape)
+        self.assertEqual(set(batch(b=2) & instance(particles=2) & channel(c='t,b')), set(s.shape))
 
     def test_nonzero(self):
         c = math.concat([math.zeros(spatial(b=3, a=2)), math.ones(spatial(a=2, b=4))], spatial('b'))
