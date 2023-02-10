@@ -1,14 +1,15 @@
 import warnings
 from typing import Any, Tuple, Union
 
-from phi.math import wrap, expand, non_batch
+from phi.math import wrap, expand, non_batch, extrapolation, spatial
 
 from phi import math
 from phi.geom import Geometry, GridCell, Box, Point
 from ._field import SampledField, resample
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance, Shape
-from ..math.extrapolation import Extrapolation, ConstantExtrapolation
+from ..math._tensors import may_vary_along
+from ..math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 from ..math.magic import slicing_dict
 
 
@@ -52,6 +53,7 @@ class PointCloud(SampledField):
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
         """
         SampledField.__init__(self, elements, expand(wrap(values), non_batch(elements).non_channel), extrapolation, bounds)
+        assert self._extrapolation is PERIODIC or isinstance(self._extrapolation, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {self._extrapolation}"
         self._add_overlapping = add_overlapping
 
     @property
@@ -134,15 +136,22 @@ class PointCloud(SampledField):
         if isinstance(geometry, GeometryStack):
             sampled = [self._sample(g, soft, scatter, outside_handling, balance) for g in geometry.geometries]
             return math.stack(sampled, geometry.geometries.shape)
+        if self.extrapolation is extrapolation.PERIODIC:
+            raise NotImplementedError("Periodic PointClouds not yet supported")
         if isinstance(geometry, GridCell) and scatter:
             assert not soft, "Cannot soft-sample when scatter=True"
             return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
         else:
             assert not isinstance(self._elements, Point), "Cannot sample Point-like elements with scatter=False"
+            if may_vary_along(self._values, instance(self._values) & spatial(self._values)):
+                raise NotImplementedError("Non-scatter resampling not yet supported for varying values")
+            idx0 = (instance(self._values) & spatial(self._values)).first_index()
+            outside = self._extrapolation.value if isinstance(self._extrapolation, ConstantExtrapolation) else 0
             if soft:
-                return self.elements.approximate_fraction_inside(geometry, balance)
+                frac_inside = self.elements.approximate_fraction_inside(geometry, balance)
+                return frac_inside * self._values[idx0] + (1 - frac_inside) * outside
             else:
-                return math.to_float(self.elements.lies_inside(geometry.center))
+                return math.where(self.elements.lies_inside(geometry.center), self._values[idx0], outside)
 
     def grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling: str):
         """

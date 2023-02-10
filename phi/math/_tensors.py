@@ -14,7 +14,7 @@ from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack, 
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
-                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual, instance)
+                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual, instance, shape, DimFilter)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend, ComputeDevice
 from .backend._dtype import DType, combine_types
@@ -2526,5 +2526,12 @@ def is_scalar(value) -> bool:
     elif isinstance(value, numbers.Number):
         return True
     else:
-        shape = choose_backend(value).staticshape(value)
-        return len(shape) == 0
+        return len(choose_backend(value).staticshape(value)) == 0
+
+
+def may_vary_along(value, dims: DimFilter):
+    if isinstance(value, CollapsedTensor) and value._inner is not None:
+        return may_vary_along(value._inner, dims)
+    s = shape(value)
+    dims = s.only(dims)
+    return dims.volume > 1
