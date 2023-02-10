@@ -1983,27 +1983,35 @@ def gather(values: Tensor, indices: Tensor, dims: DimFilter or None = None):
 
     Args:
         values: `Tensor` containing values to gather.
-        indices: `int` `Tensor`. Multi-dimensional position references in `values`.
-            Must contain a single channel dimension for the index vector matching the number of `dims`.
-        dims: Dimensions indexed by `indices`.
-            If `None`, will default to all spatial dimensions or all instance dimensions, depending on which ones are present (but not both).
+        indices: `int` `Tensor`. Multidimensional position references in `values`.
+            Must contain a single channel dimension for the index vector matching the number of dimensons to index.
+            This channel dimension should list the dimension names to index as item names unless explicitly specified as `dims`.
+        dims: (Optional) Dimensions indexed by `indices`.
+            Alternatively, the dimensions can be specified as the item names of the channel dimension of `indices`.
+            If `None` and no index item names are specified, will default to all spatial dimensions or all instance dimensions, depending on which ones are present (but not both).
 
     Returns:
         `Tensor` with combined batch dimensions, channel dimensions of `values` and spatial/instance dimensions of `indices`.
     """
+    assert channel(indices).rank < 2, f"indices can at most have one channel dimension but got {indices.shape}"
     if dims is None:
-        assert values.shape.instance.is_empty or values.shape.spatial.is_empty, f"Specify gather dimensions for values with both instance and spatial dimensions. Got {values.shape}"
-        dims = values.shape.instance if values.shape.spatial.is_empty else values.shape.spatial
+        if channel(indices) and channel(indices).item_names[0]:
+            dims = channel(indices).item_names[0]
+        else:  # Fallback to spatial / instance
+            warnings.warn(f"Indexing without item names is not recommended. Got indices {indices.shape}", SyntaxWarning, stacklevel=2)
+            assert values.shape.instance.is_empty or values.shape.spatial.is_empty, f"Specify gather dimensions for values with both instance and spatial dimensions. Got {values.shape}"
+            dims = values.shape.instance if values.shape.spatial.is_empty else values.shape.spatial
     if indices.dtype.kind == bool:
         indices = to_int32(indices)
     dims = parse_dim_order(dims)
-    batch = (values.shape.batch & indices.shape.batch).without(dims)
-    channel = values.shape.without(dims).without(batch)
-    native_values = reshaped_native(values, [batch, *dims, channel])
-    native_indices = reshaped_native(indices, [batch, *indices.shape.non_batch.non_channel, indices.shape.channel])
+    assert dims in values.shape, f"Trying to index non-existant dimensions with indices {indices.shape} into values {values.shape}"
+    batch_ = (values.shape.batch & indices.shape.batch).without(dims)
+    channel_ = values.shape.without(dims).without(batch_)
+    native_values = reshaped_native(values, [batch_, *dims, channel_])
+    native_indices = reshaped_native(indices, [batch_, *indices.shape.non_batch.non_channel, channel(indices)])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
-    result = reshaped_tensor(native_result, [batch, *indices.shape.non_channel.non_batch, channel])
+    result = reshaped_tensor(native_result, [batch_, *indices.shape.non_channel.non_batch, channel_])
     return result
 
 
@@ -2054,24 +2062,32 @@ def scatter(base_grid: Tensor or Shape,
     assert outside_handling in ('discard', 'clamp', 'undefined')
     assert isinstance(indices_gradient, bool)
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
-    assert indices.shape.channel.names == ('vector',) or (grid_shape.spatial_rank + grid_shape.instance_rank == 1 and indices.shape.channel_rank == 0)
-    if 'vector' in indices.shape and indices.shape.get_item_names('vector') and indices.shape.get_item_names('vector') != grid_shape.names:
-        indices = indices.vector[grid_shape.names]
+    assert channel(indices).rank < 2
+    if channel(indices) and channel(indices).item_names[0]:
+        indexed_dims = channel(indices).item_names[0]
+        assert indexed_dims in grid_shape, f"Scatter indices {indices.shape} point to missing dimensions in grid {grid_shape}"
+        if indexed_dims != grid_shape.only(indexed_dims).names:
+            indices = indices.vector[grid_shape.only(indexed_dims).names]
+        indexed_dims = grid_shape.only(indexed_dims)
+    else:
+        assert channel(indices).rank == 1 or (grid_shape.spatial_rank + grid_shape.instance_rank == 1 and indices.shape.channel_rank == 0)
+        indexed_dims = grid_shape.spatial
+        assert channel(indices).volume == indexed_dims.rank
     values = wrap(values)
     batches = values.shape.non_channel.non_instance & indices.shape.non_channel.non_instance
-    channels = grid_shape.channel & values.shape.channel
+    channels = grid_shape.without(indexed_dims).without(batches) & values.shape.channel
     # --- Set up grid ---
     if isinstance(base_grid, Shape):
         with choose_backend_t(indices, values):
-            base_grid = zeros(base_grid & batches & values.shape.channel)
+            base_grid = zeros(base_grid & batches & values.shape.channel, dtype=values.dtype)
         if mode != 'add':
             base_grid += math.nan
     # --- Handle outside indices ---
     if outside_handling == 'clamp':
-        indices = clip(indices, 0, tensor(grid_shape.spatial, channel('vector')) - 1)
+        indices = clip(indices, 0, tensor(indexed_dims, channel('vector')) - 1)
     elif outside_handling == 'discard':
         indices_linear = pack_dims(indices, instance, instance(_scatter_instance=1))
-        indices_inside = min_((round_(indices_linear) >= 0) & (round_(indices_linear) < tensor(grid_shape.spatial, channel('vector'))), 'vector')
+        indices_inside = min_((round_(indices_linear) >= 0) & (round_(indices_linear) < tensor(indexed_dims, channel('vector'))), 'vector')
         indices_linear = boolean_mask(indices_linear, '_scatter_instance', indices_inside)
         if instance(values).rank > 0:
             values_linear = pack_dims(values, instance, instance(_scatter_instance=1))
@@ -2084,7 +2100,7 @@ def scatter(base_grid: Tensor or Shape,
 
     def scatter_forward(base_grid, indices, values):
         indices = to_int32(round_(indices))
-        native_grid = reshaped_native(base_grid, [batches, *non_batch(base_grid).non_channel, channels], force_expand=True)
+        native_grid = reshaped_native(base_grid, [batches, *indexed_dims, channels], force_expand=True)
         native_values = reshaped_native(values, [batches, lists, channels], force_expand=True)
         native_indices = reshaped_native(indices, [batches, lists, 'vector'], force_expand=True)
         backend = choose_backend(native_indices, native_values, native_grid)
@@ -2096,20 +2112,17 @@ def scatter(base_grid: Tensor or Shape,
             count = backend.scatter(zero_grid, native_indices, backend.ones_like(native_values), mode='add')
             native_result = summed / backend.maximum(count, 1)
             native_result = backend.where(count == 0, native_grid, native_result)
-        return reshaped_tensor(native_result, [batches, *non_batch(base_grid).non_channel, channels], check_sizes=True)
+        return reshaped_tensor(native_result, [batches, *indexed_dims, channels], check_sizes=True)
 
-    def scatter_backward(shaped_base_grid_, shaped_indices_, shaped_values_, output, d_output):
+    def scatter_backward(args: dict, _output, d_output):
         from ._nd import spatial_gradient
-        values_grad = gather(d_output, shaped_indices_)
-        spatial_gradient_indices = gather(spatial_gradient(d_output), shaped_indices_)
-        indices_grad = mean(spatial_gradient_indices * shaped_values_, 'vector_')
+        values_grad = gather(d_output, args['indices'])
+        spatial_gradient_indices = gather(spatial_gradient(d_output, dims=indexed_dims), args['indices'])
+        indices_grad = mean(spatial_gradient_indices * args['values'], 'vector_')
         return None, indices_grad, values_grad
 
-    scatter_function = scatter_forward
-    if indices_gradient:
-        from phi.math import custom_gradient
-        scatter_function = custom_gradient(scatter_forward, scatter_backward)
-
+    from ._functional import custom_gradient
+    scatter_function = custom_gradient(scatter_forward, scatter_backward) if indices_gradient else scatter_forward
     result = scatter_function(base_grid, indices, values)
     return result
 
