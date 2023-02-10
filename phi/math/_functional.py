@@ -910,6 +910,52 @@ def print_gradient(value: Tensor, name="", detailed=False) -> Tensor:
     return identity(value)
 
 
+def trace_check(f, *args, **kwargs):
+    """
+    Tests if `f(*args, **kwargs)` has already been traced.
+    If true, jit-compiled functions are very fast since the Python function is not actually called anymore.
+
+    Args:
+        f: Transformed Function, e.g. jit-compiled or linear function.
+        *args: Hypothetical arguments to be passed to `f`
+        **kwargs: Hypothetical keyword arugments to be passed to `f`
+
+    Returns:
+        result: `True` if there is an existing trace that can be used, `False` if `f` would have to be re-traced.
+        reason: Message giving hints as to why `f` needs to be re-traced given `args` and `kwargs`.
+    """
+    if isinstance(f, (JitFunction, GradientFunction, HessianFunction, CustomGradientFunction)):
+        keys = f.traces.keys()
+    elif isinstance(f, LinearFunction):
+        keys = f.matrices_and_biases.keys()
+    else:
+        raise ValueError(f"{f_name(f)} is not a traceable function. Only supports jit_compile, jit_compile_linear, functional_gradient, custom_gradient, jacobian, hessian")
+    key, *_ = key_from_args(args, kwargs, f.f_params, aux=f.auxiliary_args)
+    if not keys:
+        return False, "Function has not yet been traced"
+    if key in keys:
+        return True, ""
+    traced_key = next(iter(keys))  # ToDo compare against all
+    cond_equal = key.auxiliary_kwargs == traced_key.auxiliary_kwargs
+    if isinstance(cond_equal, Tensor):
+        cond_equal = cond_equal.all
+    if not cond_equal:
+        return False, "Auxiliary arguments do not match"
+    # shapes need not be compared because they are included in specs
+    if traced_key.tree.keys() != key.tree.keys():
+        return False, f"Different primary arguments passed: {set(traced_key.tree.keys())} vs {set(key.tree.keys())}"
+    for name in traced_key.tree.keys():
+        if traced_key.tree[name] != key.tree[name]:
+            return False, f"Primary argument '{name}' differs in non-traced variables: {traced_key.tree[name]} vs {key.tree[name]}. Make sure the corresponding class overrides __eq__()."
+    if traced_key.specs != key.specs:
+        return False, "Traced variables differ in shape"
+    if traced_key.backend != key.backend:
+        return False, f"Function was not traced with backend {key.backend}"
+    if traced_key.spatial_derivative_order != key.spatial_derivative_order:
+        return False, f"Different in spatial_derivative_order. This is likely an internal problem."
+    return True
+
+
 def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_type: Callable or str) -> Callable:
     """
     Wraps a function to change the dimension types of its `Tensor` and `PhiTreeNode` arguments.

@@ -63,6 +63,7 @@ from ._functional import (
     map_types, map_s2b, map_i2b,
     iterate,
     identity,
+    trace_check,
 )
 from ._optimize import solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape
 from ._nd import (

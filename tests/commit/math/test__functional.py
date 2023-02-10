@@ -366,3 +366,17 @@ class TestFunctional(TestCase):
             self.assertTrue(f_.forget_traces)
             f_ = jit()(f)
             self.assertFalse(f_.forget_traces)
+
+    def test_trace_check(self):
+        @math.jit_compile(auxiliary_args='aux')
+        def f(x, aux):
+            return x * aux
+
+        for backend in [b for b in BACKENDS if b.supports(Backend.jit_compile)]:
+            with backend:
+                x0 = math.zeros()
+                aux0 = 1
+                self.assertFalse(math.trace_check(f, x0, aux0)[0])
+                f(x0, aux0)
+                self.assertTrue(math.trace_check(f, x0, aux0)[0])
+                self.assertTrue(math.trace_check(f, x=x0, aux=aux0)[0])
