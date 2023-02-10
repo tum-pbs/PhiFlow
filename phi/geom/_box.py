@@ -232,6 +232,8 @@ class Box(BaseBox, metaclass=BoxType):
             return Geometry.__stack__(values, dim, **kwargs)
 
     def __eq__(self, other):
+        if self._lower is None and self._upper is None:
+            return isinstance(other, BaseBox)
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
                and self.size.shape.get_size('vector') == other.size.shape.get_size('vector')\

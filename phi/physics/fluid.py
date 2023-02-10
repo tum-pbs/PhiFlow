@@ -3,6 +3,7 @@ Functions for simulating incompressible fluids, both grid-based and particle-bas
 
 The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 """
+import warnings
 from typing import Tuple, Callable
 
 from phi import math, field
@@ -40,14 +41,16 @@ class Obstacle:
         return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
 
     def copied_with(self, **kwargs):
-        geometry, velocity, angular_velocity = self.geometry, self.velocity, self.angular_velocity
-        if 'geometry' in kwargs:
-            geometry = kwargs['geometry']
-        if 'velocity' in kwargs:
-            velocity = kwargs['velocity']
-        if 'angular_velocity' in kwargs:
-            angular_velocity = kwargs['angular_velocity']
-        return Obstacle(geometry, velocity, angular_velocity)
+        warnings.warn("Obstacle.copied_with is deprecated. Use math.copy_with instead.", DeprecationWarning, stacklevel=2)
+        return math.copy_with(self, **kwargs)
+
+    def __variable_attrs__(self) -> Tuple[str, ...]:
+        return 'geometry', 'velocity', 'angular_velocity'
+
+    def __eq__(self, other):
+        if not isinstance(other, Obstacle):
+            return False
+        return self.geometry == other.geometry and self.velocity == other.velocity and self.angular_velocity == other.angular_velocity
 
 
 def _get_obstacles_for(obstacles, space: Field):
