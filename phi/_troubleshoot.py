@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 from os.path import dirname
 
+import packaging.version
+
 
 def assert_minimal_config():  # raises AssertionError
     import sys
@@ -120,6 +122,8 @@ def troubleshoot_jax():
             math.assert_close(math.ones() + math.ones(), 2)
         except BaseException as err:
             return f"Installed ({version}) but tests failed with error: {err}"
+    if packaging.version.parse(jax.__version__) < packaging.version.parse('0.2.20'):
+        return f"Installed ({version}), {gpu_count} GPUs available. This is an old version of Jax that may not support all required features, e.g. sparse matrices."
     return f"Installed ({version}), {gpu_count} GPUs available."
 
 

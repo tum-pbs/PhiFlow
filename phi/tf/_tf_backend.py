@@ -618,13 +618,6 @@ class TFBackend(Backend):
             result.append(tf.stack(b_result))
         return tf.stack(result)
 
-    def coordinates(self, tensor):
-        assert isinstance(tensor, tf.SparseTensor)
-        idx = tensor.indices
-        with tf.device(idx.device):
-            idx = tuple(tf.unstack(idx, axis=-1))
-        return idx, tensor.values
-
     def not_equal(self, x, y):
         with self._device_for(x, y):
             return ~self.equal(x, y)

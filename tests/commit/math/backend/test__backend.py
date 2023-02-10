@@ -3,8 +3,7 @@ from unittest import TestCase
 import numpy
 
 import phi
-from phi.math.backend import ComputeDevice, convert
-
+from phi.math.backend import ComputeDevice, convert, Backend
 
 BACKENDS = phi.detect_backends()
 
@@ -40,5 +39,17 @@ class TestBackends(TestCase):
             indices = [0, 1]
             result = backend.gather(t, indices, axis=0)
             self.assertEqual((2, 3, 2), backend.staticshape(result))
+
+    def test_sparse(self):
+        idx = [[0, 1, 1],
+               [2, 0, 2]]
+        v = [3, 4, 5]
+        shape = (2, 3)
+        for backend in BACKENDS:
+            if backend.supports(Backend.sparse_coo_tensor):
+                with backend:
+                    idx_ = backend.transpose(backend.as_tensor(idx), [1, 0])
+                    matrix = backend.sparse_coo_tensor(idx_, v, shape)
+                    self.assertTrue(backend.is_tensor(matrix), backend.name)
 
 

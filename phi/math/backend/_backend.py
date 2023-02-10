@@ -1047,20 +1047,6 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def coordinates(self, tensor):
-        """
-        Returns the coordinates and values of a tensor.
-
-        Args:
-            tensor: Sparse tensor
-
-        Returns:
-            coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
-            indices: Tensor holding the corresponding values
-
-        """
-        raise NotImplementedError(self)
-
     def pairwise_distances(self, positions, max_radius, format: str, index_dtype=DType(int, 32)) -> list:
         """
 

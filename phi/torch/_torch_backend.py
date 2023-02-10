@@ -699,12 +699,6 @@ class TorchBackend(Backend):
         #     raise NotImplementedError
 
 
-    def coordinates(self, tensor):
-        assert isinstance(tensor, torch.Tensor) and tensor.is_sparse
-        idx = tensor._indices()
-        idx = self.unstack(idx, axis=0)
-        return idx, tensor._values()
-
     def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
         if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."

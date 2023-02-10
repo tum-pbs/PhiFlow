@@ -370,11 +370,6 @@ class NumPyBackend(Backend):
     def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
         return scipy.sparse.csc_matrix((values, row_indices, column_pointers), shape=shape)
 
-    def coordinates(self, tensor):
-        assert scipy.sparse.issparse(tensor)
-        coo = tensor.tocoo()
-        return (coo.row, coo.col), coo.data
-
     def stop_gradient(self, value):
         return value
 

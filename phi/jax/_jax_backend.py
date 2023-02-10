@@ -2,6 +2,7 @@ import numbers
 import warnings
 from functools import wraps
 from typing import List, Callable, Tuple
+from packaging import version
 
 import jax
 import jax.numpy as jnp
@@ -10,6 +11,9 @@ import numpy as np
 from jax import random
 from jax.core import Tracer
 from jax.interpreters.xla import DeviceArray
+
+if version.parse(jax.__version__) >= version.parse('0.2.20'):
+    from jax.experimental.sparse import BCOO, COO, CSR, CSC
 
 from phi.math import DType
 from phi.math.backend import Backend, ComputeDevice
@@ -71,6 +75,8 @@ class JaxBackend(Backend):
         if isinstance(x, jnp.ndarray) and not isinstance(x, np.ndarray):  # NumPy arrays inherit from Jax arrays
             return True
         if isinstance(x, jnp.bool_) and not isinstance(x, np.bool_):
+            return True
+        if isinstance(x, (COO, BCOO, CSR, CSC)):
             return True
         # --- Above considered native ---
         if only_native:
@@ -307,6 +313,9 @@ class JaxBackend(Backend):
             return Backend.mul(self, a, b)
 
     def matmul(self, A, b):
+        from jax.experimental.sparse import BCOO
+        if isinstance(A, BCOO):
+            return(A @ b.T).T
         return jnp.stack([A.dot(b[i]) for i in range(b.shape[0])])
 
     def while_loop(self, loop: Callable, values: tuple):
@@ -449,6 +458,9 @@ class JaxBackend(Backend):
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
         solution, residuals, rank, singular_values = lstsq_batched(matrix, rhs)
         return solution, residuals, rank, singular_values
+
+    def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
+        return BCOO((values, indices), shape=shape)
 
 
 lstsq_batched = jax.vmap(jnp.linalg.lstsq)  # map first dimension, required for JaxBackend.matrix_solve_least_squares()
