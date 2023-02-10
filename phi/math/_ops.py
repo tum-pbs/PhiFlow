@@ -2011,7 +2011,7 @@ def gather(values: Tensor, indices: Tensor, dims: DimFilter or None = None):
     native_indices = reshaped_native(indices, [batch_, *indices.shape.non_batch.non_channel, channel(indices)])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
-    result = reshaped_tensor(native_result, [batch_, *indices.shape.non_channel.non_batch, channel_])
+    result = reshaped_tensor(native_result, [batch_, *indices.shape.non_channel.non_batch, channel_], convert=False)
     return result
 
 

@@ -6,13 +6,13 @@ from typing import Callable, Generic, List, TypeVar, Any, Tuple
 import numpy
 
 from ._shape import EMPTY_SHAPE, Shape, merge_shapes, batch, non_batch, shape, dual, channel, non_dual
-from ._magic_ops import stack, copy_with
-from ._sparse import native_matrix, SparseCoordinateTensor
-from ._tensors import Tensor, disassemble_tree, assemble_tree, wrap, cached
+from ._magic_ops import stack, copy_with, rename_dims
+from ._sparse import native_matrix, SparseCoordinateTensor, CompressedSparseMatrix
+from ._tensors import Tensor, disassemble_tree, assemble_tree, wrap, cached, NativeTensor
 from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, reshaped_native, reshaped_tensor, to_float
 from ._trace import matrix_from_function
-from ._functional import custom_gradient, LinearFunction
+from ._functional import custom_gradient, LinearFunction, f_name
 from .backend import Backend
 from .backend._backend import SolveResult, PHI_LOGGER
 
@@ -27,7 +27,7 @@ class Solve(Generic[X, Y]):
     """
 
     def __init__(self,
-                 method: str,
+                 method: str or None,
                  relative_tolerance: float or Tensor,
                  absolute_tolerance: float or Tensor,
                  max_iterations: int or Tensor = 1000,
@@ -36,6 +36,7 @@ class Solve(Generic[X, Y]):
                  preprocess_y: Callable = None,
                  preprocess_y_args: tuple = (),
                  gradient_solve: 'Solve[Y, X]' or None = None):
+        method = method or 'auto'
         assert isinstance(method, str)
         self.method: str = method
         """ Optimization method to use. Available solvers depend on the solve function that is used to perform the solve. """
@@ -416,6 +417,7 @@ def solve_linear(f: Callable[[X], Y],
                  y: Y,
                  solve: Solve[X, Y],
                  *f_args,
+                 grad_for_f=False,
                  f_kwargs: dict = None,
                  **f_kwargs_) -> X:
     """
@@ -465,9 +467,10 @@ def solve_linear(f: Callable[[X], Y],
     # --- Get input and output tensors ---
     y_tree, y_tensors = disassemble_tree(y)
     x0_tree, x0_tensors = disassemble_tree(solve.x0)
+    assert solve.x0 is not None, "Please specify the initial guess as Solve(..., x0=initial_guess)"
     assert len(x0_tensors) == len(y_tensors) == 1, "Only single-tensor linear solves are currently supported"
     backend = choose_backend_t(*y_tensors, *x0_tensors)
-    prefer_explicit = backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix)
+    prefer_explicit = backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix) or grad_for_f
 
     if isinstance(f, LinearFunction) and prefer_explicit:  # Matrix solve
         matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **f_kwargs)
@@ -479,11 +482,12 @@ def solve_linear(f: Callable[[X], Y],
             result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, backend, is_backprop)
             return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
-        _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args='is_backprop')
+        _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args='is_backprop,solve', matrix_adjoint=grad_for_f)
         return _matrix_solve(y - bias, solve, matrix)
     else:  # Matrix-free solve
         f_args = cached(f_args)
         solve = cached(solve)
+        assert not grad_for_f, f"grad_for_f=True can only be used for math.jit_compile_linear functions but got '{f_name(f)}'. Please decorate the linear function with @jit_compile_linear"
 
         def _function_solve_forward(y, solve: Solve, f_args: tuple, f_kwargs: dict = None, is_backprop=False):
             y_nest, (y_tensor,) = disassemble_tree(y)
@@ -505,7 +509,7 @@ def solve_linear(f: Callable[[X], Y],
             result = _linear_solve_forward(y, solve, native_lin_f, pattern_dims_in=non_batch(x0_tensor).names, pattern_dims_out=non_batch(y_tensor).names, backend=backend, is_backprop=is_backprop)
             return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
-        _function_solve = attach_gradient_solve(_function_solve_forward, auxiliary_args='is_backprop,f_kwargs')
+        _function_solve = attach_gradient_solve(_function_solve_forward, auxiliary_args='is_backprop,f_kwargs,solve', matrix_adjoint=grad_for_f)
         return _function_solve(y, solve, f_args, f_kwargs=f_kwargs)
 
 
@@ -566,17 +570,36 @@ def _linear_solve_forward(y,
     return x
 
 
-def attach_gradient_solve(forward_solve: Callable, auxiliary_args: str):
-    def implicit_gradient_solve(kwargs, x, dx):
-        solve = kwargs['solve']
-        matrix = (kwargs['matrix'],) if 'matrix' in kwargs else ()
+def attach_gradient_solve(forward_solve: Callable, auxiliary_args: str, matrix_adjoint: bool):
+    def implicit_gradient_solve(fwd_args: dict, x, dx):
+        solve = fwd_args['solve']
+        matrix = (fwd_args['matrix'],) if 'matrix' in fwd_args else ()
+        if matrix_adjoint:
+            assert matrix, "No matrix given but matrix_gradient=True"
         grad_solve = solve.gradient_solve
         x0 = grad_solve.x0 if grad_solve.x0 is not None else zeros_like(solve.x0)
         grad_solve_ = copy_with(solve.gradient_solve, x0=x0)
-        if 'is_backprop' in kwargs:
-            del kwargs['is_backprop']
-        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **kwargs)  # this should hopefully result in implicit gradients for higher orders as well
-        return {'y': dy}
+        if 'is_backprop' in fwd_args:
+            del fwd_args['is_backprop']
+        dy = solve_with_grad(dx, grad_solve_, *matrix, is_backprop=True, **fwd_args)  # this should hopefully result in implicit gradients for higher orders as well
+        if matrix_adjoint:  # matrix adjoint = dy * x^T sampled at indices
+            matrix = matrix[0]
+            if isinstance(matrix, CompressedSparseMatrix):
+                matrix = matrix.decompress()
+            if isinstance(matrix, SparseCoordinateTensor):
+                col = matrix.dual_indices(to_primal=True)
+                row = matrix.primal_indices()
+                dm_values = dy[col] * x[row]
+                dm = matrix._with_values(dm_values)
+            elif isinstance(matrix, NativeTensor):
+                dy_dual = rename_dims(dy, shape(dy), dual(**shape(dy).untyped_dict))
+                dm = dy_dual * x  # outer product
+                raise NotImplementedError("Matrix adjoint not yet supported for dense matrices")
+            else:
+                raise AssertionError
+            return {'y': dy, 'matrix': dm}
+        else:
+            return {'y': dy}
 
     solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve, auxiliary_args=auxiliary_args)
     return solve_with_grad
