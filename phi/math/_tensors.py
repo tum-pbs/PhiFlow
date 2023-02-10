@@ -628,11 +628,15 @@ class Tensor:
     def __eq__(self, other):
         if _EQUALITY_BY_REF:
             return wrap(self is other)
+        if other is None:
+            other = float('nan')
         return self._op2(other, lambda x, y: x == y, lambda x, y: choose_backend(x, y).equal(x, y), 'eq', '==')
 
     def __ne__(self, other):
         if _EQUALITY_BY_REF:
             return wrap(self is not other)
+        if other is None:
+            other = float('nan')
         return self._op2(other, lambda x, y: x != y, lambda x, y: choose_backend(x, y).not_equal(x, y), 'ne', '!=')
 
     def __lt__(self, other):
