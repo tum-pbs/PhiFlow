@@ -607,7 +607,7 @@ class BoundDim:
         from ._magic_ops import rename_dims
         return rename_dims(self.obj, self.name, dim, **kwargs)
 
-    def unpack(self, dims: Shape, **kwargs):
+    def unpack(self, *dims: Shape, **kwargs):
         """
         Returns a shallow copy of the `Tensor` where this dimension has been unpacked into `dims`.
 
@@ -615,7 +615,7 @@ class BoundDim:
             `phi.math.unpack_dim()`
         """
         from ._magic_ops import unpack_dim
-        return unpack_dim(self.obj, self.name, dims, **kwargs)
+        return unpack_dim(self.obj, self.name, *dims, **kwargs)
 
 
 class _BoundDims:
