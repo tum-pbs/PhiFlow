@@ -409,7 +409,9 @@ def gui_interrupt(*args, **kwargs):
     raise GuiInterrupt()
 
 
-def display_name(python_name):
+def display_name(python_name: Any):
+    if isinstance(python_name, (int, bool)):
+        return str(python_name)
     n = list(python_name)
     n[0] = n[0].upper()
     for i in range(1, len(n)):
@@ -428,13 +430,13 @@ def index_label(idx: dict) -> str or None:
     if len(idx) == 0:
         return None
     if len(idx) == 1:
-        return str(next(iter(idx.values())))
+        return display_name(next(iter(idx.values())))
     else:
         number_unlabelled_dims = len([1 for k, v in idx.items() if isinstance(v, int)])
         if number_unlabelled_dims <= 1:
-            return " ".join(idx.values())
+            return " ".join([display_name(n) for n in idx.values()])
         else:
-            return ", ".join(f'{k}={v}' for k, v in idx.items())
+            return ", ".join(f'{k}={display_name(v)}' for k, v in idx.items())
 
 
 def select_channel(value: SampledField or Tensor or tuple or list, channel: str or None):

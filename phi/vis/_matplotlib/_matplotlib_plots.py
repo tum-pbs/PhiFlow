@@ -167,16 +167,19 @@ class LinePlot(Recipe):
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
         x = data.points.staggered_direction[0].vector[0].numpy()
         requires_legend = False
-        for c in channel(data).meshgrid(names=True):
-            label = ", ".join([i for dim, i in c.items() if isinstance(i, str)])
-            values = data.values[c].numpy()
-            color = _default_color(len(subplot.lines))
+        if (color == None).all:
+            color = math.range_tensor(channel(data))
+        for c_idx, c_idx_n in zip(channel(data).meshgrid(), channel(data).meshgrid(names=True)):
+            label = index_label(c_idx_n)
+            values = data.values[c_idx].numpy()
+            col = _rgba(color[c_idx])
+            # color = _default_color(len(subplot.lines))
             if values.dtype in (np.complex64, np.complex128):
-                subplot.plot(x, values.real, label=f"real({label})" if label else "real", color=color)
-                subplot.plot(x, values.imag, '--', label=f"imag({label})" if label else "imag", color=color)
+                subplot.plot(x, values.real, label=f"{label} real" if label else "real", color=col)
+                subplot.plot(x, values.imag, '--', label=f"{label} imag" if label else "imag", color=col)
                 requires_legend = True
             else:
-                subplot.plot(x, values, label=label, color=color)
+                subplot.plot(x, values, label=label, color=col)
                 requires_legend = requires_legend or label
         if requires_legend:
             subplot.legend()
@@ -291,11 +294,13 @@ class PointCloud2D(Recipe):
         vector = data.bounds.shape['vector']
         channels = channel(data.points).without('vector')
         legend_patches = []
-        for idx in channels.meshgrid(names=True):
+        if (color == None).all:
+            color = math.range_tensor(channels)
+        for idx, idx_n in zip(channels.meshgrid(), channels.meshgrid(names=True)):
             col = color[idx]
             PointCloud2D._plot_points(subplot, data[idx], dims, vector, col)
             if col.rank < color.rank:  # There are multiple colors
-                legend_patches.append(Patch(color=_rgba(col), label=index_label(idx)))
+                legend_patches.append(Patch(color=_rgba(col), label=index_label(idx_n)))
         if legend_patches:
             subplot.legend(handles=legend_patches)
 
@@ -326,7 +331,8 @@ class PointCloud2D(Recipe):
             x, y = math.reshaped_numpy(data.points.vector[dims], [vector, instance(data), spatial(data)])
             mpl_colors = matplotlib_colors(color, instance(data))
             for i in range(instance(data).volume):
-                axis.plot(x[i], y[i], color=mpl_colors[i] if mpl_colors is not None else None)
+                marker = 'o' if isinstance(data.elements, Point) and spatial(data.elements).volume > 2 else None
+                axis.plot(x[i], y[i], marker=marker, markersize=2.5, color=mpl_colors[i] if mpl_colors is not None else None)
         if any(non_channel(data).item_names):
             PointCloud2D._annotate_points(axis, data.points)
 
