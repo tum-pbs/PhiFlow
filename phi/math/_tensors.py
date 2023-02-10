@@ -1257,6 +1257,7 @@ class CollapsedTensor(Tensor):  # package-private
         else:
             native = self._inner.native(order=order)
             multiples = [1 if name in self._inner.shape else (self.shape.get_size(name) if name in self.shape else 1) for name in order]
+            assert all(isinstance(m, int) for m in multiples), f"Cannot get native representation of Tensor {self.shape} because Shape is non-uniform"
             tiled = choose_backend(native).tile(native, multiples)
             return tiled
 
