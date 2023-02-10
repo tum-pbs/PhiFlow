@@ -635,6 +635,8 @@ class _BoundDims:
         return self.obj[{dim: i for dim, i in zip(self.dims, item)}]
 
     def __getattr__(self, item):
+        if len(self.dims) > 10:  # to avoid recursion limit
+            raise RuntimeError("Maximum BoundDim length reached")
         return _BoundDims(self.obj, self.dims + (item,))
 
     def __len__(self):
