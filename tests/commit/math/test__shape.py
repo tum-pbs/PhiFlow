@@ -146,3 +146,9 @@ class TestShape(TestCase):
     def test_dual_prefix(self):
         d = dual('~y,z', x=5)
         self.assertEqual(('~y', '~z', '~x'), d.names)
+
+    def test_contains(self):
+        s = batch(batch=10) & spatial(x=4, y=3) & channel(vector=2)
+        self.assertTrue('x,y,batch' in s)
+        self.assertTrue(['vector', 'batch'] in s)
+        self.assertFalse(['other', 'batch'] in s)

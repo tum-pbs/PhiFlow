@@ -109,8 +109,9 @@ class Shape:
         return len(self.sizes)
 
     def __contains__(self, item):
-        if isinstance(item, str):
-            return item in self.names
+        if isinstance(item, (str, tuple, list)):
+            dims = parse_dim_order(item)
+            return all(dim in self.names for dim in dims)
         elif isinstance(item, Shape):
             return all([d in self.names for d in item.names])
         else:
