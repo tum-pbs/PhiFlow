@@ -71,6 +71,8 @@ def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: float or Tensor = No
     Args:
         eps: Minimum vector length. Use to avoid `inf` gradients for zero-length vectors.
     """
+    if vec.dtype.kind == complex:
+        vec = stack([vec.real, vec.imag], channel('_ReIm'))
     squared = vec_squared(vec, vec_dim)
     if eps is not None:
         squared = math.maximum(squared, eps)

@@ -718,6 +718,7 @@ def _auto_resample(*fields: Field):
 
 def vec_length(field: SampledField):
     """ See `phi.math.vec_abs()` """
+    assert isinstance(field, SampledField), f"SampledField required but got {type(field).__name__}"
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
     return field.with_values(math.vec_abs(field.values))
