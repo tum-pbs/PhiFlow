@@ -395,13 +395,13 @@ def map_(function, *values, range=range, **kwargs) -> Tensor or None:
         else:
             result.append(f_output)
     if results is None:
-        if None in result:
+        if any(r is None for r in result):
             assert all(r is None for r in result), f"map function returned None for some elements, {result}"
             return None
         return unpack_dim(wrap(result, channel('_c')), '_c', shape)
     else:
         for i, result_i in enumerate(results):
-            if None in result_i:
+            if any(r is None for r in result_i):
                 assert all(r is None for r in result_i), f"map function returned None for some elements at output index {i}, {result_i}"
                 results[i] = None
         return tuple([unpack_dim(wrap(result_i, channel('_c')), '_c', shape) for result_i in results])
