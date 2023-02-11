@@ -61,6 +61,6 @@ class TestSparse(TestCase):
         for backend in BACKENDS:
             with backend:
                 x = math.ones(spatial(x=5))
-                coo, bias = math.matrix_from_function(f, x, auto_compress=False)
+                coo, bias = math.matrix_from_function(f, x)
                 csr = coo.compress(non_dual)
                 math.assert_close(f(x), coo @ x, csr @ x)

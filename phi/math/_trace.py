@@ -230,7 +230,7 @@ def simplify_add(val: dict) -> Dict[Shape, Tensor]:
 def matrix_from_function(f: Callable,
                          *args,
                          auxiliary_args=None,
-                         auto_compress=True,
+                         auto_compress=False,
                          sparsify_batch=None,
                          separate_independent=False,  # not fully implemented, requires auto_compress=False
                          **kwargs) -> Tuple[Tensor, Tensor]:

@@ -21,7 +21,5 @@ class TestTrace(TestCase):
         for f in [simple_gradient, diagonal]:
             x = expand(1, spatial(x=4))
             matrix, bias = math.matrix_from_function(f, x)
-            if isinstance(matrix, SparseCoordinateTensor):
-                matrix = matrix.compress(non_dual)
+            matrix = matrix.compress(non_dual)
             math.assert_close(f(x), matrix @ x)
-

@@ -300,7 +300,7 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         else:
             if self.forget_traces:
                 self.matrices_and_biases.clear()
-            matrix, bias = matrix_from_function(self.f, *args, **f_kwargs)
+            matrix, bias = matrix_from_function(self.f, *args, **f_kwargs, auto_compress=True)
             if not key.tracing:
                 self.matrices_and_biases[key] = matrix, bias
                 if len(self.matrices_and_biases) >= 4:
