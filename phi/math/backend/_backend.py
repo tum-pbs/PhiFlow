@@ -1082,6 +1082,8 @@ class Backend:
         return result
 
     def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
+        if method == 'auto':
+            method = 'L-BFGS-B'
         if method == 'GD':
             return self._minimize_gradient_descent(f, x0, atol, max_iter, trj)
 

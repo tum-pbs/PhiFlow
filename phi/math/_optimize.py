@@ -5,13 +5,13 @@ from typing import Callable, Generic, List, TypeVar, Any, Tuple
 
 import numpy
 
+from .backend import get_precision
 from ._shape import EMPTY_SHAPE, Shape, merge_shapes, batch, non_batch, shape, dual, channel, non_dual
 from ._magic_ops import stack, copy_with, rename_dims
 from ._sparse import native_matrix, SparseCoordinateTensor, CompressedSparseMatrix
 from ._tensors import Tensor, disassemble_tree, assemble_tree, wrap, cached, NativeTensor
 from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, reshaped_native, reshaped_tensor, to_float
-from ._trace import matrix_from_function
 from ._functional import custom_gradient, LinearFunction, f_name
 from .backend import Backend
 from .backend._backend import SolveResult, PHI_LOGGER
@@ -27,11 +27,11 @@ class Solve(Generic[X, Y]):
     """
 
     def __init__(self,
-                 method: str or None,
-                 relative_tolerance: float or Tensor,
-                 absolute_tolerance: float or Tensor,
-                 max_iterations: int or Tensor = 1000,
+                 method: str or None = 'auto',
+                 relative_tolerance: float or Tensor = None,
+                 absolute_tolerance: float or Tensor = None,
                  x0: X or Any = None,
+                 max_iterations: int or Tensor = 1000,
                  suppress: tuple or list = (),
                  preprocess_y: Callable = None,
                  preprocess_y_args: tuple = (),
@@ -40,11 +40,13 @@ class Solve(Generic[X, Y]):
         assert isinstance(method, str)
         self.method: str = method
         """ Optimization method to use. Available solvers depend on the solve function that is used to perform the solve. """
-        self.relative_tolerance: Tensor = math.to_float(wrap(relative_tolerance))
-        """ Relative tolerance for linear solves only. This must be `0` for minimization problems.
+        self.relative_tolerance: Tensor = math.to_float(wrap(relative_tolerance)) if relative_tolerance is not None else None
+        """Relative tolerance for linear solves only, defaults to 1e-5 for singe precision solves and 1e-12 for double precision solves.
+        This must be unset or `0` for minimization problems.
         For systems of equations *f(x)=y*, the final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. """
-        self.absolute_tolerance: Tensor = math.to_float(wrap(absolute_tolerance))
+        self.absolute_tolerance: Tensor = math.to_float(wrap(absolute_tolerance)) if absolute_tolerance is not None else None
         """ Absolut tolerance for optimization problems and linear solves.
+        Defaults to 1e-5 for singe precision solves and 1e-12 for double precision solves.
         For systems of equations *f(x)=y*, the final tolerance is `max(relative_tolerance * norm(y), absolute_tolerance)`. """
         self.max_iterations: Tensor = math.to_int32(wrap(max_iterations))
         """ Maximum number of iterations to perform before raising a `NotConverged` error is raised. """
@@ -70,7 +72,7 @@ class Solve(Generic[X, Y]):
         In any case, the gradient solve information will be stored in `gradient_solve.result`.
         """
         if self._gradient_solve is None:
-            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, self.max_iterations, None, self.suppress, self.preprocess_y, self.preprocess_y_args)
+            self._gradient_solve = Solve(self.method, self.relative_tolerance, self.absolute_tolerance, None, self.max_iterations, self.suppress, self.preprocess_y, self.preprocess_y_args)
         return self._gradient_solve
 
     def __repr__(self):
@@ -90,6 +92,15 @@ class Solve(Generic[X, Y]):
 
     def __variable_attrs__(self):
         return 'x0', 'preprocess_y_args'
+
+
+def _default_tolerance():
+    if get_precision() == 64:
+        return wrap(1e-12)
+    elif get_precision() == 32:
+        return wrap(1e-5)
+    else:
+        return wrap(1e-2)
 
 
 class SolveInfo(Generic[X, Y]):
@@ -304,7 +315,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the optimization failed prematurely.
     """
-    assert (solve.relative_tolerance == 0).all, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
+    assert solve.relative_tolerance is None or (solve.relative_tolerance == 0).all, f"relative_tolerance must be zero for minimize() but got {solve.relative_tolerance}"
     assert solve.preprocess_y is None, "minimize() does not allow preprocess_y"
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
@@ -342,7 +353,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
             raise AssertionError(f"Failed to minimize '{f.__name__}' because its output loss {shape(y_tensors[0])} has more batch dimensions than the initial guess {batch_dims}.")
         return y_tensors[0].sum, (loss_native,)
 
-    atol = backend.to_float(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
+    atol = backend.to_float(reshaped_native((solve.absolute_tolerance or _default_tolerance()), [batch_dims], force_expand=True))
     maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     t = time.perf_counter()
@@ -408,8 +419,9 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
         l2 = l2_loss(diff)
         return l2
 
-    rel_tol_to_abs = solve.relative_tolerance * l2_loss(y)
-    min_solve = copy_with(solve, absolute_tolerance=rel_tol_to_abs, relative_tolerance=0, preprocess_y=None)
+    rel_tol_to_abs = (_default_tolerance() if solve.relative_tolerance is None else solve.relative_tolerance) * l2_loss(y)
+    tol = math.maximum(rel_tol_to_abs, (_default_tolerance() if solve.absolute_tolerance is None else solve.absolute_tolerance))
+    min_solve = copy_with(solve, absolute_tolerance=tol, relative_tolerance=0, preprocess_y=None)
     return minimize(min_func, min_solve)
 
 
@@ -530,8 +542,8 @@ def _linear_solve_forward(y,
     batch_dims = merge_shapes(y_tensor.shape.without(pattern_dims_out), x0_tensor.shape.without(pattern_dims_in))
     x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch_dims, pattern_dims_in], force_expand=True))
     y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, y_tensor.shape.only(pattern_dims_out)], force_expand=True))
-    rtol = backend.as_tensor(reshaped_native(math.to_float(solve.relative_tolerance), [batch_dims], force_expand=True))
-    atol = backend.as_tensor(reshaped_native(solve.absolute_tolerance, [batch_dims], force_expand=True))
+    rtol = backend.as_tensor(reshaped_native(math.to_float(_default_tolerance() if solve.relative_tolerance is None else solve.relative_tolerance), [batch_dims], force_expand=True))
+    atol = backend.as_tensor(reshaped_native(_default_tolerance() if solve.absolute_tolerance is None else solve.absolute_tolerance, [batch_dims], force_expand=True))
     maxi = backend.as_tensor(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     if trj:
