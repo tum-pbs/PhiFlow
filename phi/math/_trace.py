@@ -206,6 +206,15 @@ class ShiftLinTracer(Tensor):
         """
         return sum([v._natives() for v in self.val.values()], ()) + self.bias._natives()
 
+    def _spec_dict(self) -> dict:
+        raise LinearTraceInProgress(self)
+
+
+class LinearTraceInProgress(Exception):
+
+    def __init__(self, tracer: ShiftLinTracer):
+        self.tracer = tracer
+
 
 def simplify_add(val: dict) -> Dict[Shape, Tensor]:
     result = {}

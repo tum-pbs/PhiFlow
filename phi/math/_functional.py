@@ -7,7 +7,7 @@ from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any, Set
 import numpy as np
 
 from ._sparse import SparseCoordinateTensor, CompressedSparseMatrix
-from ._trace import ShiftLinTracer, matrix_from_function
+from ._trace import ShiftLinTracer, matrix_from_function, LinearTraceInProgress
 from .backend import Backend, NUMPY
 from .backend._backend import get_spatial_derivative_order, functional_derivative_evaluation, PHI_LOGGER
 from ._shape import EMPTY_SHAPE, Shape, vector_add, merge_shapes, spatial, instance, batch
@@ -184,7 +184,10 @@ class JitFunction:
         return in_key.backend.jit_compile(jit_f_native)
 
     def __call__(self, *args, **kwargs):
-        key, _, natives, _ = key_from_args(args, kwargs, self.f_params, cache=True, aux=self.auxiliary_args)
+        try:
+            key, _, natives, _ = key_from_args(args, kwargs, self.f_params, cache=True, aux=self.auxiliary_args)
+        except LinearTraceInProgress:
+            return self.f(*args, **kwargs)
         if isinstance(self.f, GradientFunction) and key.backend.supports(Backend.jit_compile_grad):
             return self.grad_jit(*args, **kwargs)
         if not key.backend.supports(Backend.jit_compile):
@@ -309,7 +312,10 @@ Multiple linear traces can be avoided by jit-compiling the code that calls the l
             return matrix, bias
 
     def __call__(self, *args: X, **kwargs) -> Y:
-        key, tensors, natives, x = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)
+        try:
+            key, tensors, natives, x = key_from_args(args, kwargs, self.f_params, cache=False, aux=self.auxiliary_args)
+        except LinearTraceInProgress:
+            return self.f(*args, **kwargs)
         assert tensors, "Linear function requires at least one argument"
         if any(isinstance(t, ShiftLinTracer) for t in tensors):
             # TODO: if t is identity, use cached ShiftLinTracer, otherwise multiply two ShiftLinTracers
