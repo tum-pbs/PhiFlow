@@ -15,7 +15,7 @@ from ..field import SampledField, Scene, Field, PointCloud, Grid
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from ..math import Tensor, layout, batch, Shape, spatial, channel
-from ..math._shape import parse_dim_names, parse_dim_order
+from ..math._shape import parse_dim_names, parse_dim_order, DimFilter
 from ..math._tensors import Layout
 
 
@@ -270,9 +270,10 @@ def get_current_figure():
 
 def plot(*fields: SampledField or Tensor or Layout,
          lib: str or PlottingLibrary = None,
-         row_dims: str or Shape or tuple or list or Callable = None,
-         col_dims: str or Shape or tuple or list or Callable = batch,
-         animate: str or Shape or tuple or list or Callable = None,
+         row_dims: DimFilter = None,
+         col_dims: DimFilter = batch,
+         animate: DimFilter = None,
+         overlay: DimFilter = 'overlay',
          title: str or Tensor = None,
          size=(12, 5),
          same_scale=True,
@@ -285,6 +286,11 @@ def plot(*fields: SampledField or Tensor or Layout,
     Creates one or multiple figures and sub-figures and plots the given fields.
 
     To show the figures, use `show()`.
+
+    The arguments `row_dims`, `col_dims`, `animate` and `overlay` control how data is presented.
+    Each accepts dimensions as a `str`, `Shape`, tuple, list or type function.
+    In addition to the dimensions present on the data to be plotted, the dimensions `args` is created if multiple arguments are passed,
+    and `tuple`, `list`, `dict` are generated for corresponding objects to be plotted.
 
     Args:
         fields: Fields or Tensors to plot.
@@ -303,6 +309,8 @@ def plot(*fields: SampledField or Tensor or Layout,
         color: Tensor for line / marker colors.
         animate: Time dimension to animate.
             If not present in the data, will produce a regular plot instead.
+        overlay: Dimensions along which elements should be overlaid in the same subplot.
+            The default is only the `overlay` dimension which is created by `overlay()`.
         frame_time: Interval between frames in the animation.
         repeat: Whether the animation should loop.
 
@@ -313,7 +321,7 @@ def plot(*fields: SampledField or Tensor or Layout,
 
         In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     """
-    nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, 0, 0, {}, {})
+    nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, overlay, 0, 0, {}, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
@@ -363,9 +371,10 @@ def plot(*fields: SampledField or Tensor or Layout,
 
 
 def layout_sub_figures(data: Tensor or Layout or SampledField,
-                       row_dims: str or Shape or tuple or list or Callable,
-                       col_dims: str or Shape or tuple or list or Callable,
-                       animate: str or Shape or tuple or list or Callable,  # do not reduce these dims, has priority
+                       row_dims: DimFilter,
+                       col_dims: DimFilter,
+                       animate: DimFilter,  # do not reduce these dims, has priority
+                       overlay: DimFilter,
                        offset_row: int,
                        offset_col: int,
                        positioning: Dict[Tuple[int, int], List],
@@ -382,30 +391,30 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
         indices = {}
-        if not batch(data):  # overlay
+        dim0 = data.shape[0]
+        if dim0.only(overlay):
             for d in data:  # overlay these fields
-                e_rows, e_cols, d_non_reduced, positioning, indices = layout_sub_figures(d, row_dims, col_dims, animate, offset_row, offset_col, positioning, base_index)
+                e_rows, e_cols, d_non_reduced, positioning, indices = layout_sub_figures(d, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, base_index)
                 rows = max(rows, e_rows)
                 cols = max(cols, e_cols)
                 non_reduced &= d_non_reduced
+        elif dim0.only(animate):
+            data = math.stack(data.native(), dim0)
+            return layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, base_index)
         else:
-            dim0 = data.shape[0]
-            if dim0.only(animate):
-                data = math.stack(data.native(), dim0)
-                return layout_sub_figures(data, row_dims, col_dims, animate, offset_row, offset_col, positioning, base_index)
             elements = data.unstack(dim0.name)
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
                 index = dict(base_index, **{dim0.name: item_name})
                 if dim0.only(row_dims):
-                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row + rows, offset_col, positioning, index)
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row + rows, offset_col, positioning, index)
                     rows += e_rows
                     cols = max(cols, e_cols)
                 elif dim0.only(col_dims):
-                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col + cols, positioning, index)
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row, offset_col + cols, positioning, index)
                     cols += e_cols
                     rows = max(rows, e_rows)
                 else:
-                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, offset_row, offset_col, positioning, index)
+                    e_rows, e_cols, e_non_reduced, positioning, e_indices = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, index)
                     cols = max(cols, e_cols)
                     rows = max(rows, e_rows)
                 non_reduced &= e_non_reduced
@@ -417,16 +426,18 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         elif isinstance(data, Geometry):
             data = PointCloud(data)
         assert isinstance(data, Field), f"Cannot plot {type(data)}. Only tensors, geometries and fields can be plotted."
-        animate = data.shape.only(animate)
-        row_shape = batch(data).only(row_dims).without(animate)
-        col_shape = batch(data).only(col_dims).without(row_dims).without(animate)
+        overlay = data.shape.only(overlay)
+        animate = data.shape.only(animate).without(overlay)
+        row_shape = batch(data).only(row_dims).without(animate).without(overlay)
+        col_shape = batch(data).only(col_dims).without(row_dims).without(animate).without(overlay)
         non_reduced: Shape = batch(data).without(row_dims).without(col_dims) & animate
         indices = {}
         for ri, r in enumerate(row_shape.meshgrid(names=True)):
             for ci, c in enumerate(col_shape.meshgrid(names=True)):
                 indices[(offset_row + ri, offset_col + ci)] = dict(base_index, **r, **c)
-                sub_data = data[r][c]
-                positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
+                for o in overlay.meshgrid():
+                    sub_data = data[r][c][o]
+                    positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
         return row_shape.volume, col_shape.volume, non_reduced, positioning, indices
 
 
