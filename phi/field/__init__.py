@@ -32,7 +32,7 @@ from phi.math import (
     unstack, stack, concat  # expand, rename_dims, pack_dims, unpack_dims
 )
 from ._field_math import (
-    assert_close, tensor_as_field,
+    assert_close,
     bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,

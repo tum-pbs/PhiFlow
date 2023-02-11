@@ -6,9 +6,10 @@ from threading import Lock
 from typing import Tuple, Any, Optional, Dict, Callable
 
 from phi import field, math
-from phi.field import SampledField, Scene
-from phi.geom import Box
-from phi.math import Shape, EMPTY_SHAPE, Tensor
+from phi.field import SampledField, Scene, PointCloud, CenteredGrid
+from phi.field._field_math import data_bounds
+from phi.geom import Box, Cuboid
+from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel
 
 Control = namedtuple('Control', [
     'name',
@@ -457,3 +458,30 @@ def select_channel(value: SampledField or Tensor or tuple or list, channel: str 
                 f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
         else:
             return value
+
+
+def tensor_as_field(t: Tensor):
+    """
+    Interpret a `Tensor` as a `CenteredGrid` or `PointCloud` depending on its dimensions.
+
+    Unlike the `CenteredGrid` constructor, this function will have the values sampled at integer points for each spatial dimension.
+
+    Args:
+        t: `Tensor` with either `spatial` or `instance` dimensions.
+
+    Returns:
+        `CenteredGrid` or `PointCloud`
+    """
+    arbitrary_lines_1d = spatial(t).rank == 1 and 'vector' in t.shape
+    if instance(t) or arbitrary_lines_1d or arbitrary_lines_1d:
+        bounds = data_bounds(t)
+        extended_bounds = Cuboid(bounds.center, bounds.half_size * 1.2).box()
+        lower = math.where(extended_bounds.lower * bounds.lower <= 0, bounds.lower * .9, extended_bounds.lower)
+        upper = math.where(extended_bounds.upper * bounds.upper <= 0, bounds.lower * .9, extended_bounds.upper)
+        return PointCloud(t, bounds=Box(lower, upper))
+    elif spatial(t):
+        return CenteredGrid(t, 0, bounds=Box(math.const_vec(-0.5, spatial(t)), wrap(spatial(t), channel('vector')) - 0.5))
+    elif 'vector' in t.shape:
+        return PointCloud(math.expand(t, instance(points=1)), bounds=Cuboid(t, half_size=math.const_vec(1, t.shape['vector'])).box())
+    else:
+        raise ValueError(f"Cannot create field from tensor with shape {t.shape}. Requires at least one spatial, instance or vector dimension.")

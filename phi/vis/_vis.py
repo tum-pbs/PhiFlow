@@ -9,7 +9,7 @@ from typing import Tuple, List, Dict, Callable
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, \
-    PlottingLibrary
+    PlottingLibrary, tensor_as_field
 from .. import math, field
 from ..field import SampledField, Scene, Field, PointCloud, Grid
 from ..field._scene import _slugify_filename
@@ -413,7 +413,7 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         return rows, cols, non_reduced, positioning, indices
     else:
         if isinstance(data, Tensor):
-            data = field.tensor_as_field(data)
+            data = tensor_as_field(data)
         elif isinstance(data, Geometry):
             data = PointCloud(data)
         assert isinstance(data, Field), f"Cannot plot {type(data)}. Only tensors, geometries and fields can be plotted."

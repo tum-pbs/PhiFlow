@@ -786,29 +786,6 @@ def integrate(field: Field, region: Geometry, **kwargs) -> Tensor:
     return field._sample(region, **kwargs) * region.volume
 
 
-def tensor_as_field(t: Tensor):
-    """
-    Interpret a `Tensor` as a `CenteredGrid` or `PointCloud` depending on its dimensions.
-
-    Unlike the `CenteredGrid` constructor, this function will have the values sampled at integer points for each spatial dimension.
-
-    Args:
-        t: `Tensor` with either `spatial` or `instance` dimensions.
-
-    Returns:
-        `CenteredGrid` or `PointCloud`
-    """
-    if instance(t):
-        bounds = data_bounds(t)
-        return PointCloud(t, bounds=Cuboid(bounds.center, bounds.half_size * 1.2).box())
-    elif spatial(t):
-        return CenteredGrid(t, 0, bounds=Box(math.const_vec(-0.5, spatial(t)), wrap(spatial(t), channel('vector')) - 0.5))
-    elif 'vector' in t.shape:
-        return PointCloud(math.expand(t, instance(points=1)), bounds=Cuboid(t, half_size=math.const_vec(1, t.shape['vector'])).box())
-    else:
-        raise ValueError(f"Cannot create field from tensor with shape {t.shape}. Requires at least one spatial, instance or vector dimension.")
-
-
 def pack_dims(field: SampledFieldType,
               dims: Shape or tuple or list or str,
               packed_dim: Shape,
