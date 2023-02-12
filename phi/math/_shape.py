@@ -684,38 +684,26 @@ class Shape:
     @property
     def batch_rank(self) -> int:
         """ Number of batch dimensions """
-        r = 0
-        for ty in self.types:
-            if ty == BATCH_DIM:
-                r += 1
-        return r
+        return sum([1 for ty in self.types if ty == BATCH_DIM])
 
     @property
     def instance_rank(self) -> int:
-        """ Number of instance dimensions """
-        r = 0
-        for ty in self.types:
-            if ty == INSTANCE_DIM:
-                r += 1
-        return r
+        return sum([1 for ty in self.types if ty == INSTANCE_DIM])
 
     @property
     def spatial_rank(self) -> int:
         """ Number of spatial dimensions """
-        r = 0
-        for ty in self.types:
-            if ty == SPATIAL_DIM:
-                r += 1
-        return r
+        return sum([1 for ty in self.types if ty == SPATIAL_DIM])
+
+    @property
+    def dual_rank(self) -> int:
+        """ Number of spatial dimensions """
+        return sum([1 for ty in self.types if ty == DUAL_DIM])
 
     @property
     def channel_rank(self) -> int:
         """ Number of channel dimensions """
-        r = 0
-        for ty in self.types:
-            if ty == CHANNEL_DIM:
-                r += 1
-        return r
+        return sum([1 for ty in self.types if ty == CHANNEL_DIM])
 
     @property
     def well_defined(self):
