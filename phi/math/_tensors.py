@@ -14,7 +14,7 @@ from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack, 
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
-                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual, instance, shape, DimFilter)
+                     TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual, instance, shape, DimFilter, non_batch)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend, ComputeDevice
 from .backend._dtype import DType, combine_types
@@ -2383,7 +2383,18 @@ def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line cont
     if options.float_format:
         formatter['float_kind'] = ('{:' + options.float_format + '}').format
     with numpy.printoptions(threshold=np.inf, formatter=formatter):
-        if value.shape.spatial_rank == 0:
+        if value.shape.dual_rank > 0:  # matrix
+            if value.shape.dual_rank > 1:
+                raise NotImplementedError("Multiple dual dimensions cannot currently be printed")
+            dual_dim = dual(value).name
+            primal = spatial(**dual(value).untyped_dict).name
+            if primal not in value.shape:
+                primal = non_batch(value).non_dual.name
+            for b in batch(value).meshgrid(names=True):
+                text = " " + np.array2string(value[b].numpy([primal, dual_dim]), separator=', ', max_line_width=np.inf)
+                text = colors.value(re.sub('[\\[\\]]', '', text).replace(',', ' '))
+                lines.append(text)
+        elif value.shape.spatial_rank == 0:  # no spatial or dual dimensions
             if options.include_shape is not None:
                 lines.append(colors.shape(value.shape))
             if value.shape.rank <= 1:
