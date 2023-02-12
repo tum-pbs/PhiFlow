@@ -927,23 +927,16 @@ class Backend:
         return result
 
     def ilu_coo(self, indices, values, shape, iterations=4):
-        """
-        values: Backend-compatible values tensor of shape (batch_size, nnz, channels)
-        shape: Dense shape of matrix
-
-        Args:
-            indices: (batch, nnz, 2)
-            values: (batch_size, nnz, channels)
-            shape: Dense matrix shape
-            iterations: (Optional) Number of sweeps to perform.
-
-        Returns:
-            LU indices corresponding to the sparsity pattern given by `indices`.
-            Since L and U don't overlap, the entries of both can be returned as a single tensor.
-        """
+        """ See incomplete_lu_coo() in _precondition """
         from ._precondition import incomplete_lu_coo
         assert self.dtype(values).kind in (bool, int, float)
         return incomplete_lu_coo(self, indices, self.to_float(values), shape, iterations)
+
+    def ilu_dense(self, matrix, iterations=4):
+        """ See incomplete_lu_dense() in _precondition """
+        from ._precondition import incomplete_lu_dense
+        assert self.dtype(matrix).kind in (bool, int, float)
+        return incomplete_lu_dense(self, self.to_float(matrix), iterations)
 
     def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
         """

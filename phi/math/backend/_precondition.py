@@ -3,7 +3,48 @@ from typing import Tuple
 import numpy as np
 
 from ._backend import Backend
-from ._dtype import DType, to_numpy_dtype
+
+
+# def sum_lower_product(b: Backend, matrix, row, col, is_lower, is_upper):
+#     return b.einsum('bikc,bkjc->bijc', matrix * is_lower, matrix * is_upper)
+#     --- Manual version ---
+#     min_i_j = np.expand_dims(np.minimum(row, col), -1)
+#     result = 0
+#     for k in range(row.shape[0]-1):
+#         column_k = matrix[:, :, k:k+1, :]
+#         row_k = matrix[:, k:k+1, :, :]
+#         outer_product = column_k * row_k
+#         result += b.where(k < min_i_j, outer_product, 0)
+#     np.testing.assert_almost_equal(result, matmul)
+#     return result
+
+
+def incomplete_lu_dense(b: 'Backend', matrix, iterations: int):
+    """
+
+    Args:
+        b: `Backend`
+        matrix: Square matrix of Shape (batch_size, rows, cols, channels)
+        iterations: Number of fixed-point iterations to perform.
+
+    Returns:
+        L: lower triangular matrix with ones on the diagonal
+        U: upper triangular matrix
+    """
+    row, col = np.indices(b.staticshape(matrix)[1:-1])
+    is_lower = np.expand_dims(row > col, -1)
+    is_upper = np.expand_dims(row < col, -1)
+    is_diagonal = np.expand_dims(row == col, -1)
+    # # --- Initialize U as the diagonal of A, then compute off-diagonal of L ---
+    lower = matrix / b.expand_dims(b.get_diagonal(matrix), 1)  # Since U=diag(A), L can be computed by a simple division
+    lu = matrix * is_diagonal + lower * is_lower  # combine lower + diag(A) + 0
+    # --- Fixed-point iterations ---
+    for sweep in range(iterations):
+        diag = b.expand_dims(b.get_diagonal(lu), 1)  # should never contain 0
+        sum_l_u = b.einsum('bikc,bkjc->bijc', lu * is_lower, lu * is_upper)
+        lu = b.where(is_lower, 1 / diag * (matrix - sum_l_u), matrix - sum_l_u)
+    # --- Assemble L=lower+unit_diagonal and U. ---
+    return lu * is_lower + is_diagonal, lu * ~is_lower
 
 
 def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], iterations: int):
@@ -18,11 +59,11 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
         indices: Row & column indices of stored entries as `numpy.ndarray` of shape (batch_size, nnz, 2).
         values: Backend-compatible values tensor of shape (batch_size, nnz, channels)
         shape: Dense shape of matrix
-        iterations: Number of sweeps to perform.
+        iterations: Number of fixed-point iterations to perform.
 
     Returns:
-        lower: tuple (indices, values) where indices is a NumPy array and values is backend-specific
-        upper: tuple (indices, values) where indices is a NumPy array and values is backend-specific
+        L: tuple `(indices, values)` where `indices` is a NumPy array and values is backend-specific
+        U: tuple `(indices, values)` where `indices` is a NumPy array and values is backend-specific
     """
     assert isinstance(indices, np.ndarray), "incomplete_lu_coo indices must be a NumPy array"
     row, col = indices[..., 0], indices[..., 1]
@@ -38,21 +79,23 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
     has_transpose = b.cast(np.expand_dims(has_transpose, -1), b.dtype(values))  # 0 or 1 depending on whether a transposed entry exists for a value
     diagonal_indices = np.expand_dims(get_lower_diagonal_indices(row, col, shape), -1)  # indices of corresponding values that lie on the diagonal
     l_u_compressed_zeros = b.zeros((batch_size, rows, max_entries_per_row + 1, channels))
-    # --- Initialize U as the diagonal of A, then compute off-diagonal of L ---
     is_diagonal = np.expand_dims(row == col, -1)
+    # --- Initialize U as the diagonal of A, then compute off-diagonal of L ---
     lower = values / b.batched_gather_nd(values, diagonal_indices)  # Since U=diag(A), L can be computed by a simple division
-    lu = b.where(is_diagonal, values, b.where(is_lower, lower, 0))  # combine lower + diag(A) + 0
+    lu = values * is_diagonal + lower * is_lower  # combine lower + diag(A) + 0
+    # print(b.scatter(l_u_compressed_zeros, b.stack([row, index_in_row], -1), lu, mode='add')[0, :, :, 0])
     # --- Fixed-point iterations ---
     for sweep in range(iterations):
         diag = b.batched_gather_nd(lu, diagonal_indices)  # should never contain 0
         l_u = lu * b.batched_gather_nd(lu, transposed_index) * has_transpose  # matches indices (like lu, values)
         # --- Temporarily densify indices by row for cumsum ---
         l_u_compressed = b.scatter(l_u_compressed_zeros, b.stack([row, index_in_row], -1), l_u, mode='add')
-        sum_l_u = b.cumsum(l_u_compressed, -2)
-        sum_l_u = b.batched_gather_nd(sum_l_u, index_in_row_)
+        print(l_u_compressed[0, :, :, 0])
+        sum_l_u_compressed = b.cumsum(l_u_compressed, -2)  # we sum the rows, only the lower triangle is valid
+        sum_l_u_lower = b.batched_gather_nd(sum_l_u_compressed, index_in_row_)
         # --- update L and U in one matrix ---
-        l = 1 / diag * (values - sum_l_u)
-        u = values - sum_l_u
+        l = 1 / diag * (values - sum_l_u_lower)
+        u = values - b.batched_gather_nd(sum_l_u_lower, transposed_index)
         lu = b.where(is_lower, l, u)
     # --- Assemble L=lower+unit_diagonal and U. If nnz varies along batch, keep the full sparsity pattern ---
     u_values = b.where(~is_lower, lu, 0)
