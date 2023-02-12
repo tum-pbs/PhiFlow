@@ -213,6 +213,9 @@ class NumPyBackend(Backend):
     def matmul(self, A, b):
         return np.stack([A.dot(b[i]) for i in range(b.shape[0])])
 
+    def get_diagonal(self, matrices, offset=0):
+        return np.transpose(np.diagonal(matrices, offset=offset, axis1=1, axis2=2), [0, 2, 1])
+
     def while_loop(self, loop: Callable, values: tuple):
         while np.any(values[0]):
             values = loop(*values)

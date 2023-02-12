@@ -52,4 +52,13 @@ class TestBackends(TestCase):
                     matrix = backend.sparse_coo_tensor(idx_, v, shape)
                     self.assertTrue(backend.is_tensor(matrix), backend.name)
 
-
+    def test_get_diagonal(self):
+        for backend in BACKENDS:
+            with backend:
+                t = backend.as_tensor([[[[1], [2]], [[0], [-1]]]])
+                d = backend.numpy(backend.get_diagonal(t, offset=0))
+                numpy.testing.assert_equal([[[1], [-1]]], d)
+                d1 = backend.numpy(backend.get_diagonal(t, offset=1))
+                numpy.testing.assert_equal([[[2]]], d1)
+                d1 = backend.numpy(backend.get_diagonal(t, offset=-1))
+                numpy.testing.assert_equal([[[0]]], d1)

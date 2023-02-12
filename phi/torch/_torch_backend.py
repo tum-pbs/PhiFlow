@@ -394,6 +394,9 @@ class TorchBackend(Backend):
             return torch.transpose(result, 0, 1)
         raise NotImplementedError(type(A), type(b))
 
+    def get_diagonal(self, matrices, offset=0):
+        return torch.transpose(torch.diagonal(matrices, offset=offset, dim1=1, dim2=2), 1, 2)
+
     def cumsum(self, x, axis: int):
         return torch.cumsum(x, dim=axis)
 

@@ -843,6 +843,18 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def get_diagonal(self, matrices, offset=0):
+        """
+
+        Args:
+            matrices: (batch, rows, cols, channels)
+            offset: 0=diagonal, positive=above diagonal, negative=below diagonal
+
+        Returns:
+            diagonal: (batch, max(rows,cols), channels)
+        """
+        raise NotImplementedError(self)
+
     def indexed_segment_sum(self, x, indices, axis: int):
         """
         Args:

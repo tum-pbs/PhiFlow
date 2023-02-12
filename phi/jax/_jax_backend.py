@@ -318,6 +318,10 @@ class JaxBackend(Backend):
             return(A @ b.T).T
         return jnp.stack([A.dot(b[i]) for i in range(b.shape[0])])
 
+    def get_diagonal(self, matrices, offset=0):
+        result = jnp.diagonal(matrices, offset=offset, axis1=1, axis2=2)
+        return jnp.transpose(result, [0, 2, 1])
+
     def while_loop(self, loop: Callable, values: tuple):
         if all(self.is_available(t) for t in values):
             while jnp.any(values[0]):

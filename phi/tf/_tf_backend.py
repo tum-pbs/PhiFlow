@@ -704,11 +704,19 @@ class TFBackend(Backend):
         return eval_grad
 
     def stop_gradient(self, value):
-        return tf.stop_gradient(value)
+        with self._device_for(value):
+            return tf.stop_gradient(value)
 
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
-        solution = tf.linalg.lstsq(matrix, rhs)
+        with self._device_for(matrix, rhs):
+            solution = tf.linalg.lstsq(matrix, rhs)
         return solution, None, None, None
+
+    def get_diagonal(self, matrices, offset=0):
+        with self._device_for(matrices):
+            matrices = tf.transpose(matrices, [0, 3, 1, 2])
+            result = tf.linalg.diag_part(matrices, k=offset)
+            return tf.transpose(result, [0, 2, 1])
 
 
 _TAPES = []
