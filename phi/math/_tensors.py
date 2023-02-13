@@ -687,6 +687,9 @@ class Tensor:
         assert isinstance(other, Tensor), f"Matmul '@' requires two Tensor arguments but got {type(other)}"
         dims = batch(**self.shape.dual.untyped_dict).names
         match = other.shape.only(dims, reorder=True)
+        if not match:
+            assert non_batch(other).non_dual.rank == 1, f"Cannot multiply {self.shape} @ {other.shape} because arg2 does not have appropriate non-dual dimensions"
+            match = non_batch(other).non_dual
         assert len(dims) == match.rank, f"Dual dimensions {dual} do not match shape of second argument {other.shape}"
         left_arg = pack_dims(self, dual, dual('_reduce')) if len(dims) > 1 else self
         right_arg = pack_dims(other, match, channel('_reduce'))
@@ -2386,6 +2389,8 @@ def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line cont
         formatter['float_kind'] = ('{:' + options.float_format + '}').format
     with numpy.printoptions(threshold=np.inf, formatter=formatter):
         if value.shape.dual_rank > 0:  # matrix
+            if options.include_shape is not None:
+                lines.append(colors.shape(value.shape))
             if value.shape.dual_rank > 1:
                 raise NotImplementedError("Multiple dual dimensions cannot currently be printed")
             dual_dim = dual(value).name
@@ -2393,9 +2398,14 @@ def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line cont
             if primal not in value.shape:
                 primal = non_batch(value).non_dual.name
             for b in batch(value).meshgrid(names=True):
-                text = " " + np.array2string(value[b].numpy([primal, dual_dim]), separator=', ', max_line_width=np.inf)
-                text = colors.value(re.sub('[\\[\\]]', '', text).replace(',', ' '))
-                lines.append(text)
+                text = " " + np.array2string(value[b].numpy([primal, dual_dim]), separator=', ', max_line_width=np.inf) + " "
+                text = re.sub('[\\[\\]]', '', text).replace(',', ' ')
+                prefixes = prefix_indices(non_batch(value).non_dual, colors)
+                if options.include_shape is not False:
+                    for line, prefix in zip(text.split("\n"), prefixes):
+                        lines.append(f"{prefix}  {colors.value(line)} along {colors.shape(dual_dim)}")
+                else:
+                    lines.append(colors.value(text))
         elif value.shape.spatial_rank == 0:  # no spatial or dual dimensions
             if options.include_shape is not None:
                 lines.append(colors.shape(value.shape))
@@ -2423,6 +2433,13 @@ def format_full(value: Tensor, options: PrintOptions) -> str:  # multi-line cont
         else:
             raise NotImplementedError('Can only print tensors with up to 2 spatial dimensions.')
     return "\n".join(lines)
+
+
+def prefix_indices(index_shape, colors: ColorScheme):
+    prefixes = [f"{colors.shape(', '.join(f'{name}={idx}' for name, idx in index_dict.items()))}" for index_dict in index_shape.meshgrid(names=True)]
+    max_len = max(len(p) for p in prefixes)
+    prefixes = [p + " " * (max_len - len(p) + 2) for p in prefixes]
+    return prefixes
 
 
 def format_row(self: Tensor, options: PrintOptions) -> str:  # all values in a single line
