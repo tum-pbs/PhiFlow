@@ -25,7 +25,7 @@ from ._shape import (
 )
 from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, copy_with, replace
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
-from ._sparse import dense, get_sparsity
+from ._sparse import dense, get_sparsity, factor_ilu
 from .extrapolation import Extrapolation
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,

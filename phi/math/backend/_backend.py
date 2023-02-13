@@ -926,13 +926,13 @@ class Backend:
         result = self.scatter(base, indices, values, mode='add' if contains_duplicates else 'update')
         return result
 
-    def ilu_coo(self, indices, values, shape, iterations=4):
+    def ilu_coo(self, indices, values, shape, iterations: int):
         """ See incomplete_lu_coo() in _precondition """
         from ._precondition import incomplete_lu_coo
         assert self.dtype(values).kind in (bool, int, float)
         return incomplete_lu_coo(self, indices, self.to_float(values), shape, iterations)
 
-    def ilu_dense(self, matrix, iterations=4):
+    def ilu_dense(self, matrix, iterations: int):
         """ See incomplete_lu_dense() in _precondition """
         from ._precondition import incomplete_lu_dense
         assert self.dtype(matrix).kind in (bool, int, float)

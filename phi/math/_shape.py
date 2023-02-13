@@ -1715,6 +1715,8 @@ def shape_stack(stack_dim: Shape, *shapes: Shape):
                     index = len(types) - types[::-1].index(type)
                 elif type == BATCH_DIM:
                     index = 0
+                elif type == DUAL_DIM:
+                    index = min([len(names), *[i for i in range(len(names)) if types[i] == DUAL_DIM]])
                 elif type == CHANNEL_DIM:
                     index = len(names)
                 elif type == SPATIAL_DIM:

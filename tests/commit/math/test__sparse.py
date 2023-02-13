@@ -64,3 +64,24 @@ class TestSparse(TestCase):
                 coo, bias = math.matrix_from_function(f, x)
                 csr = coo.compress(non_dual)
                 math.assert_close(f(x), coo @ x, csr @ x)
+
+    def test_ilu(self):
+        def f(x):
+            """
+            True LU for the 3x3 matrix is
+
+            L =  1  0  0    U = -2  1   0
+               -.5  1  0         0 -1.5 1
+                 0 -.7 1         0  0  -1.3
+            """
+            return math.laplace(x, padding=math.extrapolation.ZERO)
+        matrix, bias = math.matrix_from_function(f, math.ones(spatial(x=5)))
+        # --- Sparse ILU ---
+        L, U = math.factor_ilu(matrix)
+        L, U = math.dense(L), math.dense(U)
+        math.assert_close(L @ U, matrix)
+        # --- Dense ILU ---
+        matrix = math.dense(matrix)
+        L, U = math.factor_ilu(matrix)
+        math.assert_close(L @ U, matrix)
+

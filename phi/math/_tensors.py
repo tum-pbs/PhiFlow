@@ -1821,13 +1821,15 @@ def broadcastable_native_tensors(*tensors):
     Expands and transposes the dimensions of the given tensors so that they all have the same dimension order.
 
     Args:
-      tensors: sequence of Tensors
-      *tensors: 
+      *tensors: sequence of Tensors
 
     Returns:
       shape, native tensors)
 
     """
+    from ._sparse import SparseCoordinateTensor, CompressedSparseMatrix, dense
+    if any(isinstance(t, (SparseCoordinateTensor, CompressedSparseMatrix)) for t in tensors) and not all(isinstance(t, (SparseCoordinateTensor, CompressedSparseMatrix)) for t in tensors):
+        tensors = [dense(t) for t in tensors]
     broadcast_shape = merge_shapes(*[t.shape for t in tensors])
     natives = [t.native(order=broadcast_shape.names) if t.rank > 0 else t.native() for t in tensors]
     return broadcast_shape, natives

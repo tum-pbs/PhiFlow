@@ -5,20 +5,6 @@ import numpy as np
 from ._backend import Backend
 
 
-# def sum_lower_product(b: Backend, matrix, row, col, is_lower, is_upper):
-#     return b.einsum('bikc,bkjc->bijc', matrix * is_lower, matrix * is_upper)
-#     --- Manual version ---
-#     min_i_j = np.expand_dims(np.minimum(row, col), -1)
-#     result = 0
-#     for k in range(row.shape[0]-1):
-#         column_k = matrix[:, :, k:k+1, :]
-#         row_k = matrix[:, k:k+1, :, :]
-#         outer_product = column_k * row_k
-#         result += b.where(k < min_i_j, outer_product, 0)
-#     np.testing.assert_almost_equal(result, matmul)
-#     return result
-
-
 def incomplete_lu_dense(b: 'Backend', matrix, iterations: int):
     """
 
@@ -71,32 +57,20 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
     rows, cols = shape
     assert rows == cols, "incomplete_lu_coo only implemented for square matrices"
     is_lower = np.expand_dims(row > col, -1)
-    index_in_row = get_index_in_row(row, col)
-    index_in_row_ = np.stack([row, index_in_row], -1)
-    max_entries_per_row = np.max(index_in_row)
-    has_transpose, transposed_index = get_transposed_indices(row, col, shape)  # The corresponding index in the transposed pattern. If non-existent, points at any valid value
-    transposed_index = np.expand_dims(transposed_index, -1)
-    has_transpose = b.cast(np.expand_dims(has_transpose, -1), b.dtype(values))  # 0 or 1 depending on whether a transposed entry exists for a value
     diagonal_indices = np.expand_dims(get_lower_diagonal_indices(row, col, shape), -1)  # indices of corresponding values that lie on the diagonal
-    l_u_compressed_zeros = b.zeros((batch_size, rows, max_entries_per_row + 1, channels))
     is_diagonal = np.expand_dims(row == col, -1)
+    mm_above, mm_left, mm_is_valid = strict_lu_mm_pattern_coo_batched(row, col, rows, cols)
+    mm_above = np.expand_dims(mm_above, -1)
+    mm_left = np.expand_dims(mm_left, -1)
+    mm_is_valid = np.expand_dims(mm_is_valid, -1)
     # --- Initialize U as the diagonal of A, then compute off-diagonal of L ---
     lower = values / b.batched_gather_nd(values, diagonal_indices)  # Since U=diag(A), L can be computed by a simple division
     lu = values * is_diagonal + lower * is_lower  # combine lower + diag(A) + 0
-    # print(b.scatter(l_u_compressed_zeros, b.stack([row, index_in_row], -1), lu, mode='add')[0, :, :, 0])
     # --- Fixed-point iterations ---
     for sweep in range(iterations):
         diag = b.batched_gather_nd(lu, diagonal_indices)  # should never contain 0
-        l_u = lu * b.batched_gather_nd(lu, transposed_index) * has_transpose  # matches indices (like lu, values)
-        # --- Temporarily densify indices by row for cumsum ---
-        l_u_compressed = b.scatter(l_u_compressed_zeros, b.stack([row, index_in_row], -1), l_u, mode='add')
-        print(l_u_compressed[0, :, :, 0])
-        sum_l_u_compressed = b.cumsum(l_u_compressed, -2)  # we sum the rows, only the lower triangle is valid
-        sum_l_u_lower = b.batched_gather_nd(sum_l_u_compressed, index_in_row_)
-        # --- update L and U in one matrix ---
-        l = 1 / diag * (values - sum_l_u_lower)
-        u = values - b.batched_gather_nd(sum_l_u_lower, transposed_index)
-        lu = b.where(is_lower, l, u)
+        sum_l_u = b.einsum('bnkc,bnkc->bnc', b.batched_gather_nd(lu, mm_above) * mm_is_valid, b.batched_gather_nd(lu, mm_left))
+        lu = b.where(is_lower, 1 / diag * (values - sum_l_u), values - sum_l_u)
     # --- Assemble L=lower+unit_diagonal and U. If nnz varies along batch, keep the full sparsity pattern ---
     u_values = b.where(~is_lower, lu, 0)
     belongs_to_lower = (is_lower | is_diagonal)
@@ -116,11 +90,67 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
         return (indices, l_values), (indices, u_values)
 
 
+def strict_lu_mm_pattern_coo(row: np.ndarray, col: np.ndarray, rows, cols):
+    """
+    For each stored entry e at (row, col), finds the matching entries directly above and directly left of e, such that left.col == above.row.
+
+    This is useful for multiplying a lower triangular and upper triangular matrix given the sparsity pattern but excluding the diagonals.
+    The matrix multiplication then is given by
+    >>> einsum('nk,nk->n', stored_lower[above_entries] * is_valid_entry, stored_upper[left_entries])
+
+    Returns:
+        above_entries: (max_num, nnz) Stored indices of matched elements above any entry.
+        left_entries: (max_num, nnz) Stored indices of matched elements to the left of any entry.
+        is_valid_entry: (max_num, nnz) Mask of valid indices. Invalid indices are undefined but lie inside the array to prevent index errors.
+    """
+    entries, = row.shape
+    # --- Compress rows and cols ---
+    lower_entries_by_row = compress_strict_lower_triangular_rows(row, col, rows)  # entry indices by row, -1 for non-existent entries
+    upper_entries_by_col = compress_strict_lower_triangular_rows(col, row, cols)
+    # --- Find above and left entries ---
+    same_row_entries = lower_entries_by_row[:, row]  # (row entries, entries). Currently, contains valid values for invalid references
+    left = np.where(col[same_row_entries] < col, same_row_entries, -1)  # (max_left, nnz)  all entries with col_e==col, row_e < row
+    same_col_entries = upper_entries_by_col[:, col]
+    above = np.where(row[same_col_entries] < row, same_col_entries, -1)  # (max_above, nnz)
+    # --- for each entry, match left and above where left.col == above.row ---
+    half_density = max(len(lower_entries_by_row), len(upper_entries_by_col))
+    above_entries = np.zeros([entries, half_density], dtype=int)
+    left_entries = np.zeros([entries, half_density], dtype=int)
+    is_valid_entry = np.zeros([entries, half_density])
+    k = np.zeros(entries, dtype=int)
+    for r in range(len(above)):
+        for c in range(len(left)):
+            match = (col[left[c]] == row[above[r]]) & (above[r] != -1)
+            where_match = np.where(match)
+            k_where_match = k[where_match]
+            above_entries[where_match, k_where_match] = above[r][where_match]
+            left_entries[where_match, k_where_match] = left[c][where_match]
+            is_valid_entry[where_match, k_where_match] = 1
+            k += match
+    return above_entries, left_entries, is_valid_entry
+
+
+def compress_strict_lower_triangular_rows(row, col, rows):
+    is_lower = row > col
+    below_diagonal = np.where(is_lower)
+    row_lower = row[below_diagonal]
+    num_in_row = get_index_in_row(row_lower, col[below_diagonal])
+    lower_entries_by_row = np.zeros((np.max(num_in_row)+1, rows), dtype=row.dtype) - 1
+    lower_entries_by_row[num_in_row, row_lower] = below_diagonal
+    return lower_entries_by_row
+
+
+def strict_lu_mm_pattern_coo_batched(row, col, rows, cols):
+    results = [strict_lu_mm_pattern_coo(row[b], col[b], rows, cols) for b in range(row.shape[0])]
+    result = [np.stack(v) for v in zip(*results)]
+    return result
+
+
 def get_index_in_row(row: np.ndarray, col: np.ndarray):
     """ How many entries are to the left of a given entry but in the same row, i.e. the how manieth index this is per row. """
     perm = np.argsort(col)
-    compressed_col_index = [cumcount(row[b][perm[b]])[inv_perm(perm[b])] for b in range(row.shape[0])]
-    return np.stack(compressed_col_index)
+    compressed_col_index = cumcount(row[perm])[inv_perm(perm)]
+    return compressed_col_index
 
 
 def inv_perm(perm):
