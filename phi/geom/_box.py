@@ -464,7 +464,7 @@ class GridCell(BaseBox):
                 bounds = Box(lower, upper)
                 gather_dict[dim] = slice(start, stop)
         resolution = self._resolution.after_gather(gather_dict)
-        return GridCell(resolution, bounds)
+        return GridCell(resolution, bounds[{d: s for d, s in item.items() if d != 'vector'}])
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Cuboid':
         return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
