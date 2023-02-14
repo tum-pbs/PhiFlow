@@ -926,17 +926,17 @@ class Backend:
         result = self.scatter(base, indices, values, mode='add' if contains_duplicates else 'update')
         return result
 
-    def ilu_coo(self, indices, values, shape, iterations: int):
+    def ilu_coo(self, indices, values, shape, iterations: int, safe: bool):
         """ See incomplete_lu_coo() in _precondition """
         from ._precondition import incomplete_lu_coo
         assert self.dtype(values).kind in (bool, int, float)
-        return incomplete_lu_coo(self, indices, self.to_float(values), shape, iterations)
+        return incomplete_lu_coo(self, indices, self.to_float(values), shape, iterations, safe)
 
-    def ilu_dense(self, matrix, iterations: int):
+    def ilu_dense(self, matrix, iterations: int, safe: bool):
         """ See incomplete_lu_dense() in _precondition """
         from ._precondition import incomplete_lu_dense
         assert self.dtype(matrix).kind in (bool, int, float)
-        return incomplete_lu_dense(self, self.to_float(matrix), iterations)
+        return incomplete_lu_dense(self, self.to_float(matrix), iterations, safe)
 
     def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
         """

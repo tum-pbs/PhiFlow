@@ -595,7 +595,7 @@ def native_matrix(value: Tensor):
         return reshaped_native(v, [batch, '_row', '_col'])
 
 
-def factor_ilu(matrix: Tensor, iterations=None):
+def factor_ilu(matrix: Tensor, iterations=None, safe=False):
     """
     Incomplete LU factorization for dense or sparse matrices.
 
@@ -607,6 +607,11 @@ def factor_ilu(matrix: Tensor, iterations=None):
         matrix: Dense or sparse matrix to factor.
             Currently, compressed sparse matrices are decompressed before running the ILU algorithm.
         iterations: (Optional) Number of fixed-point iterations to perform.
+        safe: If `False` (default), only matrices with a rank deficiency of up to 1 can be factored as all values of L and U are uniquely determined.
+            For matrices with higher rank deficiencies, the result includes `NaN` values.
+            If `True`, the algorithm runs slightly slower but can factor highly rank-deficient matrices as well.
+            However, then L is undeterdetermined and unused values of L are set to 0.
+            Rank deficiencies of 1 occur frequently in periodic settings but higher ones are rare.
 
     Returns:
         L: Lower-triangular matrix as `Tensor` with all diagonal elements equal to 1.
@@ -634,7 +639,7 @@ def factor_ilu(matrix: Tensor, iterations=None):
         matrix = matrix.decompress()
     if isinstance(matrix, SparseCoordinateTensor):
         ind_batch, channels, indices, values, shape = matrix._native_coo_components(dual, matrix=True)
-        (l_idx_nat, l_val_nat), (u_idx_nat, u_val_nat) = matrix.default_backend.ilu_coo(indices, values, shape, iterations)
+        (l_idx_nat, l_val_nat), (u_idx_nat, u_val_nat) = matrix.default_backend.ilu_coo(indices, values, shape, iterations, safe)
         col_dims = matrix._shape.only(dual)
         row_dims = matrix._dense_shape.without(col_dims)
         l_indices = matrix._unpack_indices(l_idx_nat[..., 0], l_idx_nat[..., 1], row_dims, col_dims, ind_batch)
@@ -647,7 +652,7 @@ def factor_ilu(matrix: Tensor, iterations=None):
     else:  # dense matrix
         from ._ops import reshaped_native, reshaped_tensor
         native_matrix = reshaped_native(matrix, [batch, non_batch(matrix).non_dual, dual, EMPTY_SHAPE])
-        l_native, u_native = choose_backend(native_matrix).ilu_dense(native_matrix, iterations)
+        l_native, u_native = choose_backend(native_matrix).ilu_dense(native_matrix, iterations, safe)
         lower = reshaped_tensor(l_native, [batch(matrix), non_batch(matrix).non_dual, dual(matrix), EMPTY_SHAPE])
         upper = reshaped_tensor(u_native, [batch(matrix), non_batch(matrix).non_dual, dual(matrix), EMPTY_SHAPE])
     return lower, upper

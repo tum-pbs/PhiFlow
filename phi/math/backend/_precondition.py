@@ -5,13 +5,17 @@ import numpy as np
 from ._backend import Backend
 
 
-def incomplete_lu_dense(b: 'Backend', matrix, iterations: int):
+def incomplete_lu_dense(b: 'Backend', matrix, iterations: int, safe: bool):
     """
 
     Args:
         b: `Backend`
         matrix: Square matrix of Shape (batch_size, rows, cols, channels)
         iterations: Number of fixed-point iterations to perform.
+        safe: Avoid NaN when the rank deficiency of `matrix` is 2 or higher.
+            For a rank deficiency of 1, the fixed-point algorithm will still converge without NaNs and all values of L and U are uniquely determined.
+            If enabled, the algorithm is slightly slower.
+            Rank deficiencies of 1 occur frequently in periodic settings but higher ones are rare.
 
     Returns:
         L: lower triangular matrix with ones on the diagonal
@@ -28,12 +32,13 @@ def incomplete_lu_dense(b: 'Backend', matrix, iterations: int):
     for sweep in range(iterations):
         diag = b.expand_dims(b.get_diagonal(lu), 1)  # should never contain 0
         sum_l_u = b.einsum('bikc,bkjc->bijc', lu * is_lower, lu * is_upper)
-        lu = b.where(is_lower, 1 / diag * (matrix - sum_l_u), matrix - sum_l_u)
+        l = (matrix - sum_l_u) / diag if not safe else b.divide_no_nan(matrix - sum_l_u, diag)
+        lu = b.where(is_lower, l, matrix - sum_l_u)
     # --- Assemble L=lower+unit_diagonal and U. ---
     return lu * is_lower + is_diagonal, lu * ~is_lower
 
 
-def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], iterations: int):
+def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], iterations: int, safe: bool):
     """
     Based on *Parallel Approximate LU Factorizations for Sparse Matrices* by T.K. Huckle, https://www5.in.tum.de/persons/huckle/it_ilu.pdf.
 
@@ -46,6 +51,10 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
         values: Backend-compatible values tensor of shape (batch_size, nnz, channels)
         shape: Dense shape of matrix
         iterations: Number of fixed-point iterations to perform.
+        safe: Avoid NaN when the rank deficiency of `matrix` is 2 or higher.
+            For a rank deficiency of 1, the fixed-point algorithm will still converge without NaNs.
+            If enabled, the algorithm is slightly slower.
+            Rank deficiencies of 1 occur frequently in periodic settings but higher ones are rare.
 
     Returns:
         L: tuple `(indices, values)` where `indices` is a NumPy array and values is backend-specific
@@ -70,7 +79,8 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
     for sweep in range(iterations):
         diag = b.batched_gather_nd(lu, diagonal_indices)  # should never contain 0
         sum_l_u = b.einsum('bnkc,bnkc->bnc', b.batched_gather_nd(lu, mm_above) * mm_is_valid, b.batched_gather_nd(lu, mm_left))
-        lu = b.where(is_lower, 1 / diag * (values - sum_l_u), values - sum_l_u)
+        l = (values - sum_l_u) / diag if not safe else b.divide_no_nan(values - sum_l_u, diag)
+        lu = b.where(is_lower, l, values - sum_l_u)
     # --- Assemble L=lower+unit_diagonal and U. If nnz varies along batch, keep the full sparsity pattern ---
     u_values = b.where(~is_lower, lu, 0)
     belongs_to_lower = (is_lower | is_diagonal)
