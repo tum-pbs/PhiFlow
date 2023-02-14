@@ -22,5 +22,5 @@ for _ in view('smoke, velocity, pressure, OBSTACLE_MASK', play=False, namespace=
     smoke = advect.semi_lagrangian(smoke, velocity, 1) + INFLOW
     buoyancy_force = resample(smoke * (0, 0.1), to=velocity)
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
-    velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('CG-adaptive', 1e-5, 0, x0=pressure))
+    velocity, pressure = fluid.make_incompressible(velocity, (OBSTACLE,), Solve('CG-adaptive', 1e-5, x0=pressure))
     remaining_divergence = field.divergence(velocity)

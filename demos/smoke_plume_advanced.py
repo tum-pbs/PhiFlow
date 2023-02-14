@@ -31,7 +31,7 @@ for _ in viewer.range(warmup=1):
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
     try:
         with math.SolveTape() as solves:
-            velocity, pressure = fluid.make_incompressible(velocity, (), Solve(pressure_solver, 1e-5, 0))
+            velocity, pressure = fluid.make_incompressible(velocity, (), Solve(pressure_solver, 1e-5))
         viewer.log_scalars(solve_time=solves[0].solve_time)
         viewer.info(f"Presure solve {v_res**2}x{v_res**2} with {solves[0].method}: {solves[0].solve_time * 1000:.0f} ms ({solves[0].iterations} iterations)")
     except ConvergenceException as err:

@@ -64,9 +64,9 @@ def _get_obstacles_for(obstacles, space: Field):
 
 def make_incompressible(velocity: GridType,
                         obstacles: Obstacle or Geometry or tuple or list = (),
-                        solve=Solve('auto', 1e-5, 1e-5, gradient_solve=Solve('auto', 1e-5, 1e-5)),
+                        solve: Solve = Solve(),
                         active: CenteredGrid = None,
-                        order=2) -> Tuple[GridType, CenteredGrid]:
+                        order: int = 2) -> Tuple[GridType, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -236,7 +236,7 @@ def _accessible_extrapolation(vext: Extrapolation):
         raise ValueError(f"Unsupported extrapolation: {type(vext)}")
 
 
-def incompressible_rk4(pde: Callable, velocity: GridType, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve('CG', 1e-12, 1e-12), **pde_aux_kwargs):
+def incompressible_rk4(pde: Callable, velocity: GridType, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve('CG'), **pde_aux_kwargs):
     """
     Implements the 4th-order Runge-Kutta time advancement scheme for incompressible vector fields.
     This approach is inspired by [Kampanis et. al., 2006](https://www.sciencedirect.com/science/article/pii/S0021999105005061) and incorporates the pressure treatment into the time step.

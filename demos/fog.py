@@ -24,6 +24,6 @@ for _ in view('fog', temperature, humidity, velocity, 'pressure', play=False, na
     humidity = advect.mac_cormack(humidity, velocity, dt=1)
     buoyancy_force = (temperature * (0, 0.1)).at(velocity)
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
-    velocity, pressure = fluid.make_incompressible(velocity, (), Solve('auto', 1e-5, 0, x0=pressure))
+    velocity, pressure = fluid.make_incompressible(velocity, (), Solve('auto', 1e-5, x0=pressure))
     # Compute fog
     fog = field.maximum(humidity - temperature, 0)

@@ -16,7 +16,7 @@ TARGET = RIGHT * StaggeredGrid(lambda x: math.exp(-0.5 * math.vec_squared(x - (5
 
 
 def loss(v0, p0):
-    v1, p = fluid.make_incompressible(v0 * LEFT, solve=Solve('CG-adaptive', 1e-5, 0, x0=p0))
+    v1, p = fluid.make_incompressible(v0 * LEFT, solve=Solve('CG-adaptive', 1e-5, x0=p0))
     return field.l2_loss((v1 - TARGET) * RIGHT), v1, p
 
 

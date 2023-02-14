@@ -5,7 +5,7 @@ from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phi.math import copy_with, shape
+from phi.math import copy_with, shape, Solve
 
 
 def explicit(field: FieldType,
@@ -40,7 +40,7 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve=math.Solve('CG', 1e-5, 0)) -> FieldType:
+             solve=Solve('CG')) -> FieldType:
     """
     Diffusion by solving a linear system of equations.
 

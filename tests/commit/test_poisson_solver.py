@@ -172,8 +172,8 @@ class TestPoissonSolvers(TestCase):
                     guess=CenteredGrid(0, **domain).values,
                     dx=dx ** 2,
                     padding=extrapolation.PERIODIC,
-                    relative_tolerance=1,
-                    absolute_tolerance=1e-10,
+                    rel_tol=1,
+                    abs_tol=1e-10,
                     max_iterations=20000,
                 ).numpy(order="z,y,x")[0],
                 # "CG2_solve": lambda x: CG2_solve(

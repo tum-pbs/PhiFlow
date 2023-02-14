@@ -15,7 +15,7 @@ def step(v, v_emb, s, p, dt=1.):
     buoyancy = s * (0, 0.1)
     v_emb = advect.semi_lagrangian(v_emb, v_emb, dt) + buoyancy.at(v_emb) * dt
     v = advect.semi_lagrangian(v, v, dt) + buoyancy.at(v) * dt
-    v, p = fluid.make_incompressible(v, [OBSTACLE], Solve('auto', 1e-5, 0, x0=p))
+    v, p = fluid.make_incompressible(v, [OBSTACLE], Solve('auto', 1e-5, x0=p))
     # Perform the embedded pressure solve
     p_emb_x0 = CenteredGrid(0, p, v_emb.bounds, v_emb.resolution)
     v_emb = StaggeredGrid(v_emb, extrapolation.BOUNDARY, v_emb.bounds, v_emb.resolution)
