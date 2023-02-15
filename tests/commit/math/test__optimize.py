@@ -50,7 +50,7 @@ class TestOptimize(TestCase):
             with backend:
                 y = math.ones(spatial(x=3))
                 x0 = math.zeros(spatial(x=3))
-                for method in ['CG', 'CG-adaptive', 'auto']:
+                for method in ['CG', 'CG-adaptive', 'biCG-stab(1)']:
                     solve = math.Solve(method, 0, 1e-3, x0=x0, max_iterations=100)
                     x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
                     math.assert_close(x, [-1.5, -2, -1.5], abs_tolerance=1e-3, msg=backend)
