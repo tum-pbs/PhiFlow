@@ -268,7 +268,7 @@ class TFBackend(Backend):
             a, b = self.auto_cast(a, b, bool_to_int=True)
             return tf.tensordot(a, b, (a_axes, b_axes))
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
         with self._device_for(A, b):
             if isinstance(A, tf.SparseTensor):
                 result_T = tf.sparse.sparse_dense_matmul(A, tf.transpose(b))  # result shape contains unknown size
@@ -276,7 +276,7 @@ class TFBackend(Backend):
                 result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
                 return result
             else:
-                return tf.matmul(A, b)
+                return tf.transpose(tf.matmul(A, b, transpose_b=True))
 
     def einsum(self, equation, *tensors):
         with self._device_for(*tensors):

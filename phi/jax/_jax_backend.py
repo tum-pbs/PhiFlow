@@ -312,7 +312,7 @@ class JaxBackend(Backend):
         # else:
             return Backend.mul(self, a, b)
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
         from jax.experimental.sparse import BCOO
         if isinstance(A, BCOO):
             return(A @ b.T).T

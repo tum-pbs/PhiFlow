@@ -387,7 +387,7 @@ class TorchBackend(Backend):
         a, b = self.auto_cast(a, b)
         return torch.tensordot(a, b, (a_axes, b_axes))
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
         A, b = self.auto_cast(A, b)
         if isinstance(A, torch.Tensor) and A.is_sparse:
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))

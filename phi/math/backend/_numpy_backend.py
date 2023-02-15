@@ -210,7 +210,7 @@ class NumPyBackend(Backend):
         else:
             return Backend.mul(self, a, b)
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
         return np.stack([A.dot(b[i]) for i in range(b.shape[0])])
 
     def get_diagonal(self, matrices, offset=0):

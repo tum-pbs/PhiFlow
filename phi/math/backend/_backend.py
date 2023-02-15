@@ -496,7 +496,7 @@ class Backend:
         """ Multiply-sum-reduce a_axes of a with b_axes of b. """
         raise NotImplementedError(self)
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
         raise NotImplementedError(self)
 
     def einsum(self, equation, *tensors):
@@ -1153,11 +1153,11 @@ class Backend:
             for lin_i in lin:
                 lin_shape = self.staticshape(lin_i)
                 assert len(lin_shape) == 2
-            return self.stack([self.matmul(m, v) for m, v in zip(lin, self.unstack(vector))])
+            return self.stack([self.mul_matrix_batched_vector(m, v) for m, v in zip(lin, self.unstack(vector))])
         else:
             lin_shape = self.staticshape(lin)
             assert len(lin_shape) == 2, f"A must be a matrix but got shape {lin_shape}"
-            return self.matmul(lin, vector)
+            return self.mul_matrix_batched_vector(lin, vector)
 
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
         """
