@@ -965,8 +965,9 @@ ONE = ConstantExtrapolation(1)
 """ Extrapolates with the constant value 1 (Dirichlet boundary condition). """
 PERIODIC = _PeriodicExtrapolation(1)
 """ Extends a grid by tiling it (Periodic boundary condition). """
-ZERO_GRADIENT = BOUNDARY = _BoundaryExtrapolation(2)
+ZERO_GRADIENT = _BoundaryExtrapolation(2)
 """ Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). """
+BOUNDARY = ZERO_GRADIENT
 SYMMETRIC = _SymmetricExtrapolation(3)
 """ Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. """
 ANTISYMMETRIC = _AntiSymmetricExtrapolation(3)
