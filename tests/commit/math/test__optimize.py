@@ -166,3 +166,20 @@ class TestOptimize(TestCase):
                 with backend:
                     result = math.minimize(loss, Solve('GD', 0, 1e-5, x0=3, max_iterations=20))
                     math.assert_close(result, 0, abs_tolerance=1e-5, msg=backend.name)
+
+    def test_solve_dense(self):
+        @math.jit_compile_linear
+        def f(x):
+            return math.laplace(x, padding=extrapolation.ZERO)
+
+        for backend in BACKENDS:
+            with backend:
+                matrix, bias = math.matrix_from_function(f, math.ones(spatial(x=3)))
+                dense_matrix = math.dense(matrix)
+
+                @math.jit_compile
+                def solve(y):
+                    return math.solve_linear(dense_matrix, y, Solve('CG', x0=y * 0))
+
+                x = solve(math.ones(spatial(x=3)))
+                math.assert_close([-1.5, -2, -1.5], x)

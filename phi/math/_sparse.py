@@ -589,10 +589,12 @@ def native_matrix(value: Tensor):
             else:
                 return value.default_backend.csc_matrix(pointers[0], indices[0], values[0, :, 0], shape)
     else:
+        if batch(value):
+            raise NotImplementedError
         v = pack_dims(value, rows, channel('_row'))
         v = pack_dims(v, cols, channel('_col'))
         from ._ops import reshaped_native
-        return reshaped_native(v, [batch, '_row', '_col'])
+        return reshaped_native(v, ['_row', '_col'])
 
 
 def factor_ilu(matrix: Tensor, iterations=None, safe=False):

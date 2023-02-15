@@ -423,7 +423,7 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     return minimize(min_func, min_solve)
 
 
-def solve_linear(f: Callable[[X], Y],
+def solve_linear(f: Callable[[X], Y] or Tensor,
                  y: Y,
                  solve: Solve[X, Y],
                  *f_args,
@@ -454,8 +454,13 @@ def solve_linear(f: Callable[[X], Y],
         `solve_nonlinear()`, `jit_compile_linear()`.
 
     Args:
-        f: Linear function with `Tensor` or `PhiTreeNode` first parameter and return value.
-            `f` can have additional arguments.
+        f: One of the following:
+
+            * Linear function with `Tensor` or `PhiTreeNode` first parameter and return value. `f` can have additional auxiliary arguments and return auxiliary values.
+            * Dense matrix (`Tensor` with at least one dual dimension)
+            * Sparse matrix (Sparse `Tensor` with at least one dual dimension)
+            * Native tensor (not yet supported)
+
         y: Desired output of `f(x)` as `Tensor` or `PhiTreeNode`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
         *f_args: Positional arguments to be passed to `f` after `solve.x0`. These arguments will not be solved for.
@@ -482,8 +487,12 @@ def solve_linear(f: Callable[[X], Y],
     backend = choose_backend_t(*y_tensors, *x0_tensors)
     prefer_explicit = backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix) or grad_for_f
 
-    if isinstance(f, LinearFunction) and prefer_explicit:  # Matrix solve
-        matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **f_kwargs)
+    if isinstance(f, Tensor) or (isinstance(f, LinearFunction) and prefer_explicit):  # Matrix solve
+        if isinstance(f, LinearFunction):
+            matrix, bias = f.sparse_matrix_and_bias(solve.x0, *f_args, **f_kwargs)
+        else:
+            matrix = f
+            bias = 0
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
             backend_matrix = native_matrix(matrix)

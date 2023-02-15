@@ -472,7 +472,7 @@ class NumPyBackend(Backend):
         converged = []
         diverged = []
         for b in range(batch_size):
-            lin_b = lin[min(b, len(lin)-1)] if isinstance(lin, (tuple, list, np.ndarray)) else lin
+            lin_b = lin[min(b, len(lin)-1)] if isinstance(lin, (tuple, list)) or (isinstance(lin, np.ndarray) and len(lin.shape) > 2) else lin
             x, ret_val = scipy_function(lin_b, y[b], x0=x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[b], callback=count_callback)
             # ret_val: 0=success, >0=not converged, <0=error
             xs.append(x)

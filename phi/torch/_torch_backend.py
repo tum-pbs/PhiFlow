@@ -389,10 +389,11 @@ class TorchBackend(Backend):
 
     def mul_matrix_batched_vector(self, A, b):
         A, b = self.auto_cast(A, b)
-        if isinstance(A, torch.Tensor) and A.is_sparse:
+        if isinstance(A, torch.Tensor) and (A.is_sparse or A.is_sparse_csr):
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
-        raise NotImplementedError(type(A), type(b))
+        else:
+            return torch.transpose(torch.matmul(A, torch.transpose(b, -1, -2)), -1, -2)
 
     def get_diagonal(self, matrices, offset=0):
         return torch.transpose(torch.diagonal(matrices, offset=offset, dim1=1, dim2=2), 1, 2)
@@ -706,7 +707,7 @@ class TorchBackend(Backend):
         if callable(lin) or trj:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
             return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
-        assert isinstance(lin, torch.Tensor) and (lin.is_sparse or lin.is_sparse_csr), "Batched matrices are not yet supported"
+        assert isinstance(lin, torch.Tensor), "Batched matrices are not yet supported"
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
         rtol = self.as_tensor(rtol)
@@ -1122,8 +1123,11 @@ def torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter):
     return x, residual, iterations, function_evaluations, converged, diverged
 
 
-def sparse_matmul(matrix: torch.sparse.Tensor, b: torch.Tensor):
-    return torch.transpose(torch.sparse.mm(matrix, torch.transpose(b, 0, 1)), 0, 1)
+def sparse_matmul(matrix: torch.Tensor, b: torch.Tensor):
+    if matrix.is_sparse or matrix.is_sparse_csr:
+        return torch.transpose(torch.sparse.mm(matrix, torch.transpose(b, 0, 1)), 0, 1)
+    else:
+        return torch.transpose(torch.matmul(matrix, torch.transpose(b, 0, 1)), 0, 1)
 
 
 def divide_no_nan(x: torch.Tensor, y: torch.Tensor):
