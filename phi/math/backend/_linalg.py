@@ -1,15 +1,19 @@
 from functools import partial
-from typing import Tuple
+from typing import Tuple, Callable
 
 import numpy as np
 
 from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation
 
 
-def cg(b, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
+def identity(x):
+    return x
+
+
+def cg(b: Backend, lin, y, x0, rtol, atol, max_iter, trj: bool, pre: Callable = identity) -> SolveResult or List[SolveResult]:
     """
     Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
-    symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
+    symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b, pre=M
     """
     method = f"Φ-Flow CG ({b.name})"
     y = b.to_float(y)
@@ -17,10 +21,11 @@ def cg(b, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[So
     batch_size = b.staticshape(y)[0]
     tolerance_sq = b.maximum(rtol ** 2 * b.sum(y ** 2, -1), atol ** 2)
     x = x0
-    dx = residual = y - b.linear(lin, x)
+    residual = y - b.linear(lin, x)
+    dx = pre(residual)
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
-    residual_squared = rsq0 = b.sum(residual ** 2, -1, keepdims=True)
+    residual_squared = rsq0 = b.sum(residual * dx, -1, keepdims=True)
     diverged = b.any(~b.isfinite(x), axis=(1,))
     converged = b.all(residual_squared <= tolerance_sq, axis=(1,))
     trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
@@ -37,9 +42,10 @@ def cg(b, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[So
         step_size *= b.expand_dims(b.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
         x += step_size * dx
         residual = residual - step_size * dy  # in-place subtraction affects convergence
+        s = pre(residual)
         residual_squared_old = residual_squared
-        residual_squared = b.sum(residual ** 2, -1, keepdims=True)
-        dx = residual + b.divide_no_nan(residual_squared, residual_squared_old) * dx
+        residual_squared = b.sum(residual * s, -1, keepdims=True)
+        dx = s + b.divide_no_nan(residual_squared, residual_squared_old) * dx
         diverged = b.any(residual_squared / rsq0 > 1e5, axis=(1,)) & (iterations >= 8)
         converged = b.all(residual_squared <= tolerance_sq, axis=(1,))
         if trajectory is not None:
