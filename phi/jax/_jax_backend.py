@@ -463,6 +463,11 @@ class JaxBackend(Backend):
         solution, residuals, rank, singular_values = lstsq_batched(matrix, rhs)
         return solution, residuals, rank, singular_values
 
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        matrix, rhs = self.auto_cast(matrix, rhs, int_to_float=True, bool_to_int=True)
+        x = jax.lax.linalg.triangular_solve(matrix, rhs, lower=lower, unit_diagonal=unit_diagonal, left_side=True)
+        return x
+
     def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
         return BCOO((values, indices), shape=shape)
 

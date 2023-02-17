@@ -1173,6 +1173,20 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        """
+
+        Args:
+            matrix: (batch_size, rows, cols)
+            rhs: (batch_size, cols)
+            lower:
+            unit_diagonal:
+
+        Returns:
+            (batch_size, cols)
+        """
+        raise NotImplementedError(self)
+
     def stop_gradient(self, value):
         raise NotImplementedError(self)
 

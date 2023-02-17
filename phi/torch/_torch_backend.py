@@ -735,6 +735,12 @@ class TorchBackend(Backend):
         solution, residuals, rank, singular_values = torch.linalg.lstsq(matrix, rhs)
         return solution, residuals, rank, singular_values
 
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        matrix, rhs = self.auto_cast(matrix, rhs, int_to_float=True, bool_to_int=True)
+        rhs = self.expand_dims(rhs, -1)
+        x = torch.linalg.solve_triangular(matrix, rhs, upper=not lower, unitriangular=unit_diagonal)
+        return x[..., 0]
+
     def _prepare_graph_inputs(self, args: tuple, wrt: tuple or list):
         args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
         args = [self.to_float(arg) if self.dtype(arg).kind == int else arg for arg in args]

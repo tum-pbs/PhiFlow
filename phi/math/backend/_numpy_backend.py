@@ -491,3 +491,11 @@ class NumPyBackend(Backend):
             rank.append(rnk_b)
             singular_values.append(s_b)
         return np.stack(solution), np.stack(residuals), np.stack(rank), np.stack(singular_values)
+
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        batch_size, rows, cols = matrix.shape
+        result = []
+        for b in range(batch_size):
+            x = scipy.linalg.solve_triangular(matrix[b, :, :], rhs[b, :], lower=lower, unit_diagonal=unit_diagonal)
+            result.append(x)
+        return np.stack(result)

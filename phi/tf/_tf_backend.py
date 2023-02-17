@@ -712,6 +712,15 @@ class TFBackend(Backend):
             solution = tf.linalg.lstsq(matrix, rhs)
         return solution, None, None, None
 
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        matrix, rhs = self.auto_cast(matrix, rhs, int_to_float=True, bool_to_int=True)
+        rhs = self.expand_dims(rhs, -1)
+        if unit_diagonal:
+            diag = np.diag(np.ones((self.staticshape(matrix)[-1],)))
+            matrix = self.where(diag, diag, matrix)
+        result = tf.linalg.triangular_solve(matrix, rhs, lower=lower)
+        return result[..., 0]
+
     def get_diagonal(self, matrices, offset=0):
         with self._device_for(matrices):
             matrices = tf.transpose(matrices, [0, 3, 1, 2])

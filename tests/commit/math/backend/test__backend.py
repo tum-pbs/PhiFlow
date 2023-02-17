@@ -1,3 +1,4 @@
+from typing import Tuple
 from unittest import TestCase
 
 import numpy
@@ -5,7 +6,7 @@ import numpy
 import phi
 from phi.math.backend import ComputeDevice, convert, Backend
 
-BACKENDS = phi.detect_backends()
+BACKENDS: Tuple[Backend] = phi.detect_backends()
 
 
 class TestBackends(TestCase):
@@ -62,3 +63,13 @@ class TestBackends(TestCase):
                 numpy.testing.assert_equal([[[2]]], d1)
                 d1 = backend.numpy(backend.get_diagonal(t, offset=-1))
                 numpy.testing.assert_equal([[[0]]], d1)
+
+    def test_solve_triangular_dense(self):
+        for backend in BACKENDS:
+            with backend:
+                rhs = backend.as_tensor([[1, 7, 3]])
+                matrix = backend.as_tensor([[[-1, 1, 0], [0, 2, 2], [0, 1, 1]]])
+                x = backend.numpy(backend.solve_triangular_dense(matrix, rhs, lower=False, unit_diagonal=True)[0, :])
+                numpy.testing.assert_almost_equal([0, 1, 3], x, err_msg=backend.name)
+                x = backend.numpy(backend.solve_triangular_dense(matrix, rhs, lower=False, unit_diagonal=False)[0, :])
+                numpy.testing.assert_almost_equal([-.5, .5, 3], x, err_msg=backend.name)
