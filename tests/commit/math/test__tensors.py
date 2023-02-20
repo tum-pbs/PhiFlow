@@ -649,3 +649,15 @@ class TestTensors(TestCase):
         except AssertionError:
             pass
 
+    def test_bit_shift(self):
+        ints = math.range_tensor(spatial(x=4))
+        math.assert_close([0, 2, 4, 6], ints << 1)
+        math.assert_close(ints, (ints << 2) >> 2)
+        math.assert_close([1, 2, 4, 8], 1 << ints)
+        math.assert_close(1, (1 << ints) >> ints)
+        np1 = np.int32(1)
+        math.assert_close([0, 2, 4, 6], ints << np1)
+        math.assert_close(ints, (ints << np1) >> np1)
+        math.assert_close([1, 2, 4, 8], np1 << ints)
+        math.assert_close(1, (np1 << ints) >> ints)
+        math.assert_close([1, 0, 0, 0], np1 >> ints)

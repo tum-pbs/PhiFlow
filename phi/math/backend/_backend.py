@@ -1298,6 +1298,14 @@ class Backend:
         a, b = self.auto_cast(a, b)
         return a // b
 
+    def shift_bits_left(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a << b
+
+    def shift_bits_right(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a >> b
+
 
 BACKENDS = []
 """ Global list of all registered backends. Register a `Backend` by adding it to the list. """
