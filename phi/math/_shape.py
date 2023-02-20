@@ -1286,13 +1286,15 @@ def shape(obj) -> Shape:
         return obj.shape
     elif isinstance(obj, (int, float, complex, bool)):
         return EMPTY_SHAPE
-    elif isinstance(obj, (tuple, list)):
+    elif isinstance(obj, (tuple, list)) and all(isinstance(item, (int, float, complex, bool)) for item in obj):
         return channel('vector')
     elif isinstance(obj, (Number, bool)):
         return EMPTY_SHAPE
+    elif isinstance(obj, (tuple, list)) and all(isinstance(item, PhiTreeNode) for item in obj):
+        return merge_shapes(*obj, allow_varying_sizes=True)
     elif isinstance(obj, PhiTreeNode):
         from phi.math._magic_ops import all_attributes
-        return merge_shapes(*[getattr(obj, a) for a in all_attributes(obj, assert_any=True)])
+        return merge_shapes(*[getattr(obj, a) for a in all_attributes(obj, assert_any=True)], allow_varying_sizes=True)
     else:
         from .backend import choose_backend, NoBackendFound
         try:
@@ -1527,7 +1529,7 @@ def dual(*args, **dims: int or str or tuple or list or Shape) -> Shape:
         raise AssertionError(f"dual() must be called either as a selector dual(Shape) or dual(Tensor) or as a constructor dual(*names, **dims). Got *args={args}, **dims={dims}")
 
 
-def merge_shapes(*objs: Shape or Any, order=(batch, dual, instance, spatial, channel)):
+def merge_shapes(*objs: Shape or Any, order=(batch, dual, instance, spatial, channel), allow_varying_sizes=False):
     """
     Combines `shapes` into a single `Shape`, grouping dimensions by type.
     If dimensions with equal names are present in multiple shapes, their types and sizes must match.
@@ -1559,18 +1561,23 @@ def merge_shapes(*objs: Shape or Any, order=(batch, dual, instance, spatial, cha
                 if dim not in type_group:
                     type_group = type_group._expand(dim, pos=-1)
                 else:  # check size match
-                    if not _size_equal(dim.size, type_group.get_size(dim.name)):
-                        raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
-                    names1 = type_group.get_item_names(dim)
-                    names2 = sh.get_item_names(dim)
-                    if names1 is not None and names2 is not None and len(names1) > 1:
-                        if names1 != names2:
-                            if set(names1) == set(names2):
-                                raise IncompatibleShapes(f"Inconsistent component order: '{','.join(names1)}' vs '{','.join(names2)}' in dimension '{dim.name}'. Failed to merge shapes {shapes}", *shapes)
-                            else:
-                                raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
-                    elif names1 is None and names2 is not None:
-                        type_group = type_group._with_item_name(dim, tuple(names2))
+                    sizes_match = _size_equal(dim.size, type_group.get_size(dim.name))
+                    if allow_varying_sizes:
+                        if not sizes_match:
+                            type_group = type_group.with_dim_size(dim, None)
+                    else:
+                        if not sizes_match:
+                            raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different sizes.", *shapes)
+                        names1 = type_group.get_item_names(dim)
+                        names2 = sh.get_item_names(dim)
+                        if names1 is not None and names2 is not None and len(names1) > 1:
+                            if names1 != names2:
+                                if set(names1) == set(names2):
+                                    raise IncompatibleShapes(f"Inconsistent component order: '{','.join(names1)}' vs '{','.join(names2)}' in dimension '{dim.name}'. Failed to merge shapes {shapes}", *shapes)
+                                else:
+                                    raise IncompatibleShapes(f"Cannot merge shapes {shapes} because dimension '{dim.name}' exists with different item names.", *shapes)
+                        elif names1 is None and names2 is not None:
+                            type_group = type_group._with_item_name(dim, tuple(names2))
         merged.append(type_group)
     return concat_shapes(*merged)
 
