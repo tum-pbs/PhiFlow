@@ -33,7 +33,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         raise NotImplementedError()
 
     def at(self, center: Tensor) -> 'BaseBox':
-        return Cuboid(center, self._half_size)
+        return Cuboid(center, self.half_size)
 
     @property
     def size(self) -> Tensor:
@@ -233,7 +233,7 @@ class Box(BaseBox, metaclass=BoxType):
 
     def __eq__(self, other):
         if self._lower is None and self._upper is None:
-            return isinstance(other, BaseBox)
+            return isinstance(other, Box)
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
                and self.size.shape.get_size('vector') == other.size.shape.get_size('vector')\
@@ -326,6 +326,8 @@ class Cuboid(BaseBox):
 
 
     def __eq__(self, other):
+        if self._center is None and self._half_size is None:
+            return isinstance(other, Cuboid)
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
                and math.close(self._center, other.center)\
@@ -333,6 +335,9 @@ class Cuboid(BaseBox):
 
     def __hash__(self):
         return hash(self._center)
+
+    def __repr__(self):
+        return f"Cuboid(center={self._center}, half_size={self._half_size})"
 
     def __getitem__(self, item):
         item = _keep_vector(slicing_dict(self, item))

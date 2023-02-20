@@ -20,6 +20,9 @@ class RotatedGeometry(Geometry):
     def shape(self):
         return self._geometry.shape
 
+    def __variable_attrs__(self):
+        return '_geometry', '_angle'
+
     @property
     def geometry(self):
         return self._geometry
@@ -92,6 +95,9 @@ class RotatedGeometry(Geometry):
 
     def __hash__(self):
         return hash(self._angle) + hash(self._geometry)
+
+    def __repr__(self):
+        return f"rot({self._geometry}, angle={self._angle})"
 
 
 def rotate(geometry: Geometry, angle: Number or Tensor) -> Geometry:
