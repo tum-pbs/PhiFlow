@@ -3,12 +3,12 @@ from typing import Callable, List, Tuple, Optional
 
 from phi import geom
 from phi import math
-from phi.geom import Box, Geometry, Cuboid
-from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, wrap, solve_linear, jit_compile_linear, shape, Solve
+from phi.geom import Box, Geometry
+from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
-from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction, map
+from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction
 
 
 def bake_extrapolation(grid: GridType) -> GridType:
@@ -78,14 +78,14 @@ def laplace(field: GridType,
             values_rhs, needed_shifts_rhs = [2/11, 1, 2/11], (-1, 0, 1)
             extrap_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-    field.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))
+    field.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))
     padded_components = [pad(field, {dim: base_widths}) for dim in axes_names]
     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, axes_names)]
     result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim]**2 for shifted_component, dim in zip(shifted_components, axes_names)]
     if implicit:
         result_components = stack(result_components, channel('laplacian'))
         result_components.with_values(result_components.values._cache())
-        result_components = result_components.with_extrapolation(map(_ex_map_f(extrap_map_rhs), field.extrapolation))
+        result_components = result_components.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map_rhs), field.extrapolation))
         implicit.x0 = result_components
         result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
         result_components = unstack(result_components, 'laplacian')
@@ -96,7 +96,7 @@ def laplace(field: GridType,
         assert set(channel(weights).item_names[0]) >= set(axes_names), f"the channel dim of weights must contain all laplace dims {axes_names} but only has {channel(weights).item_names}"
         result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
     result = sum(result_components)
-    result = result.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))
+    result = result.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))
     return result
 
 
@@ -161,9 +161,9 @@ def spatial_gradient(field: CenteredGrid,
         else:
             raise NotImplementedError(f"implicit {order}th-order not supported")
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-    field.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
+    field.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
     if implicit:
-        gradient_extrapolation = map(_ex_map_f(extrap_map_rhs), gradient_extrapolation)
+        gradient_extrapolation = extrapolation.map(_ex_map_f(extrap_map_rhs), gradient_extrapolation)
     spatial_dims = field.shape.only(dims).names
     stack_dim = stack_dim._with_item_names((spatial_dims,))
     if type == CenteredGrid:
@@ -191,7 +191,6 @@ def spatial_gradient(field: CenteredGrid,
     result = result.with_extrapolation(gradient_extrapolation)
     if implicit:
         implicit.x0 = result
-        result = result
         result = solve_linear(_lhs_for_implicit_scheme, result, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=stack_dim, staggered_output=type != CenteredGrid)
     if type == CenteredGrid and gradient_extrapolation == math.extrapolation.NONE:
         result = result.with_bounds(Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx))
@@ -358,7 +357,7 @@ def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
                 values, needed_shifts = [-17 / 186, -63 / 62, 63 / 62, 17 / 186], (-1, 0, 1, 2)
                 values_rhs, needed_shifts_rhs = [9 / 62, 1, 9 / 62], (-1, 0, 1)
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-    field.with_extrapolation(map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
+    field.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
     spatial_dims = field.shape.spatial.names
     if isinstance(field, StaggeredGrid):
         base_widths = (base_widths[0]+1, base_widths[1])
