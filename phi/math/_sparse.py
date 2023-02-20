@@ -169,7 +169,7 @@ class SparseCoordinateTensor(Tensor):
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Tensor':
         dims = self._shape.only(dims)
-        assert self._dense_shape in dims, "Can only pack sparse dimensions on SparseCoordinateTensor"
+        assert dims in self._dense_shape, f"Can only pack sparse dimensions on SparseCoordinateTensor but got {dims} of which {dims.without(self._dense_shape)} are not sparse"
         assert self._indices.default_backend is NUMPY, "Can only pack NumPy indices as of yet"
         from ._ops import reshaped_native
         idx = self._indices.vector[dims.names]

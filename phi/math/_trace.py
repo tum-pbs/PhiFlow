@@ -343,7 +343,7 @@ def tracer_to_coo(tracer: Tensor, sparsify_batch: bool, separate_independent: bo
             if dim in missing_dims:
                 if not separate_independent:
                     offset = shift_.get_size(dim, default=0)
-                    src_idx_all.append(np.zeros(out_shape.volume, dtype=np.int32) + offset)
+                    src_idx_all.append(np.zeros_like(src_idx[0]) + offset)
             else:
                 src_idx_all.append(src_idx[out_shape.index(dim)])
         src_indices.append(src_idx_all)
