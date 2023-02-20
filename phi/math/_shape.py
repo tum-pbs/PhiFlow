@@ -1165,12 +1165,12 @@ except AttributeError:  # on older Python versions, this is not possible
     pass
 
 
-class IncompatibleShapes(ValueError):
+class IncompatibleShapes(Exception):
     """
     Raised when the shape of a tensor does not match the other arguments.
     """
     def __init__(self, message, *shapes: Shape):
-        ValueError.__init__(self, message)
+        Exception.__init__(self, message)
         self.shapes = shapes
 
 
