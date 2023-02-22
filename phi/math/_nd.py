@@ -188,8 +188,8 @@ def l1_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` or 0D or 1D native tensor.
-            For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` or 0D or 1D native tensor.
+            For `phi.math.magic.PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
@@ -218,8 +218,8 @@ def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` or 0D or 1D native tensor.
-            For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` or 0D or 1D native tensor.
+            For `phi.math.magic.PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
@@ -255,7 +255,7 @@ def frequency_loss(x,
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` Values to penalize, typically `actual - target`.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` Values to penalize, typically `actual - target`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
         threshold: Frequency amplitudes below this value are ignored.

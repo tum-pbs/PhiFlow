@@ -126,9 +126,9 @@ class SolveInfo(Generic[X, Y]):
         self.solve: Solve[X, Y] = solve
         """ `Solve`, Parameters specified for the solve. """
         self.x: X = x
-        """ `Tensor` or `PhiTreeNode`, solution estimate. """
+        """ `Tensor` or `phi.math.magic.PhiTreeNode`, solution estimate. """
         self.residual: Y = residual
-        """ `Tensor` or `PhiTreeNode`, residual vector for systems of equations or function value for minimization problems. """
+        """ `Tensor` or `phi.math.magic.PhiTreeNode`, residual vector for systems of equations or function value for minimization problems. """
         self.iterations: Tensor = iterations
         """ `Tensor`, number of performed iterations to reach this state. """
         self.function_evaluations: Tensor = function_evaluations
@@ -303,10 +303,10 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
 
     Args:
         f: Function whose output is subject to minimization.
-            All positional arguments of `f` are optimized and must be `Tensor` or `PhiTreeNode`.
+            All positional arguments of `f` are optimized and must be `Tensor` or `phi.math.magic.PhiTreeNode`.
             If `solve.x0` is a `tuple` or `list`, it will be passed to *f* as varargs, `f(*x0)`.
             To minimize a subset of the positional arguments, define a new (lambda) function depending only on those.
-            The first return value of `f` must be a scalar float `Tensor` or `PhiTreeNode`.
+            The first return value of `f` must be a scalar float `Tensor` or `phi.math.magic.PhiTreeNode`.
         solve: `Solve` object to specify method type, parameters and initial guess for `x`.
 
     Returns:
@@ -398,13 +398,13 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
 
     Args:
         f: Function whose output is optimized to match `y`.
-            All positional arguments of `f` are optimized and must be `Tensor` or `PhiTreeNode`.
+            All positional arguments of `f` are optimized and must be `Tensor` or `phi.math.magic.PhiTreeNode`.
             The output of `f` must match `y`.
-        y: Desired output of `f(x)` as `Tensor` or `PhiTreeNode`.
+        y: Desired output of `f(x)` as `Tensor` or `phi.math.magic.PhiTreeNode`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
 
     Returns:
-        x: Solution fulfilling `f(x) = y` within specified tolerance as `Tensor` or `PhiTreeNode`.
+        x: Solution fulfilling `f(x) = y` within specified tolerance as `Tensor` or `phi.math.magic.PhiTreeNode`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
@@ -456,12 +456,12 @@ def solve_linear(f: Callable[[X], Y] or Tensor,
     Args:
         f: One of the following:
 
-            * Linear function with `Tensor` or `PhiTreeNode` first parameter and return value. `f` can have additional auxiliary arguments and return auxiliary values.
+            * Linear function with `Tensor` or `phi.math.magic.PhiTreeNode` first parameter and return value. `f` can have additional auxiliary arguments and return auxiliary values.
             * Dense matrix (`Tensor` with at least one dual dimension)
             * Sparse matrix (Sparse `Tensor` with at least one dual dimension)
             * Native tensor (not yet supported)
 
-        y: Desired output of `f(x)` as `Tensor` or `PhiTreeNode`.
+        y: Desired output of `f(x)` as `Tensor` or `phi.math.magic.PhiTreeNode`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
         *f_args: Positional arguments to be passed to `f` after `solve.x0`. These arguments will not be solved for.
             Supports vararg mode or pass all arguments as a `tuple`.
@@ -469,7 +469,7 @@ def solve_linear(f: Callable[[X], Y] or Tensor,
             These arguments are treated as auxiliary arguments and can be of any type.
 
     Returns:
-        x: solution of the linear system of equations `f(x) = y` as `Tensor` or `PhiTreeNode`.
+        x: solution of the linear system of equations `f(x) = y` as `Tensor` or `phi.math.magic.PhiTreeNode`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.

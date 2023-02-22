@@ -1943,7 +1943,7 @@ def disassemble_tree(obj: PhiTreeNodeType) -> Tuple[PhiTreeNodeType, List[Tensor
 
     Args:
         obj: Nested structure of `Tensor` objects.
-            Nested structures include: `tuple`, `list`, `dict`, `PhiTreeNode`.
+            Nested structures include: `tuple`, `list`, `dict`, `phi.math.magic.PhiTreeNode`.
 
     Returns:
         empty structure: Same structure as `obj` but with the tensors replaced by `None`.
@@ -2053,12 +2053,12 @@ def cached(t: Tensor or 'PhiTreeNode') -> Tensor or 'PhiTreeNode':
 
 class Dict(dict):
     """
-    Dictionary of `Tensor` or `PhiTreeNode` values.
+    Dictionary of `Tensor` or `phi.math.magic.PhiTreeNode` values.
     Dicts are not themselves tensors and do not have a shape.
     Use `layout()` to treat `dict` instances like tensors.
 
     In addition to dictionary functions, supports mathematical operators with other `Dict`s and lookup via `.key` syntax.
-    `Dict` implements `PhiTreeNode` so instances can be passed to math operations like `sin`.
+    `Dict` implements `phi.math.magic.PhiTreeNode` so instances can be passed to math operations like `sin`.
     """
 
     def __value_attrs__(self):

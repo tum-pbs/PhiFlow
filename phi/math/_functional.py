@@ -235,7 +235,7 @@ def jit_compile(f: Callable = None, auxiliary_args: str = '', forget_traces: boo
     * it is called with a different number of arguments,
     * the tensor arguments have different dimension names or types (the dimension order also counts),
     * any `Tensor` arguments require a different backend than previous invocations,
-    * `PhiTreeNode` positional arguments do not match in non-variable properties.
+    * `phi.math.magic.PhiTreeNode` positional arguments do not match in non-variable properties.
 
     Compilation is implemented for the following backends:
 
@@ -251,7 +251,7 @@ def jit_compile(f: Callable = None, auxiliary_args: str = '', forget_traces: boo
 
     Args:
         f: Function to be traced.
-            All positional arguments must be of type `Tensor` or `PhiTreeNode` returning a single `Tensor` or `PhiTreeNode`.
+            All positional arguments must be of type `Tensor` or `phi.math.magic.PhiTreeNode` returning a single `Tensor` or `phi.math.magic.PhiTreeNode`.
         auxiliary_args: Comma-separated parameter names of arguments that are not relevant to backpropagation.
         forget_traces: If `True`, only remembers the most recent compiled instance of this function.
             Upon tracing with new instance (due to changed shapes or auxiliary args), deletes the previous traces.
@@ -964,7 +964,7 @@ def trace_check(f, *args, **kwargs):
 
 def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_type: Callable or str) -> Callable:
     """
-    Wraps a function to change the dimension types of its `Tensor` and `PhiTreeNode` arguments.
+    Wraps a function to change the dimension types of its `Tensor` and `phi.math.magic.PhiTreeNode` arguments.
 
     Args:
         f: Function to wrap.

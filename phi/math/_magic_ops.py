@@ -557,13 +557,13 @@ def all_attributes(obj, assert_any=False) -> Set[str]:
 
 def replace(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
     """
-    Creates a copy of the given `PhiTreeNode` with updated values as specified in `updates`.
+    Creates a copy of the given `phi.math.magic.PhiTreeNode` with updated values as specified in `updates`.
 
     If `obj` overrides `__with_attrs__`, the copy will be created via that specific implementation.
     Otherwise, the `copy` module and `setattr` will be used.
 
     Args:
-        obj: `PhiTreeNode`
+        obj: `phi.math.magic.PhiTreeNode`
         **updates: Values to be replaced.
 
     Returns:

@@ -39,7 +39,7 @@ def choose_backend_t(*values, prefer_default=False) -> Backend:
 
 def convert(x, backend: Backend = None, use_dlpack=True):
     """
-    Convert the native representation of a `Tensor` or `PhiTreeNode` to the native format of `backend`.
+    Convert the native representation of a `Tensor` or `phi.math.magic.PhiTreeNode` to the native format of `backend`.
 
     *Warning*: This operation breaks the automatic differentiation chain.
 
@@ -47,7 +47,7 @@ def convert(x, backend: Backend = None, use_dlpack=True):
         `phi.math.backend.convert()`.
 
     Args:
-        x: `Tensor` to convert. If `x` is a `PhiTreeNode`, its variable attributes are converted.
+        x: `Tensor` to convert. If `x` is a `phi.math.magic.PhiTreeNode`, its variable attributes are converted.
         backend: Target backend. If `None`, uses the current default backend, see `phi.math.backend.default_backend()`.
 
     Returns:
@@ -1602,7 +1602,7 @@ def abs_(x) -> Tensor or PhiTreeNode:
     TensorFlow and PyTorch return 0 while Jax returns 1.
 
     Args:
-        x: `Tensor` or `PhiTreeNode`
+        x: `Tensor` or `phi.math.magic.PhiTreeNode`
 
     Returns:
         Absolute value of `x` of same type as `x`.
@@ -1616,36 +1616,36 @@ def sign(x) -> Tensor or PhiTreeNode:
     The sign of 0 is undefined.
 
     Args:
-        x: `Tensor` or `PhiTreeNode`
+        x: `Tensor` or `phi.math.magic.PhiTreeNode`
 
     Returns:
-        `Tensor` or `PhiTreeNode` matching `x`.
+        `Tensor` or `phi.math.magic.PhiTreeNode` matching `x`.
     """
     return _backend_op1(x, Backend.sign)
 
 
 def round_(x) -> Tensor or PhiTreeNode:
-    """ Rounds the `Tensor` or `PhiTreeNode` `x` to the closest integer. """
+    """ Rounds the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to the closest integer. """
     return _backend_op1(x, Backend.round)
 
 
 def ceil(x) -> Tensor or PhiTreeNode:
-    """ Computes *⌈x⌉* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *⌈x⌉* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.ceil)
 
 
 def floor(x) -> Tensor or PhiTreeNode:
-    """ Computes *⌊x⌋* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *⌊x⌋* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.floor)
 
 
 def sqrt(x) -> Tensor or PhiTreeNode:
-    """ Computes *sqrt(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *sqrt(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.sqrt)
 
 
 def exp(x) -> Tensor or PhiTreeNode:
-    """ Computes *exp(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *exp(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.exp)
 
 
@@ -1661,21 +1661,21 @@ def to_float(x) -> Tensor or PhiTreeNode:
         `cast()`.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` to convert
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` to convert
 
     Returns:
-        `Tensor` or `PhiTreeNode` matching `x`.
+        `Tensor` or `phi.math.magic.PhiTreeNode` matching `x`.
     """
     return _backend_op1(x, Backend.to_float)
 
 
 def to_int32(x) -> Tensor or PhiTreeNode:
-    """ Converts the `Tensor` or `PhiTreeNode` `x` to 32-bit integer. """
+    """ Converts the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to 32-bit integer. """
     return _backend_op1(x, Backend.to_int32)
 
 
 def to_int64(x) -> Tensor or PhiTreeNode:
-    """ Converts the `Tensor` or `PhiTreeNode` `x` to 64-bit integer. """
+    """ Converts the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to 64-bit integer. """
     return _backend_op1(x, Backend.to_int64)
 
 
@@ -1700,7 +1700,7 @@ def to_complex(x) -> Tensor or PhiTreeNode:
 
 
 def is_finite(x) -> Tensor or PhiTreeNode:
-    """ Returns a `Tensor` or `PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. """
+    """ Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. """
     return _backend_op1(x, Backend.isfinite)
 
 
@@ -1710,7 +1710,7 @@ def real(x) -> Tensor or PhiTreeNode:
         `imag()`, `conjugate()`.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` or native tensor.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` or native tensor.
 
     Returns:
         Real component of `x`.
@@ -1727,7 +1727,7 @@ def imag(x) -> Tensor or PhiTreeNode:
         `real()`, `conjugate()`.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` or native tensor.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` or native tensor.
 
     Returns:
         Imaginary component of `x` if `x` is complex, zeros otherwise.
@@ -1741,7 +1741,7 @@ def conjugate(x) -> Tensor or PhiTreeNode:
         `imag()`, `real()`.
 
     Args:
-        x: Real or complex `Tensor` or `PhiTreeNode` or native tensor.
+        x: Real or complex `Tensor` or `phi.math.magic.PhiTreeNode` or native tensor.
 
     Returns:
         Complex conjugate of `x` if `x` is complex, else `x`.
@@ -1755,37 +1755,37 @@ def degrees(deg):
 
 
 def sin(x) -> Tensor or PhiTreeNode:
-    """ Computes *sin(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *sin(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.sin)
 
 
 def arcsin(x) -> Tensor or PhiTreeNode:
-    """ Computes the inverse of *sin(x)* of the `Tensor` or `PhiTreeNode` `x`.
+    """ Computes the inverse of *sin(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`.
     For real arguments, the result lies in the range [-π/2, π/2].
     """
     return _backend_op1(x, Backend.arcsin)
 
 
 def cos(x) -> Tensor or PhiTreeNode:
-    """ Computes *cos(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *cos(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.cos)
 
 
 def arccos(x) -> Tensor or PhiTreeNode:
-    """ Computes the inverse of *cos(x)* of the `Tensor` or `PhiTreeNode` `x`.
+    """ Computes the inverse of *cos(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`.
     For real arguments, the result lies in the range [0, π].
     """
     return _backend_op1(x, Backend.cos)
 
 
 def tan(x) -> Tensor or PhiTreeNode:
-    """ Computes *tan(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *tan(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.tan)
 
 
 def arctan(x, divide_by=None) -> Tensor or PhiTreeNode:
     """
-    Computes the inverse of *tan(x)* of the `Tensor` or `PhiTreeNode` `x`.
+    Computes the inverse of *tan(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`.
 
     Args:
         x: Input. The single-argument `arctan` function cannot output π/2 or -π/2 since tan(π/2) is infinite.
@@ -1800,52 +1800,52 @@ def arctan(x, divide_by=None) -> Tensor or PhiTreeNode:
 
 
 def sinh(x) -> Tensor or PhiTreeNode:
-    """ Computes *sinh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *sinh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.sinh)
 
 
 def arcsinh(x) -> Tensor or PhiTreeNode:
-    """ Computes the inverse of *sinh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes the inverse of *sinh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.arcsinh)
 
 
 def cosh(x) -> Tensor or PhiTreeNode:
-    """ Computes *cosh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *cosh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.cosh)
 
 
 def arccosh(x) -> Tensor or PhiTreeNode:
-    """ Computes the inverse of *cosh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes the inverse of *cosh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.arccosh)
 
 
 def tanh(x) -> Tensor or PhiTreeNode:
-    """ Computes *tanh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes *tanh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.tanh)
 
 
 def arctanh(x) -> Tensor or PhiTreeNode:
-    """ Computes the inverse of *tanh(x)* of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes the inverse of *tanh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.arctanh)
 
 
 def log(x) -> Tensor or PhiTreeNode:
-    """ Computes the natural logarithm of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes the natural logarithm of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.log)
 
 
 def log2(x) -> Tensor or PhiTreeNode:
-    """ Computes *log(x)* of the `Tensor` or `PhiTreeNode` `x` with base 2. """
+    """ Computes *log(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x` with base 2. """
     return _backend_op1(x, Backend.log2)
 
 
 def log10(x) -> Tensor or PhiTreeNode:
-    """ Computes *log(x)* of the `Tensor` or `PhiTreeNode` `x` with base 10. """
+    """ Computes *log(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x` with base 10. """
     return _backend_op1(x, Backend.log10)
 
 
 def sigmoid(x) -> Tensor or PhiTreeNode:
-    """ Computes the sigmoid function of the `Tensor` or `PhiTreeNode` `x`. """
+    """ Computes the sigmoid function of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
     return _backend_op1(x, Backend.sigmoid)
 
 
@@ -2363,7 +2363,7 @@ def stop_gradient(x):
     * Jax: [`jax.lax.stop_gradient`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.stop_gradient.html)
 
     Args:
-        x: `Tensor` or `PhiTreeNode` for which gradients should be disabled.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` for which gradients should be disabled.
 
     Returns:
         Copy of `x`.
