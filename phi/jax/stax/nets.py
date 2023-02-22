@@ -491,7 +491,7 @@ def conv_classifier(in_features: int,
     init_fn, apply_fn = {}, {}
 
     net_list = []
-    for i, (prev, next) in enumerate(zip((in_features,) + blocks[:-1], blocks)):
+    for i, (prev, next) in enumerate(zip((in_features,) + tuple(blocks[:-1]), blocks)):
         if i in (0, 1):
             net_list.append(f'conv{i+1}')
             init_fn[net_list[-1]], apply_fn[net_list[-1]] = create_double_conv(d, next, next, batch_norm, activation, periodic)

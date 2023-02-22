@@ -91,6 +91,8 @@ class TestNetworks(TestCase):
             self.assertTrue(all(isinstance(p, math.Tensor) for p in params.values()))
             params = lib.get_parameters(net, wrap=False)
             self.assertEqual(6, len(params))
+            net = lib.dense_net(2, 3, layers=[10], batch_norm=True, activation='ReLU')
+            self.assertEqual(83, lib.parameter_count(net), str(lib))
 
     def test_optimize_dense_net(self):
         for lib in LIBRARIES:
@@ -177,6 +179,10 @@ class TestNetworks(TestCase):
             net_dense = lib.invertible_net(2, 3, True, activation='ReLU', in_spatial=0)
             self.assertEqual(240, lib.parameter_count(net_dense))
 
+    def test_conv_classifier(self):
+        for lib in LIBRARIES:
+            net = lib.conv_classifier(1, (2,), 1, blocks=[10], dense_layers=[], batch_norm=True, softmax=False, periodic=False)
+            self.assertEqual(401, lib.parameter_count(net))
 
 
 

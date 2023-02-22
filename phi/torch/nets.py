@@ -194,10 +194,11 @@ class DenseNet(nn.Module):
         self._layers = layers
         self._activation = activation
         self._batch_norm = batch_norm
-        for i, (s1, s2) in enumerate(zip(layers[:-1], layers[1:])):
+        for i, (s1, s2) in enumerate(zip(layers[:-2], layers[1:-1])):
             self.add_module(f'linear{i}', _bias0(nn.Linear)(s1, s2, bias=True))
             if batch_norm:
                 self.add_module(f'norm{i}', nn.BatchNorm1d(s2))
+        self.add_module(f'linear_out', _bias0(nn.Linear)(layers[-2], layers[-1], bias=True))
         self.softmax = nn.Softmax() if use_softmax else None
 
     def forward(self, x):
@@ -207,7 +208,7 @@ class DenseNet(nn.Module):
             x = self._activation()(getattr(self, f'linear{i}')(x))
             if self._batch_norm:
                 x = getattr(self, f'norm{i}')(x)
-        x = getattr(self, f'linear{len(self._layers) - 2}')(x)
+        x = getattr(self, f'linear_out')(x)
         if self.softmax:
             x = self.softmax(x)
         return x
@@ -573,8 +574,9 @@ class ConvClassifier(nn.Module):
         super(ConvClassifier, self).__init__()
         d = len(in_spatial)
         self.in_spatial = in_spatial
+        self._blocks = blocks
         self.add_module('maxpool', MAX_POOL[d](2))
-        for i, (prev, next) in enumerate(zip((in_features,) + blocks[:-1], blocks)):
+        for i, (prev, next) in enumerate(zip((in_features,) + tuple(blocks[:-1]), blocks)):
             if i in (0, 1):
                 conv = DoubleConv(d, prev, next, next, batch_norm, activation, periodic)
             else:
@@ -588,7 +590,7 @@ class ConvClassifier(nn.Module):
         self.flatten = nn.Flatten()
 
     def forward(self, x):
-        for i in range(5):
+        for i in range(len(self._blocks)):
             x = getattr(self, f'conv{i+1}')(x)
             x = self.maxpool(x)
         x = self.flatten(x)
