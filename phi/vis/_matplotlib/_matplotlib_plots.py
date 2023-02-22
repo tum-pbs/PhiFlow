@@ -34,6 +34,7 @@ class MatplotlibPlots(PlottingLibrary):
         self.current_figure = figure
         axes = np.reshape(axes, (rows, cols))
         axes_by_pos = {}
+        subplot_aspect = (size[0] / cols) / (size[1] / rows)  # x / y
         for row in range(rows):
             for col in range(cols):
                 axis = axes[row, col]
@@ -62,7 +63,7 @@ class MatplotlibPlots(PlottingLibrary):
                         if bounds.vector.item_names[1] in log_dims:
                             axis.set_yscale('log')
                             any_log = True
-                        if not any_log and x_size > 0 and y_size > 0 and max(x_size/y_size, y_size/x_size) < 5:
+                        if not any_log and x_size > 0 and y_size > 0 and max(x_size/y_size/subplot_aspect, y_size/x_size*subplot_aspect) < 4:
                             axis.set_aspect('equal', adjustable='box')
                     elif bounds.spatial_rank == 3:
                         axis.remove()
@@ -209,7 +210,8 @@ class Heatmap2D(Recipe):
             x, y = math.reshaped_numpy(data.points, [vector, *spatial(data)])
             im = subplot.plot_surface(x, y, z)
         else:  # heatmap
-            im = subplot.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=min_val, vmax=max_val)
+            aspect = subplot.get_aspect()
+            im = subplot.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect)
         if show_color_bar:
             figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in subplot.figure.axes])
             if min_val is None or max_val is None or not figure_has_color_bar:
