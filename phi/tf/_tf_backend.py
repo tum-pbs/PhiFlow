@@ -286,10 +286,26 @@ class TFBackend(Backend):
         with tf.device(x.device):
             return tf.cumsum(x, axis=axis, exclusive=False)
 
-    def while_loop(self, loop: Callable, values: tuple):
-        cond = lambda c, *vals: tf.reduce_any(c)
+    def while_loop(self, loop: Callable, values: tuple, max_iter=None):
         with self._device_for(*values):
-            return tf.nest.map_structure(tf.stop_gradient, tf.while_loop(cond, loop, values))
+            if isinstance(max_iter, (tuple, list)):  # stack traced trajectory, unroll until max_iter
+                values = self.stop_gradient_tree(values)
+                trj = [values] if 0 in max_iter else []
+                for i in range(1, max(max_iter) + 1):
+                    values = loop(*values)
+                    if i in max_iter:
+                        trj.append(values)  # values are not mutable so no need to copy
+                    condition = values[0]
+                    if self.is_available(condition) and not self.any(values[0]):
+                        break
+                trj.extend([trj[-1]] * (len(max_iter) - len(trj)))  # fill trj with final values
+                return self.stop_gradient_tree(self.stack_leaves(trj))
+            else:
+                cond = lambda c, *vals: tf.reduce_any(tf.cast(c, tf.bool))
+                return tf.while_loop(cond, loop, values, maximum_iterations=max_iter, back_prop=False)
+
+    def stop_gradient_tree(self, tree):
+        return tf.nest.map_structure(tf.stop_gradient, tree)
 
     def abs(self, x):
         with tf.device(x.device):

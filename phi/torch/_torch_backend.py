@@ -401,28 +401,42 @@ class TorchBackend(Backend):
     def cumsum(self, x, axis: int):
         return torch.cumsum(x, dim=axis)
 
-    def while_loop(self, loop: Callable, values: tuple):
-        if torch._C._get_tracing_state() is not None:
-            if isinstance(loop, torch.ScriptFunction):
-                jit_loop = loop
-                while torch.any(values[0]):
-                    values = jit_loop(*values)
-                return values
-            else:
-                warnings.warn("Tracing a PyTorch while loop requires an additional tracing pass. You can avoid this by passing a torch.ScriptFunction.", RuntimeWarning)
-                raise NotImplementedError()
-                # def trace_later():
-                #     jit_loop = torch.jit.trace(loop, check_trace=False)
-                #     @torch.jit.script
-                #     def loop_script(values: Tuple[torch.Tensor], loop_script: Callable):
-                #         while torch.any(values[0]):
-                #             values = loop_script(*values)
-                #         return values
-                # CURRENT_JIT_CALLS[-1].post_trace.append(trace_later)
-        else:
-            while torch.any(values[0]):
+    def while_loop(self, loop: Callable, values: tuple, max_iter=None):
+        tracing = torch._C._get_tracing_state() is not None
+        if not tracing:
+            return Backend.while_loop(self, loop, values, max_iter)
+        # --- We are tracing ---
+        warnings.warn("PyTorch while_loop always iterates until max_iter. Please put a while loop into a torch.ScriptFunction instead.", RuntimeWarning)
+        values = self.stop_gradient_tree(values)
+        if isinstance(max_iter, (tuple, list)):
+            trj = [values] if 0 in max_iter else []
+            for i in range(1, max(max_iter) + 1):
                 values = loop(*values)
-            return values
+                if i in max_iter:
+                    trj.append(self.copy_leaves(values, only_mutable=True))
+            trj.extend([trj[-1]] * (len(max_iter) - len(trj)))  # fill trj with final values
+            return self.stop_gradient_tree(self.stack_leaves(trj))
+        else:
+            for i in range(1, max_iter + 1):
+                values = loop(*values)
+            return self.stop_gradient_tree(values)
+        # if isinstance(loop, torch.ScriptFunction):
+        #     jit_loop = loop
+        #     i = 0
+        #     while torch.any(values[0]):
+        #         values = jit_loop(*values)
+        #         i += 1
+        #         if max_iter is not None and i >= max_iter:
+        #             break
+        #     return values
+            # def trace_later():
+            #     jit_loop = torch.jit.trace(loop, check_trace=False)
+            #     @torch.jit.script
+            #     def loop_script(values: Tuple[torch.Tensor], loop_script: Callable):
+            #         while torch.any(values[0]):
+            #             values = loop_script(*values)
+            #         return values
+            # CURRENT_JIT_CALLS[-1].post_trace.append(trace_later)
 
     def max(self, x, axis=None, keepdims=False):
         if axis is None:

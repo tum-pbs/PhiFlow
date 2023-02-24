@@ -332,6 +332,16 @@ class Backend:
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
+    def copy_leaves(self, tree, only_mutable=False):
+        if isinstance(tree, tuple):
+            return tuple([self.copy_leaves(e, only_mutable) for e in tree])
+        elif isinstance(tree, list):
+            return [self.copy_leaves(e, only_mutable) for e in tree]
+        elif isinstance(tree, dict):
+            return {k: self.copy_leaves(e, only_mutable) for k, e in tree.items()}
+        else:
+            return self.copy(tree, only_mutable=only_mutable)
+
     def call(self, f: Callable, *args, name=None):
         """
         Calls `f(*args)` and returns the result.
@@ -415,6 +425,17 @@ class Backend:
 
     def stack(self, values, axis=0):
         raise NotImplementedError(self)
+
+    def stack_leaves(self, trees: tuple or list, axis=0):
+        tree0 = trees[0]
+        if isinstance(tree0, tuple):
+            return tuple([self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))])
+        elif isinstance(tree0, list):
+            return [self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))]
+        elif isinstance(tree0, dict):
+            return {k: self.stack_leaves([tree[k] for tree in trees], axis=axis) for k in tree0}
+        else:
+            return self.stack(trees, axis=axis)
 
     def concat(self, values, axis):
         raise NotImplementedError(self)
@@ -505,8 +526,10 @@ class Backend:
     def cumsum(self, x, axis: int):
         raise NotImplementedError(self)
 
-    def while_loop(self, loop: Callable, values: tuple):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
         """
+        If `max_iter is None`, runs
+
         ```python
         while any(values[0]):
             values = loop(*values)
@@ -518,10 +541,30 @@ class Backend:
         Args:
             loop: Loop function, must return a `tuple` with entries equal to `values` in shape and data type.
             values: Initial values of loop variables.
+            max_iter: Maximum number of iterations to run, single `int` or sequence of integers.
         Returns:
-            Loop variables upon loop completion.
+            Loop variables upon loop completion if `max_iter` is a single integer.
+            If `max_iter` is a sequence, stacks the variables after each entry in `max_iter`, adding an outer dimension of size `<= len(max_iter)`.
+            If the condition is fulfilled before the maximum max_iter is reached, the loop may be broken or not, depending on the implementation.
+            If the loop is broken, the values returned by the last loop are expected to be constant and filled.
         """
-        raise NotImplementedError(self)
+        values = self.stop_gradient_tree(values)
+        if isinstance(max_iter, (tuple, list)):
+            trj = [values] if 0 in max_iter else []
+            for i in range(1, max(max_iter) + 1):
+                values = loop(*values)
+                if i in max_iter:
+                    trj.append(self.copy_leaves(values, only_mutable=True))
+                if not self.any(values[0]):
+                    break
+            trj.extend([trj[-1]] * (len(max_iter) - len(trj)))  # fill trj with final values
+            return self.stop_gradient_tree(self.stack_leaves(trj))
+        else:
+            for i in range(1, max_iter + 1):
+                if not self.any(values[0]):
+                    break
+                values = loop(*values)
+            return self.stop_gradient_tree(values)
 
     def abs(self, x):
         raise NotImplementedError(self)
@@ -1189,6 +1232,15 @@ class Backend:
 
     def stop_gradient(self, value):
         raise NotImplementedError(self)
+
+    def stop_gradient_tree(self, tree):
+        if isinstance(tree, tuple):
+            return tuple([self.stop_gradient_tree(v) for v in tree])
+        if isinstance(tree, list):
+            return [self.stop_gradient_tree(v) for v in tree]
+        if isinstance(tree, dict):
+            return {k: self.stop_gradient_tree(v) for k, v in tree.items()}
+        return self.stop_gradient(tree)
 
     def grid_sample(self, grid, coordinates, extrapolation: str):
         """

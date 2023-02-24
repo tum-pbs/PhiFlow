@@ -322,15 +322,26 @@ class JaxBackend(Backend):
         result = jnp.diagonal(matrices, offset=offset, axis1=1, axis2=2)
         return jnp.transpose(result, [0, 2, 1])
 
-    def while_loop(self, loop: Callable, values: tuple):
+    def while_loop(self, loop: Callable, values: tuple, max_iter=None):
         if all(self.is_available(t) for t in values):
-            while jnp.any(values[0]):
+            return self.stop_gradient_tree(Backend.while_loop(self, loop, values, max_iter))
+        if isinstance(max_iter, (tuple, list)):  # stack traced trajectory, unroll until max_iter
+            values = self.stop_gradient_tree(values)
+            trj = [values] if 0 in max_iter else []
+            for i in range(1, max(max_iter) + 1):
                 values = loop(*values)
-            return values
+                if i in max_iter:
+                    trj.append(values)  # values are not mutable so no need to copy
+            return self.stop_gradient_tree(self.stack_leaves(trj))
         else:
-            cond = lambda vals: jnp.any(vals[0])
-            body = lambda vals: loop(*vals)
-            return jax.lax.while_loop(cond, body, values)
+            if max_iter is None:
+                cond = lambda vals: jnp.any(vals[0])
+                body = lambda vals: loop(*vals)
+                return jax.lax.while_loop(cond, body, values)
+            else:
+                cond = lambda vals: jnp.any(vals[1][0]) & (vals[0] < max_iter)
+                body = lambda vals: (vals[0] + 1, loop(*vals[1]))
+                return jax.lax.while_loop(cond, body, (self.as_tensor(0), values))[1]
 
     def max(self, x, axis=None, keepdims=False):
         return jnp.max(x, axis, keepdims=keepdims)
