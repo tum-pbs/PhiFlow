@@ -286,7 +286,7 @@ class TFBackend(Backend):
         with tf.device(x.device):
             return tf.cumsum(x, axis=axis, exclusive=False)
 
-    def while_loop(self, loop: Callable, values: tuple, max_iter=None):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
         with self._device_for(*values):
             if isinstance(max_iter, (tuple, list)):  # stack traced trajectory, unroll until max_iter
                 values = self.stop_gradient_tree(values)
@@ -302,7 +302,7 @@ class TFBackend(Backend):
                 return self.stop_gradient_tree(self.stack_leaves(trj))
             else:
                 cond = lambda c, *vals: tf.reduce_any(tf.cast(c, tf.bool))
-                return tf.while_loop(cond, loop, values, maximum_iterations=max_iter, back_prop=False)
+                return self.stop_gradient_tree(tf.while_loop(cond, loop, values, maximum_iterations=max_iter))
 
     def stop_gradient_tree(self, tree):
         return tf.nest.map_structure(tf.stop_gradient, tree)

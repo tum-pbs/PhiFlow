@@ -10,30 +10,49 @@ def identity(x):
     return x
 
 
-def cg(b: Backend, lin, y, x0, rtol, atol, max_iter, trj: bool, pre: Callable = identity) -> SolveResult or List[SolveResult]:
+def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged: Exception or None = None):
+    max_iter = b.as_tensor(max_iter[-1, :])
+    rsq0 = []
+    def check_progress(iterations, residual_squared):
+        converged = b.all(residual_squared <= tolerance_squared, axis=(1,))
+        if not rsq0:
+            diverged = b.any(~b.isfinite(residual_squared), axis=(1,))
+            rsq0.append(residual_squared)
+        else:
+            diverged = b.any(residual_squared / rsq0[0] > 1e5, axis=(1,)) & (iterations >= 8)
+        continue_ = ~converged & ~diverged & (iterations < max_iter)
+        if on_diverged is not None and b.any(diverged):
+            on_diverged(iterations)
+        return continue_, converged, diverged
+    return check_progress
+
+
+def _max_iter(max_iter: np.ndarray) -> int or list:
+    trj_size, batch_size = max_iter.shape
+    if trj_size == 1:
+        return int(np.max(max_iter))
+    else:
+        assert np.all(max_iter == max_iter[:, :1]), "When recording a trajectory, max_iter must be equal for all batch entries"
+        return max_iter[:, 0].tolist()
+
+
+def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Callable = identity) -> SolveResult or List[SolveResult]:
     """
     Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
     symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b, pre=M
     """
-    method = f"Φ-Flow CG ({b.name})"
-    y = b.to_float(y)
-    x0 = b.copy(b.to_float(x0), only_mutable=True)
     batch_size = b.staticshape(y)[0]
-    tolerance_sq = b.maximum(rtol ** 2 * b.sum(y ** 2, -1), atol ** 2)
-    x = x0
+    y = b.to_float(y)
+    x = b.copy(b.to_float(x0), only_mutable=True)
     residual = y - b.linear(lin, x)
     dx = pre(residual)
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
-    residual_squared = rsq0 = b.sum(residual * dx, -1, keepdims=True)
-    diverged = b.any(~b.isfinite(x), axis=(1,))
-    converged = b.all(residual_squared <= tolerance_sq, axis=(1,))
-    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
-    continue_ = ~converged & ~diverged & (iterations < max_iter)
+    residual_squared = b.sum(residual * dx, -1, keepdims=True)
+    continue_, converged, diverged = check_progress(iterations, residual_squared)
 
-    def cg_loop_body(continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
+    def cg_loop_body(continue_, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
         continue_1 = b.to_int32(continue_)
-        it_counter += 1
         iterations += continue_1
         with spatial_derivative_evaluation(1):
             dy = b.linear(lin, dx); function_evaluations += continue_1
@@ -46,43 +65,30 @@ def cg(b: Backend, lin, y, x0, rtol, atol, max_iter, trj: bool, pre: Callable = 
         residual_squared_old = residual_squared
         residual_squared = b.sum(residual * s, -1, keepdims=True)
         dx = s + b.divide_no_nan(residual_squared, residual_squared_old) * dx
-        diverged = b.any(residual_squared / rsq0 > 1e5, axis=(1,)) & (iterations >= 8)
-        converged = b.all(residual_squared <= tolerance_sq, axis=(1,))
-        if trajectory is not None:
-            trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
-            x = b.copy(x)
-            iterations = b.copy(iterations)
-        continue_ = ~converged & ~diverged & (iterations < max_iter)
-        return continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged
+        continue_, converged, diverged = check_progress(iterations, residual_squared)
+        return continue_, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged
 
-    _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = b.while_loop(cg_loop_body, (
-    continue_, 0, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged))
-    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
+    _, x, _, _, residual, iterations, function_evaluations, converged, diverged = b.while_loop(cg_loop_body, (continue_, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged), _max_iter(max_iter))
+    return SolveResult(f"Φ-Flow CG ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def cg_adaptive(b, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
+def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter) -> SolveResult or List[SolveResult]:
     """
     Based on the variant described in "Methods of Conjugate Gradients for Solving Linear Systems" by Magnus R. Hestenes and Eduard Stiefel https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
     """
-    method = f"Φ-Flow CG-adaptive ({b.name})"
     y = b.to_float(y)
     x0 = b.copy(b.to_float(x0), only_mutable=True)
     batch_size = b.staticshape(y)[0]
-    tolerance_sq = b.maximum(rtol ** 2 * b.sum(y ** 2, -1), atol ** 2)
     x = x0
     dx = residual = y - b.linear(lin, x)
     dy = b.linear(lin, dx)
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
-    residual_squared = rsq0 = b.sum(residual ** 2, -1, keepdims=True)
-    diverged = b.any(~b.isfinite(x), axis=(1,))
-    converged = b.all(residual_squared <= tolerance_sq, axis=(1,))
-    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
-    continue_ = ~converged & ~diverged & (iterations < max_iter)
+    residual_squared = b.sum(residual ** 2, -1, keepdims=True)
+    continue_, converged, diverged = check_progress(iterations, residual_squared)
 
-    def acg_loop_body(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
+    def acg_loop_body(continue_, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
         continue_1 = b.to_int32(continue_)
-        it_counter += 1
         iterations += continue_1
         dx_dy = b.sum(dx * dy, axis=-1, keepdims=True)
         step_size = b.divide_no_nan(b.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
@@ -93,37 +99,24 @@ def cg_adaptive(b, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult o
         dx = residual - b.divide_no_nan(b.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
         with spatial_derivative_evaluation(1):
             dy = b.linear(lin, dx); function_evaluations += continue_1
-        diverged = b.any(residual_squared / rsq0 > 1e5, axis=(1,)) & (iterations >= 8)
-        converged = b.all(residual_squared <= tolerance_sq, axis=(1,))
-        if trajectory is not None:
-            trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
-            x = b.copy(x)
-            iterations = b.copy(iterations)
-        continue_ = ~converged & ~diverged & (iterations < max_iter)
-        return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
+        continue_, converged, diverged = check_progress(iterations, residual_squared)
+        return continue_, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
 
-    _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = b.while_loop(acg_loop_body, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
-    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
+    _, x, _, _, residual, iterations, function_evaluations, converged, diverged = b.while_loop(acg_loop_body, (continue_, x, dx, dy, residual, iterations, function_evaluations, converged, diverged), _max_iter(max_iter))
+    return SolveResult(f"Φ-Flow CG-adaptive ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def bicg(b: Backend, lin, y, x0, rtol, atol, max_iter, trj: bool, poly_order: int) -> SolveResult or List[SolveResult]:
+def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, poly_order: int) -> SolveResult or List[SolveResult]:
     """ Adapted from [BiCGstab for linear equations involving unsymmetric matrices with complex spectrum](https://dspace.library.uu.nl/bitstream/handle/1874/16827/sleijpen_93_bicgstab.pdf) """
     # Based on "BiCGstab(L) for linear equations involving unsymmetric matrices with complex spectrum" by Gerard L.G. Sleijpen
-    # # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
-    method = f"Φ-Flow biCG-stab({poly_order}) ({b.name})"
-    # tensor_size = tuple([L + 1] + [int(dim) for dim in x0.shape])
     y = b.to_float(y)
     x = b.copy(b.to_float(x0), only_mutable=True)
     batch_size = b.staticshape(y)[0]
-    tolerance_sq = b.maximum(rtol ** 2 * b.sum(y ** 2, -1), atol ** 2)
-    residual = y - b.linear(lin, x)
+    r0_tild = residual = y - b.linear(lin, x)
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
-    residual_squared = rsq0 = b.sum(residual ** 2, -1, keepdims=True)
-    diverged = b.any(~b.isfinite(x), axis=(1,))
-    converged = b.all(residual_squared <= tolerance_sq, axis=(1,))
-    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")] if trj else None
-    continue_ = ~converged & ~diverged & (iterations < max_iter)
+    residual_squared = b.sum(residual ** 2, -1, keepdims=True)
+    continue_, converged, diverged = check_progress(iterations, residual_squared)
     rho_0 = b.ones([batch_size, 1])
     rho_1 = b.ones([batch_size, 1])
     omega = b.ones([batch_size, 1])
@@ -131,76 +124,68 @@ def bicg(b: Backend, lin, y, x0, rtol, atol, max_iter, trj: bool, poly_order: in
     u = b.zeros_like(x)
     r0_hat = [b.zeros(x0.shape)] * (poly_order + 1)
     u_hat = [b.zeros(x0.shape)] * (poly_order + 1)
-    loop_body = partial(_bicg_stabL_loop_body, b, poly_order, batch_size, lin, residual, trajectory, method, rsq0, tolerance_sq, max_iter)
-    _, _, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat = b.while_loop(loop_body, (
-        continue_, 0, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat))
-    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, "")
 
+    def loop_body(continue_, x, residual, iterations, function_evaluations, _converged, _diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat):
+        tau = [[b.zeros((batch_size,))] * (poly_order + 1)] * (poly_order + 1)
+        sigma = [b.zeros((batch_size,))] * (poly_order + 1)
+        gamma = [b.zeros((batch_size,))] * (poly_order + 1)
+        gamma_p = [b.zeros((batch_size,))] * (poly_order + 1)
+        gamma_pp = [b.zeros((batch_size,))] * (poly_order + 1)
+        continue_1 = b.to_int32(continue_)
+        iterations += continue_1
+        u_hat[0] = u
+        r0_hat[0] = residual
+        rho_0 = -omega * rho_0
+        # --- Bi-CG part ---
+        for j in range(0, poly_order):
+            rho_1 = b.sum(r0_hat[j] * r0_tild, axis=-1, keepdims=True)
+            beta = alpha * rho_1 / rho_0
+            rho_0 = rho_1
+            for i in range(0, j + 1):
+                u_hat[i] = beta * u_hat[i]
+                u_hat[i] = r0_hat[i] - u_hat[i]
+            u_hat[j + 1] = b.linear(lin, u_hat[j]); function_evaluations += continue_1
+            gamma_coeff = b.sum(u_hat[j + 1] * r0_tild, axis=-1, keepdims=True)
+            alpha = rho_0 / gamma_coeff
+            for i in range(0, j + 1):
+                r0_hat[i] = r0_hat[i] - alpha * u_hat[i + 1]
+            r0_hat[j + 1] = b.linear(lin, r0_hat[j]); function_evaluations += continue_1
+            x = x + alpha * u_hat[0]
+        for j in range(1, poly_order + 1):
+            for i in range(1, j):
+                tau[i][j] = b.sum(r0_hat[j] * r0_hat[i], axis=-1, keepdims=True) / sigma[i]
+                r0_hat[j] = r0_hat[j] - tau[i][j] * r0_hat[i]
+            sigma[j] = b.sum(r0_hat[j] * r0_hat[j], axis=-1, keepdims=True)
+            gamma_p[j] = b.sum(r0_hat[0] * r0_hat[j], axis=-1, keepdims=True) / sigma[j]
+        # --- MR part ---
+        omega = gamma[poly_order] = gamma_p[poly_order]
+        for j in range(poly_order - 1, 0, -1):
+            sumg = b.zeros_like(tau[0][0])
+            for i in range(j + 1, poly_order + 1):
+                sumg = sumg + tau[j][i] * gamma[i]
+            gamma[j] = gamma_p[j] - sumg
+        for j in range(1, poly_order):
+            sumg = b.zeros_like(tau[0][0])
+            for i in range(j + 1, poly_order):
+                sumg = sumg + tau[j][i] * gamma[i + 1]
+            gamma_pp[j] = gamma[j + 1] + sumg
+        # --- Update ---
+        x = x + gamma[1] * r0_hat[0]
+        r0_hat[0] = r0_hat[0] - gamma_p[poly_order] * r0_hat[poly_order]
+        u_hat[0] = u_hat[0] - gamma[poly_order] * u_hat[poly_order]
+        for j in range(1, poly_order):
+            u_hat[0] = u_hat[0] - gamma[j] * u_hat[j]
+            x = x + gamma_pp[j] * r0_hat[j]
+            r0_hat[0] = r0_hat[0] - gamma_p[j] * r0_hat[j]
+        u = u_hat[0]
+        residual = r0_hat[0]
+        residual_squared = b.sum(residual ** 2, -1, keepdims=True)
+        continue_, converged, diverged = check_progress(iterations, residual_squared)
+        # ToDo multiply step_size by continue_1 to avoid NaN when iterating after convergence
+        return continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat
 
-def _bicg_stabL_loop_body(b: Backend, poly_order: int, batch_size: int, lin, r0_tild, trajectory, method, rsq0, tolerance_sq, max_iter,
-                          continue_, it_counter, x, residual, iterations, function_evaluations, _converged, _diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat):
-    tau = [[b.zeros((batch_size,))] * (poly_order + 1)] * (poly_order + 1)
-    sigma = [b.zeros((batch_size,))] * (poly_order + 1)
-    gamma = [b.zeros((batch_size,))] * (poly_order + 1)
-    gamma_p = [b.zeros((batch_size,))] * (poly_order + 1)
-    gamma_pp = [b.zeros((batch_size,))] * (poly_order + 1)
-    continue_1 = b.to_int32(continue_)
-    it_counter += 1; iterations += continue_1
-    u_hat[0] = u
-    r0_hat[0] = residual
-    rho_0 = -omega * rho_0
-    # --- Bi-CG part ---
-    for j in range(0, poly_order):
-        rho_1 = b.sum(r0_hat[j] * r0_tild, axis=-1, keepdims=True)
-        beta = alpha * rho_1 / rho_0
-        rho_0 = rho_1
-        for i in range(0, j + 1):
-            u_hat[i] = beta * u_hat[i]
-            u_hat[i] = r0_hat[i] - u_hat[i]
-        u_hat[j + 1] = b.linear(lin, u_hat[j]); function_evaluations += continue_1
-        gamma_coeff = b.sum(u_hat[j + 1] * r0_tild, axis=-1, keepdims=True)
-        alpha = rho_0 / gamma_coeff
-        for i in range(0, j + 1):
-            r0_hat[i] = r0_hat[i] - alpha * u_hat[i + 1]
-        r0_hat[j + 1] = b.linear(lin, r0_hat[j]); function_evaluations += continue_1
-        x = x + alpha * u_hat[0]
-    for j in range(1, poly_order + 1):
-        for i in range(1, j):
-            tau[i][j] = b.sum(r0_hat[j] * r0_hat[i], axis=-1, keepdims=True) / sigma[i]
-            r0_hat[j] = r0_hat[j] - tau[i][j] * r0_hat[i]
-        sigma[j] = b.sum(r0_hat[j] * r0_hat[j], axis=-1, keepdims=True)
-        gamma_p[j] = b.sum(r0_hat[0] * r0_hat[j], axis=-1, keepdims=True) / sigma[j]
-    # --- MR part ---
-    omega = gamma[poly_order] = gamma_p[poly_order]
-    for j in range(poly_order - 1, 0, -1):
-        sumg = b.zeros_like(tau[0][0])
-        for i in range(j + 1, poly_order + 1):
-            sumg = sumg + tau[j][i] * gamma[i]
-        gamma[j] = gamma_p[j] - sumg
-    for j in range(1, poly_order):
-        sumg = b.zeros_like(tau[0][0])
-        for i in range(j + 1, poly_order):
-            sumg = sumg + tau[j][i] * gamma[i + 1]
-        gamma_pp[j] = gamma[j + 1] + sumg
-    # --- Update ---
-    x = x + gamma[1] * r0_hat[0]
-    r0_hat[0] = r0_hat[0] - gamma_p[poly_order] * r0_hat[poly_order]
-    u_hat[0] = u_hat[0] - gamma[poly_order] * u_hat[poly_order]
-    for j in range(1, poly_order):
-        u_hat[0] = u_hat[0] - gamma[j] * u_hat[j]
-        x = x + gamma_pp[j] * r0_hat[j]
-        r0_hat[0] = r0_hat[0] - gamma_p[j] * r0_hat[j]
-    u = u_hat[0]
-    residual = r0_hat[0]
-    residual_squared = b.sum(residual ** 2, -1, keepdims=True)
-    diverged = b.any(residual_squared / rsq0 > 1e5, axis=(1,)) & (iterations >= 8)
-    converged = b.all(residual_squared <= tolerance_sq, axis=(1,))
-    if trajectory is not None:
-        trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, ""))
-        x = b.copy(x)
-        iterations = b.copy(iterations)
-    continue_ = ~converged & ~diverged & (iterations < max_iter)
-    return continue_, it_counter, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat
+    _, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat = b.while_loop(loop_body, (continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat), _max_iter(max_iter))
+    return SolveResult(f"Φ-Flow biCG-stab({poly_order}) ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
 def incomplete_lu_dense(b: 'Backend', matrix, iterations: int, safe: bool):

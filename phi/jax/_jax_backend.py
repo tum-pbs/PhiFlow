@@ -322,7 +322,7 @@ class JaxBackend(Backend):
         result = jnp.diagonal(matrices, offset=offset, axis1=1, axis2=2)
         return jnp.transpose(result, [0, 2, 1])
 
-    def while_loop(self, loop: Callable, values: tuple, max_iter=None):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
         if all(self.is_available(t) for t in values):
             return self.stop_gradient_tree(Backend.while_loop(self, loop, values, max_iter))
         if isinstance(max_iter, (tuple, list)):  # stack traced trajectory, unroll until max_iter
@@ -463,12 +463,6 @@ class JaxBackend(Backend):
         if not isinstance(array, jnp.ndarray):
             array = jnp.array(array)
         return from_numpy_dtype(array.dtype)
-
-    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        if method == 'auto' and not trj and not self.is_available(y):
-            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
-        else:
-            return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
 
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
         solution, residuals, rank, singular_values = lstsq_batched(matrix, rhs)

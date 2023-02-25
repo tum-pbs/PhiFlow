@@ -4,14 +4,15 @@ import warnings
 from typing import Callable, Generic, List, TypeVar, Any, Tuple, Union
 
 import numpy
+import numpy as np
 
 from .backend import get_precision
 from ._shape import EMPTY_SHAPE, Shape, merge_shapes, batch, non_batch, shape, dual, channel, non_dual
-from ._magic_ops import stack, copy_with, rename_dims
+from ._magic_ops import stack, copy_with, rename_dims, unpack_dim
 from ._sparse import native_matrix, SparseCoordinateTensor, CompressedSparseMatrix
-from ._tensors import Tensor, disassemble_tree, assemble_tree, wrap, cached, NativeTensor
+from ._tensors import Tensor, disassemble_tree, assemble_tree, wrap, cached, NativeTensor, layout
 from . import _ops as math
-from ._ops import choose_backend_t, zeros_like, all_available, reshaped_native, reshaped_tensor, to_float
+from ._ops import choose_backend_t, zeros_like, all_available, reshaped_native, reshaped_tensor, to_float, reshaped_numpy
 from ._functional import custom_gradient, LinearFunction, f_name
 from .backend import Backend
 from .backend._backend import SolveResult, PHI_LOGGER
@@ -46,8 +47,7 @@ class Solve(Generic[X, Y]):
         For systems of equations *f(x)=y*, the final tolerance is `max(rel_tol * norm(y), abs_tol)`. """
         self.abs_tol: Tensor = math.to_float(wrap(abs_tol)) if abs_tol is not None else None
         """ Absolut tolerance for optimization problems and linear solves.
-        For optimization problems, defaults to 1e-5 for singe precision solves and 1e-12 for double precision solves.
-        For linear solves, defaults to 0.
+        Defaults to 1e-5 for singe precision solves and 1e-12 for double precision solves.
         For systems of equations *f(x)=y*, the final tolerance is `max(rel_tol * norm(y), abs_tol)`. """
         self.max_iterations: Tensor = math.to_int32(wrap(max_iterations))
         """ Maximum number of iterations to perform before raising a `NotConverged` error is raised. """
@@ -62,7 +62,7 @@ class Solve(Generic[X, Y]):
         self.suppress: tuple = tuple(suppress)
         """ Error types to suppress; `tuple` of `ConvergenceException` types. For these errors, the solve function will instead return the partial result without raising the error. """
         self._gradient_solve: Solve[Y, X] = gradient_solve
-        self.id = str(uuid.uuid4())
+        self.id = str(uuid.uuid4())  # not altered by copy_with(), so that the lookup SolveTape[Solve] works after solve has been copied
 
     @property
     def gradient_solve(self) -> 'Solve[Y, X]':
@@ -94,6 +94,15 @@ class Solve(Generic[X, Y]):
     def __variable_attrs__(self):
         return 'x0', 'preprocess_y_args'
 
+    def with_defaults(self, mode: str):
+        assert mode in ('solve', 'optimization')
+        result = self
+        if result.rel_tol is None:
+            result = copy_with(result, rel_tol=_default_tolerance() if mode == 'solve' else wrap(0.))
+        if result.abs_tol is None:
+            result = copy_with(result, abs_tol=_default_tolerance())
+        return result
+
 
 def _default_tolerance():
     if get_precision() == 64:
@@ -120,7 +129,7 @@ class SolveInfo(Generic[X, Y]):
                  converged: Tensor,
                  diverged: Tensor,
                  method: str,
-                 msg: str,
+                 msg: Tensor,
                  solve_time: float):
         # tuple.__new__(SolveInfo, (x, residual, iterations, function_evaluations, converged, diverged))
         self.solve: Solve[X, Y] = solve
@@ -139,20 +148,15 @@ class SolveInfo(Generic[X, Y]):
         """ `Tensor`, whether the solve has diverged at this point. """
         self.method = method
         """ `str`, which method and implementation that was used. """
-        if not msg and all_available(diverged, converged):
-            if self.diverged.any:
-                msg = f"Solve diverged within {iterations if iterations is not None else '?'} iterations using {method}."
-            elif not self.converged.trajectory[-1].all:
-                msg = f"Solve did not converge to rel={solve.rel_tol}, abs={solve.abs_tol} within {solve.max_iterations} iterations using {method}. Max residual: {[math.max_(t.trajectory[-1]) for t in disassemble_tree(self.residual)[1]]}"
-            else:
-                msg = f"Converged within {iterations if iterations is not None else '?'} iterations."
+        if all_available(diverged, converged, iterations):
+            msg = math.map_(_default_solve_info_msg, msg, converged.trajectory[-1], diverged.trajectory[-1], iterations.trajectory[-1], solve=solve, method=method, residual=residual)
         self.msg = msg
         """ `str`, termination message """
         self.solve_time = solve_time
         """ Time spent in Backend solve function (in seconds) """
 
     def __repr__(self):
-        return self.msg
+        return f"{self.method}: {self.converged.trajectory[-1].sum} converged, {self.diverged.trajectory[-1].sum} diverged"
 
     def snapshot(self, index):
         return SolveInfo(self.solve, self.x.trajectory[index], self.residual.trajectory[index], self.iterations.trajectory[index], self.function_evaluations.trajectory[index],
@@ -173,6 +177,18 @@ class SolveInfo(Generic[X, Y]):
                     warnings.warn(self.msg, ConvergenceWarning)
                 else:
                     raise NotConverged(self)
+
+
+def _default_solve_info_msg(msg, converged, diverged, iterations, solve: Solve, method, residual):
+    if msg:
+        return msg
+    if diverged:
+        return f"Solve diverged within {iterations if iterations is not None else '?'} iterations using {method}."
+    elif not converged:
+        max_res = [f"{math.max_(t.trajectory[-1]):no-color:no-dtype}" for t in disassemble_tree(residual)[1]]
+        return f"{method} did not converge to rel_tol={float(solve.rel_tol):.0e}, abs_tol={float(solve.abs_tol):.0e} within {int(solve.max_iterations)} iterations. Max residual: {', '.join(max_res)}"
+    else:
+        return f"Converged within {iterations if iterations is not None else '?'} iterations."
 
 
 class ConvergenceException(RuntimeError):
@@ -316,7 +332,8 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
         Diverged: If the optimization failed prematurely.
     """
-    assert solve.rel_tol is None or (solve.rel_tol == 0).all, f"rel_tol must be zero for minimize() but got {solve.rel_tol}"
+    solve = solve.with_defaults('optimization')
+    assert (solve.rel_tol == 0).all, f"rel_tol must be zero for minimize() but got {solve.rel_tol}"
     assert solve.preprocess_y is None, "minimize() does not allow preprocess_y"
     x0_nest, x0_tensors = disassemble_tree(solve.x0)
     x0_tensors = [to_float(t) for t in x0_tensors]
@@ -354,8 +371,8 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
             raise AssertionError(f"Failed to minimize '{f.__name__}' because its output loss {shape(y_tensors[0])} has more batch dimensions than the initial guess {batch_dims}.")
         return y_tensors[0].sum, (loss_native,)
 
-    atol = backend.to_float(reshaped_native((solve.abs_tol or _default_tolerance()), [batch_dims], force_expand=True))
-    maxi = backend.to_int32(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
+    atol = backend.to_float(reshaped_native(solve.abs_tol, [batch_dims], force_expand=True))
+    maxi = reshaped_numpy(solve.max_iterations, [batch_dims], force_expand=True)
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     t = time.perf_counter()
     ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
@@ -417,8 +434,8 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     if solve.preprocess_y is not None:
         y = solve.preprocess_y(y)
     from ._nd import l2_loss
-    rel_tol_to_abs = (_default_tolerance() if solve.rel_tol is None else solve.rel_tol) * l2_loss(y)
-    tol = math.maximum(rel_tol_to_abs, (_default_tolerance() if solve.abs_tol is None else solve.abs_tol))
+    solve = solve.with_defaults('solve')
+    tol = math.maximum(solve.rel_tol * l2_loss(y), solve.abs_tol)
     min_solve = copy_with(solve, abs_tol=tol, rel_tol=0, preprocess_y=None)
     return minimize(min_func, min_solve)
 
@@ -480,6 +497,7 @@ def solve_linear(f: Callable[[X], Y] or Tensor,
     f_kwargs.update(f_kwargs_)
     f_args = f_args[0] if len(f_args) == 1 and isinstance(f_args[0], tuple) else f_args
     # --- Get input and output tensors ---
+    solve = solve.with_defaults('solve')
     y_tree, y_tensors = disassemble_tree(y)
     x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert solve.x0 is not None, "Please specify the initial guess as Solve(..., x0=initial_guess)"
@@ -549,44 +567,47 @@ def _linear_solve_forward(y,
     batch_dims = merge_shapes(y_tensor.shape.without(pattern_dims_out), x0_tensor.shape.without(pattern_dims_in))
     x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch_dims, pattern_dims_in], force_expand=True))
     y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, y_tensor.shape.only(pattern_dims_out)], force_expand=True))
-    rtol = backend.as_tensor(reshaped_native(math.to_float(_default_tolerance() if solve.rel_tol is None else solve.rel_tol), [batch_dims], force_expand=True))
-    atol = backend.as_tensor(reshaped_native(wrap(0) if solve.abs_tol is None else solve.abs_tol, [batch_dims], force_expand=True))
-    maxi = backend.as_tensor(reshaped_native(solve.max_iterations, [batch_dims], force_expand=True))
+    rtol = backend.as_tensor(reshaped_native(math.to_float(solve.rel_tol), [batch_dims], force_expand=True))
+    atol = backend.as_tensor(reshaped_native(solve.abs_tol, [batch_dims], force_expand=True))
+    tol_sq = backend.maximum(rtol ** 2 * backend.sum(y_native ** 2, -1), atol ** 2)
     trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
     if trj:
         assert all_available(y_tensor, x0_tensor), "Cannot record linear solve in jit mode"
+        max_iter = np.expand_dims(np.arange(int(solve.max_iterations)+1), -1)
+    else:
+        max_iter = reshaped_numpy(solve.max_iterations, [shape(solve.max_iterations).without(batch_dims), batch_dims], force_expand=True)
     t = time.perf_counter()
-    ret = backend.linear_solve(solve.method, native_lin_op, y_native, x0_native, rtol, atol, maxi, trj)
+    ret = backend.linear_solve(solve.method, native_lin_op, y_native, x0_native, tol_sq, max_iter)
     t = time.perf_counter() - t
-    if not trj:
-        assert isinstance(ret, SolveResult)
-        converged = reshaped_tensor(ret.converged, [batch_dims])
-        diverged = reshaped_tensor(ret.diverged, [batch_dims])
-        x = assemble_tree(x0_nest, [reshaped_tensor(ret.x, [batch_dims, pattern_dims_in])])
-        iterations = reshaped_tensor(ret.iterations, [batch_dims])
-        function_evaluations = reshaped_tensor(ret.function_evaluations, [batch_dims])
-        if ret.residual is not None:
-            residual = assemble_tree(y_nest, [reshaped_tensor(ret.residual, [batch_dims, pattern_dims_out])])
-        elif _SOLVE_TAPES:
-            residual = backend.linear(native_lin_op, ret.x) - y_native
-            residual = assemble_tree(y_nest, [reshaped_tensor(residual, [batch_dims, pattern_dims_out])])
-        else:
-            residual = None
-        result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, ret.message, t)
-    else:  # trajectory
-        assert isinstance(ret, (tuple, list)) and all(isinstance(r, SolveResult) for r in ret), f"Trajectory recording failed: got {type(ret)}"
-        converged = reshaped_tensor(ret[-1].converged, [batch_dims])
-        diverged = reshaped_tensor(ret[-1].diverged, [batch_dims])
-        x = assemble_tree(x0_nest, [reshaped_tensor(ret[-1].x, [batch_dims, pattern_dims_in])])
-        x_ = assemble_tree(x0_nest, [stack([reshaped_tensor(r.x, [batch_dims, pattern_dims_in]) for r in ret], batch('trajectory'))])
-        residual = assemble_tree(y_nest, [stack([reshaped_tensor(r.residual, [batch_dims, pattern_dims_out]) for r in ret], batch('trajectory'))])
-        iterations = reshaped_tensor(ret[-1].iterations, [batch_dims])
-        function_evaluations = stack([reshaped_tensor(r.function_evaluations, [batch_dims]) for r in ret], batch('trajectory'))
-        result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
+    trj_dims = [batch(trajectory=len(max_iter))] if trj else []
+    assert isinstance(ret, SolveResult)
+    converged = reshaped_tensor(ret.converged, [*trj_dims, batch_dims])
+    diverged = reshaped_tensor(ret.diverged, [*trj_dims, batch_dims])
+    x = assemble_tree(x0_nest, [reshaped_tensor(ret.x, [*trj_dims, batch_dims, pattern_dims_in])])
+    iterations = reshaped_tensor(ret.iterations, [*trj_dims, batch_dims])
+    function_evaluations = reshaped_tensor(ret.function_evaluations, [*trj_dims, batch_dims])
+    if ret.residual is not None:
+        residual = assemble_tree(y_nest, [reshaped_tensor(ret.residual, [*trj_dims, batch_dims, pattern_dims_out])])
+    elif _SOLVE_TAPES:
+        residual = backend.linear(native_lin_op, ret.x) - y_native
+        residual = assemble_tree(y_nest, [reshaped_tensor(residual, [*trj_dims, batch_dims, pattern_dims_out])])
+    else:
+        residual = None
+    msg = unpack_dim(layout(ret.message, batch('_all')), '_all', batch_dims)
+    result = SolveInfo(solve, x, residual, iterations, function_evaluations, converged, diverged, ret.method, msg, t)
+    # else:  # trajectory
+    #     converged = reshaped_tensor(ret[-1].converged, [batch_dims])
+    #     diverged = reshaped_tensor(ret[-1].diverged, [batch_dims])
+    #     x = assemble_tree(x0_nest, [reshaped_tensor(ret[-1].x, [batch_dims, pattern_dims_in])])
+    #     x_ = assemble_tree(x0_nest, [stack([reshaped_tensor(r.x, [batch_dims, pattern_dims_in]) for r in ret], )])
+    #     residual = assemble_tree(y_nest, [stack([reshaped_tensor(r.residual, [batch_dims, pattern_dims_out]) for r in ret], batch('trajectory'))])
+    #     iterations = reshaped_tensor(ret[-1].iterations, [batch_dims])
+    #     function_evaluations = stack([reshaped_tensor(r.function_evaluations, [batch_dims]) for r in ret], batch('trajectory'))
+    #     result = SolveInfo(solve, x_, residual, iterations, function_evaluations, converged, diverged, ret[-1].method, ret[-1].message, t)
     for tape in _SOLVE_TAPES:
         tape._add(solve, trj, result)
     result.convergence_check(is_backprop and 'TensorFlow' in backend.name)  # raises ConvergenceException
-    return x
+    return x[{'trajectory': -1}] if isinstance(x, Tensor) else x
 
 
 def attach_gradient_solve(forward_solve: Callable, auxiliary_args: str, matrix_adjoint: bool):

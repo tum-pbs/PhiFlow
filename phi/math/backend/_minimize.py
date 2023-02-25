@@ -3,6 +3,7 @@ from threading import Barrier
 import numpy
 
 from ._backend import Backend, SolveResult, DType, PHI_LOGGER
+from ._linalg import _max_iter
 
 
 def scipy_minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
@@ -13,7 +14,6 @@ def scipy_minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
     x0 = self.numpy(x0)
     assert x0.ndim == 2  # (batch, parameters)
     atol = self.numpy(atol)
-    max_iter = self.numpy(max_iter)
     batch_size = x0.shape[0]
     fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
     method_description = f"SciPy {method} with {self.name}"
@@ -112,7 +112,7 @@ def scipy_minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
         return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
 
 
-def gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size='adaptive'):
+def gradient_descent(self: Backend, f, x0, atol, max_iter, trj: bool, step_size='adaptive'):
     assert self.supports(Backend.jacobian)
     assert len(self.staticshape(x0)) == 2  # (batch, parameters)
     batch_size = self.staticshape(x0)[0]
@@ -130,7 +130,8 @@ def gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size='adaptive
     diverged = self.any(~self.isfinite(x0), axis=(1,))
     converged = self.zeros([batch_size], DType(bool))
     trajectory = [SolveResult(method, x0, loss, iterations, function_evaluations, converged, diverged, [""] * batch_size)] if trj else None
-    continue_ = ~converged & ~diverged & (iterations < max_iter)
+    max_iter_ = self.to_int32(max_iter)
+    continue_ = ~converged & ~diverged & (iterations < max_iter_)
 
     def gd_step(continue_, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged):
         prev_loss, prev_grad, prev_x = loss, grad, x
@@ -166,10 +167,10 @@ def gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size='adaptive
             converged = ~diverged & (prev_loss - loss < atol)
         if trj:
             trajectory.append(SolveResult(method, self.numpy(x), self.numpy(loss), self.numpy(iterations), self.numpy(function_evaluations), self.numpy(diverged), self.numpy(converged), [""] * batch_size))
-        continue_ = ~converged & ~diverged & (iterations < max_iter)
+        continue_ = ~converged & ~diverged & (iterations < max_iter_)
         return continue_, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged
 
-    not_converged, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged = self.while_loop(gd_step, (continue_, x0, loss, grad, iterations, function_evaluations, step_size, converged, diverged))
+    not_converged, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged = self.while_loop(gd_step, (continue_, x0, loss, grad, iterations, function_evaluations, step_size, converged, diverged), int(max(max_iter)))
     if trj:
         trajectory.append(SolveResult(method, x, loss, iterations, function_evaluations + 1, converged, diverged, [""] * batch_size))
         return trajectory

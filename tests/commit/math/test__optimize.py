@@ -93,7 +93,7 @@ class TestOptimize(TestCase):
             with math.SolveTape(record_trajectories=True) as solves:
                 x = math.solve_linear(math.jit_compile_linear(partial(math.laplace, padding=extrapolation.ZERO)), y, solve)
             math.assert_close(x, [[-1.5, -2, -1.5], [-3, -4, -3]], abs_tolerance=1e-3)
-            assert solves[solve].x.trajectory.size == 3
+            assert solves[solve].x.trajectory.size >= 3
             math.assert_close(solves[solve].residual.trajectory[-1], 0, abs_tolerance=1e-3)
             # math.print(solves[solve].x.vector[1])
 

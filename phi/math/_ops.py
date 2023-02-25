@@ -239,7 +239,7 @@ def reshaped_tensor(value: Any,
     try:
         value = tensor(value, *dims, convert=convert)
     except IncompatibleShapes:
-        raise IncompatibleShapes(f"Cannot reshape native tensor with sizes {value.shape} given groups {groups}")
+        raise IncompatibleShapes(f"Cannot reshape native tensor {type(value)} with sizes {value.shape} given groups {groups}")
     for i, group in enumerate(groups):
         if value.shape.get_size(f'group{i}') == group.volume:
             value = unpack_dim(value, f'group{i}', group)
