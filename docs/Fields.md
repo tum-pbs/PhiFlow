@@ -134,4 +134,4 @@ The following example uses 0 for the upper face along `y` and 1 everywhere else.
 ```python
 zero_top = extrapolation.combine_sides(x=extrapolation.ONE, y=(extrapolation.ONE, extrapolation.ZERO))
 ```
-For a full example, see the [pipe demo](https://github.com/tum-pbs/PhiFlow/blob/develop/demos/pipe.py).
+For a full example, see the [pipe demo](https://github.com/tum-pbs/PhiFlow/blob/master/demos/pipe.py).

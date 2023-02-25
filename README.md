@@ -52,7 +52,7 @@ This will check for compatible PyTorch, Jax and TensorFlow installations as well
 [**Documentation Overview**](https://tum-pbs.github.io/PhiFlow/)
 &nbsp; • &nbsp; [**▶ YouTube Tutorials**](https://www.youtube.com/playlist?list=PLYLhRkuWBmZ5R6hYzusA2JBIUPFEE755O)
 &nbsp; • &nbsp; [**API**](https://tum-pbs.github.io/PhiFlow/phi/)
-&nbsp; • &nbsp; [**Demos**](https://github.com/tum-pbs/PhiFlow/tree/develop/demos)
+&nbsp; • &nbsp; [**Demos**](https://github.com/tum-pbs/PhiFlow/tree/master/demos)
 &nbsp; • &nbsp; [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> **Playground**](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)
 
 To get started, check out our YouTube tutorial series and the following Jupyter notebooks:

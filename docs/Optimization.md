@@ -1,4 +1,4 @@
-# Optimization and Training
+# Optimization and Linear Systems of Equations
 The backends PyTorch, TensorFlow and Jax have built-in automatic differentiation functionality.
 However, the respective APIs vary widely in how the gradients are computed.
 Φ<sub>Flow</sub> seeks to unify optimization and gradient computation so that code written against the Φ<sub>Flow</sub> API will work with all backends.
@@ -129,30 +129,3 @@ Unfortunately all supported backends have a different approach to computing grad
 TensorFlow and PyTorch include various optimizers for neural network (NN) training.
 Additionally, NN variables created through the respective layer functions are typically marked as variables by default,
 meaning the computational graph for derived tensors is created automatically.
-
-### PyTorch Neural Network
-The following script shows how a PyTorch neural network can be trained.
-See the demo [network_training_pytorch.py](https://github.com/tum-pbs/PhiFlow/blob/master/demos/network_training_pytorch.py)
-for a full example.
-```python
-net = u_net(2, 2)
-optimizer = optim.Adam(net.parameters(), lr=1e-3)
-
-for training_step in range(100):
-    data: Grid = load_training_data(training_step)
-    optimizer.zero_grad()
-    prediction: Grid = field.native_call(net, data)
-    simulation_output: Grid = simulate(prediction)
-    loss = field.l2_loss(simulation_output)
-    loss.native().backward()
-    optimizer.step()
-```
-In the above example, [`field.native_call()`](phi/field/#phi.field.native_call)
-extracts the field values as PyTorch tensors with shape `(batch_size, channels, spatial...)`,
-then calls the network and returs the result again as a `Field`.
-
-Since `loss` is a `phi.math.Tensor`, we need to invoke `native()` to call PyTorch's `backward()` function.
-
-### TensorFlow Neural Network
-For TensorFlow, a `GradientTape` context is required around network evaluation, physics and loss definition.
-
