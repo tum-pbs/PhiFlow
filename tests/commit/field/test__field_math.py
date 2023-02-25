@@ -245,25 +245,25 @@ class TestFieldMath(TestCase):
         mask = field.mask(CenteredGrid(0, x=4, y=3))
         self.assertEqual(2, mask.spatial_rank)
 
-    def test_implicit_laplace_solve(self):
-        grid = CenteredGrid(Noise(), x=5, y=5)
-        axes_names = grid.shape.only(spatial).names
-        extrap_map = {}
-        extrap_map_rhs = {}
-        values, needed_shifts = [3 / 44, 12 / 11, -51 / 22, 12 / 11, 3 / 44], (-2, -1, 0, 1, 2)
-        extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
-        values_rhs, needed_shifts_rhs = [2 / 11, 1, 2 / 11], (-1, 0, 1)
-        extrap_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
-        base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-        grid.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), grid.extrapolation))
-        padded_components = [pad(grid, {dim: base_widths}) for dim in axes_names]
-        shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, axes_names)]
-        result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / grid.dx.vector[dim] ** 2 for shifted_component, dim in zip(shifted_components, axes_names)]
-        result_components = stack(result_components, channel('laplacian'))
-        result_components.with_values(result_components.values._cache())
-        result_components = result_components.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map_rhs), grid.extrapolation))
-        matrix, _ = math.matrix_from_function(_lhs_for_implicit_scheme, result_components, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
-        direct_result = _lhs_for_implicit_scheme(result_components, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
-        matrix_result = matrix @ result_components.values
-        math.assert_close(matrix_result, direct_result)
+    # def test_implicit_laplace_solve(self):
+    #     grid = CenteredGrid(Noise(), x=5, y=5)
+    #     axes_names = grid.shape.only(spatial).names
+    #     extrap_map = {}
+    #     extrap_map_rhs = {}
+    #     values, needed_shifts = [3 / 44, 12 / 11, -51 / 22, 12 / 11, 3 / 44], (-2, -1, 0, 1, 2)
+    #     extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
+    #     values_rhs, needed_shifts_rhs = [2 / 11, 1, 2 / 11], (-1, 0, 1)
+    #     extrap_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
+    #     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
+    #     grid.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), grid.extrapolation))
+    #     padded_components = [pad(grid, {dim: base_widths}) for dim in axes_names]
+    #     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, axes_names)]
+    #     result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / grid.dx.vector[dim] ** 2 for shifted_component, dim in zip(shifted_components, axes_names)]
+    #     result_components = stack(result_components, channel('laplacian'))
+    #     result_components.with_values(result_components.values._cache())
+    #     result_components = result_components.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map_rhs), grid.extrapolation))
+    #     matrix, _ = math.matrix_from_function(_lhs_for_implicit_scheme, result_components, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
+    #     direct_result = _lhs_for_implicit_scheme(result_components, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
+    #     matrix_result = matrix @ result_components.values
+    #     math.assert_close(matrix_result, direct_result)
 

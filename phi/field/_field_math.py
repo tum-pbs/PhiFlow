@@ -1,10 +1,11 @@
+import warnings
 from numbers import Number
 from typing import Callable, List, Tuple, Optional
 
 from phi import geom
 from phi import math
 from phi.geom import Box, Geometry
-from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation
+from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._point_cloud import PointCloud
@@ -60,6 +61,8 @@ def laplace(field: GridType,
     Returns:
         laplacian field as `CenteredGrid`
     """
+    if implicit:
+        warnings.warn("Implicit operators currently do not support sparse matrix generation and may be slow.", RuntimeWarning, stacklevel=2)
     if isinstance(weights, Field):
         weights = weights.at(field).values
     axes_names = field.shape.only(axes).names
@@ -131,6 +134,8 @@ def spatial_gradient(field: CenteredGrid,
     Returns:
         spatial_gradient field of type `type`.
     """
+    if implicit:
+        warnings.warn("Implicit operators currently do not support sparse matrix generation and may be slow.", RuntimeWarning, stacklevel=2)
     if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
     extrap_map = {}
@@ -205,7 +210,8 @@ def _ex_map_f(ext_dict: dict):
     return f
 
 
-@jit_compile_linear(auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")
+# @jit_compile_linear(auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")
+@jit_compile(auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")  # ToDo the matrix generation gives incorrect results in 2.3.0
 def _lhs_for_implicit_scheme(x, values_rhs, needed_shifts_rhs, stack_dim, staggered_output=False):
     result = []
     for dim, component in zip(x.shape.only(math.spatial).names, unstack(x, stack_dim.name)):
