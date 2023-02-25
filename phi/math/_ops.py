@@ -7,7 +7,7 @@ from typing import Tuple, Callable, Any
 import numpy as np
 
 from . import extrapolation as e_
-from ._magic_ops import expand, pack_dims, flatten, unpack_dim, cast, copy_with, value_attributes
+from ._magic_ops import expand, pack_dims, flatten, unpack_dim, cast, copy_with, value_attributes, bool_to_int
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, non_channel)
@@ -1055,7 +1055,7 @@ def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
     Returns:
         `Tensor` without the reduced dimensions.
     """
-    return reduce_(_sum, value, dim, require_all_dims_present=True)
+    return reduce_(_sum, bool_to_int(value), dim, require_all_dims_present=True)
 
 
 def _sum(value: Tensor, dims: Shape) -> Tensor:

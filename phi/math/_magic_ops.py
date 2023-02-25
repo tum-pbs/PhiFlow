@@ -629,3 +629,37 @@ def cast(x: MagicType, dtype: DType or type) -> OtherMagicType:
         if dtype.kind == bool:
             return bool(x)
         raise ValueError(f"Cannot cast object of type '{type(x).__name__}'")
+
+
+def bool_to_int(x: MagicType, bits=32):
+    if isinstance(x, bool):
+        return int(x)
+    if isinstance(x, Number):
+        return x
+    if hasattr(x, 'dtype') and isinstance(x.dtype, DType):
+        return cast(x, DType(int, bits)) if x.dtype.kind == bool else x
+    elif isinstance(x, PhiTreeNode):
+        return tree_map(bool_to_int, x, bits=32)
+    try:
+        backend = choose_backend(x)
+        return backend.cast(x, DType(int, bits)) if backend.dtype(x).kind == bool else x
+    except NoBackendFound:
+        raise ValueError(f"Cannot cast object of type '{type(x).__name__}'")
+
+
+def tree_map(f, tree, **f_kwargs):
+    from ._tensors import Tensor
+    if isinstance(tree, Tensor):
+        return f(tree, **f_kwargs)
+    if isinstance(tree, list):
+        return [tree_map(f, e, **f_kwargs) for e in tree]
+    elif isinstance(tree, tuple):
+        return tuple([tree_map(f, e, **f_kwargs) for e in tree])
+    elif isinstance(tree, dict):
+        return {k: tree_map(f, e, **f_kwargs) for k, e in tree.items()}
+    elif isinstance(tree, PhiTreeNode):
+        attrs = {key: getattr(tree, key) for key in value_attributes(tree)}
+        new_attrs = {k: tree_map(f, v, **f_kwargs) for k, v in attrs.items()}
+        return copy_with(tree, **new_attrs)
+    else:
+        return f(tree, **f_kwargs)  # try anyway

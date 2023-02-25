@@ -4,7 +4,8 @@ from unittest import TestCase
 import dataclasses
 
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
-    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros, meshgrid, assert_close
+    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros, meshgrid, assert_close, wrap
+from phi.math._magic_ops import bool_to_int
 from phi.math.magic import BoundDim, Shaped, Sliceable, Shapable, PhiTreeNode, slicing_dict
 
 
@@ -63,7 +64,13 @@ class MyPoint:
         return MyPoint(self.x[item], self.y[item], is_normalized=self.is_normalized)
 
 
-TEST_CLASSES = [Stackable, ConcatExpandable, random_normal, ValuedPhiTreeNode, lambda shape: MyPoint(zeros(shape), zeros(shape), is_normalized=False)]
+TEST_CLASSES = [
+    Stackable,
+    ConcatExpandable,
+    random_normal,
+    ValuedPhiTreeNode,
+    lambda shape: MyPoint(zeros(shape), zeros(shape), is_normalized=False),
+]
 
 
 class TestMagicOps(TestCase):
@@ -222,3 +229,7 @@ class TestMagicOps(TestCase):
             self.fail()
         except SyntaxError:
             pass
+
+    def test_bool_to_int(self):
+        a = [wrap(True), wrap(1.), {'a': wrap(False)}]
+        self.assertEqual([1, 1., {'a': 0}], bool_to_int(a))
