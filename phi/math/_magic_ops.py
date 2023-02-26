@@ -3,9 +3,12 @@ import warnings
 from numbers import Number
 from typing import TypeVar, Tuple, Set
 
+import dataclasses
+
+from . import channel
 from .backend import choose_backend, NoBackendFound
 from .backend._dtype import DType
-from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes
+from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes, spatial, parse_dim_order
 from .magic import Sliceable, Shaped, Shapable, PhiTreeNode
 
 
@@ -26,10 +29,8 @@ def unstack(value, dim: DimFilter):
         `tuple` of `Tensor` objects.
 
     Examples:
-        ```python
-        unstack(math.zeros(spatial(x=5)), 'x')
-        # Out: (0.0, 0.0, 0.0, 0.0, 0.0)
-        ```
+        >>> unstack(expand(0, spatial(x=5)), 'x')
+        (0.0, 0.0, 0.0, 0.0, 0.0)
     """
     assert isinstance(value, Sliceable) and isinstance(value, Shaped), f"Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html"
     dims = shape(value).only(dim)
@@ -79,17 +80,14 @@ def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwar
         `Tensor` containing `values` stacked along `dim`.
 
     Examples:
+        >>> stack({'x': 0, 'y': 1}, channel('vector'))
+        (x=0, y=1)
 
-        ```python
-        stack({'x': 0, 'y': 1}, channel('vector'))
-        # Out: (x=0, y=1)
+        >>> stack([math.zeros(batch(b=2)), math.ones(batch(b=2))], channel(c='x,y'))
+        (x=0.000, y=1.000); (x=0.000, y=1.000) (bᵇ=2, cᶜ=x,y)
 
-        stack([math.zeros(batch(b=2)), math.ones(batch(b=2))], channel(c='x,y'))
-        # Out: (x=0.000, y=1.000); (x=0.000, y=1.000) (bᵇ=2, cᶜ=x,y)
-
-        stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
-        # Out: (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
-        ```
+        >>> stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
+        (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
     """
     assert len(values) > 0, f"stack() got empty sequence {values}"
     assert isinstance(dim, Shape)
@@ -131,9 +129,12 @@ def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwar
             if attributes and all(all_attributes(v) == attributes for v in values):
                 new_attrs = {}
                 for a in attributes:
-                    assert all(shape(getattr(v, a)).only(dim).is_empty for v in values), f"Cannot stack attribute {a} because one values contains the stack dimension {dim}."
+                    assert all(dim not in shape(getattr(v, a)) for v in values), f"Cannot stack attribute {a} because one values contains the stack dimension {dim}."
                     a_values = [getattr(v, a) for v in values]
-                    new_attrs[a] = stack(a_values, dim, expand_values=expand_values, **kwargs)
+                    if all(v is a_values[0] for v in a_values[1:]):
+                        new_attrs[a] = expand(a_values[0], dim, **kwargs)
+                    else:
+                        new_attrs[a] = stack(a_values, dim, expand_values=expand_values, **kwargs)
                 return copy_with(values[0], **new_attrs)
             else:
                 warnings.warn(f"Failed to concat values using value attributes because attributes differ among values {values}")
@@ -196,14 +197,11 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
         Concatenated `Tensor`
 
     Examples:
+        >>> concat([math.zeros(batch(b=10)), math.ones(batch(b=10))], 'b')
+        (bᵇ=20) 0.500 ± 0.500 (0e+00...1e+00)
 
-        ```python
-        concat([math.zeros(batch(b=10)), math.ones(batch(b=10))], 'b')
-        # Out: (bᵇ=20) 0.500 ± 0.500 (0e+00...1e+00)
-
-        concat([vec(x=1, y=0), vec(z=2.)], 'vector')
-        # Out: (x=1.000, y=0.000, z=2.000) float64
-        ```
+        >>> concat([vec(x=1, y=0), vec(z=2.)], 'vector')
+        (x=1.000, y=0.000, z=2.000) float64
     """
     assert len(values) > 0, f"concat() got empty sequence {values}"
     if isinstance(dim, Shape):
@@ -222,7 +220,7 @@ def concat(values: tuple or list, dim: str or Shape, **kwargs):
             if hasattr(v, '__concat__'):
                 result = v.__concat__(values, dim, **kwargs)
                 if result is not NotImplemented:
-                    assert isinstance(result, Shapable), "__concat__ must return a Shapable object"
+                    assert isinstance(result, Shapable), f"__concat__ must return a Shapable object but got {type(result).__name__} from {type(v).__name__} {v}"
                     return result
     # --- Next: try concat attributes for tree nodes ---
     if all(isinstance(v, PhiTreeNode) for v in values):
@@ -313,6 +311,8 @@ def rename_dims(value,
     """
     Change the name and optionally the type of some dimensions of `value`.
 
+    Dimensions that are not present on value will be ignored. The corresponding new dimensions given by `names` will not be added.
+
     Args:
         value: `Shape` or `Tensor` or `Shapable`.
         dims: Existing dimensions of `value`.
@@ -330,22 +330,31 @@ def rename_dims(value,
     """
     if isinstance(value, Shape):
         return value._replace_names_and_types(dims, names)
+    elif isinstance(value, (Number, bool)):
+        return value
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be a Shape or Shapable but got {type(value).__name__}"
-    dims = shape(value).only(dims)
-    names = dims._replace_names_and_types(dims, names)
+    dims = parse_dim_order(dims)
+    if isinstance(names, str):
+        names = parse_dim_order(names)
+    assert len(dims) == len(names), f"names and dims must be of equal length but got #dims={len(dims)} and #names={len(names)}"
+    existing_dims = shape(value).only(dims, reorder=True)
+    if not existing_dims:
+        return value
+    existing_names = [n for i, n in enumerate(names) if dims[i] in existing_dims]
+    existing_names = existing_dims._replace_names_and_types(existing_dims, existing_names)
     # --- First try __replace_dims__ ---
     if hasattr(value, '__replace_dims__'):
-        result = value.__replace_dims__(dims.names, names, **kwargs)
+        result = value.__replace_dims__(existing_dims.names, existing_names, **kwargs)
         if result is not NotImplemented:
             return result
     # --- Next try Tree Node ---
     if isinstance(value, PhiTreeNode):
-        new_attributes = {a: rename_dims(getattr(value, a), dims, names, **kwargs) for a in all_attributes(value)}
+        new_attributes = {a: rename_dims(getattr(value, a), existing_dims, existing_names, **kwargs) for a in all_attributes(value)}
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
-    if shape(value).only(dims).volume > 8:
+    if shape(value).only(existing_dims).volume > 8:
         warnings.warn(f"rename_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __replace_dims__() for {type(value).__name__} as defined in phi.math.magic", RuntimeWarning, stacklevel=2)
-    for old_name, new_dim in zip(dims.names, names):
+    for old_name, new_dim in zip(existing_dims.names, existing_names):
         value = stack(unstack(value, old_name), new_dim, **kwargs)
     return value
 
@@ -360,7 +369,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
     The type of the new dimension will be equal to the types of `dims`.
     If `dims` have varying types, the new dimension will be a batch dimension.
 
-    If none of `dims` exist on `value`, `packed_dim` will be added only if it is given with a definite size.
+    If none of `dims` exist on `value`, `packed_dim` will be added only if it is given with a definite size and `value` is not a primitive type.
 
     See Also:
         `unpack_dim()`
@@ -378,13 +387,13 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
         Same type as `value`.
 
     Examples:
-        ```python
-        pack_dims(math.zeros(spatial(x=4, y=3)), spatial, instance('points'))
-        # Out: (pointsⁱ=12) const 0.0
-        ```
+        >>> pack_dims(math.zeros(spatial(x=4, y=3)), spatial, instance('points'))
+        (pointsⁱ=12) const 0.0
     """
+    if isinstance(value, (Number, bool)):
+        return value
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
-    dims = shape(value).only(dims)
+    dims = shape(value).only(dims, reorder=True)
     if packed_dim in shape(value):
         assert packed_dim in dims, f"Cannot pack dims into new dimension {packed_dim} because it already exists on value {value} and is not packed."
     if len(dims) == 0 or all(dim not in shape(value) for dim in dims):
@@ -408,11 +417,13 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
 
 
 
-def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
+def unpack_dim(value, dim: str or Shape, *unpacked_dims: Shape, **kwargs):
     """
     Decompresses a dimension by unstacking the elements along it.
     This function replaces the traditional `reshape` for these cases.
     The compressed dimension `dim` is assumed to contain elements laid out according to the order of `unpacked_dims`.
+
+    If `dim` does not exist on `value`, this function will return `value` as-is. This includes primitive types.
 
     See Also:
         `pack_dims()`
@@ -420,7 +431,7 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
     Args:
         value: `phi.math.magic.Shapable`, such as `Tensor`, for which one dimension should be split.
         dim: Dimension to be decompressed.
-        unpacked_dims: `Shape`: Ordered dimensions to replace `dim`, fulfilling `unpacked_dims.volume == shape(self)[dim].rank`.
+        *unpacked_dims: Vararg `Shape`, ordered dimensions to replace `dim`, fulfilling `unpacked_dims.volume == shape(self)[dim].rank`.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -429,17 +440,18 @@ def unpack_dim(value, dim: str or Shape, unpacked_dims: Shape, **kwargs):
         Same type as `value`.
 
     Examples:
-        ```python
-        unpack_dim(math.zeros(instance(points=12)), 'points', spatial(x=4, y=3))
-        # Out: (xˢ=4, yˢ=3) const 0.0
-        ```
+        >>> unpack_dim(math.zeros(instance(points=12)), 'points', spatial(x=4, y=3))
+        (xˢ=4, yˢ=3) const 0.0
     """
+    if isinstance(value, (Number, bool)):
+        return value
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
     if isinstance(dim, Shape):
         dim = dim.name
     assert isinstance(dim, str), f"dim must be a str or Shape but got {type(dim)}"
     if dim not in shape(value):
         return value  # Nothing to do, maybe expand?
+    unpacked_dims = concat_shapes(*unpacked_dims)
     if unpacked_dims.rank == 0:
         return value[{dim: 0}]  # remove dim
     elif unpacked_dims.rank == 1:
@@ -480,10 +492,8 @@ def flatten(value, flat_dim: Shape = instance('flat'), flatten_batch=False, **kw
         Same type as `value`.
 
     Examples:
-        ```python
-        flatten(math.zeros(spatial(x=4, y=3)))
-        # Out: (flatⁱ=12) const 0.0
-        ```
+        >>> flatten(math.zeros(spatial(x=4, y=3)))
+        (flatⁱ=12) const 0.0
     """
     assert isinstance(flat_dim, Shape) and flat_dim.rank == 1, flat_dim
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
@@ -507,48 +517,27 @@ def variable_attributes(obj) -> Tuple[str]:
         return obj.__variable_attrs__()
     elif hasattr(obj, '__value_attrs__'):
         return obj.__value_attrs__()
+    elif dataclasses.is_dataclass(obj):
+        return tuple([f.name for f in dataclasses.fields(obj)])
     else:
         raise ValueError(f"Not a PhiTreeNode: {type(obj).__name__}")
 
 
 def value_attributes(obj) -> Tuple[str, ...]:
-    assert hasattr(obj, '__value_attrs__'), f"{type(obj).__name__} must implement '__value_attrs__()' to be used with value functions."
-    return obj.__value_attrs__()
+    if hasattr(obj, '__value_attrs__'):
+        return obj.__value_attrs__()
+    if dataclasses.is_dataclass(obj):
+        return tuple([f.name for f in dataclasses.fields(obj)])
+    raise ValueError(f"{type(obj).__name__} must implement '__value_attrs__()' or be a dataclass to be used with value functions.")
 
 
 def variable_values(obj) -> Tuple[str, ...]:
-    assert hasattr(obj, '__value_attrs__'), f"{type(obj).__name__} must implement '__value_attrs__()' to be used with value functions."
     if hasattr(obj, '__variable_attrs__'):
         values = obj.__value_attrs__()
         variables = obj.__variable_attrs__()
         return tuple([a for a in values if a in variables])
     else:
-        return obj.__value_attrs__()
-
-
-def copy_with(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
-    """
-    Creates a copy of the given `PhiTreeNode` with updated values as specified in `updates`.
-
-    If `obj` overrides `__with_attrs__`, the copy will be created via that specific implementation.
-    Otherwise, the `copy` module and `setattr` will be used.
-
-    Args:
-        obj: `PhiTreeNode`
-        **updates: Values to be replaced.
-
-    Returns:
-        Copy of `obj` with updated values.
-    """
-    if hasattr(obj, '__with_attrs__'):
-        return obj.__with_attrs__(**updates)
-    elif isinstance(obj, (Number, bool)):
-        return obj
-    else:
-        cpy = copy.copy(obj)
-        for attr, value in updates.items():
-            setattr(cpy, attr, value)
-        return cpy
+        return obj.__value_attrs__()  # this takes care of dataclasses as well
 
 
 def all_attributes(obj, assert_any=False) -> Set[str]:
@@ -559,17 +548,50 @@ def all_attributes(obj, assert_any=False) -> Set[str]:
         result.update(obj.__variable_attrs__())
     if hasattr(obj, '__value_attrs__'):
         result.update(obj.__value_attrs__())
+    if dataclasses.is_dataclass(obj) and not hasattr(obj, '__variable_attrs__') and not hasattr(obj, '__value_attrs__'):
+        result.update([f.name for f in dataclasses.fields(obj)])
     if assert_any:
         assert result, f"{type(obj).__name__} is not a valid tree node because it has no tensor-like attributes."
     return result
 
 
+def replace(obj: PhiTreeNodeType, **updates) -> PhiTreeNodeType:
+    """
+    Creates a copy of the given `phi.math.magic.PhiTreeNode` with updated values as specified in `updates`.
+
+    If `obj` overrides `__with_attrs__`, the copy will be created via that specific implementation.
+    Otherwise, the `copy` module and `setattr` will be used.
+
+    Args:
+        obj: `phi.math.magic.PhiTreeNode`
+        **updates: Values to be replaced.
+
+    Returns:
+        Copy of `obj` with updated values.
+    """
+    if hasattr(obj, '__with_attrs__'):
+        return obj.__with_attrs__(**updates)
+    elif isinstance(obj, (Number, bool)):
+        return obj
+    elif dataclasses.is_dataclass(obj):
+        return dataclasses.replace(obj, **updates)
+    else:
+        cpy = copy.copy(obj)
+        for attr, value in updates.items():
+            setattr(cpy, attr, value)
+        return cpy
+
+
+copy_with = replace
+
+
 # Other Ops
 
+MagicType = TypeVar('MagicType')
 OtherMagicType = TypeVar('OtherMagicType')
 
 
-def cast(x: OtherMagicType, dtype: DType or type) -> OtherMagicType:
+def cast(x: MagicType, dtype: DType or type) -> OtherMagicType:
     """
     Casts `x` to a different data type.
 
@@ -607,3 +629,37 @@ def cast(x: OtherMagicType, dtype: DType or type) -> OtherMagicType:
         if dtype.kind == bool:
             return bool(x)
         raise ValueError(f"Cannot cast object of type '{type(x).__name__}'")
+
+
+def bool_to_int(x: MagicType, bits=32):
+    if isinstance(x, bool):
+        return int(x)
+    if isinstance(x, Number):
+        return x
+    if hasattr(x, 'dtype') and isinstance(x.dtype, DType):
+        return cast(x, DType(int, bits)) if x.dtype.kind == bool else x
+    elif isinstance(x, PhiTreeNode):
+        return tree_map(bool_to_int, x, bits=32)
+    try:
+        backend = choose_backend(x)
+        return backend.cast(x, DType(int, bits)) if backend.dtype(x).kind == bool else x
+    except NoBackendFound:
+        raise ValueError(f"Cannot cast object of type '{type(x).__name__}'")
+
+
+def tree_map(f, tree, **f_kwargs):
+    from ._tensors import Tensor
+    if isinstance(tree, Tensor):
+        return f(tree, **f_kwargs)
+    if isinstance(tree, list):
+        return [tree_map(f, e, **f_kwargs) for e in tree]
+    elif isinstance(tree, tuple):
+        return tuple([tree_map(f, e, **f_kwargs) for e in tree])
+    elif isinstance(tree, dict):
+        return {k: tree_map(f, e, **f_kwargs) for k, e in tree.items()}
+    elif isinstance(tree, PhiTreeNode):
+        attrs = {key: getattr(tree, key) for key in value_attributes(tree)}
+        new_attrs = {k: tree_map(f, v, **f_kwargs) for k, v in attrs.items()}
+        return copy_with(tree, **new_attrs)
+    else:
+        return f(tree, **f_kwargs)  # try anyway

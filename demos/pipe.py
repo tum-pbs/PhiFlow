@@ -9,5 +9,5 @@ pressure = None
 
 for _ in view('velocity, pressure', namespace=globals()).range():
     velocity = advect.semi_lagrangian(velocity, velocity, DT)
-    velocity, pressure = fluid.make_incompressible(velocity, solve=Solve('CG-adaptive', 1e-5, 0, x0=pressure))
     velocity = diffuse.explicit(velocity, 0.1, DT)
+    velocity, pressure = fluid.make_incompressible(velocity, solve=Solve('CG-adaptive', 1e-5, x0=pressure))

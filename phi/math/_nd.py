@@ -1,14 +1,17 @@
-from typing import Tuple, Optional
+from functools import partial
+from typing import Tuple, Optional, List
 
 import numpy as np
 
-from . import _ops as math
-from . import extrapolation as extrapolation
-from ._magic_ops import stack, rename_dims, concat, variable_values
-from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order, shape, merge_shapes
-from ._tensors import Tensor, wrap
+from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order, shape, instance
 from .magic import PhiTreeNode
+from ._magic_ops import stack, rename_dims, concat, variable_values
+from ._tensors import Tensor, wrap, tensor
+from . import extrapolation as extrapolation
 from .extrapolation import Extrapolation
+from . import _ops as math
+from ._functional import jit_compile_linear
+from ._optimize import solve_linear
 
 
 def vec(name='vector', **components) -> Tensor:
@@ -23,16 +26,14 @@ def vec(name='vector', **components) -> Tensor:
         `Tensor`
 
     Examples:
-        ```python
-        vec(x=1, y=0, z=-1)
-        # Out: (x=1, y=0, z=-1)
+        >>> vec(x=1, y=0, z=-1)
+        (x=1, y=0, z=-1)
 
-        vec(x=1., z=0)
-        # Out: (x=1.000, z=0.000)
+        >>> vec(x=1., z=0)
+        (x=1.000, z=0.000)
 
-        vec(x=tensor([1, 2, 3], instance('particles')), y=0)
-        # Out: (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
-        ```
+        >>> vec(x=tensor([1, 2, 3], instance('particles')), y=0)
+        (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
     """
     return stack(components, channel(name), expand_values=True)
 
@@ -70,6 +71,8 @@ def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: float or Tensor = No
     Args:
         eps: Minimum vector length. Use to avoid `inf` gradients for zero-length vectors.
     """
+    if vec.dtype.kind == complex:
+        vec = stack([vec.real, vec.imag], channel('_ReIm'))
     squared = vec_squared(vec, vec_dim)
     if eps is not None:
         squared = math.maximum(squared, eps)
@@ -185,8 +188,8 @@ def l1_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub>*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` or 0D or 1D native tensor.
-            For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` or 0D or 1D native tensor.
+            For `phi.math.magic.PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
@@ -215,8 +218,8 @@ def l2_loss(x, reduce: DimFilter = math.non_batch) -> Tensor:
     Computes *∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` or 0D or 1D native tensor.
-            For `PhiTreeNode` objects, only value the sum over all value attributes is computed.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` or 0D or 1D native tensor.
+            For `phi.math.magic.PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
@@ -252,7 +255,7 @@ def frequency_loss(x,
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-        x: `Tensor` or `PhiTreeNode` Values to penalize, typically `actual - target`.
+        x: `Tensor` or `phi.math.magic.PhiTreeNode` Values to penalize, typically `actual - target`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
         threshold: Frequency amplitudes below this value are ignored.

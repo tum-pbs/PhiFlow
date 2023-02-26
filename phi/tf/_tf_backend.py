@@ -8,6 +8,7 @@ import numpy as np
 import os
 import tensorflow as tf
 from tensorflow.python.client import device_lib
+from tensorflow.python.framework.errors_impl import NotFoundError
 
 from ..math.backend._backend import combined_dim, TensorType
 from ..math.backend._dtype import DType, to_numpy_dtype, from_numpy_dtype
@@ -155,6 +156,11 @@ class TFBackend(Backend):
                 value = self.expand_dims(value, axis=0, number=len(multiples) - self.ndims(value))
             return tf.tile(value, multiples)
 
+    def repeat(self, x, repeats, axis: int):
+        x = self.as_tensor(x)
+        with tf.device(x.device):
+            return tf.repeat(x, repeats, axis)
+
     def stack(self, values, axis=0):
         with self._device_for(*values):
             return tf.stack(values, axis=axis)
@@ -262,7 +268,7 @@ class TFBackend(Backend):
             a, b = self.auto_cast(a, b, bool_to_int=True)
             return tf.tensordot(a, b, (a_axes, b_axes))
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
         with self._device_for(A, b):
             if isinstance(A, tf.SparseTensor):
                 result_T = tf.sparse.sparse_dense_matmul(A, tf.transpose(b))  # result shape contains unknown size
@@ -270,7 +276,7 @@ class TFBackend(Backend):
                 result.set_shape(tf.TensorShape([b.shape[0], A.shape[0]]))
                 return result
             else:
-                return tf.matmul(A, b)
+                return tf.transpose(tf.matmul(A, b, transpose_b=True))
 
     def einsum(self, equation, *tensors):
         with self._device_for(*tensors):
@@ -280,10 +286,26 @@ class TFBackend(Backend):
         with tf.device(x.device):
             return tf.cumsum(x, axis=axis, exclusive=False)
 
-    def while_loop(self, loop: Callable, values: tuple):
-        cond = lambda c, *vals: tf.reduce_any(c)
+    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
         with self._device_for(*values):
-            return tf.nest.map_structure(tf.stop_gradient, tf.while_loop(cond, loop, values))
+            if isinstance(max_iter, (tuple, list)):  # stack traced trajectory, unroll until max_iter
+                values = self.stop_gradient_tree(values)
+                trj = [values] if 0 in max_iter else []
+                for i in range(1, max(max_iter) + 1):
+                    values = loop(*values)
+                    if i in max_iter:
+                        trj.append(values)  # values are not mutable so no need to copy
+                    condition = values[0]
+                    if self.is_available(condition) and not self.any(values[0]):
+                        break
+                trj.extend([trj[-1]] * (len(max_iter) - len(trj)))  # fill trj with final values
+                return self.stop_gradient_tree(self.stack_leaves(trj))
+            else:
+                cond = lambda c, *vals: tf.reduce_any(tf.cast(c, tf.bool))
+                return self.stop_gradient_tree(tf.while_loop(cond, loop, values, maximum_iterations=max_iter))
+
+    def stop_gradient_tree(self, tree):
+        return tf.nest.map_structure(tf.stop_gradient, tree)
 
     def abs(self, x):
         with tf.device(x.device):
@@ -367,6 +389,7 @@ class TFBackend(Backend):
             return result
 
     def expand_dims(self, a, axis=0, number=1):
+        a = self.as_tensor(a)
         with tf.device(a.device):
             if number == 0:
                 return a
@@ -386,6 +409,10 @@ class TFBackend(Backend):
             return tuple(tensor.shape.as_list())
         else:
             return np.shape(tensor)
+
+    def gather(self, values, indices, axis: int):
+        with self._device_for(values, indices):
+            return tf.gather(values, indices, axis=axis)
 
     def batched_gather_nd(self, values, indices):
         with self._device_for(values, indices):
@@ -529,6 +556,39 @@ class TFBackend(Backend):
         with tf.device(x.device):
             return tf.math.tan(x)
 
+    def arctan(self, x):
+        with tf.device(x.device):
+            return tf.math.atan(x)
+
+    def arctan2(self, y, x):
+        y, x = self.auto_cast(y, x)
+        with tf.device(x.device):
+            return tf.math.atan2(y, x)
+
+    def sinh(self, x):
+        with tf.device(x.device):
+            return tf.math.sinh(x)
+
+    def arcsinh(self, x):
+        with tf.device(x.device):
+            return tf.math.asinh(x)
+
+    def cosh(self, x):
+        with tf.device(x.device):
+            return tf.math.cosh(x)
+
+    def arccosh(self, x):
+        with tf.device(x.device):
+            return tf.math.acosh(x)
+
+    def tanh(self, x):
+        with tf.device(x.device):
+            return tf.math.tanh(x)
+
+    def arctanh(self, x):
+        with tf.device(x.device):
+            return tf.math.atanh(x)
+
     def log(self, x):
         with tf.device(x.device):
             return tf.math.log(x)
@@ -554,16 +614,25 @@ class TFBackend(Backend):
 
     def sparse_coo_tensor(self, indices, values, shape):
         with self._device_for(indices, values):
-            indices = [tf.convert_to_tensor(i, tf.int64) for i in indices]
-            indices = tf.cast(tf.stack(indices, axis=-1), tf.int64)
-            return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
+            return tf.SparseTensor(indices=self.to_int64(indices), values=values, dense_shape=shape)
 
-    def coordinates(self, tensor):
-        assert isinstance(tensor, tf.SparseTensor)
-        idx = tensor.indices
-        with tf.device(idx.device):
-            idx = tuple(tf.unstack(idx, axis=-1))
-        return idx, tensor.values
+    def mul_coo_dense(self, indices, values, shape, dense):
+        values, dense = self.auto_cast(values, dense)
+        batch_size, nnz, channel_count = self.staticshape(values)
+        if batch_size > 1:
+            return Backend.mul_coo_dense(self, indices, values, shape, dense)
+        indices = tf.cast(indices, np.int64)
+        result = []
+        for b in range(batch_size):
+            b_result = []
+            for c in range(channel_count):
+                matrix = tf.SparseTensor(indices=indices[b], values=values[b, :, c], dense_shape=shape)
+                try:
+                    b_result.append(tf.sparse.sparse_dense_matmul(matrix, dense[b, :, c, :]))
+                except NotFoundError:  # These data types are probably not supported by TensorFlow
+                    return Backend.mul_coo_dense(self, indices, values, shape, dense)
+            result.append(tf.stack(b_result))
+        return tf.stack(result)
 
     def not_equal(self, x, y):
         with self._device_for(x, y):
@@ -651,11 +720,28 @@ class TFBackend(Backend):
         return eval_grad
 
     def stop_gradient(self, value):
-        return tf.stop_gradient(value)
+        with self._device_for(value):
+            return tf.stop_gradient(value)
 
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
-        solution = tf.linalg.lstsq(matrix, rhs)
+        with self._device_for(matrix, rhs):
+            solution = tf.linalg.lstsq(matrix, rhs)
         return solution, None, None, None
+
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        matrix, rhs = self.auto_cast(matrix, rhs, int_to_float=True, bool_to_int=True)
+        rhs = self.expand_dims(rhs, -1)
+        if unit_diagonal:
+            diag = np.diag(np.ones((self.staticshape(matrix)[-1],)))
+            matrix = self.where(diag, diag, matrix)
+        result = tf.linalg.triangular_solve(matrix, rhs, lower=lower)
+        return result[..., 0]
+
+    def get_diagonal(self, matrices, offset=0):
+        with self._device_for(matrices):
+            matrices = tf.transpose(matrices, [0, 3, 1, 2])
+            result = tf.linalg.diag_part(matrices, k=offset)
+            return tf.transpose(result, [0, 2, 1])
 
 
 _TAPES = []

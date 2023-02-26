@@ -1,8 +1,11 @@
-from typing import Tuple
+from typing import Tuple, Union
 from unittest import TestCase
 
+import dataclasses
+
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
-    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros
+    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros, meshgrid, assert_close, wrap
+from phi.math._magic_ops import bool_to_int
 from phi.math.magic import BoundDim, Shaped, Sliceable, Shapable, PhiTreeNode, slicing_dict
 
 
@@ -14,7 +17,8 @@ class Stackable:
     def __getitem__(self, item: dict):
         return Stackable(self.shape.after_gather(slicing_dict(self, item)))
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Stackable':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Stackable':
         return Stackable(merge_shapes(dim, *[v.shape for v in values]))
 
 
@@ -26,7 +30,8 @@ class ConcatExpandable:
     def __getitem__(self, item: dict):
         return ConcatExpandable(self.shape.after_gather(slicing_dict(self, item)))
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -> 'ConcatExpandable':
+    @staticmethod
+    def __concat__(values: tuple, dim: str, **kwargs) -> 'ConcatExpandable':
         try:
             new_size = sum([v.shape.get_item_names(dim) for v in values], ())
         except:
@@ -49,7 +54,23 @@ class ValuedPhiTreeNode:
         return ValuedPhiTreeNode(self.tensor[item].shape)
 
 
-TEST_CLASSES = [Stackable, ConcatExpandable, random_normal, ValuedPhiTreeNode]
+@dataclasses.dataclass
+class MyPoint:
+    x: Tensor or float
+    y: Union[Tensor, float]
+    is_normalized: bool = dataclasses.field(compare=False)
+
+    def __getitem__(self, item):
+        return MyPoint(self.x[item], self.y[item], is_normalized=self.is_normalized)
+
+
+TEST_CLASSES = [
+    Stackable,
+    ConcatExpandable,
+    random_normal,
+    ValuedPhiTreeNode,
+    lambda shape: MyPoint(zeros(shape), zeros(shape), is_normalized=False),
+]
 
 
 class TestMagicOps(TestCase):
@@ -87,6 +108,12 @@ class TestMagicOps(TestCase):
         self.assertTrue(issubclass(ConcatExpandable, Shaped))
         self.assertTrue(issubclass(ConcatExpandable, Sliceable))
         self.assertTrue(issubclass(ConcatExpandable, Shapable))
+        self.assertTrue(issubclass(ValuedPhiTreeNode, Shaped))
+        self.assertTrue(issubclass(ValuedPhiTreeNode, Sliceable))
+        self.assertTrue(issubclass(ValuedPhiTreeNode, Sliceable))
+        self.assertTrue(issubclass(MyPoint, Shaped))
+        self.assertTrue(issubclass(MyPoint, Sliceable))
+        self.assertTrue(issubclass(MyPoint, Sliceable))
 
     def test_instancecheck(self):
         for test_class in TEST_CLASSES:
@@ -129,7 +156,7 @@ class TestMagicOps(TestCase):
 
     def test_stack_expand(self):
         v = stack([0, linspace(0, 1, instance(points=10))], channel(vector='x,y'), expand_values=True)
-        self.assertEqual(instance(points=10) & channel(vector='x,y'), shape(v))
+        self.assertEqual(set(instance(points=10) & channel(vector='x,y')), set(shape(v)))
 
     def test_multi_dim_stack(self):
         for test_class in TEST_CLASSES:
@@ -187,3 +214,22 @@ class TestMagicOps(TestCase):
         self.assertTrue(issubclass(list, PhiTreeNode))
         self.assertTrue(issubclass(dict, PhiTreeNode))
         self.assertTrue(issubclass(Dict, PhiTreeNode))
+
+    def test_bound_dims(self):
+        v = meshgrid(x=4, y=3)
+        assert_close(1, v.x.y.vector[1, 0, 0])
+        assert ('x', 'y') == instance(v.x.y.as_instance()).names
+        assert instance(points=12) & channel(vector='x,y') == v.x.y.pack(instance('points')).shape
+        assert 12 == v.x.y.volume
+        assert 24 == v.x.y.vector.volume
+        assert 24 == len(v.x.y.vector.unstack())
+        assert 24 == len(tuple(v.x.y.vector))
+        try:
+            v.x.y.size
+            self.fail()
+        except SyntaxError:
+            pass
+
+    def test_bool_to_int(self):
+        a = [wrap(True), wrap(1.), {'a': wrap(False)}]
+        self.assertEqual([1, 1., {'a': 0}], bool_to_int(a))

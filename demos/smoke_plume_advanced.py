@@ -22,16 +22,16 @@ smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=smoke_res ** 2, y=smoke_res **
 viewer = view(smoke, velocity, namespace=globals(), play=False)
 for _ in viewer.range(warmup=1):
     # Resize grids if needed
-    inflow = SoftGeometryMask(INFLOW) @ CenteredGrid(0, smoke.extrapolation, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS)
-    smoke = smoke @ inflow
-    velocity = velocity @ StaggeredGrid(0, velocity.extrapolation, x=v_res ** 2, y=v_res ** 2, bounds=BOUNDS)
+    inflow = resample(INFLOW, CenteredGrid(0, smoke.extrapolation, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS), soft=True)
+    smoke = resample(smoke, inflow)
+    velocity = velocity.at(StaggeredGrid(0, velocity.extrapolation, x=v_res ** 2, y=v_res ** 2, bounds=BOUNDS))
     # Physics step
     smoke = advect.mac_cormack(smoke, velocity, 1) + inflow
-    buoyancy_force = smoke * (0, 0.1) @ velocity  # resamples smoke to velocity sample points
+    buoyancy_force = (smoke * (0, 0.1)).at(velocity)
     velocity = advect.semi_lagrangian(velocity, velocity, 1) + buoyancy_force
     try:
         with math.SolveTape() as solves:
-            velocity, pressure = fluid.make_incompressible(velocity, (), Solve(pressure_solver, 1e-5, 0))
+            velocity, pressure = fluid.make_incompressible(velocity, (), Solve(pressure_solver, 1e-5))
         viewer.log_scalars(solve_time=solves[0].solve_time)
         viewer.info(f"Presure solve {v_res**2}x{v_res**2} with {solves[0].method}: {solves[0].solve_time * 1000:.0f} ms ({solves[0].iterations} iterations)")
     except ConvergenceException as err:

@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math
 from phi.math import spatial, channel, batch, instance, non_instance, non_channel, non_spatial, non_batch
-from phi.math._shape import shape_stack, vector_add, EMPTY_SHAPE, Shape
+from phi.math._shape import shape_stack, vector_add, EMPTY_SHAPE, Shape, dual
 
 
 class ShapedDummy:
@@ -13,12 +13,12 @@ class ShapedDummy:
 class TestShape(TestCase):
 
     def test_dimension_types(self):
-        v = math.ones(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2))
-        self.assertEqual(v.x.index, 1)
+        v = math.ones(batch(batch=10) & spatial(x=4, y=3) & channel(vector=2) & dual(d=1))
+        self.assertEqual(v.x.index, 2)
         self.assertEqual(v.x.name, 'x')
-        self.assertEqual(('batch', 'spatial', 'spatial', 'channel'), v.shape.types)
+        self.assertEqual(('batch', 'dual', 'spatial', 'spatial', 'channel'), v.shape.types)
         b = v.x.as_batch()
-        self.assertEqual(('batch', 'batch', 'spatial', 'channel'), b.shape.types)
+        self.assertEqual(('batch', 'dual', 'batch', 'spatial', 'channel'), b.shape.types)
 
     def test_combine(self):
         self.assertEqual(batch(batch=10) & spatial(y=4, x=3) & channel(vector=2), batch(batch=10) & channel(vector=2) & spatial(y=4, x=3))
@@ -143,3 +143,12 @@ class TestShape(TestCase):
         wo = s.without_sizes()
         self.assertIsNone(wo.get_item_names('vector'))
 
+    def test_dual_prefix(self):
+        d = dual('~y,z', x=5)
+        self.assertEqual(('~y', '~z', '~x'), d.names)
+
+    def test_contains(self):
+        s = batch(batch=10) & spatial(x=4, y=3) & channel(vector=2)
+        self.assertTrue('x,y,batch' in s)
+        self.assertTrue(['vector', 'batch'] in s)
+        self.assertFalse(['other', 'batch'] in s)

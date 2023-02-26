@@ -132,6 +132,13 @@ class TorchBackend(Backend):
     cos = torch.cos
     arccos = torch.arccos
     tan = torch.tan
+    arctan = torch.arctan
+    sinh = torch.sinh
+    arcsinh = torch.arcsinh
+    cosh = torch.cosh
+    arccosh = torch.arccosh
+    tanh = torch.tanh
+    arctanh = torch.arctanh
     log = torch.log
     log2 = torch.log2
     log10 = torch.log10
@@ -370,44 +377,66 @@ class TorchBackend(Backend):
             return torch.meshgrid(*coordinates)
 
     def linspace(self, start, stop, number):
-        return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+        if self.is_tensor(stop, only_native=True) or self.is_tensor(start, only_native=True):
+            unit = torch.linspace(0, 1, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+            return unit * (stop - start) + start
+        else:
+            return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
         a, b = self.auto_cast(a, b)
         return torch.tensordot(a, b, (a_axes, b_axes))
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
         A, b = self.auto_cast(A, b)
-        if isinstance(A, torch.Tensor) and A.is_sparse:
+        if isinstance(A, torch.Tensor) and (A.is_sparse or A.is_sparse_csr):
             result = torch.sparse.mm(A, torch.transpose(b, 0, 1))
             return torch.transpose(result, 0, 1)
-        raise NotImplementedError(type(A), type(b))
+        else:
+            return torch.transpose(torch.matmul(A, torch.transpose(b, -1, -2)), -1, -2)
+
+    def get_diagonal(self, matrices, offset=0):
+        return torch.transpose(torch.diagonal(matrices, offset=offset, dim1=1, dim2=2), 1, 2)
 
     def cumsum(self, x, axis: int):
         return torch.cumsum(x, dim=axis)
 
-    def while_loop(self, loop: Callable, values: tuple):
-        if torch._C._get_tracing_state() is not None:
-            if isinstance(loop, torch.ScriptFunction):
-                jit_loop = loop
-                while torch.any(values[0]):
-                    values = jit_loop(*values)
-                return values
-            else:
-                warnings.warn("Tracing a PyTorch while loop requires an additional tracing pass. You can avoid this by passing a torch.ScriptFunction.", RuntimeWarning)
-                raise NotImplementedError()
-                # def trace_later():
-                #     jit_loop = torch.jit.trace(loop, check_trace=False)
-                #     @torch.jit.script
-                #     def loop_script(values: Tuple[torch.Tensor], loop_script: Callable):
-                #         while torch.any(values[0]):
-                #             values = loop_script(*values)
-                #         return values
-                # CURRENT_JIT_CALLS[-1].post_trace.append(trace_later)
-        else:
-            while torch.any(values[0]):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
+        tracing = torch._C._get_tracing_state() is not None
+        if not tracing:
+            return Backend.while_loop(self, loop, values, max_iter)
+        # --- We are tracing ---
+        warnings.warn("PyTorch while_loop always iterates until max_iter. Please put a while loop into a torch.ScriptFunction instead.", RuntimeWarning)
+        values = self.stop_gradient_tree(values)
+        if isinstance(max_iter, (tuple, list)):
+            trj = [values] if 0 in max_iter else []
+            for i in range(1, max(max_iter) + 1):
                 values = loop(*values)
-            return values
+                if i in max_iter:
+                    trj.append(self.copy_leaves(values, only_mutable=True))
+            trj.extend([trj[-1]] * (len(max_iter) - len(trj)))  # fill trj with final values
+            return self.stop_gradient_tree(self.stack_leaves(trj))
+        else:
+            for i in range(1, max_iter + 1):
+                values = loop(*values)
+            return self.stop_gradient_tree(values)
+        # if isinstance(loop, torch.ScriptFunction):
+        #     jit_loop = loop
+        #     i = 0
+        #     while torch.any(values[0]):
+        #         values = jit_loop(*values)
+        #         i += 1
+        #         if max_iter is not None and i >= max_iter:
+        #             break
+        #     return values
+            # def trace_later():
+            #     jit_loop = torch.jit.trace(loop, check_trace=False)
+            #     @torch.jit.script
+            #     def loop_script(values: Tuple[torch.Tensor], loop_script: Callable):
+            #         while torch.any(values[0]):
+            #             values = loop_script(*values)
+            #         return values
+            # CURRENT_JIT_CALLS[-1].post_trace.append(trace_later)
 
     def max(self, x, axis=None, keepdims=False):
         if axis is None:
@@ -496,6 +525,10 @@ class TorchBackend(Backend):
         else:
             return NUMPY.staticshape(tensor)
 
+    def gather(self, values, indices, axis: int):
+        slices = [indices if i == axis else slice(None) for i in range(self.ndims(values))]
+        return values[tuple(slices)]
+
     def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
         indices = self.as_tensor(indices).long()
@@ -547,6 +580,10 @@ class TorchBackend(Backend):
         indices = indices.long().repeat([1, 1, values.shape[-1]])
         result = scatter(base_grid_flat, dim=1, index=indices, src=values)
         return torch.reshape(result, base_grid.shape)
+
+    def arctan2(self, y, x):
+        y, x = self.auto_cast(y, x)
+        return torch.arctan2(y, x)
 
     def fft(self, x, axes: tuple or list):
         if not x.is_complex():
@@ -602,57 +639,125 @@ class TorchBackend(Backend):
             multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
 
+    def repeat(self, x, repeats, axis: int):
+        if isinstance(repeats, (np.ndarray, tuple, list)):
+            repeats = self.as_tensor(repeats)
+        return torch.repeat_interleave(self.as_tensor(x), repeats, axis)
+
     def sparse_coo_tensor(self, indices, values, shape):
-        indices_ = self.to_int64(indices)
-        values_ = self.to_float(values)
-        if not self.is_available(values_):
-            # the output of torch.sparse_coo_tensor is considered constant
-            @torch.jit.script
-            def sparse_coo_tensor(values, indices, cols: int, rows: int, dtype: torch.dtype) -> torch.sparse.Tensor:
-                size = torch.Size([cols, rows])
-                return torch.sparse_coo_tensor(indices, values, size=size, dtype=dtype)
-            result = sparse_coo_tensor(values_, indices_, shape[0], shape[1], to_torch_dtype(self.float_type))
+        indices = self.to_int64(indices)
+        indices = self.transpose(indices, [1, 0])
+        values = self.to_float(values)
+
+        @torch.jit.script  # the output of torch.sparse_coo_tensor is considered constant
+        def sparse_coo_tensor(values, indices, cols: int, rows: int, dtype: torch.dtype) -> torch.sparse.Tensor:
+            size = torch.Size([cols, rows])
+            return torch.sparse_coo_tensor(indices, values, size=size, dtype=dtype)
+
+        return sparse_coo_tensor(values, indices, shape[0], shape[1], to_torch_dtype(self.float_type))
+
+    def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+        row_pointers = self.as_tensor(row_pointers)
+        column_indices = self.as_tensor(column_indices)
+        return torch.sparse_csr_tensor(row_pointers, column_indices, values, shape, device=values.device)
+
+    # def csr_matrix_batched(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+    #     batch_size, nnz, channels = values.shape
+    #     if version.parse(torch.__version__) >= version.parse('1.13.0'):
+    #         return torch.sparse_csr_tensor(row_pointers, column_indices, values, (batch_size, *shape, channels), device=values.device)
+    #     else:
+    #         warnings.warn("PyTorch >= 1.13 is required for batched CSR matrices. Visit https://pytorch.org/ to download the latest version.", RuntimeWarning)
+    #         raise NotImplementedError
+    #         # matrices = []
+    #         # for b in range(batch_size):
+    #         #     if values.shape[-1] == 1:
+    #         #         b_matrix = torch.sparse_csr_tensor(row_pointers[b], column_indices[b], values[b, :, 0], shape, device=values.device)
+    #         #     else:
+    #         #         raise NotImplementedError
+    #         #     matrices.append(b_matrix)
+    #         # return matrices
+
+    def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+        batch_size, nnz, channels = values.shape
+        if version.parse(torch.__version__) >= version.parse('1.13.0'):
+            return torch.sparse_csc_tensor(column_pointers, row_indices, values, (batch_size, *shape, channels), device=values.device)
         else:
-            result = torch.sparse_coo_tensor(indices_, values_, shape, dtype=to_torch_dtype(self.float_type))
-        return result
+            warnings.warn("PyTorch >= 1.13 is required for batched CSC matrices. Visit https://pytorch.org/ to download the latest version.", RuntimeWarning)
+            raise NotImplementedError
+            # batch_size, nnz, channels = values.shape
+            # if batch_size == channels == 1:
+            #     return scipy.sparse.csc_matrix((values[0, :, 0], row_indices[0], column_pointers[0]), shape=shape)
+            # matrices = []
+            # for b in range(batch_size):
+            #     if values.shape[-1] == 1:
+            #         b_matrix = scipy.sparse.csc_matrix((values[b, :, 0], row_indices[b], column_pointers[b]), shape=shape)
+            #     else:
+            #         raise NotImplementedError
+            #     matrices.append(b_matrix)
+            # return matrices
 
-    def coordinates(self, tensor):
-        assert isinstance(tensor, torch.Tensor) and tensor.is_sparse
-        idx = tensor._indices()
-        idx = self.unstack(idx, axis=0)
-        return idx, tensor._values()
+    def mul_csr_dense(self, column_indices, row_pointers, values, shape: tuple, dense):
+        values, dense = self.auto_cast(values, dense, bool_to_int=True, int_to_float=True)
+        batch_size, nnz, channels = values.shape
+        result = []
+        for b in range(batch_size):
+            b_result = []
+            for c in range(channels):
+                matrix = torch.sparse_csr_tensor(row_pointers[b], column_indices[b], values[b, :, c], shape, device=values.device)
+                b_result.append(torch.sparse.mm(matrix, self.as_tensor(dense[b, :, c, :])))
+            result.append(torch.stack(b_result))
+        return torch.stack(result)
+        # if channel_count == 1:
+        #     matrix = torch.sparse_csr_tensor(row_pointers, column_indices, values[:, :, 0], (batch_size, *shape), device=values.device)
+        #     matrix.matmul(self.as_tensor(dense[:, 0, :, :]))
+        #     # torch.sparse.mm(matrix, self.as_tensor(dense[:, 0, :, :]))
+        #     raise NotImplementedError
+        # else:
+        #     # tile
+        #     raise NotImplementedError
 
-    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        if callable(lin) or trj:
+    def conjugate_gradient(self, lin, y, x0, tol_sq, max_iter) -> SolveResult:
+        if callable(lin) or len(max_iter) > 1:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
-            return Backend.conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj)
-        assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
+            return Backend.conjugate_gradient(self, lin, y, x0, tol_sq, max_iter)
+        assert isinstance(lin, torch.Tensor), "Batched matrices are not yet supported"
+        batch_size = self.staticshape(y)[0]
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
-        rtol = self.as_tensor(rtol)
-        atol = self.as_tensor(atol)
-        max_iter = self.as_tensor(max_iter)
-        x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg(lin, y, x0, rtol, atol, max_iter)
-        return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
+        tol_sq = self.as_tensor(tol_sq)
+        max_iter = self.as_tensor(max_iter[0])
+        x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg(lin, y, x0, tol_sq, max_iter)
+        return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
-    def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        if callable(lin) or trj:
+    def conjugate_gradient_adaptive(self, lin, y, x0, tol_sq, max_iter) -> SolveResult:
+        if callable(lin) or len(max_iter) > 1:
             assert self.is_available(y), "Tracing conjugate_gradient with linear operator is not yet supported."
-            return Backend.conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj)
-        assert isinstance(lin, torch.Tensor) and lin.is_sparse, "Batched matrices are not yet supported"
+            return Backend.conjugate_gradient_adaptive(self, lin, y, x0, tol_sq, max_iter)
+        assert isinstance(lin, torch.Tensor), "Batched matrices are not yet supported"
+        batch_size = self.staticshape(y)[0]
         y = self.to_float(y)
         x0 = self.copy(self.to_float(x0))
-        rtol = self.as_tensor(rtol)
-        atol = self.as_tensor(atol)
-        max_iter = self.as_tensor(max_iter)
-        x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter)
-        return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, "")
+        tol_sq = self.as_tensor(tol_sq)
+        max_iter = self.as_tensor(max_iter[0])
+        x, residual, iterations, function_evaluations, converged, diverged = torch_sparse_cg_adaptive(lin, y, x0, tol_sq, max_iter)
+        return SolveResult(f"Φ-Flow CG ({'PyTorch*' if self.is_available(y) else 'TorchScript'})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
+
+    def bi_conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, poly_order=2) -> SolveResult:
+        if not self.is_available(y):
+            warnings.warn("Bi-CG is not optimized for PyTorch and will always run the maximum number of iterations.", RuntimeWarning)
+        return Backend.bi_conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, poly_order)
 
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
         assert version.parse(torch.__version__) >= version.parse('1.9.0'), "least squares requires PyTorch >= 1.9.0"
         matrix, rhs = self.auto_cast(matrix, rhs)
         solution, residuals, rank, singular_values = torch.linalg.lstsq(matrix, rhs)
         return solution, residuals, rank, singular_values
+
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        matrix, rhs = self.auto_cast(matrix, rhs, int_to_float=True, bool_to_int=True)
+        rhs = self.expand_dims(rhs, -1)
+        x = torch.linalg.solve_triangular(matrix, rhs, upper=not lower, unitriangular=unit_diagonal)
+        return x[..., 0]
 
     def _prepare_graph_inputs(self, args: tuple, wrt: tuple or list):
         args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
@@ -978,9 +1083,8 @@ _FROM_TORCH = {np: dtype for dtype, np in _TO_TORCH.items()}
 
 
 @torch.jit._script_if_tracing
-def torch_sparse_cg(lin, y, x0, rtol, atol, max_iter):
+def torch_sparse_cg(lin, y, x0, tolerance_sq, max_iter):
     batch_size = y.shape[0]
-    tolerance_sq = torch.maximum(rtol ** 2 * torch.sum(y ** 2, -1), atol ** 2)
     x = x0
     dx = residual = y - sparse_matmul(lin, x)
     it_counter = torch.tensor(0, dtype=torch.int32, device=x.device)
@@ -1011,9 +1115,8 @@ def torch_sparse_cg(lin, y, x0, rtol, atol, max_iter):
 
 
 @torch.jit._script_if_tracing
-def torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter):
+def torch_sparse_cg_adaptive(lin, y, x0, tolerance_sq, max_iter):
     batch_size = y.shape[0]
-    tolerance_sq = torch.maximum(rtol ** 2 * torch.sum(y ** 2, -1), atol ** 2)
     x = x0
     dx = residual = y - sparse_matmul(lin, x)
     it_counter = torch.tensor(0, dtype=torch.int32, device=x.device)
@@ -1042,8 +1145,11 @@ def torch_sparse_cg_adaptive(lin, y, x0, rtol, atol, max_iter):
     return x, residual, iterations, function_evaluations, converged, diverged
 
 
-def sparse_matmul(matrix: torch.sparse.Tensor, b: torch.Tensor):
-    return torch.transpose(torch.sparse.mm(matrix, torch.transpose(b, 0, 1)), 0, 1)
+def sparse_matmul(matrix: torch.Tensor, b: torch.Tensor):
+    if matrix.is_sparse or matrix.is_sparse_csr:
+        return torch.transpose(torch.sparse.mm(matrix, torch.transpose(b, 0, 1)), 0, 1)
+    else:
+        return torch.transpose(torch.matmul(matrix, torch.transpose(b, 0, 1)), 0, 1)
 
 
 def divide_no_nan(x: torch.Tensor, y: torch.Tensor):

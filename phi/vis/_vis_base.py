@@ -6,9 +6,10 @@ from threading import Lock
 from typing import Tuple, Any, Optional, Dict, Callable
 
 from phi import field, math
-from phi.field import SampledField, Scene
-from phi.geom import Box
-from phi.math import Shape, EMPTY_SHAPE, Tensor
+from phi.field import SampledField, Scene, PointCloud, CenteredGrid
+from phi.field._field_math import data_bounds
+from phi.geom import Box, Cuboid
+from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel
 
 Control = namedtuple('Control', [
     'name',
@@ -325,6 +326,7 @@ class PlottingLibrary:
         self.name = name
         self.figure_classes = tuple(figure_classes)
         self.current_figure = None
+        self.recipes = []
 
     def __repr__(self):
         return self.name
@@ -339,7 +341,8 @@ class PlottingLibrary:
                       rows: int,
                       cols: int,
                       spaces: Dict[Tuple[int, int], Box],
-                      titles: Dict[Tuple[int, int], str]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      titles: Dict[Tuple[int, int], str],
+                      log_dims: Tuple[str, ...]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         """
         Args:
             size: Figure size in inches.
@@ -348,35 +351,55 @@ class PlottingLibrary:
             spaces: Axes and range per sub-plot: `(x,y) -> Box`. Only subplot locations contained as keys should be plotted.
                 To indicate automatic limit, the box will have a lower or upper limit of -inf or inf, respectively.
             titles: Subplot titles.
+            log_dims: Dimensions along which axes should be log-scaled
 
         Returns:
             figure: Native figure object
             subfigures: Native sub-figures by subplot location.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    def finalize(self, figure):
+        raise NotImplementedError
+
+    def close(self, figure):
+        raise NotImplementedError
+
+    def show(self, figure):
+        raise NotImplementedError
+
+    def save(self, figure, path: str, dpi: float):
+        raise NotImplementedError
+
+    def plot(self, data, figure, subplot, space, *args, **kwargs):
+        for recipe in self.recipes:
+            if recipe.can_plot(data, space):
+                recipe.plot(data, figure, subplot, space, *args, **kwargs)
+                return
+        raise NotImplementedError(f"No {self.name} recipe found for {data}. Recipes: {self.recipes}")
+
+
+class Recipe:
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        raise NotImplementedError
 
     def plot(self,
              data: SampledField,
              figure,
              subplot,
              space: Box,
-             min_val: float = None,
-             max_val: float = None,
-             show_color_bar: bool = True,
-             **plt_args):
-        raise NotImplementedError()
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor):
+        raise NotImplementedError
 
-    def close(self, figure):
-        raise NotImplementedError()
-
-    def show(self, figure):
-        raise NotImplementedError()
-
-    def save(self, figure, path: str, dpi: float):
-        raise NotImplementedError()
+    def __repr__(self):
+        return self.__class__.__name__
 
 
 class GuiInterrupt(KeyboardInterrupt):
@@ -387,7 +410,9 @@ def gui_interrupt(*args, **kwargs):
     raise GuiInterrupt()
 
 
-def display_name(python_name):
+def display_name(python_name: Any):
+    if isinstance(python_name, (int, bool)):
+        return str(python_name)
     n = list(python_name)
     n[0] = n[0].upper()
     for i in range(1, len(n)):
@@ -400,6 +425,19 @@ def display_name(python_name):
         return f"⏮ {text}"
     else:
         return text
+
+
+def index_label(idx: dict) -> str or None:
+    if len(idx) == 0:
+        return None
+    if len(idx) == 1:
+        return display_name(next(iter(idx.values())))
+    else:
+        number_unlabelled_dims = len([1 for k, v in idx.items() if isinstance(v, int)])
+        if number_unlabelled_dims <= 1:
+            return " ".join([display_name(n) for n in idx.values()])
+        else:
+            return ", ".join(f'{k}={display_name(v)}' for k, v in idx.items())
 
 
 def select_channel(value: SampledField or Tensor or tuple or list, channel: str or None):
@@ -420,3 +458,30 @@ def select_channel(value: SampledField or Tensor or tuple or list, channel: str 
                 f"No {channel} component present. Available dimensions: {', '.join(value.shape.spatial.names)}")
         else:
             return value
+
+
+def tensor_as_field(t: Tensor):
+    """
+    Interpret a `Tensor` as a `CenteredGrid` or `PointCloud` depending on its dimensions.
+
+    Unlike the `CenteredGrid` constructor, this function will have the values sampled at integer points for each spatial dimension.
+
+    Args:
+        t: `Tensor` with either `spatial` or `instance` dimensions.
+
+    Returns:
+        `CenteredGrid` or `PointCloud`
+    """
+    arbitrary_lines_1d = spatial(t).rank == 1 and 'vector' in t.shape
+    if instance(t) or arbitrary_lines_1d or arbitrary_lines_1d:
+        bounds = data_bounds(t)
+        extended_bounds = Cuboid(bounds.center, bounds.half_size * 1.2).box()
+        lower = math.where(extended_bounds.lower * bounds.lower <= 0, bounds.lower * .9, extended_bounds.lower)
+        upper = math.where(extended_bounds.upper * bounds.upper <= 0, bounds.lower * .9, extended_bounds.upper)
+        return PointCloud(t, bounds=Box(lower, upper))
+    elif spatial(t):
+        return CenteredGrid(t, 0, bounds=Box(math.const_vec(-0.5, spatial(t)), wrap(spatial(t), channel('vector')) - 0.5))
+    elif 'vector' in t.shape:
+        return PointCloud(math.expand(t, instance(points=1)), bounds=Cuboid(t, half_size=math.const_vec(1, t.shape['vector'])).box())
+    else:
+        raise ValueError(f"Cannot create field from tensor with shape {t.shape}. Requires at least one spatial, instance or vector dimension.")

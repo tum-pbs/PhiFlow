@@ -1,11 +1,11 @@
-from typing import TypeVar, Any, Tuple
+from typing import TypeVar, Any, Tuple, List
+
+from phi.math import Solve
 
 from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
-from . import HardGeometryMask
 from ._embed import FieldEmbedding
 from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation
-from .numerical import Scheme
 from ..geom._stack import GeometryStack
 from ..math import Shape, NUMPY
 from ..math._shape import spatial, channel, parse_dim_order
@@ -48,7 +48,7 @@ class Grid(SampledField):
         """
         raise NotImplementedError(self)
 
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> math.Tensor:
+    def _sample(self, geometry: Geometry, **kwargs) -> math.Tensor:
         raise NotImplementedError(self)
 
     def with_values(self, values):
@@ -157,11 +157,10 @@ class CenteredGrid(Grid):
     """
 
     def __init__(self,
-                 values: Any,
+                 values: Any = 0.,
                  extrapolation: Any = 0.,
                  bounds: Box or float = None,
                  resolution: int or Shape = None,
-                 scheme: Scheme = Scheme(),
                  **resolution_: int or Tensor):
         """
         Args:
@@ -196,9 +195,9 @@ class CenteredGrid(Grid):
             if isinstance(values, math.Tensor):
                 values = math.expand(values, resolution)
             elif isinstance(values, Geometry):
-                values = reduce_sample(HardGeometryMask(values), elements, scheme=scheme)
+                values = reduce_sample(values, elements)
             elif isinstance(values, Field):
-                values = reduce_sample(values, elements, scheme=scheme)
+                values = reduce_sample(values, elements)
             elif callable(values):
                 values = _sample_function(values, elements)
             else:
@@ -220,16 +219,23 @@ class CenteredGrid(Grid):
         bounds = self.elements[item].bounds[{'vector': keep_dims}]
         return CenteredGrid(values, bounds=bounds, extrapolation=extrapolation)
 
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
+    def _sample(self, geometry: Geometry, **kwargs) -> Tensor:
         if geometry == self.bounds:
             return math.mean(self._values, self._resolution)
         if isinstance(geometry, GeometryStack):
-            sampled = [self._sample(g, scheme=scheme) for g in geometry.geometries]
+            sampled = [self._sample(g, **kwargs) for g in geometry.geometries]
             return math.stack(sampled, geometry.geometries.shape)
         if isinstance(geometry, GridCell):
             if self.elements == geometry:
                 return self.values
             elif math.close(self.dx, geometry.size):
+                if all([math.close(offset, geometry.half_size) or math.close(offset, 0)
+                        for offset in math.abs(self.bounds.lower - geometry.bounds.lower)]):
+                    dyadic_interpolated = self._dyadic_interplate(geometry.resolution, geometry.bounds, **kwargs)
+                    if dyadic_interpolated is not NotImplemented:
+                        return dyadic_interpolated
+                if 'order' in kwargs and kwargs['order'] != 2:
+                    raise NotImplementedError(f"Only 6th-order implicit and 2nd-order resampling supported but got order={kwargs['order']}")
                 fast_resampled = self._shift_resample(geometry.resolution, geometry.bounds)
                 if fast_resampled is not NotImplemented:
                     return fast_resampled
@@ -241,10 +247,15 @@ class CenteredGrid(Grid):
                 # geometry is a subgrid of self
                 return resampled_values
             else:  # otherwise we also sample the extrapolation Field
-                ext_values = self._extrapolation.field._sample(geometry, scheme)
+                ext_values = self._extrapolation.field._sample(geometry, **kwargs)
                 inside = self.bounds.lies_inside(points)
                 return math.where(inside, resampled_values, ext_values)
         return resampled_values
+
+    def _dyadic_interplate(self, resolution: Shape, bounds: Box, order=2, implicit: Solve = None):
+        offsets = bounds.lower - self.bounds.lower
+        interpolation_dirs = [0 if math.close(offset, 0) else int(math.sign(offset)) for offset in offsets]
+        return _dyadic_interpolate(self.values, interpolation_dirs, self.extrapolation, order, implicit)
 
     def _shift_resample(self, resolution: Shape, bounds: Box, threshold=1e-5, max_padding=20):
         assert math.all_available(bounds.lower, bounds.upper), "Shift resampling requires 'bounds' to be available."
@@ -284,11 +295,10 @@ class StaggeredGrid(Grid):
     """
 
     def __init__(self,
-                 values: Any,
+                 values: Any = 0.,
                  extrapolation: float or Extrapolation = 0,
                  bounds: Box or float = None,
                  resolution: Shape or int = None,
-                 scheme: Scheme = Scheme(),
                  **resolution_: int or Tensor):
         """
         Args:
@@ -338,9 +348,9 @@ class StaggeredGrid(Grid):
                     else:  # Keep dim order from data and check it matches resolution
                         assert set(resolution_from_staggered_tensor(values, extrapolation)) == set(resolution), f"Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html"
             elif isinstance(values, Geometry):
-                values = reduce_sample(HardGeometryMask(values), elements, scheme=scheme)
+                values = reduce_sample(values, elements)
             elif isinstance(values, Field):
-                values = reduce_sample(values, elements, scheme=scheme)
+                values = reduce_sample(values, elements)
             elif callable(values):
                 values = _sample_function(values, elements)
                 if elements.shape.shape.rank > 1:  # Different number of X and Y faces
@@ -375,8 +385,8 @@ class StaggeredGrid(Grid):
             values = math.stack(values, channel(vector=self.resolution))
             return StaggeredGrid(values, extrapolation, bounds=self.bounds)
 
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
-        channels = [sample(component, geometry) for component in self.vector.unstack()]
+    def _sample(self, geometry: Geometry, **kwargs) -> Tensor:
+        channels = [sample(component, geometry, **kwargs) for component in self.vector.unstack()]
         return math.stack(channels, geometry.shape['vector'])
 
     def closest_values(self, points: Geometry):
@@ -556,3 +566,48 @@ def _get_resolution(resolution: Shape, resolution_: dict, bounds: Box):
     except AssertionError as err:
         raise ValueError(f"Invalid grid resolution: {', '.join(f'{dim}={size}' for dim, size in resolution_.items())}. Pass an int for all sizes.") from err
     return (resolution or math.EMPTY_SHAPE) & resolution_
+
+
+def _dyadic_interpolate(grid: Tensor, interpolation_dirs: List, padding: Extrapolation, order: int, implicit: Solve):
+    """
+    Samples a sub-grid from `grid` with an offset of half a grid cell in directions defined by `interpolation_dirs`.
+
+    Args:
+        grid: `Tensor` to be resampled.
+        interpolation_dirs: List which defines for every spatial dimension of `grid` if interpolation should be performed,
+            in positive direction `1` / negative direction `-1` / no interpolation`0`
+            len(interpolation_dirs) == len(grid.shape.spatial.names) is assumed
+            Example: With `grid.shape.spatial.names=['x', 'y']` and `interpolation_dirs: [1, -1]`
+                     grid will be interpolated half a grid cell in positive x direction and half a grid cell in negative y direction
+        padding: Extrapolation used for the needed out of Domain values
+        order: finite difference `Scheme` used for interpolation
+
+    Returns:
+      Sub-grid as `Tensor`
+    """
+    if implicit:
+        if order == 6:
+            values, needed_shifts = [1 / 20, 3 / 4, 3 / 4, 1 / 20], (-1, 0, 1, 2)
+            values_rhs, needed_shifts_rhs = [3 / 10, 1, 3 / 10], (-1, 0, 1)
+        else:
+            return NotImplemented
+    else:
+        return NotImplemented
+    result = grid
+    for dim, dir in zip(grid.shape.spatial.names, interpolation_dirs):
+        if dir == 0: continue
+        is_neg_dir = dir == -1
+        current_widths = [abs(min(needed_shifts)) + is_neg_dir, max(needed_shifts) - is_neg_dir]
+        padded = math.pad(result, {dim: tuple(current_widths)}, padding)
+        shifted = math.shift(padded, needed_shifts, [dim], padding=None, stack_dim=None)
+        result = sum([value * shift_ for value, shift_ in zip(values, shifted)])
+        if implicit:
+            implicit.x0 = result
+            result = math.solve_linear(dyadic_interpolate_lhs, result, implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, dim=dim, padding=padding)
+    return result
+
+
+@math.jit_compile_linear(auxiliary_args="values_rhs, needed_shifts_rhs")
+def dyadic_interpolate_lhs(x, values_rhs, needed_shifts_rhs, dim, padding):
+    shifted = math.shift(x, needed_shifts_rhs, stack_dim=None, dims=[dim], padding=padding)
+    return sum([value * shift_ for value, shift_ in zip(values_rhs, shifted)])

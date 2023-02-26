@@ -15,12 +15,11 @@ def move_obstacle(obs: Obstacle):
 
 obstacle = Obstacle(Box(x=(5, 11), y=(10, 16)), velocity=[1., 0], angular_velocity=tensor(0,))
 velocity = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
-obstacle_mask = CenteredGrid(HardGeometryMask(obstacle.geometry), extrapolation.BOUNDARY, **DOMAIN)
+obstacle_mask = CenteredGrid(obstacle.geometry, extrapolation.BOUNDARY, **DOMAIN)
 pressure = None
 
 for _ in view(velocity, obstacle_mask, play=True, namespace=globals()).range():
     obstacle = move_obstacle(obstacle)
     velocity = advect.mac_cormack(velocity, velocity, DT)
     velocity, pressure = fluid.make_incompressible(velocity, (obstacle,))
-    fluid.masked_laplace.tracers.clear()  # we will need to retrace because the matrix changes each step. This is not needed when JIT-compiling the physics.
-    obstacle_mask = HardGeometryMask(obstacle.geometry) @ pressure
+    obstacle_mask = resample(obstacle.geometry, pressure)

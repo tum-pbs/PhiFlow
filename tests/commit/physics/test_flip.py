@@ -7,13 +7,13 @@ from phi.flow import *
 
 def step(particles: PointCloud, obstacles: list, dt: float, **grid_resolution):
     # --- Grid Operations ---
-    velocity = prev_velocity = field.finite_fill(StaggeredGrid(particles, 0, particles.bounds, scheme=Scheme(outside_points='clamp'), **grid_resolution))
-    occupied = CenteredGrid(particles.mask(), velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution)
+    velocity = prev_velocity = field.finite_fill(resample(particles, StaggeredGrid(0, 0, particles.bounds, **grid_resolution), outside_handling='clamp', scatter=True))
+    occupied = resample(field.mask(particles), CenteredGrid(0, velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution), scatter=True)
     velocity, pressure = fluid.make_incompressible(velocity + (0, -9.81 * dt), obstacles, active=occupied)
     # --- Particle Operations ---
-    particles += (velocity - prev_velocity) @ particles  # FLIP update
+    particles += resample(velocity - prev_velocity, particles)  # FLIP update
     # particles = velocity @ particles  # PIC update
-    particles = advect.points(particles, velocity * ~union(obstacles), dt, advect.finite_rk4)
+    particles = advect.points(particles, velocity * field.mask(~union(obstacles)), dt, advect.finite_rk4)
     particles = fluid.boundary_push(particles, obstacles + [~particles.bounds])
     return particles
 

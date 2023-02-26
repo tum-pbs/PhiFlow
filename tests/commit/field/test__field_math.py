@@ -5,11 +5,13 @@ import numpy
 
 import phi
 from phi import math, geom
-from phi.field import StaggeredGrid, CenteredGrid, HardGeometryMask, PointCloud
+from phi.field import StaggeredGrid, CenteredGrid, PointCloud, Noise
+from phi.field._field_math import _lhs_for_implicit_scheme, _ex_map_f, pad, shift, stack
 from phi.geom import Box, Sphere
 from phi import field
 from phi.math import extrapolation, instance, channel, spatial, batch
 from phi.math.backend import Backend
+from phi.math.extrapolation import combine_by_direction, REFLECT, SYMMETRIC
 
 BACKENDS = phi.detect_backends()
 
@@ -172,16 +174,6 @@ class TestFieldMath(TestCase):
         grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box['x,y', 0:1, 0:1])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y') / 100)
 
-    def test_tensor_as_field(self):
-        t = math.random_normal(spatial(x=4, y=3), channel(vector='x,y'))
-        grid = field.tensor_as_field(t)
-        self.assertIsInstance(grid, CenteredGrid)
-        math.assert_close(grid.dx, 1)
-        math.assert_close(grid.points.x[0].y[0], 0)
-        t = math.random_normal(instance(points=5), channel(vector='x,y'))
-        points = field.tensor_as_field(t)
-        self.assertIsInstance(points, PointCloud)
-
 
     def test__periodic_2d_arakawa_poisson_bracket(self):
         """test _periodic_2d_arakawa_poisson_bracket implementation"""
@@ -245,4 +237,33 @@ class TestFieldMath(TestCase):
         val = val / 3
         return val
 
+    def test_mask(self):
+        mask = field.mask(Box(x=1, y=1))
+        self.assertEqual(2, mask.spatial_rank)
+        mask = field.mask(PointCloud(math.vec(x=0, y=0)))
+        self.assertEqual(2, mask.spatial_rank)
+        mask = field.mask(CenteredGrid(0, x=4, y=3))
+        self.assertEqual(2, mask.spatial_rank)
+
+    # def test_implicit_laplace_solve(self):
+    #     grid = CenteredGrid(Noise(), x=5, y=5)
+    #     axes_names = grid.shape.only(spatial).names
+    #     extrap_map = {}
+    #     extrap_map_rhs = {}
+    #     values, needed_shifts = [3 / 44, 12 / 11, -51 / 22, 12 / 11, 3 / 44], (-2, -1, 0, 1, 2)
+    #     extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
+    #     values_rhs, needed_shifts_rhs = [2 / 11, 1, 2 / 11], (-1, 0, 1)
+    #     extrap_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
+    #     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
+    #     grid.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), grid.extrapolation))
+    #     padded_components = [pad(grid, {dim: base_widths}) for dim in axes_names]
+    #     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, axes_names)]
+    #     result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / grid.dx.vector[dim] ** 2 for shifted_component, dim in zip(shifted_components, axes_names)]
+    #     result_components = stack(result_components, channel('laplacian'))
+    #     result_components.with_values(result_components.values._cache())
+    #     result_components = result_components.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map_rhs), grid.extrapolation))
+    #     matrix, _ = math.matrix_from_function(_lhs_for_implicit_scheme, result_components, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
+    #     direct_result = _lhs_for_implicit_scheme(result_components, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
+    #     matrix_result = matrix @ result_components.values
+    #     math.assert_close(matrix_result, direct_result)
 

@@ -5,7 +5,7 @@ from . import GridCell
 from ._geom import Geometry
 from ..math import Tensor, expand
 from ..math._shape import shape_stack, Shape, INSTANCE_DIM, non_channel
-from ..math._magic_ops import variable_attributes, copy_with
+from ..math._magic_ops import variable_attributes, copy_with, unstack
 from ..math.magic import slicing_dict
 
 
@@ -65,9 +65,8 @@ class GeometryStack(Geometry):
         values = [expand(g.bounding_half_extent(), non_channel(g)) for g in self.geometries]
         return math.stack(values, self.geometries.shape)
 
-    def shifted(self, delta: math.Tensor):
-        deltas = delta.dimension(self.geometries.shape).unstack(len(self.geometries))
-        geometries = [g.shifted(d) for g, d in zip(self.geometries, deltas)]
+    def at(self, center: Tensor) -> 'Geometry':
+        geometries = [self.geometries[idx].native().at(center[idx]) for idx in self.geometries.shape.meshgrid()]
         return GeometryStack(math.layout(geometries, self.geometries.shape))
 
     def rotated(self, angle):

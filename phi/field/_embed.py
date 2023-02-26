@@ -19,7 +19,8 @@ class FieldEmbedding(Extrapolation):
     def __getitem__(self, item):
         return FieldEmbedding(self.field[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'ConstantExtrapolation':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'ConstantExtrapolation':
         if all(isinstance(v, FieldEmbedding) for v in values):
             return ConstantExtrapolation(stack([v.field for v in values], dim, **kwargs))
         else:

@@ -3,9 +3,9 @@ from unittest import TestCase
 import plotly
 
 from phi import geom, field, math
-from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, SoftGeometryMask
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, resample
 from phi.geom import Sphere, Box
-from phi.math import extrapolation, wrap, instance, channel, batch, spatial
+from phi.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack
 from phi.vis import show, overlay, plot, close
 import matplotlib.pyplot as plt
 
@@ -66,10 +66,10 @@ class TestPlots(TestCase):
         self._test_plot(spheres)
 
     def test_plot_point_cloud_2d(self):
-        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1), color='#994444')
-        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box['x,y', .4:.6, .2:.4]).elements, 'x,y', instance('points')), color='#000000')
+        spheres = PointCloud(Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1))
+        cells = PointCloud(geom.pack_dims(CenteredGrid(0, 0, x=3, y=3, bounds=Box['x,y', .4:.6, .2:.4]).elements, 'x,y', instance('points')))
         cloud = field.stack([spheres, cells], instance('stack'))
-        self._test_plot(cloud)
+        self._test_plot(cloud, color=wrap(['#994444', '#000000'], instance('stack')))
 
     def test_plot_point_cloud_2d_large(self):
         spheres = PointCloud(Sphere(wrap([(2, 4), (9, 8), (7, 8)], instance('points'), channel(vector='x,y')), radius=1))
@@ -104,12 +104,12 @@ class TestPlots(TestCase):
         self._test_plot(overlay(grid, grid * (0.1, 0.02), cloud), title='Overlay')
 
     def test_plot_density_3d_batched(self):
-        sphere = CenteredGrid(SoftGeometryMask(Sphere(x=.5, y=.5, z=.5, radius=.4)), x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1))
+        sphere = resample(Sphere(x=.5, y=.5, z=.5, radius=.4), CenteredGrid(0, x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1)), soft=True)
         cylinder = CenteredGrid(geom.infinite_cylinder(x=16, y=16, inf_dim='z', radius=10), x=32, y=32, z=32)
         self._test_plot(sphere, cylinder)
 
     def test_plot_vector_3d_batched(self):
-        sphere = CenteredGrid(SoftGeometryMask(Sphere(x=.5, y=.5, z=.5, radius=.4)), x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1)) * (.1, 0, 0)
+        sphere = resample(Sphere(x=.5, y=.5, z=.5, radius=.4), CenteredGrid(0, x=10, y=10, z=10, bounds=Box(x=1, y=1, z=1)), soft=True) * (.1, 0, 0)
         cylinder = CenteredGrid(geom.infinite_cylinder(x=16, y=16, inf_dim='z', radius=10), x=32, y=32, z=32) * (0, 0, .1)
         self._test_plot(sphere, cylinder)
 
@@ -123,6 +123,15 @@ class TestPlots(TestCase):
 
     def test_plot_point_cloud_3d_points(self):
         self._test_plot(PointCloud(math.random_normal(instance(points=5), channel(vector='x,y,z'))))
+
+    def test_plot_arbitrary_lines(self):
+        points = vec(resolution=wrap([0, 1, 4], spatial('line')), error=wrap([0, 1, .5], spatial('line')))
+        points = stack([points, points + (0, -1)], instance('disconnected'))
+        points = stack([points, points * (1, -1)], channel('categories'))
+        try:
+            self._test_plot(PointCloud(points), color=wrap([0, 1], channel('categories')))
+        except NotImplementedError:
+            pass
 
     def test_animate(self):
         values = math.random_uniform(batch(time=3), spatial(x=32, y=32))

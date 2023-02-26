@@ -33,7 +33,9 @@ jobs:
         run: pdoc --html --output-dir docs --force phi
         
       - name: Build static HTML for Jupyter Notebooks
-        run: jupyter nbconvert --to html --execute --allow-errors docs/*.ipynb
+        run: |
+          jupyter nbconvert --to html --execute --allow-errors docs/*.ipynb
+          jupyter nbconvert --to html --output-dir docs/ docs/prerendered/*.ipynb
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@4.1.4  # See https://github.com/marketplace/actions/deploy-to-github-pages

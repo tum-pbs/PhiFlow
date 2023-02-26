@@ -1,8 +1,6 @@
-from typing import Tuple
-
 from phi import math
 from ._geom import Geometry, _keep_vector
-from ..math import wrap, Tensor, Shape
+from ..math import wrap, Tensor, expand
 from ..math.magic import slicing_dict
 
 
@@ -93,10 +91,10 @@ class Sphere(Geometry):
         return self.radius
 
     def bounding_half_extent(self):
-        return self.radius
+        return expand(self.radius, self._center.shape.only('vector'))
 
-    def shifted(self, delta):
-        return Sphere(self._center + delta, self._radius)
+    def at(self, center: Tensor) -> 'Geometry':
+        return Sphere(center, self._radius)
 
     def rotated(self, angle):
         return self

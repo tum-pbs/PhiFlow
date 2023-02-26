@@ -34,10 +34,10 @@ for _ in ModuleViewer().range(100):
 This launches a web interface displaying the velocity and pressure fields and allows you to step through the simulation step by step.
 
 Slightly more complex examples can be found in 
-[marker.py](../demos/marker.py) which passively advects an additional marker field,
-[smoke_plume.py](../demos/smoke_plume.py) which additionally introduces a buoyancy force,
-[fluid_logo.py](../demos/fluid_logo.py) which adds obstacles to the scene and
-[rotating_bar.py](../demos/rotating_bar.py) which adds geometry movement.
+[marker.py](https://github.com/tum-pbs/PhiFlow/blob/master/demos/marker.py) which passively advects an additional marker field,
+[smoke_plume.py](https://github.com/tum-pbs/PhiFlow/blob/master/demos/smoke_plume.py) which additionally introduces a buoyancy force,
+[fluid_logo.py](https://github.com/tum-pbs/PhiFlow/blob/master/demos/fluid_logo.py) which adds obstacles to the scene and
+[rotating_bar.py](https://github.com/tum-pbs/PhiFlow/blob/master/demos/rotating_bar.py) which adds geometry movement.
 
 
 ## Differences to MantaFlow

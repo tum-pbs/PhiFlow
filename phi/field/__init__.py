@@ -17,7 +17,7 @@ All fields can be sampled at physical locations or volumes using `sample()` or `
 See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 """
 
-from ._field import Field, SampledField, sample, reduce_sample, as_extrapolation
+from ._field import Field, SampledField, sample, reduce_sample, resample, as_extrapolation
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import Grid, CenteredGrid, StaggeredGrid
 from ._point_cloud import PointCloud
@@ -32,7 +32,7 @@ from phi.math import (
     unstack, stack, concat  # expand, rename_dims, pack_dims, unpack_dims
 )
 from ._field_math import (
-    assert_close, tensor_as_field,
+    assert_close,
     bake_extrapolation,
     laplace, spatial_gradient, divergence, stagger, curl,  # spatial operators
     fourier_poisson, fourier_laplace,
@@ -45,7 +45,7 @@ from ._field_math import (
     native_call,
     integrate,
     pack_dims,
-    support,
+    support, mask,
 )
 from ._field_io import write, read
 from ._scene import Scene

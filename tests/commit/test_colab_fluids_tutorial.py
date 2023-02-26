@@ -20,7 +20,7 @@ class ColabNotebookTest(TestCase):
                             smoke = advect.mac_cormack(smoke, velocity, dt=1) + INFLOW
                             buoyancy_force = smoke * (0, 0.5) @ velocity
                             velocity = advect.semi_lagrangian(velocity, velocity, dt=1) + buoyancy_force
-                            velocity, _ = fluid.make_incompressible(velocity)
+                            velocity, _ = fluid.make_incompressible(velocity, (), Solve(abs_tol=1e-6))
                         loss = field.l2_loss(diffuse.explicit(smoke - field.stop_gradient(smoke.inflow_loc[-1]), 1, 1, 10))
                         return loss, smoke, velocity
 

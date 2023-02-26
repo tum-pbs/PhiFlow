@@ -5,7 +5,7 @@ from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phi.math import copy_with, shape
+from phi.math import copy_with, shape, Solve
 
 
 def explicit(field: FieldType,
@@ -40,7 +40,7 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve=math.Solve('CG', 1e-5, 0)) -> FieldType:
+             solve=Solve('CG')) -> FieldType:
     """
     Diffusion by solving a linear system of equations.
 
@@ -61,6 +61,32 @@ def implicit(field: FieldType,
     if not solve.x0:
         solve = copy_with(solve, x0=field)
     return solve_linear(sharpen, y=field, solve=solve)
+
+
+def finite_difference(grid: Grid,
+                      diffusivity: float or math.Tensor or Field,
+                      order: int,
+                      implicit: math.Solve) -> FieldType:
+
+    """
+    Diffusion by using a finite difference scheme.
+    In contrast to `explicit` and `implicit` accuracy can be increased by using stencils of higher-order rather than calculating substeps.
+    This is controlled by the `scheme` passed.
+
+    Args:
+        grid: CenteredGrid or StaggeredGrid
+        diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.laplace()`).
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
+
+    Returns:
+        Diffused grid of same type as `grid`.
+    """
+    diffusivity = diffusivity.at(grid) if isinstance(diffusivity, Field) else diffusivity
+    return diffusivity * laplace(grid, order=order, implicit=implicit).with_extrapolation(grid.extrapolation)
 
 
 def fourier(field: GridType,

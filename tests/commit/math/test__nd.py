@@ -258,4 +258,4 @@ class TestMathNDNumpy(TestCase):
 
     def test_vec_expand(self):
         v = math.vec(x=0, y=math.linspace(0, 1, instance(points=10)))
-        self.assertEqual(instance(points=10) & channel(vector='x,y'), v.shape)
+        self.assertEqual(set(instance(points=10) & channel(vector='x,y')), set(v.shape))

@@ -2,6 +2,7 @@ import numbers
 import warnings
 from functools import wraps
 from typing import List, Callable, Tuple
+from packaging import version
 
 import jax
 import jax.numpy as jnp
@@ -10,6 +11,9 @@ import numpy as np
 from jax import random
 from jax.core import Tracer
 from jax.interpreters.xla import DeviceArray
+
+if version.parse(jax.__version__) >= version.parse('0.2.20'):
+    from jax.experimental.sparse import BCOO, COO, CSR, CSC
 
 from phi.math import DType
 from phi.math.backend import Backend, ComputeDevice
@@ -72,6 +76,8 @@ class JaxBackend(Backend):
             return True
         if isinstance(x, jnp.bool_) and not isinstance(x, np.bool_):
             return True
+        if isinstance(x, (COO, BCOO, CSR, CSC)):
+            return True
         # --- Above considered native ---
         if only_native:
             return False
@@ -116,6 +122,14 @@ class JaxBackend(Backend):
     cos = staticmethod(jnp.cos)
     arccos = staticmethod(jnp.arccos)
     tan = staticmethod(jnp.tan)
+    arctan = staticmethod(np.arctan)
+    arctan2 = staticmethod(np.arctan2)
+    sinh = staticmethod(np.sinh)
+    arcsinh = staticmethod(np.arcsinh)
+    cosh = staticmethod(np.cosh)
+    arccosh = staticmethod(np.arccosh)
+    tanh = staticmethod(np.tanh)
+    arctanh = staticmethod(np.arctanh)
     log = staticmethod(jnp.log)
     log2 = staticmethod(jnp.log2)
     log10 = staticmethod(jnp.log10)
@@ -298,18 +312,36 @@ class JaxBackend(Backend):
         # else:
             return Backend.mul(self, a, b)
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
+        from jax.experimental.sparse import BCOO
+        if isinstance(A, BCOO):
+            return(A @ b.T).T
         return jnp.stack([A.dot(b[i]) for i in range(b.shape[0])])
 
-    def while_loop(self, loop: Callable, values: tuple):
+    def get_diagonal(self, matrices, offset=0):
+        result = jnp.diagonal(matrices, offset=offset, axis1=1, axis2=2)
+        return jnp.transpose(result, [0, 2, 1])
+
+    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
         if all(self.is_available(t) for t in values):
-            while jnp.any(values[0]):
+            return self.stop_gradient_tree(Backend.while_loop(self, loop, values, max_iter))
+        if isinstance(max_iter, (tuple, list)):  # stack traced trajectory, unroll until max_iter
+            values = self.stop_gradient_tree(values)
+            trj = [values] if 0 in max_iter else []
+            for i in range(1, max(max_iter) + 1):
                 values = loop(*values)
-            return values
+                if i in max_iter:
+                    trj.append(values)  # values are not mutable so no need to copy
+            return self.stop_gradient_tree(self.stack_leaves(trj))
         else:
-            cond = lambda vals: jnp.any(vals[0])
-            body = lambda vals: loop(*vals)
-            return jax.lax.while_loop(cond, body, values)
+            if max_iter is None:
+                cond = lambda vals: jnp.any(vals[0])
+                body = lambda vals: loop(*vals)
+                return jax.lax.while_loop(cond, body, values)
+            else:
+                cond = lambda vals: jnp.any(vals[1][0]) & (vals[0] < max_iter)
+                body = lambda vals: (vals[0] + 1, loop(*vals[1]))
+                return jax.lax.while_loop(cond, body, (self.as_tensor(0), values))[1]
 
     def max(self, x, axis=None, keepdims=False):
         return jnp.max(x, axis, keepdims=keepdims)
@@ -345,6 +377,10 @@ class JaxBackend(Backend):
         else:
             return jnp.array(x, to_numpy_dtype(dtype))
 
+    def gather(self, values, indices, axis: int):
+        slices = [indices if i == axis else slice(None) for i in range(self.ndims(values))]
+        return values[tuple(slices)]
+
     def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
         indices = self.as_tensor(indices)
@@ -356,6 +392,9 @@ class JaxBackend(Backend):
             b_indices = self.unstack(indices[min(b, indices.shape[0] - 1)], -1)
             results.append(b_values[b_indices])
         return jnp.stack(results)
+
+    def repeat(self, x, repeats, axis: int):
+        return jnp.repeat(x, self.as_tensor(repeats), axis)
 
     def std(self, x, axis=None, keepdims=False):
         return jnp.std(x, axis, keepdims=keepdims)
@@ -425,15 +464,17 @@ class JaxBackend(Backend):
             array = jnp.array(array)
         return from_numpy_dtype(array.dtype)
 
-    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -> SolveResult or List[SolveResult]:
-        if method == 'auto' and not trj and not self.is_available(y):
-            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
-        else:
-            return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, trj)
-
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> Tuple[TensorType, TensorType, TensorType, TensorType]:
         solution, residuals, rank, singular_values = lstsq_batched(matrix, rhs)
         return solution, residuals, rank, singular_values
+
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        matrix, rhs = self.auto_cast(matrix, rhs, int_to_float=True, bool_to_int=True)
+        x = jax.lax.linalg.triangular_solve(matrix, rhs, lower=lower, unit_diagonal=unit_diagonal, left_side=True)
+        return x
+
+    def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
+        return BCOO((values, indices), shape=shape)
 
 
 lstsq_batched = jax.vmap(jnp.linalg.lstsq)  # map first dimension, required for JaxBackend.matrix_solve_least_squares()

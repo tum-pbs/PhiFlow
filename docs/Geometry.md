@@ -60,7 +60,7 @@ Stacking: `GeometryStack(geometries, axis)` allows the type of `Geometry` to var
 ## Integration with fields
 
 `Geometry` objects are not [Fields](./Fields.md).
-However, some sampling operations like `CenteredGrid.sample()` also accept `Geometry` objects.
+To get a direct `Field` representation from a `Geometry`, use `field.mask()`.
+Geometries can be resampled to existing fields using `field.resample()`.
+In these cases, the field takes the value `1` inside the geometry and `0` outside.
 
-The classes `SoftGeometryMask` and `HardGeometryMask` represent fields that take the value `1` inside the geometry and `0` outside.
-The hard version always returns 0 or 1 while the soft version returns continuous values when volume-sampled.

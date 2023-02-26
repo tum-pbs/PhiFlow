@@ -47,15 +47,15 @@ def detect_backends() -> tuple:
         `tuple` of `phi.math.backend.Backend`
     """
     try:
+        from .jax import JAX
+    except ImportError:
+        pass
+    try:
         from .torch import TORCH
     except ImportError:
         pass
     try:
         from .tf import TENSORFLOW
-    except ImportError:
-        pass
-    try:
-        from .jax import JAX
     except ImportError:
         pass
     from .math.backend import BACKENDS

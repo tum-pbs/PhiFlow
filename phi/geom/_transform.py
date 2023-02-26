@@ -20,6 +20,9 @@ class RotatedGeometry(Geometry):
     def shape(self):
         return self._geometry.shape
 
+    def __variable_attrs__(self):
+        return '_geometry', '_angle'
+
     @property
     def geometry(self):
         return self._geometry
@@ -74,8 +77,8 @@ class RotatedGeometry(Geometry):
     def rank(self):
         return self.geometry.spatial_rank
 
-    def shifted(self, delta) -> Geometry:
-        return RotatedGeometry(self._geometry.shifted(delta), self._angle)
+    def at(self, center: Tensor) -> 'Geometry':
+        return RotatedGeometry(self._geometry.at(center), self._angle)
 
     def rotated(self, angle) -> Geometry:
         return RotatedGeometry(self._geometry, self._angle + angle)
@@ -92,6 +95,9 @@ class RotatedGeometry(Geometry):
 
     def __hash__(self):
         return hash(self._angle) + hash(self._geometry)
+
+    def __repr__(self):
+        return f"rot({self._geometry}, angle={self._angle})"
 
 
 def rotate(geometry: Geometry, angle: Number or Tensor) -> Geometry:
@@ -162,6 +168,9 @@ class _EmbeddedGeometry(Geometry):
         raise NotImplementedError()
 
     def shifted(self, delta: Tensor) -> 'Geometry':
+        raise NotImplementedError()
+
+    def at(self, center: Tensor) -> 'Geometry':
         raise NotImplementedError()
 
     def rotated(self, angle: float or Tensor) -> 'Geometry':

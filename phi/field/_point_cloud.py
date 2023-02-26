@@ -1,38 +1,49 @@
 import warnings
-from typing import Any, Tuple
+from typing import Any, Tuple, Union
+
+from phi.math import wrap, expand, non_batch, extrapolation, spatial
 
 from phi import math
 from phi.geom import Geometry, GridCell, Box, Point
-from ._field import SampledField
-from .numerical import Scheme
+from ._field import SampledField, resample
 from ..geom._stack import GeometryStack
 from ..math import Tensor, instance, Shape
-from ..math.extrapolation import Extrapolation
+from ..math._tensors import may_vary_along
+from ..math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 from ..math.magic import slicing_dict
 
 
 class PointCloud(SampledField):
     """
-    A point cloud consists of elements at arbitrary locations.
-    A value or vector is associated with each element.
+    A `PointCloud` comprises:
 
-    Outside of elements, the value of the field is determined by the extrapolation.
+    * `elements`: a `Geometry` representing all points or volumes
+    * `values`: a `Tensor` representing the values corresponding to `elements`
+    * `extrapolation`: an `Extrapolation` defining the field value outside of `values`
 
-    All points belonging to one example must be listed in the 'points' dimension.
+    The points / elements of the `PointCloud` are listed along *instance* or *spatial* dimensions of `elements`.
+    These dimensions are automatically added to `values` if not already present.
 
-    Unlike with GeometryMask, the elements of a PointCloud are assumed to be small.
-    When sampling this field on a grid, scatter functions may be used.
+    When sampling or resampling a `PointCloud`, the following keyword arguments can be specified.
+
+    * `soft`: default=False.
+      If `True`, interpolates smoothly from 1 to 0 between the inside and outside of elements.
+      If `False`, only the center position of the new representation elements is checked against the point cloud elements.
+    * `scatter`: default=False.
+      If `True`, scattering will be used to sample the point cloud onto grids. Then, each element of the point cloud can only affect a single cell. This is only recommended when the points are much smaller than the cells.
+    * `outside_handling`: default='discard'. One of `'discard'`, `'clamp'`, `'undefined'`.
+    * `balance`: default=0.5. Only used when `soft=True`.
+      See the description in `phi.geom.Geometry.approximate_fraction_inside()`.
 
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
 
     def __init__(self,
-                 elements: Tensor or Geometry,
+                 elements: Union[Tensor, Geometry],
                  values: Any = 1.,
-                 extrapolation: float or Extrapolation = 0.,
+                 extrapolation: Union[Extrapolation, float] = 0.,
                  add_overlapping=False,
-                 bounds: Box = None,
-                 color: str or Tensor or tuple or list or None = None):
+                 bounds: Box = None):
         """
         Args:
           elements: `Tensor` or `Geometry` object specifying the sample points and sizes
@@ -40,12 +51,10 @@ class PointCloud(SampledField):
           extrapolation: values outside elements
           add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
           bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
-          color: (optional) hex code for color or tensor of colors (same length as elements) in which points should get plotted.
         """
-        SampledField.__init__(self, elements, math.wrap(values), extrapolation, bounds)
+        SampledField.__init__(self, elements, expand(wrap(values), non_batch(elements).non_channel), extrapolation, bounds)
+        assert self._extrapolation is PERIODIC or isinstance(self._extrapolation, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {self._extrapolation}"
         self._add_overlapping = add_overlapping
-        color = '#0060ff' if color is None else color
-        self._color = math.wrap(color, instance('points')) if isinstance(color, (tuple, list)) else math.wrap(color)
 
     @property
     def shape(self):
@@ -57,24 +66,23 @@ class PointCloud(SampledField):
             return self
         elements = self.elements[{dim: selection for dim, selection in item.items() if dim != 'vector'}]
         values = self._values[item]
-        color = self._color[item]
         extrapolation = self._extrapolation[item]
-        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, color)
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds)
 
     def with_elements(self, elements: Geometry):
-        return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+        return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
+
+    def shifted(self, delta):
+        return self.with_elements(self.elements.shifted(delta))
 
     def with_values(self, values):
-        return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
+        return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
 
     def with_extrapolation(self, extrapolation: Extrapolation):
-        return PointCloud(elements=self.elements, values=self.values, extrapolation=extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=self._color)
-
-    def with_color(self, color: str or Tensor or tuple or list):
-        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds, color=color)
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
 
     def with_bounds(self, bounds: Box):
-        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=bounds, color=self._color)
+        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=bounds)
 
     def __value_attrs__(self):
         return '_values', '_extrapolation'
@@ -89,7 +97,7 @@ class PointCloud(SampledField):
         elements = math.rename_dims(self.elements, dims, new_dims)
         values = math.rename_dims(self.values, dims, new_dims)
         extrapolation = math.rename_dims(self.extrapolation, dims, new_dims, **kwargs)
-        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds, self._color)
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds)
 
     def __eq__(self, other):
         if not type(self) == type(other):
@@ -122,20 +130,28 @@ class PointCloud(SampledField):
             radius = math.max(self.elements.bounding_radius())
             return Box(bounds.lower - radius, bounds.upper + radius)
 
-    @property
-    def color(self) -> Tensor:
-        return self._color
-
-    def _sample(self, geometry: Geometry, scheme: Scheme) -> Tensor:
+    def _sample(self, geometry: Geometry, soft=False, scatter=False, outside_handling='discard', balance=0.5) -> Tensor:
         if geometry == self.elements:
             return self.values
-        elif isinstance(geometry, GridCell):
-            return self.grid_scatter(geometry.bounds, geometry.resolution, scheme.outside_points)
-        elif isinstance(geometry, GeometryStack):
-            sampled = [self._sample(g, scheme=scheme) for g in geometry.geometries]
+        if isinstance(geometry, GeometryStack):
+            sampled = [self._sample(g, soft, scatter, outside_handling, balance) for g in geometry.geometries]
             return math.stack(sampled, geometry.geometries.shape)
+        if self.extrapolation is extrapolation.PERIODIC:
+            raise NotImplementedError("Periodic PointClouds not yet supported")
+        if isinstance(geometry, GridCell) and scatter:
+            assert not soft, "Cannot soft-sample when scatter=True"
+            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
         else:
-            raise NotImplementedError()
+            assert not isinstance(self._elements, Point), "Cannot sample Point-like elements with scatter=False"
+            if may_vary_along(self._values, instance(self._values) & spatial(self._values)):
+                raise NotImplementedError("Non-scatter resampling not yet supported for varying values")
+            idx0 = (instance(self._values) & spatial(self._values)).first_index()
+            outside = self._extrapolation.value if isinstance(self._extrapolation, ConstantExtrapolation) else 0
+            if soft:
+                frac_inside = self.elements.approximate_fraction_inside(geometry, balance)
+                return frac_inside * self._values[idx0] + (1 - frac_inside) * outside
+            else:
+                return math.where(self.elements.lies_inside(geometry.center), self._values[idx0], outside)
 
     def grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling: str):
         """
@@ -148,27 +164,20 @@ class PointCloud(SampledField):
 
         Returns:
             `CenteredGrid`
-
         """
         closest_index = bounds.global_to_local(self.points) * resolution - 0.5
         mode = 'add' if self._add_overlapping else 'mean'
         base = math.zeros(resolution)
-        if isinstance(self.extrapolation, math.extrapolation.ConstantExtrapolation):
-            base += self.extrapolation.value
+        if isinstance(self._extrapolation, ConstantExtrapolation):
+            base += self._extrapolation.value
         scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=outside_handling)
         return scattered
 
-    def mask(self):
-        """
-        Returns an equivalent `PointCloud` with `values=1` and `extrapolation=0`
-
-        Returns:
-            `PointCloud`
-        """
-        return PointCloud(self.elements, bounds=self.bounds, color=self.color)
-
     def __repr__(self):
-        return "PointCloud[%s]" % (self.shape,)
+        try:
+            return "PointCloud[%s]" % (self.shape,)
+        except:
+            return "PointCloud[invalid]"
 
     def __and__(self, other):
         assert isinstance(other, PointCloud)
@@ -180,13 +189,12 @@ class PointCloud(SampledField):
 def nonzero(field: SampledField):
     indices = math.nonzero(field.values, list_dim=instance('points'))
     elements = field.elements[indices]
-    return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds, color=None)
+    return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds)
 
 
 def distribute_points(geometries: tuple or list or Geometry or float,
                       dim: Shape = instance('points'),
                       points_per_cell: int = 8,
-                      color: str = None,
                       center: bool = False,
                       radius: float = None,
                       extrapolation: float or Extrapolation = math.NAN,
@@ -198,7 +206,6 @@ def distribute_points(geometries: tuple or list or Geometry or float,
         geometries: Geometry objects marking the cells which should contain points
         dim: Dimension along which the points are listed.
         points_per_cell: Number of points for each cell of `geometries`
-        color (Optional): Color of PointCloud
         center: Set all points to the center of the grid cells.
         radius: Sphere radius.
         extrapolation: Extrapolation for the `PointCloud`, default `NaN` used for FLIP.
@@ -211,13 +218,13 @@ def distribute_points(geometries: tuple or list or Geometry or float,
     if isinstance(geometries, (tuple, list, Geometry)):
         from phi.geom import union
         geometries = union(geometries)
-    geometries = CenteredGrid(geometries, extrapolation, **domain)
+    geometries = resample(geometries, CenteredGrid(0, extrapolation, **domain), scatter=False)
     initial_points = _distribute_points(geometries.values, dim, points_per_cell, center=center)
     if radius is None:
         from phi.field._field_math import data_bounds
         radius = math.mean(data_bounds(initial_points).size) * 0.005
     from phi.geom import Sphere
-    return PointCloud(Sphere(initial_points, radius=radius), extrapolation=geometries.extrapolation, color=color, bounds=geometries.bounds)
+    return PointCloud(Sphere(initial_points, radius=radius), extrapolation=geometries.extrapolation, bounds=geometries.bounds)
 
 
 def _distribute_points(mask: math.Tensor, dim: Shape, points_per_cell: int = 1, center: bool = False) -> math.Tensor:

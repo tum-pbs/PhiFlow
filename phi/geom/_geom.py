@@ -1,8 +1,8 @@
 from numbers import Number
 
 from phi import math
-from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap
-from phi.math._magic_ops import variable_attributes
+from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
+from phi.math._magic_ops import variable_attributes, expand
 from phi.math.magic import BoundDim, slicing_dict
 
 
@@ -204,6 +204,17 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
+    def bounding_box(self) -> 'BaseBox':
+        """
+        Returns the approximately smallest axis-aligned box that contains this `Geometry`.
+        The center of the box may not be equal to `self.center`.
+
+        Returns:
+            `Box` or `Cuboid` that fully contains this `Geometry`.
+        """
+        from ._box import Cuboid
+        return Cuboid(self.center, half_size=self.bounding_half_extent())
+
     def shifted(self, delta: Tensor) -> 'Geometry':
         """
         Returns a translated version of this geometry.
@@ -219,9 +230,9 @@ class Geometry:
           Geometry: shifted geometry
 
         """
-        raise NotImplementedError(self.__class__)
+        return self.at(self.center + delta)
 
-    def at(self, center: Tensor):
+    def at(self, center: Tensor) -> 'Geometry':
         """
         Returns a copy of this `Geometry` with the center at `center`.
         This is equal to calling `self @ center`.
@@ -235,7 +246,7 @@ class Geometry:
         Returns:
             `Geometry`.
         """
-        return self.shifted(center - self.center)
+        raise NotImplementedError
 
     def __matmul__(self, other):
         return self.at(other)
@@ -312,8 +323,9 @@ class Geometry:
                 return False
         return True
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
-        if all(type(v) == type(self) for v in values):
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        if all(type(v) == type(values[0]) for v in values):
             return NotImplemented  # let attributes be stacked
         else:
             from ._stack import GeometryStack
@@ -393,8 +405,8 @@ class _InvertedGeometry(Geometry):
     def bounding_half_extent(self) -> Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta: Tensor) -> Geometry:
-        return _InvertedGeometry(self.geometry.shifted(delta))
+    def at(self, center: Tensor) -> 'Geometry':
+        return _InvertedGeometry(self.geometry.at(center))
 
     def rotated(self, angle) -> Geometry:
         return _InvertedGeometry(self.geometry.rotated(angle))
@@ -467,7 +479,7 @@ class _NoGeometry(Geometry):
     def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
         return math.zeros(other_geometry.shape)
 
-    def shifted(self, delta):
+    def at(self, center: Tensor) -> 'Geometry':
         return self
 
     def rotated(self, angle):
@@ -509,7 +521,7 @@ class Point(Geometry):
         return tuple(Point(loc) for loc in self._location.unstack(dimension))
 
     def lies_inside(self, location: Tensor) -> Tensor:
-        return math.wrap(False)
+        return expand(math.wrap(False), shape(location).without('vector'))
 
     def approximate_signed_distance(self, location: Tensor or tuple) -> Tensor:
         return math.vec_abs(location - self._location)
@@ -523,8 +535,8 @@ class Point(Geometry):
     def bounding_half_extent(self) -> Tensor:
         return math.zeros()
 
-    def shifted(self, delta: Tensor) -> 'Geometry':
-        return Point(self._location + delta)
+    def at(self, center: Tensor) -> 'Geometry':
+        return Point(center)
 
     def rotated(self, angle) -> 'Geometry':
         return self

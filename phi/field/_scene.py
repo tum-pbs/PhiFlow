@@ -208,13 +208,14 @@ class Scene:
                 raise IOError(f"There is no scene at '{path}'")
         return Scene(paths)
 
-    def subpath(self, name: str, create: bool = False) -> str or tuple:
+    def subpath(self, name: str, create=False, create_parent=False) -> str or tuple:
         """
         Resolves the relative path `name` with this `Scene` as the root folder.
 
         Args:
             name: Relative path with this `Scene` as the root folder.
             create: Whether to create a directory of that name.
+            create_parent: Whether to create the parent directory.
 
         Returns:
             Relative path including the path to this `Scene`.
@@ -222,6 +223,8 @@ class Scene:
         """
         def single_subpath(path):
             path = join(path, name)
+            if create_parent and not isdir(os.path.dirname(path)):
+                os.makedirs(os.path.dirname(path))
             if create and not isdir(path):
                 os.mkdir(path)
             return path

@@ -10,13 +10,13 @@ from phi.torch.flow import *
 
 
 DOMAIN = dict(x=80, y=64)
-LEFT = StaggeredGrid(HardGeometryMask(Box(x=(-INF, 40), y=None)), 0, **DOMAIN)
-RIGHT = StaggeredGrid(HardGeometryMask(Box(x=(40, INF), y=None)), extrapolation.ZERO, **DOMAIN)
+LEFT = StaggeredGrid(Box(x=(-INF, 40), y=None), 0, **DOMAIN)
+RIGHT = StaggeredGrid(Box(x=(40, INF), y=None), extrapolation.ZERO, **DOMAIN)
 TARGET = RIGHT * StaggeredGrid(lambda x: math.exp(-0.5 * math.vec_squared(x - (50, 10), 'vector') / 32**2), extrapolation.ZERO, **DOMAIN) * (0, 2)
 
 
 def loss(v0, p0):
-    v1, p = fluid.make_incompressible(v0 * LEFT, solve=Solve('CG-adaptive', 1e-5, 0, x0=p0))
+    v1, p = fluid.make_incompressible(v0 * LEFT, solve=Solve('CG-adaptive', 1e-5, x0=p0))
     return field.l2_loss((v1 - TARGET) * RIGHT), v1, p
 
 

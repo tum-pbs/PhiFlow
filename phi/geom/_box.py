@@ -32,8 +32,8 @@ class BaseBox(Geometry):  # not a Subwoofer
     def center(self) -> Tensor:
         raise NotImplementedError()
 
-    def shifted(self, delta, **delta_by_dim) -> 'BaseBox':
-        raise NotImplementedError()
+    def at(self, center: Tensor) -> 'BaseBox':
+        return Cuboid(center, self.half_size)
 
     @property
     def size(self) -> Tensor:
@@ -168,19 +168,14 @@ class Box(BaseBox, metaclass=BoxType):
 
     Boxes can be constructed either from two positional vector arguments `(lower, upper)` or by specifying the limits by dimension name as `kwargs`.
 
-    **Examples**:
+    Examples:
+        >>> Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+        >>> Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
 
-    ```python
-    Box(x=1, y=1)  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
-    Box(x=(None, 1), y=(0, None)  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
-    ```
+        The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.
 
-    The slicing constructor was updated in version 2.2 and now requires the dimension order as the first argument.
-
-    ```python
-    Box['x,y', 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
-    Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
-    ```
+        >>> Box['x,y', 0:1, 0:1]  # creates a two-dimensional unit box with `lower=(0, 0)` and `upper=(1, 1)`.
+        >>> Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     """
 
     def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: int or Tensor):
@@ -229,13 +224,16 @@ class Box(BaseBox, metaclass=BoxType):
         item = _keep_vector(slicing_dict(self, item))
         return Box(self._lower[item], self._upper[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Box) for v in values):
             return NotImplemented  # stack attributes
         else:
-            return Geometry.__stack__(self, values, dim, **kwargs)
+            return Geometry.__stack__(values, dim, **kwargs)
 
     def __eq__(self, other):
+        if self._lower is None and self._upper is None:
+            return isinstance(other, Box)
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
                and self.size.shape.get_size('vector') == other.size.shape.get_size('vector')\
@@ -328,6 +326,8 @@ class Cuboid(BaseBox):
 
 
     def __eq__(self, other):
+        if self._center is None and self._half_size is None:
+            return isinstance(other, Cuboid)
         return isinstance(other, BaseBox)\
                and set(self.shape) == set(other.shape)\
                and math.close(self._center, other.center)\
@@ -336,15 +336,19 @@ class Cuboid(BaseBox):
     def __hash__(self):
         return hash(self._center)
 
+    def __repr__(self):
+        return f"Cuboid(center={self._center}, half_size={self._half_size})"
+
     def __getitem__(self, item):
         item = _keep_vector(slicing_dict(self, item))
         return Cuboid(self._center[item], self._half_size[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Cuboid) for v in values):
             return Cuboid(math.stack([v.center for v in values], dim, **kwargs), math.stack([v.half_size for v in values], dim, **kwargs))
         else:
-            return Geometry.__stack__(self, values, dim, **kwargs)
+            return Geometry.__stack__(values, dim, **kwargs)
 
     def __variable_attrs__(self):
         return '_center', '_half_size'
@@ -465,12 +469,13 @@ class GridCell(BaseBox):
                 bounds = Box(lower, upper)
                 gather_dict[dim] = slice(start, stop)
         resolution = self._resolution.after_gather(gather_dict)
-        return GridCell(resolution, bounds)
+        return GridCell(resolution, bounds[{d: s for d, s in item.items() if d != 'vector'}])
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Cuboid':
         return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         from ._stack import GeometryStack
         return GeometryStack(math.layout(values, dim))
 

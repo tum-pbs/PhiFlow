@@ -19,7 +19,7 @@ pressure = None
 def step(v, p, dt=1.):
     v = advect.semi_lagrangian(v, v, dt)
     v = v * (1 - BOUNDARY_MASK) + BOUNDARY_MASK * (SPEED, 0)
-    return fluid.make_incompressible(v, [CYLINDER], Solve('auto', 1e-5, 0, x0=p))
+    return fluid.make_incompressible(v, [CYLINDER], Solve('auto', 1e-5, x0=p))
 
 
 for _ in view('vorticity,velocity,pressure', namespace=globals()).range():
