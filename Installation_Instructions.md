@@ -65,8 +65,11 @@ $ python <Φ-Flow directory>/tests/verify.py
 ```
 Otherwise, run the following Python code.
 ```python
-import phi
-phi.verify()
+import phi; phi.verify()
+```
+Or from the command line:
+```bash
+$ python3 -c "import phi; phi.verify()"
 ```
 If Φ<sub>Flow</sub> and dependencies are installed correctly, you should see the text `Installation verified.`, followed by additional information on the components at the end of the console output.
 

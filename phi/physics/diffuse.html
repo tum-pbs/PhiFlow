@@ -34,7 +34,7 @@ from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phi.math import copy_with, shape
+from phi.math import copy_with, shape, Solve
 
 
 def explicit(field: FieldType,
@@ -69,7 +69,7 @@ def implicit(field: FieldType,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve=math.Solve(&#39;CG&#39;, 1e-5, 0)) -&gt; FieldType:
+             solve=Solve(&#39;CG&#39;)) -&gt; FieldType:
     &#34;&#34;&#34;
     Diffusion by solving a linear system of equations.
 
@@ -90,6 +90,32 @@ def implicit(field: FieldType,
     if not solve.x0:
         solve = copy_with(solve, x0=field)
     return solve_linear(sharpen, y=field, solve=solve)
+
+
+def finite_difference(grid: Grid,
+                      diffusivity: float or math.Tensor or Field,
+                      order: int,
+                      implicit: math.Solve) -&gt; FieldType:
+
+    &#34;&#34;&#34;
+    Diffusion by using a finite difference scheme.
+    In contrast to `explicit` and `implicit` accuracy can be increased by using stencils of higher-order rather than calculating substeps.
+    This is controlled by the `scheme` passed.
+
+    Args:
+        grid: CenteredGrid or StaggeredGrid
+        diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.laplace()`).
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
+
+    Returns:
+        Diffused grid of same type as `grid`.
+    &#34;&#34;&#34;
+    diffusivity = diffusivity.at(grid) if isinstance(diffusivity, Field) else diffusivity
+    return diffusivity * laplace(grid, order=order, implicit=implicit).with_extrapolation(grid.extrapolation)
 
 
 def fourier(field: GridType,
@@ -179,6 +205,59 @@ If a channel dimension is present, it will be interpreted as non-isotropic diffu
     return field</code></pre>
 </details>
 </dd>
+<dt id="phi.physics.diffuse.finite_difference"><code class="name flex">
+<span>def <span class="ident">finite_difference</span></span>(<span>grid: phi.field._grid.Grid, diffusivity: float, order: int, implicit: phi.math._optimize.Solve) ‑> ~FieldType</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Diffusion by using a finite difference scheme.
+In contrast to <code><a title="phi.physics.diffuse.explicit" href="#phi.physics.diffuse.explicit">explicit()</a></code> and <code><a title="phi.physics.diffuse.implicit" href="#phi.physics.diffuse.implicit">implicit()</a></code> accuracy can be increased by using stencils of higher-order rather than calculating substeps.
+This is controlled by the <code>scheme</code> passed.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>grid</code></strong></dt>
+<dd>CenteredGrid or StaggeredGrid</dd>
+<dt><strong><code>diffusivity</code></strong></dt>
+<dd>Diffusion per time. <code>diffusion_amount = diffusivity * dt</code></dd>
+<dt><strong><code>order</code></strong></dt>
+<dd>Spatial order of accuracy.
+Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+Supported: 2 explicit, 4 explicit, 6 implicit (inherited from <code><a title="phi.field.laplace" href="../field/index.html#phi.field.laplace">laplace()</a></code>).</dd>
+<dt><strong><code>implicit</code></strong></dt>
+<dd>When a <code>Solve</code> object is passed, performs an implicit operation with the specified solver and tolerances.
+Otherwise, an explicit stencil is used.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Diffused grid of same type as <code>grid</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def finite_difference(grid: Grid,
+                      diffusivity: float or math.Tensor or Field,
+                      order: int,
+                      implicit: math.Solve) -&gt; FieldType:
+
+    &#34;&#34;&#34;
+    Diffusion by using a finite difference scheme.
+    In contrast to `explicit` and `implicit` accuracy can be increased by using stencils of higher-order rather than calculating substeps.
+    This is controlled by the `scheme` passed.
+
+    Args:
+        grid: CenteredGrid or StaggeredGrid
+        diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.laplace()`).
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
+
+    Returns:
+        Diffused grid of same type as `grid`.
+    &#34;&#34;&#34;
+    diffusivity = diffusivity.at(grid) if isinstance(diffusivity, Field) else diffusivity
+    return diffusivity * laplace(grid, order=order, implicit=implicit).with_extrapolation(grid.extrapolation)</code></pre>
+</details>
+</dd>
 <dt id="phi.physics.diffuse.fourier"><code class="name flex">
 <span>def <span class="ident">fourier</span></span>(<span>field: ~GridType, diffusivity: float, dt: float) ‑> ~FieldType</span>
 </code></dt>
@@ -228,7 +307,7 @@ If a channel dimension is present, it will be interpreted as non-isotropic diffu
 </details>
 </dd>
 <dt id="phi.physics.diffuse.implicit"><code class="name flex">
-<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: float, dt: float, order: int = 1, solve=CG with tolerance 1e-05 (rel), 0.0 (abs), max_iterations=1000) ‑> ~FieldType</span>
+<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: float, dt: float, order: int = 1, solve=CG with tolerance None (rel), None (abs), max_iterations=1000) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Diffusion by solving a linear system of equations.</p>
@@ -254,7 +333,7 @@ If a channel dimension is present, it will be interpreted as non-isotropic diffu
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
              order: int = 1,
-             solve=math.Solve(&#39;CG&#39;, 1e-5, 0)) -&gt; FieldType:
+             solve=Solve(&#39;CG&#39;)) -&gt; FieldType:
     &#34;&#34;&#34;
     Diffusion by solving a linear system of equations.
 
@@ -296,6 +375,7 @@ If a channel dimension is present, it will be interpreted as non-isotropic diffu
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="phi.physics.diffuse.explicit" href="#phi.physics.diffuse.explicit">explicit</a></code></li>
+<li><code><a title="phi.physics.diffuse.finite_difference" href="#phi.physics.diffuse.finite_difference">finite_difference</a></code></li>
 <li><code><a title="phi.physics.diffuse.fourier" href="#phi.physics.diffuse.fourier">fourier</a></code></li>
 <li><code><a title="phi.physics.diffuse.implicit" href="#phi.physics.diffuse.implicit">implicit</a></code></li>
 </ul>

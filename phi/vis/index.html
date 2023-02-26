@@ -127,7 +127,7 @@ If not specified, closes the figure created most recently.</dd>
 <dd>
 <div class="desc"><p>Mark a variable as controllable by any GUI created via <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
 <p>Example:</p>
-<pre><code class="language-python">dt = control(1.0, (0.1, 10), name=&quot;Time increment (dt)&quot;)
+<pre><code class="language-python-repl">&gt;&gt;&gt; dt = control(1.0, (0.1, 10), name=&quot;Time increment (dt)&quot;)
 </code></pre>
 <p>This will cause a control component (slider, checkbox, text field, drop-down, etc.) to be generated in the user interface.
 Changes to that component will immediately be reflected in the Python variable assigned to the control.
@@ -155,9 +155,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
     Mark a variable as controllable by any GUI created via `view()`.
 
     Example:
-    ```python
-    dt = control(1.0, (0.1, 10), name=&#34;Time increment (dt)&#34;)
-    ```
+    &gt;&gt;&gt; dt = control(1.0, (0.1, 10), name=&#34;Time increment (dt)&#34;)
 
     This will cause a control component (slider, checkbox, text field, drop-down, etc.) to be generated in the user interface.
     Changes to that component will immediately be reflected in the Python variable assigned to the control.
@@ -192,7 +190,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <dd>
 <div class="desc"><p>Specify that multiple fields should be drawn on top of one another in the same figure.
 The fields will be plotted in the order they are given, i.e. the last field on top.</p>
-<pre><code class="language-python">vis.plot(vis.overlay(heatmap, points, velocity))
+<pre><code class="language-python-repl">&gt;&gt;&gt; plot(vis.overlay(heatmap, points, velocity))
 </code></pre>
 <h2 id="args">Args</h2>
 <dl>
@@ -210,9 +208,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
     Specify that multiple fields should be drawn on top of one another in the same figure.
     The fields will be plotted in the order they are given, i.e. the last field on top.
 
-    ```python
-    vis.plot(vis.overlay(heatmap, points, velocity))
-    ```
+    &gt;&gt;&gt; plot(vis.overlay(heatmap, points, velocity))
 
     Args:
         *fields: `SampledField` or `Tensor` instances
@@ -224,11 +220,15 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: str = None, col_dims: str = &lt;function batch&gt;, animate: str = None, title: str = None, size=(12, 5), same_scale=True, show_color_bar=True, frame_time=100, repeat=True, **plt_args)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = 'overlay', title: str = None, size=(12, 5), same_scale=True, log_dims: str = '', show_color_bar=True, color=None, frame_time=100, repeat=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
 <p>To show the figures, use <code><a title="phi.vis.show" href="#phi.vis.show">show()</a></code>.</p>
+<p>The arguments <code>row_dims</code>, <code>col_dims</code>, <code>animate</code> and <code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay()</a></code> control how data is presented.
+Each accepts dimensions as a <code>str</code>, <code>Shape</code>, tuple, list or type function.
+In addition to the dimensions present on the data to be plotted, the dimensions <code>args</code> is created if multiple arguments are passed,
+and <code>tuple</code>, <code>list</code>, <code>dict</code> are generated for corresponding objects to be plotted.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>fields</code></strong></dt>
@@ -247,11 +247,20 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <dd>Figure size in inches, <code>(width, height)</code>.</dd>
 <dt><strong><code>same_scale</code></strong></dt>
 <dd>Whether to use the same axis limits for all sub-figures.</dd>
+<dt><strong><code>log_dims</code></strong></dt>
+<dd>Dimensions for which the plot axes should be scaled logarithmically.
+Can be given as a comma-separated <code>str</code>, a sequence of dimension names or a <code>Shape</code>.
+Use <code>'_'</code> to scale unnamed axes logarithmically, e.g. the y-axis of scalar functions.</dd>
 <dt><strong><code>show_color_bar</code></strong></dt>
 <dd>Whether to display color bars for heat maps.</dd>
+<dt><strong><code>color</code></strong></dt>
+<dd>Tensor for line / marker colors.</dd>
 <dt><strong><code>animate</code></strong></dt>
 <dd>Time dimension to animate.
 If not present in the data, will produce a regular plot instead.</dd>
+<dt><strong><code>overlay</code></strong></dt>
+<dd>Dimensions along which elements should be overlaid in the same subplot.
+The default is only the <code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay()</a></code> dimension which is created by <code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay()</a></code>.</dd>
 <dt><strong><code>frame_time</code></strong></dt>
 <dd>Interval between frames in the animation.</dd>
 <dt><strong><code>repeat</code></strong></dt>
@@ -268,20 +277,27 @@ Currently, only single-figure plots are supported.</p>
 </summary>
 <pre><code class="python">def plot(*fields: SampledField or Tensor or Layout,
          lib: str or PlottingLibrary = None,
-         row_dims: str or Shape or tuple or list or Callable = None,
-         col_dims: str or Shape or tuple or list or Callable = batch,
-         animate: str or Shape or tuple or list or Callable = None,
+         row_dims: DimFilter = None,
+         col_dims: DimFilter = batch,
+         animate: DimFilter = None,
+         overlay: DimFilter = &#39;overlay&#39;,
          title: str or Tensor = None,
          size=(12, 5),
          same_scale=True,
+         log_dims: str or tuple or list or Shape = &#39;&#39;,
          show_color_bar=True,
+         color=None,
          frame_time=100,
-         repeat=True,
-         **plt_args):
+         repeat=True):
     &#34;&#34;&#34;
     Creates one or multiple figures and sub-figures and plots the given fields.
 
     To show the figures, use `show()`.
+
+    The arguments `row_dims`, `col_dims`, `animate` and `overlay` control how data is presented.
+    Each accepts dimensions as a `str`, `Shape`, tuple, list or type function.
+    In addition to the dimensions present on the data to be plotted, the dimensions `args` is created if multiple arguments are passed,
+    and `tuple`, `list`, `dict` are generated for corresponding objects to be plotted.
 
     Args:
         fields: Fields or Tensors to plot.
@@ -293,9 +309,15 @@ Currently, only single-figure plots are supported.</p>
         title: String `Tensor` with dimensions `rows` and `cols`.
         size: Figure size in inches, `(width, height)`.
         same_scale: Whether to use the same axis limits for all sub-figures.
+        log_dims: Dimensions for which the plot axes should be scaled logarithmically.
+            Can be given as a comma-separated `str`, a sequence of dimension names or a `Shape`.
+            Use `&#39;_&#39;` to scale unnamed axes logarithmically, e.g. the y-axis of scalar functions.
         show_color_bar: Whether to display color bars for heat maps.
+        color: Tensor for line / marker colors.
         animate: Time dimension to animate.
             If not present in the data, will produce a regular plot instead.
+        overlay: Dimensions along which elements should be overlaid in the same subplot.
+            The default is only the `overlay` dimension which is created by `overlay()`.
         frame_time: Interval between frames in the animation.
         repeat: Whether the animation should loop.
 
@@ -306,10 +328,11 @@ Currently, only single-figure plots are supported.</p>
 
         In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     &#34;&#34;&#34;
-    nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, 0, 0, {}, {})
+    nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, overlay, 0, 0, {}, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
+    # --- Process arguments ---
     if same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
@@ -327,14 +350,18 @@ Currently, only single-figure plots are supported.</p>
     else:
         assert title is None, f&#34;title must be a str or Tensor but got {title}&#34;
         title = {pos: &#34;, &#34;.join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
+    log_dims = parse_dim_order(log_dims) or ()
+    color = math.wrap(color)
+    # --- animate or plot ---
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title)
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
                     for f in fields:
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color)
+                plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
             plots.close(figure)
@@ -342,7 +369,8 @@ Currently, only single-figure plots are supported.</p>
         else:
             for pos, fields in positioning.items():
                 for f in fields:
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val=min_val, max_val=max_val, show_color_bar=show_color_bar, **plt_args)
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color)
+            plots.finalize(figure)
             LAST_FIGURE[0] = figure
             return layout(figure)
     else:
@@ -976,10 +1004,8 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         &#34;&#34;&#34;
         Similarly to `range()`, returns a generator that can be used in a `for` loop.
 
-        ```python
-        for step in ModuleViewer().range(100):
-            print(f&#39;Running step {step}&#39;)
-        ```
+        &gt;&gt;&gt; for step in ModuleViewer().range(100):
+        &gt;&gt;&gt;     print(f&#39;Running step {step}&#39;)
 
         However, `Viewer.range()` enables controlling the flow via the user interface.
         Each element returned by the generator waits for `progress` to be invoked once.
@@ -1117,8 +1143,8 @@ def rec(self) -&gt; &#39;Record&#39;:
 </code></dt>
 <dd>
 <div class="desc"><p>Similarly to <code>range()</code>, returns a generator that can be used in a <code>for</code> loop.</p>
-<pre><code class="language-python">for step in ModuleViewer().range(100):
-    print(f'Running step {step}')
+<pre><code class="language-python-repl">&gt;&gt;&gt; for step in ModuleViewer().range(100):
+&gt;&gt;&gt;     print(f'Running step {step}')
 </code></pre>
 <p>However, <code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">Viewer.range()</a></code> enables controlling the flow via the user interface.
 Each element returned by the generator waits for <code>progress</code> to be invoked once.</p>
@@ -1146,10 +1172,8 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
     &#34;&#34;&#34;
     Similarly to `range()`, returns a generator that can be used in a `for` loop.
 
-    ```python
-    for step in ModuleViewer().range(100):
-        print(f&#39;Running step {step}&#39;)
-    ```
+    &gt;&gt;&gt; for step in ModuleViewer().range(100):
+    &gt;&gt;&gt;     print(f&#39;Running step {step}&#39;)
 
     However, `Viewer.range()` enables controlling the flow via the user interface.
     Each element returned by the generator waits for `progress` to be invoked once.

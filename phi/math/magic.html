@@ -59,7 +59,9 @@ To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`
 import warnings
 from typing import Tuple, Callable
 
-from ._shape import Shape, shape, channel, non_batch
+import dataclasses
+
+from ._shape import Shape, shape, channel, non_batch, batch, spatial, instance, concat_shapes, dual
 from .backend._dtype import DType
 
 
@@ -204,10 +206,12 @@ class Shapable(metaclass=_ShapableType):
 
     Additionally, the `phi.math.BoundDim` syntax for dimension renaming and retyping is enabled, e.g. `obj.dim.as_channel(&#39;vector&#39;)`.
     &#34;&#34;&#34;
-
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Shapable&#39;:
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Shapable&#39;:
         &#34;&#34;&#34;
         Stack all `values` into a single instance along the new dimension `dim`.
+
+        This method can be implemented as a bound method or as a `staticmethod` (without the `self` argument).
 
         Args:
             values: `tuple` of `Shapable` objects to be stacked. `self` is included in that list at least once.
@@ -224,9 +228,12 @@ class Shapable(metaclass=_ShapableType):
         &#34;&#34;&#34;
         raise NotImplementedError
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -&gt; &#39;Shapable&#39;:
+    @staticmethod
+    def __concat__(values: tuple, dim: str, **kwargs) -&gt; &#39;Shapable&#39;:
         &#34;&#34;&#34;
         Concatenate `values` along `dim`.
+
+        This method can be implemented as a bound method or as a `staticmethod` (without the `self` argument).
 
         Args:
             values: Values to concatenate. `self` is included in that list at least once.
@@ -349,6 +356,8 @@ class _PhiTreeNodeType(type):
             return True
         elif isinstance(instance, dict):
             return all(isinstance(name, str) for name in instance.keys()) and all(isinstance(val, PhiTreeNode) for val in instance.values())
+        elif dataclasses.is_dataclass(instance):
+            return True
         else:
             return hasattr(instance, &#39;__variable_attrs__&#39;) or hasattr(instance, &#39;__value_attrs__&#39;)
 
@@ -360,6 +369,8 @@ class _PhiTreeNodeType(type):
             return True
         elif issubclass(subclass, Dict):
             return True
+        elif dataclasses.is_dataclass(subclass):
+            return True
         else:
             return hasattr(subclass, &#39;__variable_attrs__&#39;) or hasattr(subclass, &#39;__value_attrs__&#39;)
 
@@ -368,11 +379,14 @@ class PhiTreeNode(metaclass=_PhiTreeNodeType):
     &#34;&#34;&#34;
     Φ-tree nodes can be iterated over and disassembled or flattened into elementary objects, such as tensors.
     `phi.math.Tensor` instances as well as PyTree nodes (`tuple`, `list`, `dict` with `str` keys) are Φ-tree nodes.
+    All data classes are also considered PhiTreeNodes as of version 2.3.
 
-    For custom classes to be considered Φ-tree nodes, they have to implement one of the following magic methods:
+    For custom classes to be considered Φ-tree nodes, they have to be a dataclass or implement one of the following magic methods:
 
     * `__variable_attrs__()`
     * `__value_attrs__()`
+
+    Dataclasses may also implement these functions to specify which attributes should be considered value / variable properties.
 
     Additionally, Φ-tree nodes must override `__eq__()` to allow comparison of data-stripped (key) instances.
 
@@ -457,8 +471,8 @@ class BoundDim:
 
     **Usage**
 
-    * `obj.dim.size` return the dimension size.
-    * `obj.dim.item_names` return the dimension item names.
+    * `obj.dim.size` returns the dimension size.
+    * `obj.dim.item_names` returns the dimension item names.
     * `obj.dim.exists` checks whether a dimension is listed in the shape of the bound object.
     * `obj.dim[0]` picks the first element along `dim`. The shape of the result will not contain `dim`.
     * `obj.dim[1:-1]` discards the first and last element along `dim`.
@@ -466,6 +480,16 @@ class BoundDim:
     * `obj.dim.as_channel()` changes the type of `dim` to *channel*.
     * `obj.dim.unstack()` un-stacks the bound value along `dim`.
     * `for slice in obj.dim` loops over all slices of `dim`.
+
+    Multiple dimensions can also be chained together using `obj.dim1.dim2...`.
+    This supports the following operations:
+
+    * `obj.dim1.dim2...volume` returns the product of the sizes
+    * `obj.dim1.dim2...[0, -1]` takes the first element along `dim1` and the last element along `dim2`
+    * `obj.dim1.dim2...pack(new_dim)` packs the dimensions into a new dimension with size equal to their volume
+    * `obj.dim1.dim2...unstack()` un-stacks `obj` along multiple dimensions
+    * `obj.dim1.dim2...retype(type)` Changes the type of all selected dimensions
+    * `for slice in obj.dim1.dim2...` loops over all slices as if unstacking first
     &#34;&#34;&#34;
 
     def __init__(self, obj, name: str):
@@ -477,10 +501,14 @@ class BoundDim:
         if name.startswith(&#39;_&#39;) or &#39;,&#39; in name or &#39; &#39; in name:
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         if name == &#39;shape&#39;:
-            raise AttributeError
+            raise AttributeError(f&#34;{type(obj)} has no shape&#34;)
         assert isinstance(obj, Sliceable) and isinstance(obj, Shaped), f&#34;Cannot create BoundDim for {type(obj).__name__}. Objects must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html&#34;
         self.obj = obj
         self.name = name
+
+    @property
+    def dual(self):
+        return BoundDim(self.obj, &#39;~&#39; + self.name)
 
     @property
     def exists(self):
@@ -506,6 +534,8 @@ class BoundDim:
         &#34;&#34;&#34; Length of this dimension as listed in the `Shape` of the bound object. &#34;&#34;&#34;
         return shape(self.obj).get_size(self.name) if self.exists else None
 
+    volume = size
+
     @property
     def size_or_1(self):
         return shape(self.obj).get_size(self.name) if self.exists else 1
@@ -529,6 +559,9 @@ class BoundDim:
 
     def __setitem__(self, key, value):
         self.obj[{self.name: key}] = value
+
+    def __getattr__(self, item):
+        return _BoundDims(self.obj, (self.name, item))
 
     def unstack(self, size: int or None = None) -&gt; tuple:
         &#34;&#34;&#34;
@@ -581,12 +614,29 @@ class BoundDim:
         See Also:
             `phi.math.rename_dims()`
         &#34;&#34;&#34;
-        if self.item_names is not None:
-            new_dim = dim_type(**{self.name: self.item_names})
-        else:
-            new_dim = dim_type(**{self.name: self.size})
+        new_dim = dim_type(**{self.name: self.item_names or self.size})
         from ._magic_ops import rename_dims
         return rename_dims(self.obj, self.name, new_dim, **kwargs)
+
+    def as_batch(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
+        return self.retype(batch) if name is None else self.replace(batch(name=self.item_names or self.size))
+
+    def as_spatial(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. &#34;&#34;&#34;
+        return self.retype(spatial) if name is None else self.replace(spatial(name=self.item_names or self.size))
+
+    def as_channel(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. &#34;&#34;&#34;
+        return self.retype(channel) if name is None else self.replace(channel(name=self.item_names or self.size))
+
+    def as_instance(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+        return self.retype(instance) if name is None else self.replace(instance(name=self.item_names or self.size))
+
+    def as_dual(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+        return self.retype(dual) if name is None else self.replace(dual(name=self.item_names or self.size))
 
     def replace(self, dim: Shape, **kwargs):
         &#34;&#34;&#34;
@@ -598,7 +648,7 @@ class BoundDim:
         from ._magic_ops import rename_dims
         return rename_dims(self.obj, self.name, dim, **kwargs)
 
-    def unpack(self, dims: Shape, **kwargs):
+    def unpack(self, *dims: Shape, **kwargs):
         &#34;&#34;&#34;
         Returns a shallow copy of the `Tensor` where this dimension has been unpacked into `dims`.
 
@@ -606,7 +656,84 @@ class BoundDim:
             `phi.math.unpack_dim()`
         &#34;&#34;&#34;
         from ._magic_ops import unpack_dim
-        return unpack_dim(self.obj, self.name, dims, **kwargs)
+        return unpack_dim(self.obj, self.name, *dims, **kwargs)
+
+
+class _BoundDims:
+
+    def __init__(self, obj, dims: Tuple[str, ...]):
+        self.obj = obj
+        self.dims = dims
+
+    @property
+    def dual(self):
+        last_dual = &#34;~&#34; + self.dims[-1]
+        return _BoundDims(self.obj, self.dims[:-1] + (last_dual,))
+
+    def __getitem__(self, item):
+        assert isinstance(item, tuple), f&#34;A tuple of slices is required for slicing multiple dimensions at once but got {type(item)}&#34;
+        assert len(item) == len(self.dims), f&#34;Number of slices must equal number of dimensions but got {len(item)} for dims {self.dims}&#34;
+        return self.obj[{dim: i for dim, i in zip(self.dims, item)}]
+
+    def __getattr__(self, item):
+        if len(self.dims) &gt; 10:  # to avoid recursion limit
+            raise RuntimeError(&#34;Maximum BoundDim length reached&#34;)
+        return _BoundDims(self.obj, self.dims + (item,))
+
+    def __len__(self):
+        return self.volume
+
+    @property
+    def size(self):
+        raise SyntaxError(&#34;dim.size only exists for single dimensions. Use .volume for multiple dimensions&#34;)
+
+    @property
+    def volume(self):
+        return shape(self.obj).only(self.dims).volume
+
+    def pack(self, packed_dim: Shape, pos=None, **kwargs):
+        from ._magic_ops import pack_dims
+        return pack_dims(self.obj, self.dims, packed_dim, pos=pos, **kwargs)
+
+    def unstack(self) -&gt; tuple:
+        from ._magic_ops import unstack
+        return unstack(self.obj, self.dims)
+
+    def __iter__(self):
+        &#34;&#34;&#34; Iterate over slices along this dim &#34;&#34;&#34;
+        return iter(self.unstack())
+
+    def retype(self, dim_type: Callable, **kwargs):
+        &#34;&#34;&#34;
+        Returns a shallow copy of the `Tensor` where this dimension has the specified type.
+
+        See Also:
+            `phi.math.rename_dims()`
+        &#34;&#34;&#34;
+        s = shape(self.obj)
+        new_dims = concat_shapes(*[dim_type(**{dim: s.get_item_names(dim) or s.get_size(dim)}) for dim in self.dims])
+        from ._magic_ops import rename_dims
+        return rename_dims(self.obj, self.dims, new_dims, **kwargs)
+
+    def as_batch(self):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
+        return self.retype(batch)
+
+    def as_spatial(self):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. &#34;&#34;&#34;
+        return self.retype(spatial)
+
+    def as_channel(self):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. &#34;&#34;&#34;
+        return self.retype(channel)
+
+    def as_instance(self):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+        return self.retype(instance)
+
+    def as_dual(self):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+        return self.retype(dual)
 
 
 def slicing_dict(obj, item) -&gt; dict:
@@ -628,23 +755,22 @@ def slicing_dict(obj, item) -&gt; dict:
     if isinstance(item, tuple):
         if item[0] == Ellipsis:
             assert len(item) - 1 == shape(obj).channel_rank
-            item = {name: selection for name, selection in zip(channel(obj).names, item[1:])}
+            return {name: selection for name, selection in zip(channel(obj).names, item[1:])}
         elif len(item) == shape(obj).channel_rank:
-            warnings.warn(&#34;NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html&#34;, SyntaxWarning, stacklevel=3)
-            item = {name: selection for name, selection in zip(channel(obj).names, item)}
-        elif len(item) == shape(obj).rank:  # legacy indexing
-            warnings.warn(&#34;NumPy-style slicing for non-channel dimensions is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html&#34;, SyntaxWarning, stacklevel=3)
-            item = {name: selection for name, selection in zip(obj.shape.names, item)}
+            if len(item) &gt; 1:
+                warnings.warn(&#34;NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html&#34;, SyntaxWarning, stacklevel=3)
+            return {name: selection for name, selection in zip(channel(obj).names, item)}
+        elif shape(obj).channel_rank == 1 and all(isinstance(e, str) for e in item):
+            return {channel(obj).name: item}
         else:
             raise AssertionError(f&#34;Cannot slice {obj}[{item}]. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html&#34;)
     else:
         if shape(obj).channel_rank == 1:
-            item = {channel(obj).name: item}
+            return {channel(obj).name: item}
         elif non_batch(obj).rank == 1:
-            item = {non_batch(obj).name: item}
+            return {non_batch(obj).name: item}
         else:
             raise AssertionError(f&#34;Slicing {type(obj).__name__}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}&#34;)
-    return item
 
 
 class OtherMagicFunctions:
@@ -706,23 +832,22 @@ for cls_name, cls in dict(globals()).items():
     if isinstance(item, tuple):
         if item[0] == Ellipsis:
             assert len(item) - 1 == shape(obj).channel_rank
-            item = {name: selection for name, selection in zip(channel(obj).names, item[1:])}
+            return {name: selection for name, selection in zip(channel(obj).names, item[1:])}
         elif len(item) == shape(obj).channel_rank:
-            warnings.warn(&#34;NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html&#34;, SyntaxWarning, stacklevel=3)
-            item = {name: selection for name, selection in zip(channel(obj).names, item)}
-        elif len(item) == shape(obj).rank:  # legacy indexing
-            warnings.warn(&#34;NumPy-style slicing for non-channel dimensions is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html&#34;, SyntaxWarning, stacklevel=3)
-            item = {name: selection for name, selection in zip(obj.shape.names, item)}
+            if len(item) &gt; 1:
+                warnings.warn(&#34;NumPy-style slicing for more than one channel dimension is highly discouraged. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html&#34;, SyntaxWarning, stacklevel=3)
+            return {name: selection for name, selection in zip(channel(obj).names, item)}
+        elif shape(obj).channel_rank == 1 and all(isinstance(e, str) for e in item):
+            return {channel(obj).name: item}
         else:
             raise AssertionError(f&#34;Cannot slice {obj}[{item}]. Use a dict or the special slicing syntax value.dim[slice] instead. See https://tum-pbs.github.io/PhiFlow/Math.html&#34;)
     else:
         if shape(obj).channel_rank == 1:
-            item = {channel(obj).name: item}
+            return {channel(obj).name: item}
         elif non_batch(obj).rank == 1:
-            item = {non_batch(obj).name: item}
+            return {non_batch(obj).name: item}
         else:
-            raise AssertionError(f&#34;Slicing {type(obj).__name__}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}&#34;)
-    return item</code></pre>
+            raise AssertionError(f&#34;Slicing {type(obj).__name__}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}&#34;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -749,8 +874,8 @@ class MyClass:
 </code></pre>
 <p><strong>Usage</strong></p>
 <ul>
-<li><code>obj.dim.size</code> return the dimension size.</li>
-<li><code>obj.dim.item_names</code> return the dimension item names.</li>
+<li><code>obj.dim.size</code> returns the dimension size.</li>
+<li><code>obj.dim.item_names</code> returns the dimension item names.</li>
 <li><code>obj.dim.exists</code> checks whether a dimension is listed in the shape of the bound object.</li>
 <li><code>obj.dim[0]</code> picks the first element along <code>dim</code>. The shape of the result will not contain <code>dim</code>.</li>
 <li><code>obj.dim[1:-1]</code> discards the first and last element along <code>dim</code>.</li>
@@ -758,6 +883,16 @@ class MyClass:
 <li><code>obj.dim.as_channel()</code> changes the type of <code>dim</code> to <em>channel</em>.</li>
 <li><code>obj.dim.unstack()</code> un-stacks the bound value along <code>dim</code>.</li>
 <li><code>for slice in obj.dim</code> loops over all slices of <code>dim</code>.</li>
+</ul>
+<p>Multiple dimensions can also be chained together using <code>obj.dim1.dim2&hellip;</code>.
+This supports the following operations:</p>
+<ul>
+<li><code>obj.dim1.dim2&hellip;volume</code> returns the product of the sizes</li>
+<li><code>obj.dim1.dim2...[0, -1]</code> takes the first element along <code>dim1</code> and the last element along <code>dim2</code></li>
+<li><code>obj.dim1.dim2&hellip;pack(new_dim)</code> packs the dimensions into a new dimension with size equal to their volume</li>
+<li><code>obj.dim1.dim2&hellip;unstack()</code> un-stacks <code>obj</code> along multiple dimensions</li>
+<li><code>obj.dim1.dim2&hellip;retype(type)</code> Changes the type of all selected dimensions</li>
+<li><code>for slice in obj.dim1.dim2&hellip;</code> loops over all slices as if unstacking first</li>
 </ul>
 <h2 id="args">Args</h2>
 <dl>
@@ -790,8 +925,8 @@ class MyClass:
 
     **Usage**
 
-    * `obj.dim.size` return the dimension size.
-    * `obj.dim.item_names` return the dimension item names.
+    * `obj.dim.size` returns the dimension size.
+    * `obj.dim.item_names` returns the dimension item names.
     * `obj.dim.exists` checks whether a dimension is listed in the shape of the bound object.
     * `obj.dim[0]` picks the first element along `dim`. The shape of the result will not contain `dim`.
     * `obj.dim[1:-1]` discards the first and last element along `dim`.
@@ -799,6 +934,16 @@ class MyClass:
     * `obj.dim.as_channel()` changes the type of `dim` to *channel*.
     * `obj.dim.unstack()` un-stacks the bound value along `dim`.
     * `for slice in obj.dim` loops over all slices of `dim`.
+
+    Multiple dimensions can also be chained together using `obj.dim1.dim2...`.
+    This supports the following operations:
+
+    * `obj.dim1.dim2...volume` returns the product of the sizes
+    * `obj.dim1.dim2...[0, -1]` takes the first element along `dim1` and the last element along `dim2`
+    * `obj.dim1.dim2...pack(new_dim)` packs the dimensions into a new dimension with size equal to their volume
+    * `obj.dim1.dim2...unstack()` un-stacks `obj` along multiple dimensions
+    * `obj.dim1.dim2...retype(type)` Changes the type of all selected dimensions
+    * `for slice in obj.dim1.dim2...` loops over all slices as if unstacking first
     &#34;&#34;&#34;
 
     def __init__(self, obj, name: str):
@@ -810,10 +955,14 @@ class MyClass:
         if name.startswith(&#39;_&#39;) or &#39;,&#39; in name or &#39; &#39; in name:
             raise AttributeError(f&#34;&#39;{type(self)}&#39; object has no attribute &#39;{name}&#39;&#34;)
         if name == &#39;shape&#39;:
-            raise AttributeError
+            raise AttributeError(f&#34;{type(obj)} has no shape&#34;)
         assert isinstance(obj, Sliceable) and isinstance(obj, Shaped), f&#34;Cannot create BoundDim for {type(obj).__name__}. Objects must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html&#34;
         self.obj = obj
         self.name = name
+
+    @property
+    def dual(self):
+        return BoundDim(self.obj, &#39;~&#39; + self.name)
 
     @property
     def exists(self):
@@ -839,6 +988,8 @@ class MyClass:
         &#34;&#34;&#34; Length of this dimension as listed in the `Shape` of the bound object. &#34;&#34;&#34;
         return shape(self.obj).get_size(self.name) if self.exists else None
 
+    volume = size
+
     @property
     def size_or_1(self):
         return shape(self.obj).get_size(self.name) if self.exists else 1
@@ -862,6 +1013,9 @@ class MyClass:
 
     def __setitem__(self, key, value):
         self.obj[{self.name: key}] = value
+
+    def __getattr__(self, item):
+        return _BoundDims(self.obj, (self.name, item))
 
     def unstack(self, size: int or None = None) -&gt; tuple:
         &#34;&#34;&#34;
@@ -914,12 +1068,29 @@ class MyClass:
         See Also:
             `phi.math.rename_dims()`
         &#34;&#34;&#34;
-        if self.item_names is not None:
-            new_dim = dim_type(**{self.name: self.item_names})
-        else:
-            new_dim = dim_type(**{self.name: self.size})
+        new_dim = dim_type(**{self.name: self.item_names or self.size})
         from ._magic_ops import rename_dims
         return rename_dims(self.obj, self.name, new_dim, **kwargs)
+
+    def as_batch(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
+        return self.retype(batch) if name is None else self.replace(batch(name=self.item_names or self.size))
+
+    def as_spatial(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. &#34;&#34;&#34;
+        return self.retype(spatial) if name is None else self.replace(spatial(name=self.item_names or self.size))
+
+    def as_channel(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. &#34;&#34;&#34;
+        return self.retype(channel) if name is None else self.replace(channel(name=self.item_names or self.size))
+
+    def as_instance(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+        return self.retype(instance) if name is None else self.replace(instance(name=self.item_names or self.size))
+
+    def as_dual(self, name: str = None):
+        &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+        return self.retype(dual) if name is None else self.replace(dual(name=self.item_names or self.size))
 
     def replace(self, dim: Shape, **kwargs):
         &#34;&#34;&#34;
@@ -931,7 +1102,7 @@ class MyClass:
         from ._magic_ops import rename_dims
         return rename_dims(self.obj, self.name, dim, **kwargs)
 
-    def unpack(self, dims: Shape, **kwargs):
+    def unpack(self, *dims: Shape, **kwargs):
         &#34;&#34;&#34;
         Returns a shallow copy of the `Tensor` where this dimension has been unpacked into `dims`.
 
@@ -939,7 +1110,7 @@ class MyClass:
             `phi.math.unpack_dim()`
         &#34;&#34;&#34;
         from ._magic_ops import unpack_dim
-        return unpack_dim(self.obj, self.name, dims, **kwargs)</code></pre>
+        return unpack_dim(self.obj, self.name, *dims, **kwargs)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -947,6 +1118,18 @@ class MyClass:
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.math.magic.BoundDim.dual"><code class="name">var <span class="ident">dual</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def dual(self):
+    return BoundDim(self.obj, &#39;~&#39; + self.name)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.magic.BoundDim.exists"><code class="name">var <span class="ident">exists</span></code></dt>
 <dd>
 <div class="desc"><p>Whether the dimension is listed in the <code>Shape</code> of the object.</p></div>
@@ -1016,9 +1199,92 @@ def type(self) -&gt; Callable:
     return shape(self.obj).get_dim_type(self.name)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.magic.BoundDim.volume"><code class="name">var <span class="ident">volume</span></code></dt>
+<dd>
+<div class="desc"><p>Length of this dimension as listed in the <code>Shape</code> of the bound object.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def size(self):
+    &#34;&#34;&#34; Length of this dimension as listed in the `Shape` of the bound object. &#34;&#34;&#34;
+    return shape(self.obj).get_size(self.name) if self.exists else None</code></pre>
+</details>
+</dd>
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="phi.math.magic.BoundDim.as_batch"><code class="name flex">
+<span>def <span class="ident">as_batch</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code>Tensor</code> where the type of this dimension is <em>batch</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_batch(self, name: str = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *batch*. &#34;&#34;&#34;
+    return self.retype(batch) if name is None else self.replace(batch(name=self.item_names or self.size))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.magic.BoundDim.as_channel"><code class="name flex">
+<span>def <span class="ident">as_channel</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code>Tensor</code> where the type of this dimension is <em>channel</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_channel(self, name: str = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *channel*. &#34;&#34;&#34;
+    return self.retype(channel) if name is None else self.replace(channel(name=self.item_names or self.size))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.magic.BoundDim.as_dual"><code class="name flex">
+<span>def <span class="ident">as_dual</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code>Tensor</code> where the type of this dimension is <em>instance</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_dual(self, name: str = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+    return self.retype(dual) if name is None else self.replace(dual(name=self.item_names or self.size))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.magic.BoundDim.as_instance"><code class="name flex">
+<span>def <span class="ident">as_instance</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code>Tensor</code> where the type of this dimension is <em>instance</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_instance(self, name: str = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. &#34;&#34;&#34;
+    return self.retype(instance) if name is None else self.replace(instance(name=self.item_names or self.size))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.magic.BoundDim.as_spatial"><code class="name flex">
+<span>def <span class="ident">as_spatial</span></span>(<span>self, name: str = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a shallow copy of the <code>Tensor</code> where the type of this dimension is <em>spatial</em>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_spatial(self, name: str = None):
+    &#34;&#34;&#34; Returns a shallow copy of the `Tensor` where the type of this dimension is *spatial*. &#34;&#34;&#34;
+    return self.retype(spatial) if name is None else self.replace(spatial(name=self.item_names or self.size))</code></pre>
+</details>
+</dd>
 <dt id="phi.math.magic.BoundDim.rename"><code class="name flex">
 <span>def <span class="ident">rename</span></span>(<span>self, name: str, **kwargs)</span>
 </code></dt>
@@ -1083,16 +1349,13 @@ def type(self) -&gt; Callable:
     See Also:
         `phi.math.rename_dims()`
     &#34;&#34;&#34;
-    if self.item_names is not None:
-        new_dim = dim_type(**{self.name: self.item_names})
-    else:
-        new_dim = dim_type(**{self.name: self.size})
+    new_dim = dim_type(**{self.name: self.item_names or self.size})
     from ._magic_ops import rename_dims
     return rename_dims(self.obj, self.name, new_dim, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.magic.BoundDim.unpack"><code class="name flex">
-<span>def <span class="ident">unpack</span></span>(<span>self, dims: phi.math._shape.Shape, **kwargs)</span>
+<span>def <span class="ident">unpack</span></span>(<span>self, *dims: phi.math._shape.Shape, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a shallow copy of the <code>Tensor</code> where this dimension has been unpacked into <code>dims</code>.</p>
@@ -1102,7 +1365,7 @@ def type(self) -&gt; Callable:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unpack(self, dims: Shape, **kwargs):
+<pre><code class="python">def unpack(self, *dims: Shape, **kwargs):
     &#34;&#34;&#34;
     Returns a shallow copy of the `Tensor` where this dimension has been unpacked into `dims`.
 
@@ -1110,7 +1373,7 @@ def type(self) -&gt; Callable:
         `phi.math.unpack_dim()`
     &#34;&#34;&#34;
     from ._magic_ops import unpack_dim
-    return unpack_dim(self.obj, self.name, dims, **kwargs)</code></pre>
+    return unpack_dim(self.obj, self.name, *dims, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.magic.BoundDim.unstack"><code class="name flex">
@@ -1175,19 +1438,21 @@ In that case, <code>size</code> copies of the object are returned.</dd>
 </code></dt>
 <dd>
 <div class="desc"><p>Φ-tree nodes can be iterated over and disassembled or flattened into elementary objects, such as tensors.
-<code><a title="phi.math.Tensor" href="index.html#phi.math.Tensor">Tensor</a></code> instances as well as PyTree nodes (<code>tuple</code>, <code>list</code>, <code>dict</code> with <code>str</code> keys) are Φ-tree nodes.</p>
-<p>For custom classes to be considered Φ-tree nodes, they have to implement one of the following magic methods:</p>
+<code><a title="phi.math.Tensor" href="index.html#phi.math.Tensor">Tensor</a></code> instances as well as PyTree nodes (<code>tuple</code>, <code>list</code>, <code>dict</code> with <code>str</code> keys) are Φ-tree nodes.
+All data classes are also considered PhiTreeNodes as of version 2.3.</p>
+<p>For custom classes to be considered Φ-tree nodes, they have to be a dataclass or implement one of the following magic methods:</p>
 <ul>
 <li><code>__variable_attrs__()</code></li>
 <li><code>__value_attrs__()</code></li>
 </ul>
+<p>Dataclasses may also implement these functions to specify which attributes should be considered value / variable properties.</p>
 <p>Additionally, Φ-tree nodes must override <code>__eq__()</code> to allow comparison of data-stripped (key) instances.</p>
 <p>To check whether an object is a Φ-tree node, use <code>isinstance(obj, <a title="phi.math.magic.PhiTreeNode" href="#phi.math.magic.PhiTreeNode">PhiTreeNode</a>)</code>.</p>
 <p><strong>Usage in <code><a title="phi.math" href="index.html">phi.math</a></code>:</strong></p>
 <p>Φ-tree nodes can be used as keys, for example in <code>jit_compile()</code>.
 They are converted to keys by stripping all variable tensors and replacing them by a placeholder object.
 In key mode, <code>__eq__()</code> compares all non-variable properties that might invalidate a trace when changed.</p>
-<p>Disassembly and assembly of Φ-tree nodes uses <code><a title="phi.math.copy_with" href="index.html#phi.math.copy_with">copy_with()</a></code> which will call <code>__with_attrs__</code> if implemented.</p></div>
+<p>Disassembly and assembly of Φ-tree nodes uses <code><a title="phi.math.copy_with" href="index.html#phi.math.copy_with">replace()</a></code> which will call <code>__with_attrs__</code> if implemented.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1196,11 +1461,14 @@ In key mode, <code>__eq__()</code> compares all non-variable properties that mig
     &#34;&#34;&#34;
     Φ-tree nodes can be iterated over and disassembled or flattened into elementary objects, such as tensors.
     `phi.math.Tensor` instances as well as PyTree nodes (`tuple`, `list`, `dict` with `str` keys) are Φ-tree nodes.
+    All data classes are also considered PhiTreeNodes as of version 2.3.
 
-    For custom classes to be considered Φ-tree nodes, they have to implement one of the following magic methods:
+    For custom classes to be considered Φ-tree nodes, they have to be a dataclass or implement one of the following magic methods:
 
     * `__variable_attrs__()`
     * `__value_attrs__()`
+
+    Dataclasses may also implement these functions to specify which attributes should be considered value / variable properties.
 
     Additionally, Φ-tree nodes must override `__eq__()` to allow comparison of data-stripped (key) instances.
 
@@ -1337,7 +1605,7 @@ Calling <code>getattr(self, attr)</code> must return a <code>Tensor</code> or <c
 <span>def <span class="ident">__with_attrs__</span></span>(<span>self, **attrs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Used by <code><a title="phi.math.copy_with" href="index.html#phi.math.copy_with">copy_with()</a></code>.
+<div class="desc"><p>Used by <code><a title="phi.math.copy_with" href="index.html#phi.math.copy_with">replace()</a></code>.
 Create a copy of this object which has the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> attributes contained in <code>attrs</code> replaced.
 If this method is not implemented, tensor attributes are replaced using <code>setattr()</code>.</p>
 <h2 id="args">Args</h2>
@@ -1420,10 +1688,12 @@ If this method is not implemented, tensor attributes are replaced using <code>se
 
     Additionally, the `phi.math.BoundDim` syntax for dimension renaming and retyping is enabled, e.g. `obj.dim.as_channel(&#39;vector&#39;)`.
     &#34;&#34;&#34;
-
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Shapable&#39;:
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Shapable&#39;:
         &#34;&#34;&#34;
         Stack all `values` into a single instance along the new dimension `dim`.
+
+        This method can be implemented as a bound method or as a `staticmethod` (without the `self` argument).
 
         Args:
             values: `tuple` of `Shapable` objects to be stacked. `self` is included in that list at least once.
@@ -1440,9 +1710,12 @@ If this method is not implemented, tensor attributes are replaced using <code>se
         &#34;&#34;&#34;
         raise NotImplementedError
 
-    def __concat__(self, values: tuple, dim: str, **kwargs) -&gt; &#39;Shapable&#39;:
+    @staticmethod
+    def __concat__(values: tuple, dim: str, **kwargs) -&gt; &#39;Shapable&#39;:
         &#34;&#34;&#34;
         Concatenate `values` along `dim`.
+
+        This method can be implemented as a bound method or as a `staticmethod` (without the `self` argument).
 
         Args:
             values: Values to concatenate. `self` is included in that list at least once.
@@ -1548,13 +1821,14 @@ If this method is not implemented, tensor attributes are replaced using <code>se
         &#34;&#34;&#34;
         raise NotImplementedError</code></pre>
 </details>
-<h3>Methods</h3>
+<h3>Static methods</h3>
 <dl>
 <dt id="phi.math.magic.Shapable.__concat__"><code class="name flex">
-<span>def <span class="ident">__concat__</span></span>(<span>self, values: tuple, dim: str, **kwargs) ‑> <a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></span>
+<span>def <span class="ident">__concat__</span></span>(<span>values: tuple, dim: str, **kwargs) ‑> <a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenate <code>values</code> along <code>dim</code>.</p>
+<p>This method can be implemented as a bound method or as a <code>staticmethod</code> (without the <code>self</code> argument).</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
@@ -1574,9 +1848,12 @@ If such a representation cannot be created because some values in <code>values</
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def __concat__(self, values: tuple, dim: str, **kwargs) -&gt; &#39;Shapable&#39;:
+<pre><code class="python">@staticmethod
+def __concat__(values: tuple, dim: str, **kwargs) -&gt; &#39;Shapable&#39;:
     &#34;&#34;&#34;
     Concatenate `values` along `dim`.
+
+    This method can be implemented as a bound method or as a `staticmethod` (without the `self` argument).
 
     Args:
         values: Values to concatenate. `self` is included in that list at least once.
@@ -1593,6 +1870,58 @@ If such a representation cannot be created because some values in <code>values</
     raise NotImplementedError</code></pre>
 </details>
 </dd>
+<dt id="phi.math.magic.Shapable.__stack__"><code class="name flex">
+<span>def <span class="ident">__stack__</span></span>(<span>values: tuple, dim: phi.math._shape.Shape, **kwargs) ‑> <a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Stack all <code>values</code> into a single instance along the new dimension <code>dim</code>.</p>
+<p>This method can be implemented as a bound method or as a <code>staticmethod</code> (without the <code>self</code> argument).</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd><code>tuple</code> of <code><a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></code> objects to be stacked. <code>self</code> is included in that list at least once.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Single-dimension <code>Shape</code>. This dimension must not be present with any of the <code>values</code>.
+The dimension fulfills the condition <code>dim.size == len(values)</code>.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Additional keyword arguments required by specific implementations.
+Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
+Adding batch dimensions must always work without keyword arguments.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>New instance of <code><a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></code> representing the stacked slices.
+Its shape includes <code>dim</code> in addition to the dimensions present in <code>values</code>.
+If such a representation cannot be created because some values in <code>values</code> are not supported, returns <code>NotImplemented</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Shapable&#39;:
+    &#34;&#34;&#34;
+    Stack all `values` into a single instance along the new dimension `dim`.
+
+    This method can be implemented as a bound method or as a `staticmethod` (without the `self` argument).
+
+    Args:
+        values: `tuple` of `Shapable` objects to be stacked. `self` is included in that list at least once.
+        dim: Single-dimension `Shape`. This dimension must not be present with any of the `values`.
+            The dimension fulfills the condition `dim.size == len(values)`.
+        **kwargs: Additional keyword arguments required by specific implementations.
+            Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+            Adding batch dimensions must always work without keyword arguments.
+
+    Returns:
+        New instance of `Shapable` representing the stacked slices.
+        Its shape includes `dim` in addition to the dimensions present in `values`.
+        If such a representation cannot be created because some values in `values` are not supported, returns `NotImplemented`.
+    &#34;&#34;&#34;
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
 <dt id="phi.math.magic.Shapable.__expand__"><code class="name flex">
 <span>def <span class="ident">__expand__</span></span>(<span>self, dims: phi.math._shape.Shape, **kwargs) ‑> <a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></span>
 </code></dt>
@@ -1762,51 +2091,6 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 
     Returns:
         New instance of `Shapable` or `NotImplemented` to revert to default behavior for this object.
-    &#34;&#34;&#34;
-    raise NotImplementedError</code></pre>
-</details>
-</dd>
-<dt id="phi.math.magic.Shapable.__stack__"><code class="name flex">
-<span>def <span class="ident">__stack__</span></span>(<span>self, values: tuple, dim: phi.math._shape.Shape, **kwargs) ‑> <a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></span>
-</code></dt>
-<dd>
-<div class="desc"><p>Stack all <code>values</code> into a single instance along the new dimension <code>dim</code>.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>values</code></strong></dt>
-<dd><code>tuple</code> of <code><a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></code> objects to be stacked. <code>self</code> is included in that list at least once.</dd>
-<dt><strong><code>dim</code></strong></dt>
-<dd>Single-dimension <code>Shape</code>. This dimension must not be present with any of the <code>values</code>.
-The dimension fulfills the condition <code>dim.size == len(values)</code>.</dd>
-<dt><strong><code>**kwargs</code></strong></dt>
-<dd>Additional keyword arguments required by specific implementations.
-Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
-Adding batch dimensions must always work without keyword arguments.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>New instance of <code><a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></code> representing the stacked slices.
-Its shape includes <code>dim</code> in addition to the dimensions present in <code>values</code>.
-If such a representation cannot be created because some values in <code>values</code> are not supported, returns <code>NotImplemented</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;Shapable&#39;:
-    &#34;&#34;&#34;
-    Stack all `values` into a single instance along the new dimension `dim`.
-
-    Args:
-        values: `tuple` of `Shapable` objects to be stacked. `self` is included in that list at least once.
-        dim: Single-dimension `Shape`. This dimension must not be present with any of the `values`.
-            The dimension fulfills the condition `dim.size == len(values)`.
-        **kwargs: Additional keyword arguments required by specific implementations.
-            Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
-            Adding batch dimensions must always work without keyword arguments.
-
-    Returns:
-        New instance of `Shapable` representing the stacked slices.
-        Its shape includes `dim` in addition to the dimensions present in `values`.
-        If such a representation cannot be created because some values in `values` are not supported, returns `NotImplemented`.
     &#34;&#34;&#34;
     raise NotImplementedError</code></pre>
 </details>
@@ -2119,6 +2403,12 @@ Un-stacking along multiple dimensions is equal to first packing the dimensions a
 <li>
 <h4><code><a title="phi.math.magic.BoundDim" href="#phi.math.magic.BoundDim">BoundDim</a></code></h4>
 <ul class="two-column">
+<li><code><a title="phi.math.magic.BoundDim.as_batch" href="#phi.math.magic.BoundDim.as_batch">as_batch</a></code></li>
+<li><code><a title="phi.math.magic.BoundDim.as_channel" href="#phi.math.magic.BoundDim.as_channel">as_channel</a></code></li>
+<li><code><a title="phi.math.magic.BoundDim.as_dual" href="#phi.math.magic.BoundDim.as_dual">as_dual</a></code></li>
+<li><code><a title="phi.math.magic.BoundDim.as_instance" href="#phi.math.magic.BoundDim.as_instance">as_instance</a></code></li>
+<li><code><a title="phi.math.magic.BoundDim.as_spatial" href="#phi.math.magic.BoundDim.as_spatial">as_spatial</a></code></li>
+<li><code><a title="phi.math.magic.BoundDim.dual" href="#phi.math.magic.BoundDim.dual">dual</a></code></li>
 <li><code><a title="phi.math.magic.BoundDim.exists" href="#phi.math.magic.BoundDim.exists">exists</a></code></li>
 <li><code><a title="phi.math.magic.BoundDim.item_names" href="#phi.math.magic.BoundDim.item_names">item_names</a></code></li>
 <li><code><a title="phi.math.magic.BoundDim.rename" href="#phi.math.magic.BoundDim.rename">rename</a></code></li>
@@ -2129,6 +2419,7 @@ Un-stacking along multiple dimensions is equal to first packing the dimensions a
 <li><code><a title="phi.math.magic.BoundDim.type" href="#phi.math.magic.BoundDim.type">type</a></code></li>
 <li><code><a title="phi.math.magic.BoundDim.unpack" href="#phi.math.magic.BoundDim.unpack">unpack</a></code></li>
 <li><code><a title="phi.math.magic.BoundDim.unstack" href="#phi.math.magic.BoundDim.unstack">unstack</a></code></li>
+<li><code><a title="phi.math.magic.BoundDim.volume" href="#phi.math.magic.BoundDim.volume">volume</a></code></li>
 </ul>
 </li>
 <li>

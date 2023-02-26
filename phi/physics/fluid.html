@@ -33,14 +33,15 @@ Functions for simulating incompressible fluids, both grid-based and particle-bas
 
 The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 &#34;&#34;&#34;
-from typing import Tuple
+import warnings
+from typing import Tuple, Callable
 
 from phi import math, field
-from phi.math import wrap, channel
-from phi.field import SoftGeometryMask, AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud
+from phi.math import wrap, channel, Solve
+from phi.field import AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field, resample
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
-from ..field._grid import GridType
+from ..field._grid import GridType, StaggeredGrid
 from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
 from ..math._magic_ops import copy_with
 from ..math.extrapolation import combine_sides, Extrapolation
@@ -70,41 +71,55 @@ class Obstacle:
         return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
 
     def copied_with(self, **kwargs):
-        geometry, velocity, angular_velocity = self.geometry, self.velocity, self.angular_velocity
-        if &#39;geometry&#39; in kwargs:
-            geometry = kwargs[&#39;geometry&#39;]
-        if &#39;velocity&#39; in kwargs:
-            velocity = kwargs[&#39;velocity&#39;]
-        if &#39;angular_velocity&#39; in kwargs:
-            angular_velocity = kwargs[&#39;angular_velocity&#39;]
-        return Obstacle(geometry, velocity, angular_velocity)
+        warnings.warn(&#34;Obstacle.copied_with is deprecated. Use math.copy_with instead.&#34;, DeprecationWarning, stacklevel=2)
+        return math.copy_with(self, **kwargs)
+
+    def __variable_attrs__(self) -&gt; Tuple[str, ...]:
+        return &#39;geometry&#39;, &#39;velocity&#39;, &#39;angular_velocity&#39;
+
+    def __eq__(self, other):
+        if not isinstance(other, Obstacle):
+            return False
+        return self.geometry == other.geometry and self.velocity == other.velocity and self.angular_velocity == other.angular_velocity
+
+
+def _get_obstacles_for(obstacles, space: Field):
+    obstacles = [obstacles] if isinstance(obstacles, (Obstacle, Geometry)) else obstacles
+    assert isinstance(obstacles, (tuple, list)), f&#34;obstacles must be an Obstacle or Geometry or a tuple/list thereof but got {type(obstacles)}&#34;
+    obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
+    for obstacle in obstacles:
+        assert obstacle.geometry.vector.item_names == space.vector.item_names, f&#34;Obstacles must live in the same physical space as the velocity field {space.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}&#34;
+    return obstacles
 
 
 def make_incompressible(velocity: GridType,
-                        obstacles: tuple or list = (),
-                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5)),
-                        active: CenteredGrid = None) -&gt; Tuple[GridType, CenteredGrid]:
+                        obstacles: Obstacle or Geometry or tuple or list = (),
+                        solve: Solve = Solve(),
+                        active: CenteredGrid = None,
+                        order: int = 2) -&gt; Tuple[GridType, CenteredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     Args:
-        velocity: Vector field sampled on a grid
-        obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
-        solve: Parameters for the pressure solve as.
+        velocity: Vector field sampled on a grid.
+        obstacles: `Obstacle` or `phi.geom.Geometry` or tuple/list thereof to specify boundary conditions inside the domain.
+        solve: `Solve` object specifying method and tolerances for the implicit pressure solve.
         active: (Optional) Mask for which cells the pressure should be solved.
             If given, the velocity may take `NaN` values where it does not contribute to the pressure.
             Also, the total divergence will never be subtracted if active is given, even if all values are 1.
+        order: spatial order for derivative computations.
+            For Higher-order schemes, the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead.
+            While this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains.
+            supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)
 
     Returns:
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     &#34;&#34;&#34;
-    assert isinstance(obstacles, (tuple, list)), f&#34;obstacles must be a tuple or list but got {type(obstacles)}&#34;
-    obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
-    for obstacle in obstacles:
-        assert obstacle.geometry.vector.item_names == velocity.vector.item_names, f&#34;Obstacles must live in the same physical space as the velocity field {velocity.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}&#34;
+    obstacles = _get_obstacles_for(obstacles, velocity)
+    assert order == 2 or len(obstacles) == 0, f&#34;obstacles are not supported with higher order schemes&#34;
     input_velocity = velocity
     # --- Create masks ---
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
@@ -118,7 +133,7 @@ def make_incompressible(velocity: GridType,
         active *= accessible  # no pressure inside obstacles
     # --- Linear solve ---
     velocity = apply_boundary_conditions(velocity, obstacles)
-    div = divergence(velocity) * active
+    div = divergence(velocity, order=order) * active
     if not all_active:  # NaN in velocity allowed
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
@@ -129,15 +144,15 @@ def make_incompressible(velocity: GridType,
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
     if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
-    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
+    pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity), order=order) * hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure
 
 
-@math.jit_compile_linear  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
-def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid) -&gt; CenteredGrid:
+@math.jit_compile_linear(auxiliary_args=&#39;hard_bcs,active,order,implicit&#39;, forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
+def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid, order=2, implicit: Solve = None) -&gt; CenteredGrid:
     &#34;&#34;&#34;
     Computes the laplace of `pressure` in the presence of obstacles.
 
@@ -149,14 +164,23 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid)
         active: Mask indicating for which cells the pressure value is valid.
             Linear solves will only determine the pressure for these cells.
             This is generally zero inside obstacles and in non-simulated regions.
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.laplace()`).
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
 
     Returns:
         `CenteredGrid`
     &#34;&#34;&#34;
-    grad = spatial_gradient(pressure, extrapolation.NONE, type=type(hard_bcs))
-    valid_grad = grad * field.bake_extrapolation(hard_bcs)
-    div = divergence(valid_grad)
-    laplace = where(active, div, pressure)
+    if order == 2 and not implicit:
+        grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
+        valid_grad = grad * hard_bcs
+        valid_grad = valid_grad.with_extrapolation(extrapolation.remove_constant_offset(valid_grad.extrapolation))
+        div = divergence(valid_grad)
+        laplace = where(active, div, pressure)
+    else:
+        laplace = field.laplace(pressure, order=order, implicit=implicit)
     return laplace
 
 
@@ -164,7 +188,7 @@ def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or list):
+def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle or Geometry or tuple or list):
     &#34;&#34;&#34;
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -172,17 +196,18 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or 
 
     Args:
       velocity: Velocity `Grid`.
-      obstacles: Obstacles as `tuple` or `list`
+        obstacles: `Obstacle` or `phi.geom.Geometry` or tuple/list thereof to specify boundary conditions inside the domain.
 
     Returns:
         Velocity of same type as `velocity`
     &#34;&#34;&#34;
+    obstacles = _get_obstacles_for(obstacles, velocity)
     # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
         if isinstance(obstacle, Geometry):
             obstacle = Obstacle(obstacle)
         assert isinstance(obstacle, Obstacle)
-        obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) @ velocity
+        obs_mask = resample(obstacle.geometry, velocity, soft=True, balance=1)
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
         else:
@@ -238,7 +263,53 @@ def _accessible_extrapolation(vext: Extrapolation):
     elif isinstance(vext, extrapolation._NormalTangentialExtrapolation):
         return _accessible_extrapolation(vext.normal)
     else:
-        raise ValueError(f&#34;Unsupported extrapolation: {type(vext)}&#34;)</code></pre>
+        raise ValueError(f&#34;Unsupported extrapolation: {type(vext)}&#34;)
+
+
+def incompressible_rk4(pde: Callable, velocity: GridType, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve(&#39;CG&#39;), **pde_aux_kwargs):
+    &#34;&#34;&#34;
+    Implements the 4th-order Runge-Kutta time advancement scheme for incompressible vector fields.
+    This approach is inspired by [Kampanis et. al., 2006](https://www.sciencedirect.com/science/article/pii/S0021999105005061) and incorporates the pressure treatment into the time step.
+
+    Args:
+        pde: Momentum equation. Function that computes all PDE terms not related to pressure, e.g. diffusion, advection, external forces.
+        velocity: Velocity grid at time `t`.
+        pressure: Pressure at time `t`.
+        dt: Time increment to integrate.
+        pressure_order: spatial order for derivative computations.
+            For Higher-order schemes, the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead.
+            While this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains.
+            supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)
+        pressure_solve: `Solve` object specifying method and tolerances for the implicit pressure solve.
+        **pde_aux_kwargs: Auxiliary arguments for `pde`. These are considered constant over time.
+
+    Returns:
+        velocity: Velocity at time `t+dt`, same type as `velocity`.
+        pressure: Pressure grid at time `t+dt`, `CenteredGrid`.
+    &#34;&#34;&#34;
+    v_1, p_1 = velocity, pressure
+    # PDE at current point
+    rhs_1 = pde(v_1, **pde_aux_kwargs) - field.spatial_gradient(p_1, type=StaggeredGrid, order=pressure_order)
+    v_2_old = velocity + (dt / 2) * rhs_1
+    v_2, delta_p = make_incompressible(v_2_old, solve=pressure_solve, order=pressure_order)
+    p_2 = p_1 + delta_p / dt
+    # PDE at half-point
+    rhs_2 = pde(v_2, **pde_aux_kwargs) - field.spatial_gradient(p_2, type=StaggeredGrid, order=pressure_order)
+    v_3_old = velocity + (dt / 2) * rhs_2
+    v_3, delta_p = make_incompressible(v_3_old, solve=pressure_solve, order=pressure_order)
+    p_3 = p_2 + delta_p / dt
+    # PDE at corrected half-point
+    rhs_3 = pde(v_3, **pde_aux_kwargs) - field.spatial_gradient(p_3, type=StaggeredGrid, order=pressure_order)
+    v_4_old = velocity + dt * rhs_2
+    v_4, delta_p = make_incompressible(v_4_old, solve=pressure_solve, order=pressure_order)
+    p_4 = p_3 + delta_p / dt
+    # PDE at RK4 point
+    rhs_4 = pde(v_4, **pde_aux_kwargs) - field.spatial_gradient(p_4, type=StaggeredGrid, order=pressure_order)
+    v_p1_old = velocity + (dt / 6) * (rhs_1 + 2 * rhs_2 + 2 * rhs_3 + rhs_4)
+    p_p1_old = (1 / 6) * (p_1 + 2 * p_2 + 2 * p_3 + p_4)
+    v_p1, delta_p = make_incompressible(v_p1_old, solve=pressure_solve, order=pressure_order)
+    p_p1 = p_p1_old + delta_p / dt
+    return v_p1, p_p1</code></pre>
 </details>
 </section>
 <section>
@@ -249,7 +320,7 @@ def _accessible_extrapolation(vext: Extrapolation):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.fluid.apply_boundary_conditions"><code class="name flex">
-<span>def <span class="ident">apply_boundary_conditions</span></span>(<span>velocity: phi.field._grid.Grid, obstacles: tuple)</span>
+<span>def <span class="ident">apply_boundary_conditions</span></span>(<span>velocity: phi.field._grid.Grid, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Enforces velocities boundary conditions on a velocity grid.
@@ -258,9 +329,8 @@ Cells outside far away will be unaffected.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>velocity</code></strong></dt>
-<dd>Velocity <code>Grid</code>.</dd>
-<dt><strong><code>obstacles</code></strong></dt>
-<dd>Obstacles as <code>tuple</code> or <code>list</code></dd>
+<dd>Velocity <code>Grid</code>.
+obstacles: <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a></code> or <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code> or tuple/list thereof to specify boundary conditions inside the domain.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Velocity of same type as <code>velocity</code></p></div>
@@ -268,7 +338,7 @@ Cells outside far away will be unaffected.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: tuple or list):
+<pre><code class="python">def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle or Geometry or tuple or list):
     &#34;&#34;&#34;
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -276,17 +346,18 @@ Cells outside far away will be unaffected.</p>
 
     Args:
       velocity: Velocity `Grid`.
-      obstacles: Obstacles as `tuple` or `list`
+        obstacles: `Obstacle` or `phi.geom.Geometry` or tuple/list thereof to specify boundary conditions inside the domain.
 
     Returns:
         Velocity of same type as `velocity`
     &#34;&#34;&#34;
+    obstacles = _get_obstacles_for(obstacles, velocity)
     # velocity = field.bake_extrapolation(velocity)  # TODO we should bake only for divergence but keep correct extrapolation for velocity. However, obstacles should override extrapolation.
     for obstacle in obstacles:
         if isinstance(obstacle, Geometry):
             obstacle = Obstacle(obstacle)
         assert isinstance(obstacle, Obstacle)
-        obs_mask = SoftGeometryMask(obstacle.geometry, balance=1) @ velocity
+        obs_mask = resample(obstacle.geometry, velocity, soft=True, balance=1)
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
         else:
@@ -337,8 +408,91 @@ obstacles or back into the domain.</p>
     return particles.with_elements(particles.elements @ pos)</code></pre>
 </details>
 </dd>
+<dt id="phi.physics.fluid.incompressible_rk4"><code class="name flex">
+<span>def <span class="ident">incompressible_rk4</span></span>(<span>pde: Callable, velocity: ~GridType, pressure: phi.field._grid.CenteredGrid, dt, pressure_order=4, pressure_solve=CG with tolerance None (rel), None (abs), max_iterations=1000, **pde_aux_kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Implements the 4th-order Runge-Kutta time advancement scheme for incompressible vector fields.
+This approach is inspired by <a href="https://www.sciencedirect.com/science/article/pii/S0021999105005061">Kampanis et. al., 2006</a> and incorporates the pressure treatment into the time step.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>pde</code></strong></dt>
+<dd>Momentum equation. Function that computes all PDE terms not related to pressure, e.g. diffusion, advection, external forces.</dd>
+<dt><strong><code>velocity</code></strong></dt>
+<dd>Velocity grid at time <code>t</code>.</dd>
+<dt><strong><code>pressure</code></strong></dt>
+<dd>Pressure at time <code>t</code>.</dd>
+<dt><strong><code>dt</code></strong></dt>
+<dd>Time increment to integrate.</dd>
+<dt><strong><code>pressure_order</code></strong></dt>
+<dd>spatial order for derivative computations.
+For Higher-order schemes, the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead.
+While this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains.
+supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)</dd>
+<dt><strong><code>pressure_solve</code></strong></dt>
+<dd><code>Solve</code> object specifying method and tolerances for the implicit pressure solve.</dd>
+<dt><strong><code>**pde_aux_kwargs</code></strong></dt>
+<dd>Auxiliary arguments for <code>pde</code>. These are considered constant over time.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>velocity</code></dt>
+<dd>Velocity at time <code>t+dt</code>, same type as <code>velocity</code>.</dd>
+<dt><code>pressure</code></dt>
+<dd>Pressure grid at time <code>t+dt</code>, <code>CenteredGrid</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def incompressible_rk4(pde: Callable, velocity: GridType, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve(&#39;CG&#39;), **pde_aux_kwargs):
+    &#34;&#34;&#34;
+    Implements the 4th-order Runge-Kutta time advancement scheme for incompressible vector fields.
+    This approach is inspired by [Kampanis et. al., 2006](https://www.sciencedirect.com/science/article/pii/S0021999105005061) and incorporates the pressure treatment into the time step.
+
+    Args:
+        pde: Momentum equation. Function that computes all PDE terms not related to pressure, e.g. diffusion, advection, external forces.
+        velocity: Velocity grid at time `t`.
+        pressure: Pressure at time `t`.
+        dt: Time increment to integrate.
+        pressure_order: spatial order for derivative computations.
+            For Higher-order schemes, the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead.
+            While this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains.
+            supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)
+        pressure_solve: `Solve` object specifying method and tolerances for the implicit pressure solve.
+        **pde_aux_kwargs: Auxiliary arguments for `pde`. These are considered constant over time.
+
+    Returns:
+        velocity: Velocity at time `t+dt`, same type as `velocity`.
+        pressure: Pressure grid at time `t+dt`, `CenteredGrid`.
+    &#34;&#34;&#34;
+    v_1, p_1 = velocity, pressure
+    # PDE at current point
+    rhs_1 = pde(v_1, **pde_aux_kwargs) - field.spatial_gradient(p_1, type=StaggeredGrid, order=pressure_order)
+    v_2_old = velocity + (dt / 2) * rhs_1
+    v_2, delta_p = make_incompressible(v_2_old, solve=pressure_solve, order=pressure_order)
+    p_2 = p_1 + delta_p / dt
+    # PDE at half-point
+    rhs_2 = pde(v_2, **pde_aux_kwargs) - field.spatial_gradient(p_2, type=StaggeredGrid, order=pressure_order)
+    v_3_old = velocity + (dt / 2) * rhs_2
+    v_3, delta_p = make_incompressible(v_3_old, solve=pressure_solve, order=pressure_order)
+    p_3 = p_2 + delta_p / dt
+    # PDE at corrected half-point
+    rhs_3 = pde(v_3, **pde_aux_kwargs) - field.spatial_gradient(p_3, type=StaggeredGrid, order=pressure_order)
+    v_4_old = velocity + dt * rhs_2
+    v_4, delta_p = make_incompressible(v_4_old, solve=pressure_solve, order=pressure_order)
+    p_4 = p_3 + delta_p / dt
+    # PDE at RK4 point
+    rhs_4 = pde(v_4, **pde_aux_kwargs) - field.spatial_gradient(p_4, type=StaggeredGrid, order=pressure_order)
+    v_p1_old = velocity + (dt / 6) * (rhs_1 + 2 * rhs_2 + 2 * rhs_3 + rhs_4)
+    p_p1_old = (1 / 6) * (p_1 + 2 * p_2 + 2 * p_3 + p_4)
+    v_p1, delta_p = make_incompressible(v_p1_old, solve=pressure_solve, order=pressure_order)
+    p_p1 = p_p1_old + delta_p / dt
+    return v_p1, p_p1</code></pre>
+</details>
+</dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: tuple = (), solve=auto with tolerance 1e-05 (rel), 1e-05 (abs), max_iterations=1000, active: phi.field._grid.CenteredGrid = None) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phi.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: phi.field._grid.CenteredGrid = None, order: int = 2) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -346,15 +500,20 @@ obstacles or back into the domain.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>velocity</code></strong></dt>
-<dd>Vector field sampled on a grid</dd>
+<dd>Vector field sampled on a grid.</dd>
 <dt><strong><code>obstacles</code></strong></dt>
-<dd>List of Obstacles to specify boundary conditions inside the domain (Default value = ())</dd>
+<dd><code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a></code> or <code><a title="phi.geom.Geometry" href="../geom/index.html#phi.geom.Geometry">Geometry</a></code> or tuple/list thereof to specify boundary conditions inside the domain.</dd>
 <dt><strong><code>solve</code></strong></dt>
-<dd>Parameters for the pressure solve as.</dd>
+<dd><code>Solve</code> object specifying method and tolerances for the implicit pressure solve.</dd>
 <dt><strong><code>active</code></strong></dt>
 <dd>(Optional) Mask for which cells the pressure should be solved.
 If given, the velocity may take <code>NaN</code> values where it does not contribute to the pressure.
 Also, the total divergence will never be subtracted if active is given, even if all values are 1.</dd>
+<dt><strong><code>order</code></strong></dt>
+<dd>spatial order for derivative computations.
+For Higher-order schemes, the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead.
+While this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains.
+supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -368,30 +527,33 @@ Also, the total divergence will never be subtracted if active is given, even if 
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def make_incompressible(velocity: GridType,
-                        obstacles: tuple or list = (),
-                        solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5, gradient_solve=math.Solve(&#39;auto&#39;, 1e-5, 1e-5)),
-                        active: CenteredGrid = None) -&gt; Tuple[GridType, CenteredGrid]:
+                        obstacles: Obstacle or Geometry or tuple or list = (),
+                        solve: Solve = Solve(),
+                        active: CenteredGrid = None,
+                        order: int = 2) -&gt; Tuple[GridType, CenteredGrid]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     Args:
-        velocity: Vector field sampled on a grid
-        obstacles: List of Obstacles to specify boundary conditions inside the domain (Default value = ())
-        solve: Parameters for the pressure solve as.
+        velocity: Vector field sampled on a grid.
+        obstacles: `Obstacle` or `phi.geom.Geometry` or tuple/list thereof to specify boundary conditions inside the domain.
+        solve: `Solve` object specifying method and tolerances for the implicit pressure solve.
         active: (Optional) Mask for which cells the pressure should be solved.
             If given, the velocity may take `NaN` values where it does not contribute to the pressure.
             Also, the total divergence will never be subtracted if active is given, even if all values are 1.
+        order: spatial order for derivative computations.
+            For Higher-order schemes, the laplace operation is not conducted with a stencil exactly corresponding to the one used in divergence calculations but a smaller one instead.
+            While this disrupts the formal correctness of the method it only induces insignificant errors and yields considerable performance gains.
+            supported: explicit 2/4th order - implicit 6th order (obstacles are only supported with explicit 2nd order)
 
     Returns:
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     &#34;&#34;&#34;
-    assert isinstance(obstacles, (tuple, list)), f&#34;obstacles must be a tuple or list but got {type(obstacles)}&#34;
-    obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
-    for obstacle in obstacles:
-        assert obstacle.geometry.vector.item_names == velocity.vector.item_names, f&#34;Obstacles must live in the same physical space as the velocity field {velocity.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}&#34;
+    obstacles = _get_obstacles_for(obstacles, velocity)
+    assert order == 2 or len(obstacles) == 0, f&#34;obstacles are not supported with higher order schemes&#34;
     input_velocity = velocity
     # --- Create masks ---
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
@@ -405,7 +567,7 @@ Also, the total divergence will never be subtracted if active is given, even if 
         active *= accessible  # no pressure inside obstacles
     # --- Linear solve ---
     velocity = apply_boundary_conditions(velocity, obstacles)
-    div = divergence(velocity) * active
+    div = divergence(velocity, order=order) * active
     if not all_active:  # NaN in velocity allowed
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
@@ -416,9 +578,9 @@ Also, the total divergence will never be subtracted if active is given, even if 
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
     if batch(math.merge_shapes(*obstacles)).without(batch(solve.x0)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
-    pressure = math.solve_linear(masked_laplace, f_args=[hard_bcs, active], y=div, solve=solve)
+    pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity)) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity), order=order) * hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure</code></pre>
 </details>
@@ -472,14 +634,16 @@ It can also have a linear and angular velocity.</p>
         return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
 
     def copied_with(self, **kwargs):
-        geometry, velocity, angular_velocity = self.geometry, self.velocity, self.angular_velocity
-        if &#39;geometry&#39; in kwargs:
-            geometry = kwargs[&#39;geometry&#39;]
-        if &#39;velocity&#39; in kwargs:
-            velocity = kwargs[&#39;velocity&#39;]
-        if &#39;angular_velocity&#39; in kwargs:
-            angular_velocity = kwargs[&#39;angular_velocity&#39;]
-        return Obstacle(geometry, velocity, angular_velocity)</code></pre>
+        warnings.warn(&#34;Obstacle.copied_with is deprecated. Use math.copy_with instead.&#34;, DeprecationWarning, stacklevel=2)
+        return math.copy_with(self, **kwargs)
+
+    def __variable_attrs__(self) -&gt; Tuple[str, ...]:
+        return &#39;geometry&#39;, &#39;velocity&#39;, &#39;angular_velocity&#39;
+
+    def __eq__(self, other):
+        if not isinstance(other, Obstacle):
+            return False
+        return self.geometry == other.geometry and self.velocity == other.velocity and self.angular_velocity == other.angular_velocity</code></pre>
 </details>
 <h3>Instance variables</h3>
 <dl>
@@ -509,14 +673,8 @@ def is_stationary(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def copied_with(self, **kwargs):
-    geometry, velocity, angular_velocity = self.geometry, self.velocity, self.angular_velocity
-    if &#39;geometry&#39; in kwargs:
-        geometry = kwargs[&#39;geometry&#39;]
-    if &#39;velocity&#39; in kwargs:
-        velocity = kwargs[&#39;velocity&#39;]
-    if &#39;angular_velocity&#39; in kwargs:
-        angular_velocity = kwargs[&#39;angular_velocity&#39;]
-    return Obstacle(geometry, velocity, angular_velocity)</code></pre>
+    warnings.warn(&#34;Obstacle.copied_with is deprecated. Use math.copy_with instead.&#34;, DeprecationWarning, stacklevel=2)
+    return math.copy_with(self, **kwargs)</code></pre>
 </details>
 </dd>
 </dl>
@@ -539,6 +697,7 @@ def is_stationary(self):
 <ul class="">
 <li><code><a title="phi.physics.fluid.apply_boundary_conditions" href="#phi.physics.fluid.apply_boundary_conditions">apply_boundary_conditions</a></code></li>
 <li><code><a title="phi.physics.fluid.boundary_push" href="#phi.physics.fluid.boundary_push">boundary_push</a></code></li>
+<li><code><a title="phi.physics.fluid.incompressible_rk4" href="#phi.physics.fluid.incompressible_rk4">incompressible_rk4</a></code></li>
 <li><code><a title="phi.physics.fluid.make_incompressible" href="#phi.physics.fluid.make_incompressible">make_incompressible</a></code></li>
 </ul>
 </li>

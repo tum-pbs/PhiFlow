@@ -44,7 +44,7 @@ from typing import Union, Dict, Callable, Tuple
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
 from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes
-from ._magic_ops import concat, stack
+from ._magic_ops import concat, stack, expand
 from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -109,7 +109,7 @@ class Extrapolation:
         Returns:
             Padded `Tensor`
         &#34;&#34;&#34;
-        from phi.math._functional import ShiftLinTracer
+        from phi.math._trace import ShiftLinTracer
         if isinstance(value, ShiftLinTracer):
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
             return value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths, **kwargs), bias_fun=lambda b: self.pad(b, widths, **kwargs))
@@ -245,7 +245,8 @@ class ConstantExtrapolation(Extrapolation):
     def __getitem__(self, item):
         return ConstantExtrapolation(self.value[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;ConstantExtrapolation&#39;:
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;ConstantExtrapolation&#39;:
         if all(isinstance(v, ConstantExtrapolation) for v in values):
             return ConstantExtrapolation(stack([v.value for v in values], dim, **kwargs))
         else:
@@ -300,13 +301,13 @@ class ConstantExtrapolation(Extrapolation):
                     else:
                         delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                         new_sizes.append(size + int(delta))
-                return CollapsedTensor(value._inner, value.shape.after_pad(widths))
+                return expand(value._inner, value.shape.after_pad(widths))
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
-            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim.name}
-            tensors = [self[{value.stack_dim.name: i}].pad(t, inner_widths) for i, t in enumerate(value.dimension(value.stack_dim.name))]
-            return TensorStack(tensors, value.stack_dim)
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value._stack_dim.name}
+            tensors = [self[{value._stack_dim.name: i}].pad(t, inner_widths) for i, t in enumerate(value.dimension(value._stack_dim.name))]
+            return TensorStack(tensors, value._stack_dim)
         else:
             return Extrapolation.pad(self, value, widths, **kwargs)
 
@@ -423,7 +424,7 @@ class _CopyExtrapolation(Extrapolation):
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -&gt; Tensor:
         value = value._simplify()
-        from phi.math._functional import ShiftLinTracer
+        from phi.math._trace import ShiftLinTracer
         if isinstance(value, NativeTensor):
             native = value._native
             ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
@@ -436,13 +437,13 @@ class _CopyExtrapolation(Extrapolation):
             inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
             if len(inner_widths) &gt; 0:
                 inner = self.pad(inner, widths)
-            return CollapsedTensor(inner, value.shape.after_pad(widths))
+            return expand(inner, value.shape.after_pad(widths))
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
-            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim_name}
-            tensors = [self.pad(t, inner_widths) for t in value.dimension(value.stack_dim.name)]
-            return TensorStack(tensors, value.stack_dim)
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value._stack_dim.name}
+            tensors = [self.pad(t, inner_widths) for t in value.dimension(value._stack_dim.name)]
+            return TensorStack(tensors, value._stack_dim)
         elif isinstance(value, ShiftLinTracer):
             return self._pad_linear_tracer(value, widths)
         else:
@@ -644,6 +645,102 @@ class _SymmetricExtrapolation(_CopyExtrapolation):
         else:
             return value[{dim: slice(0, width)}].flip(dim)
 
+    def _pad_linear_tracer(self, value: &#39;ShiftLinTracer&#39;, widths: dict) -&gt; &#39;ShiftLinTracer&#39;:
+        &#34;&#34;&#34;
+        *Warning*:
+        This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
+        These are typically sliced off in differential operators. Corners are instead assigned the value 0.
+        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinTracer.
+
+        Args:
+          value: ShiftLinTracer:
+          widths: dict:
+
+        Returns:
+
+        &#34;&#34;&#34;
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        result = value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths), bias_fun=lambda b: ZERO.pad(b, widths))  # inner values  ~half the computation time
+        for bound_dim, (bound_lo, bound_hi) in widths.items():
+            for i in range(bound_lo):  # i=0 means outer
+                # this sets corners to 0
+                lower = {dim: bound_lo-1-2*i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
+                mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))
+                result += boundary
+            for i in range(bound_hi):
+                lower = {dim: -(bound_hi-1-2*i) - bound_lo - bound_hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
+                mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))  # ~ half the computation time
+                result += boundary  # this does basically nothing if value is the identity
+        return result
+
+    def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        # key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        # if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
+        #     result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key])
+        #     _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = result
+        #     return result
+        # else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (bound_lo - i - 1, 0)})
+            mask = ONE.pad(mask, {bound_dim: (1, 0)})
+            mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            # _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = mask
+            return mask
+
+    def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        # key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        # if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
+        #     result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key])
+        #     _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = result
+        #     return result
+        # else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (0, bound_hi - i - 1)})
+            mask = ONE.pad(mask, {bound_dim: (0, 1)})
+            mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            # _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
+            return mask
+
+
+class _AntiSymmetricExtrapolation(_SymmetricExtrapolation):
+    &#34;&#34;&#34;Like _SymmetricExtrapolation but symmetric counterparts are negated for padding&#34;&#34;&#34;
+
+    def __repr__(self):
+        return &#39;antisymmetric&#39;
+
+    def pad_values(self, *args, **kwargs) -&gt; Tensor:
+        return -super().pad_values(*args, **kwargs)
+
+    def _pad_linear_tracer(self, value: &#39;ShiftLinTracer&#39;, widths: dict) -&gt; &#39;ShiftLinTracer&#39;:
+        &#34;&#34;&#34;
+        *Warning*:
+        This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
+        These are typically sliced off in differential operators. Corners are instead assigned the value 0.
+        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinTracer.
+
+        Args:
+          value: ShiftLinTracer:
+          widths: dict:
+
+        Returns:
+
+        &#34;&#34;&#34;
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        result = value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths), bias_fun=lambda b: ZERO.pad(b, widths))  # inner values  ~half the computation time
+        for bound_dim, (bound_lo, bound_hi) in widths.items():
+            for i in range(bound_lo):  # i=0 means outer
+                # this sets corners to 0
+                lower = {dim: bound_lo-1-2*i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
+                mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))
+                result -= boundary
+            for i in range(bound_hi):
+                lower = {dim: -(bound_hi-1-2*i) - bound_lo - bound_hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
+                mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))  # ~ half the computation time
+                result -= boundary  # this does basically nothing if value is the identity
+        return result
+
 
 class _ReflectExtrapolation(_CopyExtrapolation):
     &#34;&#34;&#34;Mirror of inner elements. The boundary value is not duplicated.&#34;&#34;&#34;
@@ -667,6 +764,102 @@ class _ReflectExtrapolation(_CopyExtrapolation):
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -&gt; Tensor:
         coordinates = coordinates % (2 * shape - 2)
         return (shape - 1) - math.abs_((shape - 1) - coordinates)
+
+    def _pad_linear_tracer(self, value: &#39;ShiftLinTracer&#39;, widths: dict) -&gt; &#39;ShiftLinTracer&#39;:
+        &#34;&#34;&#34;
+        *Warning*:
+        This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
+        These are typically sliced off in differential operators. Corners are instead assigned the value 0.
+        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinTracer.
+
+        Args:
+          value: ShiftLinTracer:
+          widths: dict:
+
+        Returns:
+
+        &#34;&#34;&#34;
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        result = value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths), bias_fun=lambda b: ZERO.pad(b, widths))  # inner values  ~half the computation time
+        for bound_dim, (bound_lo, bound_hi) in widths.items():
+            for i in range(bound_lo):  # i=0 means outer
+                # this sets corners to 0
+                lower = {dim: bound_lo-2*i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
+                mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))
+                result += boundary
+            for i in range(bound_hi):
+                lower = {dim: -(bound_hi-2*i) - bound_lo - bound_hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
+                mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))  # ~ half the computation time
+                result += boundary  # this does basically nothing if value is the identity
+        return result
+
+    def _lower_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        # key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        # if key in _BoundaryExtrapolation._CACHED_LOWER_MASKS:
+        #     result = math.tensor(_BoundaryExtrapolation._CACHED_LOWER_MASKS[key])
+        #     _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = result
+        #     return result
+        # else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (bound_lo - i - 1, 0)})
+            mask = ONE.pad(mask, {bound_dim: (1, 0)})
+            mask = ZERO.pad(mask, {dim: (i, bound_hi) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            # _BoundaryExtrapolation._CACHED_LOWER_MASKS[key] = mask
+            return mask
+
+    def _upper_mask(self, shape, widths, bound_dim, bound_lo, bound_hi, i):
+        # key = (shape, tuple(widths.keys()), tuple(widths.values()), bound_dim, bound_lo, bound_hi, i)
+        # if key in _BoundaryExtrapolation._CACHED_UPPER_MASKS:
+        #     result = math.tensor(_BoundaryExtrapolation._CACHED_UPPER_MASKS[key])
+        #     _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = result
+        #     return result
+        # else:
+            mask = ZERO.pad(math.zeros(shape), {bound_dim: (0, bound_hi - i - 1)})
+            mask = ONE.pad(mask, {bound_dim: (0, 1)})
+            mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
+            # _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
+            return mask
+
+
+class _AntiReflectExtrapolation(_ReflectExtrapolation):
+    &#34;&#34;&#34;Like _ReflectExtrapolation but symmetric counterparts are negated for padding&#34;&#34;&#34;
+
+    def __repr__(self):
+        return &#39;antireflect&#39;
+
+    def pad_values(self, *args, **kwargs) -&gt; Tensor:
+        return -super().pad_values(*args, **kwargs)
+
+    def _pad_linear_tracer(self, value: &#39;ShiftLinTracer&#39;, widths: dict) -&gt; &#39;ShiftLinTracer&#39;:
+        &#34;&#34;&#34;
+        *Warning*:
+        This implementation discards corners, i.e. values that lie outside the original tensor in more than one dimension.
+        These are typically sliced off in differential operators. Corners are instead assigned the value 0.
+        To take corners into account, call pad() for each axis individually. This is inefficient with ShiftLinTracer.
+
+        Args:
+          value: ShiftLinTracer:
+          widths: dict:
+
+        Returns:
+
+        &#34;&#34;&#34;
+        lower = {dim: -lo for dim, (lo, _) in widths.items()}
+        result = value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths), bias_fun=lambda b: ZERO.pad(b, widths))  # inner values  ~half the computation time
+        for bound_dim, (bound_lo, bound_hi) in widths.items():
+            for i in range(bound_lo):  # i=0 means outer
+                # this sets corners to 0
+                lower = {dim: bound_lo-2*i if dim == bound_dim else -lo for dim, (lo, _) in widths.items()}
+                mask = self._lower_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))
+                result -= boundary
+            for i in range(bound_hi):
+                lower = {dim: -(bound_hi-2*i) - bound_lo - bound_hi if dim == bound_dim else -lo for dim, (lo, hi) in widths.items()}
+                mask = self._upper_mask(value.shape.only(result.dependent_dims), widths, bound_dim, bound_lo, bound_hi, i)
+                boundary = value.shift(lower, new_shape=result.shape, val_fun=lambda v: self.pad(v, widths) * mask, bias_fun=lambda b: ZERO.pad(b, widths))  # ~ half the computation time
+                result -= boundary  # this does basically nothing if value is the identity
+        return result
 
 
 class _NoExtrapolation(Extrapolation):  # singleton
@@ -805,12 +998,18 @@ ONE = ConstantExtrapolation(1)
 &#34;&#34;&#34; Extrapolates with the constant value 1 (Dirichlet boundary condition). &#34;&#34;&#34;
 PERIODIC = _PeriodicExtrapolation(1)
 &#34;&#34;&#34; Extends a grid by tiling it (Periodic boundary condition). &#34;&#34;&#34;
-BOUNDARY = _BoundaryExtrapolation(2)
+ZERO_GRADIENT = _BoundaryExtrapolation(2)
 &#34;&#34;&#34; Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). &#34;&#34;&#34;
+BOUNDARY = ZERO_GRADIENT
 SYMMETRIC = _SymmetricExtrapolation(3)
 &#34;&#34;&#34; Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. &#34;&#34;&#34;
+ANTISYMMETRIC = _AntiSymmetricExtrapolation(3)
+&#34;&#34;&#34; Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead. &#34;&#34;&#34;
 REFLECT = _ReflectExtrapolation(4)
 &#34;&#34;&#34; Like SYMMETRIC but the edge values are not copied and only occur once per seam. &#34;&#34;&#34;
+ANTIREFLECT = _AntiReflectExtrapolation(4)
+&#34;&#34;&#34; Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead. &#34;&#34;&#34;
+
 NONE = _NoExtrapolation(-1)
 &#34;&#34;&#34; Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. &#34;&#34;&#34;
 
@@ -1135,8 +1334,12 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
         return BOUNDARY
     elif etype == &#39;symmetric&#39;:
         return SYMMETRIC
+    elif etype == &#39;antisymmetric&#39;:
+        return ANTISYMMETRIC
     elif etype == &#39;reflect&#39;:
         return REFLECT
+    elif etype == &#39;antireflect&#39;:
+        return ANTISYMMETRIC
     elif etype == &#39;mixed&#39;:
         dims: Dict[str, tuple] = dictionary[&#39;dims&#39;]
         extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
@@ -1196,7 +1399,26 @@ def map(f: Callable[[Extrapolation], Extrapolation], extrapolation):
     elif isinstance(extrapolation, _NormalTangentialExtrapolation):
         return combine_by_direction(map(f, extrapolation.normal), map(f, extrapolation.tangential))
     else:
-        return f(extrapolation)</code></pre>
+        return f(extrapolation)
+
+
+def remove_constant_offset(extrapolation):
+    &#34;&#34;&#34;
+    Removes all constant offsets from an extrapolation.
+    This also includes `NaN` values in constants (unlike `ext - ext`).
+
+    Args:
+        extrapolation: `Extrapolation` object.
+
+    Returns:
+        `Extrapolation` that has no constant offsets
+    &#34;&#34;&#34;
+    def const_to_zero(extrapolation):
+        if isinstance(extrapolation, ConstantExtrapolation):
+            return ZERO
+        else:
+            return extrapolation
+    return map(const_to_zero, extrapolation)</code></pre>
 </details>
 </section>
 <section>
@@ -1204,9 +1426,13 @@ def map(f: Callable[[Extrapolation], Extrapolation], extrapolation):
 <section>
 <h2 class="section-title" id="header-variables">Global variables</h2>
 <dl>
-<dt id="phi.math.extrapolation.BOUNDARY"><code class="name">var <span class="ident">BOUNDARY</span></code></dt>
+<dt id="phi.math.extrapolation.ANTIREFLECT"><code class="name">var <span class="ident">ANTIREFLECT</span></code></dt>
 <dd>
-<div class="desc"><p>Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s).</p></div>
+<div class="desc"><p>Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead.</p></div>
+</dd>
+<dt id="phi.math.extrapolation.ANTISYMMETRIC"><code class="name">var <span class="ident">ANTISYMMETRIC</span></code></dt>
+<dd>
+<div class="desc"><p>Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead.</p></div>
 </dd>
 <dt id="phi.math.extrapolation.NONE"><code class="name">var <span class="ident">NONE</span></code></dt>
 <dd>
@@ -1231,6 +1457,10 @@ def map(f: Callable[[Extrapolation], Extrapolation], extrapolation):
 <dt id="phi.math.extrapolation.ZERO"><code class="name">var <span class="ident">ZERO</span></code></dt>
 <dd>
 <div class="desc"><p>Extrapolates with the constant value 0 (Dirichlet boundary condition).</p></div>
+</dd>
+<dt id="phi.math.extrapolation.ZERO_GRADIENT"><code class="name">var <span class="ident">ZERO_GRADIENT</span></code></dt>
+<dd>
+<div class="desc"><p>Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s).</p></div>
 </dd>
 </dl>
 </section>
@@ -1355,8 +1585,12 @@ def map(f: Callable[[Extrapolation], Extrapolation], extrapolation):
         return BOUNDARY
     elif etype == &#39;symmetric&#39;:
         return SYMMETRIC
+    elif etype == &#39;antisymmetric&#39;:
+        return ANTISYMMETRIC
     elif etype == &#39;reflect&#39;:
         return REFLECT
+    elif etype == &#39;antireflect&#39;:
+        return ANTISYMMETRIC
     elif etype == &#39;mixed&#39;:
         dims: Dict[str, tuple] = dictionary[&#39;dims&#39;]
         extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
@@ -1458,6 +1692,42 @@ Non-leaves are those created by <code><a title="phi.math.extrapolation.combine_s
         return sequence</code></pre>
 </details>
 </dd>
+<dt id="phi.math.extrapolation.remove_constant_offset"><code class="name flex">
+<span>def <span class="ident">remove_constant_offset</span></span>(<span>extrapolation)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Removes all constant offsets from an extrapolation.
+This also includes <code>NaN</code> values in constants (unlike <code>ext - ext</code>).</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd><code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code> object.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code> that has no constant offsets</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def remove_constant_offset(extrapolation):
+    &#34;&#34;&#34;
+    Removes all constant offsets from an extrapolation.
+    This also includes `NaN` values in constants (unlike `ext - ext`).
+
+    Args:
+        extrapolation: `Extrapolation` object.
+
+    Returns:
+        `Extrapolation` that has no constant offsets
+    &#34;&#34;&#34;
+    def const_to_zero(extrapolation):
+        if isinstance(extrapolation, ConstantExtrapolation):
+            return ZERO
+        else:
+            return extrapolation
+    return map(const_to_zero, extrapolation)</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -1505,7 +1775,8 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
     def __getitem__(self, item):
         return ConstantExtrapolation(self.value[item])
 
-    def __stack__(self, values: tuple, dim: Shape, **kwargs) -&gt; &#39;ConstantExtrapolation&#39;:
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;ConstantExtrapolation&#39;:
         if all(isinstance(v, ConstantExtrapolation) for v in values):
             return ConstantExtrapolation(stack([v.value for v in values], dim, **kwargs))
         else:
@@ -1560,13 +1831,13 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
                     else:
                         delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                         new_sizes.append(size + int(delta))
-                return CollapsedTensor(value._inner, value.shape.after_pad(widths))
+                return expand(value._inner, value.shape.after_pad(widths))
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
-            inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim.name}
-            tensors = [self[{value.stack_dim.name: i}].pad(t, inner_widths) for i, t in enumerate(value.dimension(value.stack_dim.name))]
-            return TensorStack(tensors, value.stack_dim)
+            inner_widths = {dim: w for dim, w in widths.items() if dim != value._stack_dim.name}
+            tensors = [self[{value._stack_dim.name: i}].pad(t, inner_widths) for i, t in enumerate(value.dimension(value._stack_dim.name))]
+            return TensorStack(tensors, value._stack_dim)
         else:
             return Extrapolation.pad(self, value, widths, **kwargs)
 
@@ -1785,13 +2056,13 @@ def shape(self):
                 else:
                     delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
                     new_sizes.append(size + int(delta))
-            return CollapsedTensor(value._inner, value.shape.after_pad(widths))
+            return expand(value._inner, value.shape.after_pad(widths))
     elif isinstance(value, TensorStack):
         if not value.requires_broadcast:
             return self.pad(value._cache(), widths)
-        inner_widths = {dim: w for dim, w in widths.items() if dim != value.stack_dim.name}
-        tensors = [self[{value.stack_dim.name: i}].pad(t, inner_widths) for i, t in enumerate(value.dimension(value.stack_dim.name))]
-        return TensorStack(tensors, value.stack_dim)
+        inner_widths = {dim: w for dim, w in widths.items() if dim != value._stack_dim.name}
+        tensors = [self[{value._stack_dim.name: i}].pad(t, inner_widths) for i, t in enumerate(value.dimension(value._stack_dim.name))]
+        return TensorStack(tensors, value._stack_dim)
     else:
         return Extrapolation.pad(self, value, widths, **kwargs)</code></pre>
 </details>
@@ -1890,7 +2161,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         Returns:
             Padded `Tensor`
         &#34;&#34;&#34;
-        from phi.math._functional import ShiftLinTracer
+        from phi.math._trace import ShiftLinTracer
         if isinstance(value, ShiftLinTracer):
             lower = {dim: -lo for dim, (lo, _) in widths.items()}
             return value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths, **kwargs), bias_fun=lambda b: self.pad(b, widths, **kwargs))
@@ -2097,7 +2368,7 @@ To change this behavior, override this method.</p>
     Returns:
         Padded `Tensor`
     &#34;&#34;&#34;
-    from phi.math._functional import ShiftLinTracer
+    from phi.math._trace import ShiftLinTracer
     if isinstance(value, ShiftLinTracer):
         lower = {dim: -lo for dim, (lo, _) in widths.items()}
         return value.shift(lower, new_shape=value.shape.after_pad(widths), val_fun=lambda v: ZERO.pad(v, widths, **kwargs), bias_fun=lambda b: self.pad(b, widths, **kwargs))
@@ -2422,13 +2693,15 @@ def shape(self):
 </li>
 <li><h3><a href="#header-variables">Global variables</a></h3>
 <ul class="two-column">
-<li><code><a title="phi.math.extrapolation.BOUNDARY" href="#phi.math.extrapolation.BOUNDARY">BOUNDARY</a></code></li>
+<li><code><a title="phi.math.extrapolation.ANTIREFLECT" href="#phi.math.extrapolation.ANTIREFLECT">ANTIREFLECT</a></code></li>
+<li><code><a title="phi.math.extrapolation.ANTISYMMETRIC" href="#phi.math.extrapolation.ANTISYMMETRIC">ANTISYMMETRIC</a></code></li>
 <li><code><a title="phi.math.extrapolation.NONE" href="#phi.math.extrapolation.NONE">NONE</a></code></li>
 <li><code><a title="phi.math.extrapolation.ONE" href="#phi.math.extrapolation.ONE">ONE</a></code></li>
 <li><code><a title="phi.math.extrapolation.PERIODIC" href="#phi.math.extrapolation.PERIODIC">PERIODIC</a></code></li>
 <li><code><a title="phi.math.extrapolation.REFLECT" href="#phi.math.extrapolation.REFLECT">REFLECT</a></code></li>
 <li><code><a title="phi.math.extrapolation.SYMMETRIC" href="#phi.math.extrapolation.SYMMETRIC">SYMMETRIC</a></code></li>
 <li><code><a title="phi.math.extrapolation.ZERO" href="#phi.math.extrapolation.ZERO">ZERO</a></code></li>
+<li><code><a title="phi.math.extrapolation.ZERO_GRADIENT" href="#phi.math.extrapolation.ZERO_GRADIENT">ZERO_GRADIENT</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
@@ -2438,6 +2711,7 @@ def shape(self):
 <li><code><a title="phi.math.extrapolation.from_dict" href="#phi.math.extrapolation.from_dict">from_dict</a></code></li>
 <li><code><a title="phi.math.extrapolation.map" href="#phi.math.extrapolation.map">map</a></code></li>
 <li><code><a title="phi.math.extrapolation.order_by_shape" href="#phi.math.extrapolation.order_by_shape">order_by_shape</a></code></li>
+<li><code><a title="phi.math.extrapolation.remove_constant_offset" href="#phi.math.extrapolation.remove_constant_offset">remove_constant_offset</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

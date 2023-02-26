@@ -785,6 +785,16 @@ The output of math operations has the same precision as its inputs.</p>
     def copy(self, tensor, only_mutable=False):
         raise NotImplementedError()
 
+    def copy_leaves(self, tree, only_mutable=False):
+        if isinstance(tree, tuple):
+            return tuple([self.copy_leaves(e, only_mutable) for e in tree])
+        elif isinstance(tree, list):
+            return [self.copy_leaves(e, only_mutable) for e in tree]
+        elif isinstance(tree, dict):
+            return {k: self.copy_leaves(e, only_mutable) for k, e in tree.items()}
+        else:
+            return self.copy(tree, only_mutable=only_mutable)
+
     def call(self, f: Callable, *args, name=None):
         &#34;&#34;&#34;
         Calls `f(*args)` and returns the result.
@@ -869,6 +879,17 @@ The output of math operations has the same precision as its inputs.</p>
     def stack(self, values, axis=0):
         raise NotImplementedError(self)
 
+    def stack_leaves(self, trees: tuple or list, axis=0):
+        tree0 = trees[0]
+        if isinstance(tree0, tuple):
+            return tuple([self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))])
+        elif isinstance(tree0, list):
+            return [self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))]
+        elif isinstance(tree0, dict):
+            return {k: self.stack_leaves([tree[k] for tree in trees], axis=axis) for k in tree0}
+        else:
+            return self.stack(trees, axis=axis)
+
     def concat(self, values, axis):
         raise NotImplementedError(self)
 
@@ -949,7 +970,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34; Multiply-sum-reduce a_axes of a with b_axes of b. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def matmul(self, A, b):
+    def mul_matrix_batched_vector(self, A, b):
         raise NotImplementedError(self)
 
     def einsum(self, equation, *tensors):
@@ -958,8 +979,10 @@ The output of math operations has the same precision as its inputs.</p>
     def cumsum(self, x, axis: int):
         raise NotImplementedError(self)
 
-    def while_loop(self, loop: Callable, values: tuple):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
         &#34;&#34;&#34;
+        If `max_iter is None`, runs
+
         ```python
         while any(values[0]):
             values = loop(*values)
@@ -971,10 +994,30 @@ The output of math operations has the same precision as its inputs.</p>
         Args:
             loop: Loop function, must return a `tuple` with entries equal to `values` in shape and data type.
             values: Initial values of loop variables.
+            max_iter: Maximum number of iterations to run, single `int` or sequence of integers.
         Returns:
-            Loop variables upon loop completion.
+            Loop variables upon loop completion if `max_iter` is a single integer.
+            If `max_iter` is a sequence, stacks the variables after each entry in `max_iter`, adding an outer dimension of size `&lt;= len(max_iter)`.
+            If the condition is fulfilled before the maximum max_iter is reached, the loop may be broken or not, depending on the implementation.
+            If the loop is broken, the values returned by the last loop are expected to be constant and filled.
         &#34;&#34;&#34;
-        raise NotImplementedError(self)
+        values = self.stop_gradient_tree(values)
+        if isinstance(max_iter, (tuple, list)):
+            trj = [self.copy_leaves(values, only_mutable=True)] if 0 in max_iter else []
+            for i in range(1, max(max_iter) + 1):
+                values = loop(*values)
+                if i in max_iter:
+                    trj.append(self.copy_leaves(values, only_mutable=True))
+                if not self.any(values[0]):
+                    break
+            trj.extend([trj[-1]] * (len(max_iter) - len(trj)))  # fill trj with final values
+            return self.stop_gradient_tree(self.stack_leaves(trj))
+        else:
+            for i in range(1, max_iter + 1):
+                if not self.any(values[0]):
+                    break
+                values = loop(*values)
+            return self.stop_gradient_tree(values)
 
     def abs(self, x):
         raise NotImplementedError(self)
@@ -1096,6 +1139,20 @@ The output of math operations has the same precision as its inputs.</p>
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, self.precision * 2)))
 
+    def gather(self, values, indices, axis: int):
+        &#34;&#34;&#34;
+        Gathers values from the tensor `values` at locations `indices`.
+
+        Args:
+            values: tensor
+            indices: 1D tensor
+            axis: Axis along which to gather slices
+
+        Returns:
+            tensor, with size along `axis` being the length of `indices`
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
     def batched_gather_nd(self, values, indices):
         &#34;&#34;&#34;
         Gathers values from the tensor `values` at locations `indices`.
@@ -1212,6 +1269,30 @@ The output of math operations has the same precision as its inputs.</p>
     def tan(self, x):
         raise NotImplementedError(self)
 
+    def arctan(self, x):
+        raise NotImplementedError(self)
+
+    def arctan2(self, y, x):
+        raise NotImplementedError(self)
+
+    def sinh(self, x):
+        raise NotImplementedError(self)
+
+    def arcsinh(self, x):
+        raise NotImplementedError(self)
+
+    def cosh(self, x):
+        raise NotImplementedError(self)
+
+    def arccosh(self, x):
+        raise NotImplementedError(self)
+
+    def tanh(self, x):
+        raise NotImplementedError(self)
+
+    def arctanh(self, x):
+        raise NotImplementedError(self)
+
     def log(self, x):
         &#34;&#34;&#34; Natural logarithm &#34;&#34;&#34;
         raise NotImplementedError(self)
@@ -1230,16 +1311,53 @@ The output of math operations has the same precision as its inputs.</p>
 
     def tile(self, value, multiples):
         &#34;&#34;&#34;
-        Repeats the tensor along each axis the number of times given by multiples.
+        Repeats the full tensor along each axis the number of times given by multiples.
         If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
 
         Args:
-          value: tensor
-          multiples: tuple or list of integers
+            value: tensor
+            multiples: tuple or list of integers
 
         Returns:
-          tile tensor
+            tiled tensor
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
 
+    def repeat(self, x, repeats, axis: int):
+        &#34;&#34;&#34;
+        Repeats the elements along `axis` `repeats` times.
+
+        Args:
+            x: Tensor
+            repeats: How often to repeat each element. 1D tensor of length x.shape[axis]
+            axis: Which axis to repeat elements along
+
+        Returns:
+            repeated Tensor
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def get_diagonal(self, matrices, offset=0):
+        &#34;&#34;&#34;
+
+        Args:
+            matrices: (batch, rows, cols, channels)
+            offset: 0=diagonal, positive=above diagonal, negative=below diagonal
+
+        Returns:
+            diagonal: (batch, max(rows,cols), channels)
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def indexed_segment_sum(self, x, indices, axis: int):
+        &#34;&#34;&#34;
+        Args:
+            x: Values to sum. Segments are laid out contiguously along `axis`. (batch, ...)
+            indices: should start with 0 along `axis`. (batch, indices)
+            axis: Axis along which to sum
+
+        Returns:
+            Tensor with `len(indices)` elements along `axis`. (batch, ..., indices, ...)
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -1253,7 +1371,7 @@ The output of math operations has the same precision as its inputs.</p>
             `Backend.csr_matrix()`, `Backend.csc_matrix()`.
 
         Args:
-            indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
+            indices: 2D tensor of shape `(nnz, dims)`.
             values: 1D values tensor matching `indices`
             shape: Shape of the sparse matrix
 
@@ -1262,7 +1380,59 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
+    def sparse_coo_tensor_batched(self, indices: tuple or list, values, shape: tuple):
+        &#34;&#34;&#34;
+        Args:
+            indices: shape (batch_size, dims, nnz)
+            values: Values tensor matching `indices`, shape (batch_size, nnz)
+            shape: tuple of two ints representing the dense shape, (dims...)
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def mul_coo_dense(self, indices, values, shape, dense):
+        &#34;&#34;&#34;
+        Multiply a batch of sparse coordinate matrices by a batch of dense matrices.
+        Every backend should implement this feature.
+        This is the fallback if CSR multiplication is not supported.
+
+        Args:
+            indices: (batch, nnz, ndims)
+            values: (batch, nnz, channels)
+            shape: Shape of the full matrix, tuple of length ndims
+            dense: (batch, dense_rows=sparse_cols, channels, dense_cols)
+
+        Returns:
+            (batch, channels, dense_rows=sparse_cols, dense_cols)
+        &#34;&#34;&#34;
+        values, dense = self.auto_cast(values, dense)
+        batch_size, nnz, channel_count = self.staticshape(values)
+        _, dense_rows, _, dense_cols = self.staticshape(dense)
+        dense_formatted = self.reshape(dense, (batch_size, dense_rows, dense_cols * channel_count))
+        dense_gathered = self.batched_gather_nd(dense_formatted, indices[:, :, 1:2])
+        base_grid = self.zeros((batch_size, shape[0], dense.shape[3] * dense_cols), self.dtype(dense))
+        assert dense_cols == 1
+        result = self.scatter(base_grid, indices[:, :, 0:1], values * dense_gathered, mode=&#39;add&#39;)
+        return self.reshape(result, (batch_size, channel_count, dense_rows, dense_cols))
+
+    def coo_to_dense(self, indices, values, shape, contains_duplicates: bool):
+        batch_size, nnz, channel_count = self.staticshape(values)
+        base = self.zeros((batch_size, *shape, channel_count))
+        result = self.scatter(base, indices, values, mode=&#39;add&#39; if contains_duplicates else &#39;update&#39;)
+        return result
+
+    def ilu_coo(self, indices, values, shape, iterations: int, safe: bool):
+        &#34;&#34;&#34; See incomplete_lu_coo() in _linalg &#34;&#34;&#34;
+        from ._linalg import incomplete_lu_coo
+        assert self.dtype(values).kind in (bool, int, float)
+        return incomplete_lu_coo(self, indices, self.to_float(values), shape, iterations, safe)
+
+    def ilu_dense(self, matrix, iterations: int, safe: bool):
+        &#34;&#34;&#34; See incomplete_lu_dense() in _linalg &#34;&#34;&#34;
+        from ._linalg import incomplete_lu_dense
+        assert self.dtype(matrix).kind in (bool, int, float)
+        return incomplete_lu_dense(self, self.to_float(matrix), iterations, safe)
+
+    def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
         &#34;&#34;&#34;
         Create a sparse matrix in compressed sparse row (CSR) format.
 
@@ -1282,7 +1452,71 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+    def csr_matrix_batched(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+        &#34;&#34;&#34;
+        Args:
+            column_indices: Column indices corresponding to `values`, shape (batch_size, nnz)
+            row_pointers: Indices in `values` where any row starts, shape (batch_size, rows+1)
+            values: Non-zero values, shape (batch_size, nnz, channels)
+            shape: tuple of two ints representing the dense shape, (cols, rows)
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
+    def mul_csr_dense(self, column_indices, row_pointers, values, shape: Tuple[int, int], dense):
+        &#34;&#34;&#34;
+        Multiply a batch of compressed sparse row matrices by a batch of dense matrices.
+
+        Optional feature.
+
+        See Also:
+            `Backend.sparse_coo_tensor()`, `Backend.csc_matrix()`.
+
+        Args:
+            column_indices: (batch, nnz)
+            row_pointers: (batch, rows + 1)
+            values: (batch, nnz, channels)
+            shape: Shape of the full matrix (cols, rows)
+            dense: (batch, dense_rows=sparse_cols, channels, dense_cols)
+
+        Returns:
+            (batch, channels, dense_rows=sparse_cols, dense_cols)
+        &#34;&#34;&#34;
+        # if not self.supports(Backend.indexed_segment_sum):
+        native_coo_indices = self.csr_to_coo(column_indices, row_pointers)
+        return self.mul_coo_dense(native_coo_indices, values, shape, dense)
+        # values, dense = self.auto_cast(values, dense)
+        # batch_size, nnz, channel_count = self.staticshape(values)
+        # _, dense_rows, _, dense_cols = self.staticshape(dense)
+        # assert dense_cols == 1
+        # dense_formatted = self.reshape(dense, (batch_size, dense_rows, channel_count * dense_cols))
+        # dense_gathered = self.batched_gather_nd(dense_formatted, self.expand_dims(column_indices, -1))  # (batch, nnz, channels*rhs_cols)
+        # dense_gathered = self.reshape(dense_gathered, (batch_size, nnz, channel_count, dense_cols))
+        # values = self.reshape(values, (batch_size, nnz, channel_count, 1))
+        # result = self.indexed_segment_sum(values * dense_gathered, row_pointers[:, :-1], 1)
+        # return self.reshape(result, (batch_size, channel_count, rhs_rows, rhs_cols))
+
+    def csr_to_coo(self, column_indices, row_pointers):
+        &#34;&#34;&#34;
+        Convert a batch of compressed sparse matrices to sparse coordinate matrices.
+
+        Args:
+            column_indices: (batch, nnz)
+            row_pointers: (batch, rows + 1)
+
+        Returns:
+            indices: (batch, nnz, 2)
+        &#34;&#34;&#34;
+        batch_size = self.staticshape(column_indices)[0]
+        repeats = row_pointers[:, 1:] - row_pointers[:, :-1]
+        row_count = self.shape(repeats)[-1]
+        row_indices = [self.repeat(self.range(row_count, dtype=self.dtype(column_indices)), repeats[b], -1) for b in range(batch_size)]
+        return self.stack([self.stack(row_indices), column_indices], axis=-1)
+
+    def csr_to_dense(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+        indices = self.csr_to_coo(column_indices, row_pointers)
+        return self.coo_to_dense(indices, values, shape, contains_duplicates=False)
+
+    def csc_matrix(self, column_pointers, row_indices, values, shape: Tuple[int, int]):
         &#34;&#34;&#34;
         Create a sparse matrix in compressed sparse column (CSC) format.
 
@@ -1302,195 +1536,61 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def coordinates(self, tensor):
+    def csc_matrix_batched(self, column_pointers, row_indices, values, shape: Tuple[int, int]):
         &#34;&#34;&#34;
-        Returns the coordinates and values of a tensor.
-
         Args:
-            tensor: Sparse tensor
-
-        Returns:
-            coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
-            indices: Tensor holding the corresponding values
-
+            column_pointers: Indices in `values` where any row starts, shape (batch_size, cols+1)
+            row_indices: Row indices corresponding to `values`, shape (batch_size, nnz)
+            values: Non-zero values, shape (batch_size, nnz, channels)
+            shape: tuple of two ints representing the dense shape, (cols, rows)
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
-        if method == &#39;GD&#39;:
-            return self._minimize_gradient_descent(f, x0, atol, max_iter, trj)
+    def pairwise_distances(self, positions, max_radius, format: str, index_dtype=DType(int, 32)) -&gt; list:
+        &#34;&#34;&#34;
 
-        from scipy.optimize import OptimizeResult, minimize
-        from threading import Thread
+        Args:
+            positions: Point locations of shape (batch, instances, vector)
+            max_radius: Scalar or (batch,) or (batch, instances)
+            format: &#39;csr&#39;,  Not yet implemented: &#39;sparse&#39;, &#39;coo&#39;, &#39;csc&#39;
+            index_dtype: Either int32 or int64
 
-        assert self.supports(Backend.jacobian)
-        x0 = self.numpy(x0)
-        assert x0.ndim == 2  # (batch, parameters)
-        atol = self.numpy(atol)
-        max_iter = self.numpy(max_iter)
-        batch_size = x0.shape[0]
-        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
-        method_description = f&#34;SciPy {method} with {self.name}&#34;
-
-        iterations = [0] * batch_size
-        function_evaluations = [0] * batch_size
-        xs = [None] * batch_size
-        final_losses = [None] * batch_size
-        converged = [False] * batch_size
-        diverged = [False] * batch_size
-        messages = [&#34;&#34;] * batch_size
-
-        f_inputs = [None] * batch_size
-        f_b_losses = None
-        f_b_losses_np = None
-        f_grad_np = None
-        f_input_available = Barrier(batch_size + 1)
-        f_output_available = Barrier(batch_size + 1)
-        finished = [False] * batch_size
-        all_finished = False
-        trajectories = [[] for _ in range(batch_size)] if trj else None
-        threads = []
-
-        for b in range(batch_size):  # Run each independent example as a scipy minimization in a new thread
-
-            def b_thread(b=b):
-                recent_b_losses = []
-
-                def b_fun(x: numpy.ndarray):
-                    function_evaluations[b] += 1
-                    f_inputs[b] = self.as_tensor(x, convert_external=True)
-                    f_input_available.wait()
-                    f_output_available.wait()
-                    recent_b_losses.append(f_b_losses[b])
-                    if final_losses[b] is None:  # first evaluation
-                        final_losses[b] = f_b_losses[b]
-                        if trajectories is not None:
-                            trajectories[b].append(SolveResult(method_description, x0[b], self.numpy(f_b_losses[b]), 0, 1, False, False, &#34;&#34;))
-                    return f_b_losses_np[b], f_grad_np[b]
-
-                def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
-                    iterations[b] += 1
-                    loss = min(recent_b_losses)
-                    recent_b_losses.clear()
-                    final_losses[b] = loss
-                    if trajectories is not None:
-                        trajectories[b].append(SolveResult(method_description, x, self.numpy(loss), iterations[b], function_evaluations[b], False, False, &#34;&#34;))
-
-                res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={&#39;maxiter&#39;: max_iter[b]}, callback=callback)
-                assert isinstance(res, OptimizeResult)
-                # res.nit, res.nfev
-                xs[b] = res.x
-                converged[b] = res.success
-                diverged[b] = res.status not in (0, 1)  # 0=success
-                messages[b] = res.message
-                finished[b] = True
-                while not all_finished:
-                    f_input_available.wait()
-                    f_output_available.wait()
-
-            b_thread = Thread(target=b_thread)
-            threads.append(b_thread)
-            b_thread.start()
-
-        while True:
-            f_input_available.wait()
-            if all(finished):
-                all_finished = True
-                f_output_available.wait()
-                break
-            f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
-            f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
-            f_grad_np = self.numpy(f_grad).astype(numpy.float64)
-            f_output_available.wait()
-
-        for b_thread in threads:
-            b_thread.join()  # make sure threads exit correctly
-
-        if trj:
-            max_trajectory_length = max([len(t) for t in trajectories])
-            last_points = [SolveResult(method_description, xs[b], self.numpy(final_losses[b]), iterations[b], function_evaluations[b], converged[b], diverged[b], &#34;&#34;) for b in range(batch_size)]
-            trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
-            trajectory = []
-            for states in zip(*trajectories):
-                x = numpy.stack([state.x for state in states])
-                residual = numpy.stack([state.residual for state in states])
-                iterations = [state.iterations for state in states]
-                function_evaluations = [state.function_evaluations for state in states]
-                converged = [state.converged for state in states]
-                diverged = [state.diverged for state in states]
-                trajectory.append(SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages))
-            return trajectory
-        else:
-            x = self.stack(xs)
-            residual = self.stack(final_losses)
-            return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)
-
-    def _minimize_gradient_descent(self, f, x0, atol, max_iter, trj: bool, step_size=&#39;adaptive&#39;):
-        assert self.supports(Backend.jacobian)
-        assert len(self.staticshape(x0)) == 2  # (batch, parameters)
-        batch_size = self.staticshape(x0)[0]
-        fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
-        method = f&#34;Gradient descent with {self.name}&#34;
-
-        iterations = self.zeros([batch_size], DType(int, 32))
-        function_evaluations = self.ones([batch_size], DType(int, 32))
-
-        adaptive_step_size = step_size == &#39;adaptive&#39;
-        if adaptive_step_size:
-            step_size = self.zeros([batch_size]) + 0.1
-
-        loss, grad = fg(x0)  # Evaluate function and gradient
-        diverged = self.any(~self.isfinite(x0), axis=(1,))
-        converged = self.zeros([batch_size], DType(bool))
-        trajectory = [SolveResult(method, x0, loss, iterations, function_evaluations, converged, diverged, [&#34;&#34;] * batch_size)] if trj else None
-        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
-
-        def gd_step(continue_, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged):
-            prev_loss, prev_grad, prev_x = loss, grad, x
-            continue_1 = self.to_int32(continue_)
-            iterations += continue_1
-            if adaptive_step_size:
-                for i in range(20):
-                    dx = - grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
-                    next_x = x + dx
-                    predicted_loss_decrease = - self.sum(grad * dx, -1)  # &gt;= 0
-                    next_loss, next_grad = fg(next_x); function_evaluations += continue_1
-                    converged = converged | (self.sum(next_grad ** 2, axis=-1) &lt; atol ** 2)
-                    PHI_LOGGER.debug(f&#34;Gradient: {self.numpy(next_grad)} with step_size={self.numpy(step_size)}&#34;)
-                    actual_loss_decrease = loss - next_loss  # we want &gt; 0
-                    # we want actual_loss_decrease to be at least half of predicted_loss_decrease
-                    act_pred = self.divide_no_nan(actual_loss_decrease, predicted_loss_decrease)
-                    PHI_LOGGER.debug(f&#34;Actual/Predicted: {self.numpy(act_pred)}&#34;)
-                    step_size_fac = self.clip(self.log(1 + 1.71828182845 * self.exp((act_pred - 0.5) * 2.)), 0.1, 10)
-                    PHI_LOGGER.debug(f&#34;step_size *= {self.numpy(step_size_fac)}&#34;)
-                    step_size *= step_size_fac
-                    if self.all((act_pred &gt; 0.4) &amp; (act_pred &lt; 0.9) | converged | diverged):
-                        PHI_LOGGER.debug(f&#34;GD minimization: Finished step_size adjustment after {i + 1} tries\n&#34;)
-                        break
-                else:
-                    converged = converged | (abs(actual_loss_decrease) &lt; predicted_loss_decrease)
-                    PHI_LOGGER.debug(&#34;Backend._minimize_gradient_descent(): No step size found!\n&#34;)
-                diverged = diverged | (next_loss &gt; loss)
-                x, loss, grad = next_x, next_loss, next_grad
+        Returns:
+            Sequence of batch_size sparse distance matrices
+        &#34;&#34;&#34;
+        from sklearn import neighbors
+        batch_size, point_count, _vec_count = self.staticshape(positions)
+        positions_np_batched = self.numpy(positions)
+        result = []
+        for i in range(batch_size):
+            tree = neighbors.KDTree(positions_np_batched[i])
+            radius = float(max_radius) if len(self.staticshape(max_radius)) == 0 else max_radius[i]
+            nested_neighbors = tree.query_radius(positions_np_batched[i], r=radius)  # ndarray[ndarray]
+            if format == &#39;csr&#39;:
+                column_indices = numpy.concatenate(nested_neighbors).astype(to_numpy_dtype(index_dtype))  # flattened_neighbors
+                neighbor_counts = [len(nlist) for nlist in nested_neighbors]
+                row_pointers = numpy.concatenate([[0], numpy.cumsum(neighbor_counts)]).astype(to_numpy_dtype(index_dtype))
+                pos_neighbors = self.gather(positions[i], column_indices, 0)
+                pos_self = self.repeat(positions[i], neighbor_counts, axis=0)
+                values = pos_neighbors - pos_self
+                result.append((column_indices, row_pointers, values))
+                # sparse_matrix = self.csr_matrix(column_indices, row_pointers, values, (point_count, point_count))
+                # sparse_matrix.eliminate_zeros()  # setdiag(0) keeps zero entries
             else:
-                x -= grad * self.expand_dims(step_size * self.to_float(continue_1), -1)
-                loss, grad = fg(x); function_evaluations += continue_1
-                diverged = self.any(~self.isfinite(x), axis=(1,)) | (loss &gt; prev_loss)
-                converged = ~diverged &amp; (prev_loss - loss &lt; atol)
-            if trj:
-                trajectory.append(SolveResult(method, self.numpy(x), self.numpy(loss), self.numpy(iterations), self.numpy(function_evaluations), self.numpy(diverged), self.numpy(converged), [&#34;&#34;] * batch_size))
-            continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
-            return continue_, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged
+                raise NotImplementedError(format)
+        return result
 
-        not_converged, x, loss, grad, iterations, function_evaluations, step_size, converged, diverged = self.while_loop(gd_step, (continue_, x0, loss, grad, iterations, function_evaluations, step_size, converged, diverged))
-
-        if trj:
-            trajectory.append(SolveResult(method, x, loss, iterations, function_evaluations + 1, converged, diverged, [&#34;&#34;] * batch_size))
-            return trajectory
+    def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
+        if method == &#39;auto&#39;:
+            method = &#39;L-BFGS-B&#39;
+        if method == &#39;GD&#39;:
+            from ._minimize import gradient_descent
+            return gradient_descent(self, f, x0, atol, max_iter, trj)
         else:
-            return SolveResult(method, x, loss, iterations, function_evaluations, converged, diverged, [&#34;&#34;] * batch_size)
+            from ._minimize import scipy_minimize
+            return scipy_minimize(self, method, f, x0, atol, max_iter, trj)
 
-    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+    def linear_solve(self, method: str, lin, y, x0, tol_sq, max_iter) -&gt; SolveResult:
         &#34;&#34;&#34;
         Solve the system of linear equations A · x = y.
         This method need not provide a gradient for the operation.
@@ -1503,117 +1603,43 @@ The output of math operations has the same precision as its inputs.</p>
                 * linear function A(x), must be called on all instances in parallel
             y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
             x0: Initial guess of size (batch, parameters)
-            rtol: Relative tolerance of size (batch,)
-            atol: Absolute tolerance of size (batch,)
-            max_iter: Maximum number of iterations of size (batch,)
-            trj: Whether to record and return the optimization trajectory as a `List[SolveResult]`.
+            tol_sq: Squared absolute tolerance of size (batch,)
+            max_iter: Maximum number of iterations of size (batch,) or a sequence of maximum iterations to obtain a trajectory.
 
         Returns:
-            result: `SolveResult` or `List[SolveResult]`, depending on `trj`.
+            `SolveResult`
         &#34;&#34;&#34;
         if method == &#39;auto&#39;:
-            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter)
         elif method == &#39;CG&#39;:
-            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
+            return self.conjugate_gradient(lin, y, x0, tol_sq, max_iter)
         elif method == &#39;CG-adaptive&#39;:
-            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter)
+        elif method in [&#39;biCG&#39;, &#39;biCG-stab(0)&#39;]:
+            raise NotImplementedError(&#34;Unstabilized Bi-CG not yet supported&#34;)
+            # return self.bi_conjugate_gradient_original(lin, y, x0, tol_sq, max_iter)
+        elif method == &#39;biCG-stab&#39;:
+            return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, poly_order=1)
+        elif method.startswith(&#39;biCG-stab(&#39;):
+            order = int(method[len(&#39;biCG-stab(&#39;):-1])
+            return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, poly_order=order)
         else:
             raise NotImplementedError(f&#34;Method &#39;{method}&#39; not supported for linear solve.&#34;)
 
-    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+    def conjugate_gradient(self, lin, y, x0, tol_sq, max_iter) -&gt; SolveResult:
         &#34;&#34;&#34; Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
-        # Based on &#34;An Introduction to the Conjugate Gradient Method Without the Agonizing Pain&#34; by Jonathan Richard Shewchuk
-        # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
-        method = f&#34;Φ-Flow CG ({self.name})&#34;
-        y = self.to_float(y)
-        x0 = self.copy(self.to_float(x0), only_mutable=True)
-        batch_size = self.staticshape(y)[0]
-        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
-        x = x0
-        dx = residual = y - self.linear(lin, x)
-        iterations = self.zeros([batch_size], DType(int, 32))
-        function_evaluations = self.ones([batch_size], DType(int, 32))
-        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
-        diverged = self.any(~self.isfinite(x), axis=(1,))
-        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-        trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
-        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+        from ._linalg import cg, stop_on_l2
+        return cg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter)
 
-        def cg_loop_body(continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
-            continue_1 = self.to_int32(continue_)
-            it_counter += 1; iterations += continue_1
-            with spatial_derivative_evaluation(1):
-                dy = self.linear(lin, dx); function_evaluations += continue_1
-            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
-            step_size = self.divide_no_nan(residual_squared, dx_dy)
-            step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
-            x += step_size * dx
-            # if it_counter % 50 == 0:
-            #     residual = y - self.linear(lin, x); function_evaluations += 1
-            # else:
-            residual = residual - step_size * dy  # in-place subtraction affects convergence
-            residual_squared_old = residual_squared
-            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-            dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-            diverged = self.any(residual_squared / rsq0 &gt; 1e5, axis=(1,)) &amp; (iterations &gt;= 8)
-            converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-            if trajectory is not None:
-                trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
-                x = self.copy(x)
-                iterations = self.copy(iterations)
-            continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
-            return continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged
-
-        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = self.while_loop(cg_loop_body, (continue_, 0, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged))
-        return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
-
-    def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+    def conjugate_gradient_adaptive(self, lin, y, x0, tol_sq, max_iter) -&gt; SolveResult:
         &#34;&#34;&#34; Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
-        # Based on the variant described in &#34;Methods of Conjugate Gradients for Solving Linear Systems&#34; by Magnus R. Hestenes and Eduard Stiefel
-        # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
-        method = f&#34;Φ-Flow CG-adaptive ({self.name})&#34;
-        y = self.to_float(y)
-        x0 = self.copy(self.to_float(x0), only_mutable=True)
-        batch_size = self.staticshape(y)[0]
-        tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
-        x = x0
-        dx = residual = y - self.linear(lin, x)
-        dy = self.linear(lin, dx)
-        iterations = self.zeros([batch_size], DType(int, 32))
-        function_evaluations = self.ones([batch_size], DType(int, 32))
-        residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
-        diverged = self.any(~self.isfinite(x), axis=(1,))
-        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-        trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
-        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
+        from ._linalg import cg_adaptive, stop_on_l2
+        return cg_adaptive(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter)
 
-        def acg_loop_body(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
-            continue_1 = self.to_int32(continue_)
-            it_counter += 1
-            iterations += continue_1
-            dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
-            step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
-            step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
-            x += step_size * dx
-            # if it_counter % 50 == 0:  # Not traceable since Python bool
-            #     residual = y - self.linear(lin, x); function_evaluations += 1
-            # else:
-            residual = residual - step_size * dy  # in-place subtraction affects convergence
-            residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-            dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-            with spatial_derivative_evaluation(1):
-                dy = self.linear(lin, dx); function_evaluations += continue_1
-            diverged = self.any(residual_squared / rsq0 &gt; 1e5, axis=(1,)) &amp; (iterations &gt;= 8)
-            converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-            if trajectory is not None:
-                trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
-                x = self.copy(x)
-                iterations = self.copy(iterations)
-            continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
-            return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
-
-        _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = self.while_loop(acg_loop_body, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
-        return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)
+    def bi_conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, poly_order=2) -&gt; SolveResult:
+        &#34;&#34;&#34; Generalized stabilized biconjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+        from ._linalg import bicg, stop_on_l2
+        return bicg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, poly_order)
 
     def linear(self, lin, vector):
         if callable(lin):
@@ -1622,11 +1648,11 @@ The output of math operations has the same precision as its inputs.</p>
             for lin_i in lin:
                 lin_shape = self.staticshape(lin_i)
                 assert len(lin_shape) == 2
-            return self.stack([self.matmul(m, v) for m, v in zip(lin, self.unstack(vector))])
+            return self.stack([self.mul_matrix_batched_vector(m, v) for m, v in zip(lin, self.unstack(vector))])
         else:
             lin_shape = self.staticshape(lin)
             assert len(lin_shape) == 2, f&#34;A must be a matrix but got shape {lin_shape}&#34;
-            return self.matmul(lin, vector)
+            return self.mul_matrix_batched_vector(lin, vector)
 
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -&gt; Tuple[TensorType, TensorType, TensorType, TensorType]:
         &#34;&#34;&#34;
@@ -1642,8 +1668,31 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
+    def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        &#34;&#34;&#34;
+
+        Args:
+            matrix: (batch_size, rows, cols)
+            rhs: (batch_size, cols)
+            lower:
+            unit_diagonal:
+
+        Returns:
+            (batch_size, cols)
+        &#34;&#34;&#34;
+        raise NotImplementedError(self)
+
     def stop_gradient(self, value):
         raise NotImplementedError(self)
+
+    def stop_gradient_tree(self, tree):
+        if isinstance(tree, tuple):
+            return tuple([self.stop_gradient_tree(v) for v in tree])
+        if isinstance(tree, list):
+            return [self.stop_gradient_tree(v) for v in tree]
+        if isinstance(tree, dict):
+            return {k: self.stop_gradient_tree(v) for k, v in tree.items()}
+        return self.stop_gradient(tree)
 
     def grid_sample(self, grid, coordinates, extrapolation: str):
         &#34;&#34;&#34;
@@ -1751,7 +1800,15 @@ The output of math operations has the same precision as its inputs.</p>
 
     def floordiv(self, a, b):
         a, b = self.auto_cast(a, b)
-        return a // b</code></pre>
+        return a // b
+
+    def shift_bits_left(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a &lt;&lt; b
+
+    def shift_bits_right(self, a, b):
+        a, b = self.auto_cast(a, b)
+        return a &gt;&gt; b</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1937,6 +1994,19 @@ def precision(self) -&gt; int:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.arccosh"><code class="name flex">
+<span>def <span class="ident">arccosh</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def arccosh(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.arcsin"><code class="name flex">
 <span>def <span class="ident">arcsin</span></span>(<span>self, x)</span>
 </code></dt>
@@ -1947,6 +2017,58 @@ def precision(self) -&gt; int:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def arcsin(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.arcsinh"><code class="name flex">
+<span>def <span class="ident">arcsinh</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def arcsinh(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.arctan"><code class="name flex">
+<span>def <span class="ident">arctan</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def arctan(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.arctan2"><code class="name flex">
+<span>def <span class="ident">arctan2</span></span>(<span>self, y, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def arctan2(self, y, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.arctanh"><code class="name flex">
+<span>def <span class="ident">arctanh</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def arctanh(self, x):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -2082,6 +2204,21 @@ The first dimension of <code>values</code> and <code>indices</code> is the batch
         Gathered values as tensor of shape (batch, any..., channel)
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.bi_conjugate_gradient"><code class="name flex">
+<span>def <span class="ident">bi_conjugate_gradient</span></span>(<span>self, lin, y, x0, tol_sq, max_iter, poly_order=2) ‑> phi.math.backend._backend.SolveResult</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generalized stabilized biconjugate gradient algorithm. Signature matches to <code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">Backend.linear_solve()</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def bi_conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, poly_order=2) -&gt; SolveResult:
+    &#34;&#34;&#34; Generalized stabilized biconjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
+    from ._linalg import bicg, stop_on_l2
+    return bicg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, poly_order)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.block_until_ready"><code class="name flex">
@@ -2227,7 +2364,7 @@ This method may be used to register internal calls with the profiler.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient"><code class="name flex">
-<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, lin, y, x0, rtol, atol, max_iter, trj: bool) ‑> phi.math.backend._backend.SolveResult</span>
+<span>def <span class="ident">conjugate_gradient</span></span>(<span>self, lin, y, x0, tol_sq, max_iter) ‑> phi.math.backend._backend.SolveResult</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Standard conjugate gradient algorithm. Signature matches to <code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">Backend.linear_solve()</a></code>.</p></div>
@@ -2235,56 +2372,14 @@ This method may be used to register internal calls with the profiler.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+<pre><code class="python">def conjugate_gradient(self, lin, y, x0, tol_sq, max_iter) -&gt; SolveResult:
     &#34;&#34;&#34; Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
-    # Based on &#34;An Introduction to the Conjugate Gradient Method Without the Agonizing Pain&#34; by Jonathan Richard Shewchuk
-    # symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b
-    method = f&#34;Φ-Flow CG ({self.name})&#34;
-    y = self.to_float(y)
-    x0 = self.copy(self.to_float(x0), only_mutable=True)
-    batch_size = self.staticshape(y)[0]
-    tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
-    x = x0
-    dx = residual = y - self.linear(lin, x)
-    iterations = self.zeros([batch_size], DType(int, 32))
-    function_evaluations = self.ones([batch_size], DType(int, 32))
-    residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
-    diverged = self.any(~self.isfinite(x), axis=(1,))
-    converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
-    continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
-
-    def cg_loop_body(continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
-        continue_1 = self.to_int32(continue_)
-        it_counter += 1; iterations += continue_1
-        with spatial_derivative_evaluation(1):
-            dy = self.linear(lin, dx); function_evaluations += continue_1
-        dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
-        step_size = self.divide_no_nan(residual_squared, dx_dy)
-        step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
-        x += step_size * dx
-        # if it_counter % 50 == 0:
-        #     residual = y - self.linear(lin, x); function_evaluations += 1
-        # else:
-        residual = residual - step_size * dy  # in-place subtraction affects convergence
-        residual_squared_old = residual_squared
-        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-        dx = residual + self.divide_no_nan(residual_squared, residual_squared_old) * dx
-        diverged = self.any(residual_squared / rsq0 &gt; 1e5, axis=(1,)) &amp; (iterations &gt;= 8)
-        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-        if trajectory is not None:
-            trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
-            x = self.copy(x)
-            iterations = self.copy(iterations)
-        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
-        return continue_, it_counter, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged
-
-    _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = self.while_loop(cg_loop_body, (continue_, 0, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged))
-    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)</code></pre>
+    from ._linalg import cg, stop_on_l2
+    return cg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conjugate_gradient_adaptive"><code class="name flex">
-<span>def <span class="ident">conjugate_gradient_adaptive</span></span>(<span>self, lin, y, x0, rtol, atol, max_iter, trj: bool) ‑> phi.math.backend._backend.SolveResult</span>
+<span>def <span class="ident">conjugate_gradient_adaptive</span></span>(<span>self, lin, y, x0, tol_sq, max_iter) ‑> phi.math.backend._backend.SolveResult</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Conjugate gradient algorithm with adaptive step size. Signature matches to <code><a title="phi.math.backend.Backend.linear_solve" href="#phi.math.backend.Backend.linear_solve">Backend.linear_solve()</a></code>.</p></div>
@@ -2292,53 +2387,10 @@ This method may be used to register internal calls with the profiler.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+<pre><code class="python">def conjugate_gradient_adaptive(self, lin, y, x0, tol_sq, max_iter) -&gt; SolveResult:
     &#34;&#34;&#34; Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. &#34;&#34;&#34;
-    # Based on the variant described in &#34;Methods of Conjugate Gradients for Solving Linear Systems&#34; by Magnus R. Hestenes and Eduard Stiefel
-    # https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
-    method = f&#34;Φ-Flow CG-adaptive ({self.name})&#34;
-    y = self.to_float(y)
-    x0 = self.copy(self.to_float(x0), only_mutable=True)
-    batch_size = self.staticshape(y)[0]
-    tolerance_sq = self.maximum(rtol ** 2 * self.sum(y ** 2, -1), atol ** 2)
-    x = x0
-    dx = residual = y - self.linear(lin, x)
-    dy = self.linear(lin, dx)
-    iterations = self.zeros([batch_size], DType(int, 32))
-    function_evaluations = self.ones([batch_size], DType(int, 32))
-    residual_squared = rsq0 = self.sum(residual ** 2, -1, keepdims=True)
-    diverged = self.any(~self.isfinite(x), axis=(1,))
-    converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-    trajectory = [SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)] if trj else None
-    continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
-
-    def acg_loop_body(continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
-        continue_1 = self.to_int32(continue_)
-        it_counter += 1
-        iterations += continue_1
-        dx_dy = self.sum(dx * dy, axis=-1, keepdims=True)
-        step_size = self.divide_no_nan(self.sum(dx * residual, axis=-1, keepdims=True), dx_dy)
-        step_size *= self.expand_dims(self.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
-        x += step_size * dx
-        # if it_counter % 50 == 0:  # Not traceable since Python bool
-        #     residual = y - self.linear(lin, x); function_evaluations += 1
-        # else:
-        residual = residual - step_size * dy  # in-place subtraction affects convergence
-        residual_squared = self.sum(residual ** 2, -1, keepdims=True)
-        dx = residual - self.divide_no_nan(self.sum(residual * dy, axis=-1, keepdims=True) * dx, dx_dy)
-        with spatial_derivative_evaluation(1):
-            dy = self.linear(lin, dx); function_evaluations += continue_1
-        diverged = self.any(residual_squared / rsq0 &gt; 1e5, axis=(1,)) &amp; (iterations &gt;= 8)
-        converged = self.all(residual_squared &lt;= tolerance_sq, axis=(1,))
-        if trajectory is not None:
-            trajectory.append(SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;))
-            x = self.copy(x)
-            iterations = self.copy(iterations)
-        continue_ = ~converged &amp; ~diverged &amp; (iterations &lt; max_iter)
-        return continue_, it_counter, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
-
-    _, _, x, _, _, residual, iterations, function_evaluations, converged, diverged = self.while_loop(acg_loop_body, (continue_, 0, x, dx, dy, residual, iterations, function_evaluations, converged, diverged))
-    return trajectory if trj else SolveResult(method, x, residual, iterations, function_evaluations, converged, diverged, &#34;&#34;)</code></pre>
+    from ._linalg import cg_adaptive, stop_on_l2
+    return cg_adaptive(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.conv"><code class="name flex">
@@ -2380,40 +2432,20 @@ Higher dimensions may not be supported.</p>
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.backend.Backend.coordinates"><code class="name flex">
-<span>def <span class="ident">coordinates</span></span>(<span>self, tensor)</span>
+<dt id="phi.math.backend.Backend.coo_to_dense"><code class="name flex">
+<span>def <span class="ident">coo_to_dense</span></span>(<span>self, indices, values, shape, contains_duplicates: bool)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns the coordinates and values of a tensor.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>tensor</code></strong></dt>
-<dd>Sparse tensor</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>coordinates</code></dt>
-<dd><code>tuple</code> of tensor holding the coordinate vectors, i.e. (row, col) for matrices.</dd>
-<dt><code>indices</code></dt>
-<dd>Tensor holding the corresponding values</dd>
-</dl></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def coordinates(self, tensor):
-    &#34;&#34;&#34;
-    Returns the coordinates and values of a tensor.
-
-    Args:
-        tensor: Sparse tensor
-
-    Returns:
-        coordinates: `tuple` of tensor holding the coordinate vectors, i.e. (row, col) for matrices.
-        indices: Tensor holding the corresponding values
-
-    &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
+<pre><code class="python">def coo_to_dense(self, indices, values, shape, contains_duplicates: bool):
+    batch_size, nnz, channel_count = self.staticshape(values)
+    base = self.zeros((batch_size, *shape, channel_count))
+    result = self.scatter(base, indices, values, mode=&#39;add&#39; if contains_duplicates else &#39;update&#39;)
+    return result</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.copy"><code class="name flex">
@@ -2429,6 +2461,26 @@ Higher dimensions may not be supported.</p>
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.copy_leaves"><code class="name flex">
+<span>def <span class="ident">copy_leaves</span></span>(<span>self, tree, only_mutable=False)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_leaves(self, tree, only_mutable=False):
+    if isinstance(tree, tuple):
+        return tuple([self.copy_leaves(e, only_mutable) for e in tree])
+    elif isinstance(tree, list):
+        return [self.copy_leaves(e, only_mutable) for e in tree]
+    elif isinstance(tree, dict):
+        return {k: self.copy_leaves(e, only_mutable) for k, e in tree.items()}
+    else:
+        return self.copy(tree, only_mutable=only_mutable)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.cos"><code class="name flex">
 <span>def <span class="ident">cos</span></span>(<span>self, x)</span>
 </code></dt>
@@ -2442,8 +2494,21 @@ Higher dimensions may not be supported.</p>
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.cosh"><code class="name flex">
+<span>def <span class="ident">cosh</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cosh(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.csc_matrix"><code class="name flex">
-<span>def <span class="ident">csc_matrix</span></span>(<span>self, column_pointers, row_indices, values, shape: tuple)</span>
+<span>def <span class="ident">csc_matrix</span></span>(<span>self, column_pointers, row_indices, values, shape: Tuple[int, int])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a sparse matrix in compressed sparse column (CSC) format.</p>
@@ -2467,7 +2532,7 @@ Higher dimensions may not be supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def csc_matrix(self, column_pointers, row_indices, values, shape: tuple):
+<pre><code class="python">def csc_matrix(self, column_pointers, row_indices, values, shape: Tuple[int, int]):
     &#34;&#34;&#34;
     Create a sparse matrix in compressed sparse column (CSC) format.
 
@@ -2488,8 +2553,38 @@ Higher dimensions may not be supported.</p>
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.csc_matrix_batched"><code class="name flex">
+<span>def <span class="ident">csc_matrix_batched</span></span>(<span>self, column_pointers, row_indices, values, shape: Tuple[int, int])</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>column_pointers</code></strong></dt>
+<dd>Indices in <code>values</code> where any row starts, shape (batch_size, cols+1)</dd>
+<dt><strong><code>row_indices</code></strong></dt>
+<dd>Row indices corresponding to <code>values</code>, shape (batch_size, nnz)</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Non-zero values, shape (batch_size, nnz, channels)</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>tuple of two ints representing the dense shape, (cols, rows)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def csc_matrix_batched(self, column_pointers, row_indices, values, shape: Tuple[int, int]):
+    &#34;&#34;&#34;
+    Args:
+        column_pointers: Indices in `values` where any row starts, shape (batch_size, cols+1)
+        row_indices: Row indices corresponding to `values`, shape (batch_size, nnz)
+        values: Non-zero values, shape (batch_size, nnz, channels)
+        shape: tuple of two ints representing the dense shape, (cols, rows)
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.csr_matrix"><code class="name flex">
-<span>def <span class="ident">csr_matrix</span></span>(<span>self, column_indices, row_pointers, values, shape: tuple)</span>
+<span>def <span class="ident">csr_matrix</span></span>(<span>self, column_indices, row_pointers, values, shape: Tuple[int, int])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a sparse matrix in compressed sparse row (CSR) format.</p>
@@ -2513,7 +2608,7 @@ Higher dimensions may not be supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def csr_matrix(self, column_indices, row_pointers, values, shape: tuple):
+<pre><code class="python">def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
     &#34;&#34;&#34;
     Create a sparse matrix in compressed sparse row (CSR) format.
 
@@ -2532,6 +2627,89 @@ Higher dimensions may not be supported.</p>
         Native representation of the sparse matrix
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.csr_matrix_batched"><code class="name flex">
+<span>def <span class="ident">csr_matrix_batched</span></span>(<span>self, column_indices, row_pointers, values, shape: Tuple[int, int])</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>column_indices</code></strong></dt>
+<dd>Column indices corresponding to <code>values</code>, shape (batch_size, nnz)</dd>
+<dt><strong><code>row_pointers</code></strong></dt>
+<dd>Indices in <code>values</code> where any row starts, shape (batch_size, rows+1)</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Non-zero values, shape (batch_size, nnz, channels)</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>tuple of two ints representing the dense shape, (cols, rows)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def csr_matrix_batched(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+    &#34;&#34;&#34;
+    Args:
+        column_indices: Column indices corresponding to `values`, shape (batch_size, nnz)
+        row_pointers: Indices in `values` where any row starts, shape (batch_size, rows+1)
+        values: Non-zero values, shape (batch_size, nnz, channels)
+        shape: tuple of two ints representing the dense shape, (cols, rows)
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.csr_to_coo"><code class="name flex">
+<span>def <span class="ident">csr_to_coo</span></span>(<span>self, column_indices, row_pointers)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert a batch of compressed sparse matrices to sparse coordinate matrices.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>column_indices</code></strong></dt>
+<dd>(batch, nnz)</dd>
+<dt><strong><code>row_pointers</code></strong></dt>
+<dd>(batch, rows + 1)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>indices</code></dt>
+<dd>(batch, nnz, 2)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def csr_to_coo(self, column_indices, row_pointers):
+    &#34;&#34;&#34;
+    Convert a batch of compressed sparse matrices to sparse coordinate matrices.
+
+    Args:
+        column_indices: (batch, nnz)
+        row_pointers: (batch, rows + 1)
+
+    Returns:
+        indices: (batch, nnz, 2)
+    &#34;&#34;&#34;
+    batch_size = self.staticshape(column_indices)[0]
+    repeats = row_pointers[:, 1:] - row_pointers[:, :-1]
+    row_count = self.shape(repeats)[-1]
+    row_indices = [self.repeat(self.range(row_count, dtype=self.dtype(column_indices)), repeats[b], -1) for b in range(batch_size)]
+    return self.stack([self.stack(row_indices), column_indices], axis=-1)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.csr_to_dense"><code class="name flex">
+<span>def <span class="ident">csr_to_dense</span></span>(<span>self, column_indices, row_pointers, values, shape: Tuple[int, int])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def csr_to_dense(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+    indices = self.csr_to_coo(column_indices, row_pointers)
+    return self.coo_to_dense(indices, values, shape, contains_duplicates=False)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.cumsum"><code class="name flex">
@@ -2772,6 +2950,41 @@ Higher dimensions may not be supported.</p>
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.gather"><code class="name flex">
+<span>def <span class="ident">gather</span></span>(<span>self, values, indices, axis: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Gathers values from the tensor <code>values</code> at locations <code>indices</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>values</code></strong></dt>
+<dd>tensor</dd>
+<dt><strong><code>indices</code></strong></dt>
+<dd>1D tensor</dd>
+<dt><strong><code>axis</code></strong></dt>
+<dd>Axis along which to gather slices</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>tensor, with size along <code>axis</code> being the length of <code>indices</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gather(self, values, indices, axis: int):
+    &#34;&#34;&#34;
+    Gathers values from the tensor `values` at locations `indices`.
+
+    Args:
+        values: tensor
+        indices: 1D tensor
+        axis: Axis along which to gather slices
+
+    Returns:
+        tensor, with size along `axis` being the length of `indices`
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.get_default_device"><code class="name flex">
 <span>def <span class="ident">get_default_device</span></span>(<span>self) ‑> phi.math.backend._backend.ComputeDevice</span>
 </code></dt>
@@ -2813,6 +3026,39 @@ Higher dimensions may not be supported.</p>
         if device.ref == ref:
             return device
     raise KeyError(f&#34;{self.name} has no device with ref &#39;{ref}&#39;. Available: {[d.ref for d in self._devices]}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.get_diagonal"><code class="name flex">
+<span>def <span class="ident">get_diagonal</span></span>(<span>self, matrices, offset=0)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>matrices</code></strong></dt>
+<dd>(batch, rows, cols, channels)</dd>
+<dt><strong><code>offset</code></strong></dt>
+<dd>0=diagonal, positive=above diagonal, negative=below diagonal</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>diagonal</code></dt>
+<dd>(batch, max(rows,cols), channels)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_diagonal(self, matrices, offset=0):
+    &#34;&#34;&#34;
+
+    Args:
+        matrices: (batch, rows, cols, channels)
+        offset: 0=diagonal, positive=above diagonal, negative=below diagonal
+
+    Returns:
+        diagonal: (batch, max(rows,cols), channels)
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.greater_or_equal"><code class="name flex">
@@ -2957,6 +3203,38 @@ The result is always a <code>tuple</code> holding at most these three items.</p>
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.ilu_coo"><code class="name flex">
+<span>def <span class="ident">ilu_coo</span></span>(<span>self, indices, values, shape, iterations: int, safe: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See incomplete_lu_coo() in _linalg</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ilu_coo(self, indices, values, shape, iterations: int, safe: bool):
+    &#34;&#34;&#34; See incomplete_lu_coo() in _linalg &#34;&#34;&#34;
+    from ._linalg import incomplete_lu_coo
+    assert self.dtype(values).kind in (bool, int, float)
+    return incomplete_lu_coo(self, indices, self.to_float(values), shape, iterations, safe)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.ilu_dense"><code class="name flex">
+<span>def <span class="ident">ilu_dense</span></span>(<span>self, matrix, iterations: int, safe: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>See incomplete_lu_dense() in _linalg</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ilu_dense(self, matrix, iterations: int, safe: bool):
+    &#34;&#34;&#34; See incomplete_lu_dense() in _linalg &#34;&#34;&#34;
+    from ._linalg import incomplete_lu_dense
+    assert self.dtype(matrix).kind in (bool, int, float)
+    return incomplete_lu_dense(self, self.to_float(matrix), iterations, safe)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.imag"><code class="name flex">
 <span>def <span class="ident">imag</span></span>(<span>self, x)</span>
 </code></dt>
@@ -2967,6 +3245,38 @@ The result is always a <code>tuple</code> holding at most these three items.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def imag(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.indexed_segment_sum"><code class="name flex">
+<span>def <span class="ident">indexed_segment_sum</span></span>(<span>self, x, indices, axis: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>Values to sum. Segments are laid out contiguously along <code>axis</code>. (batch, &hellip;)</dd>
+<dt><strong><code>indices</code></strong></dt>
+<dd>should start with 0 along <code>axis</code>. (batch, indices)</dd>
+<dt><strong><code>axis</code></strong></dt>
+<dd>Axis along which to sum</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Tensor with <code>len(indices)</code> elements along <code>axis</code>. (batch, &hellip;, indices, &hellip;)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def indexed_segment_sum(self, x, indices, axis: int):
+    &#34;&#34;&#34;
+    Args:
+        x: Values to sum. Segments are laid out contiguously along `axis`. (batch, ...)
+        indices: should start with 0 along `axis`. (batch, indices)
+        axis: Axis along which to sum
+
+    Returns:
+        Tensor with `len(indices)` elements along `axis`. (batch, ..., indices, ...)
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3189,15 +3499,15 @@ The gradients retain the dimensions of <code>reduced_loss</code> in order as out
         for lin_i in lin:
             lin_shape = self.staticshape(lin_i)
             assert len(lin_shape) == 2
-        return self.stack([self.matmul(m, v) for m, v in zip(lin, self.unstack(vector))])
+        return self.stack([self.mul_matrix_batched_vector(m, v) for m, v in zip(lin, self.unstack(vector))])
     else:
         lin_shape = self.staticshape(lin)
         assert len(lin_shape) == 2, f&#34;A must be a matrix but got shape {lin_shape}&#34;
-        return self.matmul(lin, vector)</code></pre>
+        return self.mul_matrix_batched_vector(lin, vector)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.linear_solve"><code class="name flex">
-<span>def <span class="ident">linear_solve</span></span>(<span>self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) ‑> phi.math.backend._backend.SolveResult</span>
+<span>def <span class="ident">linear_solve</span></span>(<span>self, method: str, lin, y, x0, tol_sq, max_iter) ‑> phi.math.backend._backend.SolveResult</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solve the system of linear equations A · x = y.
@@ -3215,25 +3525,18 @@ This method need not provide a gradient for the operation.</p>
 <dd>target result of A * x. 2nd order tensor (batch, vector) or list of vectors.</dd>
 <dt><strong><code>x0</code></strong></dt>
 <dd>Initial guess of size (batch, parameters)</dd>
-<dt><strong><code>rtol</code></strong></dt>
-<dd>Relative tolerance of size (batch,)</dd>
-<dt><strong><code>atol</code></strong></dt>
-<dd>Absolute tolerance of size (batch,)</dd>
+<dt><strong><code>tol_sq</code></strong></dt>
+<dd>Squared absolute tolerance of size (batch,)</dd>
 <dt><strong><code>max_iter</code></strong></dt>
-<dd>Maximum number of iterations of size (batch,)</dd>
-<dt><strong><code>trj</code></strong></dt>
-<dd>Whether to record and return the optimization trajectory as a <code>List[SolveResult]</code>.</dd>
+<dd>Maximum number of iterations of size (batch,) or a sequence of maximum iterations to obtain a trajectory.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<dl>
-<dt><code>result</code></dt>
-<dd><code>SolveResult</code> or <code>List[SolveResult]</code>, depending on <code>trj</code>.</dd>
-</dl></div>
+<p><code>SolveResult</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, trj: bool) -&gt; SolveResult or List[SolveResult]:
+<pre><code class="python">def linear_solve(self, method: str, lin, y, x0, tol_sq, max_iter) -&gt; SolveResult:
     &#34;&#34;&#34;
     Solve the system of linear equations A · x = y.
     This method need not provide a gradient for the operation.
@@ -3246,20 +3549,26 @@ This method need not provide a gradient for the operation.</p>
             * linear function A(x), must be called on all instances in parallel
         y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
         x0: Initial guess of size (batch, parameters)
-        rtol: Relative tolerance of size (batch,)
-        atol: Absolute tolerance of size (batch,)
-        max_iter: Maximum number of iterations of size (batch,)
-        trj: Whether to record and return the optimization trajectory as a `List[SolveResult]`.
+        tol_sq: Squared absolute tolerance of size (batch,)
+        max_iter: Maximum number of iterations of size (batch,) or a sequence of maximum iterations to obtain a trajectory.
 
     Returns:
-        result: `SolveResult` or `List[SolveResult]`, depending on `trj`.
+        `SolveResult`
     &#34;&#34;&#34;
     if method == &#39;auto&#39;:
-        return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+        return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter)
     elif method == &#39;CG&#39;:
-        return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, trj)
+        return self.conjugate_gradient(lin, y, x0, tol_sq, max_iter)
     elif method == &#39;CG-adaptive&#39;:
-        return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, trj)
+        return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter)
+    elif method in [&#39;biCG&#39;, &#39;biCG-stab(0)&#39;]:
+        raise NotImplementedError(&#34;Unstabilized Bi-CG not yet supported&#34;)
+        # return self.bi_conjugate_gradient_original(lin, y, x0, tol_sq, max_iter)
+    elif method == &#39;biCG-stab&#39;:
+        return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, poly_order=1)
+    elif method.startswith(&#39;biCG-stab(&#39;):
+        order = int(method[len(&#39;biCG-stab(&#39;):-1])
+        return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, poly_order=order)
     else:
         raise NotImplementedError(f&#34;Method &#39;{method}&#39; not supported for linear solve.&#34;)</code></pre>
 </details>
@@ -3366,19 +3675,6 @@ This method need not provide a gradient for the operation.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def log2(self, x):
-    raise NotImplementedError(self)</code></pre>
-</details>
-</dd>
-<dt id="phi.math.backend.Backend.matmul"><code class="name flex">
-<span>def <span class="ident">matmul</span></span>(<span>self, A, b)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def matmul(self, A, b):
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -3498,113 +3794,14 @@ This method need not provide a gradient for the operation.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def minimize(self, method: str, f, x0, atol, max_iter, trj: bool):
+    if method == &#39;auto&#39;:
+        method = &#39;L-BFGS-B&#39;
     if method == &#39;GD&#39;:
-        return self._minimize_gradient_descent(f, x0, atol, max_iter, trj)
-
-    from scipy.optimize import OptimizeResult, minimize
-    from threading import Thread
-
-    assert self.supports(Backend.jacobian)
-    x0 = self.numpy(x0)
-    assert x0.ndim == 2  # (batch, parameters)
-    atol = self.numpy(atol)
-    max_iter = self.numpy(max_iter)
-    batch_size = x0.shape[0]
-    fg = self.jacobian(f, [0], get_output=True, is_f_scalar=True)
-    method_description = f&#34;SciPy {method} with {self.name}&#34;
-
-    iterations = [0] * batch_size
-    function_evaluations = [0] * batch_size
-    xs = [None] * batch_size
-    final_losses = [None] * batch_size
-    converged = [False] * batch_size
-    diverged = [False] * batch_size
-    messages = [&#34;&#34;] * batch_size
-
-    f_inputs = [None] * batch_size
-    f_b_losses = None
-    f_b_losses_np = None
-    f_grad_np = None
-    f_input_available = Barrier(batch_size + 1)
-    f_output_available = Barrier(batch_size + 1)
-    finished = [False] * batch_size
-    all_finished = False
-    trajectories = [[] for _ in range(batch_size)] if trj else None
-    threads = []
-
-    for b in range(batch_size):  # Run each independent example as a scipy minimization in a new thread
-
-        def b_thread(b=b):
-            recent_b_losses = []
-
-            def b_fun(x: numpy.ndarray):
-                function_evaluations[b] += 1
-                f_inputs[b] = self.as_tensor(x, convert_external=True)
-                f_input_available.wait()
-                f_output_available.wait()
-                recent_b_losses.append(f_b_losses[b])
-                if final_losses[b] is None:  # first evaluation
-                    final_losses[b] = f_b_losses[b]
-                    if trajectories is not None:
-                        trajectories[b].append(SolveResult(method_description, x0[b], self.numpy(f_b_losses[b]), 0, 1, False, False, &#34;&#34;))
-                return f_b_losses_np[b], f_grad_np[b]
-
-            def callback(x, *args):  # L-BFGS-B only passes x but the documentation says (x, state)
-                iterations[b] += 1
-                loss = min(recent_b_losses)
-                recent_b_losses.clear()
-                final_losses[b] = loss
-                if trajectories is not None:
-                    trajectories[b].append(SolveResult(method_description, x, self.numpy(loss), iterations[b], function_evaluations[b], False, False, &#34;&#34;))
-
-            res = minimize(fun=b_fun, x0=x0[b], jac=True, method=method, tol=atol[b], options={&#39;maxiter&#39;: max_iter[b]}, callback=callback)
-            assert isinstance(res, OptimizeResult)
-            # res.nit, res.nfev
-            xs[b] = res.x
-            converged[b] = res.success
-            diverged[b] = res.status not in (0, 1)  # 0=success
-            messages[b] = res.message
-            finished[b] = True
-            while not all_finished:
-                f_input_available.wait()
-                f_output_available.wait()
-
-        b_thread = Thread(target=b_thread)
-        threads.append(b_thread)
-        b_thread.start()
-
-    while True:
-        f_input_available.wait()
-        if all(finished):
-            all_finished = True
-            f_output_available.wait()
-            break
-        f_b_losses, f_grad = fg(self.stack(f_inputs))  # Evaluate function and gradient
-        f_b_losses_np = self.numpy(f_b_losses).astype(numpy.float64)
-        f_grad_np = self.numpy(f_grad).astype(numpy.float64)
-        f_output_available.wait()
-
-    for b_thread in threads:
-        b_thread.join()  # make sure threads exit correctly
-
-    if trj:
-        max_trajectory_length = max([len(t) for t in trajectories])
-        last_points = [SolveResult(method_description, xs[b], self.numpy(final_losses[b]), iterations[b], function_evaluations[b], converged[b], diverged[b], &#34;&#34;) for b in range(batch_size)]
-        trajectories = [t[:-1] + [last_point] * (max_trajectory_length - len(t) + 1) for t, last_point in zip(trajectories, last_points)]
-        trajectory = []
-        for states in zip(*trajectories):
-            x = numpy.stack([state.x for state in states])
-            residual = numpy.stack([state.residual for state in states])
-            iterations = [state.iterations for state in states]
-            function_evaluations = [state.function_evaluations for state in states]
-            converged = [state.converged for state in states]
-            diverged = [state.diverged for state in states]
-            trajectory.append(SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages))
-        return trajectory
+        from ._minimize import gradient_descent
+        return gradient_descent(self, f, x0, atol, max_iter, trj)
     else:
-        x = self.stack(xs)
-        residual = self.stack(final_losses)
-        return SolveResult(method_description, x, residual, iterations, function_evaluations, converged, diverged, messages)</code></pre>
+        from ._minimize import scipy_minimize
+        return scipy_minimize(self, method, f, x0, atol, max_iter, trj)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.minimum"><code class="name flex">
@@ -3646,6 +3843,130 @@ This method need not provide a gradient for the operation.</p>
 <pre><code class="python">def mul(self, a, b):
     a, b = self.auto_cast(a, b)
     return a * b</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.mul_coo_dense"><code class="name flex">
+<span>def <span class="ident">mul_coo_dense</span></span>(<span>self, indices, values, shape, dense)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Multiply a batch of sparse coordinate matrices by a batch of dense matrices.
+Every backend should implement this feature.
+This is the fallback if CSR multiplication is not supported.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>indices</code></strong></dt>
+<dd>(batch, nnz, ndims)</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>(batch, nnz, channels)</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>Shape of the full matrix, tuple of length ndims</dd>
+<dt><strong><code>dense</code></strong></dt>
+<dd>(batch, dense_rows=sparse_cols, channels, dense_cols)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>(batch, channels, dense_rows=sparse_cols, dense_cols)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mul_coo_dense(self, indices, values, shape, dense):
+    &#34;&#34;&#34;
+    Multiply a batch of sparse coordinate matrices by a batch of dense matrices.
+    Every backend should implement this feature.
+    This is the fallback if CSR multiplication is not supported.
+
+    Args:
+        indices: (batch, nnz, ndims)
+        values: (batch, nnz, channels)
+        shape: Shape of the full matrix, tuple of length ndims
+        dense: (batch, dense_rows=sparse_cols, channels, dense_cols)
+
+    Returns:
+        (batch, channels, dense_rows=sparse_cols, dense_cols)
+    &#34;&#34;&#34;
+    values, dense = self.auto_cast(values, dense)
+    batch_size, nnz, channel_count = self.staticshape(values)
+    _, dense_rows, _, dense_cols = self.staticshape(dense)
+    dense_formatted = self.reshape(dense, (batch_size, dense_rows, dense_cols * channel_count))
+    dense_gathered = self.batched_gather_nd(dense_formatted, indices[:, :, 1:2])
+    base_grid = self.zeros((batch_size, shape[0], dense.shape[3] * dense_cols), self.dtype(dense))
+    assert dense_cols == 1
+    result = self.scatter(base_grid, indices[:, :, 0:1], values * dense_gathered, mode=&#39;add&#39;)
+    return self.reshape(result, (batch_size, channel_count, dense_rows, dense_cols))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.mul_csr_dense"><code class="name flex">
+<span>def <span class="ident">mul_csr_dense</span></span>(<span>self, column_indices, row_pointers, values, shape: Tuple[int, int], dense)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Multiply a batch of compressed sparse row matrices by a batch of dense matrices.</p>
+<p>Optional feature.</p>
+<p>See Also:
+<code><a title="phi.math.backend.Backend.sparse_coo_tensor" href="#phi.math.backend.Backend.sparse_coo_tensor">Backend.sparse_coo_tensor()</a></code>, <code><a title="phi.math.backend.Backend.csc_matrix" href="#phi.math.backend.Backend.csc_matrix">Backend.csc_matrix()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>column_indices</code></strong></dt>
+<dd>(batch, nnz)</dd>
+<dt><strong><code>row_pointers</code></strong></dt>
+<dd>(batch, rows + 1)</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>(batch, nnz, channels)</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>Shape of the full matrix (cols, rows)</dd>
+<dt><strong><code>dense</code></strong></dt>
+<dd>(batch, dense_rows=sparse_cols, channels, dense_cols)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>(batch, channels, dense_rows=sparse_cols, dense_cols)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mul_csr_dense(self, column_indices, row_pointers, values, shape: Tuple[int, int], dense):
+    &#34;&#34;&#34;
+    Multiply a batch of compressed sparse row matrices by a batch of dense matrices.
+
+    Optional feature.
+
+    See Also:
+        `Backend.sparse_coo_tensor()`, `Backend.csc_matrix()`.
+
+    Args:
+        column_indices: (batch, nnz)
+        row_pointers: (batch, rows + 1)
+        values: (batch, nnz, channels)
+        shape: Shape of the full matrix (cols, rows)
+        dense: (batch, dense_rows=sparse_cols, channels, dense_cols)
+
+    Returns:
+        (batch, channels, dense_rows=sparse_cols, dense_cols)
+    &#34;&#34;&#34;
+    # if not self.supports(Backend.indexed_segment_sum):
+    native_coo_indices = self.csr_to_coo(column_indices, row_pointers)
+    return self.mul_coo_dense(native_coo_indices, values, shape, dense)
+    # values, dense = self.auto_cast(values, dense)
+    # batch_size, nnz, channel_count = self.staticshape(values)
+    # _, dense_rows, _, dense_cols = self.staticshape(dense)
+    # assert dense_cols == 1
+    # dense_formatted = self.reshape(dense, (batch_size, dense_rows, channel_count * dense_cols))
+    # dense_gathered = self.batched_gather_nd(dense_formatted, self.expand_dims(column_indices, -1))  # (batch, nnz, channels*rhs_cols)
+    # dense_gathered = self.reshape(dense_gathered, (batch_size, nnz, channel_count, dense_cols))
+    # values = self.reshape(values, (batch_size, nnz, channel_count, 1))
+    # result = self.indexed_segment_sum(values * dense_gathered, row_pointers[:, :-1], 1)
+    # return self.reshape(result, (batch_size, channel_count, rhs_rows, rhs_cols))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.mul_matrix_batched_vector"><code class="name flex">
+<span>def <span class="ident">mul_matrix_batched_vector</span></span>(<span>self, A, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mul_matrix_batched_vector(self, A, b):
+    raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.multi_slice"><code class="name flex">
@@ -3847,6 +4168,63 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.pairwise_distances"><code class="name flex">
+<span>def <span class="ident">pairwise_distances</span></span>(<span>self, positions, max_radius, format: str, index_dtype=int32) ‑> list</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>positions</code></strong></dt>
+<dd>Point locations of shape (batch, instances, vector)</dd>
+<dt><strong><code>max_radius</code></strong></dt>
+<dd>Scalar or (batch,) or (batch, instances)</dd>
+<dt><strong><code>format</code></strong></dt>
+<dd>'csr',
+Not yet implemented: 'sparse', 'coo', 'csc'</dd>
+<dt><strong><code>index_dtype</code></strong></dt>
+<dd>Either int32 or int64</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Sequence of batch_size sparse distance matrices</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pairwise_distances(self, positions, max_radius, format: str, index_dtype=DType(int, 32)) -&gt; list:
+    &#34;&#34;&#34;
+
+    Args:
+        positions: Point locations of shape (batch, instances, vector)
+        max_radius: Scalar or (batch,) or (batch, instances)
+        format: &#39;csr&#39;,  Not yet implemented: &#39;sparse&#39;, &#39;coo&#39;, &#39;csc&#39;
+        index_dtype: Either int32 or int64
+
+    Returns:
+        Sequence of batch_size sparse distance matrices
+    &#34;&#34;&#34;
+    from sklearn import neighbors
+    batch_size, point_count, _vec_count = self.staticshape(positions)
+    positions_np_batched = self.numpy(positions)
+    result = []
+    for i in range(batch_size):
+        tree = neighbors.KDTree(positions_np_batched[i])
+        radius = float(max_radius) if len(self.staticshape(max_radius)) == 0 else max_radius[i]
+        nested_neighbors = tree.query_radius(positions_np_batched[i], r=radius)  # ndarray[ndarray]
+        if format == &#39;csr&#39;:
+            column_indices = numpy.concatenate(nested_neighbors).astype(to_numpy_dtype(index_dtype))  # flattened_neighbors
+            neighbor_counts = [len(nlist) for nlist in nested_neighbors]
+            row_pointers = numpy.concatenate([[0], numpy.cumsum(neighbor_counts)]).astype(to_numpy_dtype(index_dtype))
+            pos_neighbors = self.gather(positions[i], column_indices, 0)
+            pos_self = self.repeat(positions[i], neighbor_counts, axis=0)
+            values = pos_neighbors - pos_self
+            result.append((column_indices, row_pointers, values))
+            # sparse_matrix = self.csr_matrix(column_indices, row_pointers, values, (point_count, point_count))
+            # sparse_matrix.eliminate_zeros()  # setdiag(0) keeps zero entries
+        else:
+            raise NotImplementedError(format)
+    return result</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.pow"><code class="name flex">
 <span>def <span class="ident">pow</span></span>(<span>self, base, exp)</span>
 </code></dt>
@@ -3970,6 +4348,41 @@ Use <code>is_available(tensor)</code> to check if the value can be represented a
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def real(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.repeat"><code class="name flex">
+<span>def <span class="ident">repeat</span></span>(<span>self, x, repeats, axis: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Repeats the elements along <code>axis</code> <code>repeats</code> times.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong></dt>
+<dd>Tensor</dd>
+<dt><strong><code>repeats</code></strong></dt>
+<dd>How often to repeat each element. 1D tensor of length x.shape[axis]</dd>
+<dt><strong><code>axis</code></strong></dt>
+<dd>Which axis to repeat elements along</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>repeated Tensor</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def repeat(self, x, repeats, axis: int):
+    &#34;&#34;&#34;
+    Repeats the elements along `axis` `repeats` times.
+
+    Args:
+        x: Tensor
+        repeats: How often to repeat each element. 1D tensor of length x.shape[axis]
+        axis: Which axis to repeat elements along
+
+    Returns:
+        repeated Tensor
+    &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
@@ -4132,6 +4545,34 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.shift_bits_left"><code class="name flex">
+<span>def <span class="ident">shift_bits_left</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shift_bits_left(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a &lt;&lt; b</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.shift_bits_right"><code class="name flex">
+<span>def <span class="ident">shift_bits_right</span></span>(<span>self, a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shift_bits_right(self, a, b):
+    a, b = self.auto_cast(a, b)
+    return a &gt;&gt; b</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.sigmoid"><code class="name flex">
 <span>def <span class="ident">sigmoid</span></span>(<span>self, x)</span>
 </code></dt>
@@ -4171,6 +4612,19 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.sinh"><code class="name flex">
+<span>def <span class="ident">sinh</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sinh(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.size"><code class="name flex">
 <span>def <span class="ident">size</span></span>(<span>self, array)</span>
 </code></dt>
@@ -4184,6 +4638,40 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
     return self.prod(self.shape(array))</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.solve_triangular_dense"><code class="name flex">
+<span>def <span class="ident">solve_triangular_dense</span></span>(<span>self, matrix, rhs, lower: bool, unit_diagonal: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>matrix</code></strong></dt>
+<dd>(batch_size, rows, cols)</dd>
+<dt><strong><code>rhs</code></strong></dt>
+<dd>(batch_size, cols)</dd>
+</dl>
+<p>lower:
+unit_diagonal:</p>
+<h2 id="returns">Returns</h2>
+<p>(batch_size, cols)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+    &#34;&#34;&#34;
+
+    Args:
+        matrix: (batch_size, rows, cols)
+        rhs: (batch_size, cols)
+        lower:
+        unit_diagonal:
+
+    Returns:
+        (batch_size, cols)
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.sparse_coo_tensor"><code class="name flex">
 <span>def <span class="ident">sparse_coo_tensor</span></span>(<span>self, indices: tuple, values, shape: tuple)</span>
 </code></dt>
@@ -4195,7 +4683,7 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>indices</code></strong></dt>
-<dd>2D tensor of shape <code>(2, n)</code> or tuple/list of two 1D tensors <code>(rows, cols)</code>.</dd>
+<dd>2D tensor of shape <code>(nnz, dims)</code>.</dd>
 <dt><strong><code>values</code></strong></dt>
 <dd>1D values tensor matching <code>indices</code></dd>
 <dt><strong><code>shape</code></strong></dt>
@@ -4217,12 +4705,39 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
         `Backend.csr_matrix()`, `Backend.csc_matrix()`.
 
     Args:
-        indices: 2D tensor of shape `(2, n)` or tuple/list of two 1D tensors `(rows, cols)`.
+        indices: 2D tensor of shape `(nnz, dims)`.
         values: 1D values tensor matching `indices`
         shape: Shape of the sparse matrix
 
     Returns:
         Native representation of the sparse matrix
+    &#34;&#34;&#34;
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.sparse_coo_tensor_batched"><code class="name flex">
+<span>def <span class="ident">sparse_coo_tensor_batched</span></span>(<span>self, indices: tuple, values, shape: tuple)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>indices</code></strong></dt>
+<dd>shape (batch_size, dims, nnz)</dd>
+<dt><strong><code>values</code></strong></dt>
+<dd>Values tensor matching <code>indices</code>, shape (batch_size, nnz)</dd>
+<dt><strong><code>shape</code></strong></dt>
+<dd>tuple of two ints representing the dense shape, (dims&hellip;)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sparse_coo_tensor_batched(self, indices: tuple or list, values, shape: tuple):
+    &#34;&#34;&#34;
+    Args:
+        indices: shape (batch_size, dims, nnz)
+        values: Values tensor matching `indices`, shape (batch_size, nnz)
+        shape: tuple of two ints representing the dense shape, (dims...)
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -4251,6 +4766,27 @@ For non-eager tensors, undefined dimensions should return a placeholder value re
 </summary>
 <pre><code class="python">def stack(self, values, axis=0):
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.stack_leaves"><code class="name flex">
+<span>def <span class="ident">stack_leaves</span></span>(<span>self, trees: tuple, axis=0)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stack_leaves(self, trees: tuple or list, axis=0):
+    tree0 = trees[0]
+    if isinstance(tree0, tuple):
+        return tuple([self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))])
+    elif isinstance(tree0, list):
+        return [self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))]
+    elif isinstance(tree0, dict):
+        return {k: self.stack_leaves([tree[k] for tree in trees], axis=axis) for k in tree0}
+    else:
+        return self.stack(trees, axis=axis)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.staticshape"><code class="name flex">
@@ -4315,6 +4851,25 @@ For placeholder tensors, unknown dimensions are represented as <code>None</code>
 </summary>
 <pre><code class="python">def stop_gradient(self, value):
     raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
+<dt id="phi.math.backend.Backend.stop_gradient_tree"><code class="name flex">
+<span>def <span class="ident">stop_gradient_tree</span></span>(<span>self, tree)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stop_gradient_tree(self, tree):
+    if isinstance(tree, tuple):
+        return tuple([self.stop_gradient_tree(v) for v in tree])
+    if isinstance(tree, list):
+        return [self.stop_gradient_tree(v) for v in tree]
+    if isinstance(tree, dict):
+        return {k: self.stop_gradient_tree(v) for k, v in tree.items()}
+    return self.stop_gradient(tree)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.sub"><code class="name flex">
@@ -4403,6 +4958,19 @@ Features correspond to a method of this backend that must be implemented if the 
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
+<dt id="phi.math.backend.Backend.tanh"><code class="name flex">
+<span>def <span class="ident">tanh</span></span>(<span>self, x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tanh(self, x):
+    raise NotImplementedError(self)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.backend.Backend.tensordot"><code class="name flex">
 <span>def <span class="ident">tensordot</span></span>(<span>self, a, a_axes: tuple, b, b_axes: tuple)</span>
 </code></dt>
@@ -4421,7 +4989,7 @@ Features correspond to a method of this backend that must be implemented if the 
 <span>def <span class="ident">tile</span></span>(<span>self, value, multiples)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Repeats the tensor along each axis the number of times given by multiples.
+<div class="desc"><p>Repeats the full tensor along each axis the number of times given by multiples.
 If <code>multiples</code> has more dimensions than <code>value</code>, these dimensions are added to <code>value</code> as outer dimensions.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -4431,23 +4999,22 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 <dd>tuple or list of integers</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>tile tensor</p></div>
+<p>tiled tensor</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def tile(self, value, multiples):
     &#34;&#34;&#34;
-    Repeats the tensor along each axis the number of times given by multiples.
+    Repeats the full tensor along each axis the number of times given by multiples.
     If `multiples` has more dimensions than `value`, these dimensions are added to `value` as outer dimensions.
 
     Args:
-      value: tensor
-      multiples: tuple or list of integers
+        value: tensor
+        multiples: tuple or list of integers
 
     Returns:
-      tile tensor
-
+        tiled tensor
     &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -4609,10 +5176,11 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.while_loop"><code class="name flex">
-<span>def <span class="ident">while_loop</span></span>(<span>self, loop: Callable, values: tuple)</span>
+<span>def <span class="ident">while_loop</span></span>(<span>self, loop: Callable, values: tuple, max_iter: int)</span>
 </code></dt>
 <dd>
-<div class="desc"><pre><code class="language-python">while any(values[0]):
+<div class="desc"><p>If <code>max_iter is None</code>, runs</p>
+<pre><code class="language-python">while any(values[0]):
     values = loop(*values)
 return values
 </code></pre>
@@ -4623,15 +5191,22 @@ return values
 <dd>Loop function, must return a <code>tuple</code> with entries equal to <code>values</code> in shape and data type.</dd>
 <dt><strong><code>values</code></strong></dt>
 <dd>Initial values of loop variables.</dd>
+<dt><strong><code>max_iter</code></strong></dt>
+<dd>Maximum number of iterations to run, single <code>int</code> or sequence of integers.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Loop variables upon loop completion.</p></div>
+<p>Loop variables upon loop completion if <code>max_iter</code> is a single integer.
+If <code>max_iter</code> is a sequence, stacks the variables after each entry in <code>max_iter</code>, adding an outer dimension of size <code>&lt;= len(max_iter)</code>.
+If the condition is fulfilled before the maximum max_iter is reached, the loop may be broken or not, depending on the implementation.
+If the loop is broken, the values returned by the last loop are expected to be constant and filled.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def while_loop(self, loop: Callable, values: tuple):
+<pre><code class="python">def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
     &#34;&#34;&#34;
+    If `max_iter is None`, runs
+
     ```python
     while any(values[0]):
         values = loop(*values)
@@ -4643,10 +5218,30 @@ return values
     Args:
         loop: Loop function, must return a `tuple` with entries equal to `values` in shape and data type.
         values: Initial values of loop variables.
+        max_iter: Maximum number of iterations to run, single `int` or sequence of integers.
     Returns:
-        Loop variables upon loop completion.
+        Loop variables upon loop completion if `max_iter` is a single integer.
+        If `max_iter` is a sequence, stacks the variables after each entry in `max_iter`, adding an outer dimension of size `&lt;= len(max_iter)`.
+        If the condition is fulfilled before the maximum max_iter is reached, the loop may be broken or not, depending on the implementation.
+        If the loop is broken, the values returned by the last loop are expected to be constant and filled.
     &#34;&#34;&#34;
-    raise NotImplementedError(self)</code></pre>
+    values = self.stop_gradient_tree(values)
+    if isinstance(max_iter, (tuple, list)):
+        trj = [self.copy_leaves(values, only_mutable=True)] if 0 in max_iter else []
+        for i in range(1, max(max_iter) + 1):
+            values = loop(*values)
+            if i in max_iter:
+                trj.append(self.copy_leaves(values, only_mutable=True))
+            if not self.any(values[0]):
+                break
+        trj.extend([trj[-1]] * (len(max_iter) - len(trj)))  # fill trj with final values
+        return self.stop_gradient_tree(self.stack_leaves(trj))
+    else:
+        for i in range(1, max_iter + 1):
+            if not self.any(values[0]):
+                break
+            values = loop(*values)
+        return self.stop_gradient_tree(values)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.xor"><code class="name flex">
@@ -5198,12 +5793,18 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.and_" href="#phi.math.backend.Backend.and_">and_</a></code></li>
 <li><code><a title="phi.math.backend.Backend.any" href="#phi.math.backend.Backend.any">any</a></code></li>
 <li><code><a title="phi.math.backend.Backend.arccos" href="#phi.math.backend.Backend.arccos">arccos</a></code></li>
+<li><code><a title="phi.math.backend.Backend.arccosh" href="#phi.math.backend.Backend.arccosh">arccosh</a></code></li>
 <li><code><a title="phi.math.backend.Backend.arcsin" href="#phi.math.backend.Backend.arcsin">arcsin</a></code></li>
+<li><code><a title="phi.math.backend.Backend.arcsinh" href="#phi.math.backend.Backend.arcsinh">arcsinh</a></code></li>
+<li><code><a title="phi.math.backend.Backend.arctan" href="#phi.math.backend.Backend.arctan">arctan</a></code></li>
+<li><code><a title="phi.math.backend.Backend.arctan2" href="#phi.math.backend.Backend.arctan2">arctan2</a></code></li>
+<li><code><a title="phi.math.backend.Backend.arctanh" href="#phi.math.backend.Backend.arctanh">arctanh</a></code></li>
 <li><code><a title="phi.math.backend.Backend.as_registered" href="#phi.math.backend.Backend.as_registered">as_registered</a></code></li>
 <li><code><a title="phi.math.backend.Backend.as_tensor" href="#phi.math.backend.Backend.as_tensor">as_tensor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.auto_cast" href="#phi.math.backend.Backend.auto_cast">auto_cast</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batch_gather" href="#phi.math.backend.Backend.batch_gather">batch_gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.batched_gather_nd" href="#phi.math.backend.Backend.batched_gather_nd">batched_gather_nd</a></code></li>
+<li><code><a title="phi.math.backend.Backend.bi_conjugate_gradient" href="#phi.math.backend.Backend.bi_conjugate_gradient">bi_conjugate_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.block_until_ready" href="#phi.math.backend.Backend.block_until_ready">block_until_ready</a></code></li>
 <li><code><a title="phi.math.backend.Backend.boolean_mask" href="#phi.math.backend.Backend.boolean_mask">boolean_mask</a></code></li>
 <li><code><a title="phi.math.backend.Backend.call" href="#phi.math.backend.Backend.call">call</a></code></li>
@@ -5217,11 +5818,17 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.conjugate_gradient" href="#phi.math.backend.Backend.conjugate_gradient">conjugate_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.conjugate_gradient_adaptive" href="#phi.math.backend.Backend.conjugate_gradient_adaptive">conjugate_gradient_adaptive</a></code></li>
 <li><code><a title="phi.math.backend.Backend.conv" href="#phi.math.backend.Backend.conv">conv</a></code></li>
-<li><code><a title="phi.math.backend.Backend.coordinates" href="#phi.math.backend.Backend.coordinates">coordinates</a></code></li>
+<li><code><a title="phi.math.backend.Backend.coo_to_dense" href="#phi.math.backend.Backend.coo_to_dense">coo_to_dense</a></code></li>
 <li><code><a title="phi.math.backend.Backend.copy" href="#phi.math.backend.Backend.copy">copy</a></code></li>
+<li><code><a title="phi.math.backend.Backend.copy_leaves" href="#phi.math.backend.Backend.copy_leaves">copy_leaves</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cos" href="#phi.math.backend.Backend.cos">cos</a></code></li>
+<li><code><a title="phi.math.backend.Backend.cosh" href="#phi.math.backend.Backend.cosh">cosh</a></code></li>
 <li><code><a title="phi.math.backend.Backend.csc_matrix" href="#phi.math.backend.Backend.csc_matrix">csc_matrix</a></code></li>
+<li><code><a title="phi.math.backend.Backend.csc_matrix_batched" href="#phi.math.backend.Backend.csc_matrix_batched">csc_matrix_batched</a></code></li>
 <li><code><a title="phi.math.backend.Backend.csr_matrix" href="#phi.math.backend.Backend.csr_matrix">csr_matrix</a></code></li>
+<li><code><a title="phi.math.backend.Backend.csr_matrix_batched" href="#phi.math.backend.Backend.csr_matrix_batched">csr_matrix_batched</a></code></li>
+<li><code><a title="phi.math.backend.Backend.csr_to_coo" href="#phi.math.backend.Backend.csr_to_coo">csr_to_coo</a></code></li>
+<li><code><a title="phi.math.backend.Backend.csr_to_dense" href="#phi.math.backend.Backend.csr_to_dense">csr_to_dense</a></code></li>
 <li><code><a title="phi.math.backend.Backend.cumsum" href="#phi.math.backend.Backend.cumsum">cumsum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.custom_gradient" href="#phi.math.backend.Backend.custom_gradient">custom_gradient</a></code></li>
 <li><code><a title="phi.math.backend.Backend.div" href="#phi.math.backend.Backend.div">div</a></code></li>
@@ -5238,15 +5845,20 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.floor" href="#phi.math.backend.Backend.floor">floor</a></code></li>
 <li><code><a title="phi.math.backend.Backend.floordiv" href="#phi.math.backend.Backend.floordiv">floordiv</a></code></li>
 <li><code><a title="phi.math.backend.Backend.from_dlpack" href="#phi.math.backend.Backend.from_dlpack">from_dlpack</a></code></li>
+<li><code><a title="phi.math.backend.Backend.gather" href="#phi.math.backend.Backend.gather">gather</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_default_device" href="#phi.math.backend.Backend.get_default_device">get_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_device" href="#phi.math.backend.Backend.get_device">get_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.get_device_by_ref" href="#phi.math.backend.Backend.get_device_by_ref">get_device_by_ref</a></code></li>
+<li><code><a title="phi.math.backend.Backend.get_diagonal" href="#phi.math.backend.Backend.get_diagonal">get_diagonal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_or_equal" href="#phi.math.backend.Backend.greater_or_equal">greater_or_equal</a></code></li>
 <li><code><a title="phi.math.backend.Backend.greater_than" href="#phi.math.backend.Backend.greater_than">greater_than</a></code></li>
 <li><code><a title="phi.math.backend.Backend.grid_sample" href="#phi.math.backend.Backend.grid_sample">grid_sample</a></code></li>
 <li><code><a title="phi.math.backend.Backend.hessian" href="#phi.math.backend.Backend.hessian">hessian</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ifft" href="#phi.math.backend.Backend.ifft">ifft</a></code></li>
+<li><code><a title="phi.math.backend.Backend.ilu_coo" href="#phi.math.backend.Backend.ilu_coo">ilu_coo</a></code></li>
+<li><code><a title="phi.math.backend.Backend.ilu_dense" href="#phi.math.backend.Backend.ilu_dense">ilu_dense</a></code></li>
 <li><code><a title="phi.math.backend.Backend.imag" href="#phi.math.backend.Backend.imag">imag</a></code></li>
+<li><code><a title="phi.math.backend.Backend.indexed_segment_sum" href="#phi.math.backend.Backend.indexed_segment_sum">indexed_segment_sum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.is_available" href="#phi.math.backend.Backend.is_available">is_available</a></code></li>
 <li><code><a title="phi.math.backend.Backend.is_module" href="#phi.math.backend.Backend.is_module">is_module</a></code></li>
 <li><code><a title="phi.math.backend.Backend.is_tensor" href="#phi.math.backend.Backend.is_tensor">is_tensor</a></code></li>
@@ -5262,7 +5874,6 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.log" href="#phi.math.backend.Backend.log">log</a></code></li>
 <li><code><a title="phi.math.backend.Backend.log10" href="#phi.math.backend.Backend.log10">log10</a></code></li>
 <li><code><a title="phi.math.backend.Backend.log2" href="#phi.math.backend.Backend.log2">log2</a></code></li>
-<li><code><a title="phi.math.backend.Backend.matmul" href="#phi.math.backend.Backend.matmul">matmul</a></code></li>
 <li><code><a title="phi.math.backend.Backend.matrix_solve_least_squares" href="#phi.math.backend.Backend.matrix_solve_least_squares">matrix_solve_least_squares</a></code></li>
 <li><code><a title="phi.math.backend.Backend.max" href="#phi.math.backend.Backend.max">max</a></code></li>
 <li><code><a title="phi.math.backend.Backend.maximum" href="#phi.math.backend.Backend.maximum">maximum</a></code></li>
@@ -5273,6 +5884,9 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.minimum" href="#phi.math.backend.Backend.minimum">minimum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.mod" href="#phi.math.backend.Backend.mod">mod</a></code></li>
 <li><code><a title="phi.math.backend.Backend.mul" href="#phi.math.backend.Backend.mul">mul</a></code></li>
+<li><code><a title="phi.math.backend.Backend.mul_coo_dense" href="#phi.math.backend.Backend.mul_coo_dense">mul_coo_dense</a></code></li>
+<li><code><a title="phi.math.backend.Backend.mul_csr_dense" href="#phi.math.backend.Backend.mul_csr_dense">mul_csr_dense</a></code></li>
+<li><code><a title="phi.math.backend.Backend.mul_matrix_batched_vector" href="#phi.math.backend.Backend.mul_matrix_batched_vector">mul_matrix_batched_vector</a></code></li>
 <li><code><a title="phi.math.backend.Backend.multi_slice" href="#phi.math.backend.Backend.multi_slice">multi_slice</a></code></li>
 <li><code><a title="phi.math.backend.Backend.name" href="#phi.math.backend.Backend.name">name</a></code></li>
 <li><code><a title="phi.math.backend.Backend.ndims" href="#phi.math.backend.Backend.ndims">ndims</a></code></li>
@@ -5283,6 +5897,7 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.ones_like" href="#phi.math.backend.Backend.ones_like">ones_like</a></code></li>
 <li><code><a title="phi.math.backend.Backend.or_" href="#phi.math.backend.Backend.or_">or_</a></code></li>
 <li><code><a title="phi.math.backend.Backend.pad" href="#phi.math.backend.Backend.pad">pad</a></code></li>
+<li><code><a title="phi.math.backend.Backend.pairwise_distances" href="#phi.math.backend.Backend.pairwise_distances">pairwise_distances</a></code></li>
 <li><code><a title="phi.math.backend.Backend.pow" href="#phi.math.backend.Backend.pow">pow</a></code></li>
 <li><code><a title="phi.math.backend.Backend.precision" href="#phi.math.backend.Backend.precision">precision</a></code></li>
 <li><code><a title="phi.math.backend.Backend.prefers_channels_last" href="#phi.math.backend.Backend.prefers_channels_last">prefers_channels_last</a></code></li>
@@ -5292,26 +5907,35 @@ def retime(self):
 <li><code><a title="phi.math.backend.Backend.random_uniform" href="#phi.math.backend.Backend.random_uniform">random_uniform</a></code></li>
 <li><code><a title="phi.math.backend.Backend.range" href="#phi.math.backend.Backend.range">range</a></code></li>
 <li><code><a title="phi.math.backend.Backend.real" href="#phi.math.backend.Backend.real">real</a></code></li>
+<li><code><a title="phi.math.backend.Backend.repeat" href="#phi.math.backend.Backend.repeat">repeat</a></code></li>
 <li><code><a title="phi.math.backend.Backend.reshape" href="#phi.math.backend.Backend.reshape">reshape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.round" href="#phi.math.backend.Backend.round">round</a></code></li>
 <li><code><a title="phi.math.backend.Backend.scatter" href="#phi.math.backend.Backend.scatter">scatter</a></code></li>
 <li><code><a title="phi.math.backend.Backend.seed" href="#phi.math.backend.Backend.seed">seed</a></code></li>
 <li><code><a title="phi.math.backend.Backend.set_default_device" href="#phi.math.backend.Backend.set_default_device">set_default_device</a></code></li>
 <li><code><a title="phi.math.backend.Backend.shape" href="#phi.math.backend.Backend.shape">shape</a></code></li>
+<li><code><a title="phi.math.backend.Backend.shift_bits_left" href="#phi.math.backend.Backend.shift_bits_left">shift_bits_left</a></code></li>
+<li><code><a title="phi.math.backend.Backend.shift_bits_right" href="#phi.math.backend.Backend.shift_bits_right">shift_bits_right</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sigmoid" href="#phi.math.backend.Backend.sigmoid">sigmoid</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sign" href="#phi.math.backend.Backend.sign">sign</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sin" href="#phi.math.backend.Backend.sin">sin</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sinh" href="#phi.math.backend.Backend.sinh">sinh</a></code></li>
 <li><code><a title="phi.math.backend.Backend.size" href="#phi.math.backend.Backend.size">size</a></code></li>
+<li><code><a title="phi.math.backend.Backend.solve_triangular_dense" href="#phi.math.backend.Backend.solve_triangular_dense">solve_triangular_dense</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sparse_coo_tensor" href="#phi.math.backend.Backend.sparse_coo_tensor">sparse_coo_tensor</a></code></li>
+<li><code><a title="phi.math.backend.Backend.sparse_coo_tensor_batched" href="#phi.math.backend.Backend.sparse_coo_tensor_batched">sparse_coo_tensor_batched</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sqrt" href="#phi.math.backend.Backend.sqrt">sqrt</a></code></li>
 <li><code><a title="phi.math.backend.Backend.stack" href="#phi.math.backend.Backend.stack">stack</a></code></li>
+<li><code><a title="phi.math.backend.Backend.stack_leaves" href="#phi.math.backend.Backend.stack_leaves">stack_leaves</a></code></li>
 <li><code><a title="phi.math.backend.Backend.staticshape" href="#phi.math.backend.Backend.staticshape">staticshape</a></code></li>
 <li><code><a title="phi.math.backend.Backend.std" href="#phi.math.backend.Backend.std">std</a></code></li>
 <li><code><a title="phi.math.backend.Backend.stop_gradient" href="#phi.math.backend.Backend.stop_gradient">stop_gradient</a></code></li>
+<li><code><a title="phi.math.backend.Backend.stop_gradient_tree" href="#phi.math.backend.Backend.stop_gradient_tree">stop_gradient_tree</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sub" href="#phi.math.backend.Backend.sub">sub</a></code></li>
 <li><code><a title="phi.math.backend.Backend.sum" href="#phi.math.backend.Backend.sum">sum</a></code></li>
 <li><code><a title="phi.math.backend.Backend.supports" href="#phi.math.backend.Backend.supports">supports</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tan" href="#phi.math.backend.Backend.tan">tan</a></code></li>
+<li><code><a title="phi.math.backend.Backend.tanh" href="#phi.math.backend.Backend.tanh">tanh</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tensordot" href="#phi.math.backend.Backend.tensordot">tensordot</a></code></li>
 <li><code><a title="phi.math.backend.Backend.tile" href="#phi.math.backend.Backend.tile">tile</a></code></li>
 <li><code><a title="phi.math.backend.Backend.to_complex" href="#phi.math.backend.Backend.to_complex">to_complex</a></code></li>

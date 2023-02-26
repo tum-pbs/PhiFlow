@@ -42,8 +42,10 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 &#34;&#34;&#34;
+from phi.math import Solve, channel
+
 from phi import math
-from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample
+from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
 from phi.field._field import FieldType
 from phi.field._field_math import GridType
 from phi.geom import Geometry
@@ -105,6 +107,44 @@ def advect(field: SampledField,
     elif isinstance(field, Grid):
         return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
     raise NotImplementedError(field)
+
+
+def finite_difference(grid: Grid,
+                      velocity: Field,
+                      order=2,
+                      implicit: Solve = None) -&gt; Field:
+
+    &#34;&#34;&#34;
+    Finite difference advection using the differentiation Scheme indicated by `scheme` and a simple Euler step
+
+    Args:
+        grid: Grid to be advected
+        velocity: `Grid` that can be sampled in the elements of `grid`.
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
+            Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
+
+    Returns:
+        Advected grid of same type as `grid`
+    &#34;&#34;&#34;
+    if isinstance(grid, StaggeredGrid):
+        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit) for field_component in grid.vector]
+        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel(&#39;vector&#39;)))
+        if order == 4:
+            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
+        else:
+            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
+        amount = sum(amounts)
+    else:
+        assert isinstance(grid, CenteredGrid), f&#34;grid must be CenteredGrid or StaggeredGrid but got {type(grid)}&#34;
+        grad = spatial_gradient(grid, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit)
+        velocity = stack(unstack(velocity, dim=&#39;vector&#39;), dim=channel(&#39;gradient&#39;))
+        amounts = velocity * grad
+        amount = sum(amounts.gradient)
+    return - amount
 
 
 def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
@@ -266,6 +306,70 @@ def mac_cormack(field: GridType,
     if v0 is None:
         v0 = sample(velocity, elements)
     return elements.shifted(v0 * dt)</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.advect.finite_difference"><code class="name flex">
+<span>def <span class="ident">finite_difference</span></span>(<span>grid: phi.field._grid.Grid, velocity: phi.field._field.Field, order=2, implicit: phi.math._optimize.Solve = None) ‑> phi.field._field.Field</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Finite difference advection using the differentiation Scheme indicated by <code>scheme</code> and a simple Euler step</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>grid</code></strong></dt>
+<dd>Grid to be advected</dd>
+<dt><strong><code>velocity</code></strong></dt>
+<dd><code>Grid</code> that can be sampled in the elements of <code>grid</code>.</dd>
+<dt><strong><code>order</code></strong></dt>
+<dd>Spatial order of accuracy.
+Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+Supported: 2 explicit, 4 explicit, 6 implicit (inherited from <code><a title="phi.field.spatial_gradient" href="../field/index.html#phi.field.spatial_gradient">spatial_gradient()</a></code> and resampling).
+Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.</dd>
+<dt><strong><code>implicit</code></strong></dt>
+<dd>When a <code>Solve</code> object is passed, performs an implicit operation with the specified solver and tolerances.
+Otherwise, an explicit stencil is used.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Advected grid of same type as <code>grid</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def finite_difference(grid: Grid,
+                      velocity: Field,
+                      order=2,
+                      implicit: Solve = None) -&gt; Field:
+
+    &#34;&#34;&#34;
+    Finite difference advection using the differentiation Scheme indicated by `scheme` and a simple Euler step
+
+    Args:
+        grid: Grid to be advected
+        velocity: `Grid` that can be sampled in the elements of `grid`.
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
+            Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
+
+    Returns:
+        Advected grid of same type as `grid`
+    &#34;&#34;&#34;
+    if isinstance(grid, StaggeredGrid):
+        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit) for field_component in grid.vector]
+        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel(&#39;vector&#39;)))
+        if order == 4:
+            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
+        else:
+            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
+        amount = sum(amounts)
+    else:
+        assert isinstance(grid, CenteredGrid), f&#34;grid must be CenteredGrid or StaggeredGrid but got {type(grid)}&#34;
+        grad = spatial_gradient(grid, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit)
+        velocity = stack(unstack(velocity, dim=&#39;vector&#39;), dim=channel(&#39;gradient&#39;))
+        amounts = velocity * grad
+        amount = sum(amounts.gradient)
+    return - amount</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.finite_rk4"><code class="name flex">
@@ -486,6 +590,7 @@ The new values are then determined by sampling <code>field</code> at these looku
 <ul class="two-column">
 <li><code><a title="phi.physics.advect.advect" href="#phi.physics.advect.advect">advect</a></code></li>
 <li><code><a title="phi.physics.advect.euler" href="#phi.physics.advect.euler">euler</a></code></li>
+<li><code><a title="phi.physics.advect.finite_difference" href="#phi.physics.advect.finite_difference">finite_difference</a></code></li>
 <li><code><a title="phi.physics.advect.finite_rk4" href="#phi.physics.advect.finite_rk4">finite_rk4</a></code></li>
 <li><code><a title="phi.physics.advect.mac_cormack" href="#phi.physics.advect.mac_cormack">mac_cormack</a></code></li>
 <li><code><a title="phi.physics.advect.points" href="#phi.physics.advect.points">points</a></code></li>

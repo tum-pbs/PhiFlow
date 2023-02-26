@@ -14647,7 +14647,7 @@ to reflect the varying number of x, y and z sample points.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=11, y=10)</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=11)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">const 0.0</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=11, y=10)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=11)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> failed to fetch values: all input arrays must have the same shape</pre>
 </div>
 
 </div>
@@ -14704,8 +14704,8 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">Noise</span><span class="p">(),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># sample analytic field</span>
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># resample existing field</span>
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># function value(location)</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># no anti-aliasing</span>
-<span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">SoftGeometryMask</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># with anti-aliasing</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">resample</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">**</span><span class="n">domain</span><span class="p">))</span>  <span class="c1"># no anti-aliasing</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">resample</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">**</span><span class="n">domain</span><span class="p">),</span> <span class="n">soft</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># with anti-aliasing</span>
 </pre></div>
 
      </div>
@@ -14834,7 +14834,7 @@ to reflect the different number of sample points for each component.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=9, y=10)</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">const 0.8081634640693665</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=9, y=10)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> failed to fetch values: all input arrays must have the same shape</pre>
 </div>
 
 </div>
@@ -14994,7 +14994,7 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=1, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.950 ± 0.138</span> <span class="ansi-white-fg">(6e-02...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(xˢ=1, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> failed to fetch values: all input arrays must have the same shape</pre>
 </div>
 
 </div>
@@ -15033,7 +15033,7 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">const 1.0</span></pre>
+<pre><span class="ansi-green-intense-fg">(yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> failed to fetch values: all input arrays must have the same shape</pre>
 </div>
 
 </div>
