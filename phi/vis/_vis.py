@@ -351,9 +351,10 @@ def plot(*fields: SampledField or Tensor or Layout,
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
+                    idx = indices[pos]
                     for f in fields:
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color)
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
@@ -361,8 +362,9 @@ def plot(*fields: SampledField or Tensor or Layout,
             return anim
         else:
             for pos, fields in positioning.items():
+                idx = indices[pos]
                 for f in fields:
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color)
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx])
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             return layout(figure)

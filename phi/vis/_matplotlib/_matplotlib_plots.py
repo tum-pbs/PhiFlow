@@ -288,10 +288,10 @@ class VectorCloud2D(Recipe):
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
         if color.shape:
-            color = color.numpy(data.shape.non_channel).reshape(-1)
+            col = [_rgba(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
         else:
-            color = color.native()
-        subplot.quiver(x, y, u, v, color=color, units='xy', scale=1)
+            col = _rgba(color)
+        subplot.quiver(x, y, u, v, color=col, units='xy', scale=1)
 
 
 class PointCloud2D(Recipe):
@@ -405,6 +405,9 @@ class PointCloud3D(Recipe):
 def _rgba(col):
     if isinstance(col, Tensor):
         col = next(iter(col))
+    if col is None:
+        cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        return cycle[0]
     if not isinstance(col, (str, tuple, list)):
         cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         col = cycle[int(col) % len(cycle)]
