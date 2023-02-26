@@ -38,8 +38,8 @@ Installation with [pip](https://pypi.org/project/pip/) on [Python 3.6](https://w
 ``` bash
 $ pip install phiflow
 ```
-Install PyTorch, TensorFlow or Jax in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
-To enable the web UI, also install [`dash`](https://pypi.org/project/dash/).
+Install [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/install) or [Jax](https://github.com/google/jax#installation) in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
+To enable the web UI, also install [Dash](https://pypi.org/project/dash/).
 For optimal GPU performance, you may compile the custom CUDA operators, see the [detailed installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html).
 
 You can verify your installation by running
