@@ -102,14 +102,22 @@ class MatplotlibPlots(PlottingLibrary):
                     axis.remove()
                 else:
                     # subplot.cla()  # this also clears titles and subplot labels
-                    axis.lines.clear()
-                    axis.patches.clear()
-                    axis.texts.clear()
-                    axis.tables.clear()
-                    axis.artists.clear()
-                    axis.images.clear()
-                    axis.collections.clear()
-
+                    try:
+                        raise AttributeError
+                        axis.lines.clear()
+                        axis.patches.clear()
+                        axis.texts.clear()
+                        axis.tables.clear()
+                        axis.artists.clear()
+                        axis.images.clear()
+                        axis.collections.clear()
+                    except AttributeError:  # newer Matplotlib versions don't support clear() anymore
+                        for artist_list in [axis.lines, axis.patches, axis.texts, axis.tables, axis.artists, axis.images, axis.collections]:
+                            try:
+                                while artist_list:
+                                    artist_list[0].remove()
+                            except AttributeError:
+                                warnings.warn(f"Failed to remove Matplotlib list '{artist_list}'", RuntimeWarning)
                     box = Bbox(positions[axis])
                     axis.set_position(box, which='active')
                     axis.set_subplotspec(specs[axis])
@@ -399,7 +407,7 @@ def _rgba(col):
         col = next(iter(col))
     if not isinstance(col, (str, tuple, list)):
         cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-        col = cycle[int(col)]
+        col = cycle[int(col) % len(cycle)]
     if isinstance(col, str) and col.startswith('#'):
         col = tuple(int(col.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
     col = np.asarray(col)
