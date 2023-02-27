@@ -19,12 +19,20 @@ We recommend CUDA 11.0 with cuDNN 8.
 
 The following command installs the latest stable version of Φ<sub>Flow</sub> with GUI support using pip.
 ```bash
-$ pip install phiflow dash
+$ pip install phiflow
 ```
 To install the latest developer version of Φ<sub>Flow</sub>, run
 ```bash
 $ pip install --upgrade git+https://github.com/tum-pbs/PhiFlow@develop
 ```
+
+Install [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/install) or [Jax](https://github.com/google/jax#installation) in addition to Φ<sub>Flow</sub> to enable machine learning capabilities and GPU execution.
+
+To enable the web UI, also install [`dash`](https://pypi.org/project/dash/).
+```bash
+$ pip install dash
+```
+If you only run Φ<sub>Flow</sub> inside of Jupyter notebooks, dash is not required as Matplotlib will be used for plots and animations by default.
 
 ## Installing Φ<sub>Flow</sub> from Source
 The Φ<sub>Flow</sub> source additionally contains demo scripts and tests.
