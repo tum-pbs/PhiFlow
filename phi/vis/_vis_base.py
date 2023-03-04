@@ -440,6 +440,10 @@ def index_label(idx: dict) -> str or None:
             return ", ".join(f'{k}={display_name(v)}' for k, v in idx.items())
 
 
+def common_index(*indices: dict, exclude=()):
+    return {k: v for k, v in indices[0].items() if k not in exclude and all(i[k] == v for i in indices)}
+
+
 def select_channel(value: SampledField or Tensor or tuple or list, channel: str or None):
     if isinstance(value, (tuple, list)):
         return [select_channel(v, channel) for v in value]
