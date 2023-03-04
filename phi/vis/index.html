@@ -328,7 +328,9 @@ Currently, only single-figure plots are supported.</p>
 
         In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     &#34;&#34;&#34;
-    nrows, ncols, fig_shape, positioning, indices = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, overlay, 0, 0, {}, {})
+    positioning = {}
+    indices: Dict[Tuple[int, int], List[dict]] = {}
+    nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
@@ -349,7 +351,7 @@ Currently, only single-figure plots are supported.</p>
         title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
     else:
         assert title is None, f&#34;title must be a str or Tensor but got {title}&#34;
-        title = {pos: &#34;, &#34;.join([i for dim, i in index.items() if isinstance(i, str)]) for pos, index in indices.items()}
+        title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = math.wrap(color)
     # --- animate or plot ---
@@ -358,8 +360,8 @@ Currently, only single-figure plots are supported.</p>
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
-                    idx = indices[pos]
-                    for f in fields:
+                    for i, f in enumerate(fields):
+                        idx = indices[pos][i]
                         f = f[{animate.name: frame}]
                         plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx])
                 plots.finalize(figure)
@@ -369,8 +371,8 @@ Currently, only single-figure plots are supported.</p>
             return anim
         else:
             for pos, fields in positioning.items():
-                idx = indices[pos]
-                for f in fields:
+                for i, f in enumerate(fields):
+                    idx = indices[pos][i]
                     plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx])
             plots.finalize(figure)
             LAST_FIGURE[0] = figure

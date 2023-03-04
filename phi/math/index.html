@@ -10139,6 +10139,17 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         &#34;&#34;&#34;
         return self[[i for i, s in enumerate(self.sizes) if not _size_equal(s, 1)]]
 
+    @property
+    def singleton(self) -&gt; &#39;Shape&#39;:
+        &#34;&#34;&#34;
+        Filters this shape, returning only singleton dimensions as a new `Shape` object.
+        Dimensions are singleton if their size is exactly `1`.
+
+        Returns:
+            New `Shape` object
+        &#34;&#34;&#34;
+        return self[[i for i, s in enumerate(self.sizes) if _size_equal(s, 1)]]
+
     def unstack(self, dim=&#39;dims&#39;) -&gt; Tuple[&#39;Shape&#39;]:
         &#34;&#34;&#34;
         Slices this `Shape` along a dimension.
@@ -11319,6 +11330,28 @@ def shape(self) -&gt; &#39;Shape&#39;:
         if isinstance(size, Tensor):
             shape = shape &amp; size.shape
     return shape</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Shape.singleton"><code class="name">var <span class="ident">singleton</span> : phi.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"><p>Filters this shape, returning only singleton dimensions as a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object.
+Dimensions are singleton if their size is exactly <code>1</code>.</p>
+<h2 id="returns">Returns</h2>
+<p>New <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def singleton(self) -&gt; &#39;Shape&#39;:
+    &#34;&#34;&#34;
+    Filters this shape, returning only singleton dimensions as a new `Shape` object.
+    Dimensions are singleton if their size is exactly `1`.
+
+    Returns:
+        New `Shape` object
+    &#34;&#34;&#34;
+    return self[[i for i, s in enumerate(self.sizes) if _size_equal(s, 1)]]</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.size"><code class="name">var <span class="ident">size</span> : int</code></dt>
@@ -14449,6 +14482,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.Shape.replace" href="#phi.math.Shape.replace">replace</a></code></li>
 <li><code><a title="phi.math.Shape.reversed" href="#phi.math.Shape.reversed">reversed</a></code></li>
 <li><code><a title="phi.math.Shape.shape" href="#phi.math.Shape.shape">shape</a></code></li>
+<li><code><a title="phi.math.Shape.singleton" href="#phi.math.Shape.singleton">singleton</a></code></li>
 <li><code><a title="phi.math.Shape.size" href="#phi.math.Shape.size">size</a></code></li>
 <li><code><a title="phi.math.Shape.sizes" href="#phi.math.Shape.sizes">sizes</a></code></li>
 <li><code><a title="phi.math.Shape.spatial" href="#phi.math.Shape.spatial">spatial</a></code></li>
