@@ -744,6 +744,13 @@ class TestMathFunctions(TestCase):
         y = wrap((2, 4), spatial('y'))
         math.assert_close(wrap([(2, 4), (3, 5)], spatial('x,y')), math.map(f, x, y))
 
+    def test_map_layout(self):
+        l = math.layout('loss', math.EMPTY_SHAPE)
+        a = math.layout([[0, 1], [2, 3]], spatial('x,y'))
+        loss4 = math.map(lambda l, a: l, l, a)
+        for l4 in loss4:
+            self.assertEqual('loss', l4)
+
     def test_map_multi_output(self):
         def f(x, y):
             return x + y, x - y

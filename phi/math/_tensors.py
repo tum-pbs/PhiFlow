@@ -998,10 +998,10 @@ class Layout(Tensor):
         new_dims = dims.without(self._shape)
         if not new_dims:
             return self
-        obj = self
+        obj = self._obj
         for dim in reversed(new_dims):
             assert isinstance(dim.size, int), "Can only expand layouts by integer-sized dimensions"
-            obj = [self._obj] * dim.size
+            obj = [obj] * dim.size
         return Layout(obj, concat_shapes(new_dims, self._shape))
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Tensor':
@@ -1012,7 +1012,11 @@ class Layout(Tensor):
         if dims == self.shape.names:
             native = self._as_list()
             return Layout(native, packed_dim.with_size(len(native)))
-        raise NotImplementedError
+        else:
+            obj = []
+            for i in self._shape.only(dims, reorder=True).meshgrid():
+                obj.append(self[i].native())
+            return Layout(obj, concat_shapes(packed_dim, self._shape.without(dims)))
 
     def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Layout':
         return NotImplemented
