@@ -333,7 +333,7 @@ def abs_square(complex_values: Tensor) -> Tensor:
 def shift(x: Tensor,
           offsets: tuple,
           dims: DimFilter = math.spatial,
-          padding: Extrapolation or None = extrapolation.BOUNDARY,
+          padding: Extrapolation or Tensor or float or None = extrapolation.BOUNDARY,
           stack_dim: Optional[Shape] = channel('shift'),
           extend_bounds=0) -> list:
     """
@@ -358,7 +358,7 @@ def shift(x: Tensor,
     x = wrap(x)
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
-    if padding:
+    if padding is not None:
         x = math.pad(x, {axis: (pad_lower + extend_bounds, pad_upper + extend_bounds) for axis in dims}, mode=padding)
     if extend_bounds:
         assert padding is not None
