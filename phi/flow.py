@@ -26,6 +26,7 @@ from .physics.fluid import Obstacle
 
 # Constants
 from .math import PI, INF, NAN
+from .math.extrapolation import PERIODIC, ZERO_GRADIENT
 
 # Functions
 from .math import (
