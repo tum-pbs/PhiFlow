@@ -10,10 +10,11 @@ from phi.torch.flow import *
 
 
 DOMAIN = dict(x=50, y=50, bounds=Box(x=100, y=100))
-MARKER_0 = CenteredGrid(Sphere(x=40, y=50, radius=20), extrapolation.BOUNDARY, **DOMAIN)
-MARKER_TARGET = CenteredGrid(Sphere(x=60, y=50, radius=20), extrapolation.BOUNDARY, **DOMAIN)
+MARKER_0 = CenteredGrid(Sphere(x=40, y=50, radius=20), ZERO_GRADIENT, **DOMAIN)
+MARKER_TARGET = CenteredGrid(Sphere(x=60, y=50, radius=20), ZERO_GRADIENT, **DOMAIN)
 
 
+# @jit_compile
 def loss(velocity):
     advected = advect.mac_cormack(MARKER_0, velocity, dt=1.0)
     smooth_diff = diffuse.explicit(advected - MARKER_TARGET, 10.0, 1, 50)
@@ -22,9 +23,9 @@ def loss(velocity):
 
 gradient_function = field.functional_gradient(loss, 'velocity', get_output=True)
 
-velocity_fit = StaggeredGrid(0, extrapolation.ZERO, **DOMAIN)
-marker_fit = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
-smooth_difference = CenteredGrid(0, extrapolation.BOUNDARY, **DOMAIN)
+velocity_fit = StaggeredGrid(0, 0, **DOMAIN)
+marker_fit = CenteredGrid(0, ZERO_GRADIENT, **DOMAIN)
+smooth_difference = CenteredGrid(0, ZERO_GRADIENT, **DOMAIN)
 viewer = view(display=['marker_fit', 'gradient'], play=False, namespace=globals())
 
 for iteration in viewer.range(warmup=1):

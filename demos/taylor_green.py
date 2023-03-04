@@ -16,7 +16,7 @@ def taylor_green_velocity(x):
         dim=channel('vector'))
 
 
-DOMAIN = dict(x=64, y=64, bounds=Box(x=2*PI, y=2*PI), extrapolation=extrapolation.PERIODIC)
+DOMAIN = dict(x=64, y=64, bounds=Box(x=2*PI, y=2*PI), extrapolation=PERIODIC)
 VORTEX_COUNT = 1
 RE = vis.control(60.)  # Reynolds number for analytic function
 dt = vis.control(0.1)

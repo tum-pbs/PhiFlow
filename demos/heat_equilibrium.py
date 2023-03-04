@@ -6,7 +6,7 @@ Control the heat source using the sliders at the bottom.
 from phi.flow import *
 
 
-DOMAIN = dict(x=64, y=64, extrapolation=extrapolation.ZERO)
+DOMAIN = dict(x=64, y=64, extrapolation=0)
 DT = 1.0
 x = control(32, (14, 50))
 y = control(20, (4, 40))

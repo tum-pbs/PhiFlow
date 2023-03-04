@@ -9,7 +9,7 @@ from phi.flow import *  # minimal dependencies
 
 
 SPEED = vis.control(2.)
-velocity = StaggeredGrid((SPEED, 0), extrapolation.BOUNDARY, x=128, y=128, bounds=Box(x=128, y=64))
+velocity = StaggeredGrid((SPEED, 0), ZERO_GRADIENT, x=128, y=128, bounds=Box(x=128, y=64))
 CYLINDER = Obstacle(geom.infinite_cylinder(x=15, y=32, radius=5, inf_dim=None))
 BOUNDARY_MASK = StaggeredGrid(Box(x=(-INF, 0.5), y=None), velocity.extrapolation, velocity.bounds, velocity.resolution)
 pressure = None

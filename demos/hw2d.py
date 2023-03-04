@@ -90,7 +90,7 @@ def rk4_step(dt, physics_params, gradient_func=step_gradient_2d, **kwargs):
     return math.Dict(density=y1.density, omega=y1.omega, phi=phi, age=in_age + dt, dx=yn.dx)
 
 
-domain = dict(extrapolation=extrapolation.PERIODIC, bounds=Box(x=L, y=L))
+domain = dict(extrapolation=PERIODIC, bounds=Box(x=L, y=L))
 density = CenteredGrid(math.random_normal(spatial(x=x, y=y)), **domain) * scale
 omega = CenteredGrid(math.random_normal(spatial(x=x, y=y)), **domain) * scale
 phi = CenteredGrid(math.random_normal(spatial(x=x, y=y)), **domain) * scale

@@ -36,14 +36,14 @@ def reset():
     viewer.info(f"Model loaded.")
 
 
-prediction = CenteredGrid((0, 0), extrapolation.BOUNDARY, x=64, y=64)
+prediction = CenteredGrid((0, 0), ZERO_GRADIENT, x=64, y=64)
 viewer = view('divergence', scene=True, namespace=globals(), select='batch')
 save_model(0)
 reset()  # Ensure that the first run will be identical to every time reset() is called
 
 
 for step in viewer.range():
-    data = CenteredGrid(Noise(batch(batch=8), channel(vector=2)), extrapolation.BOUNDARY, x=64, y=64)
+    data = CenteredGrid(Noise(batch(batch=8), channel(vector=2)), ZERO_GRADIENT, x=64, y=64)
     loss, div_loss, sim_loss, prediction, divergence = update_weights(net, optimizer, loss_function, data)
     viewer.log_scalars(loss=loss, divergence_loss=div_loss, similarity_loss=sim_loss)
     if (step + 1) % 100 == 0:
