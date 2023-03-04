@@ -436,6 +436,17 @@ class Shape:
         """
         return self[[i for i, s in enumerate(self.sizes) if not _size_equal(s, 1)]]
 
+    @property
+    def singleton(self) -> 'Shape':
+        """
+        Filters this shape, returning only singleton dimensions as a new `Shape` object.
+        Dimensions are singleton if their size is exactly `1`.
+
+        Returns:
+            New `Shape` object
+        """
+        return self[[i for i, s in enumerate(self.sizes) if _size_equal(s, 1)]]
+
     def unstack(self, dim='dims') -> Tuple['Shape']:
         """
         Slices this `Shape` along a dimension.
