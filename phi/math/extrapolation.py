@@ -556,6 +556,7 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
 
 
 class _PeriodicExtrapolation(_CopyExtrapolation):
+    """ Periodic extrapolation in n dimensions. """
     def __repr__(self):
         return 'periodic'
 
