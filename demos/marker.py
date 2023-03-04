@@ -14,7 +14,7 @@ INITIAL_LOC = math.meshgrid(x=8, y=8).pack('x,y', instance('points')) * 10. + 10
 
 velocity = StaggeredGrid(Noise(vector='x,y', scale=100), 0, **DOMAIN) * 4
 sparse_marker = PointCloud(Sphere(INITIAL_LOC, 2), 1, 0, bounds=DOMAIN['bounds'])
-dense_marker = CenteredGrid(sparse_marker.elements, extrapolation.BOUNDARY, x=200, y=200, bounds=DOMAIN['bounds'])
+dense_marker = CenteredGrid(sparse_marker.elements, ZERO_GRADIENT, x=200, y=200, bounds=DOMAIN['bounds'])
 
 for _ in view(framerate=10, play=False, namespace=globals()).range():
     velocity, _ = fluid.make_incompressible(velocity)

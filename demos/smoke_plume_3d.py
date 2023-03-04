@@ -8,8 +8,8 @@ from phi.flow import *  # minimal dependencies
 # from phi.jax.flow import *
 
 
-velocity = StaggeredGrid((0, 0, 0), extrapolation.ZERO, x=32, y=32, z=32, bounds=Box(x=100, y=100, z=100))  # or CenteredGrid(...)
-smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=32, y=32, z=32, bounds=Box(x=100, y=100, z=100))
+velocity = StaggeredGrid((0, 0, 0), 0, x=32, y=32, z=32, bounds=Box(x=100, y=100, z=100))  # or CenteredGrid(...)
+smoke = CenteredGrid(0, ZERO_GRADIENT, x=32, y=32, z=32, bounds=Box(x=100, y=100, z=100))
 INFLOW = 0.2 * resample(Sphere(x=50, y=50, z=10, radius=5), to=smoke, soft=True)
 pressure = None
 

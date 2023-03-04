@@ -16,8 +16,8 @@ pressure_solver = vis.control('auto', ('auto', 'CG', 'CG-adaptive', 'CG-native',
 
 BOUNDS = Box(x=100, y=100)
 INFLOW = Sphere(x=50, y=10, radius=5)
-velocity = StaggeredGrid((0, 0), extrapolation.ZERO, x=v_res ** 2, y=v_res ** 2, bounds=BOUNDS)
-smoke = CenteredGrid(0, extrapolation.BOUNDARY, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS)
+velocity = StaggeredGrid((0, 0), 0, x=v_res ** 2, y=v_res ** 2, bounds=BOUNDS)
+smoke = CenteredGrid(0, ZERO_GRADIENT, x=smoke_res ** 2, y=smoke_res ** 2, bounds=BOUNDS)
 
 viewer = view(smoke, velocity, namespace=globals(), play=False)
 for _ in viewer.range(warmup=1):

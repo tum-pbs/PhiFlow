@@ -4,7 +4,7 @@ Simple advection-diffusion equation.
 from phi.flow import *
 
 
-velocity = CenteredGrid(Noise(vector=2), extrapolation.PERIODIC, x=64, y=64, bounds=Box(x=200, y=100)) * 2
+velocity = CenteredGrid(Noise(vector=2), PERIODIC, x=64, y=64, bounds=Box(x=200, y=100)) * 2
 
 
 # @jit_compile  # for PyTorch, TensorFlow and Jax
