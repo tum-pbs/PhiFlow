@@ -26,7 +26,7 @@ from ._shape import (
 
 from ._magic_ops import slice_ as slice, unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, copy_with, replace
 
-from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
+from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar, BROADCAST_FORMATTER as f
 
 from ._sparse import dense, get_sparsity, factor_ilu
 
@@ -102,6 +102,17 @@ nan = NAN  # intentionally undocumented, use NAN instead. Exists only as an anlo
 
 NUMPY = NUMPY  # to show up in pdoc
 """Default backend for NumPy arrays and SciPy objects."""
+
+f = f
+"""
+Automatic mapper for broadcast string formatting of tensors, resulting in tensors of strings.
+Used with the special `-f-` syntax.
+
+Examples:
+    >>> from phi.math import f
+    >>> -f-f'String containing {tensor1} and {tensor2:.1f}'
+    # Result is a str tensor containing all dims of tensor1 and tensor2
+"""
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
 
