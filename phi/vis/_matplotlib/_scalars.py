@@ -1,4 +1,5 @@
 import os
+import warnings
 from numbers import Number
 from typing import Callable, Union
 
@@ -66,6 +67,7 @@ def plot_scalars(scene: Union[str, tuple, list, Scene, math.Tensor],
     Returns:
         MatPlotLib [figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure)
     """
+    warnings.warn("plot_scalars is deprecated. Use load_scalars() and plot() instead.", DeprecationWarning, stacklevel=2)
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
