@@ -1,15 +1,15 @@
-import copy
+import numbers
 import numbers
 import warnings
-from collections import namedtuple
 from contextlib import contextmanager
-from typing import Tuple, Callable, List, TypeVar, Union
+from typing import Union
 
 from dataclasses import dataclass
+from typing import Tuple, Callable, List
+
 import numpy
 import numpy as np
 
-from .magic import Shapable
 from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack, pack_dims, expand
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
@@ -19,6 +19,7 @@ from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, de
     Backend, ComputeDevice
 from .backend._dtype import DType, combine_types
 from .magic import BoundDim, PhiTreeNode, slicing_dict
+from .magic import Shapable
 
 
 class Tensor:
@@ -380,6 +381,8 @@ class Tensor:
         printer.text(format_tensor(self, PrintOptions(colors=DEFAULT_COLORS)))
 
     def __format__(self, format_spec: str):
+        if BROADCAST_FORMATTER.values is not None:
+            return BROADCAST_FORMATTER.register_formatted(self, format_spec)
         specs = format_spec.split(':')
         layout_ = 'auto'
         for possible_layout in ['summary', 'full', 'row', 'numpy']:
@@ -396,7 +399,8 @@ class Tensor:
                 threshold = int(spec[len('threshold='):])
             elif '.' in spec:
                 float_format = spec
-        return format_tensor(self, PrintOptions(layout_, float_format, threshold, color, include_shape, include_dtype))
+        result = format_tensor(self, PrintOptions(layout_, float_format, threshold, color, include_shape, include_dtype))
+        return result
 
     def __getitem__(self, item) -> 'Tensor':
         if isinstance(item, Tensor):
@@ -2282,6 +2286,46 @@ def from_dict(dict_: dict, convert=False):
         return shape
 
 
+
+
+class BroadcastFormatter:
+    """
+    Usage documented in math.__init__.
+
+    How it works:
+    * -f calls __neg__ which tells tensors to call register_formatted() instead of formatting normally.
+    * Then __sub__ is called which maps the actual string formatting.
+    """
+
+    def __init__(self):
+        self.values: List[Tensor] = None
+
+    def register_formatted(self, value: Tensor, format_spec: str):
+        self.values.append(value)
+        return "{" + f"{len(self.values) - 1}:{format_spec}" + "}"
+
+    def format(self, other: str):
+        assert isinstance(other, str), "math.f must be used on a string"
+        from ._ops import map_
+        if self.values is None:
+            raise SyntaxError("Use the syntax -f-f\"{tensor}\". Leading '-' is missing.")
+        result = map_(lambda *args: other.format(*args), *self.values)
+        self.values = None
+        return result
+
+    def __sub__(self, other):
+        return self.format(other)
+
+    def __neg__(self):
+        if self.values is not None:
+            raise SyntaxError("-f called twice without formatting string.")
+        self.values = []
+        return self
+
+
+BROADCAST_FORMATTER = BroadcastFormatter()
+
+
 @dataclass
 class Color:
     name: str
@@ -2388,7 +2432,7 @@ def format_summary(self: Tensor, options: PrintOptions) -> str:
 
 def sparse_summary(value: Tensor, options: PrintOptions) -> str:
     colors = options.get_colors()
-    from ._sparse import SparseCoordinateTensor, CompressedSparseMatrix
+    from ._sparse import SparseCoordinateTensor
     tokens = []
     if is_unexpected_dtype(value.dtype) if options.include_dtype is None else options.include_dtype:
         tokens.append(f"{colors.dtype(value.dtype)}")

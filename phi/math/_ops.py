@@ -381,6 +381,8 @@ def map_(function, *values, range=range, **kwargs) -> Union[Tensor, None]:
     Returns:
         `Tensor` of same shape as `value`.
     """
+    if not values:
+        return function(**kwargs)
     values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
     flat = [pack_dims(expand(v, shape), shape, batch('flat')) for v in values]
