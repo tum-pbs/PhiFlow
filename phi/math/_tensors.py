@@ -1716,6 +1716,9 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
                 from ._ops import cast_same
                 elements = cast_same(*elements)
                 return TensorStack(elements, stack_dim)
+            except IncompatibleShapes:
+                assert not convert, f"Cannot convert {data} to tensor given shape {shape}"
+                return layout(data, shape or default_list_dim)
             except ValueError:
                 assert not convert, f"Cannot convert {data} to tensor"
                 return layout(data, shape or default_list_dim)
