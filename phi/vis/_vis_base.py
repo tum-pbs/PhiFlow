@@ -428,11 +428,15 @@ def display_name(python_name: Any):
         return text
 
 
-def index_label(idx: dict) -> Union[str, None]:
+def index_label(idx: dict, always_include_names: bool = False) -> Union[str, None]:
     if len(idx) == 0:
         return None
-    elif len(idx) == 1:
-        return display_name(next(iter(idx.values())))
+    if len(idx) == 1:
+        if always_include_names:
+            for name, value in idx.items():
+                return f"{display_name(name)} {display_name(value)}"
+        else:
+            return display_name(next(iter(idx.values())))
     else:
         number_unlabelled_dims = len([1 for k, v in idx.items() if isinstance(v, int)])
         if number_unlabelled_dims <= 1:

@@ -8,13 +8,14 @@ from typing import Tuple, List, Dict, Union
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, tensor_as_field, common_index, index_label, title_label
+from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, tensor_as_field, common_index, title_label
 from .. import math
 from ..field import SampledField, Scene, Field, PointCloud
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
-from ..math import Tensor, layout, batch, Shape, wrap, merge_shapes, EMPTY_SHAPE
-from ..math._shape import parse_dim_order, DimFilter
+from ..math import Tensor, layout, batch, Shape
+from ..math import wrap
+from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes
 
 
 def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
