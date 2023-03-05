@@ -1024,6 +1024,28 @@ def map_i2b(f: Callable) -> Callable:
     return map_types(f, instance, batch)
 
 
+def broadcast(f):
+    """
+    Function decorator for non-vectorized functions.
+    When passing a `Tensor` argument to a broadcast function, the function is called once for each element of the tensor.
+
+    Only positionsl arguments, not keyword arguments are broadcast.
+
+    See Also:
+        `phi.math.map`
+
+    Args:
+        f: Function.
+
+    Returns:
+        Broadcast function
+    """
+    @wraps(f)
+    def broadcast_(*args, **kwargs):
+        return math.map_(f, *args, **kwargs)
+    return broadcast_
+
+
 def iterate(f: Callable,
             iterations: Union[int, Shape],
             *x0,
