@@ -341,7 +341,7 @@ class PointCloud2D(Recipe):
             x, y = math.reshaped_numpy(data.points.vector[dims], [vector, instance(data), spatial(data)])
             mpl_colors = matplotlib_colors(color, instance(data))
             for i in range(instance(data).volume):
-                marker = 'o' if isinstance(data.elements, Point) and spatial(data.elements).volume > 2 else None
+                marker = 'o' if isinstance(data.elements, Point) and 2 < spatial(data.elements).volume < 100 else None
                 axis.plot(x[i], y[i], marker=marker, markersize=2.5, color=mpl_colors[i] if mpl_colors is not None else None)
         if any(non_channel(data).item_names):
             PointCloud2D._annotate_points(axis, data.points)

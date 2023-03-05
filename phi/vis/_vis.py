@@ -15,7 +15,7 @@ from ..field import SampledField, Scene, Field, PointCloud, Grid
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from ..math import Tensor, layout, batch, Shape, spatial, channel
-from ..math._shape import parse_dim_names, parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes
+from ..math._shape import parse_dim_names, parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
 from ..math._tensors import Layout
 
 
@@ -344,7 +344,7 @@ def plot(*fields: SampledField or Tensor or Layout,
         title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
     else:
         assert title is None, f"title must be a str or Tensor but got {title}"
-        title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
+        title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton), always_include_names=True) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = math.wrap(color)
     # --- animate or plot ---
@@ -433,8 +433,8 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
         assert isinstance(data, Field), f"Cannot plot {type(data)}. Only tensors, geometries and fields can be plotted."
         overlay = data.shape.only(overlay)
         animate = data.shape.only(animate).without(overlay)
-        row_shape = batch(data).only(row_dims).without(animate).without(overlay)
-        col_shape = batch(data).only(col_dims).without(row_dims).without(animate).without(overlay)
+        row_shape = data.shape.only(row_dims).without(animate).without(overlay)
+        col_shape = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
         non_reduced: Shape = batch(data).without(row_dims).without(col_dims) & animate
         for ri, r in enumerate(row_shape.meshgrid(names=True)):
             for ci, c in enumerate(col_shape.meshgrid(names=True)):
