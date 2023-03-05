@@ -41,6 +41,7 @@ See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visual
 &#34;&#34;&#34;
 from ._viewer import Viewer
 from ._matplotlib import plot_scalars
+from ._io import load_scalars
 from ._vis import view, control, show, close, action, plot, overlay, write_image, write_image as savefig
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
@@ -182,6 +183,76 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
         value_range(ctrl)  # checks if valid
         CONTROL_VARS[var_name] = ctrl
     return value</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.load_scalars"><code class="name flex">
+<span>def <span class="ident">load_scalars</span></span>(<span>scene: phi.field._scene.Scene, name: str, prefix='log_', suffix='.txt', x='steps', entries_dim=(entriesˢ=None))</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Read one or a <code>Tensor</code> of scalar logs as curves.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>scene</code></strong></dt>
+<dd><code>Scene</code> or <code>str</code>. Directory containing the log files.</dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>Log file base name.</dd>
+<dt><strong><code>prefix</code></strong></dt>
+<dd>Log file prefix.</dd>
+<dt><strong><code>suffix</code></strong></dt>
+<dd>Log file suffix.</dd>
+<dt><strong><code>x</code></strong></dt>
+<dd>'steps'
+or 'time'</dd>
+<dt><strong><code>entries_dim</code></strong></dt>
+<dd>Curve dimension.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> containing <code>entries_dim</code> and <code>vector</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@math.broadcast
+def load_scalars(scene: Scene or str,
+                 name: str,
+                 prefix=&#39;log_&#39;,
+                 suffix=&#39;.txt&#39;,
+                 x=&#39;steps&#39;,
+                 entries_dim=spatial(&#39;entries&#39;)):
+    &#34;&#34;&#34;
+    Read one or a `Tensor` of scalar logs as curves.
+
+    Args:
+        scene: `Scene` or `str`. Directory containing the log files.
+        name: Log file base name.
+        prefix: Log file prefix.
+        suffix: Log file suffix.
+        x: &#39;steps&#39;  or &#39;time&#39;
+        entries_dim: Curve dimension.
+
+    Returns:
+        `Tensor` containing `entries_dim` and `vector`.
+    &#34;&#34;&#34;
+    assert x in (&#39;steps&#39;, &#39;time&#39;)
+    if isinstance(scene, str):
+        scene = Scene.at(scene)
+    assert isinstance(scene, Scene), f&#34;scene must be a Scene or str but got {type(scene)}&#34;
+    assert shape(scene).rank == 0, f&#34;Use math.map(load_scalars, ...) to load data from multiple scenes&#34;
+    PHI_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, f&#39;{prefix}{name}{suffix}&#39;)}&#34;)
+    curve = numpy.loadtxt(os.path.join(scene.path, f&#34;log_{name}.txt&#34;))
+    if curve.ndim == 2:
+        x_values, values, *_ = curve.T
+    else:
+        values = curve
+        x_values = numpy.arange(len(values))
+    if x == &#39;time&#39;:
+        assert x == &#39;time&#39;, f&#34;x must be &#39;steps&#39; or &#39;time&#39; but got {x}&#34;
+        PHI_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, &#39;log_step_time.txt&#39;)}&#34;)
+        _, x_values, *_ = numpy.loadtxt(os.path.join(scene.path, &#34;log_step_time.txt&#34;)).T
+        values = values[:len(x_values + 1)]
+        x_values = numpy.cumsum(x_values[:len(values) - 1])
+        x_values = numpy.concatenate([[0.], x_values])
+    return wrap(numpy.stack([x_values, values], -1), entries_dim, channel(vector=[x, name]))</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.overlay"><code class="name flex">
@@ -351,7 +422,7 @@ Currently, only single-figure plots are supported.</p>
         title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
     else:
         assert title is None, f&#34;title must be a str or Tensor but got {title}&#34;
-        title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
+        title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton), always_include_names=True) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = math.wrap(color)
     # --- animate or plot ---
@@ -475,6 +546,7 @@ Currently, only single-figure plots are supported.</p>
     Returns:
         MatPlotLib [figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure)
     &#34;&#34;&#34;
+    warnings.warn(&#34;plot_scalars is deprecated. Use load_scalars() and plot() instead.&#34;, DeprecationWarning, stacklevel=2)
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -1266,6 +1338,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><code><a title="phi.vis.action" href="#phi.vis.action">action</a></code></li>
 <li><code><a title="phi.vis.close" href="#phi.vis.close">close</a></code></li>
 <li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
+<li><code><a title="phi.vis.load_scalars" href="#phi.vis.load_scalars">load_scalars</a></code></li>
 <li><code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay</a></code></li>
 <li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>
 <li><code><a title="phi.vis.plot_scalars" href="#phi.vis.plot_scalars">plot_scalars</a></code></li>

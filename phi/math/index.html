@@ -8238,6 +8238,9 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
                 elements = cast_same(*elements)
                 return TensorStack(elements, stack_dim)
             except IncompatibleShapes:
+                assert not convert, f&#34;Cannot convert {data} to tensor given shape {shape}&#34;
+                return layout(data, shape or default_list_dim)
+            except ValueError:
                 assert not convert, f&#34;Cannot convert {data} to tensor&#34;
                 return layout(data, shape or default_list_dim)
     try:
