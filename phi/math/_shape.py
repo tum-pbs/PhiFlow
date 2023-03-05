@@ -1243,6 +1243,7 @@ def _construct_shape(dim_type: str, prefix: str, *args, **dims):
             items = tuple([i.strip() for i in size.split(',')])
             size = len(items)
         elif isinstance(size, (tuple, list)):
+            assert all(isinstance(s, str) for s in size), f"Item names must all be of type 'str' but got '{size}'"
             items = tuple(size)
             size = len(items)
         elif isinstance(size, Shape):
