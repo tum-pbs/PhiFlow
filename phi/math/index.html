@@ -97,6 +97,7 @@ from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
     jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient,
     map_types, map_s2b, map_i2b,
+    broadcast,
     iterate,
     identity,
     trace_check,
@@ -718,6 +719,48 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
             return expand(x, new_shape)
 
     return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=mask.shape.without(dim))</code></pre>
+</details>
+</dd>
+<dt id="phi.math.broadcast"><code class="name flex">
+<span>def <span class="ident">broadcast</span></span>(<span>f)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Function decorator for non-vectorized functions.
+When passing a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> argument to a broadcast function, the function is called once for each element of the tensor.</p>
+<p>Only positionsl arguments, not keyword arguments are broadcast.</p>
+<p>See Also:
+<code><a title="phi.math.map" href="#phi.math.map">map_()</a></code></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Broadcast function</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def broadcast(f):
+    &#34;&#34;&#34;
+    Function decorator for non-vectorized functions.
+    When passing a `Tensor` argument to a broadcast function, the function is called once for each element of the tensor.
+
+    Only positionsl arguments, not keyword arguments are broadcast.
+
+    See Also:
+        `phi.math.map`
+
+    Args:
+        f: Function.
+
+    Returns:
+        Broadcast function
+    &#34;&#34;&#34;
+    @wraps(f)
+    def broadcast_(*args, **kwargs):
+        return math.map_(f, *args, **kwargs)
+    return broadcast_</code></pre>
 </details>
 </dd>
 <dt id="phi.math.cast"><code class="name flex">
@@ -7145,7 +7188,7 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
 <pre><code class="python">def shift(x: Tensor,
           offsets: tuple,
           dims: DimFilter = math.spatial,
-          padding: Extrapolation or None = extrapolation.BOUNDARY,
+          padding: Extrapolation or Tensor or float or None = extrapolation.BOUNDARY,
           stack_dim: Optional[Shape] = channel(&#39;shift&#39;),
           extend_bounds=0) -&gt; list:
     &#34;&#34;&#34;
@@ -7170,7 +7213,7 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
     x = wrap(x)
     pad_lower = max(0, -min(offsets))
     pad_upper = max(0, max(offsets))
-    if padding:
+    if padding is not None:
         x = math.pad(x, {axis: (pad_lower + extend_bounds, pad_upper + extend_bounds) for axis in dims}, mode=padding)
     if extend_bounds:
         assert padding is not None
@@ -8194,7 +8237,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
                 from ._ops import cast_same
                 elements = cast_same(*elements)
                 return TensorStack(elements, stack_dim)
-            except ValueError:
+            except IncompatibleShapes:
                 assert not convert, f&#34;Cannot convert {data} to tensor&#34;
                 return layout(data, shape or default_list_dim)
     try:
@@ -8700,7 +8743,7 @@ The grid values at the new points are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.math.vec"><code class="name flex">
-<span>def <span class="ident">vec</span></span>(<span>name='vector', **components) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">vec</span></span>(<span>name='vector', *sequence, **components) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lay out the given values along a channel dimension without converting them to the current backend.</p>
@@ -8727,7 +8770,7 @@ The grid values at the new points are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec(name=&#39;vector&#39;, **components) -&gt; Tensor:
+<pre><code class="python">def vec(name=&#39;vector&#39; or Shape, *sequence, **components) -&gt; Tensor:
     &#34;&#34;&#34;
     Lay out the given values along a channel dimension without converting them to the current backend.
 
@@ -8748,7 +8791,15 @@ The grid values at the new points are determined via linear interpolation.</p>
         &gt;&gt;&gt; vec(x=tensor([1, 2, 3], instance(&#39;particles&#39;)), y=0)
         (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
     &#34;&#34;&#34;
-    return stack(components, channel(name), expand_values=True)</code></pre>
+    dim = channel(name) if isinstance(name, str) else name
+    assert isinstance(dim, Shape), f&#34;name must be a str or Shape but got &#39;{type(name)}&#39;&#34;
+    if sequence:
+        if len(sequence) == 1 and isinstance(sequence, (tuple, list)):
+            sequence = sequence[0]
+        dim = dim.with_size([str(v) for v in sequence])
+        return wrap(sequence, dim)
+    else:
+        return stack(components, dim, expand_values=True)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.vec_abs"><code class="name flex">
@@ -14237,6 +14288,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.assert_close" href="#phi.math.assert_close">assert_close</a></code></li>
 <li><code><a title="phi.math.batch" href="#phi.math.batch">batch</a></code></li>
 <li><code><a title="phi.math.boolean_mask" href="#phi.math.boolean_mask">boolean_mask</a></code></li>
+<li><code><a title="phi.math.broadcast" href="#phi.math.broadcast">broadcast</a></code></li>
 <li><code><a title="phi.math.cast" href="#phi.math.cast">cast</a></code></li>
 <li><code><a title="phi.math.ceil" href="#phi.math.ceil">ceil</a></code></li>
 <li><code><a title="phi.math.channel" href="#phi.math.channel">channel</a></code></li>
