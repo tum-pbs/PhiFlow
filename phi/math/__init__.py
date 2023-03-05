@@ -68,6 +68,7 @@ from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
     jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient,
     map_types, map_s2b, map_i2b,
+    broadcast,
     iterate,
     identity,
     trace_check,
