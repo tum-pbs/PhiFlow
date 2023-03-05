@@ -14,7 +14,7 @@ from ._functional import jit_compile_linear
 from ._optimize import solve_linear
 
 
-def vec(name='vector', **components) -> Tensor:
+def vec(name='vector' or Shape, *sequence, **components) -> Tensor:
     """
     Lay out the given values along a channel dimension without converting them to the current backend.
 
@@ -35,7 +35,15 @@ def vec(name='vector', **components) -> Tensor:
         >>> vec(x=tensor([1, 2, 3], instance('particles')), y=0)
         (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
     """
-    return stack(components, channel(name), expand_values=True)
+    dim = channel(name) if isinstance(name, str) else name
+    assert isinstance(dim, Shape), f"name must be a str or Shape but got '{type(name)}'"
+    if sequence:
+        if len(sequence) == 1 and isinstance(sequence, (tuple, list)):
+            sequence = sequence[0]
+        dim = dim.with_size([str(v) for v in sequence])
+        return wrap(sequence, dim)
+    else:
+        return stack(components, dim, expand_values=True)
 
 
 def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):

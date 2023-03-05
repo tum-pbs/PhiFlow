@@ -1,7 +1,7 @@
 from itertools import product
 from unittest import TestCase
 from phi import math
-from phi.math import wrap, extrapolation, PI, tensor, batch, spatial, instance, channel, NAN
+from phi.math import wrap, extrapolation, PI, tensor, batch, spatial, instance, channel, NAN, vec
 
 import numpy as np
 import os
@@ -259,3 +259,11 @@ class TestMathNDNumpy(TestCase):
     def test_vec_expand(self):
         v = math.vec(x=0, y=math.linspace(0, 1, instance(points=10)))
         self.assertEqual(set(instance(points=10) & channel(vector='x,y')), set(v.shape))
+
+    def test_vec_sequence(self):
+        size = vec(batch('size'), 4, 8, 16, 32)
+        self.assertEqual(batch(size='4,8,16,32'), size.shape)
+        math.assert_close([4, 8, 16, 32], size)
+        size = vec(batch('size'), [4, 8, 16, 32])
+        self.assertEqual(batch(size='4,8,16,32'), size.shape)
+        math.assert_close([4, 8, 16, 32], size)
