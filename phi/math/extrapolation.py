@@ -830,6 +830,27 @@ class _AntiReflectExtrapolation(_ReflectExtrapolation):
         return result
 
 
+class _SymmetricGradientExtrapolation(Extrapolation):
+
+    def to_dict(self) -> dict:
+        return {'type': 'symmetric-gradient'}
+
+    def spatial_gradient(self) -> 'Extrapolation':
+        raise NotImplementedError
+
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
+        raise NotImplementedError  # probably return True, True but this hasn't been used on grids yet
+
+    @property
+    def is_flexible(self) -> bool:
+        return True
+
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        anti_s = ANTIREFLECT.pad_values(value, width, dim, upper_edge, **kwargs)
+        edge = value[{dim: -1}] if upper_edge else value[{dim: 0}]
+        return anti_s + 2 * edge
+
+
 class _NoExtrapolation(Extrapolation):  # singleton
 
     @property
@@ -977,6 +998,8 @@ REFLECT = _ReflectExtrapolation(4)
 """ Like SYMMETRIC but the edge values are not copied and only occur once per seam. """
 ANTIREFLECT = _AntiReflectExtrapolation(4)
 """ Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead. """
+SYMMETRIC_GRADIENT = _SymmetricGradientExtrapolation(3)
+""" Extrapolates in a continuous manner. The normal component of the spatial gradient is symmetric at the boundaries. The outer-most valid difference is duplicated. """
 
 NONE = _NoExtrapolation(-1)
 """ Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. """
