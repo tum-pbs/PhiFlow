@@ -1,10 +1,9 @@
 from unittest import TestCase
 
 import phi
-from phi.math import NUMPY, spatial, batch, extrapolation, shape
-from phi.math.extrapolation import *
 from phi import math
-
+from phi.math import batch, extrapolation, shape
+from phi.math.extrapolation import *
 
 BACKENDS = phi.detect_backends()
 
@@ -195,6 +194,12 @@ class TestExtrapolation(TestCase):
         self.assertEqual(ZERO, ZERO * ext)
         self.assertEqual(ZERO, ext * ZERO)
         self.assertEqual(ext, abs(ext))
+
+    def test_symmetric_gradient(self):
+        t = wrap([0, 1, 2, 3, 3, 3], spatial('x'))
+        padded = SYMMETRIC_GRADIENT.pad(t, {'x': (4,  2)})
+        padded_rev = SYMMETRIC_GRADIENT.pad(t.x[::-1], {'x': (2,  4)}).x[::-1]
+        math.assert_close([-3, -3, -2, -1, 0, 1, 2, 3, 3, 3, 3, 3], padded, padded_rev)
 
     def test_map(self):
         ext = combine_by_direction(normal=ONE, tangential=PERIODIC)
