@@ -4,19 +4,17 @@ import sys
 import warnings
 from contextlib import contextmanager
 from threading import Thread
-from typing import Tuple, List, Dict, Callable
+from typing import Tuple, List, Dict
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import Control, value_range, Action, VisModel, Gui, \
-    PlottingLibrary, tensor_as_field, common_index, index_label
-from .. import math, field
-from ..field import SampledField, Scene, Field, PointCloud, Grid
+from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, tensor_as_field, common_index, index_label
+from .. import math
+from ..field import SampledField, Scene, Field, PointCloud
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
-from ..math import Tensor, layout, batch, Shape, spatial, channel
-from ..math._shape import parse_dim_names, parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
-from ..math._tensors import Layout
+from ..math import Tensor, layout, batch, Shape, wrap, merge_shapes, EMPTY_SHAPE
+from ..math._shape import parse_dim_order, DimFilter
 
 
 def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry,
@@ -268,7 +266,7 @@ def get_current_figure():
     return LAST_FIGURE[0]
 
 
-def plot(*fields: SampledField or Tensor or Layout,
+def plot(*fields: SampledField or Tensor,
          lib: str or PlottingLibrary = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
@@ -279,7 +277,8 @@ def plot(*fields: SampledField or Tensor or Layout,
          same_scale=True,
          log_dims: str or tuple or list or Shape = '',
          show_color_bar=True,
-         color=None,
+         color: str or int or Tensor = None,
+         alpha: float or Tensor = 1.,
          frame_time=100,
          repeat=True):
     """
@@ -306,7 +305,12 @@ def plot(*fields: SampledField or Tensor or Layout,
             Can be given as a comma-separated `str`, a sequence of dimension names or a `Shape`.
             Use `'_'` to scale unnamed axes logarithmically, e.g. the y-axis of scalar functions.
         show_color_bar: Whether to display color bars for heat maps.
-        color: Tensor for line / marker colors.
+        color: `Tensor` of line / marker colors.
+            The color can be specified either as a cycle index (int tensor) or as a hex code (str tensor).
+            The color of different lines and markers can vary.
+        alpha: Opacity as `float` or `Tensor`.
+            This affects all elements, not only line plots.
+            Opacity can vary between lines and markers.
         animate: Time dimension to animate.
             If not present in the data, will produce a regular plot instead.
         overlay: Dimensions along which elements should be overlaid in the same subplot.
@@ -323,7 +327,7 @@ def plot(*fields: SampledField or Tensor or Layout,
     """
     positioning = {}
     indices: Dict[Tuple[int, int], List[dict]] = {}
-    nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(math.layout(fields, batch('args')), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
+    nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(layout(fields, batch('args')), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
@@ -346,7 +350,8 @@ def plot(*fields: SampledField or Tensor or Layout,
         assert title is None, f"title must be a str or Tensor but got {title}"
         title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton), always_include_names=True) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
-    color = math.wrap(color)
+    color = wrap(color)
+    alpha = wrap(alpha)
     # --- animate or plot ---
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
@@ -356,7 +361,7 @@ def plot(*fields: SampledField or Tensor or Layout,
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx])
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
@@ -366,7 +371,7 @@ def plot(*fields: SampledField or Tensor or Layout,
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx])
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx])
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             return layout(figure)
@@ -374,7 +379,7 @@ def plot(*fields: SampledField or Tensor or Layout,
         raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
 
 
-def layout_sub_figures(data: Tensor or Layout or SampledField,
+def layout_sub_figures(data: Tensor or SampledField,
                        row_dims: DimFilter,
                        col_dims: DimFilter,
                        animate: DimFilter,  # do not reduce these dims, has priority
@@ -387,12 +392,12 @@ def layout_sub_figures(data: Tensor or Layout or SampledField,
     if data is None:
         raise ValueError(f"Cannot layout figure for '{data}'")
     if isinstance(data, list):
-        data = math.layout(data, batch('list'))
+        data = layout(data, batch('list'))
     elif isinstance(data, tuple):
-        data = math.layout(data, batch('tuple'))
+        data = layout(data, batch('tuple'))
     elif isinstance(data, dict):
-        data = math.layout(data, batch('dict'))
-    if isinstance(data, Layout):
+        data = layout(data, batch('dict'))
+    if isinstance(data, Tensor) and data.dtype.kind == object:
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
         dim0 = reduced = data.shape[0]
@@ -473,7 +478,7 @@ def overlay(*fields: SampledField or Tensor) -> Tensor:
     Returns:
         Plottable object
     """
-    return math.layout(fields, math.channel('overlay'))
+    return layout(fields, math.channel('overlay'))
 
 
 def write_image(path: str, figure=None, dpi=120.):
