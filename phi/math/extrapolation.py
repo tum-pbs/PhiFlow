@@ -47,7 +47,7 @@ class Extrapolation:
         """
         raise NotImplementedError()
 
-    def valid_outer_faces(self, dim) -> tuple:
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
         """ `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. """
         raise NotImplementedError()
 
@@ -195,6 +195,7 @@ class ConstantExtrapolation(Extrapolation):
         Extrapolation.__init__(self, 5)
         self.value = wrap(value)
         """ Extrapolation value """
+        assert self.value.dtype.kind in (bool, int, float, complex), f"Numeric value required for constant extrapolation but got '{value}'"
 
     @property
     def shape(self):
@@ -222,7 +223,7 @@ class ConstantExtrapolation(Extrapolation):
     def spatial_gradient(self):
         return ZERO
 
-    def valid_outer_faces(self, dim) -> tuple:
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
         return False, False
 
     @property
@@ -386,7 +387,7 @@ class _CopyExtrapolation(Extrapolation):
     def __value_attrs__(self):
         return ()
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
         return True, True
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
@@ -563,7 +564,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def spatial_gradient(self):
         return self
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
         return True, False
 
     @property
@@ -866,7 +867,7 @@ class _NoExtrapolation(Extrapolation):  # singleton
     def spatial_gradient(self) -> 'Extrapolation':
         return self
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
         return True, True
 
     def __value_attrs__(self):
@@ -937,7 +938,7 @@ class Undefined(Extrapolation):
     def spatial_gradient(self) -> 'Extrapolation':
         return self
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
         return self.derived_from.valid_outer_faces(dim)
 
     @property
@@ -990,10 +991,11 @@ PERIODIC = _PeriodicExtrapolation(1)
 ZERO_GRADIENT = _BoundaryExtrapolation(2)
 """ Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). """
 BOUNDARY = ZERO_GRADIENT
+# undocumented, use ZERO_GRADIENT instead
 SYMMETRIC = _SymmetricExtrapolation(3)
 """ Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. """
 ANTISYMMETRIC = _AntiSymmetricExtrapolation(3)
-""" Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead. """
+""" Like SYMMETRIC but extends a grid with the negative value of the corresponding counterpart instead. """
 REFLECT = _ReflectExtrapolation(4)
 """ Like SYMMETRIC but the edge values are not copied and only occur once per seam. """
 ANTIREFLECT = _AntiReflectExtrapolation(4)
@@ -1003,6 +1005,56 @@ SYMMETRIC_GRADIENT = _SymmetricGradientExtrapolation(3)
 
 NONE = _NoExtrapolation(-1)
 """ Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. """
+
+
+_PRIMITIVES = {  # used by as_extrapolation() and from_dict()
+    'periodic': PERIODIC,
+    'zero': ZERO,
+    'one': ONE,
+    'zero-gradient': ZERO_GRADIENT,
+    '∇=0': ZERO_GRADIENT,
+    'boundary': ZERO_GRADIENT,  # deprecated
+    'symmetric': SYMMETRIC,
+    'symmetric-gradient': SYMMETRIC_GRADIENT,
+    'antisymmetric': ANTISYMMETRIC,
+    'reflect': REFLECT,
+    'antireflect': ANTISYMMETRIC,
+}
+
+
+def as_extrapolation(obj) -> Extrapolation:
+    """
+    Creates an `Extrapolation` from a descriptor object.
+
+    Args:
+        obj: Extrapolation specification, one of the following:
+
+            * `Extrapolation`
+            * Primitive name as `str`: periodic, zero, one, zero-gradient, symmetric, symmetric-gradient, antisymmetric, reflect, antireflect
+            * `dict` containing exactly the keys `'normal'` and `'tangential'`
+            * `dict` mapping spatial dimension names to extrapolations
+
+    Returns:
+        `Extrapolation`
+    """
+    if isinstance(obj, Extrapolation):
+        return obj
+    if obj is None:
+        return NONE
+    if isinstance(obj, str):
+        assert obj in _PRIMITIVES, f"Unrecognized extrapolation type: '{obj}'"
+        return _PRIMITIVES[obj]
+    if isinstance(obj, dict):
+        if 'normal' in obj or 'tangential' in obj:
+            assert 'normal' in obj and 'tangential' in obj, f"Normal/tangential dict requires both entries 'normal' and 'tangential' but got {obj}"
+            assert len(obj) == 2, f"Normal/tangential dict must only contain entries 'normal' and 'tangential' but got {obj}"
+            normal = as_extrapolation(obj['normal'])
+            tangential = as_extrapolation(obj['tangential'])
+            return combine_by_direction(normal=normal, tangential=tangential)
+        else:
+            ext = {dim: as_extrapolation(spec) for dim, spec in obj.items()}
+            return combine_sides(**ext)
+    return ConstantExtrapolation(obj)
 
 
 def combine_sides(**extrapolations: Extrapolation or tuple) -> Extrapolation:
@@ -1023,13 +1075,13 @@ def combine_sides(**extrapolations: Extrapolation or tuple) -> Extrapolation:
             proper_dict[dim] = (ext, ext)
         elif isinstance(ext, tuple):
             assert len(ext) == 2, "Tuple must contain exactly two elements, (lower, upper)"
-            lower = ext[0] if isinstance(ext[0], Extrapolation) else ConstantExtrapolation(ext[0])
-            upper = ext[1] if isinstance(ext[1], Extrapolation) else ConstantExtrapolation(ext[1])
+            lower = as_extrapolation(ext[0])
+            upper = as_extrapolation(ext[1])
             values.add(lower)
             values.add(upper)
             proper_dict[dim] = (lower, upper)
         else:
-            proper_ext = ext if isinstance(ext, Extrapolation) else ConstantExtrapolation(ext)
+            proper_ext = as_extrapolation(ext)
             values.add(proper_ext)
             proper_dict[dim] = (proper_ext, proper_ext)
     if len(values) == 1:  # All equal -> return any
@@ -1086,7 +1138,7 @@ class _MixedExtrapolation(Extrapolation):
     def spatial_gradient(self) -> Extrapolation:
         return combine_sides(**{ax: (es[0].spatial_gradient(), es[1].spatial_gradient()) for ax, es in self.ext.items()})
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
         e_lower, e_upper = self.ext[dim]
         return e_lower.valid_outer_faces(dim)[0], e_upper.valid_outer_faces(dim)[1]
 
@@ -1213,7 +1265,7 @@ class _NormalTangentialExtrapolation(Extrapolation):
     def spatial_gradient(self) -> 'Extrapolation':
         return combine_by_direction(self.normal.spatial_gradient(), self.tangential.spatial_gradient())
 
-    def valid_outer_faces(self, dim) -> tuple:
+    def valid_outer_faces(self, dim) -> Tuple[bool, bool]:
         return self.normal.valid_outer_faces(dim)
 
     def is_copy_pad(self, dim: str, upper_edge: bool):
@@ -1301,8 +1353,8 @@ def combine_by_direction(normal: Extrapolation or float or Tensor, tangential: E
     Returns:
         `Extrapolation`
     """
-    normal = normal if isinstance(normal, Extrapolation) else ConstantExtrapolation(normal)
-    tangential = tangential if isinstance(tangential, Extrapolation) else ConstantExtrapolation(tangential)
+    normal = as_extrapolation(normal)
+    tangential = as_extrapolation(tangential)
     return normal if normal == tangential else _NormalTangentialExtrapolation(normal, tangential)
 
 
@@ -1317,20 +1369,10 @@ def from_dict(dictionary: dict) -> Extrapolation:
         Loaded extrapolation
     """
     etype = dictionary['type']
-    if etype == 'constant':
+    if etype in _PRIMITIVES:
+        return _PRIMITIVES[etype]
+    elif etype == 'constant':
         return ConstantExtrapolation(dictionary['value'])
-    elif etype == 'periodic':
-        return PERIODIC
-    elif etype == 'boundary':
-        return BOUNDARY
-    elif etype == 'symmetric':
-        return SYMMETRIC
-    elif etype == 'antisymmetric':
-        return ANTISYMMETRIC
-    elif etype == 'reflect':
-        return REFLECT
-    elif etype == 'antireflect':
-        return ANTISYMMETRIC
     elif etype == 'mixed':
         dims: Dict[str, tuple] = dictionary['dims']
         extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}

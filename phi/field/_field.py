@@ -458,12 +458,8 @@ def as_extrapolation(obj: Extrapolation or float or Field or None) -> Extrapolat
     Returns:
         `Extrapolation`
     """
-    if isinstance(obj, Extrapolation):
-        return obj
-    elif isinstance(obj, Field):
+    if isinstance(obj, Field):
         from ._embed import FieldEmbedding
         return FieldEmbedding(obj)
-    elif obj is None:
-        return math.extrapolation.NONE
     else:
-        return math.extrapolation.ConstantExtrapolation(obj)
+        return math.extrapolation.as_extrapolation(obj)
