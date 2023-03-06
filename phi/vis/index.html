@@ -287,11 +287,11 @@ The fields will be plotted in the order they are given, i.e. the last field on t
     Returns:
         Plottable object
     &#34;&#34;&#34;
-    return math.layout(fields, math.channel(&#39;overlay&#39;))</code></pre>
+    return layout(fields, math.channel(&#39;overlay&#39;))</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = 'overlay', title: str = None, size=(12, 5), same_scale=True, log_dims: str = '', show_color_bar=True, color=None, frame_time=100, repeat=True)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = 'overlay', title: str = None, size=(12, 5), same_scale=True, log_dims: str = '', show_color_bar=True, color: str = None, alpha: float = 1.0, frame_time=100, repeat=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
@@ -325,7 +325,13 @@ Use <code>'_'</code> to scale unnamed axes logarithmically, e.g. the y-axis of s
 <dt><strong><code>show_color_bar</code></strong></dt>
 <dd>Whether to display color bars for heat maps.</dd>
 <dt><strong><code>color</code></strong></dt>
-<dd>Tensor for line / marker colors.</dd>
+<dd><code>Tensor</code> of line / marker colors.
+The color can be specified either as a cycle index (int tensor) or as a hex code (str tensor).
+The color of different lines and markers can vary.</dd>
+<dt><strong><code>alpha</code></strong></dt>
+<dd>Opacity as <code>float</code> or <code>Tensor</code>.
+This affects all elements, not only line plots.
+Opacity can vary between lines and markers.</dd>
 <dt><strong><code>animate</code></strong></dt>
 <dd>Time dimension to animate.
 If not present in the data, will produce a regular plot instead.</dd>
@@ -346,7 +352,7 @@ Currently, only single-figure plots are supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(*fields: SampledField or Tensor or Layout,
+<pre><code class="python">def plot(*fields: SampledField or Tensor,
          lib: str or PlottingLibrary = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
@@ -357,7 +363,8 @@ Currently, only single-figure plots are supported.</p>
          same_scale=True,
          log_dims: str or tuple or list or Shape = &#39;&#39;,
          show_color_bar=True,
-         color=None,
+         color: str or int or Tensor = None,
+         alpha: float or Tensor = 1.,
          frame_time=100,
          repeat=True):
     &#34;&#34;&#34;
@@ -384,7 +391,12 @@ Currently, only single-figure plots are supported.</p>
             Can be given as a comma-separated `str`, a sequence of dimension names or a `Shape`.
             Use `&#39;_&#39;` to scale unnamed axes logarithmically, e.g. the y-axis of scalar functions.
         show_color_bar: Whether to display color bars for heat maps.
-        color: Tensor for line / marker colors.
+        color: `Tensor` of line / marker colors.
+            The color can be specified either as a cycle index (int tensor) or as a hex code (str tensor).
+            The color of different lines and markers can vary.
+        alpha: Opacity as `float` or `Tensor`.
+            This affects all elements, not only line plots.
+            Opacity can vary between lines and markers.
         animate: Time dimension to animate.
             If not present in the data, will produce a regular plot instead.
         overlay: Dimensions along which elements should be overlaid in the same subplot.
@@ -401,7 +413,7 @@ Currently, only single-figure plots are supported.</p>
     &#34;&#34;&#34;
     positioning = {}
     indices: Dict[Tuple[int, int], List[dict]] = {}
-    nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(math.layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
+    nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
@@ -424,7 +436,8 @@ Currently, only single-figure plots are supported.</p>
         assert title is None, f&#34;title must be a str or Tensor but got {title}&#34;
         title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton), always_include_names=True) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
-    color = math.wrap(color)
+    color = wrap(color)
+    alpha = wrap(alpha)
     # --- animate or plot ---
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
@@ -434,7 +447,7 @@ Currently, only single-figure plots are supported.</p>
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx])
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
@@ -444,7 +457,7 @@ Currently, only single-figure plots are supported.</p>
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx])
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx])
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             return layout(figure)
