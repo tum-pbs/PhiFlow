@@ -6,15 +6,15 @@ from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any, Set, Unio
 
 import numpy as np
 
-from ._sparse import SparseCoordinateTensor, CompressedSparseMatrix
+from . import _ops as math
+from ._magic_ops import stack
+from ._shape import EMPTY_SHAPE, Shape, spatial, instance, batch, channel
+from ._sparse import SparseCoordinateTensor
+from ._tensors import Tensor, disassemble_tree, assemble_tree, disassemble_tensors, assemble_tensors, variable_attributes, wrap
 from ._trace import ShiftLinTracer, matrix_from_function, LinearTraceInProgress
 from .backend import Backend, NUMPY
 from .backend._backend import get_spatial_derivative_order, functional_derivative_evaluation, PHI_LOGGER
-from ._shape import EMPTY_SHAPE, Shape, vector_add, merge_shapes, spatial, instance, batch
 from .magic import PhiTreeNode
-from ._magic_ops import stack, unpack_dim
-from ._tensors import Tensor, disassemble_tree, assemble_tree, disassemble_tensors, assemble_tensors, variable_attributes, wrap
-from . import _ops as math
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -1022,6 +1022,11 @@ def map_s2b(f: Callable) -> Callable:
 def map_i2b(f: Callable) -> Callable:
     """ Map instance dimensions to batch dimensions. Short for `map_types(f, instance, batch)`. """
     return map_types(f, instance, batch)
+
+
+def map_c2b(f: Callable) -> Callable:
+    """ Map channel dimensions to batch dimensions. Short for `map_types(f, instance, batch)`. """
+    return map_types(f, channel, batch)
 
 
 def broadcast(f):
