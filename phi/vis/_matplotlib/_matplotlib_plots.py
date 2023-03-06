@@ -173,7 +173,7 @@ class LinePlot(Recipe):
     def can_plot(self, data: SampledField, space: Box) -> bool:
         return isinstance(data, Grid) and data.spatial_rank == 1 and not instance(data)
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor):
         x = data.points.staggered_direction[0].vector[0].numpy()
         requires_legend = False
         if (color == None).all:
@@ -182,13 +182,14 @@ class LinePlot(Recipe):
             label = index_label(c_idx_n)
             values = data.values[c_idx].numpy()
             col = _rgba(color[c_idx])
+            alpha_ = float(alpha[c_idx])
             # color = _default_color(len(subplot.lines))
             if values.dtype in (np.complex64, np.complex128):
-                subplot.plot(x, values.real, label=f"{label} real" if label else "real", color=col)
-                subplot.plot(x, values.imag, '--', label=f"{label} imag" if label else "imag", color=col)
+                subplot.plot(x, values.real, label=f"{label} real" if label else "real", color=col, alpha=alpha_)
+                subplot.plot(x, values.imag, '--', label=f"{label} imag" if label else "imag", color=col, alpha=alpha_)
                 requires_legend = True
             else:
-                subplot.plot(x, values, label=label, color=col)
+                subplot.plot(x, values, label=label, color=col, alpha=alpha_)
                 requires_legend = requires_legend or label
         if requires_legend:
             subplot.legend()
@@ -202,7 +203,7 @@ class Heatmap2D(Recipe):
     def can_plot(self, data: SampledField, space: Box) -> bool:
         return isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 2 and not instance(data)
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor):
         dims = spatial(data)
         vector = data.bounds.shape['vector']
         if data.bounds.upper.vector.item_names is not None:
@@ -219,7 +220,7 @@ class Heatmap2D(Recipe):
             im = subplot.plot_surface(x, y, z)
         else:  # heatmap
             aspect = subplot.get_aspect()
-            im = subplot.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect)
+            im = subplot.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect, alpha=float(alpha))
         if show_color_bar:
             figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in subplot.figure.axes])
             if min_val is None or max_val is None or not figure_has_color_bar:
@@ -232,17 +233,18 @@ class VectorField2D(Recipe):
     def can_plot(self, data: SampledField, space: Box) -> bool:
         return isinstance(data, Grid) and data.spatial_rank == 2
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor):
         dims = space.vector.item_names
         vector = data.bounds.shape['vector']
         extra_channels = data.shape.channel.without('vector')
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
-        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-        u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
-        color = subplot.xaxis.label.get_color()
+        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.without('vector')])
+        u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without('vector')], force_expand=True)
+        alphas = math.reshaped_numpy(alpha, [vector, data.shape.without('vector')], force_expand=True)
+        colors = matplotlib_colors(color, data.shape.without('vector'))
         for ch in range(u.shape[0]):
-            subplot.quiver(x, y, u[ch], v[ch], color=color, units='xy', scale=1)
+            subplot.quiver(x, y, u[ch], v[ch], color=colors, alpha=alphas[ch], units='xy', scale=1)
         return True
 
 
@@ -251,16 +253,18 @@ class VectorField3D(Recipe):
     def can_plot(self, data: SampledField, space: Box) -> bool:
         return isinstance(data, Grid) and channel(data).volume > 1 and data.spatial_rank == 3
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor):
         dims = space.vector.item_names
         vector = data.bounds.shape['vector']
         extra_channels = data.shape.channel.without('vector')
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
-        x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-        u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
+        x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.without('vector')])
+        u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without('vector')], force_expand=True)
+        alphas = math.reshaped_numpy(alpha, [vector, data.shape.without('vector')], force_expand=True)
+        colors = matplotlib_colors(color, data.shape.without('vector'))
         for ch in range(u.shape[0]):
-            subplot.quiver(x, y, z, u[ch], v[ch], w[ch])
+            subplot.quiver(x, y, z, u[ch], v[ch], w[ch], color=colors, alpha=alphas[ch])
 
 
 class Heatmap3D(Recipe):
@@ -268,7 +272,7 @@ class Heatmap3D(Recipe):
     def can_plot(self, data: SampledField, space: Box) -> bool:
         return isinstance(data, Grid) and channel(data).volume == 1 and data.spatial_rank == 3
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor):
         dims = space.vector.item_names
         x, y, z = StaggeredGrid(lambda x: x, math.extrapolation.BOUNDARY, data.bounds, data.resolution).staggered_tensor().numpy(('vector',) + dims)
         values = data.values.numpy(dims)
@@ -283,7 +287,7 @@ class VectorCloud2D(Recipe):
     def can_plot(self, data: SampledField, space: Box) -> bool:
         return isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data)
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor):
         vector = data.points.shape['vector']
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
@@ -291,7 +295,8 @@ class VectorCloud2D(Recipe):
             col = [_rgba(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
         else:
             col = _rgba(color)
-        subplot.quiver(x, y, u, v, color=col, units='xy', scale=1)
+        alphas = math.reshaped_numpy(alpha, [vector, data.shape.without('vector')], force_expand=True)
+        subplot.quiver(x, y, u, v, color=col, units='xy', scale=1, alpha=alphas)
 
 
 class PointCloud2D(Recipe):
@@ -299,7 +304,8 @@ class PointCloud2D(Recipe):
     def can_plot(self, data: SampledField, space: Box) -> bool:
         return isinstance(data, PointCloud) and data.spatial_rank == 2
 
-    def plot(self, data: PointCloud, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor):
+        assert isinstance(data, PointCloud)
         dims = space.vector.item_names
         vector = data.bounds.shape['vector']
         channels = channel(data.points).without('vector')
@@ -308,46 +314,48 @@ class PointCloud2D(Recipe):
             color = math.range_tensor(channels)
         for idx, idx_n in zip(channels.meshgrid(), channels.meshgrid(names=True)):
             col = color[idx]
-            PointCloud2D._plot_points(subplot, data[idx], dims, vector, col)
+            PointCloud2D._plot_points(subplot, data[idx], dims, vector, col, alpha[idx])
             if col.rank < color.rank:  # There are multiple colors
                 legend_patches.append(Patch(color=_rgba(col), label=index_label(idx_n)))
         if legend_patches:
             subplot.legend(handles=legend_patches)
 
     @staticmethod
-    def _plot_points(axis, data: PointCloud, dims, vector, color):
+    def _plot_points(axis, data: PointCloud, dims, vector, color, alpha):
         if isinstance(data.elements, GeometryStack):
             for idx in data.elements.geometries.shape[0].meshgrid():
-                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx])
+                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx])
             return
         x, y = math.reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)], force_expand=True)
         mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
+        alphas = math.reshaped_numpy(alpha, [non_channel(data)], force_expand=True)
         if isinstance(data.elements, Point):
             if spatial(data.points).is_empty:
-                axis.scatter(x, y, marker='x', color=mpl_colors, s=6 ** 2, alpha=0.8)
+                axis.scatter(x, y, marker='x', color=mpl_colors, s=6 ** 2, alpha=alphas)
         else:
             if isinstance(data.elements, Sphere):
                 rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
-                shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, mpl_colors)]
+                shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
             elif isinstance(data.elements, BaseBox):
                 w2, h2 = math.reshaped_numpy(data.elements.bounding_half_extent(), ['vector', data.shape.non_channel], force_expand=True)
-                shapes = [plt.Rectangle((xi - w2i, yi - h2i), w2i * 2, h2i * 2, linewidth=1, edgecolor='white', alpha=0.8, facecolor=ci) for xi, yi, w2i, h2i, ci in zip(x, y, w2, h2, mpl_colors)]
+                shapes = [plt.Rectangle((xi - w2i, yi - h2i), w2i * 2, h2i * 2, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for xi, yi, w2i, h2i, ci, a in zip(x, y, w2, h2, mpl_colors, alphas)]
             else:
                 rad = math.reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
-                shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=0.8, facecolor=ci) for xi, yi, ri, ci in zip(x, y, rad, mpl_colors)]
+                shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
             c = matplotlib.collections.PatchCollection(shapes, match_original=True)
             axis.add_collection(c)
         if spatial(data.points):  # Connect by line
             x, y = math.reshaped_numpy(data.points.vector[dims], [vector, instance(data), spatial(data)])
             mpl_colors = matplotlib_colors(color, instance(data))
             for i in range(instance(data).volume):
-                marker = 'o' if isinstance(data.elements, Point) and 2 < spatial(data.elements).volume < 100 else None
-                axis.plot(x[i], y[i], marker=marker, markersize=2.5, color=mpl_colors[i] if mpl_colors is not None else None)
+                axis.plot(x[i], y[i], color=mpl_colors[i] if mpl_colors is not None else None, alpha=float(alpha.max))
+                if isinstance(data.elements, Point) and 2 < spatial(data.elements).volume < 100:
+                    axis.scatter(x[i], y[i], s=3, marker='o', c=mpl_colors[i] if mpl_colors is not None else None, alpha=alphas)
         if any(non_channel(data).item_names):
-            PointCloud2D._annotate_points(axis, data.points)
+            PointCloud2D._annotate_points(axis, data.points, alpha)
 
     @staticmethod
-    def _annotate_points(axis, points: math.Tensor):
+    def _annotate_points(axis, points: math.Tensor, alpha: Tensor):
         labelled_dims = non_channel(points)
         labelled_dims = math.concat_shapes(*[d for d in labelled_dims if d.item_names[0]])
         if not labelled_dims:
@@ -356,12 +364,11 @@ class PointCloud2D(Recipe):
             return  # The point labels match one of the figure axes, so they are redundant
         if points.shape['vector'].size == 2:
             xs, ys = math.reshaped_numpy(points, ['vector', points.shape.without('vector')], force_expand=True)
-            labels = [index_label(idx) for idx in labelled_dims.meshgrid(names=True)]
             x_view = axis.get_xlim()[1] - axis.get_xlim()[0]
             y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
             x_c = .95 * axis.get_xlim()[1] + .1 * axis.get_xlim()[0]
             y_c = .95 * axis.get_ylim()[1] + .1 * axis.get_ylim()[0]
-            for x, y, label in zip(xs, ys, labels):
+            for x, y, idx in zip(xs, ys, labelled_dims.meshgrid(names=True)):
                 if axis.get_xscale() == 'log':
                     offset_x = x * (1 + .0003 * x_view) if x < x_c else x * (1 - .0003 * x_view)
                 else:
@@ -370,7 +377,7 @@ class PointCloud2D(Recipe):
                     offset_y = y * (1 + .0003 * y_view) if y < y_c else y * (1 - .0003 * y_view)
                 else:
                     offset_y = y + .01 * y_view if y < y_c else y - .01 * y_view
-                axis.text(offset_x, offset_y, label)
+                axis.text(offset_x, offset_y, index_label(idx), alpha=float(alpha[idx]))
 
 
 class PointCloud3D(Recipe):
@@ -378,13 +385,14 @@ class PointCloud3D(Recipe):
     def can_plot(self, data: SampledField, space: Box) -> bool:
         return isinstance(data, PointCloud) and data.spatial_rank == 3
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor):
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor):
         dims = space.vector.item_names
         vector = data.bounds.shape['vector']
         channels = channel(data.points).without('vector')
         for idx in channels.meshgrid(names=True):
             x, y, z = math.reshaped_numpy(data[idx].points.vector[dims], [vector, non_channel(data)])
             mpl_colors = matplotlib_colors(color[idx], non_channel(data), default=0)
+            alphas = math.reshaped_numpy(alpha[idx], [non_channel(data)], force_expand=True)
             M = subplot.transData.get_matrix()
             x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
             if isinstance(data.elements, Sphere):
@@ -399,7 +407,7 @@ class PointCloud3D(Recipe):
             else:
                 symbol = 'X'
                 size = data.elements.bounding_radius().numpy()
-            subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
+            subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
 
 
 def _rgba(col):
