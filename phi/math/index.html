@@ -6649,6 +6649,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
         Native tensor with dimensions matching `groups`.
     &#34;&#34;&#34;
     assert isinstance(value, Tensor), f&#34;value must be a Tensor but got {type(value)}&#34;
+    assert isinstance(groups, (tuple, list)), f&#34;groups must be a tuple or list but got {type(value)}&#34;
     order = []
     groups = [group(value) if callable(group) else group for group in groups]
     for i, group in enumerate(groups):

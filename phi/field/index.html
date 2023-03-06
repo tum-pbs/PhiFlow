@@ -178,15 +178,11 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
     Returns:
         `Extrapolation`
     &#34;&#34;&#34;
-    if isinstance(obj, Extrapolation):
-        return obj
-    elif isinstance(obj, Field):
+    if isinstance(obj, Field):
         from ._embed import FieldEmbedding
         return FieldEmbedding(obj)
-    elif obj is None:
-        return math.extrapolation.NONE
     else:
-        return math.extrapolation.ConstantExtrapolation(obj)</code></pre>
+        return math.extrapolation.as_extrapolation(obj)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.assert_close"><code class="name flex">

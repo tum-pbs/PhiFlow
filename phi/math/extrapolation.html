@@ -80,7 +80,7 @@ class Extrapolation:
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def valid_outer_faces(self, dim) -&gt; tuple:
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         &#34;&#34;&#34; `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -228,6 +228,7 @@ class ConstantExtrapolation(Extrapolation):
         Extrapolation.__init__(self, 5)
         self.value = wrap(value)
         &#34;&#34;&#34; Extrapolation value &#34;&#34;&#34;
+        assert self.value.dtype.kind in (bool, int, float, complex), f&#34;Numeric value required for constant extrapolation but got &#39;{value}&#39;&#34;
 
     @property
     def shape(self):
@@ -255,7 +256,7 @@ class ConstantExtrapolation(Extrapolation):
     def spatial_gradient(self):
         return ZERO
 
-    def valid_outer_faces(self, dim) -&gt; tuple:
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return False, False
 
     @property
@@ -419,7 +420,7 @@ class _CopyExtrapolation(Extrapolation):
     def __value_attrs__(self):
         return ()
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return True, True
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -&gt; Tensor:
@@ -596,7 +597,7 @@ class _PeriodicExtrapolation(_CopyExtrapolation):
     def spatial_gradient(self):
         return self
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return True, False
 
     @property
@@ -863,6 +864,27 @@ class _AntiReflectExtrapolation(_ReflectExtrapolation):
         return result
 
 
+class _SymmetricGradientExtrapolation(Extrapolation):
+
+    def to_dict(self) -&gt; dict:
+        return {&#39;type&#39;: &#39;symmetric-gradient&#39;}
+
+    def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
+        raise NotImplementedError
+
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
+        raise NotImplementedError  # probably return True, True but this hasn&#39;t been used on grids yet
+
+    @property
+    def is_flexible(self) -&gt; bool:
+        return True
+
+    def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -&gt; Tensor:
+        anti_s = ANTIREFLECT.pad_values(value, width, dim, upper_edge, **kwargs)
+        edge = value[{dim: -1}] if upper_edge else value[{dim: 0}]
+        return anti_s + 2 * edge
+
+
 class _NoExtrapolation(Extrapolation):  # singleton
 
     @property
@@ -878,7 +900,7 @@ class _NoExtrapolation(Extrapolation):  # singleton
     def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
         return self
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return True, True
 
     def __value_attrs__(self):
@@ -949,7 +971,7 @@ class Undefined(Extrapolation):
     def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
         return self
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return self.derived_from.valid_outer_faces(dim)
 
     @property
@@ -1002,17 +1024,70 @@ PERIODIC = _PeriodicExtrapolation(1)
 ZERO_GRADIENT = _BoundaryExtrapolation(2)
 &#34;&#34;&#34; Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). &#34;&#34;&#34;
 BOUNDARY = ZERO_GRADIENT
+# undocumented, use ZERO_GRADIENT instead
 SYMMETRIC = _SymmetricExtrapolation(3)
 &#34;&#34;&#34; Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam. &#34;&#34;&#34;
 ANTISYMMETRIC = _AntiSymmetricExtrapolation(3)
-&#34;&#34;&#34; Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead. &#34;&#34;&#34;
+&#34;&#34;&#34; Like SYMMETRIC but extends a grid with the negative value of the corresponding counterpart instead. &#34;&#34;&#34;
 REFLECT = _ReflectExtrapolation(4)
 &#34;&#34;&#34; Like SYMMETRIC but the edge values are not copied and only occur once per seam. &#34;&#34;&#34;
 ANTIREFLECT = _AntiReflectExtrapolation(4)
 &#34;&#34;&#34; Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead. &#34;&#34;&#34;
+SYMMETRIC_GRADIENT = _SymmetricGradientExtrapolation(3)
+&#34;&#34;&#34; Extrapolates in a continuous manner. The normal component of the spatial gradient is symmetric at the boundaries. The outer-most valid difference is duplicated. &#34;&#34;&#34;
 
 NONE = _NoExtrapolation(-1)
 &#34;&#34;&#34; Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. &#34;&#34;&#34;
+
+
+_PRIMITIVES = {  # used by as_extrapolation() and from_dict()
+    &#39;periodic&#39;: PERIODIC,
+    &#39;zero&#39;: ZERO,
+    &#39;one&#39;: ONE,
+    &#39;zero-gradient&#39;: ZERO_GRADIENT,
+    &#39;∇=0&#39;: ZERO_GRADIENT,
+    &#39;boundary&#39;: ZERO_GRADIENT,  # deprecated
+    &#39;symmetric&#39;: SYMMETRIC,
+    &#39;symmetric-gradient&#39;: SYMMETRIC_GRADIENT,
+    &#39;antisymmetric&#39;: ANTISYMMETRIC,
+    &#39;reflect&#39;: REFLECT,
+    &#39;antireflect&#39;: ANTISYMMETRIC,
+}
+
+
+def as_extrapolation(obj) -&gt; Extrapolation:
+    &#34;&#34;&#34;
+    Creates an `Extrapolation` from a descriptor object.
+
+    Args:
+        obj: Extrapolation specification, one of the following:
+
+            * `Extrapolation`
+            * Primitive name as `str`: periodic, zero, one, zero-gradient, symmetric, symmetric-gradient, antisymmetric, reflect, antireflect
+            * `dict` containing exactly the keys `&#39;normal&#39;` and `&#39;tangential&#39;`
+            * `dict` mapping spatial dimension names to extrapolations
+
+    Returns:
+        `Extrapolation`
+    &#34;&#34;&#34;
+    if isinstance(obj, Extrapolation):
+        return obj
+    if obj is None:
+        return NONE
+    if isinstance(obj, str):
+        assert obj in _PRIMITIVES, f&#34;Unrecognized extrapolation type: &#39;{obj}&#39;&#34;
+        return _PRIMITIVES[obj]
+    if isinstance(obj, dict):
+        if &#39;normal&#39; in obj or &#39;tangential&#39; in obj:
+            assert &#39;normal&#39; in obj and &#39;tangential&#39; in obj, f&#34;Normal/tangential dict requires both entries &#39;normal&#39; and &#39;tangential&#39; but got {obj}&#34;
+            assert len(obj) == 2, f&#34;Normal/tangential dict must only contain entries &#39;normal&#39; and &#39;tangential&#39; but got {obj}&#34;
+            normal = as_extrapolation(obj[&#39;normal&#39;])
+            tangential = as_extrapolation(obj[&#39;tangential&#39;])
+            return combine_by_direction(normal=normal, tangential=tangential)
+        else:
+            ext = {dim: as_extrapolation(spec) for dim, spec in obj.items()}
+            return combine_sides(**ext)
+    return ConstantExtrapolation(obj)
 
 
 def combine_sides(**extrapolations: Extrapolation or tuple) -&gt; Extrapolation:
@@ -1096,7 +1171,7 @@ class _MixedExtrapolation(Extrapolation):
     def spatial_gradient(self) -&gt; Extrapolation:
         return combine_sides(**{ax: (es[0].spatial_gradient(), es[1].spatial_gradient()) for ax, es in self.ext.items()})
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         e_lower, e_upper = self.ext[dim]
         return e_lower.valid_outer_faces(dim)[0], e_upper.valid_outer_faces(dim)[1]
 
@@ -1223,7 +1298,7 @@ class _NormalTangentialExtrapolation(Extrapolation):
     def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
         return combine_by_direction(self.normal.spatial_gradient(), self.tangential.spatial_gradient())
 
-    def valid_outer_faces(self, dim) -&gt; tuple:
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return self.normal.valid_outer_faces(dim)
 
     def is_copy_pad(self, dim: str, upper_edge: bool):
@@ -1327,20 +1402,10 @@ def from_dict(dictionary: dict) -&gt; Extrapolation:
         Loaded extrapolation
     &#34;&#34;&#34;
     etype = dictionary[&#39;type&#39;]
-    if etype == &#39;constant&#39;:
+    if etype in _PRIMITIVES:
+        return _PRIMITIVES[etype]
+    elif etype == &#39;constant&#39;:
         return ConstantExtrapolation(dictionary[&#39;value&#39;])
-    elif etype == &#39;periodic&#39;:
-        return PERIODIC
-    elif etype == &#39;boundary&#39;:
-        return BOUNDARY
-    elif etype == &#39;symmetric&#39;:
-        return SYMMETRIC
-    elif etype == &#39;antisymmetric&#39;:
-        return ANTISYMMETRIC
-    elif etype == &#39;reflect&#39;:
-        return REFLECT
-    elif etype == &#39;antireflect&#39;:
-        return ANTISYMMETRIC
     elif etype == &#39;mixed&#39;:
         dims: Dict[str, tuple] = dictionary[&#39;dims&#39;]
         extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
@@ -1433,7 +1498,7 @@ def remove_constant_offset(extrapolation):
 </dd>
 <dt id="phi.math.extrapolation.ANTISYMMETRIC"><code class="name">var <span class="ident">ANTISYMMETRIC</span></code></dt>
 <dd>
-<div class="desc"><p>Like REFLECT but extends a grid with the negative value of the corresponding counterpart instead.</p></div>
+<div class="desc"><p>Like SYMMETRIC but extends a grid with the negative value of the corresponding counterpart instead.</p></div>
 </dd>
 <dt id="phi.math.extrapolation.NONE"><code class="name">var <span class="ident">NONE</span></code></dt>
 <dd>
@@ -1455,6 +1520,10 @@ def remove_constant_offset(extrapolation):
 <dd>
 <div class="desc"><p>Extends a grid by tiling it. Every other copy of the grid is flipped. Edge values occur twice per seam.</p></div>
 </dd>
+<dt id="phi.math.extrapolation.SYMMETRIC_GRADIENT"><code class="name">var <span class="ident">SYMMETRIC_GRADIENT</span></code></dt>
+<dd>
+<div class="desc"><p>Extrapolates in a continuous manner. The normal component of the spatial gradient is symmetric at the boundaries. The outer-most valid difference is duplicated.</p></div>
+</dd>
 <dt id="phi.math.extrapolation.ZERO"><code class="name">var <span class="ident">ZERO</span></code></dt>
 <dd>
 <div class="desc"><p>Extrapolates with the constant value 0 (Dirichlet boundary condition).</p></div>
@@ -1468,6 +1537,65 @@ def remove_constant_offset(extrapolation):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="phi.math.extrapolation.as_extrapolation"><code class="name flex">
+<span>def <span class="ident">as_extrapolation</span></span>(<span>obj) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates an <code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code> from a descriptor object.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd>
+<p>Extrapolation specification, one of the following:</p>
+<ul>
+<li><code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code></li>
+<li>Primitive name as <code>str</code>: periodic, zero, one, zero-gradient, symmetric, symmetric-gradient, antisymmetric, reflect, antireflect</li>
+<li><code>dict</code> containing exactly the keys <code>'normal'</code> and <code>'tangential'</code></li>
+<li><code>dict</code> mapping spatial dimension names to extrapolations</li>
+</ul>
+</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def as_extrapolation(obj) -&gt; Extrapolation:
+    &#34;&#34;&#34;
+    Creates an `Extrapolation` from a descriptor object.
+
+    Args:
+        obj: Extrapolation specification, one of the following:
+
+            * `Extrapolation`
+            * Primitive name as `str`: periodic, zero, one, zero-gradient, symmetric, symmetric-gradient, antisymmetric, reflect, antireflect
+            * `dict` containing exactly the keys `&#39;normal&#39;` and `&#39;tangential&#39;`
+            * `dict` mapping spatial dimension names to extrapolations
+
+    Returns:
+        `Extrapolation`
+    &#34;&#34;&#34;
+    if isinstance(obj, Extrapolation):
+        return obj
+    if obj is None:
+        return NONE
+    if isinstance(obj, str):
+        assert obj in _PRIMITIVES, f&#34;Unrecognized extrapolation type: &#39;{obj}&#39;&#34;
+        return _PRIMITIVES[obj]
+    if isinstance(obj, dict):
+        if &#39;normal&#39; in obj or &#39;tangential&#39; in obj:
+            assert &#39;normal&#39; in obj and &#39;tangential&#39; in obj, f&#34;Normal/tangential dict requires both entries &#39;normal&#39; and &#39;tangential&#39; but got {obj}&#34;
+            assert len(obj) == 2, f&#34;Normal/tangential dict must only contain entries &#39;normal&#39; and &#39;tangential&#39; but got {obj}&#34;
+            normal = as_extrapolation(obj[&#39;normal&#39;])
+            tangential = as_extrapolation(obj[&#39;tangential&#39;])
+            return combine_by_direction(normal=normal, tangential=tangential)
+        else:
+            ext = {dim: as_extrapolation(spec) for dim, spec in obj.items()}
+            return combine_sides(**ext)
+    return ConstantExtrapolation(obj)</code></pre>
+</details>
+</dd>
 <dt id="phi.math.extrapolation.combine_by_direction"><code class="name flex">
 <span>def <span class="ident">combine_by_direction</span></span>(<span>normal: <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a>, tangential: <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a>) ‑> <a title="phi.math.extrapolation.Extrapolation" href="#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
 </code></dt>
@@ -1578,20 +1706,10 @@ def remove_constant_offset(extrapolation):
         Loaded extrapolation
     &#34;&#34;&#34;
     etype = dictionary[&#39;type&#39;]
-    if etype == &#39;constant&#39;:
+    if etype in _PRIMITIVES:
+        return _PRIMITIVES[etype]
+    elif etype == &#39;constant&#39;:
         return ConstantExtrapolation(dictionary[&#39;value&#39;])
-    elif etype == &#39;periodic&#39;:
-        return PERIODIC
-    elif etype == &#39;boundary&#39;:
-        return BOUNDARY
-    elif etype == &#39;symmetric&#39;:
-        return SYMMETRIC
-    elif etype == &#39;antisymmetric&#39;:
-        return ANTISYMMETRIC
-    elif etype == &#39;reflect&#39;:
-        return REFLECT
-    elif etype == &#39;antireflect&#39;:
-        return ANTISYMMETRIC
     elif etype == &#39;mixed&#39;:
         dims: Dict[str, tuple] = dictionary[&#39;dims&#39;]
         extrapolations = {dim: (from_dict(lo_up[0]), from_dict(lo_up[1])) for dim, lo_up in dims.items()}
@@ -1759,6 +1877,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         Extrapolation.__init__(self, 5)
         self.value = wrap(value)
         &#34;&#34;&#34; Extrapolation value &#34;&#34;&#34;
+        assert self.value.dtype.kind in (bool, int, float, complex), f&#34;Numeric value required for constant extrapolation but got &#39;{value}&#39;&#34;
 
     @property
     def shape(self):
@@ -1786,7 +1905,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
     def spatial_gradient(self):
         return ZERO
 
-    def valid_outer_faces(self, dim) -&gt; tuple:
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return False, False
 
     @property
@@ -2133,7 +2252,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
         &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def valid_outer_faces(self, dim) -&gt; tuple:
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         &#34;&#34;&#34; `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. &#34;&#34;&#34;
         raise NotImplementedError()
 
@@ -2280,6 +2399,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
 <li>phi.math.extrapolation._MixedExtrapolation</li>
 <li>phi.math.extrapolation._NoExtrapolation</li>
 <li>phi.math.extrapolation._NormalTangentialExtrapolation</li>
+<li>phi.math.extrapolation._SymmetricGradientExtrapolation</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -2543,7 +2663,7 @@ This is the default implementation.</p>
 </details>
 </dd>
 <dt id="phi.math.extrapolation.Extrapolation.valid_outer_faces"><code class="name flex">
-<span>def <span class="ident">valid_outer_faces</span></span>(<span>self, dim) ‑> tuple</span>
+<span>def <span class="ident">valid_outer_faces</span></span>(<span>self, dim) ‑> Tuple[bool, bool]</span>
 </code></dt>
 <dd>
 <div class="desc"><p><code>(lower: bool, upper: bool)</code> indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant.</p></div>
@@ -2551,7 +2671,7 @@ This is the default implementation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def valid_outer_faces(self, dim) -&gt; tuple:
+<pre><code class="python">def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
     &#34;&#34;&#34; `(lower: bool, upper: bool)` indicating whether the values sampled at the outer-most faces of a staggered grid with this extrapolation are valid, i.e. need to be stored and are not redundant. &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
 </details>
@@ -2599,7 +2719,7 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
     def spatial_gradient(self) -&gt; &#39;Extrapolation&#39;:
         return self
 
-    def valid_outer_faces(self, dim):
+    def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return self.derived_from.valid_outer_faces(dim)
 
     @property
@@ -2701,12 +2821,14 @@ def shape(self):
 <li><code><a title="phi.math.extrapolation.PERIODIC" href="#phi.math.extrapolation.PERIODIC">PERIODIC</a></code></li>
 <li><code><a title="phi.math.extrapolation.REFLECT" href="#phi.math.extrapolation.REFLECT">REFLECT</a></code></li>
 <li><code><a title="phi.math.extrapolation.SYMMETRIC" href="#phi.math.extrapolation.SYMMETRIC">SYMMETRIC</a></code></li>
+<li><code><a title="phi.math.extrapolation.SYMMETRIC_GRADIENT" href="#phi.math.extrapolation.SYMMETRIC_GRADIENT">SYMMETRIC_GRADIENT</a></code></li>
 <li><code><a title="phi.math.extrapolation.ZERO" href="#phi.math.extrapolation.ZERO">ZERO</a></code></li>
 <li><code><a title="phi.math.extrapolation.ZERO_GRADIENT" href="#phi.math.extrapolation.ZERO_GRADIENT">ZERO_GRADIENT</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="phi.math.extrapolation.as_extrapolation" href="#phi.math.extrapolation.as_extrapolation">as_extrapolation</a></code></li>
 <li><code><a title="phi.math.extrapolation.combine_by_direction" href="#phi.math.extrapolation.combine_by_direction">combine_by_direction</a></code></li>
 <li><code><a title="phi.math.extrapolation.combine_sides" href="#phi.math.extrapolation.combine_sides">combine_sides</a></code></li>
 <li><code><a title="phi.math.extrapolation.from_dict" href="#phi.math.extrapolation.from_dict">from_dict</a></code></li>
