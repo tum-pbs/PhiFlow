@@ -2,8 +2,10 @@ from unittest import TestCase
 
 import phi
 from phi import math
-from phi.math import batch, extrapolation, shape
-from phi.math.extrapolation import *
+from phi.math import batch, extrapolation, shape, spatial, channel, EMPTY_SHAPE
+from phi.math._tensors import CollapsedTensor, wrap
+from phi.math.extrapolation import ConstantExtrapolation, ONE, ZERO, PERIODIC, BOUNDARY, SYMMETRIC, REFLECT, combine_sides, from_dict, combine_by_direction, SYMMETRIC_GRADIENT, as_extrapolation, \
+    ZERO_GRADIENT
 
 BACKENDS = phi.detect_backends()
 
@@ -34,13 +36,13 @@ class TestExtrapolationOperators(TestCase):
 
     def test_cross_errors(self):
         try:
-            PERIODIC + BOUNDARY
+            _ = PERIODIC + BOUNDARY
             self.fail("periodic and boundary are not compatible, should raise a TypeError")
         except TypeError:
             pass
 
         try:
-            PERIODIC + ONE
+            _ = PERIODIC + ONE
             self.fail("periodic and constant are not compatible, should raise a TypeError")
         except TypeError:
             pass
@@ -223,3 +225,10 @@ class TestExtrapolation(TestCase):
         self.assertEqual(v.shape, shape(ZERO + v))
         self.assertEqual(v.shape, shape(combine_sides(x=v, y=0)))
         self.assertEqual(v.shape, shape(combine_by_direction(normal=v, tangential=0)))
+
+    def test_as_extrapolation(self):
+        self.assertEqual(PERIODIC, as_extrapolation('periodic'))
+        self.assertEqual(ONE, as_extrapolation('one'))
+        self.assertEqual(ZERO, as_extrapolation('zero'))
+        self.assertEqual(combine_by_direction(ZERO, 1), as_extrapolation({'normal': 0, 'tangential': 1}))
+        self.assertEqual(combine_sides(x=1, y=ZERO_GRADIENT), as_extrapolation({'x': wrap(1), 'y': 'zero-gradient'}))
