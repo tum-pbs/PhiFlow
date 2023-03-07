@@ -267,3 +267,7 @@ class TestMathNDNumpy(TestCase):
         size = vec(batch('size'), [4, 8, 16, 32])
         self.assertEqual(batch(size='4,8,16,32'), size.shape)
         math.assert_close([4, 8, 16, 32], size)
+
+    def test_vec_component_sequence(self):
+        math.assert_close(wrap([(0, 1), (0, 2)], spatial('sequence'), channel(vector='x,y')), vec(x=0, y=(1, 2)))
+        math.assert_close(wrap([(0, 1), (0, 2)], instance('sequence'), channel(vector='x,y')), vec(x=0, y=[1, 2]))
