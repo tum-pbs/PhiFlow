@@ -181,7 +181,7 @@ class LinePlot(Recipe):
         for c_idx, c_idx_n in zip(channel(data).meshgrid(), channel(data).meshgrid(names=True)):
             label = index_label(c_idx_n)
             values = data.values[c_idx].numpy()
-            col = _rgba(color[c_idx])
+            col = _plt_col(color[c_idx])
             alpha_ = float(alpha[c_idx])
             # color = _default_color(len(subplot.lines))
             if values.dtype in (np.complex64, np.complex128):
@@ -292,10 +292,10 @@ class VectorCloud2D(Recipe):
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
         if color.shape:
-            col = [_rgba(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
+            col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
         else:
-            col = _rgba(color)
-        alphas = math.reshaped_numpy(alpha, [vector, data.shape.without('vector')], force_expand=True)
+            col = _plt_col(color)
+        alphas = math.reshaped_numpy(alpha, [data.shape.without('vector')], force_expand=True)
         subplot.quiver(x, y, u, v, color=col, units='xy', scale=1, alpha=alphas)
 
 
@@ -316,7 +316,7 @@ class PointCloud2D(Recipe):
             col = color[idx]
             PointCloud2D._plot_points(subplot, data[idx], dims, vector, col, alpha[idx])
             if col.rank < color.rank:  # There are multiple colors
-                legend_patches.append(Patch(color=_rgba(col), label=index_label(idx_n)))
+                legend_patches.append(Patch(color=_plt_col(col), label=index_label(idx_n)))
         if legend_patches:
             subplot.legend(handles=legend_patches)
 
@@ -410,7 +410,7 @@ class PointCloud3D(Recipe):
             subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
 
 
-def _rgba(col):
+def _plt_col(col):
     if isinstance(col, Tensor):
         col = next(iter(col))
     if col is None:
@@ -419,8 +419,10 @@ def _rgba(col):
     if not isinstance(col, (str, tuple, list)):
         cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         col = cycle[int(col) % len(cycle)]
+        return col
     if isinstance(col, str) and col.startswith('#'):
-        col = tuple(int(col.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+        return col
+        # col = tuple(int(col.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
     col = np.asarray(col)
     if col.dtype.kind == 'i':
         col = col / 255.
@@ -436,7 +438,7 @@ def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> list or None:
     color = color[math.shape(color).without(dims).first_index()]  # Select first color along unlisted dimensions
     if color.dtype.kind == int:
         cycle = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-        return [cycle[int(color[idx])] for idx in dims.meshgrid()]
+        return [cycle[int(color[idx]) % len(cycle)] for idx in dims.meshgrid()]
     else:
         return [color[idx].native() for idx in dims.meshgrid()]
 
