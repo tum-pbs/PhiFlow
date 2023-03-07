@@ -96,7 +96,7 @@ from ._trace import matrix_from_function
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
     jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient,
-    map_types, map_s2b, map_i2b,
+    map_types, map_s2b, map_i2b, map_c2b,
     broadcast,
     iterate,
     identity,
@@ -4384,6 +4384,20 @@ Their shapes are not broadcast with the positional arguments.</dd>
                 assert all(r is None for r in result_i), f&#34;map function returned None for some elements at output index {i}, {result_i}&#34;
                 results[i] = None
         return tuple([unpack_dim(wrap(result_i, channel(&#39;_c&#39;)), &#39;_c&#39;, shape) for result_i in results])</code></pre>
+</details>
+</dd>
+<dt id="phi.math.map_c2b"><code class="name flex">
+<span>def <span class="ident">map_c2b</span></span>(<span>f: Callable) ‑> Callable</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Map channel dimensions to batch dimensions. Short for <code><a title="phi.math.map_types" href="#phi.math.map_types">map_types()</a>(<a title="phi.math.f" href="#phi.math.f">f</a>, <a title="phi.math.instance" href="#phi.math.instance">instance()</a>, <a title="phi.math.batch" href="#phi.math.batch">batch()</a>)</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def map_c2b(f: Callable) -&gt; Callable:
+    &#34;&#34;&#34; Map channel dimensions to batch dimensions. Short for `map_types(f, instance, batch)`. &#34;&#34;&#34;
+    return map_types(f, channel, batch)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.map_i2b"><code class="name flex">
@@ -8770,16 +8784,24 @@ The grid values at the new points are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.math.vec"><code class="name flex">
-<span>def <span class="ident">vec</span></span>(<span>name='vector', *sequence, **components) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">vec</span></span>(<span>name='vector', *sequence, tuple_dim=(sequenceˢ=None), list_dim=(sequenceⁱ=None), **components) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lay out the given values along a channel dimension without converting them to the current backend.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>**components</code></strong></dt>
-<dd>Values by component name.</dd>
 <dt><strong><code>name</code></strong></dt>
 <dd>Dimension name.</dd>
+<dt><strong><code>*sequence</code></strong></dt>
+<dd>Component values that will also be used as item names.
+If specified, <code>components</code> must be empty.</dd>
+<dt><strong><code>**components</code></strong></dt>
+<dd>Values by component name.
+If specified, no additional positional arguments must be given.</dd>
+<dt><strong><code>tuple_dim</code></strong></dt>
+<dd>Dimension for <code>tuple</code> values passed as components, e.g. <code>vec(x=(0, 1), ...)</code></dd>
+<dt><strong><code>list_dim</code></strong></dt>
+<dd>Dimension for <code>list</code> values passed as components, e.g. <code>vec(x=[0, 1], ...)</code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code></p>
@@ -8792,18 +8814,29 @@ The grid values at the new points are determined via linear interpolation.</p>
 </code></pre>
 <pre><code class="language-python-repl">&gt;&gt;&gt; vec(x=tensor([1, 2, 3], instance('particles')), y=0)
 (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; vec(x=0, y=[0, 1])
+(x=0, y=0); (x=0, y=1) (vectorᶜ=x,y, sequenceⁱ=2)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; vec(x=0, y=(0, 1))
+(x=0, y=0); (x=0, y=1) (sequenceˢ=2, vectorᶜ=x,y)
 </code></pre></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec(name=&#39;vector&#39; or Shape, *sequence, **components) -&gt; Tensor:
+<pre><code class="python">def vec(name=&#39;vector&#39; or Shape, *sequence, tuple_dim=spatial(&#39;sequence&#39;), list_dim=instance(&#39;sequence&#39;), **components) -&gt; Tensor:
     &#34;&#34;&#34;
     Lay out the given values along a channel dimension without converting them to the current backend.
 
     Args:
-        **components: Values by component name.
         name: Dimension name.
+        *sequence: Component values that will also be used as item names.
+            If specified, `components` must be empty.
+        **components: Values by component name.
+            If specified, no additional positional arguments must be given.
+        tuple_dim: Dimension for `tuple` values passed as components, e.g. `vec(x=(0, 1), ...)`
+        list_dim: Dimension for `list` values passed as components, e.g. `vec(x=[0, 1], ...)`
 
     Returns:
         `Tensor`
@@ -8817,15 +8850,30 @@ The grid values at the new points are determined via linear interpolation.</p>
 
         &gt;&gt;&gt; vec(x=tensor([1, 2, 3], instance(&#39;particles&#39;)), y=0)
         (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
+
+        &gt;&gt;&gt; vec(x=0, y=[0, 1])
+        (x=0, y=0); (x=0, y=1) (vectorᶜ=x,y, sequenceⁱ=2)
+
+        &gt;&gt;&gt; vec(x=0, y=(0, 1))
+        (x=0, y=0); (x=0, y=1) (sequenceˢ=2, vectorᶜ=x,y)
     &#34;&#34;&#34;
     dim = channel(name) if isinstance(name, str) else name
     assert isinstance(dim, Shape), f&#34;name must be a str or Shape but got &#39;{type(name)}&#39;&#34;
     if sequence:
+        assert not components, &#34;vec() must be given either positional or keyword arguments but not both&#34;
         if len(sequence) == 1 and isinstance(sequence, (tuple, list)):
             sequence = sequence[0]
         dim = dim.with_size([str(v) for v in sequence])
         return wrap(sequence, dim)
     else:
+        def wrap_sequence(value):
+            if isinstance(value, tuple):
+                return wrap(value, tuple_dim)
+            elif isinstance(value, list):
+                return wrap(value, list_dim)
+            else:
+                return value
+        components = {n: wrap_sequence(v) for n, v in components.items()}
         return stack(components, dim, expand_values=True)</code></pre>
 </details>
 </dd>
@@ -14391,6 +14439,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.log10" href="#phi.math.log10">log10</a></code></li>
 <li><code><a title="phi.math.log2" href="#phi.math.log2">log2</a></code></li>
 <li><code><a title="phi.math.map" href="#phi.math.map">map</a></code></li>
+<li><code><a title="phi.math.map_c2b" href="#phi.math.map_c2b">map_c2b</a></code></li>
 <li><code><a title="phi.math.map_i2b" href="#phi.math.map_i2b">map_i2b</a></code></li>
 <li><code><a title="phi.math.map_s2b" href="#phi.math.map_s2b">map_s2b</a></code></li>
 <li><code><a title="phi.math.map_types" href="#phi.math.map_types">map_types</a></code></li>

@@ -42,6 +42,7 @@ See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visual
 from ._viewer import Viewer
 from ._matplotlib import plot_scalars
 from ._io import load_scalars
+from ._plot_util import smooth
 from ._vis import view, control, show, close, action, plot, overlay, write_image, write_image as savefig
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
@@ -436,8 +437,8 @@ Currently, only single-figure plots are supported.</p>
         assert title is None, f&#34;title must be a str or Tensor but got {title}&#34;
         title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton), always_include_names=True) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
-    color = wrap(color)
-    alpha = wrap(alpha)
+    color = layout_pytree_node(color, wrap_leaf=True)
+    alpha = layout_pytree_node(alpha, wrap_leaf=True)
     # --- animate or plot ---
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
@@ -802,6 +803,44 @@ For a full list of parameters, see the respective GUI documentation at <a href="
                 plots.show(fig)
         else:
             return plots.show(fig_tensor)</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.smooth"><code class="name flex">
+<span>def <span class="ident">smooth</span></span>(<span>curves: phi.math._tensors.Tensor, n: int) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Applies a smoothing kernel to curves, all channels independently.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>curves</code></strong></dt>
+<dd><code>Tensor</code> containing at least one spatial dimension</dd>
+<dt><strong><code>n</code></strong></dt>
+<dd>Kernel size, i.e. number of values to average.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Smoothed curves as <code>Tensor</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@map_c2b
+def smooth(curves: Tensor, n: int) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Applies a smoothing kernel to curves, all channels independently.
+
+    Args:
+        curves: `Tensor` containing at least one spatial dimension
+        n: Kernel size, i.e. number of values to average.
+
+    Returns:
+        Smoothed curves as `Tensor`
+    &#34;&#34;&#34;
+    assert isinstance(n, int), f&#34;n must be an int but got {n}&#34;
+    assert n &gt;= 1, f&#34;n must be at least 1 but got {n}&#34;
+    if n == 1:
+        return curves
+    kernel = ones(spatial(curves).with_sizes(n)) / n ** spatial(curves).rank
+    return convolve(curves, kernel, extrapolation=extrapolation.SYMMETRIC_GRADIENT)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
@@ -1357,6 +1396,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><code><a title="phi.vis.plot_scalars" href="#phi.vis.plot_scalars">plot_scalars</a></code></li>
 <li><code><a title="phi.vis.savefig" href="#phi.vis.savefig">savefig</a></code></li>
 <li><code><a title="phi.vis.show" href="#phi.vis.show">show</a></code></li>
+<li><code><a title="phi.vis.smooth" href="#phi.vis.smooth">smooth</a></code></li>
 <li><code><a title="phi.vis.view" href="#phi.vis.view">view</a></code></li>
 <li><code><a title="phi.vis.write_image" href="#phi.vis.write_image">write_image</a></code></li>
 </ul>
