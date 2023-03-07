@@ -14,13 +14,18 @@ from ._functional import jit_compile_linear
 from ._optimize import solve_linear
 
 
-def vec(name='vector' or Shape, *sequence, **components) -> Tensor:
+def vec(name='vector' or Shape, *sequence, tuple_dim=spatial('sequence'), list_dim=instance('sequence'), **components) -> Tensor:
     """
     Lay out the given values along a channel dimension without converting them to the current backend.
 
     Args:
-        **components: Values by component name.
         name: Dimension name.
+        *sequence: Component values that will also be used as item names.
+            If specified, `components` must be empty.
+        **components: Values by component name.
+            If specified, no additional positional arguments must be given.
+        tuple_dim: Dimension for `tuple` values passed as components, e.g. `vec(x=(0, 1), ...)`
+        list_dim: Dimension for `list` values passed as components, e.g. `vec(x=[0, 1], ...)`
 
     Returns:
         `Tensor`
@@ -34,15 +39,30 @@ def vec(name='vector' or Shape, *sequence, **components) -> Tensor:
 
         >>> vec(x=tensor([1, 2, 3], instance('particles')), y=0)
         (x=1, y=0); (x=2, y=0); (x=3, y=0) (particlesⁱ=3, vectorᶜ=x,y)
+
+        >>> vec(x=0, y=[0, 1])
+        (x=0, y=0); (x=0, y=1) (vectorᶜ=x,y, sequenceⁱ=2)
+
+        >>> vec(x=0, y=(0, 1))
+        (x=0, y=0); (x=0, y=1) (sequenceˢ=2, vectorᶜ=x,y)
     """
     dim = channel(name) if isinstance(name, str) else name
     assert isinstance(dim, Shape), f"name must be a str or Shape but got '{type(name)}'"
     if sequence:
+        assert not components, "vec() must be given either positional or keyword arguments but not both"
         if len(sequence) == 1 and isinstance(sequence, (tuple, list)):
             sequence = sequence[0]
         dim = dim.with_size([str(v) for v in sequence])
         return wrap(sequence, dim)
     else:
+        def wrap_sequence(value):
+            if isinstance(value, tuple):
+                return wrap(value, tuple_dim)
+            elif isinstance(value, list):
+                return wrap(value, list_dim)
+            else:
+                return value
+        components = {n: wrap_sequence(v) for n, v in components.items()}
         return stack(components, dim, expand_values=True)
 
 
