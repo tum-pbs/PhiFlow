@@ -60,7 +60,7 @@ from ._shape import (
     enable_debug_checks,
 )
 from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, copy_with, replace
-from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar, BROADCAST_FORMATTER as f
+from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
 from ._sparse import dense, get_sparsity, factor_ilu
 from .extrapolation import Extrapolation
 from ._ops import (
@@ -96,8 +96,7 @@ from ._trace import matrix_from_function
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
     jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient,
-    map_types, map_s2b, map_i2b, map_c2b,
-    broadcast,
+    map_types, map_s2b, map_i2b,
     iterate,
     identity,
     trace_check,
@@ -129,17 +128,6 @@ nan = NAN  # intentionally undocumented, use NAN instead. Exists only as an anlo
 
 NUMPY = NUMPY  # to show up in pdoc
 &#34;&#34;&#34;Default backend for NumPy arrays and SciPy objects.&#34;&#34;&#34;
-
-f = f
-&#34;&#34;&#34;
-Automatic mapper for broadcast string formatting of tensors, resulting in tensors of strings.
-Used with the special `-f-` syntax.
-
-Examples:
-    &gt;&gt;&gt; from phi.math import f
-    &gt;&gt;&gt; -f-f&#39;String containing {tensor1} and {tensor2:.1f}&#39;
-    # Result is a str tensor containing all dims of tensor1 and tensor2
-&#34;&#34;&#34;
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
 
@@ -191,16 +179,6 @@ Standard extrapolations are listed as global …</p></div>
 <dt id="phi.math.PI"><code class="name">var <span class="ident">PI</span></code></dt>
 <dd>
 <div class="desc"><p>Value of π to double precision</p></div>
-</dd>
-<dt id="phi.math.f"><code class="name">var <span class="ident">f</span></code></dt>
-<dd>
-<div class="desc"><p>Automatic mapper for broadcast string formatting of tensors, resulting in tensors of strings.
-Used with the special <code>-f-</code> syntax.</p>
-<h2 id="examples">Examples</h2>
-<pre><code class="language-python-repl">&gt;&gt;&gt; from phi.math import f
-&gt;&gt;&gt; -f-f'String containing {tensor1} and {tensor2:.1f}'
-# Result is a str tensor containing all dims of tensor1 and tensor2
-</code></pre></div>
 </dd>
 </dl>
 </section>
@@ -740,48 +718,6 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
             return expand(x, new_shape)
 
     return broadcast_op(uniform_boolean_mask, [x, mask], iter_dims=mask.shape.without(dim))</code></pre>
-</details>
-</dd>
-<dt id="phi.math.broadcast"><code class="name flex">
-<span>def <span class="ident">broadcast</span></span>(<span>f)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Function decorator for non-vectorized functions.
-When passing a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> argument to a broadcast function, the function is called once for each element of the tensor.</p>
-<p>Only positionsl arguments, not keyword arguments are broadcast.</p>
-<p>See Also:
-<code><a title="phi.math.map" href="#phi.math.map">map_()</a></code></p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>f</code></strong></dt>
-<dd>Function.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>Broadcast function</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def broadcast(f):
-    &#34;&#34;&#34;
-    Function decorator for non-vectorized functions.
-    When passing a `Tensor` argument to a broadcast function, the function is called once for each element of the tensor.
-
-    Only positionsl arguments, not keyword arguments are broadcast.
-
-    See Also:
-        `phi.math.map`
-
-    Args:
-        f: Function.
-
-    Returns:
-        Broadcast function
-    &#34;&#34;&#34;
-    @wraps(f)
-    def broadcast_(*args, **kwargs):
-        return math.map_(f, *args, **kwargs)
-    return broadcast_</code></pre>
 </details>
 </dd>
 <dt id="phi.math.cast"><code class="name flex">
@@ -1618,7 +1554,7 @@ Otherwise, the <code><a title="phi.math.copy" href="#phi.math.copy">copy()</a></
 <span>def <span class="ident">custom_gradient</span></span>(<span>f: Callable, gradient: Callable, auxiliary_args: str = '')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function based on <code><a title="phi.math.f" href="#phi.math.f">f</a></code> that uses a custom gradient for the backpropagation pass.</p>
+<div class="desc"><p>Creates a function based on <code>f</code> that uses a custom gradient for the backpropagation pass.</p>
 <p><em>Warning</em> This method can lead to memory leaks if the gradient function is not called.
 Make sure to pass tensors without gradients if the gradient is not required, see <code><a title="phi.math.stop_gradient" href="#phi.math.stop_gradient">stop_gradient()</a></code>.</p>
 <h2 id="args">Args</h2>
@@ -1633,7 +1569,7 @@ and <code>output_dict</code> contains only those parameters for which a gradient
 <dd>Comma-separated parameter names of arguments that are not relevant to backpropagation.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with similar signature and return values as <code><a title="phi.math.f" href="#phi.math.f">f</a></code>. However, the returned function does not support keyword arguments.</p></div>
+<p>Function with similar signature and return values as <code>f</code>. However, the returned function does not support keyword arguments.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2983,7 +2919,7 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 <span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function which computes the gradient of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p>
+<div class="desc"><p>Creates a function which computes the gradient of <code>f</code>.</p>
 <p>Example:</p>
 <pre><code class="language-python">def loss_function(x, y):
     prediction = f(x)
@@ -3001,23 +2937,23 @@ dx = functional_gradient(loss_function, 'x', get_output=False)(x, y)
 <li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/GradientTape"><code>tf.GradientTape</code></a></li>
 <li>Jax: <a href="https://jax.readthedocs.io/en/latest/jax.html#jax.grad"><code>jax.grad</code></a></li>
 </ul>
-<p>When the gradient function is invoked, <code><a title="phi.math.f" href="#phi.math.f">f</a></code> is called with tensors that track the gradient.
-For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p>
+<p>When the gradient function is invoked, <code>f</code> is called with tensors that track the gradient.
+For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code>f</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to be differentiated.
-<code><a title="phi.math.f" href="#phi.math.f">f</a></code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
+<code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
 It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
 All arguments for which the gradient is computed must be of dtype float or complex.</dd>
 <dt><strong><code>get_output</code></strong></dt>
-<dd>Whether the gradient function should also return the return values of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</dd>
+<dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Comma-separated parameter names of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> with respect to which the gradient should be computed.
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
 If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with the same arguments as <code><a title="phi.math.f" href="#phi.math.f">f</a></code> that returns the value of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>, auxiliary data and gradient of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> if <code>get_output=True</code>, else just the gradient of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p></div>
+<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3218,7 +3154,7 @@ For sparse matrices, this is equal to the number of nonzero values.</p></div>
 <span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function which computes the Jacobian matrix of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
+<div class="desc"><p>Creates a function which computes the Jacobian matrix of <code>f</code>.
 For scalar functions, consider using <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code> instead.</p>
 <p>Example:</p>
 <pre><code class="language-python">def f(x, y):
@@ -3237,23 +3173,23 @@ dx = jacobian(loss_function, wrt='x', get_output=False)(x, y)
 <li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/GradientTape"><code>tf.GradientTape</code></a></li>
 <li>Jax: <a href="https://jax.readthedocs.io/en/latest/jax.html#jax.grad"><code>jax.grad</code></a></li>
 </ul>
-<p>When the gradient function is invoked, <code><a title="phi.math.f" href="#phi.math.f">f</a></code> is called with tensors that track the gradient.
-For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p>
+<p>When the gradient function is invoked, <code>f</code> is called with tensors that track the gradient.
+For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code>f</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to be differentiated.
-<code><a title="phi.math.f" href="#phi.math.f">f</a></code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
+<code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
 It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
 All arguments for which the gradient is computed must be of dtype float or complex.</dd>
 <dt><strong><code>get_output</code></strong></dt>
-<dd>Whether the gradient function should also return the return values of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</dd>
+<dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Comma-separated parameter names of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> with respect to which the gradient should be computed.
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
 If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with the same arguments as <code><a title="phi.math.f" href="#phi.math.f">f</a></code> that returns the value of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>, auxiliary data and Jacobian of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> if <code>get_output=True</code>, else just the Jacobian of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p></div>
+<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and Jacobian of <code>f</code> if <code>get_output=True</code>, else just the Jacobian of <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3607,17 +3543,17 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <dd>Function to call. Must be callable as <code>f(x0, **f_kwargs)</code> and <code>f(f(x0, **f_kwargs), **f_kwargs)</code>.</dd>
 <dt><strong><code>iterations</code></strong></dt>
 <dd>Number of iterations as <code>int</code> or single-dimension <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.
-If <code>int</code>, returns the final output of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
-If <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, returns the trajectory (<code>x0</code> and all outputs of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>), stacking the values along this dimension.</dd>
+If <code>int</code>, returns the final output of <code>f</code>.
+If <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, returns the trajectory (<code>x0</code> and all outputs of <code>f</code>), stacking the values along this dimension.</dd>
 <dt><strong><code>x0</code></strong></dt>
-<dd>Initial positional arguments for <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</dd>
+<dd>Initial positional arguments for <code>f</code>.</dd>
 <dt><strong><code>range</code></strong></dt>
 <dd>Range function. Can be used to generate tqdm output by passing <code>trange</code>.</dd>
 <dt><strong><code>measure</code></strong></dt>
-<dd>Function without arguments to call at the start and end (and in between if <code>isinstance(iterations, <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>)</code>) calls to <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
-The measure of each call to <code><a title="phi.math.f" href="#phi.math.f">f</a></code> is <code>measure()</code> after minus <code>measure()</code> before the call.</dd>
+<dd>Function without arguments to call at the start and end (and in between if <code>isinstance(iterations, <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>)</code>) calls to <code>f</code>.
+The measure of each call to <code>f</code> is <code>measure()</code> after minus <code>measure()</code> before the call.</dd>
 <dt><strong><code>f_kwargs</code></strong></dt>
-<dd>Additional keyword arguments to be passed to <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
+<dd>Additional keyword arguments to be passed to <code>f</code>.
 These arguments can be of any type.</dd>
 <dt><strong><code>f_kwargs_</code></strong></dt>
 <dd>More keyword arguments.</dd>
@@ -3625,7 +3561,7 @@ These arguments can be of any type.</dd>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>trajectory</code></dt>
-<dd>Trajectory of final output of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>, depending on <code>iterations</code>.</dd>
+<dd>Trajectory of final output of <code>f</code>, depending on <code>iterations</code>.</dd>
 <dt><code>measured</code></dt>
 <dd>Only if <code>measure</code> was specified, returns the measured value or trajectory tensor.</dd>
 </dl></div>
@@ -3696,7 +3632,7 @@ These arguments can be of any type.</dd>
 <span>def <span class="ident">jacobian</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function which computes the Jacobian matrix of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
+<div class="desc"><p>Creates a function which computes the Jacobian matrix of <code>f</code>.
 For scalar functions, consider using <code><a title="phi.math.functional_gradient" href="#phi.math.functional_gradient">functional_gradient()</a></code> instead.</p>
 <p>Example:</p>
 <pre><code class="language-python">def f(x, y):
@@ -3715,23 +3651,23 @@ dx = jacobian(loss_function, wrt='x', get_output=False)(x, y)
 <li>TensorFlow: <a href="https://www.tensorflow.org/api_docs/python/tf/GradientTape"><code>tf.GradientTape</code></a></li>
 <li>Jax: <a href="https://jax.readthedocs.io/en/latest/jax.html#jax.grad"><code>jax.grad</code></a></li>
 </ul>
-<p>When the gradient function is invoked, <code><a title="phi.math.f" href="#phi.math.f">f</a></code> is called with tensors that track the gradient.
-For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p>
+<p>When the gradient function is invoked, <code>f</code> is called with tensors that track the gradient.
+For PyTorch, <code>arg.requires_grad = True</code> for all positional arguments of <code>f</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to be differentiated.
-<code><a title="phi.math.f" href="#phi.math.f">f</a></code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
+<code>f</code> must return a floating point <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with rank zero.
 It can return additional tensors which are treated as auxiliary data and will be returned by the gradient function if <code>return_values=True</code>.
 All arguments for which the gradient is computed must be of dtype float or complex.</dd>
 <dt><strong><code>get_output</code></strong></dt>
-<dd>Whether the gradient function should also return the return values of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</dd>
+<dd>Whether the gradient function should also return the return values of <code>f</code>.</dd>
 <dt><strong><code>wrt</code></strong></dt>
-<dd>Comma-separated parameter names of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> with respect to which the gradient should be computed.
+<dd>Comma-separated parameter names of <code>f</code> with respect to which the gradient should be computed.
 If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with the same arguments as <code><a title="phi.math.f" href="#phi.math.f">f</a></code> that returns the value of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>, auxiliary data and Jacobian of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> if <code>get_output=True</code>, else just the Jacobian of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p></div>
+<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and Jacobian of <code>f</code> if <code>get_output=True</code>, else just the Jacobian of <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3783,15 +3719,15 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 <span>def <span class="ident">jit_compile</span></span>(<span>f: Callable = None, auxiliary_args: str = '', forget_traces: bool = None) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Compiles a graph based on the function <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
+<div class="desc"><p>Compiles a graph based on the function <code>f</code>.
 The graph compilation is performed just-in-time (jit), e.g. when the returned function is called for the first time.</p>
-<p>The traced function will compute the same result as <code><a title="phi.math.f" href="#phi.math.f">f</a></code> but may run much faster.
+<p>The traced function will compute the same result as <code>f</code> but may run much faster.
 Some checks may be disabled in the compiled function.</p>
 <p>Can be used as a decorator:</p>
 <pre><code class="language-python">@math.jit_compile
 def my_function(x: math.Tensor) -&gt; math.Tensor:
 </code></pre>
-<p>Invoking the returned function may invoke re-tracing / re-compiling <code><a title="phi.math.f" href="#phi.math.f">f</a></code> after the first call if either</p>
+<p>Invoking the returned function may invoke re-tracing / re-compiling <code>f</code> after the first call if either</p>
 <ul>
 <li>it is called with a different number of arguments,</li>
 <li>the tensor arguments have different dimension names or types (the dimension order also counts),</li>
@@ -3820,7 +3756,7 @@ All positional arguments must be of type <code><a title="phi.math.Tensor" href="
 Upon tracing with new instance (due to changed shapes or auxiliary args), deletes the previous traces.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with similar signature and return values as <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p></div>
+<p>Function with similar signature and return values as <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3879,8 +3815,8 @@ Upon tracing with new instance (due to changed shapes or auxiliary args), delete
 <span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y] = None, auxiliary_args: str = None, forget_traces: bool = None) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Compile an optimized representation of the linear function <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
-For backends that support sparse tensors, a sparse matrix will be constructed for <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p>
+<div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
+For backends that support sparse tensors, a sparse matrix will be constructed for <code>f</code>.</p>
 <p>Can be used as a decorator:</p>
 <pre><code class="language-python">@math.jit_compile_linear
 def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
@@ -3892,15 +3828,15 @@ def my_linear_function(x: math.Tensor) -&gt; math.Tensor:
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function that is linear in its positional arguments.
-All positional arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> and <code><a title="phi.math.f" href="#phi.math.f">f</a></code> must return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
+All positional arguments must be of type <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> and <code>f</code> must return a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</dd>
 <dt><strong><code>auxiliary_args</code></strong></dt>
-<dd>Which parameters <code><a title="phi.math.f" href="#phi.math.f">f</a></code> is not linear in. These arguments are treated as conditioning arguments and will cause re-tracing on change.</dd>
+<dd>Which parameters <code>f</code> is not linear in. These arguments are treated as conditioning arguments and will cause re-tracing on change.</dd>
 <dt><strong><code>forget_traces</code></strong></dt>
 <dd>If <code>True</code>, only remembers the most recent compiled instance of this function.
 Upon tracing with new instance (due to changed shapes or auxiliary args), deletes the previous traces.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code> with similar signature and return values as <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p></div>
+<p><code><a title="phi.math.LinearFunction" href="#phi.math.LinearFunction">LinearFunction</a></code> with similar signature and return values as <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4357,8 +4293,6 @@ Their shapes are not broadcast with the positional arguments.</dd>
     Returns:
         `Tensor` of same shape as `value`.
     &#34;&#34;&#34;
-    if not values:
-        return function(**kwargs)
     values = [wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
     flat = [pack_dims(expand(v, shape), shape, batch(&#39;flat&#39;)) for v in values]
@@ -4386,25 +4320,11 @@ Their shapes are not broadcast with the positional arguments.</dd>
         return tuple([unpack_dim(wrap(result_i, channel(&#39;_c&#39;)), &#39;_c&#39;, shape) for result_i in results])</code></pre>
 </details>
 </dd>
-<dt id="phi.math.map_c2b"><code class="name flex">
-<span>def <span class="ident">map_c2b</span></span>(<span>f: Callable) ‑> Callable</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Map channel dimensions to batch dimensions. Short for <code><a title="phi.math.map_types" href="#phi.math.map_types">map_types()</a>(<a title="phi.math.f" href="#phi.math.f">f</a>, <a title="phi.math.instance" href="#phi.math.instance">instance()</a>, <a title="phi.math.batch" href="#phi.math.batch">batch()</a>)</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def map_c2b(f: Callable) -&gt; Callable:
-    &#34;&#34;&#34; Map channel dimensions to batch dimensions. Short for `map_types(f, instance, batch)`. &#34;&#34;&#34;
-    return map_types(f, channel, batch)</code></pre>
-</details>
-</dd>
 <dt id="phi.math.map_i2b"><code class="name flex">
 <span>def <span class="ident">map_i2b</span></span>(<span>f: Callable) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Map instance dimensions to batch dimensions. Short for <code><a title="phi.math.map_types" href="#phi.math.map_types">map_types()</a>(<a title="phi.math.f" href="#phi.math.f">f</a>, <a title="phi.math.instance" href="#phi.math.instance">instance()</a>, <a title="phi.math.batch" href="#phi.math.batch">batch()</a>)</code>.</p></div>
+<div class="desc"><p>Map instance dimensions to batch dimensions. Short for <code><a title="phi.math.map_types" href="#phi.math.map_types">map_types()</a>(f, <a title="phi.math.instance" href="#phi.math.instance">instance()</a>, <a title="phi.math.batch" href="#phi.math.batch">batch()</a>)</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4418,7 +4338,7 @@ Their shapes are not broadcast with the positional arguments.</dd>
 <span>def <span class="ident">map_s2b</span></span>(<span>f: Callable) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Map spatial dimensions to batch dimensions. Short for <code><a title="phi.math.map_types" href="#phi.math.map_types">map_types()</a>(<a title="phi.math.f" href="#phi.math.f">f</a>, <a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a>, <a title="phi.math.batch" href="#phi.math.batch">batch()</a>)</code>.</p></div>
+<div class="desc"><p>Map spatial dimensions to batch dimensions. Short for <code><a title="phi.math.map_types" href="#phi.math.map_types">map_types()</a>(f, <a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a>, <a title="phi.math.batch" href="#phi.math.batch">batch()</a>)</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4442,10 +4362,10 @@ Their shapes are not broadcast with the positional arguments.</dd>
 These dimensions will be mapped to <code>dim_type</code> for all positional function arguments.</dd>
 <dt><strong><code>dim_type</code></strong></dt>
 <dd>Dimension type, such as <code><a title="phi.math.spatial" href="#phi.math.spatial">spatial()</a></code> or <code><a title="phi.math.batch" href="#phi.math.batch">batch()</a></code>.
-<code><a title="phi.math.f" href="#phi.math.f">f</a></code> will be called with dimensions remapped to this type.</dd>
+<code>f</code> will be called with dimensions remapped to this type.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with signature matching <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</p></div>
+<p>Function with signature matching <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4561,13 +4481,13 @@ Overlapping extrapolated values get averaged. Extrapolation also includes diagon
 </code></dt>
 <dd>
 <div class="desc"><p>Trace a linear function and construct a matrix.
-Depending on the functional form of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>, the returned matrix may be dense or sparse.</p>
+Depending on the functional form of <code>f</code>, the returned matrix may be dense or sparse.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to trace.</dd>
 <dt><strong><code>*args</code></strong></dt>
-<dd>Arguments for <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</dd>
+<dd>Arguments for <code>f</code>.</dd>
 <dt><strong><code>auxiliary_args</code></strong></dt>
 <dd>Arguments in which the function is not linear.
 These parameters are not traced but passed on as given in <code>args</code> and <code>kwargs</code>.</dd>
@@ -4578,12 +4498,12 @@ These parameters are not traced but passed on as given in <code>args</code> and 
 If <code>True</code>, will create dual dimensions for the involved batch dimensions.
 This will result in one large matrix instead of a batch of matrices.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
-<dd>Keyword arguments for <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.</dd>
+<dd>Keyword arguments for <code>f</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>matrix</code></dt>
-<dd>Matrix representing the linear dependency of the output <code><a title="phi.math.f" href="#phi.math.f">f</a></code> on the input of <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
+<dd>Matrix representing the linear dependency of the output <code>f</code> on the input of <code>f</code>.
 Input dimensions will be <code><a title="phi.math.dual" href="#phi.math.dual">dual()</a></code> dimensions of the matrix while output dimensions will be regular.</dd>
 <dt><code>bias</code></dt>
 <dd>Bias for affine functions or zero-vector if the function is purely linear.</dd>
@@ -5030,10 +4950,10 @@ Additionally a gradient descent solver with adaptive step size can be used with 
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function whose output is subject to minimization.
-All positional arguments of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> are optimized and must be <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.
+All positional arguments of <code>f</code> are optimized and must be <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.
 If <code>solve.x0</code> is a <code>tuple</code> or <code>list</code>, it will be passed to <em>f</em> as varargs, <code>f(*x0)</code>.
 To minimize a subset of the positional arguments, define a new (lambda) function depending only on those.
-The first return value of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> must be a scalar float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+The first return value of <code>f</code> must be a scalar float <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object to specify method type, parameters and initial guess for <code>x</code>.</dd>
 </dl>
@@ -5213,7 +5133,7 @@ Otherwise, checks that <code>value</code> is a valid tensor object and returns i
 <span>def <span class="ident">native_call</span></span>(<span>f: Callable, *inputs: phi.math._tensors.Tensor, channels_last=None, channel_dim='vector', spatial_dim=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Calls <code><a title="phi.math.f" href="#phi.math.f">f</a></code> with the native representations of the <code>inputs</code> tensors in standard layout and returns the result as a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
+<div class="desc"><p>Calls <code>f</code> with the native representations of the <code>inputs</code> tensors in standard layout and returns the result as a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>.</p>
 <p>All inputs are converted to native tensors (including precision cast) depending on <code>channels_last</code>:</p>
 <ul>
 <li><code>channels_last=True</code>: Dimension layout <code>(total_batch_size, spatial_dims&hellip;, total_channel_size)</code></li>
@@ -7356,8 +7276,8 @@ The following method identifiers are supported by all backends:</p>
 <li><code>'biCGstab'</code>: Biconjugate gradient stabilized, first order</li>
 <li><code>'biCGstab(2)'</code>: Biconjugate gradient stabilized, second order</li>
 </ul>
-<p>For maximum performance, compile <code><a title="phi.math.f" href="#phi.math.f">f</a></code> using <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code> beforehand.
-Then, an optimized representation of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> (such as a sparse matrix) will be used to solve the linear system.</p>
+<p>For maximum performance, compile <code>f</code> using <code><a title="phi.math.jit_compile_linear" href="#phi.math.jit_compile_linear">jit_compile_linear()</a></code> beforehand.
+Then, an optimized representation of <code>f</code> (such as a sparse matrix) will be used to solve the linear system.</p>
 <p>To obtain additional information about the performed solve, perform the solve within a <code><a title="phi.math.SolveTape" href="#phi.math.SolveTape">SolveTape</a></code> context.
 The used implementation can be obtained as <code><a title="phi.math.SolveInfo.method" href="#phi.math.SolveInfo.method">SolveInfo.method</a></code>.</p>
 <p>The gradient of this operation will perform another linear solve with the parameters specified by <code><a title="phi.math.Solve.gradient_solve" href="#phi.math.Solve.gradient_solve">Solve.gradient_solve</a></code>.</p>
@@ -7369,21 +7289,21 @@ The used implementation can be obtained as <code><a title="phi.math.SolveInfo.me
 <dd>
 <p>One of the following:</p>
 <ul>
-<li>Linear function with <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> first parameter and return value. <code><a title="phi.math.f" href="#phi.math.f">f</a></code> can have additional auxiliary arguments and return auxiliary values.</li>
+<li>Linear function with <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> first parameter and return value. <code>f</code> can have additional auxiliary arguments and return auxiliary values.</li>
 <li>Dense matrix (<code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with at least one dual dimension)</li>
 <li>Sparse matrix (Sparse <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with at least one dual dimension)</li>
 <li>Native tensor (not yet supported)</li>
 </ul>
 </dd>
 <dt><strong><code>y</code></strong></dt>
-<dd>Desired output of <code><a title="phi.math.f" href="#phi.math.f">f</a>(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+<dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object specifying optimization method, parameters and initial guess for <code>x</code>.</dd>
 <dt><strong><code>*f_args</code></strong></dt>
-<dd>Positional arguments to be passed to <code><a title="phi.math.f" href="#phi.math.f">f</a></code> after <code>solve.x0</code>. These arguments will not be solved for.
+<dd>Positional arguments to be passed to <code>f</code> after <code>solve.x0</code>. These arguments will not be solved for.
 Supports vararg mode or pass all arguments as a <code>tuple</code>.</dd>
 <dt><strong><code>f_kwargs</code></strong></dt>
-<dd>Additional keyword arguments to be passed to <code><a title="phi.math.f" href="#phi.math.f">f</a></code>.
+<dd>Additional keyword arguments to be passed to <code>f</code>.
 These arguments are treated as auxiliary arguments and can be of any type.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -7525,10 +7445,10 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function whose output is optimized to match <code>y</code>.
-All positional arguments of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> are optimized and must be <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.
-The output of <code><a title="phi.math.f" href="#phi.math.f">f</a></code> must match <code>y</code>.</dd>
+All positional arguments of <code>f</code> are optimized and must be <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.
+The output of <code>f</code> must match <code>y</code>.</dd>
 <dt><strong><code>y</code></strong></dt>
-<dd>Desired output of <code><a title="phi.math.f" href="#phi.math.f">f</a>(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+<dd>Desired output of <code>f(x)</code> as <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd><code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> object specifying optimization method, parameters and initial guess for <code>x</code>.</dd>
 </dl>
@@ -8462,16 +8382,16 @@ If true, jit-compiled functions are very fast since the Python function is not a
 <dt><strong><code>f</code></strong></dt>
 <dd>Transformed Function, e.g. jit-compiled or linear function.</dd>
 <dt><strong><code>*args</code></strong></dt>
-<dd>Hypothetical arguments to be passed to <code><a title="phi.math.f" href="#phi.math.f">f</a></code></dd>
+<dd>Hypothetical arguments to be passed to <code>f</code></dd>
 <dt><strong><code>**kwargs</code></strong></dt>
-<dd>Hypothetical keyword arugments to be passed to <code><a title="phi.math.f" href="#phi.math.f">f</a></code></dd>
+<dd>Hypothetical keyword arugments to be passed to <code>f</code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>result</code></dt>
-<dd><code>True</code> if there is an existing trace that can be used, <code>False</code> if <code><a title="phi.math.f" href="#phi.math.f">f</a></code> would have to be re-traced.</dd>
+<dd><code>True</code> if there is an existing trace that can be used, <code>False</code> if <code>f</code> would have to be re-traced.</dd>
 <dt><code>reason</code></dt>
-<dd>Message giving hints as to why <code><a title="phi.math.f" href="#phi.math.f">f</a></code> needs to be re-traced given <code>args</code> and <code>kwargs</code>.</dd>
+<dd>Message giving hints as to why <code>f</code> needs to be re-traced given <code>args</code> and <code>kwargs</code>.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -13350,8 +13270,6 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         printer.text(format_tensor(self, PrintOptions(colors=DEFAULT_COLORS)))
 
     def __format__(self, format_spec: str):
-        if BROADCAST_FORMATTER.values is not None:
-            return BROADCAST_FORMATTER.register_formatted(self, format_spec)
         specs = format_spec.split(&#39;:&#39;)
         layout_ = &#39;auto&#39;
         for possible_layout in [&#39;summary&#39;, &#39;full&#39;, &#39;row&#39;, &#39;numpy&#39;]:
@@ -13368,8 +13286,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                 threshold = int(spec[len(&#39;threshold=&#39;):])
             elif &#39;.&#39; in spec:
                 float_format = spec
-        result = format_tensor(self, PrintOptions(layout_, float_format, threshold, color, include_shape, include_dtype))
-        return result
+        return format_tensor(self, PrintOptions(layout_, float_format, threshold, color, include_shape, include_dtype))
 
     def __getitem__(self, item) -&gt; &#39;Tensor&#39;:
         if isinstance(item, Tensor):
@@ -14348,7 +14265,6 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.NAN" href="#phi.math.NAN">NAN</a></code></li>
 <li><code><a title="phi.math.NUMPY" href="#phi.math.NUMPY">NUMPY</a></code></li>
 <li><code><a title="phi.math.PI" href="#phi.math.PI">PI</a></code></li>
-<li><code><a title="phi.math.f" href="#phi.math.f">f</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
@@ -14367,7 +14283,6 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.assert_close" href="#phi.math.assert_close">assert_close</a></code></li>
 <li><code><a title="phi.math.batch" href="#phi.math.batch">batch</a></code></li>
 <li><code><a title="phi.math.boolean_mask" href="#phi.math.boolean_mask">boolean_mask</a></code></li>
-<li><code><a title="phi.math.broadcast" href="#phi.math.broadcast">broadcast</a></code></li>
 <li><code><a title="phi.math.cast" href="#phi.math.cast">cast</a></code></li>
 <li><code><a title="phi.math.ceil" href="#phi.math.ceil">ceil</a></code></li>
 <li><code><a title="phi.math.channel" href="#phi.math.channel">channel</a></code></li>
@@ -14439,7 +14354,6 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.log10" href="#phi.math.log10">log10</a></code></li>
 <li><code><a title="phi.math.log2" href="#phi.math.log2">log2</a></code></li>
 <li><code><a title="phi.math.map" href="#phi.math.map">map</a></code></li>
-<li><code><a title="phi.math.map_c2b" href="#phi.math.map_c2b">map_c2b</a></code></li>
 <li><code><a title="phi.math.map_i2b" href="#phi.math.map_i2b">map_i2b</a></code></li>
 <li><code><a title="phi.math.map_s2b" href="#phi.math.map_s2b">map_s2b</a></code></li>
 <li><code><a title="phi.math.map_types" href="#phi.math.map_types">map_types</a></code></li>

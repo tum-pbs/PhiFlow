@@ -1108,13 +1108,13 @@ def combine_sides(**extrapolations: Extrapolation or tuple) -&gt; Extrapolation:
             proper_dict[dim] = (ext, ext)
         elif isinstance(ext, tuple):
             assert len(ext) == 2, &#34;Tuple must contain exactly two elements, (lower, upper)&#34;
-            lower = ext[0] if isinstance(ext[0], Extrapolation) else ConstantExtrapolation(ext[0])
-            upper = ext[1] if isinstance(ext[1], Extrapolation) else ConstantExtrapolation(ext[1])
+            lower = as_extrapolation(ext[0])
+            upper = as_extrapolation(ext[1])
             values.add(lower)
             values.add(upper)
             proper_dict[dim] = (lower, upper)
         else:
-            proper_ext = ext if isinstance(ext, Extrapolation) else ConstantExtrapolation(ext)
+            proper_ext = as_extrapolation(ext)
             values.add(proper_ext)
             proper_dict[dim] = (proper_ext, proper_ext)
     if len(values) == 1:  # All equal -&gt; return any
@@ -1386,8 +1386,8 @@ def combine_by_direction(normal: Extrapolation or float or Tensor, tangential: E
     Returns:
         `Extrapolation`
     &#34;&#34;&#34;
-    normal = normal if isinstance(normal, Extrapolation) else ConstantExtrapolation(normal)
-    tangential = tangential if isinstance(tangential, Extrapolation) else ConstantExtrapolation(tangential)
+    normal = as_extrapolation(normal)
+    tangential = as_extrapolation(tangential)
     return normal if normal == tangential else _NormalTangentialExtrapolation(normal, tangential)
 
 
@@ -1625,8 +1625,8 @@ def remove_constant_offset(extrapolation):
     Returns:
         `Extrapolation`
     &#34;&#34;&#34;
-    normal = normal if isinstance(normal, Extrapolation) else ConstantExtrapolation(normal)
-    tangential = tangential if isinstance(tangential, Extrapolation) else ConstantExtrapolation(tangential)
+    normal = as_extrapolation(normal)
+    tangential = as_extrapolation(tangential)
     return normal if normal == tangential else _NormalTangentialExtrapolation(normal, tangential)</code></pre>
 </details>
 </dd>
@@ -1664,13 +1664,13 @@ def remove_constant_offset(extrapolation):
             proper_dict[dim] = (ext, ext)
         elif isinstance(ext, tuple):
             assert len(ext) == 2, &#34;Tuple must contain exactly two elements, (lower, upper)&#34;
-            lower = ext[0] if isinstance(ext[0], Extrapolation) else ConstantExtrapolation(ext[0])
-            upper = ext[1] if isinstance(ext[1], Extrapolation) else ConstantExtrapolation(ext[1])
+            lower = as_extrapolation(ext[0])
+            upper = as_extrapolation(ext[1])
             values.add(lower)
             values.add(upper)
             proper_dict[dim] = (lower, upper)
         else:
-            proper_ext = ext if isinstance(ext, Extrapolation) else ConstantExtrapolation(ext)
+            proper_ext = as_extrapolation(ext)
             values.add(proper_ext)
             proper_dict[dim] = (proper_ext, proper_ext)
     if len(values) == 1:  # All equal -&gt; return any
