@@ -759,3 +759,14 @@ class TestMathFunctions(TestCase):
         r_x, r_y = math.map(f, x, y)
         math.assert_close(wrap([(2, 4), (3, 5)], spatial('x,y')), r_x)
         math.assert_close(wrap([(-2, -4), (-1, -3)], spatial('x,y')), r_y)
+
+    def test_to_device(self):
+        for backend in BACKENDS:
+            with backend:
+                cpu = backend.list_devices('CPU')[0]
+                v = math.random_uniform()
+                self.assertEqual(cpu, math.to_device(v, 'CPU').device, msg=backend.name)
+                self.assertEqual(cpu, math.to_device(v, cpu).device, msg=backend.name)
+                for v in [1., backend.random_uniform((), 0, 1, DType(float, 32))]:
+                    math.to_device(v, 'CPU')
+                    math.to_device(v, cpu)
