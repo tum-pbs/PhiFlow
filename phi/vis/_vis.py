@@ -350,8 +350,8 @@ def plot(*fields: SampledField or Tensor,
         assert title is None, f"title must be a str or Tensor but got {title}"
         title = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
-    color = wrap(color)
-    alpha = wrap(alpha)
+    color = layout_pytree_node(color, wrap_leaf=True)
+    alpha = layout_pytree_node(alpha, wrap_leaf=True)
     # --- animate or plot ---
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
@@ -379,6 +379,16 @@ def plot(*fields: SampledField or Tensor,
         raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
 
 
+def layout_pytree_node(data, wrap_leaf=False):
+    if isinstance(data, tuple):
+        return layout(data, batch('tuple'))
+    elif isinstance(data, list):
+        return layout(data, batch('list'))
+    elif isinstance(data, dict):
+        return layout(data, batch('dict'))
+    return wrap(data) if wrap_leaf else data
+
+
 def layout_sub_figures(data: Tensor or SampledField,
                        row_dims: DimFilter,
                        col_dims: DimFilter,
@@ -391,13 +401,8 @@ def layout_sub_figures(data: Tensor or SampledField,
                        base_index: Dict[str, int or str]) -> Tuple[int, int, Shape, Shape]:  # rows, cols
     if data is None:
         raise ValueError(f"Cannot layout figure for '{data}'")
-    if isinstance(data, list):
-        data = layout(data, batch('list'))
-    elif isinstance(data, tuple):
-        data = layout(data, batch('tuple'))
-    elif isinstance(data, dict):
-        data = layout(data, batch('dict'))
-    if isinstance(data, Tensor) and data.dtype.kind == object:
+    data = layout_pytree_node(data)
+    if isinstance(data, Tensor) and data.dtype.kind == object:  # layout
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
         dim0 = reduced = data.shape[0]
