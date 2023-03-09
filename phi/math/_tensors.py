@@ -2606,6 +2606,8 @@ def _format_number(num, options: PrintOptions, dtype: DType):
 def format_tensor(self: Tensor, options: PrintOptions) -> str:
     if not self.available:
         return format_tracer(self, options)
+    if self.shape.is_non_uniform:
+        return f"{options.get_colors().shape(self.shape)} non-uniform"
     if options.layout == 'auto':
         if not self.shape:
             return format_summary(self, options)

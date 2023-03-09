@@ -557,12 +557,9 @@ class Shape:
     def __repr__(self):
         def size_repr(size, items):
             if items is not None:
-                if len(items) <= 4:
-                    return ",".join(items)
-                else:
-                    return f"{size}:{items[0]}..{items[-1]}"
-            else:
-                return size
+                items_str = ",".join(items)
+                return items_str if len(items_str) <= 20 else f"{size}:{items[0]}..{items[-1]}"
+            return size
 
         strings = [f"{name}{TYPE_ABBR.get(dim_type, '?')}={size_repr(size, items)}" for size, name, dim_type, items in self._dimensions]
         return '(' + ', '.join(strings) + ')'
