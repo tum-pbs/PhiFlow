@@ -115,6 +115,8 @@ def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter, pre: Optional
 def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner], poly_order: int) -> Union[SolveResult, List[SolveResult]]:
     """ Adapted from [BiCGstab for linear equations involving unsymmetric matrices with complex spectrum](https://dspace.library.uu.nl/bitstream/handle/1874/16827/sleijpen_93_bicgstab.pdf) """
     # Based on "BiCGstab(L) for linear equations involving unsymmetric matrices with complex spectrum" by Gerard L.G. Sleijpen
+    if poly_order == 1:
+        return bicg_stab_first_order(b, lin, y, x0, check_progress, max_iter)
     if pre:
         raise NotImplementedError("generic biCG does not yet support preconditioners")
     y = b.to_float(y)
@@ -194,6 +196,75 @@ def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Option
 
     _, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat = b.while_loop(loop_body, (continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat), _max_iter(max_iter))
     return SolveResult(f"Φ-Flow biCG-stab({poly_order}) ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
+
+
+def bicg_stab_first_order(b: Backend, lin, y, x0, check_progress: Callable, max_iter) -> SolveResult or List[SolveResult]:
+    """
+    https://en.wikipedia.org/wiki/Biconjugate_gradient_stabilized_method
+
+    L=1, """
+    y = b.to_float(y)
+    x = b.copy(b.to_float(x0), only_mutable=True)
+    batch_size = b.staticshape(y)[0]
+    residual = y - b.linear(lin, x)
+    r0_h = b.ones(x0.shape)
+    iterations = b.zeros([batch_size], DType(int, 32))
+    function_evaluations = b.ones([batch_size], DType(int, 32))
+    residual_squared = b.sum(residual ** 2, -1, keepdims=True)
+    continue_, converged, diverged = check_progress(iterations, residual_squared)
+    rho_prev = b.ones([batch_size, 1])
+    rho = b.ones([batch_size, 1])
+    omega = b.ones([batch_size, 1])
+    alpha = b.zeros([batch_size, 1])
+    u = b.zeros(x0.shape)
+    p = b.zeros(x0.shape)
+
+    def loop_body(continue_, x, residual, iterations, function_evaluations, _converged, _diverged, rho_prev, rho, omega, alpha, u, p):
+        # beta = step size,
+        # ToDo there is a problem in the loop
+
+        continue_1 = b.to_int32(continue_)
+        iterations += continue_1
+        r = residual
+
+        ### ================= no preconditioning ================= ###
+        rho = b.sum(r0_h * r, axis=-1, keepdims=True)
+        beta = b.divide_no_nan(rho, rho_prev) * b.divide_no_nan(alpha, omega) * b.to_float(continue_1);
+        rho_prev = rho
+        p = r + beta * (p - omega * u)
+        u = b.linear(lin, p);                           function_evaluations += continue_1
+        alpha = b.divide_no_nan(rho, b.sum(r0_h * u, axis=-1, keepdims=True)) * b.to_float(continue_1)
+        h = x + alpha * p
+        s = r - alpha * u
+        t = b.linear(lin, s);                           function_evaluations += continue_1
+        omega = b.where(continue_, b.divide_no_nan(b.sum(t * s, axis=-1, keepdims=True), b.sum(t * t, axis=-1, keepdims=True)), 0.)
+        x = h + omega * s
+        r = s - omega * t
+
+        ### ================ with preconditioning ================ ###
+        # rho = b.sum(r0_h * r, axis=-1, keepdims=True)
+        # beta = rho / rho_prev * alpha / omega;          rho_prev = rho
+        # p = r + beta * (p - omega * u)
+        # y = K2^(-1) K1^(-1) p
+        # u = b.linear(lin, y);                           function_evaluations += continue_1
+        # alpha = rho / b.sum(r0_h * u, axis=-1, keepdims=True)
+        # h = x + alpha * p
+        # s = r - alpha * u
+        # z = K2^(-1) K1^(-1) s
+        # t = b.linear(lin, z);                         function_evaluations += continue_1
+        # omega = b.sum(K1^(-1)*t * K1^(-1)*s, axis=-1, keepdims=True) / b.sum(K1^(-1)*t * K1^(-1)*t, axis=-1, keepdims=True)
+        # x = h + omega * s
+        # r = s - omega * t
+
+        residual = r
+        residual_squared = b.sum(residual ** 2, -1, keepdims=True)
+        continue_, converged, diverged = check_progress(iterations, residual_squared)
+        # ToDo multiply step_size by continue_1 to avoid NaN when iterating after convergence
+        return continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_prev, rho, omega, alpha, u, p
+
+    _, x, residual, iterations, function_evaluations, converged, diverged, rho_prev, rho, omega, alpha, u, p = b.while_loop(loop_body, (continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_prev, rho, omega, alpha, u, p), _max_iter(max_iter))
+    return SolveResult(f"Φ-Flow BICG", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
+
 
 
 def incomplete_lu_dense(b: 'Backend', matrix, iterations: int, safe: bool):
