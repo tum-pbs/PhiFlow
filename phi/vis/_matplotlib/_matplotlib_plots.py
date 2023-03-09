@@ -352,10 +352,10 @@ class PointCloud2D(Recipe):
                 if isinstance(data.elements, Point) and 2 < spatial(data.elements).volume < 100:
                     axis.scatter(x[i], y[i], s=3, marker='o', c=mpl_colors[i] if mpl_colors is not None else None, alpha=alphas)
         if any(non_channel(data).item_names):
-            PointCloud2D._annotate_points(axis, data.points, alpha)
+            PointCloud2D._annotate_points(axis, data.points, color, alpha)
 
     @staticmethod
-    def _annotate_points(axis, points: math.Tensor, alpha: Tensor):
+    def _annotate_points(axis, points: math.Tensor, color: Tensor, alpha: Tensor):
         labelled_dims = non_channel(points)
         labelled_dims = math.concat_shapes(*[d for d in labelled_dims if d.item_names[0]])
         if not labelled_dims:
@@ -377,7 +377,7 @@ class PointCloud2D(Recipe):
                     offset_y = y * (1 + .0003 * y_view) if y < y_c else y * (1 - .0003 * y_view)
                 else:
                     offset_y = y + .01 * y_view if y < y_c else y - .01 * y_view
-                axis.text(offset_x, offset_y, index_label(idx), alpha=float(alpha[idx]))
+                axis.text(offset_x, offset_y, index_label(idx), color=_plt_col(color[idx]), alpha=float(alpha[idx]))
 
 
 class PointCloud3D(Recipe):
