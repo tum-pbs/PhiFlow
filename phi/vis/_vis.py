@@ -8,7 +8,7 @@ from typing import Tuple, List, Dict
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, tensor_as_field, common_index, index_label
+from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, tensor_as_field, common_index, index_label, title_label
 from .. import math
 from ..field import SampledField, Scene, Field, PointCloud
 from ..field._scene import _slugify_filename
@@ -348,7 +348,7 @@ def plot(*fields: SampledField or Tensor,
         title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
     else:
         assert title is None, f"title must be a str or Tensor but got {title}"
-        title = {pos: index_label(common_index(*i, exclude=reduced_shape.singleton), always_include_names=True) for pos, i in indices.items()}
+        title = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = wrap(color)
     alpha = wrap(alpha)
