@@ -33,7 +33,7 @@ from ._sparse import dense, get_sparsity, factor_ilu
 from .extrapolation import Extrapolation
 
 from ._ops import (
-    choose_backend_t as choose_backend, all_available, convert, seed,
+    choose_backend_t as choose_backend, all_available, convert, seed, to_device,
     native, numpy, reshaped_native, reshaped_tensor, reshaped_numpy, copy, native_call,
     print_ as print,
     map_ as map,
