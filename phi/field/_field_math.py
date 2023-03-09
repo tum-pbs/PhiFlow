@@ -211,7 +211,7 @@ def _ex_map_f(ext_dict: dict):
 
 
 # @jit_compile_linear(auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")
-@jit_compile(auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output")  # ToDo the matrix generation gives incorrect results in 2.3.0
+@jit_compile(auxiliary_args="values_rhs, needed_shifts_rhs, stack_dim, staggered_output", forget_traces=True)  # ToDo the matrix generation gives incorrect results in 2.3.0
 def _lhs_for_implicit_scheme(x, values_rhs, needed_shifts_rhs, stack_dim, staggered_output=False):
     result = []
     for dim, component in zip(x.shape.only(math.spatial).names, unstack(x, stack_dim.name)):
