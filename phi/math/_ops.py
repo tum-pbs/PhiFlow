@@ -915,6 +915,7 @@ def broadcast_op(operation: Callable,
     if iter_dims is None:
         iter_dims = set()
         for tensor in tensors:
+            iter_dims.update(tensor.shape.shape.without('dims').names)
             if isinstance(tensor, TensorStack) and tensor.requires_broadcast:
                 iter_dims.add(tensor._stack_dim.name)
     if len(iter_dims) == 0:
