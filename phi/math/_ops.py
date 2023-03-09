@@ -7,16 +7,16 @@ from typing import Tuple, Callable, Any, Union
 import numpy as np
 
 from . import extrapolation as e_
-from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int
+from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int, tree_map
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
-                     IncompatibleShapes, DimFilter, non_batch, non_channel)
+                     IncompatibleShapes, DimFilter, non_batch)
 from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
     is_scalar, Layout
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
-    NoBackendFound
+    NoBackendFound, ComputeDevice, NUMPY
 from .backend._dtype import DType, combine_types
 from .magic import PhiTreeNode
 
@@ -58,7 +58,49 @@ def convert(x, backend: Backend = None, use_dlpack=True):
     elif isinstance(x, PhiTreeNode):
         return copy_with(x, **{a: convert(getattr(x, a), backend, use_dlpack=use_dlpack) for a in variable_attributes(x)})
     else:
-        return choose_backend(x).as_tensor(x)
+        return b_convert(x, backend, use_dlpack=use_dlpack)
+
+
+def to_device(value, device: ComputeDevice or str, convert=True, use_dlpack=True):
+    """
+    Allocates the tensors of `value` on `device`.
+    If the value already exists on that device, this function may either create a copy of `value` or return `value` directly.
+
+    See Also:
+        `to_cpu()`.
+
+    Args:
+        value: `Tensor` or `phi.math.magic.PhiTreeNode` or native tensor.
+        device: Device to allocate value on.
+            Either `ComputeDevice` or category `str`, such as `'CPU'` or `'GPU'`.
+        convert: Whether to convert tensors that do not belong to the corresponding backend to compatible native tensors.
+            If `False`, this function has no effect on numpy tensors.
+        use_dlpack: Only if `convert==True`.
+            Whether to use the DLPack library to convert from one GPU-enabled backend to another.
+
+    Returns:
+        Same type as `value`.
+    """
+    assert isinstance(device, (ComputeDevice, str)), f"device must be a ComputeDevice or str but got {type(device)}"
+    return tree_map(_to_device, value, device=device, convert_to_backend=convert, use_dlpack=use_dlpack)
+
+
+def _to_device(value: Tensor or Any, device: ComputeDevice or str, convert_to_backend: bool, use_dlpack: bool):
+    if isinstance(value, Tensor):
+        if not convert and value.default_backend == NUMPY:
+            return value
+        natives = [_to_device(n, device, convert_to_backend, use_dlpack) for n in value._natives()]
+        return value._with_natives_replaced(natives)
+    else:
+        old_backend = choose_backend(value)
+        if isinstance(device, str):
+            device = old_backend.list_devices(device)[0]
+        if old_backend != device.backend:
+            if convert_to_backend:
+                value = b_convert(value, device.backend, use_dlpack=use_dlpack)
+            else:
+                return value
+        return device.backend.allocate_on_device(value, device)
 
 
 def all_available(*values: Tensor) -> bool:
