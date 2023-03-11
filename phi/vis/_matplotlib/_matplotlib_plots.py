@@ -102,22 +102,12 @@ class MatplotlibPlots(PlottingLibrary):
                     axis.remove()
                 else:
                     # subplot.cla()  # this also clears titles and subplot labels
-                    try:
-                        raise AttributeError
-                        axis.lines.clear()
-                        axis.patches.clear()
-                        axis.texts.clear()
-                        axis.tables.clear()
-                        axis.artists.clear()
-                        axis.images.clear()
-                        axis.collections.clear()
-                    except AttributeError:  # newer Matplotlib versions don't support clear() anymore
-                        for artist_list in [axis.lines, axis.patches, axis.texts, axis.tables, axis.artists, axis.images, axis.collections]:
-                            try:
-                                while artist_list:
-                                    artist_list[0].remove()
-                            except AttributeError:
-                                warnings.warn(f"Failed to remove Matplotlib list '{artist_list}'", RuntimeWarning)
+                    for artist_list in [axis.lines, axis.patches, axis.texts, axis.tables, axis.artists, axis.images, axis.collections]:
+                        try:
+                            while artist_list:
+                                artist_list[0].remove()
+                        except AttributeError:
+                            warnings.warn(f"Failed to remove Matplotlib list '{artist_list}'", RuntimeWarning)
                     box = Bbox(positions[axis])
                     axis.set_position(box, which='active')
                     axis.set_subplotspec(specs[axis])
