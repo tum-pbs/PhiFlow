@@ -280,6 +280,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
          show_color_bar=True,
          color: Union[str, int, Tensor] = None,
          alpha: Union[float, Tensor] = 1.,
+         err: Union[Tensor, tuple, list, float] = 0.,
          frame_time=100,
          repeat=True):
     """
@@ -312,6 +313,9 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
         alpha: Opacity as `float` or `Tensor`.
             This affects all elements, not only line plots.
             Opacity can vary between lines and markers.
+        err: Expected deviation from the value given in `fields`.
+            For supported plots, adds error bars of size *2·err*.
+            If the plotted data is the mean of some distribution, a good choice for `err` is the standard deviation along the mean dims.
         animate: Time dimension to animate.
             If not present in the data, will produce a regular plot instead.
         overlay: Dimensions along which elements should be overlaid in the same subplot.
@@ -353,6 +357,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
+    err = layout_pytree_node(err, wrap_leaf=True)
     # --- animate or plot ---
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
@@ -362,7 +367,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx])
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
@@ -372,7 +377,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx])
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             return layout(figure)
@@ -402,7 +407,7 @@ def layout_sub_figures(data: Union[Tensor, SampledField],
                        base_index: Dict[str, Union[int, str]]) -> Tuple[int, int, Shape, Shape]:  # rows, cols
     if data is None:
         raise ValueError(f"Cannot layout figure for '{data}'")
-    data = layout_pytree_node(data)
+    data = layout_pytree_node(data, wrap_leaf=False)
     if isinstance(data, Tensor) and data.dtype.kind == object:  # layout
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
