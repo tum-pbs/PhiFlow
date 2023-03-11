@@ -698,7 +698,7 @@ def arange(dim: Shape, start_or_stop: int or None = None, stop: int or None = No
     return NativeTensor(native, dim.with_sizes([stop - start]))
 
 
-def range_tensor(shape: Shape):
+def range_tensor(*shape: Shape):
     """
     Returns a `Tensor` with given `shape` containing the linear indices of each element.
     For 1D tensors, this equivalent to `arange()` with `step=1`.
@@ -712,6 +712,7 @@ def range_tensor(shape: Shape):
     Returns:
         `Tensor`
     """
+    shape = concat_shapes(*shape)
     data = arange(spatial('range'), 0, shape.volume)
     return unpack_dim(data, 'range', shape)
 
