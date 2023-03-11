@@ -14,7 +14,7 @@ from ._functional import jit_compile_linear
 from ._optimize import solve_linear
 
 
-def vec(name='vector' or Shape, *sequence, tuple_dim=spatial('sequence'), list_dim=instance('sequence'), **components) -> Tensor:
+def vec(name: str or Shape = 'vector', *sequence, tuple_dim=spatial('sequence'), list_dim=instance('sequence'), **components) -> Tensor:
     """
     Lay out the given values along a channel dimension without converting them to the current backend.
 
