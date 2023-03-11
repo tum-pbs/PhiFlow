@@ -8704,7 +8704,7 @@ The grid values at the new points are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.math.vec"><code class="name flex">
-<span>def <span class="ident">vec</span></span>(<span>name='vector', *sequence, tuple_dim=(sequenceˢ=None), list_dim=(sequenceⁱ=None), **components) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">vec</span></span>(<span>name: str = 'vector', *sequence, tuple_dim=(sequenceˢ=None), list_dim=(sequenceⁱ=None), **components) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lay out the given values along a channel dimension without converting them to the current backend.</p>
@@ -8745,7 +8745,7 @@ If specified, no additional positional arguments must be given.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec(name=&#39;vector&#39; or Shape, *sequence, tuple_dim=spatial(&#39;sequence&#39;), list_dim=instance(&#39;sequence&#39;), **components) -&gt; Tensor:
+<pre><code class="python">def vec(name: str or Shape = &#39;vector&#39;, *sequence, tuple_dim=spatial(&#39;sequence&#39;), list_dim=instance(&#39;sequence&#39;), **components) -&gt; Tensor:
     &#34;&#34;&#34;
     Lay out the given values along a channel dimension without converting them to the current backend.
 
