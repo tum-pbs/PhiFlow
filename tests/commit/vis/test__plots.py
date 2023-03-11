@@ -133,6 +133,26 @@ class TestPlots(TestCase):
         except NotImplementedError:
             pass
 
+    def test_plot_error_bars(self):
+        self._test_plot(vec(x=[1, 2, 3], y=[0, 2, 1]), err=vec(x=.1, y=[0, 0, .2]))
+
+    def test_plot_line_errors(self):
+        data = CenteredGrid(Noise(scale=100), x=100)
+        self._test_plot(data, color=1, alpha=1, err=data.values * .1)
+        self._test_plot(data, color=1, alpha=1, err=.2)
+
+    def test_plot_error_envelopes(self):
+        x = math.linspace(0, 3, spatial(x=100))
+        y = math.sin(x)
+        try:
+            self._test_plot(vec(x=x, y=y), err=vec(x=0, y=abs(y) * .5), color=1, alpha=.9)
+        except NotImplementedError:
+            pass
+        try:
+            self._test_plot(vec(x=y, y=x), err=vec(x=abs(y) * .5, y=0), color=1, alpha=.9)
+        except NotImplementedError:
+            pass
+
     def test_animate(self):
         values = math.random_uniform(batch(time=3), spatial(x=32, y=32))
         anim = plot(values, animate='time', show_color_bar=False, frame_time=100, lib='matplotlib')
