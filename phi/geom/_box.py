@@ -186,12 +186,12 @@ class Box(BaseBox, metaclass=BoxType):
           **size: Specify size by dimension, either as `int` or `tuple` containing (lower, upper).
         """
         if lower is not None:
-            assert isinstance(lower, Tensor)
+            assert isinstance(lower, Tensor), f"lower must be a Tensor but got {type(lower)}"
             assert 'vector' in lower.shape, "lower must have a vector dimension"
             assert lower.vector.item_names is not None, "vector dimension of lower must list spatial dimension order"
             self._lower = lower
         if upper is not None:
-            assert isinstance(upper, Tensor)
+            assert isinstance(upper, Tensor), f"upper must be a Tensor but got {type(upper)}"
             assert 'vector' in upper.shape, "lower must have a vector dimension"
             assert upper.vector.item_names is not None, "vector dimension of lower must list spatial dimension order"
             self._upper = upper
