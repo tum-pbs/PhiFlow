@@ -8,9 +8,10 @@ from typing import Tuple, List, Dict, Union
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, tensor_as_field, common_index, title_label
+from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field
+from ._vis_base import title_label
 from .. import math
-from ..field import SampledField, Scene, Field, PointCloud
+from ..field import SampledField, Scene, Field
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from ..math import Tensor, layout, batch, Shape
@@ -346,7 +347,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
             max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l])
     else:
         min_val = max_val = None
-    subplots = {pos: _space(fields, animate) for pos, fields in positioning.items()}
+    subplots = {pos: _space(*fields, ignore_dims=animate) for pos, fields in positioning.items()}
     if isinstance(title, str):
         title = {pos: title for pos in positioning}
     elif isinstance(title, Tensor):
@@ -442,11 +443,7 @@ def layout_sub_figures(data: Union[Tensor, SampledField],
                 reduced = merge_shapes(reduced, e_reduced, allow_varying_sizes=True)
         return rows, cols, non_reduced, reduced
     else:
-        if isinstance(data, Tensor):
-            data = tensor_as_field(data)
-        elif isinstance(data, Geometry):
-            data = PointCloud(data)
-        assert isinstance(data, Field), f"Cannot plot {type(data)}. Only tensors, geometries and fields can be plotted."
+        data = to_field(data)
         overlay = data.shape.only(overlay)
         animate = data.shape.only(animate).without(overlay)
         row_shape = data.shape.only(row_dims).without(animate).without(overlay)
@@ -461,13 +458,13 @@ def layout_sub_figures(data: Union[Tensor, SampledField],
         return row_shape.volume, col_shape.volume, non_reduced, EMPTY_SHAPE
 
 
-def _space(fields: Tuple[Field, ...], ignore_dims: Shape) -> Box:
+def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
     all_dims = []
-    for f in fields:
+    for f in values:
         for dim in f.bounds.vector.item_names:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
-    all_bounds = [embed(f.bounds.without(ignore_dims.names), all_dims) for f in fields]
+    all_bounds = [embed(f.bounds.without(ignore_dims.names), all_dims) for f in values]
     if len(all_bounds) == 1:
         return all_bounds[0]
     bounds: Box = math.stack(all_bounds, batch('_fields'))
