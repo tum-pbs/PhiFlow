@@ -396,7 +396,8 @@ class Recipe:
              max_val: float,
              show_color_bar: bool,
              color: Tensor,
-             alpha: Tensor):
+             alpha: Tensor,
+             err: Tensor):
         raise NotImplementedError
 
     def __repr__(self):

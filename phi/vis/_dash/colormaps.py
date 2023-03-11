@@ -91,11 +91,11 @@ COLORMAPS = {
 # --- Load available Matplotlib color maps ---
 try:
     from matplotlib.pyplot import colormaps
-    from matplotlib.cm import get_cmap
     from matplotlib.colors import ListedColormap
+    from matplotlib import colormaps as cms
 
     for name in colormaps():
-        colormap = get_cmap(name)
+        colormap = cms[name]
         if isinstance(colormap, ListedColormap):
             pos = np.expand_dims(np.linspace(0, 1, len(colormap.colors)), axis=-1)
             cols = np.array(colormap.colors) * 255
