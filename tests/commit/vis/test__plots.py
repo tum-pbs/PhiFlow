@@ -21,6 +21,18 @@ class TestPlots(TestCase):
             show(gui='matplotlib')
             show(gui='plotly')
 
+    def test_bar_chart(self):
+        dim = instance(planets='Sun,Earth,Mars')
+        data = math.random_uniform(dim, channel(variations='Mass, Size'))
+        try:
+            self._test_plot(data, err=data * .1, alpha=.2)
+        except NotImplementedError:
+            pass
+        try:
+            self._test_plot(PointCloud(math.range_tensor(dim, channel(vector='planets')), data))
+        except NotImplementedError:
+            pass
+
     def test_plot_1d(self):
         self._test_plot(CenteredGrid(lambda x: math.sin(x.vector[0]), input=100, bounds=Box(input=2 * math.pi)))
 

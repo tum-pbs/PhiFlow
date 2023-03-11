@@ -8,8 +8,8 @@ from typing import Tuple, Any, Optional, Dict, Callable, Union
 from phi import field, math
 from phi.field import SampledField, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
-from phi.geom import Box, Cuboid
-from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel
+from phi.geom import Box, Cuboid, Geometry
+from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand
 
 Control = namedtuple('Control', [
     'name',
@@ -485,28 +485,32 @@ def select_channel(value: Union[SampledField, Tensor, tuple, list], channel: Uni
             return value
 
 
-def tensor_as_field(t: Tensor):
-    """
-    Interpret a `Tensor` as a `CenteredGrid` or `PointCloud` depending on its dimensions.
-
-    Unlike the `CenteredGrid` constructor, this function will have the values sampled at integer points for each spatial dimension.
-
-    Args:
-        t: `Tensor` with either `spatial` or `instance` dimensions.
-
-    Returns:
-        `CenteredGrid` or `PointCloud`
-    """
-    arbitrary_lines_1d = spatial(t).rank == 1 and 'vector' in t.shape
-    if instance(t) or arbitrary_lines_1d or arbitrary_lines_1d:
-        bounds = data_bounds(t)
-        extended_bounds = Cuboid(bounds.center, bounds.half_size * 1.2).box()
-        lower = math.where(extended_bounds.lower * bounds.lower <= 0, bounds.lower * .9, extended_bounds.lower)
-        upper = math.where(extended_bounds.upper * bounds.upper <= 0, bounds.lower * .9, extended_bounds.upper)
-        return PointCloud(t, bounds=Box(lower, upper))
-    elif spatial(t):
-        return CenteredGrid(t, 0, bounds=Box(math.const_vec(-0.5, spatial(t)), wrap(spatial(t), channel('vector')) - 0.5))
-    elif 'vector' in t.shape:
-        return PointCloud(math.expand(t, instance(points=1)), bounds=Cuboid(t, half_size=math.const_vec(1, t.shape['vector'])).box())
-    else:
-        raise ValueError(f"Cannot create field from tensor with shape {t.shape}. Requires at least one spatial, instance or vector dimension.")
+def to_field(obj):
+    if isinstance(obj, SampledField):
+        return obj
+    if isinstance(obj, Geometry):
+        return PointCloud(obj)
+    if isinstance(obj, Tensor):
+        arbitrary_lines_1d = spatial(obj).rank == 1 and 'vector' in obj.shape
+        point_cloud = instance(obj) and 'vector' in obj.shape
+        if point_cloud or arbitrary_lines_1d:
+            bounds = data_bounds(obj)
+            extended_bounds = Cuboid(bounds.center, bounds.half_size * 1.2).box()
+            lower = math.where(extended_bounds.lower * bounds.lower <= 0, bounds.lower * .9, extended_bounds.lower)
+            upper = math.where(extended_bounds.upper * bounds.upper <= 0, bounds.lower * .9, extended_bounds.upper)
+            return PointCloud(obj, bounds=Box(lower, upper))
+        elif spatial(obj):
+            return CenteredGrid(obj, 0, bounds=Box(math.const_vec(-0.5, spatial(obj)), wrap(spatial(obj), channel('vector')) - 0.5))
+        elif 'vector' in obj.shape:
+            return PointCloud(math.expand(obj, instance(points=1)), bounds=Cuboid(obj, half_size=math.const_vec(1, obj.shape['vector'])).box())
+        elif instance(obj) and not spatial(obj):
+            assert instance(obj).rank == 1, "Bar charts must have only one instance dimension"
+            vector = channel(vector=instance(obj).names)
+            equal_spacing = math.range_tensor(instance(obj), vector)
+            lower = expand(-.5, vector)
+            upper = expand(equal_spacing.max + .5, vector)
+            return PointCloud(equal_spacing, values=obj, bounds=Box(lower, upper))
+            # positions = math.layout(instance(obj).item_names, instance(obj))
+            # positions = expand(positions, vector)
+            # return PointCloud(positions, values=obj)
+    raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
