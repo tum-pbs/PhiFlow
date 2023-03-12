@@ -70,8 +70,15 @@ class Shape:
             for name, size in zip(names, sizes):
                 if size is not None and isinstance(size, Tensor):
                     assert size.rank > 0
-                    # for dim in size.shape.names:
-                    #     assert dim in self.names, f"Dimension {name} varies along {dim} but {dim} is not part of the Shape {self}"
+
+    def _check_is_valid_tensor_shape(self):
+        if DEBUG_CHECKS:
+            from ._tensors import Tensor
+            for name, size in zip(self.names, self.sizes):
+                if size is not None and isinstance(size, Tensor):
+                    assert size.rank > 0
+                    for dim in size.shape.names:
+                        assert dim in self.names, f"Dimension {name} varies along {dim} but {dim} is not part of the Shape {self}"
 
     def _to_dict(self, include_sizes=True):
         result = dict(names=self.names, types=self.types, item_names=self.item_names)
