@@ -1249,12 +1249,12 @@ Returns:</p></div>
           **size: Specify size by dimension, either as `int` or `tuple` containing (lower, upper).
         &#34;&#34;&#34;
         if lower is not None:
-            assert isinstance(lower, Tensor)
+            assert isinstance(lower, Tensor), f&#34;lower must be a Tensor but got {type(lower)}&#34;
             assert &#39;vector&#39; in lower.shape, &#34;lower must have a vector dimension&#34;
             assert lower.vector.item_names is not None, &#34;vector dimension of lower must list spatial dimension order&#34;
             self._lower = lower
         if upper is not None:
-            assert isinstance(upper, Tensor)
+            assert isinstance(upper, Tensor), f&#34;upper must be a Tensor but got {type(upper)}&#34;
             assert &#39;vector&#39; in upper.shape, &#34;lower must have a vector dimension&#34;
             assert upper.vector.item_names is not None, &#34;vector dimension of lower must list spatial dimension order&#34;
             self._upper = upper

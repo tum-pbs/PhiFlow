@@ -6321,7 +6321,7 @@ The <code>size</code> of <code>dim</code> is interpreted as <code>stop</code> un
 </details>
 </dd>
 <dt id="phi.math.range_tensor"><code class="name flex">
-<span>def <span class="ident">range_tensor</span></span>(<span>shape: phi.math._shape.Shape)</span>
+<span>def <span class="ident">range_tensor</span></span>(<span>*shape: phi.math._shape.Shape)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with given <code><a title="phi.math.shape" href="#phi.math.shape">shape()</a></code> containing the linear indices of each element.
@@ -6339,7 +6339,7 @@ For 1D tensors, this equivalent to <code>arange()</code> with <code>step=1</code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def range_tensor(shape: Shape):
+<pre><code class="python">def range_tensor(*shape: Shape):
     &#34;&#34;&#34;
     Returns a `Tensor` with given `shape` containing the linear indices of each element.
     For 1D tensors, this equivalent to `arange()` with `step=1`.
@@ -6353,6 +6353,7 @@ For 1D tensors, this equivalent to <code>arange()</code> with <code>step=1</code
     Returns:
         `Tensor`
     &#34;&#34;&#34;
+    shape = concat_shapes(*shape)
     data = arange(spatial(&#39;range&#39;), 0, shape.volume)
     return unpack_dim(data, &#39;range&#39;, shape)</code></pre>
 </details>
