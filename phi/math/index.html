@@ -2050,6 +2050,7 @@ This may result in a noticeable drop in performance.</p></div>
 <dd>
 <div class="desc"><p>Adds dimensions to a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or tensor-like object by implicitly repeating the tensor values along the new dimensions.
 If <code>value</code> already contains any of the new dimensions, a size and type check is performed for these instead.</p>
+<p>If any of <code>dims</code> varies along a dimension that is present neither in <code>value</code> nor on <code>dims</code>, it will also be added to <code>value</code>.</p>
 <p>This function replaces the usual <code>tile</code> / <code>repeat</code> functions of
 <a href="https://numpy.org/doc/stable/reference/generated/numpy.tile.html">NumPy</a>,
 <a href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor.repeat">PyTorch</a>,
@@ -2079,6 +2080,8 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     Adds dimensions to a `Tensor` or tensor-like object by implicitly repeating the tensor values along the new dimensions.
     If `value` already contains any of the new dimensions, a size and type check is performed for these instead.
 
+    If any of `dims` varies along a dimension that is present neither in `value` nor on `dims`, it will also be added to `value`.
+
     This function replaces the usual `tile` / `repeat` functions of
     [NumPy](https://numpy.org/doc/stable/reference/generated/numpy.tile.html),
     [PyTorch](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.repeat),
@@ -2099,10 +2102,11 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         Same type as `value`.
     &#34;&#34;&#34;
     dims = concat_shapes(*dims)
-    merge_shapes(value, dims.only(shape(value)))  # check that existing sizes match
+    combined = merge_shapes(value, dims)  # check that existing sizes match
     if not dims.without(shape(value)):  # no new dims to add
         if set(dims) == set(shape(value).only(dims)):  # sizes and item names might differ, though
             return value
+    dims &amp;= combined.shape.without(&#39;dims&#39;)  # add missing non-uniform dims
     # --- First try __stack__
     if hasattr(value, &#39;__expand__&#39;):
         result = value.__expand__(dims, **kwargs)
@@ -8782,7 +8786,7 @@ If specified, no additional positional arguments must be given.</dd>
     assert isinstance(dim, Shape), f&#34;name must be a str or Shape but got &#39;{type(name)}&#39;&#34;
     if sequence:
         assert not components, &#34;vec() must be given either positional or keyword arguments but not both&#34;
-        if len(sequence) == 1 and isinstance(sequence, (tuple, list)):
+        if len(sequence) == 1 and isinstance(sequence[0], (tuple, list)):
             sequence = sequence[0]
         dim = dim.with_size([str(v) for v in sequence])
         return wrap(sequence, dim)
@@ -9820,8 +9824,15 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             for name, size in zip(names, sizes):
                 if size is not None and isinstance(size, Tensor):
                     assert size.rank &gt; 0
-                    # for dim in size.shape.names:
-                    #     assert dim in self.names, f&#34;Dimension {name} varies along {dim} but {dim} is not part of the Shape {self}&#34;
+
+    def _check_is_valid_tensor_shape(self):
+        if DEBUG_CHECKS:
+            from ._tensors import Tensor
+            for name, size in zip(self.names, self.sizes):
+                if size is not None and isinstance(size, Tensor):
+                    assert size.rank &gt; 0
+                    for dim in size.shape.names:
+                        assert dim in self.names, f&#34;Dimension {name} varies along {dim} but {dim} is not part of the Shape {self}&#34;
 
     def _to_dict(self, include_sizes=True):
         result = dict(names=self.names, types=self.types, item_names=self.item_names)
@@ -10820,6 +10831,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
                 if start &lt; 0 and step &gt; 0:
                     start += self.get_size(sel_dim)
                     assert start &gt;= 0
+                stop = min(stop, self.get_size(sel_dim))
                 new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
                 if new_size.rank == 0:
                     new_size = int(new_size)  # NumPy array not allowed because not hashable
@@ -11609,6 +11621,7 @@ def well_defined(self):
             if start &lt; 0 and step &gt; 0:
                 start += self.get_size(sel_dim)
                 assert start &gt;= 0
+            stop = min(stop, self.get_size(sel_dim))
             new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
             if new_size.rank == 0:
                 new_size = int(new_size)  # NumPy array not allowed because not hashable
