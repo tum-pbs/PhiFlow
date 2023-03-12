@@ -50,7 +50,7 @@ def vec(name: str or Shape = 'vector', *sequence, tuple_dim=spatial('sequence'),
     assert isinstance(dim, Shape), f"name must be a str or Shape but got '{type(name)}'"
     if sequence:
         assert not components, "vec() must be given either positional or keyword arguments but not both"
-        if len(sequence) == 1 and isinstance(sequence, (tuple, list)):
+        if len(sequence) == 1 and isinstance(sequence[0], (tuple, list)):
             sequence = sequence[0]
         dim = dim.with_size([str(v) for v in sequence])
         return wrap(sequence, dim)
