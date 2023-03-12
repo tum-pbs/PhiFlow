@@ -268,14 +268,23 @@ class SolveTape:
     >>> result: SolveInfo = solves[0]  # get by index
     """
 
-    def __init__(self, record_trajectories=False):
+    def __init__(self, *solves: Solve, record_trajectories=False):
         """
         Args:
+            *solves: (Optional) Select specific `solves` to be recorded.
+                If none is given, records all solves that occur within the scope of this `SolveTape`.
             record_trajectories: When enabled, the entries of `SolveInfo` will contain an additional batch dimension named `trajectory`.
         """
+        self.record_only_ids = [s.id for s in solves]
         self.record_trajectories = record_trajectories
         self.solves: List[SolveInfo] = []
-        self.solve_ids: List[str] = []
+
+    def should_record_trajectory_for(self, solve: Solve):
+        if not self.record_trajectories:
+            return False
+        if not self.record_only_ids:
+            return True
+        return solve.id in self.record_only_ids
 
     def __enter__(self):
         _SOLVE_TAPES.append(self)
@@ -287,6 +296,8 @@ class SolveTape:
     def _add(self, solve: Solve, trj: bool, result: SolveInfo):
         if any(s.solve.id == solve.id for s in self.solves):
             warnings.warn("SolveTape contains two results for the same solve settings. SolveTape[solve] will return the first solve result.", RuntimeWarning)
+        if self.record_only_ids and solve.id not in self.record_only_ids:
+            return  # this solve should not be recorded
         if self.record_trajectories:
             assert trj, "Solve did not record a trajectory."
             self.solves.append(result)
@@ -294,7 +305,6 @@ class SolveTape:
             self.solves.append(result.snapshot(-1))
         else:
             self.solves.append(result)
-        self.solve_ids.append(solve.id)
 
     def __getitem__(self, item) -> SolveInfo:
         if isinstance(item, int):
@@ -388,7 +398,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
 
     atol = backend.to_float(reshaped_native(solve.abs_tol, [batch_dims], force_expand=True))
     maxi = reshaped_numpy(solve.max_iterations, [batch_dims], force_expand=True)
-    trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    trj = _SOLVE_TAPES and any(t.should_record_trajectory_for(solve) for t in _SOLVE_TAPES)
     t = time.perf_counter()
     ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
     t = time.perf_counter() - t
@@ -585,9 +595,8 @@ def _linear_solve_forward(y,
     rtol = backend.as_tensor(reshaped_native(math.to_float(solve.rel_tol), [batch_dims], force_expand=True))
     atol = backend.as_tensor(reshaped_native(solve.abs_tol, [batch_dims], force_expand=True))
     tol_sq = backend.maximum(rtol ** 2 * backend.sum(y_native ** 2, -1), atol ** 2)
-    trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    trj = _SOLVE_TAPES and any(t.should_record_trajectory_for(solve) for t in _SOLVE_TAPES)
     if trj:
-        assert all_available(y_tensor, x0_tensor), "Cannot record linear solve in jit mode"
         max_iter = np.expand_dims(np.arange(int(solve.max_iterations)+1), -1)
     else:
         max_iter = reshaped_numpy(solve.max_iterations, [shape(solve.max_iterations).without(batch_dims), batch_dims], force_expand=True)
