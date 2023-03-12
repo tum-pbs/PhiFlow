@@ -1308,11 +1308,12 @@ class CollapsedTensor(Tensor):  # package-private
     def unstack(self, dimension):
         if self.is_cached:
             return self._cached.unstack(dimension)
-        unstacked_shape = self.shape.without(dimension)
         if dimension in self._inner.shape:
             unstacked = self._inner.unstack(dimension)
-            return tuple(CollapsedTensor(t, unstacked_shape) for t in unstacked)
+            unstacked_shapes = [self.shape.after_gather({dimension: i}).without(dimension) for i in range(len(unstacked))]
+            return tuple([CollapsedTensor(t, s) for t, s in zip(unstacked, unstacked_shapes)])
         else:
+            unstacked_shape = self.shape.without(dimension)
             return (expand(self._inner, unstacked_shape),) * self.shape.get_size(dimension)
 
     def _with_shape_replaced(self, new_shape: Shape):
