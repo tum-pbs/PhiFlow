@@ -661,3 +661,7 @@ class TestTensors(TestCase):
         math.assert_close([1, 2, 4, 8], np1 << ints)
         math.assert_close(1, (np1 << ints) >> ints)
         math.assert_close([1, 0, 0, 0], np1 >> ints)
+
+    def test_slice_outside(self):
+        t = math.random_normal(spatial(x=3)).x[:5]
+        self.assertEqual(t.x.size, 3)

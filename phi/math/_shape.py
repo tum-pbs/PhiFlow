@@ -1070,6 +1070,7 @@ class Shape:
                 if start < 0 and step > 0:
                     start += self.get_size(sel_dim)
                     assert start >= 0
+                stop = min(stop, self.get_size(sel_dim))
                 new_size = math.to_int64(math.ceil(math.wrap((stop - start) / step)))
                 if new_size.rank == 0:
                     new_size = int(new_size)  # NumPy array not allowed because not hashable
