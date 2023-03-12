@@ -205,14 +205,17 @@ class BarChart(Recipe):
         channels = channel(data.values).volume
         for i, ch in enumerate(channel(data.values).meshgrid(names=True)):
             height = reshaped_numpy(data.values[ch], [instance(data)], force_expand=True)
-            errs = reshaped_numpy(err[ch], [instance(data)])
+            errs = reshaped_numpy(err[ch], [instance(data)], force_expand=True)
             cols = matplotlib_colors(color[ch], instance(data))
             alpha_f = float(alpha[ch].max)
             w = self.col_width / channels
             pos = x + w * i + w/2 - w * channels / 2
             bar_plt = subplot.bar(pos, height=height, width=w, yerr=errs, color=cols, alpha=alpha_f, label=index_label(ch))
             if channels < 3:
-                subplot.bar_label(bar_plt, label_type='edge', fmt='%.2f')
+                try:
+                    subplot.bar_label(bar_plt, label_type='edge', fmt='%.2f')
+                except AttributeError:
+                    warnings.warn(f"Matplotlib is outdated, version={matplotlib.__version__}. Update it to show bar labels", RuntimeWarning)
         subplot.set_xticks(x, instance(data).item_names[0])
         if channels > 1:
             subplot.legend()
