@@ -662,6 +662,13 @@ class TestTensors(TestCase):
         math.assert_close(1, (np1 << ints) >> ints)
         math.assert_close([1, 0, 0, 0], np1 >> ints)
 
+    def test_broadcast_format(self):
+        t = math.range(spatial(x=5))
+        scenes = -math.f-f"runs/collision_{t+1}/sim_{t:.1f}"
+        for i, scene in enumerate(scenes.x):
+            self.assertEqual(f"runs/collision_{i+1}/sim_{i:.1f}", scene)
+        self.assertEqual('a', -math.f-'a')  # nothing to format
+
     def test_slice_outside(self):
         t = math.random_normal(spatial(x=3)).x[:5]
         self.assertEqual(t.x.size, 3)
