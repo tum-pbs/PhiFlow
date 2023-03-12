@@ -1110,6 +1110,7 @@ class Layout(Tensor):
 class NativeTensor(Tensor):
 
     def __init__(self, native_tensor, shape: Shape):
+        shape._check_is_valid_tensor_shape()
         assert isinstance(shape, Shape), f"Expected Shape but got '{type(shape)}'"
         backend = choose_backend(native_tensor)
         # if backend.is_available(native_tensor):
@@ -1236,6 +1237,7 @@ class CollapsedTensor(Tensor):  # package-private
     """
 
     def __init__(self, inner: Tensor, shape: Shape):
+        shape._check_is_valid_tensor_shape()
         assert inner.shape != shape
         for name in inner.shape.names:
             assert name in shape
@@ -1313,8 +1315,8 @@ class CollapsedTensor(Tensor):  # package-private
             unstacked_shapes = [self.shape.after_gather({dimension: i}).without(dimension) for i in range(len(unstacked))]
             return tuple([CollapsedTensor(t, s) for t, s in zip(unstacked, unstacked_shapes)])
         else:
-            unstacked_shape = self.shape.without(dimension)
-            return (expand(self._inner, unstacked_shape),) * self.shape.get_size(dimension)
+            unstacked_shapes = [self.shape.after_gather({dimension: i}) for i in range(self.shape.get_size(dimension))]  # can vary if non-uniform
+            return tuple([expand(self._inner, s) for s in unstacked_shapes])
 
     def _with_shape_replaced(self, new_shape: Shape):
         if self.is_cached:

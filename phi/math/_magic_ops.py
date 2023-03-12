@@ -253,6 +253,8 @@ def expand(value, *dims: Shape, **kwargs):
     Adds dimensions to a `Tensor` or tensor-like object by implicitly repeating the tensor values along the new dimensions.
     If `value` already contains any of the new dimensions, a size and type check is performed for these instead.
 
+    If any of `dims` varies along a dimension that is present neither in `value` nor on `dims`, it will also be added to `value`.
+
     This function replaces the usual `tile` / `repeat` functions of
     [NumPy](https://numpy.org/doc/stable/reference/generated/numpy.tile.html),
     [PyTorch](https://pytorch.org/docs/stable/tensors.html#torch.Tensor.repeat),
@@ -273,10 +275,11 @@ def expand(value, *dims: Shape, **kwargs):
         Same type as `value`.
     """
     dims = concat_shapes(*dims)
-    merge_shapes(value, dims.only(shape(value)))  # check that existing sizes match
+    combined = merge_shapes(value, dims)  # check that existing sizes match
     if not dims.without(shape(value)):  # no new dims to add
         if set(dims) == set(shape(value).only(dims)):  # sizes and item names might differ, though
             return value
+    dims &= combined.shape.without('dims')  # add missing non-uniform dims
     # --- First try __stack__
     if hasattr(value, '__expand__'):
         result = value.__expand__(dims, **kwargs)
