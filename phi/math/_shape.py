@@ -174,9 +174,9 @@ class Shape:
             Indices as `tuple[int]`.
         """
         if isinstance(dims, (list, tuple, set)):
-            return tuple([self.index(n) for n in dims])
+            return tuple([self.index(n) for n in dims if n in self.names])
         elif isinstance(dims, Shape):
-            return tuple([self.index(n) for n in dims.names])
+            return tuple([self.index(n) for n in dims.names if n in self.names])
         else:
             raise ValueError(f"indices() requires a sequence of dimensions but got {dims}")
 
@@ -1022,8 +1022,9 @@ class Shape:
         sizes = list(self.sizes)
         item_names = list(self.item_names)
         for dim, (lo, up) in widths.items():
-            sizes[self.index(dim)] += lo + up
-            item_names[self.index(dim)] = None
+            if dim in self.names:
+                sizes[self.index(dim)] += lo + up
+                item_names[self.index(dim)] = None
         return Shape(tuple(sizes), self.names, self.types, tuple(item_names))
 
     def prepare_gather(self, dim: str, selection):

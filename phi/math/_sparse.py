@@ -7,7 +7,7 @@ import scipy.sparse
 
 from ._shape import Shape, non_batch, merge_shapes, instance, batch, non_instance, shape, channel, spatial, DimFilter, concat_shapes, EMPTY_SHAPE, dual, DUAL_DIM, SPATIAL_DIM
 from ._magic_ops import concat, pack_dims, expand, rename_dims
-from ._tensors import Tensor, TensorStack, CollapsedTensor, NativeTensor, cached, wrap
+from ._tensors import Tensor, TensorStack, NativeTensor, cached, wrap
 from .backend import choose_backend, NUMPY
 from .backend._dtype import DType
 
@@ -494,9 +494,7 @@ def stored_values(x: Tensor) -> List[Tensor]:
         List of `Tensor`s representing all values stored to represent `x`.
     """
     if isinstance(x, NativeTensor):
-        return [x]
-    elif isinstance(x, CollapsedTensor):
-        return [cached(x)] if x.is_cached else stored_values(x._inner)
+        return [NativeTensor(x._native, x._native_shape, x._native_shape)]
     elif isinstance(x, TensorStack):
         return [cached(x)] if x.is_cached else sum([stored_values(t) for t in x._tensors], [])
     elif isinstance(x, CompressedSparseMatrix):

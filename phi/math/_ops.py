@@ -12,11 +12,10 @@ from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch)
 from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense
-from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
-    custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
-    is_scalar, Layout
-from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
-    NoBackendFound, ComputeDevice, NUMPY
+from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
+                       custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
+                       is_scalar, Layout, expand_tensor)
+from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, NoBackendFound, ComputeDevice, NUMPY
 from .backend._dtype import DType, combine_types
 from .magic import PhiTreeNode
 
@@ -768,10 +767,11 @@ def stack_tensors(values: Union[tuple, list], dim: Shape):
     values = cast_same(*values)
 
     def inner_stack(*values):
-        if len(values) > 1:
+        if len(values) > 1 or not isinstance(values[0], NativeTensor):
             return TensorStack(values, dim)
         else:
-            return CollapsedTensor(values[0], values[0].shape & dim.with_size(1))
+            value: NativeTensor = values[0]
+            return NativeTensor(value._native, value._native_shape, value.shape & dim.with_size(1))
 
     result = broadcast_op(inner_stack, values)
     return result
@@ -989,7 +989,7 @@ def broadcast_op(operation: Callable,
             gathered = [t[i] if isinstance(t, tuple) else t for t in unstacked]
             result_unstacked.append(broadcast_op(operation, gathered, iter_dims=set(iter_dims) - {dim}))
         if not no_return:
-            return TensorStack(result_unstacked, Shape((None,), (dim,), (dim_type,), (item_names,)))
+            return TensorStack(result_unstacked, Shape((size,), (dim,), (dim_type,), (item_names,)))
 
 
 def where(condition: Union[Tensor, float, int], value_true: Union[Tensor, float, int], value_false: Union[Tensor, float, int]):
@@ -1110,11 +1110,8 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
     if not dims:
         return value
     if isinstance(value, NativeTensor):
-        result = value.default_backend.sum(value.native(value.shape), value.shape.indices(dims))
-        return NativeTensor(result, value.shape.without(dims))
-    elif isinstance(value, CollapsedTensor):
-        result = _sum(value._inner, dims.only(value._inner.shape)) * value.collapsed_dims.only(dims).volume
-        return expand_tensor(result, value.shape.without(dims))
+        result = value.default_backend.sum(value._native, value._native_shape.indices(dims)) * value.collapsed_dims.only(dims).volume
+        return NativeTensor(result, value._native_shape.without(dims), value.shape.without(dims))
     elif isinstance(value, TensorStack):
         reduced_inners = [_sum(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x + y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
@@ -1160,11 +1157,8 @@ def prod(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tenso
 
 def _prod(value: Tensor, dims: Shape) -> Tensor:
     if isinstance(value, NativeTensor):
-        result = value.default_backend.prod(value.native(value.shape), value.shape.indices(dims))
-        return NativeTensor(result, value.shape.without(dims))
-    elif isinstance(value, CollapsedTensor):
-        result = _prod(value._inner, dims.only(value._inner.shape)) ** value.collapsed_dims.only(dims).volume
-        return expand_tensor(result, value.shape.without(dims))
+        result = value.default_backend.prod(value._native, value._native_shape.indices(dims)) ** value.collapsed_dims.only(dims).volume
+        return NativeTensor(result, value._native_shape.without(dims), value.shape.without(dims))
     elif isinstance(value, TensorStack):
         reduced_inners = [_prod(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x * y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
@@ -1197,11 +1191,8 @@ def _mean(value: Tensor, dims: Shape) -> Tensor:
     if not dims:
         return value
     if isinstance(value, NativeTensor):
-        result = value.default_backend.mean(value.native(value.shape), value.shape.indices(dims))
-        return NativeTensor(result, value.shape.without(dims))
-    elif isinstance(value, CollapsedTensor):
-        result = _mean(value._inner, dims.only(value._inner.shape))
-        return expand_tensor(result, value.shape.without(dims))
+        result = value.default_backend.mean(value._native, value._native_shape.indices(dims))
+        return NativeTensor(result, value._native_shape.without(dims), value.shape.without(dims))
     elif isinstance(value, TensorStack):
         reduced_inners = [_mean(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x + y, reduced_inners) / len(reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
@@ -1260,11 +1251,8 @@ def any_(boolean_tensor: Union[Tensor, list, tuple], dim: DimFilter = non_batch)
 
 def _any(value: Tensor, dims: Shape) -> Tensor:
     if isinstance(value, NativeTensor):
-        result = value.default_backend.any(value.native(value.shape), value.shape.indices(dims))
-        return NativeTensor(result, value.shape.without(dims))
-    elif isinstance(value, CollapsedTensor):
-        result = _any(value._inner, dims.only(value._inner.shape))
-        return expand_tensor(result, value.shape.without(dims))
+        result = value.default_backend.any(value._native, value._native_shape.indices(dims))
+        return NativeTensor(result, value._native_shape.without(dims), value.shape.without(dims))
     elif isinstance(value, TensorStack):
         reduced_inners = [_any(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x | y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
@@ -1297,9 +1285,6 @@ def _all(value: Tensor, dims: Shape) -> Tensor:
     if isinstance(value, NativeTensor):
         result = value.default_backend.all(value.native(value.shape), value.shape.indices(dims))
         return NativeTensor(result, value.shape.without(dims))
-    elif isinstance(value, CollapsedTensor):
-        result = _all(value._inner, dims.only(value._inner.shape))
-        return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
         reduced_inners = [_all(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x & y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
@@ -1332,9 +1317,6 @@ def _max(value: Tensor, dims: Shape) -> Tensor:
     if isinstance(value, NativeTensor):
         result = value.default_backend.max(value.native(value.shape), value.shape.indices(dims))
         return NativeTensor(result, value.shape.without(dims))
-    elif isinstance(value, CollapsedTensor):
-        result = _max(value._inner, dims.only(value._inner.shape))
-        return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
         reduced_inners = [_max(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: maximum(x, y), reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
@@ -1367,9 +1349,6 @@ def _min(value: Tensor, dims: Shape) -> Tensor:
     if isinstance(value, NativeTensor):
         result = value.default_backend.min(value.native(value.shape), value.shape.indices(dims))
         return NativeTensor(result, value.shape.without(dims))
-    elif isinstance(value, CollapsedTensor):
-        result = _min(value._inner, dims.only(value._inner.shape))
-        return expand_tensor(result, value.shape.without(dims))
     elif isinstance(value, TensorStack):
         reduced_inners = [_min(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: minimum(x, y), reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
@@ -2249,26 +2228,6 @@ def dtype(x) -> DType:
         return x.dtype
     else:
         return choose_backend(x).dtype(x)
-
-
-def expand_tensor(value: Union[float, Tensor], dims: Shape):
-    if not dims:
-        return value
-    value = wrap(value)
-    shape = value.shape
-    for dim in reversed(dims):
-        if dim in value.shape:
-            shape &= dim  # checks sizes, copies item names
-        else:
-            if dim.size is None:
-                dim = dim.with_sizes([1])
-            shape = concat_shapes(dim, shape)
-    if shape == value.shape:  # no changes made
-        return value
-    elif shape.rank == value.rank:  # changes made but same dims
-        return value._with_shape_replaced(shape._reorder(value.shape))
-    else:
-        return CollapsedTensor(value, shape)
 
 
 def close(*tensors, rel_tolerance=1e-5, abs_tolerance=0) -> bool:
