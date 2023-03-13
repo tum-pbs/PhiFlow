@@ -3107,6 +3107,8 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <dd>
 <div class="desc"><p>Un-stacks a <code>Sliceable</code> along one or multiple dimensions.</p>
 <p>If multiple dimensions are given, the order of elements will be according to the dimension order in <code>dim</code>, i.e. elements along the last dimension will be neighbors in the returned <code>tuple</code>.</p>
+<p>See Also:
+<code><a title="phi.math.slice" href="../math/index.html#phi.math.slice">slice_()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
@@ -3130,6 +3132,9 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 
     If multiple dimensions are given, the order of elements will be according to the dimension order in `dim`, i.e. elements along the last dimension will be neighbors in the returned `tuple`.
 
+    See Also:
+        `phi.math.slice`.
+
     Args:
         value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dim: Dimensions as `Shape` or comma-separated `str` or dimension type, i.e. `channel`, `spatial`, `instance`, `batch`.
@@ -3151,7 +3156,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
                 assert isinstance(result, tuple), f&#34;__unstack__ must return a tuple but got {type(result)}&#34;
                 assert all([isinstance(item, Sliceable) for item in result]), f&#34;__unstack__ must return a tuple of Sliceable objects but not all items were sliceable in {result}&#34;
                 return result
-        return tuple([value[{dims.name: i}] for i in range(dims.size)])
+        return tuple([slice_(value, {dims.name: i}) for i in range(dims.size)])
     else:  # multiple dimensions
         if hasattr(value, &#39;__pack_dims__&#39;):
             packed_dim = batch(&#39;_unstack&#39;)
