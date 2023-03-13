@@ -7,7 +7,7 @@ import numpy as np
 from .backend import choose_backend, NUMPY, Backend
 from ._shape import Shape, parse_dim_order, merge_shapes, spatial, instance, batch, concat_shapes, EMPTY_SHAPE, dual, channel, non_batch
 from ._magic_ops import stack, expand
-from ._tensors import Tensor, wrap, disassemble_tree, disassemble_tensors, assemble_tree, CollapsedTensor, TensorStack
+from ._tensors import Tensor, wrap, disassemble_tree, disassemble_tensors, assemble_tree, TensorStack
 from ._sparse import SparseCoordinateTensor
 from . import _ops as math
 
@@ -293,10 +293,10 @@ def matrix_from_function(f: Callable,
     
 
 def tracer_to_coo(tracer: Tensor, sparsify_batch: bool, separate_independent: bool):
-    if isinstance(tracer, CollapsedTensor):
-        tracer = tracer._cached if tracer.is_cached else tracer._inner  # ignore collapsed dimensions. Alternatively, we could expand the result
-        return tracer_to_coo(tracer, sparsify_batch, separate_independent)
-    elif isinstance(tracer, TensorStack):  # This indicates separable solves
+    # if isinstance(tracer, CollapsedTensor):
+    #     tracer = tracer._cached if tracer.is_cached else tracer._inner  # ignore collapsed dimensions. Alternatively, we could expand the result
+    #     return tracer_to_coo(tracer, sparsify_batch, separate_independent)
+    if isinstance(tracer, TensorStack):  # This indicates separable solves
         matrices, biases = zip(*[tracer_to_coo(t, sparsify_batch, separate_independent) for t in tracer._tensors])
         bias = stack(biases, tracer._stack_dim)
         if not separate_independent:
