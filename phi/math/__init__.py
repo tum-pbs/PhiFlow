@@ -23,10 +23,15 @@ from ._shape import (
     merge_shapes, concat_shapes, IncompatibleShapes,
     enable_debug_checks,
 )
-from ._magic_ops import unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, copy_with, replace
+
+from ._magic_ops import slice_ as slice, unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, copy_with, replace
+
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar
+
 from ._sparse import dense, get_sparsity, factor_ilu
+
 from .extrapolation import Extrapolation
+
 from ._ops import (
     choose_backend_t as choose_backend, all_available, convert, seed,
     native, numpy, reshaped_native, reshaped_tensor, reshaped_numpy, copy, native_call,
@@ -56,7 +61,9 @@ from ._ops import (
     stop_gradient,
     pairwise_distances,
 )
+
 from ._trace import matrix_from_function
+
 from ._functional import (
     LinearFunction, jit_compile_linear, jit_compile,
     jacobian, jacobian as gradient, functional_gradient, custom_gradient, print_gradient,
@@ -65,7 +72,9 @@ from ._functional import (
     identity,
     trace_check,
 )
+
 from ._optimize import solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape
+
 from ._nd import (
     shift,
     vec, const_vec, vec_abs, vec_abs as vec_length, vec_squared, vec_normalize, cross_product, rotate_vector, dim_mask,

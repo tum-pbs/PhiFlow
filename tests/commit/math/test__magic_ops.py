@@ -3,8 +3,10 @@ from unittest import TestCase
 
 import dataclasses
 
+from phi import math
+
 from phi.math import batch, unstack, Shape, merge_shapes, stack, concat, expand, spatial, shape, instance, rename_dims, \
-    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros, meshgrid, assert_close, wrap
+    pack_dims, random_normal, flatten, unpack_dim, EMPTY_SHAPE, Tensor, Dict, channel, linspace, zeros, meshgrid, assert_close, wrap, vec
 from phi.math._magic_ops import bool_to_int
 from phi.math.magic import BoundDim, Shaped, Sliceable, Shapable, PhiTreeNode, slicing_dict
 
@@ -233,3 +235,11 @@ class TestMagicOps(TestCase):
     def test_bool_to_int(self):
         a = [wrap(True), wrap(1.), {'a': wrap(False)}]
         self.assertEqual([1, 1., {'a': 0}], bool_to_int(a))
+
+    def test_slice_tree(self):
+        t1, t2 = vec(x=0, y=1), vec(x=2, y=3)
+        self.assertEqual([1, 3], math.slice([t1, t2], {'vector': 'y'}))
+
+    def test_unstack_tree(self):
+        t1, t2 = vec(x=0, y=1), vec(x=2, y=3)
+        self.assertEqual(([0, 2], [1, 3]), unstack([t1, t2], 'vector'))
