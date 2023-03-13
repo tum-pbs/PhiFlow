@@ -353,8 +353,7 @@ def expand(value, *dims: Shape, **kwargs):
             assert value is not NotImplemented, "Value must implement either __expand__ or __stack__"
         return value
     try:  # value may be a native scalar
-        from ._ops import expand_tensor
-        from ._tensors import wrap
+        from ._tensors import expand_tensor, wrap
         value = wrap(value)
     except ValueError:
         raise AssertionError(f"Cannot expand non-shapable object {type(value)}")
