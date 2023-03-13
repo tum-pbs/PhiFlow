@@ -1,7 +1,7 @@
 import copy
 import warnings
 from numbers import Number
-from typing import TypeVar, Tuple, Set
+from typing import TypeVar, Tuple, Set, Dict, Union
 
 import dataclasses
 
@@ -15,11 +15,57 @@ from .magic import Sliceable, Shaped, Shapable, PhiTreeNode
 class MagicNotImplemented(Exception): pass
 
 
+def slice_(value, slices: Dict[str, Union[int, slice, str, tuple, list]]):
+    """
+    Slices a `Tensor` or `phi.math.magic.PhiTreeNode` along named dimensions.
+
+    See Also:
+        `unstack`.
+
+    Args:
+        value: `Tensor` or `phi.math.magic.PhiTreeNode`
+        slices: `dict` mapping dimension names to slices. A slice can be one of the following:
+
+            * An index (`int`)
+            * A range (`slice`)
+            * An item name (`str`)
+            * Multiple item names (comma-separated `str`)
+            * Multiple indices or item names (`tuple` or `list`)
+
+    Returns:
+        `Tensor` or `phi.math.magic.PhiTreeNode` of the same type as `value`.
+
+    Examples:
+        >>> math.slice([vec(x=0, y=1), vec(x=2, y=3)], {'vector': 'y'})
+        [1, 3]
+    """
+    if isinstance(value, (bool, Number)):
+        return value
+    if isinstance(value, tuple):
+        return tuple([slice_(v, slices) for v in value])
+    if isinstance(value, list):
+        return [slice_(v, slices) for v in value]
+    if isinstance(value, dict):
+        return {k: slice_(v, slices) for k, v in value.items()}
+    if isinstance(value, Shape):
+        raise NotImplementedError
+    if hasattr(value, '__getitem__'):
+        return value[slices]
+    if isinstance(value, PhiTreeNode):
+        attrs = {key: getattr(value, key) for key in value_attributes(value)}
+        new_attrs = {k: slice_(v, slices) for k, v in attrs.items()}
+        return copy_with(value, **new_attrs)
+    raise ValueError(f"value must be a PhiTreeNode but got {type(value)}")
+
+
 def unstack(value, dim: DimFilter):
     """
     Un-stacks a `Sliceable` along one or multiple dimensions.
 
     If multiple dimensions are given, the order of elements will be according to the dimension order in `dim`, i.e. elements along the last dimension will be neighbors in the returned `tuple`.
+
+    See Also:
+        `phi.math.slice`.
 
     Args:
         value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
@@ -42,7 +88,7 @@ def unstack(value, dim: DimFilter):
                 assert isinstance(result, tuple), f"__unstack__ must return a tuple but got {type(result)}"
                 assert all([isinstance(item, Sliceable) for item in result]), f"__unstack__ must return a tuple of Sliceable objects but not all items were sliceable in {result}"
                 return result
-        return tuple([value[{dims.name: i}] for i in range(dims.size)])
+        return tuple([slice_(value, {dims.name: i}) for i in range(dims.size)])
     else:  # multiple dimensions
         if hasattr(value, '__pack_dims__'):
             packed_dim = batch('_unstack')
