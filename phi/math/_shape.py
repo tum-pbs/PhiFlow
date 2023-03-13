@@ -14,7 +14,7 @@ DUAL_DIM = 'dual'
 
 TYPE_ABBR = {SPATIAL_DIM: "ˢ", CHANNEL_DIM: "ᶜ", INSTANCE_DIM: "ⁱ", BATCH_DIM: "ᵇ", DUAL_DIM: "ᵈ", None: "⁻"}  # ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ
 
-DEBUG_CHECKS = False
+DEBUG_CHECKS = []
 
 
 def enable_debug_checks():
@@ -22,8 +22,7 @@ def enable_debug_checks():
     Once called, additional type checks are enabled.
     This may result in a noticeable drop in performance.
     """
-    global DEBUG_CHECKS
-    DEBUG_CHECKS = True
+    DEBUG_CHECKS.append(True)
 
 
 class Shape:
@@ -985,7 +984,7 @@ class Shape:
         item_names[self.index(dim)] = item_name
         return Shape(self.sizes, self.names, self.types, tuple(item_names))
 
-    def _perm(self, names: Tuple[str]):
+    def _perm(self, names: Tuple[str]) -> List[int]:
         assert len(set(names)) == len(names), f"No duplicates allowed but got {names}"
         assert len(names) >= len(self.names), f"Cannot find permutation for {self} given {names} because names {set(self.names) - set(names)} are missing"
         assert len(names) <= len(self.names), f"Cannot find permutation for {self} given {names} because too many names were passed: {names}"
