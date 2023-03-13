@@ -5,9 +5,9 @@ import numpy as np
 
 import phi
 from phi import math
-from phi.math import channel, batch, DType, vec, stack
+from phi.math import channel, batch, DType, vec, stack, expand
 from phi.math._shape import CHANNEL_DIM, BATCH_DIM, shape_stack, spatial, instance
-from phi.math._tensors import TensorStack, CollapsedTensor, wrap, tensor, cached, disassemble_tensors, assemble_tensors, \
+from phi.math._tensors import TensorStack, wrap, tensor, cached, disassemble_tensors, assemble_tensors, \
     Layout, equality_by_ref
 from phi.math.backend import Backend
 from phi.math.magic import PhiTreeNode
@@ -161,16 +161,15 @@ class TestTensors(TestCase):
         a = math.zeros(channel(vector=4))
         b = math.ones(batch(batch=3))
         c = a + b
-        self.assertIsInstance(c, CollapsedTensor)
         self.assertEqual(c.shape.volume, 12)
-        self.assertEqual(c._inner.shape.volume, 1)
+        self.assertEqual(c._native_shape.volume, 1)
         # Collapsed + Native
         n = math.ones(channel(vector=3)) + (0, 1, 2)
         math.assert_close(n, (1, 2, 3))
 
     def test_semi_collapsed(self):
         scalar = math.ones(spatial(x=4, y=3))
-        scalar = CollapsedTensor(scalar, scalar.shape._expand(batch(batch=10)))
+        scalar = expand(scalar, batch(batch=10))
         self.assertEqual((10, 4, 3), scalar.shape.sizes)
         self.assertEqual(4, len(scalar.x.unstack()))
         self.assertEqual(10, len(scalar.batch.unstack()))
@@ -283,7 +282,7 @@ class TestTensors(TestCase):
 
     def test_collapsed_non_uniform_tensor(self):
         non_uniform = math.stack([math.zeros(spatial(a=2)), math.ones(spatial(a=3))], batch('b'))
-        e = math.expand(non_uniform, channel('vector'))
+        e = math.expand(non_uniform, channel(vector='x,y'))
         assert e.shape.without('vector') == non_uniform.shape
 
     def test_slice_by_item_name(self):

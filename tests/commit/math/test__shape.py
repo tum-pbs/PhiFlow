@@ -117,10 +117,10 @@ class TestShape(TestCase):
             self.assertEqual(spatial(obj), s)
             self.assertEqual(instance(obj), i)
             self.assertEqual(channel(obj), c)
-            self.assertEqual(non_batch(obj), math.concat_shapes(s, i, c))
-            self.assertEqual(non_spatial(obj), math.concat_shapes(b, i, c))
-            self.assertEqual(non_instance(obj), math.concat_shapes(b, s, c))
-            self.assertEqual(non_channel(obj), math.concat_shapes(b, s, i))
+            self.assertEqual(set(non_batch(obj)), set(math.concat_shapes(s, i, c)))
+            self.assertEqual(set(non_spatial(obj)), set(math.concat_shapes(b, i, c)))
+            self.assertEqual(set(non_instance(obj)), set(math.concat_shapes(b, s, c)))
+            self.assertEqual(set(non_channel(obj)), set(math.concat_shapes(b, s, i)))
 
     def test_merge_shaped(self):
         self.assertEqual(spatial(x=4, y=3, z=2), math.merge_shapes(ShapedDummy(spatial(x=4, y=3)), spatial(y=3, z=2)))

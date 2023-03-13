@@ -3,7 +3,7 @@ from unittest import TestCase
 import phi
 from phi import math
 from phi.math import batch, extrapolation, shape, spatial, channel, EMPTY_SHAPE
-from phi.math._tensors import CollapsedTensor, wrap
+from phi.math._tensors import wrap
 from phi.math.extrapolation import ConstantExtrapolation, ONE, ZERO, PERIODIC, BOUNDARY, SYMMETRIC, REFLECT, combine_sides, from_dict, combine_by_direction, SYMMETRIC_GRADIENT, as_extrapolation, \
     ZERO_GRADIENT
 
@@ -144,15 +144,18 @@ class TestExtrapolation(TestCase):
                     results.append(p)
             math.assert_close(*results)
 
-
     def test_pad_collapsed(self):
+        # --- Shapes ---
         a = math.zeros(spatial(b=2, x=10, y=10) & batch(batch=10))
         p = math.pad(a, {'x': (1, 2)}, ZERO)
-        self.assertIsInstance(p, CollapsedTensor)
+        self.assertEqual(0, p._native_shape.rank)
         self.assertEqual((10, 2, 13, 10), p.shape.sizes)
         p = math.pad(a, {'x': (1, 2)}, PERIODIC)
-        self.assertIsInstance(p, CollapsedTensor)
+        self.assertEqual(0, p._native_shape.rank)
         self.assertEqual((10, 2, 13, 10), p.shape.sizes)
+        # --- 1D ---
+        p = math.pad(math.ones(spatial(x=3)), {'x': (1, 1)}, 0)
+        math.assert_close([0, 1, 1, 1, 0], p)
 
     def test_pad_negative(self):
         a = math.meshgrid(x=4, y=3)
