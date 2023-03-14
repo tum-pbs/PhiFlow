@@ -297,6 +297,8 @@ class TorchBackend(Backend):
     def sum(self, value, axis=None, keepdims=False):
         if axis is None:
             axis = tuple(range(len(value.shape)))
+        if axis == () or axis == []:
+            return value
         return torch.sum(value, dim=axis, keepdim=keepdims)
 
     def prod(self, value, axis=None):
