@@ -70,6 +70,9 @@ class Shape:
             for name, size in zip(names, sizes):
                 if size is not None and isinstance(size, Tensor):
                     assert size.rank > 0
+            for size, item_names in zip(self.sizes, self.item_names):
+                if item_names is not None:
+                    assert len(item_names) == size, f"Number of item names ({len(item_names)}) does not match size {size}"
 
     def _check_is_valid_tensor_shape(self):
         if DEBUG_CHECKS:
