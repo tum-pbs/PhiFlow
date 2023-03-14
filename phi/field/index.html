@@ -1519,8 +1519,6 @@ Otherwise, an explicit stencil is used.</dd>
     Returns:
         laplacian field as `CenteredGrid`
     &#34;&#34;&#34;
-    if implicit:
-        warnings.warn(&#34;Implicit operators currently do not support sparse matrix generation and may be slow.&#34;, RuntimeWarning, stacklevel=2)
     if isinstance(weights, Field):
         weights = weights.at(field).values
     axes_names = field.shape.only(axes).names
@@ -2720,8 +2718,6 @@ Otherwise, an explicit stencil is used.</dd>
     Returns:
         spatial_gradient field of type `type`.
     &#34;&#34;&#34;
-    if implicit:
-        warnings.warn(&#34;Implicit operators currently do not support sparse matrix generation and may be slow.&#34;, RuntimeWarning, stacklevel=2)
     if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
     extrap_map = {}
