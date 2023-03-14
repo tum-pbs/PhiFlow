@@ -10,11 +10,11 @@ from . import extrapolation as e_
 from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int, tree_map
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
-                     IncompatibleShapes, DimFilter, non_batch)
+                     IncompatibleShapes, DimFilter, non_batch, shape_stack)
 from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense
 from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
                        custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
-                       is_scalar, Layout, expand_tensor)
+                       is_scalar, Layout, expand_tensor, can_stack)
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, NoBackendFound, ComputeDevice, NUMPY
 from .backend._dtype import DType, combine_types
 from .magic import PhiTreeNode
@@ -767,11 +767,18 @@ def stack_tensors(values: tuple or list, dim: Shape):
     values = cast_same(*values)
 
     def inner_stack(*values):
-        if len(values) > 1 or not isinstance(values[0], NativeTensor):
-            return TensorStack(values, dim)
-        else:
+        if len(values) == 1 and isinstance(values[0], NativeTensor):
             value: NativeTensor = values[0]
             return NativeTensor(value._native, value._native_shape, value.shape & dim.with_size(1))
+        elif can_stack(*values):
+            assert all(isinstance(t, NativeTensor) for t in values)
+            broadcast_shape = merge_shapes(*[t._native_shape for t in values])
+            natives = [t.native(broadcast_shape) for t in values]
+            stacked = choose_backend(*natives).stack(natives, axis=0)
+            full_shape = concat_shapes(dim, merge_shapes(*values))
+            return NativeTensor(stacked, concat_shapes(dim, broadcast_shape), full_shape)
+        else:
+            return TensorStack(values, dim)
 
     result = broadcast_op(inner_stack, values)
     return result
@@ -1081,7 +1088,7 @@ def reduce_(f, value, dims, require_all_dims_present=False, required_kind: type 
         dims = value.shape.only(dims)
         if require_all_dims_present and any(d not in value.shape for d in dims):
             raise ValueError(f"Cannot sum dimensions {dims} because tensor {value.shape} is missing at least one of them")
-        return f(value._simplify(), dims)
+        return f(value, dims)
 
 
 def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -> Tensor:
@@ -2273,7 +2280,7 @@ def assert_close(*values,
         return
     phi_tensors = [t for t in values if isinstance(t, Tensor)]
     if phi_tensors:
-        values = [compatible_tensor(t, phi_tensors[0].shape)._simplify() for t in values]  # use Tensor to infer dimensions
+        values = [compatible_tensor(t, phi_tensors[0].shape) for t in values]  # use Tensor to infer dimensions
         for other in values[1:]:
             _assert_close(values[0], other, rel_tolerance, abs_tolerance, msg, verbose)
     elif all(isinstance(v, PhiTreeNode) for v in values):

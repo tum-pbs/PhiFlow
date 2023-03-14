@@ -272,7 +272,7 @@ def matrix_from_function(f: Callable,
         result = f(**x_kwargs, **aux_args)
     _, result_tensors = disassemble_tree(result)
     assert len(result_tensors) == 1, f"Linear function output must be or contain a single Tensor but got {result}"
-    tracer = result_tensors[0]._simplify()
+    tracer = result_tensors[0]
     assert tracer._is_tracer, f"Tracing linear function '{f_name(f)}' failed. Make sure only linear operations are used. Output: {tracer.shape}"
     # --- Convert to COO ---
     if sparsify_batch is None:

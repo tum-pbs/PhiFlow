@@ -782,10 +782,6 @@ class Tensor:
         warnings.warn("Tensor._expand() is deprecated, use cached(Tensor) instead.", DeprecationWarning)
         raise NotImplementedError(self.__class__)
 
-    def _simplify(self):
-        """ Does not cache this value but if it is already cached, returns the cached version. """
-        return self
-
 
 class TensorDim(BoundDim):
     """
@@ -1273,63 +1269,61 @@ class NativeTensor(Tensor):
         self._cache()
 
 
+def can_stack(*tensors: Tensor):
+    if any(t._is_tracer for t in tensors):
+        return False
+    if any(not t.shape.well_defined for t in tensors):
+        return False
+    try:
+        merge_shapes(*tensors, allow_varying_sizes=False)
+        return True
+    except IncompatibleShapes:
+        return False
+
+
 class TensorStack(Tensor):
     """
     Implicit stack of multiple tensors.
     List of tensors, does not store stacked tensor in memory.
-
-    Args:
-
-    Returns:
-
     """
 
     def __init__(self, components: tuple or list, stack_dim: Shape):
-        assert isinstance(stack_dim, Shape) and stack_dim.rank == 1, f"stack_dim must be a single-dimension Shape object but got {type(stack_dim)}"
-        # assert len(components) > 1, "Use a CollapsedTensor instead"
-        for t in components:
-            assert isinstance(t, Tensor)
-            assert stack_dim.name not in t.shape, f"Cannot stack along '{stack_dim.name}' because the dimension already exists."
+        if DEBUG_CHECKS:
+            assert isinstance(stack_dim, Shape) and stack_dim.rank == 1, f"stack_dim must be a single-dimension Shape object but got {type(stack_dim)}"
+            for t in components:
+                assert isinstance(t, Tensor)
+                assert stack_dim.name not in t.shape, f"Cannot stack along '{stack_dim.name}' because the dimension already exists."
+            assert not can_stack(*components), "TensorStack created but values could be stacked directly"
         self._tensors = tuple(components)
         self._stack_dim = stack_dim.with_sizes([len(components)], keep_item_names=True)
-        try:
-            merge_shapes(*self._tensors)
-            self._varying_shapes = False
-        except IncompatibleShapes:
-            self._varying_shapes = True
         self._shape = shape_stack(self._stack_dim, *[t.shape for t in self._tensors])
-        self._cached = None
 
     @property
     def _is_tracer(self) -> bool:
         return any([t._is_tracer for t in self._tensors])
-
-    @property
-    def requires_broadcast(self):
-        return self._varying_shapes or not self._shape.well_defined or self._is_tracer
     
     @property
     def stack_dim(self):
         warnings.warn("TensorStack.stack_dim is deprecated", DeprecationWarning, stacklevel=2)
         return self._stack_dim
 
-    def _cache(self):
-        if self._cached is None:
-            if self.requires_broadcast:
-                return None
-            elif all([t.shape.is_uniform for t in self._tensors]):
-                natives = [t.native(order=self._shape.names) for t in self._tensors]
-                native = choose_backend(*natives).concat(natives, axis=self.shape.index(self._stack_dim.name))
-                self._cached = NativeTensor(native, self._shape)
-            else:  # cache stack_dim on inner tensors
-                non_uniform_dim = self._tensors[0].shape.shape.without('dims')
-                unstacked = [t.unstack(non_uniform_dim.name) for t in self._tensors]
-                stacked = []
-                for to_stack in zip(*unstacked):
-                    tensor = TensorStack(to_stack, self._stack_dim)._cache()
-                    stacked.append(tensor)
-                self._cached = TensorStack(stacked, non_uniform_dim)
-        return self._cached
+    # def _cache(self):
+    #     if self._cached is None:
+    #         if self.requires_broadcast:
+    #             return None
+    #         elif all([t.shape.is_uniform for t in self._tensors]):
+    #             natives = [t.native(order=self._shape.names) for t in self._tensors]
+    #             native = choose_backend(*natives).concat(natives, axis=self.shape.index(self._stack_dim.name))
+    #             self._cached = NativeTensor(native, self._shape)
+    #         else:  # cache stack_dim on inner tensors
+    #             non_uniform_dim = self._tensors[0].shape.shape.without('dims')
+    #             unstacked = [t.unstack(non_uniform_dim.name) for t in self._tensors]
+    #             stacked = []
+    #             for to_stack in zip(*unstacked):
+    #                 tensor = TensorStack(to_stack, self._stack_dim)._cache()
+    #                 stacked.append(tensor)
+    #             self._cached = TensorStack(stacked, non_uniform_dim)
+    #     return self._cached
 
     @property
     def dtype(self):
@@ -1340,35 +1334,27 @@ class TensorStack(Tensor):
         return self._shape
 
     def native(self, order: str or tuple or list or Shape = None, singleton_for_const=False):
-        if self._cached is not None:
-            return self._cached.native(order=order)
-        else:
-            order = parse_dim_order(order, check_rank=self.rank)
-            # Is only the stack dimension shifted?
-            if order is not None and self._shape.without(self._stack_dim).names == tuple(filter(lambda name: name != self._stack_dim.name, order)):
-                inner_order = [dim for dim in order if dim != self._stack_dim.name]
-                natives = [t.native(inner_order) for t in self._tensors]
-                assert self._stack_dim.name in order, f"Dimension {self._stack_dim} missing from 'order'. Got {order} but tensor has shape {self.shape}."
-                native = choose_backend(*natives).stack(natives, axis=order.index(self._stack_dim.name))
-                return native
-            assert not self.shape.is_non_uniform, f"Cannot convert non-uniform tensor with shape {self.shape} to native tensor."
-            return self._cache().native(order=order)
+        order = parse_dim_order(order, check_rank=self.rank)
+        # Is only the stack dimension shifted?
+        if order is not None and self._shape.without(self._stack_dim).names == tuple(filter(lambda name: name != self._stack_dim.name, order)):
+            inner_order = [dim for dim in order if dim != self._stack_dim.name]
+            natives = [t.native(inner_order) for t in self._tensors]
+            assert self._stack_dim.name in order, f"Dimension {self._stack_dim} missing from 'order'. Got {order} but tensor has shape {self.shape}."
+            native = choose_backend(*natives).stack(natives, axis=order.index(self._stack_dim.name))
+            return native
+        assert not self.shape.is_non_uniform, f"Cannot convert non-uniform tensor with shape {self.shape} to native tensor."
+        return self._cache().native(order=order)
 
     def _with_shape_replaced(self, new_shape: Shape):
-        if self._cached is not None:
-            return self._cached._with_shape_replaced(new_shape)
-        else:
-            new_stack_dim = new_shape[self._shape.index(self._stack_dim.name)]
-            new_tensors = []
-            for t in self._tensors:
-                inner_indices = [self.shape.index(d) for d in t.shape.names]
-                new_inner_shape = new_shape[inner_indices]
-                new_tensors.append(t._with_shape_replaced(new_inner_shape))
-            return TensorStack(new_tensors, new_stack_dim)
+        new_stack_dim = new_shape[self._shape.index(self._stack_dim.name)]
+        new_tensors = []
+        for t in self._tensors:
+            inner_indices = [self.shape.index(d) for d in t.shape.names]
+            new_inner_shape = new_shape[inner_indices]
+            new_tensors.append(t._with_shape_replaced(new_inner_shape))
+        return TensorStack(new_tensors, new_stack_dim)
 
     def _getitem(self, selection: dict):
-        if self._cached is not None:
-            return self._cached._getitem(selection)
         if (self._stack_dim.name not in selection or len(selection) != 1) and not self.requires_broadcast:
             return self._cache()._getitem(selection)
         # --- Inner dims ---
@@ -1398,8 +1384,6 @@ class TensorStack(Tensor):
             return TensorStack(tensors, self._stack_dim)
 
     def unstack(self, dimension):
-        if self._cached is not None:
-            return self._cached.unstack(dimension)
         if dimension == self._stack_dim.name:
             return self._tensors
         else:
@@ -1411,39 +1395,23 @@ class TensorStack(Tensor):
                 return self._cache().unstack(dimension)
 
     def _op1(self, native_function):
-        if self.requires_broadcast:
-            tensors = [t._op1(native_function) for t in self._tensors]
-            return TensorStack(tensors, self._stack_dim)
-        else:
-            return self._cache()._op1(native_function)
+        tensors = [t._op1(native_function) for t in self._tensors]
+        return TensorStack(tensors, self._stack_dim)
 
     def _op2(self, other, operator, native_function, op_name: str = 'unknown', op_symbol: str = '?'):
         other = self._tensor(other)
-        if self.requires_broadcast:
-            if self._stack_dim.name in other.shape:
-                other = other.unstack(self._stack_dim.name)
-                tensors = [operator(t1, t2) for t1, t2 in zip(self._tensors, other)]
-            else:
-                tensors = [operator(t, other) for t in self._tensors]
-            return TensorStack(tensors, self._stack_dim)
-        elif isinstance(other, NativeTensor) or (isinstance(other, TensorStack) and not other.requires_broadcast):
-            new_shape, (native1, native2) = broadcastable_native_tensors(self, other)  # ToDo we don't have to expand all
-            result_tensor = native_function(native1, native2)
-            return NativeTensor(result_tensor, new_shape, new_shape)
+        if self._stack_dim.name in other.shape:
+            other = other.unstack(self._stack_dim.name)
+            tensors = [operator(t1, t2) for t1, t2 in zip(self._tensors, other)]
         else:
-            return NotImplemented
+            tensors = [operator(t, other) for t in self._tensors]
+        return TensorStack(tensors, self._stack_dim)
 
     def _natives(self) -> tuple:
-        if self._cached is not None:
-            return self._cached._natives()
-        else:
-            return sum([t._natives() for t in self._tensors], ())
+        return sum([t._natives() for t in self._tensors], ())
 
     def _spec_dict(self) -> dict:
-        if self._cached is not None:
-            return self._cached._spec_dict()
-        else:
-            return {'type': TensorStack, 'stack_dim': self._stack_dim, 'tensors': [t._spec_dict() for t in self._tensors]}
+        return {'type': TensorStack, 'stack_dim': self._stack_dim, 'tensors': [t._spec_dict() for t in self._tensors]}
 
     @classmethod
     def _from_spec_and_natives(cls, spec: dict, natives: list):
@@ -1451,27 +1419,12 @@ class TensorStack(Tensor):
         return TensorStack(tensors, spec['stack_dim'])
 
     def _with_natives_replaced(self, natives: list):
-        if self._cached is not None:
-            return self._cached._with_natives_replaced(natives)
-        else:
-            tensors = [t._with_natives_replaced(natives) for t in self._tensors]
-            return TensorStack(tensors, self._stack_dim)
+        tensors = [t._with_natives_replaced(natives) for t in self._tensors]
+        return TensorStack(tensors, self._stack_dim)
 
     def _expand(self):
-        if self.requires_broadcast:
-            for t in self._tensors:
-                t._expand()
-        self._cache()
-
-    @property
-    def is_cached(self):
-        return self._cached is not None
-
-    def _simplify(self):
-        if self.is_cached:
-            return self._cached
-        else:
-            return self
+        for t in self._tensors:
+            t._expand()
 
 
 def tensor(data: Tensor or Shape or tuple or list or numbers.Number,

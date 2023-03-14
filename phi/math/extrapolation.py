@@ -243,7 +243,6 @@ class ConstantExtrapolation(Extrapolation):
         """
         derivative = get_spatial_derivative_order()
         pad_value = self.value if derivative == 0 else math.wrap(0)
-        value = value._simplify()
         if isinstance(value, NativeTensor):
             backend = choose_backend(value._native, pad_value.native())
             for dim in pad_value.shape.non_batch.names:
@@ -391,7 +390,6 @@ class _CopyExtrapolation(Extrapolation):
         return True
 
     def pad(self, value: Tensor, widths: dict, **kwargs) -> Tensor:
-        value = value._simplify()
         from phi.math._trace import ShiftLinTracer
         if isinstance(value, NativeTensor):
             if not self._is_dim_separable:
