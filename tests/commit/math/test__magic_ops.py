@@ -180,6 +180,11 @@ class TestMagicOps(TestCase):
             a = test_class(spatial(x=5) & batch(b=2))
             self.assertEqual(instance(points=5) & batch(b=2), shape(rename_dims(a, 'x', instance('points'))))
 
+    def test_retype_dims(self):
+        t = math.zeros(spatial(x=4, y=3), channel(vector='x,y'))
+        self.assertEqual(instance(x=4, y=3) & channel(vector='x,y'), rename_dims(t, spatial, instance).shape)
+        self.assertEqual(set(spatial(x=4, y=3) & batch(vector='x,y')), set(rename_dims(t, channel, batch).shape))
+
     def test_pack_dims(self):
         for test_class in TEST_CLASSES:
             a = test_class(spatial(x=5) & batch(b=2))

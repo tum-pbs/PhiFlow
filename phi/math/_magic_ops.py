@@ -354,8 +354,8 @@ def expand(value, *dims: Shape, **kwargs):
 
 
 def rename_dims(value,
-                dims: str or tuple or list or Shape,
-                names: str or tuple or list or Shape,
+                dims: DimFilter,
+                names: DimFilter,
                 **kwargs):
     """
     Change the name and optionally the type of some dimensions of `value`.
@@ -364,11 +364,12 @@ def rename_dims(value,
 
     Args:
         value: `Shape` or `Tensor` or `Shapable`.
-        dims: Existing dimensions of `value`.
+        dims: Existing dimensions of `value` as comma-separated `str`, `tuple`, `list`, `Shape` or filter function.
         names: Either
 
             * Sequence of names matching `dims` as `tuple`, `list` or `str`. This replaces only the dimension names but leaves the types untouched.
             * `Shape` matching `dims` to replace names and types.
+            * Dimension type function to replace only types.
 
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
@@ -382,9 +383,11 @@ def rename_dims(value,
     elif isinstance(value, (Number, bool)):
         return value
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f"value must be a Shape or Shapable but got {type(value).__name__}"
-    dims = parse_dim_order(dims)
+    dims = shape(value).only(dims).names if callable(dims) else parse_dim_order(dims)
     if isinstance(names, str):
         names = parse_dim_order(names)
+    elif callable(names):
+        names: Shape = names(*dims).with_sizes(shape(value))
     assert len(dims) == len(names), f"names and dims must be of equal length but got #dims={len(dims)} and #names={len(names)}"
     existing_dims = shape(value).only(dims, reorder=True)
     if not existing_dims:
