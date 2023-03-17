@@ -5,9 +5,10 @@ from typing import Callable, List, Tuple, Optional, Union
 from phi import geom
 from phi import math
 from phi.geom import Box, Geometry
-from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile
+from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile, rename_dims, flatten, batch
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
+from ._mesh import Mesh
 from ._point_cloud import PointCloud
 from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction
 
@@ -843,3 +844,53 @@ def mask(obj: Union[SampledFieldType, Geometry]) -> SampledFieldType:
         return obj.with_values(values)
     else:
         raise ValueError(obj)
+
+
+def connect(obj: SampledField, connections: Tensor) -> Mesh:
+    """
+    Build a `Mesh` by connecting elements from a field.
+
+    See Also:
+        `connect_neighbors()`.
+
+    Args:
+        obj: `PointCloud` or `Mesh`.
+        connections: Connectivity matrix. Any non-zero entry represents a connection.
+
+    Returns:
+        `Mesh`
+    """
+    if isinstance(obj, (PointCloud, Mesh)):
+        return Mesh(obj.elements, connections, obj.values, extrapolation=obj.extrapolation, bounds=obj.bounds)
+    else:
+        raise ValueError(f"connect requires a PointCloud or Mesh but got {type(obj)}")
+
+
+def connect_neighbors(obj: SampledField, max_distance: float or Tensor, format: str = 'dense'):
+    """
+    Build  a `Mesh` by connecting proximate elements of a `SampledField`.
+
+    See Also:
+        `connect()`.
+
+    Args:
+        obj: `PointCloud`, `Mesh`, `CenteredGrid` or `StaggeredGrid`.
+        max_distance: Connectivity threshold distance. Elements further apart than this will not be connected.
+        format: Connectivity matrix format, `'dense'`, `'coo'` or `'csr'`.
+
+    Returns:
+        `Mesh`.
+    """
+    if isinstance(obj, CenteredGrid):
+        elements = flatten(obj.elements, instance('elements'))
+        values = math.pack_dims(obj.values, spatial, instance('elements'))
+        obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
+    elif isinstance(obj, StaggeredGrid):
+        elements = flatten(obj.elements, instance('elements'), flatten_batch=True)
+        values = math.pack_dims(obj.values, spatial(obj.values).names + ('vector',), instance('elements'))
+        obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
+    assert isinstance(obj, (PointCloud, Mesh)), f"obj must be a PointCloud, Mesh or Grid but got {type(obj)}"
+    points = math.rename_dims(obj.elements, spatial, instance).center
+    dx = math.pairwise_distances(points, max_distance=max_distance, others_dims=None, format=format)
+    con = math.vec_length(dx) > 0
+    return connect(obj, con)
