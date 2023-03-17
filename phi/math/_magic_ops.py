@@ -95,9 +95,17 @@ def unstack(value, dim: DimFilter):
             value_packed = value.__pack_dims__(dims.names, packed_dim, pos=None)
             if value_packed is not NotImplemented:
                 return unstack(value_packed, packed_dim)
-        first_unstacked = unstack(value, dims[0])
-        inner_unstacked = [unstack(v, dims.without(dims[0])) for v in first_unstacked]
+        unstack_dim = _any_uniform_dim(dims)
+        first_unstacked = unstack(value, unstack_dim)
+        inner_unstacked = [unstack(v, dims.without(unstack_dim)) for v in first_unstacked]
         return sum(inner_unstacked, ())
+
+
+def _any_uniform_dim(dims: Shape):
+    for dim in dims:
+        if dim.is_uniform:
+            return dim
+    raise ValueError(f"Uniform dimension required but found only non-uniform dimensions {dims}")
 
 
 def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwargs):
