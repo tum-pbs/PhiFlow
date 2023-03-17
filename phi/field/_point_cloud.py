@@ -91,7 +91,7 @@ class PointCloud(SampledField):
         return '_values', '_elements'
 
     def __expand__(self, dims: Shape, **kwargs) -> 'PointCloud':
-        return self.with_values(math.expand(self.values, dims, **kwargs))
+        return self.with_values(expand(self.values, dims, **kwargs))
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'PointCloud':
         elements = math.rename_dims(self.elements, dims, new_dims)
