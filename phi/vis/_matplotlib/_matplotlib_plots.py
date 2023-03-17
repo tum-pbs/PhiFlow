@@ -13,6 +13,7 @@ from matplotlib.transforms import Bbox
 
 from phi import math, field
 from phi.field import Grid, StaggeredGrid, PointCloud, SampledField
+from phi.field._mesh import Mesh
 from phi.geom import Sphere, BaseBox, Point, Box
 from phi.geom._stack import GeometryStack
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape, non_instance
@@ -470,6 +471,22 @@ class PointCloud3D(Recipe):
             subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
 
 
+class Mesh2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, Mesh) and data.spatial_rank == 2
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        dims = space.vector.item_names
+        assert isinstance(data, Mesh)
+        point_cloud = PointCloud(data.elements, data.values, data.extrapolation, bounds=data.bounds)
+        PointCloud2D().plot(point_cloud, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
+        i, j = math.nonzero(data.connections).vector
+        i_x, i_y = reshaped_numpy(data.points[{instance(data).name: i}][dims], ['vector', 'nonzero'], force_expand=True)
+        j_x, j_y = reshaped_numpy(data.points[{instance(data).name: j}][dims], ['vector', 'nonzero'], force_expand=True)
+        subplot.plot(np.stack([i_x, j_x]), np.stack([i_y, j_y]), color=_plt_col(color), alpha=float(alpha.max))
+
+
 def _plt_col(col):
     if isinstance(col, Tensor):
         col = next(iter(col))
@@ -531,4 +548,5 @@ MATPLOTLIB.recipes.extend([
             PointCloud2D(),
             PointCloud3D(),
             BarChart(),
+            Mesh2D(),
         ])
