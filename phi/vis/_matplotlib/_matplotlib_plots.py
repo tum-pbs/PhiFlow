@@ -85,6 +85,7 @@ class MatplotlibPlots(PlottingLibrary):
                             axis.set_zscale('log')
                     axis.set_title(titles.get((row, col), None))
                     axes_by_pos[(row, col)] = axes[row, col]
+        figure.tight_layout()
         return figure, axes_by_pos
 
     def animate(self, fig: plt.Figure, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
@@ -119,7 +120,7 @@ class MatplotlibPlots(PlottingLibrary):
         return animation.FuncAnimation(fig, clear_and_plot, repeat=repeat, frames=frames, interval=interval)
 
     def finalize(self, figure):
-        plt.tight_layout()
+        pass
 
     def close(self, figure):
         if isinstance(figure, plt.Figure):
@@ -243,11 +244,34 @@ class Heatmap2D(Recipe):
             im = subplot.plot_surface(x, y, z)
         else:  # heatmap
             aspect = subplot.get_aspect()
-            im = subplot.imshow(data.values.numpy(dims.reversed), origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect, alpha=float(alpha))
+            image = data.values.numpy(dims.reversed)
+            if data.values.dtype.kind == complex:
+                amplitude = abs(image) / np.max(abs(image))
+                phase = np.angle(image) / (2*np.pi) + .5
+                hsv = np.stack([phase, np.ones_like(amplitude), amplitude], -1)
+                rgb = matplotlib.colors.hsv_to_rgb(hsv)
+                im = subplot.imshow(rgb, origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect, alpha=float(alpha))
+            else:
+                im = subplot.imshow(image, origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect, alpha=float(alpha))
         if show_color_bar:
             figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in subplot.figure.axes])
             if min_val is None or max_val is None or not figure_has_color_bar:
-                subplot.figure.colorbar(im, ax=subplot)  # adds a new Axis to the figure
+                if min_val is not None and max_val is not None:  # only one color bar for all subplots
+                    figure.subplots_adjust(left=.1, bottom=.1, right=0.85, top=.92)
+                    cax = figure.add_axes([0.87, 0.1, 0.08 if data.values.dtype.kind == complex else 0.03, 0.82])
+                else:
+                    cax = None
+                if data.values.dtype.kind == complex:
+                    if cax is not None:
+                        amp, phase = np.meshgrid(np.linspace(0, 1, 100), np.linspace(0, 1, 100))
+                        cbar_img = matplotlib.colors.hsv_to_rgb(np.stack([phase, np.ones_like(phase), amp], -1))
+                        cmap_extent = (min_val, max_val, 0, 2 * np.pi)
+                        cax.imshow(cbar_img, extent=cmap_extent, aspect='auto', origin='lower')
+                        cax.yaxis.tick_right()
+                        cax.set_yticks([0, np.pi, 2 * np.pi], ['0', 'π', '2π'])
+                        cax.yaxis.set_label_position('right')
+                else:
+                    subplot.figure.colorbar(im, ax=subplot if cax is None else None, cax=cax)  # adds a new Axis to the figure
         return True
 
 
