@@ -40,6 +40,8 @@ class SparseCoordinateTensor(Tensor):
                 If so, values at the same index will be summed.
             indices_sorted: Whether the indices are sorted in ascending order given the dimension order of the item names of `indices`.
         """
+        assert isinstance(indices, Tensor), f"indices must be a Tensor but got {type(indices)}"
+        assert isinstance(values, Tensor), f"values must be a Tensor but got {type(values)}"
         assert instance(indices), "indices must have an instance dimension"
         assert 'vector' in indices.shape, "indices must have a vector dimension"
         assert set(indices.vector.item_names) == set(dense_shape.names), "The 'vector' dimension of indices must list the dense dimensions as item names"
@@ -59,7 +61,15 @@ class SparseCoordinateTensor(Tensor):
     def dtype(self) -> DType:
         return self._values.dtype
 
-    def native(self, order: Union[str, tuple, list, Shape] = None):
+    @property
+    def sparse_dims(self):
+        return self._dense_shape
+
+    @property
+    def sparsity_batch(self):
+        return batch(self._indices)
+
+    def native(self, order: Union[str, tuple, list, Shape] = None, singleton_for_const=False):
         raise RuntimeError("Sparse tensors do not have a native representation. Use math.dense(tensor).native() instead")
 
     @property
@@ -187,6 +197,26 @@ class SparseCoordinateTensor(Tensor):
         indices = self._indices._with_shape_replaced(self._indices.shape.replace(self._shape, new_shape).with_dim_size('vector', new_item_names))
         values = self._values._with_shape_replaced(self._values.shape.replace(self._shape, new_shape))
         return SparseCoordinateTensor(indices, values, dense_shape, self._can_contain_double_entries, self._indices_sorted)
+
+    def _op1(self, native_function):
+        return self._with_values(self._values._op1(native_function))
+
+    def _op2(self, other, operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
+        other_shape = shape(other)
+        affects_only_values = self._dense_shape not in other_shape and non_instance(self._indices).isdisjoint(other_shape)
+        if affects_only_values:
+            return self._with_values(operator(self._values, other))
+        if isinstance(other, CompressedSparseMatrix):
+            other = other.decompress()
+        if isinstance(other, SparseCoordinateTensor):
+            if other._indices is self._indices:
+                return self._with_values(operator(self._values, other._values))
+            elif op_symbol == '+':
+                raise NotImplementedError("Compressed addition not yet implemented")
+            else:
+                # convert to COO, then perform operation
+                raise NotImplementedError
+        raise NotImplementedError
 
 
 class CompressedSparseMatrix(Tensor):
@@ -396,7 +426,7 @@ class CompressedSparseMatrix(Tensor):
         raise NotImplementedError
 
     def _native_csr_components(self):
-        from phi.math import reshaped_native
+        from ._ops import reshaped_native
         ind_batch = batch(self._indices) & batch(self._pointers)
         channels = non_instance(self._values).without(ind_batch)
         native_indices = reshaped_native(self._indices, [ind_batch, instance], force_expand=True)
@@ -410,14 +440,22 @@ class CompressedSparseMatrix(Tensor):
 
     def decompress(self):
         if self._uncompressed_indices is None:
-            self._uncompressed_indices = None
-            raise NotImplementedError()
+            ind_batch = batch(self._indices) & batch(self._pointers)
+            from ._ops import reshaped_native, reshaped_tensor
+            native_indices = reshaped_native(self._indices, [ind_batch, instance], force_expand=True)
+            native_pointers = reshaped_native(self._pointers, [ind_batch, instance], force_expand=True)
+            native_indices = choose_backend(native_indices, native_pointers).csr_to_coo(native_indices, native_pointers)
+            if self._compressed_dims.rank == self._uncompressed_dims.rank == 1:
+                indices = reshaped_tensor(native_indices, [ind_batch, instance(self._indices), channel(vector=(self._compressed_dims.name, self._uncompressed_dims.name))], convert=False)
+            else:
+                raise NotImplementedError()
+            return SparseCoordinateTensor(indices, self._values, concat_shapes(self._compressed_dims, self._uncompressed_dims), can_contain_double_entries=False, indices_sorted=True)
         if self._uncompressed_indices_perm is not None:
             self._uncompressed_indices = self._uncompressed_indices[self._uncompressed_indices_perm]
             self._uncompressed_indices_perm = None
         return SparseCoordinateTensor(self._uncompressed_indices, self._values, self._compressed_dims & self._uncompressed_dims, False, False)
 
-    def native(self, order: Union[str, tuple, list, Shape] = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None, singleton_for_const=False):
         raise RuntimeError("Sparse tensors do not have a native representation. Use math.dense(tensor).native() instead")
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -> 'Tensor':
