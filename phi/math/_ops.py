@@ -1115,21 +1115,25 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
     elif isinstance(value, TensorStack):
         reduced_inners = [_sum(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x + y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
-    elif isinstance(value, CompressedSparseMatrix):
+    elif isinstance(value, (CompressedSparseMatrix, SparseCoordinateTensor)):
         if value.sparse_dims in dims:  # reduce all sparse dims
             return _sum(value._values, dims.without(value.sparse_dims) & instance(value._values))
         value_only_dims = dims.only(value._values.shape).without(value.sparsity_batch)
         if value_only_dims:
             value = value._with_values(_sum(value._values, value_only_dims))
         dims = dims.without(value_only_dims)
-        if value._compressed_dims in dims and value._uncompressed_dims.isdisjoint(dims):
-            # We can ignore the pointers
-            result_base = zeros(value.shape.without(value._compressed_dims))
-            return scatter(result_base, value._indices, value._values, mode='add', outside_handling='undefined')
-        elif value.sparse_dims.only(dims):  # reduce some sparse dims
-            return dot(value, dims, ones(dims), dims)  # this is what SciPy does in both axes, actually.
-        return value
-        # first sum value dims that are not part of indices
+        if not dims:
+            return value
+        if isinstance(value, CompressedSparseMatrix):
+            if value._compressed_dims in dims and value._uncompressed_dims.isdisjoint(dims):  # We can ignore the pointers
+                result_base = zeros(value.shape.without(value._compressed_dims))
+                return scatter(result_base, value._indices, value._values, mode='add', outside_handling='undefined')
+            elif value.sparse_dims.only(dims):  # reduce some sparse dims
+                return dot(value, dims, ones(dims), dims)  # this is what SciPy does in both axes, actually.
+            return value
+            # first sum value dims that are not part of indices
+        else:
+            raise NotImplementedError
     else:
         raise ValueError(type(value))
 
