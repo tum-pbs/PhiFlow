@@ -6403,7 +6403,7 @@ For 1D tensors, this equivalent to <code>arange()</code> with <code>step=1</code
 </details>
 </dd>
 <dt id="phi.math.rename_dims"><code class="name flex">
-<span>def <span class="ident">rename_dims</span></span>(<span>value, dims: str, names: str, **kwargs)</span>
+<span>def <span class="ident">rename_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], names: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Change the name and optionally the type of some dimensions of <code>value</code>.</p>
@@ -6413,13 +6413,14 @@ For 1D tensors, this equivalent to <code>arange()</code> with <code>step=1</code
 <dt><strong><code>value</code></strong></dt>
 <dd><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code>Shapable</code>.</dd>
 <dt><strong><code>dims</code></strong></dt>
-<dd>Existing dimensions of <code>value</code>.</dd>
+<dd>Existing dimensions of <code>value</code> as comma-separated <code>str</code>, <code>tuple</code>, <code>list</code>, <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or filter function.</dd>
 <dt><strong><code>names</code></strong></dt>
 <dd>
 <p>Either</p>
 <ul>
 <li>Sequence of names matching <code>dims</code> as <code>tuple</code>, <code>list</code> or <code>str</code>. This replaces only the dimension names but leaves the types untouched.</li>
 <li><code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> matching <code>dims</code> to replace names and types.</li>
+<li>Dimension type function to replace only types.</li>
 </ul>
 </dd>
 <dt><strong><code>**kwargs</code></strong></dt>
@@ -6434,8 +6435,8 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def rename_dims(value,
-                dims: str or tuple or list or Shape,
-                names: str or tuple or list or Shape,
+                dims: DimFilter,
+                names: DimFilter,
                 **kwargs):
     &#34;&#34;&#34;
     Change the name and optionally the type of some dimensions of `value`.
@@ -6444,11 +6445,12 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 
     Args:
         value: `Shape` or `Tensor` or `Shapable`.
-        dims: Existing dimensions of `value`.
+        dims: Existing dimensions of `value` as comma-separated `str`, `tuple`, `list`, `Shape` or filter function.
         names: Either
 
             * Sequence of names matching `dims` as `tuple`, `list` or `str`. This replaces only the dimension names but leaves the types untouched.
             * `Shape` matching `dims` to replace names and types.
+            * Dimension type function to replace only types.
 
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
@@ -6462,9 +6464,11 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     elif isinstance(value, (Number, bool)):
         return value
     assert isinstance(value, Shapable) and isinstance(value, Shaped), f&#34;value must be a Shape or Shapable but got {type(value).__name__}&#34;
-    dims = parse_dim_order(dims)
+    dims = shape(value).only(dims).names if callable(dims) else parse_dim_order(dims)
     if isinstance(names, str):
         names = parse_dim_order(names)
+    elif callable(names):
+        names: Shape = names(*dims).with_sizes(shape(value))
     assert len(dims) == len(names), f&#34;names and dims must be of equal length but got #dims={len(dims)} and #names={len(names)}&#34;
     existing_dims = shape(value).only(dims, reorder=True)
     if not existing_dims:
@@ -8736,8 +8740,9 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             value_packed = value.__pack_dims__(dims.names, packed_dim, pos=None)
             if value_packed is not NotImplemented:
                 return unstack(value_packed, packed_dim)
-        first_unstacked = unstack(value, dims[0])
-        inner_unstacked = [unstack(v, dims.without(dims[0])) for v in first_unstacked]
+        unstack_dim = _any_uniform_dim(dims)
+        first_unstacked = unstack(value, unstack_dim)
+        inner_unstacked = [unstack(v, dims.without(unstack_dim)) for v in first_unstacked]
         return sum(inner_unstacked, ())</code></pre>
 </details>
 </dd>
@@ -13518,9 +13523,8 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
             value = cached(self)
             assert isinstance(value, TensorStack)
             assert value._stack_dim.name in dims
-            concat_dim = (value.shape.without(value._stack_dim).non_uniform or value.shape.without(value._stack_dim))[0]
-            c = concat_tensor(value._tensors, concat_dim.name)
-            return pack_dims(c, [d for d in dims if d != value._stack_dim.name], packed_dim, pos=pos)
+            inner_packed = [pack_dims(t, dims, packed_dim) for t in value._tensors]
+            return concat_tensor(inner_packed, packed_dim.name)
 
     def __cast__(self, dtype: DType):
         return self._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))

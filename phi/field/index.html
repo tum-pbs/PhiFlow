@@ -3159,8 +3159,9 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
             value_packed = value.__pack_dims__(dims.names, packed_dim, pos=None)
             if value_packed is not NotImplemented:
                 return unstack(value_packed, packed_dim)
-        first_unstacked = unstack(value, dims[0])
-        inner_unstacked = [unstack(v, dims.without(dims[0])) for v in first_unstacked]
+        unstack_dim = _any_uniform_dim(dims)
+        first_unstacked = unstack(value, unstack_dim)
+        inner_unstacked = [unstack(v, dims.without(unstack_dim)) for v in first_unstacked]
         return sum(inner_unstacked, ())</code></pre>
 </details>
 </dd>
