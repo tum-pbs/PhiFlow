@@ -10,7 +10,7 @@ from . import extrapolation as e_
 from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int, tree_map
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
-                     IncompatibleShapes, DimFilter, non_batch)
+                     IncompatibleShapes, DimFilter, non_batch, dual)
 from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense
 from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
                        custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
@@ -1052,11 +1052,19 @@ def nonzero(value: Tensor, list_dim: Union[Shape, str] = instance('nonzero'), in
         list_dim = instance(list_dim)
 
     def unbatched_nonzero(value: Tensor):
-        native = reshaped_native(value, [*value.shape.spatial])
-        backend = choose_backend(native)
-        indices = backend.nonzero(native)
-        indices_shape = Shape(backend.staticshape(indices), (list_dim.name, index_dim.name), (list_dim.type, index_dim.type), (None, value.shape.spatial.names))
-        return NativeTensor(indices, indices_shape)
+        if isinstance(value, CompressedSparseMatrix):
+            value = value.decompress()
+        if isinstance(value, SparseCoordinateTensor):
+            nonzero_values = nonzero(value._values)
+            nonzero_indices = value._indices[nonzero_values]
+            return nonzero_indices
+        else:
+            dims = value.shape.non_channel
+            native = reshaped_native(value, [*dims])
+            backend = choose_backend(native)
+            indices = backend.nonzero(native)
+            indices_shape = Shape(backend.staticshape(indices), (list_dim.name, index_dim.name), (list_dim.type, index_dim.type), (None, dims.names))
+            return NativeTensor(indices, indices_shape)
 
     return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)
 
@@ -2425,6 +2433,8 @@ def pairwise_distances(positions: Tensor, max_distance: Union[float, Tensor] = N
         >>> dx.particles[0]
         (x=0.000, y=0.000); (x=0.000, y=1.000); (x=0.000, y=0.000) (othersⁱ=3, vectorᶜ=x,y)
     """
+    if others_dims is None:
+        others_dims = dual(**positions.shape.non_batch.non_channel.non_dual.untyped_dict)
     if format == 'dense':
         # if not count_self:
         #     warnings.warn(f"count_self has no effect when using format '{format}'", SyntaxWarning, stacklevel=2)
