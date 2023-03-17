@@ -521,9 +521,8 @@ class Tensor:
             value = cached(self)
             assert isinstance(value, TensorStack)
             assert value._stack_dim.name in dims
-            concat_dim = (value.shape.without(value._stack_dim).non_uniform or value.shape.without(value._stack_dim))[0]
-            c = concat_tensor(value._tensors, concat_dim.name)
-            return pack_dims(c, [d for d in dims if d != value._stack_dim.name], packed_dim, pos=pos)
+            inner_packed = [pack_dims(t, dims, packed_dim) for t in value._tensors]
+            return concat_tensor(inner_packed, packed_dim.name)
 
     def __cast__(self, dtype: DType):
         return self._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
