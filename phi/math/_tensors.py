@@ -775,7 +775,7 @@ class Tensor:
         Returns:
             `Tensor`
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
 
     def _natives(self) -> tuple:
         raise NotImplementedError(self.__class__)
