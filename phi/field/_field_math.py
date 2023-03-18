@@ -891,6 +891,6 @@ def connect_neighbors(obj: SampledField, max_distance: float or Tensor, format: 
         obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
     assert isinstance(obj, (PointCloud, Mesh)), f"obj must be a PointCloud, Mesh or Grid but got {type(obj)}"
     points = math.rename_dims(obj.elements, spatial, instance).center
-    dx = math.pairwise_distances(points, max_distance=max_distance, others_dims=None, format=format)
+    dx = math.pairwise_distances(points, max_distance=max_distance, format=format)
     con = math.vec_length(dx) > 0
     return connect(obj, con)

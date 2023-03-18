@@ -31,6 +31,9 @@ class Mesh(SampledField):
     def edges(self):
         return self._edges
 
+    def distances(self) -> Tensor:
+        return math.pairwise_distances(self.points, edges=self.edges, format='as edges')
+
     def __getitem__(self, item):
         if instance(self._elements).only(tuple(item)):
             raise NotImplementedError("Slicing along instance dimensions not yet supported")
@@ -110,15 +113,3 @@ class Mesh(SampledField):
             return "Mesh[%s]" % (self.shape,)
         except:
             return "Mesh[invalid]"
-
-
-def connected_distances(mesh: Mesh):
-    con = mesh.edges
-    from phi.math._sparse import CompressedSparseMatrix, SparseCoordinateTensor
-    if isinstance(con, CompressedSparseMatrix):
-        con = con.decompress()
-    inst_dim = instance(mesh.elements).name
-    origin = mesh.points[{inst_dim: con._indices[inst_dim]}]
-    target = mesh.points[{inst_dim: con._indices['~'+inst_dim]}]
-    dx = target - origin
-    return con._with_values(dx)

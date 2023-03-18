@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import phi
 from phi import math
-from phi.math import batch, get_sparsity, expand, wrap, stack, zeros, channel, spatial, ones, instance, tensor, sum, pairwise_distances, vec_length, dense, assert_close, non_dual
+from phi.math import batch, get_sparsity, expand, wrap, stack, zeros, channel, spatial, ones, instance, tensor, sum, pairwise_distances, vec_length, dense, assert_close, non_dual, dual
 from phi.math._sparse import SparseCoordinateTensor, CompressedSparseMatrix
 
 BACKENDS = phi.detect_backends()
@@ -42,17 +42,17 @@ class TestSparse(TestCase):
         dx = math.pairwise_distances(pos, max_distance=1.5, format='csr')
         self.assertEqual(0, dx.sum)
         dist = math.vec_length(dx, eps=1e-6)
-        self.assertEqual(instance(particles=3, others=3), dist.shape)
+        self.assertEqual(set(dual(particles=3) & instance(particles=3)), set(dist.shape))
         self.assertGreater(dist.sum, 0)
         # Slice channel
         dx_y = dx['y']
-        self.assertEqual(instance(particles=3, others=3), dx_y.shape)
+        self.assertEqual(set(dual(particles=3) & instance(particles=3)), set(dx_y.shape))
         # Slice / concat compressed
         concat_particles = math.concat([dx.particles[:1], dx.particles[1:]], 'particles')
         math.assert_close(dx, concat_particles)
         # Slice / concat uncompressed
-        concat_others = math.concat([dx.others[:1], dx.others[1:]], 'others')
-        math.assert_close(dx, concat_others)
+        concat_dual = math.concat([dx.particles.dual[:1], dx.particles.dual[1:]], '~particles')
+        math.assert_close(dx, concat_dual)
 
     def test_coo(self):
         def f(x):
