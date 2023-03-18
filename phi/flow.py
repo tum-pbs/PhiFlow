@@ -20,7 +20,7 @@ from .physics import fluid, advect, diffuse
 # Classes
 from .math import Shape, Tensor, DType, Solve
 from .geom import Geometry, Sphere, Box, Cuboid
-from .field import Grid, CenteredGrid, StaggeredGrid, mask, Noise, PointCloud, Scene, resample, GeometryMask, SoftGeometryMask, HardGeometryMask
+from .field import Grid, CenteredGrid, StaggeredGrid, mask, Noise, PointCloud, Mesh, Scene, resample, GeometryMask, SoftGeometryMask, HardGeometryMask
 from .vis import Viewer
 from .physics.fluid import Obstacle
 
