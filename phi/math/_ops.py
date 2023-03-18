@@ -11,7 +11,7 @@ from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_at
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, dual)
-from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense
+from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format
 from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
                        custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
                        is_scalar, Layout, expand_tensor)
@@ -2406,11 +2406,14 @@ def stop_gradient(x):
         return wrap(choose_backend(x).stop_gradient(x))
 
 
-def pairwise_distances(positions: Tensor, max_distance: Union[float, Tensor] = None, others_dims=instance('others'), format='dense') -> Tensor:
+def pairwise_distances(positions: Tensor,
+                       max_distance: Union[float, Tensor] = None,
+                       edges: Tensor = None,
+                       format: str or None = 'dense') -> Tensor:
     """
     Computes the distance matrix containing the pairwise position differences between each pair of points.
-    Points that are further apart than `max_distance` are assigned a distance value of `0`.
-    The diagonal of the matrix (self-distance) also consists purely of zero-vectors.
+    Points that are further apart than `max_distance` (if specified) are assigned a distance value of `0`.
+    The diagonal of the matrix (self-distance) also consists purely of zero-vectors and may or may not be stored explicitly.
 
     Args:
         positions: `Tensor`.
@@ -2419,61 +2422,77 @@ def pairwise_distances(positions: Tensor, max_distance: Union[float, Tensor] = N
         max_distance: Scalar or `Tensor` specifying a max_radius for each point separately.
             Can contain additional batch dimensions but spatial/instance dimensions must match `positions` if present.
             If not specified, uses an infinite cutoff radius, i.e. all points will be considered neighbors.
-        others_dims: These dimensions will be added to the result to list the neighbours of each point.
-            If `positions` contains multiple spatial/instance dimensions, it is recommended to specify a neighbor dim for each of them.
-        format:
-            One of `'dense', 'csr'`
+        edges: Connectivity matrix containing all spatial/instance dims of `positions` as primal and dual dims.
+            When
+        format: Matrix format as `str`. Allowed values are `'dense', `'csr'`, `'coo'`, and `'as edges'` if `edges` are given.
 
     Returns:
-        `Tensor`
+        Distance matrix as sparse or dense `Tensor`, depending on `format`.
+        For each spatial/instance dimension in `positions`, the matrix also contains a dual dimension of the same name and size.
+        The matrix also contains all batch dimensions of `positions` and one channel dimension called `vector`.
 
     Examples:
         >>> pos = vec(x=0, y=tensor([0, 1, 2.5], instance('particles')))
         >>> dx = pairwise_distances(pos, format='dense', max_distance=2)
         >>> dx.particles[0]
-        (x=0.000, y=0.000); (x=0.000, y=1.000); (x=0.000, y=0.000) (othersⁱ=3, vectorᶜ=x,y)
+        (x=0.000, y=0.000); (x=0.000, y=1.000); (x=0.000, y=0.000) (~particlesᵈ=3, vectorᶜ=x,y)
     """
-    if others_dims is None:
-        others_dims = dual(**positions.shape.non_batch.non_channel.non_dual.untyped_dict)
+    assert isinstance(positions, Tensor), f"positions must be a Tensor but got {type(positions)}"
+    primal_dims = positions.shape.non_batch.non_channel.non_dual
+    dual_dims = dual(**primal_dims.untyped_dict)
+    # --- Connectivity given ---
+    if edges is not None:
+        if format == 'as edges':
+            format = get_format(edges)
+        assert max_distance is None, "max_distance not allowed when edges are specified"
+        inst_dim = instance(positions).name
+        edge_indices = nonzero(edges)
+        origin = positions[{inst_dim: edge_indices[inst_dim]}]
+        target = positions[{inst_dim: edge_indices['~' + inst_dim]}]
+        dx = target - origin
+        from phi.math._sparse import SparseCoordinateTensor
+        result = SparseCoordinateTensor(edge_indices, dx, primal_dims & dual_dims, can_contain_double_entries=False, indices_sorted=False)
+        return to_format(result, format)
+    # --- Dense connectivity ---
     if format == 'dense':
         # if not count_self:
         #     warnings.warn(f"count_self has no effect when using format '{format}'", SyntaxWarning, stacklevel=2)
-        dx = unpack_dim(pack_dims(positions, non_batch(positions).non_channel, instance('_tmp')), '_tmp', others_dims) - positions
+        dx = unpack_dim(pack_dims(positions, non_batch(positions).non_channel, instance('_tmp')), '_tmp', dual_dims) - positions
         if max_distance is not None:
             neighbors = sum_(dx ** 2, channel) <= max_distance ** 2
             dx = where(neighbors, dx, 0)
         return dx
-    else:  # sparse
-        assert max_distance is not None, "max_distance must be specified when computing distance in sparse format"
-        backend = choose_backend_t(positions, max_distance)
-        batch_shape = batch(positions) & batch(max_distance)
-        pos_i_shape = non_batch(positions).non_channel
-        native_positions = reshaped_native(positions, [batch_shape, pos_i_shape, channel(positions)], force_expand=True)
-        if isinstance(max_distance, Tensor):
-            if max_distance.shape:
-                rad_i_shape = non_batch(max_distance).non_channel
-                if rad_i_shape:  # different values for each particle
-                    assert rad_i_shape == pos_i_shape, f"spatial/instance dimensions of max_radius {rad_i_shape} must match positions {pos_i_shape} if present."
-                    max_distance = reshaped_native(max_distance, [batch_shape, rad_i_shape], force_expand=True)
-                else:
-                    max_distance = reshaped_native(max_distance, [batch_shape], force_expand=True)
+    # --- Sparse connectivity ---
+    assert max_distance is not None, "max_distance must be specified when computing distance in sparse format"
+    backend = choose_backend_t(positions, max_distance)
+    batch_shape = batch(positions) & batch(max_distance)
+    pos_i_shape = non_batch(positions).non_channel
+    native_positions = reshaped_native(positions, [batch_shape, pos_i_shape, channel(positions)], force_expand=True)
+    if isinstance(max_distance, Tensor):
+        if max_distance.shape:
+            rad_i_shape = non_batch(max_distance).non_channel
+            if rad_i_shape:  # different values for each particle
+                assert rad_i_shape == pos_i_shape, f"spatial/instance dimensions of max_radius {rad_i_shape} must match positions {pos_i_shape} if present."
+                max_distance = reshaped_native(max_distance, [batch_shape, rad_i_shape], force_expand=True)
             else:
-                max_distance = max_distance.native()
-        if not others_dims.well_defined:
-            assert others_dims.rank == 1, f"others_dims sizes must be specified when passing more then one dimension but got {others_dims}"
-            others_dims = others_dims.with_size(pos_i_shape.volume)
-        sparse_natives = backend.pairwise_distances(native_positions, max_distance, format)
-        tensors = []
-        if format == 'csr':
-            for indices, pointers, values in sparse_natives:
-                indices = wrap(indices, instance('nnz'))
-                pointers = wrap(pointers, instance('pointers'))
-                values = wrap(values, instance('nnz'), channel(positions))
-                tensors.append(CompressedSparseMatrix(indices, pointers, values, others_dims, pos_i_shape))
-        elif format == 'coo':
-            raise NotImplementedError
-        elif format == 'csc':
-            raise NotImplementedError
+                max_distance = reshaped_native(max_distance, [batch_shape], force_expand=True)
         else:
-            raise ValueError(format)
-        return stack_tensors(tensors, batch_shape)
+            max_distance = max_distance.native()
+    if not dual_dims.well_defined:
+        assert dual_dims.rank == 1, f"others_dims sizes must be specified when passing more then one dimension but got {dual_dims}"
+        dual_dims = dual_dims.with_size(pos_i_shape.volume)
+    sparse_natives = backend.pairwise_distances(native_positions, max_distance, format)
+    tensors = []
+    if format == 'csr':
+        for indices, pointers, values in sparse_natives:
+            indices = wrap(indices, instance('nnz'))
+            pointers = wrap(pointers, instance('pointers'))
+            values = wrap(values, instance('nnz'), channel(positions))
+            tensors.append(CompressedSparseMatrix(indices, pointers, values, dual_dims, pos_i_shape))
+    elif format == 'coo':
+        raise NotImplementedError
+    elif format == 'csc':
+        raise NotImplementedError
+    else:
+        raise ValueError(format)
+    return stack_tensors(tensors, batch_shape)
