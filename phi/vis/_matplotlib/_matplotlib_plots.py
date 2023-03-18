@@ -481,7 +481,7 @@ class Mesh2D(Recipe):
         assert isinstance(data, Mesh)
         point_cloud = PointCloud(data.elements, data.values, data.extrapolation, bounds=data.bounds)
         PointCloud2D().plot(point_cloud, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
-        i, j = math.nonzero(data.connections).vector
+        i, j = math.nonzero(data.edges).vector
         i_x, i_y = reshaped_numpy(data.points[{instance(data).name: i}][dims], ['vector', 'nonzero'], force_expand=True)
         j_x, j_y = reshaped_numpy(data.points[{instance(data).name: j}][dims], ['vector', 'nonzero'], force_expand=True)
         subplot.plot(np.stack([i_x, j_x]), np.stack([i_y, j_y]), color=_plt_col(color), alpha=float(alpha.max))

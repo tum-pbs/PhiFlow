@@ -866,7 +866,7 @@ def connect(obj: SampledField, connections: Tensor) -> Mesh:
         raise ValueError(f"connect requires a PointCloud or Mesh but got {type(obj)}")
 
 
-def connect_neighbors(obj: SampledField, max_distance: float or Tensor, format: str = 'dense'):
+def connect_neighbors(obj: SampledField, max_distance: float or Tensor, format: str = 'dense') -> Mesh:
     """
     Build  a `Mesh` by connecting proximate elements of a `SampledField`.
 
