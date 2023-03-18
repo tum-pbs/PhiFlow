@@ -12,24 +12,24 @@ class Mesh(SampledField):
 
     def __init__(self,
                  elements: Union[Tensor, Geometry],
-                 connections: Tensor,
+                 edges: Tensor,
                  values: Any = 1.,
                  extrapolation: Union[Extrapolation, float] = 0.,
                  bounds: Box = None):
         SampledField.__init__(self, elements, expand(wrap(values), non_batch(elements).non_channel), extrapolation, bounds)
         assert not spatial(elements), f"Mesh does not support spatial dimensions but got elements with shape {elements.shape}"
-        assert isinstance(connections, Tensor), f"connections must be a Tensor but got {type(connections)}"
-        assert instance(elements) in instance(connections), f"Element instance dim {instance(elements)} must be present on connections but got {connections.shape}"
-        assert dual(connections).rank == instance(connections).rank, f"Connections must contain one dual dimension for every instance dimension but got shape {connections.shape}"
-        self._connections = connections
+        assert isinstance(edges, Tensor), f"edges must be a Tensor but got {type(edges)}"
+        assert instance(elements) in instance(edges), f"Element instance dim {instance(elements)} must be present on edges but got {edges.shape}"
+        assert dual(edges).rank == instance(edges).rank, f"Connections must contain one dual dimension for every instance dimension but got shape {edges.shape}"
+        self._edges = edges
 
     @property
     def shape(self):
         return self._elements.shape.without('vector') & self._values.shape
 
     @property
-    def connections(self):
-        return self._connections
+    def edges(self):
+        return self._edges
 
     def __getitem__(self, item):
         if instance(self._elements).only(tuple(item)):
@@ -38,27 +38,27 @@ class Mesh(SampledField):
         if not item:
             return self
         elements = self.elements[{dim: selection for dim, selection in item.items() if dim != 'vector'}]
-        connections = self._connections[item]
+        edges = self._edges[item]
         values = self._values[item]
         extrapolation = self._extrapolation[item]
-        return Mesh(elements, connections, values, extrapolation, self._bounds)
+        return Mesh(elements, edges, values, extrapolation, self._bounds)
 
     def with_values(self, values):
-        return Mesh(self.elements, self._connections, values, self._extrapolation, self._bounds)
+        return Mesh(self.elements, self._edges, values, self._extrapolation, self._bounds)
 
     def with_extrapolation(self, extrapolation: Extrapolation):
-        return Mesh(self.elements, self._connections, self._values, extrapolation, self._bounds)
+        return Mesh(self.elements, self._edges, self._values, extrapolation, self._bounds)
 
     def with_bounds(self, bounds: Box):
-        return Mesh(self.elements, self._connections, self._values, self._extrapolation, bounds)
+        return Mesh(self.elements, self._edges, self._values, self._extrapolation, bounds)
 
     def __value_attrs__(self):
         return '_values', '_extrapolation'
 
     def __variable_attrs__(self):
-        return '_values', '_elements', '_connections'
+        return '_values', '_elements', '_edges'
 
-    def __expand__(self, dims: Shape, **kwargs) -> 'PointCloud':
+    def __expand__(self, dims: Shape, **kwargs) -> 'Mesh':
         return self.with_values(expand(self.values, dims, **kwargs))
 
     def __eq__(self, other):
@@ -80,11 +80,11 @@ class Mesh(SampledField):
                 return False
             else:  # both tracers
                 return self.values.shape == other.values.shape
-        if not all_available(self._connections) or not all_available(other._connections):
-            if all_available(self._connections) != all_available(other._connections):
+        if not all_available(self._edges) or not all_available(other._edges):
+            if all_available(self._edges) != all_available(other._edges):
                 return False
             else:  # both tracers
-                return self._connections.shape == other._connections.shape
+                return self._edges.shape == other._edges.shape
         return bool((self.values == other.values).all)
 
     @property
@@ -113,7 +113,7 @@ class Mesh(SampledField):
 
 
 def connected_distances(mesh: Mesh):
-    con = mesh.connections
+    con = mesh.edges
     from phi.math._sparse import CompressedSparseMatrix, SparseCoordinateTensor
     if isinstance(con, CompressedSparseMatrix):
         con = con.decompress()
