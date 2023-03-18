@@ -473,6 +473,53 @@ class CompressedSparseMatrix(Tensor):
             raise NotImplementedError(f"Cannot pack dimensions from both columns and rows with compressed sparse matrices but got {dims}")
 
 
+def get_format(x: Tensor) -> str:
+    """
+    Returns the sparse storage format of a tensor.
+
+    Args:
+        x: `Tensor`
+
+    Returns:
+        One of `'coo'`, `'csr'`, `'csc'`, `'dense'`.
+    """
+    if isinstance(x, SparseCoordinateTensor):
+        return 'coo'
+    elif isinstance(x, CompressedSparseMatrix):
+        if dual(x._uncompressed_dims):
+            return 'csr'
+        else:
+            assert not dual(x._uncompressed_dims), f"Compressed matrix {x.shape} does not match 'csr' or 'csc' because dual dimensions are present in rows and columns."
+            return 'csc'
+    else:
+        return 'dense'
+
+
+def to_format(x: Tensor, format: str):
+    assert format in ('coo', 'csr', 'csc', 'dense'), f"Invalid format: '{format}'. Must be one of 'coo', 'csr', 'csc', 'dense'"
+    if get_format(x) == format:
+        return x
+    if format == 'dense':
+        return dense(x)
+    if isinstance(x, SparseCoordinateTensor):
+        if format == 'csr':
+            return x.compress_rows()
+        elif format == 'csc':
+            return x.compress_cols()
+    elif isinstance(x, CompressedSparseMatrix):
+        if format == 'coo':
+            return x.decompress()
+        else:
+            return to_format(x.decompress(), format)
+    else:  # dense to sparse
+        raise NotImplementedError('dense to sparse not yet supported')
+        # from ._ops import nonzero
+        # indices = nonzero(x)
+        # values = x[indices]
+        # coo = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False)
+        # return to_format(coo, format)
+
+
 def sparse_dims(x: Tensor) -> Shape:
     """
     Returns the dimensions of a `Tensor` that are explicitly stored in a sparse format.
