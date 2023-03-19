@@ -9,7 +9,7 @@ from typing import Tuple, Union
 from ._log import SceneLog
 from ._user_namespace import UserNamespace
 from ._vis_base import VisModel, Control, Action
-from .. import field
+from .. import field, math
 from ..field import Scene, SampledField
 from ..math import batch, Tensor
 from ..math.backend import PHI_LOGGER
@@ -72,8 +72,8 @@ class Viewer(VisModel):
         if not custom_reset:
             self._actions[Action('reset', Viewer.reset.__doc__)] = self.reset
 
-    def log_scalars(self, **values):
-        self._log.log_scalars(self.steps, **values)
+    def log_scalars(self, reduce=math.mean, **values):
+        self._log.log_scalars(self.steps, reduce=reduce, **values)
 
     def info(self, message: str):  # may be replaced by a different solution later on
         """
@@ -203,7 +203,7 @@ class Viewer(VisModel):
                     if rec_dim:
                         self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                     if self.log_performance:
-                        self._log.log_scalars(self.steps, step_time=self._elapsed)
+                        self._log.log_scalars(self.steps, reduce=None, step_time=self._elapsed)
                 finally:
                     self._post_step()
         finally:
