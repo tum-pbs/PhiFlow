@@ -108,7 +108,12 @@ def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Ca
     output = loss_function(*loss_args, **loss_kwargs)
     loss = output[0] if isinstance(output, tuple) else output
     loss.sum.backward()
-    optimizer.step()
+    if isinstance(optimizer, optim.LBFGS):
+        def closure():
+            return loss_function(*loss_args, **loss_kwargs).sum
+        optimizer.step(closure=closure)
+    else:
+        optimizer.step()
     return output
 
 
