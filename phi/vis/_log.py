@@ -1,7 +1,8 @@
 import logging
 import sys
+from numbers import Number
 from os.path import isfile
-from typing import Union
+from typing import Union, Callable, Optional
 
 import numpy as np
 
@@ -44,7 +45,7 @@ class SceneLog:
     def log(self, message):
         self.logger.info(message)
 
-    def log_scalars(self, frame: int, **values: Union[float, math.Tensor]):
+    def log_scalars(self, frame: int, reduce: Optional[Callable], **values: Union[float, math.Tensor]):
         """
         Adds `values` to the curves by name.
         This can be used to log the evolution of scalar quantities or summaries.
@@ -59,7 +60,8 @@ class SceneLog:
         """
         for name, value in values.items():
             assert isinstance(name, str)
-            value = float(math.mean(value).mean)
+            if reduce:
+                value = float(reduce(value, math.shape(value)))
             if name not in self._scalars:
                 self._scalars[name] = []
                 if self.scene is not None:
@@ -67,12 +69,12 @@ class SceneLog:
                     self._scalar_streams[name] = open(path, "w")
             self._scalars[name].append((frame, value))
             if self.scene is not None:
-                self._scalar_streams[name].write(f"{frame} {value}\n")
+                self._scalar_streams[name].write(f"{frame} {value if isinstance(value, Number) else ' '.join([str(float(v)) for v in value])}\n")
                 self._scalar_streams[name].flush()
 
     def get_scalar_curve(self, name) -> tuple:
         frames = np.array([item[0] for item in self._scalars[name]])
-        values = np.array([item[1] for item in self._scalars[name]])
+        values = np.array([float(item[1].mean) if isinstance(item[1], math.Tensor) else item[1] for item in self._scalars[name]])
         return frames, values
 
     @property
