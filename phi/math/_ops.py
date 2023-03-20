@@ -7,14 +7,14 @@ from typing import Tuple, Callable, Any
 import numpy as np
 
 from . import extrapolation as e_
-from ._magic_ops import expand, pack_dims, flatten, unpack_dim, cast, copy_with, value_attributes, bool_to_int
+from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, non_channel)
 from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense
 from ._tensors import Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack, CollapsedTensor, \
     custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree, \
-    cached, is_scalar, Layout
+    is_scalar, Layout
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, \
     NoBackendFound
 from .backend._dtype import DType, combine_types
@@ -1979,6 +1979,7 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
 def gather(values: Tensor, indices: Tensor, dims: DimFilter or None = None):
     """
     Gathers the entries of `values` at positions described by `indices`.
+    All non-channel dimensions of `indices` that are part of `values` but not indexed are treated as batch dimensions.
 
     See Also:
         `scatter()`.
@@ -2007,13 +2008,21 @@ def gather(values: Tensor, indices: Tensor, dims: DimFilter or None = None):
         indices = to_int32(indices)
     dims = parse_dim_order(dims)
     assert dims in values.shape, f"Trying to index non-existant dimensions with indices {indices.shape} into values {values.shape}"
-    batch_ = (values.shape.batch & indices.shape.batch).without(dims)
+    treat_as_batch = non_channel(indices).only(values.shape).without(dims)
+    batch_ = (values.shape.batch & indices.shape.batch).without(dims) & treat_as_batch
     channel_ = values.shape.without(dims).without(batch_)
+    index_list_dims = indices.shape.non_channel.without(batch_)
+    squeeze_index_list = False
+    if not index_list_dims:
+        index_list_dims = instance('_single_index')
+        squeeze_index_list = True
     native_values = reshaped_native(values, [batch_, *dims, channel_])
-    native_indices = reshaped_native(indices, [batch_, *indices.shape.non_batch.non_channel, channel(indices)])
+    native_indices = reshaped_native(indices, [batch_, *index_list_dims, channel(indices)])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
-    result = reshaped_tensor(native_result, [batch_, *indices.shape.non_channel.non_batch, channel_], convert=False)
+    result = reshaped_tensor(native_result, [batch_, *index_list_dims, channel_], convert=False)
+    if squeeze_index_list:
+        result = result[{'_single_index': 0}]
     return result
 
 
