@@ -15,6 +15,7 @@ from phi import math, field
 from phi.field import Grid, StaggeredGrid, PointCloud, SampledField
 from phi.field._mesh import Mesh
 from phi.geom import Sphere, BaseBox, Point, Box
+from phi.geom._poly_surface import PolygonSurface
 from phi.geom._stack import GeometryStack
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape, non_instance
 from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label
@@ -391,6 +392,10 @@ class PointCloud2D(Recipe):
             elif isinstance(data.elements, BaseBox):
                 w2, h2 = reshaped_numpy(data.elements.bounding_half_extent(), ['vector', data.shape.non_channel], force_expand=True)
                 shapes = [plt.Rectangle((xi - w2i, yi - h2i), w2i * 2, h2i * 2, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for xi, yi, w2i, h2i, ci, a in zip(x, y, w2, h2, mpl_colors, alphas)]
+            elif isinstance(data.elements, PolygonSurface):
+                xs, ys = reshaped_numpy(data.elements.corners(), ['vector', data.shape.non_channel, 'vertex_index'], force_expand=True)
+                counts = reshaped_numpy(data.elements._vertex_count, [data.shape.non_channel], force_expand=True)
+                shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor='white', alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
             else:
                 rad = reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
