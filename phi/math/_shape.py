@@ -62,13 +62,14 @@ class Shape:
         self.item_names: Tuple[str or 'Shape'] = (None,) * len(sizes) if item_names is None else item_names  # undocumented
         if DEBUG_CHECKS:
             assert len(sizes) == len(names) == len(types) == len(item_names), f"sizes={sizes}, names={names}, types={types}, item_names={item_names}"
+            assert len(set(names)) == len(names), f"Duplicate dimension names: {names}"
             assert all(isinstance(n, str) for n in names), f"All names must be of type string but got {names}"
             assert isinstance(self.item_names, tuple)
             assert all([items is None or isinstance(items, tuple) for items in self.item_names])
             assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
             from ._tensors import Tensor
             for name, size in zip(names, sizes):
-                if size is not None and isinstance(size, Tensor):
+                if isinstance(size, Tensor):
                     assert size.rank > 0
             for size, item_names in zip(self.sizes, self.item_names):
                 if item_names is not None:
@@ -473,22 +474,25 @@ class Shape:
         """
         if dim == 'dims':
             return tuple(Shape((self.sizes[i],), (self.names[i],), (self.types[i],), (self.item_names[i],)) for i in range(self.rank))
-        if dim not in self:
+        if dim not in self and self.is_uniform:
             return tuple([self])
-        else:
-            from ._tensors import Tensor
+        from ._tensors import Tensor
+        if dim in self:
             inner = self.without(dim)
-            sizes = []
             dim_size = self.get_size(dim)
-            for size in inner.sizes:
-                if isinstance(size, Tensor) and dim in size.shape:
-                    sizes.append(size.unstack(dim))
-                    dim_size = size.shape.get_size(dim)
-                else:
-                    sizes.append(size)
-            assert isinstance(dim_size, int)
-            shapes = tuple(Shape(tuple([int(size[i]) if isinstance(size, tuple) else size for size in sizes]), inner.names, inner.types, inner.item_names) for i in range(dim_size))
-            return shapes
+        else:
+            inner = self
+            dim_size = self.shape.get_size(dim)
+        sizes = []
+        for size in inner.sizes:
+            if isinstance(size, Tensor) and dim in size.shape:
+                sizes.append(size.unstack(dim))
+                dim_size = size.shape.get_size(dim)
+            else:
+                sizes.append(size)
+        assert isinstance(dim_size, int)
+        shapes = tuple(Shape(tuple([int(size[i]) if isinstance(size, tuple) else size for size in sizes]), inner.names, inner.types, inner.item_names) for i in range(dim_size))
+        return shapes
 
     @property
     def name(self) -> str:
@@ -771,7 +775,7 @@ class Shape:
         See Also:
             `Shape.is_non_uniform`, `Shape.shape`.
         """
-        return not self.is_non_uniform
+        return all(isinstance(s, int) for s in self.sizes)
 
     @property
     def is_non_uniform(self) -> bool:
@@ -781,11 +785,7 @@ class Shape:
         See Also:
             `Shape.is_uniform`, `Shape.shape`.
         """
-        from phi.math import Tensor
-        for size in self.sizes:
-            if isinstance(size, Tensor) and size.rank > 0:
-                return True
-        return False
+        return not self.is_uniform
 
     @property
     def non_uniform(self) -> 'Shape':
