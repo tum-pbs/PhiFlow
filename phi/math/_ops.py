@@ -10,7 +10,7 @@ from . import extrapolation as e_
 from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int, tree_map
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
-                     IncompatibleShapes, DimFilter, non_batch, dual)
+                     IncompatibleShapes, DimFilter, non_batch, dual, non_channel)
 from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format
 from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
                        custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
