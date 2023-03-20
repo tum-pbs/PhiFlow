@@ -905,7 +905,14 @@ class Layout(Tensor):
 
     @property
     def dtype(self) -> DType:
-        return DType(object)
+        if isinstance(self._obj, bool):
+            return DType(bool)
+        if isinstance(self._obj, int):
+            return DType(int, 64)
+        elif isinstance(self._obj, (float, complex)):
+            return DType(type(self._obj), precision=64)
+        else:
+            return DType(object)
 
     @property
     def default_backend(self):
