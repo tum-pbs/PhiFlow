@@ -107,8 +107,7 @@ def make_incompressible(velocity: GridType,
     if not all_active:  # NaN in velocity allowed
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
-        assert solve.preprocess_y is None, "fluid.make_incompressible() does not support custom preprocessing"
-        solve = copy_with(solve, preprocess_y=_balance_divergence, preprocess_y_args=(active,))
+        solve = solve.with_preprocessing(_balance_divergence, active)
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
         solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
