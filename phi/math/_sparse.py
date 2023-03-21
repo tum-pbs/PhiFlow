@@ -12,33 +12,43 @@ from .backend import choose_backend, NUMPY
 from .backend._dtype import DType
 
 
+def sparse_tensor(indices: Tensor, values: Tensor, dense_shape: Shape, can_contain_double_entries=True, indices_sorted=False) -> Tensor:
+    """
+    Construct a sparse tensor that stores `values` at the corresponding `indices` and is 0 everywhere else.
+    In addition to the sparse dimensions indexed by `indices`, the tensor inherits all batch and channel dimensions from `values`.
+
+    indices: `Tensor` encoding the positions of stored values. It has the following dimensions:
+
+        * One instance dimension exactly matching the instance dimension on `values`.
+          It enumerates the positions of stored entries.
+        * One channel dimension called `vector`.
+          Its item names must match the dimension names of `dense_shape` but the order can be arbitrary.
+        * Any number of batch dimensions
+
+    values: `Tensor` containing the stored values at positions given by `indices`. It has the following dimensions:
+
+        * One instance dimension exactly matching the instance dimension on `indices`.
+          It enumerates the values of stored entries.
+        * Any number of channel dimensions if multiple values are stored at each index.
+        * Any number of batch dimensions
+
+    dense_shape: Dimensions listed in `indices`.
+        The order can differ from the item names of `indices`.
+    can_contain_double_entries: Whether some indices might occur more than once.
+        If so, values at the same index will be summed.
+    indices_sorted: Whether the indices are sorted in ascending order given the dimension order of the item names of `indices`.
+
+    Returns:
+        Sparse `Tensor`
+    """
+    return SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries, indices_sorted)
+
+
 class SparseCoordinateTensor(Tensor):
 
     def __init__(self, indices: Tensor, values: Tensor, dense_shape: Shape, can_contain_double_entries: bool, indices_sorted: bool):
         """
         Construct a sparse tensor with any number of sparse, dense and batch dimensions.
-
-        Args:
-            indices: `Tensor` encoding the positions of stored values. It has the following dimensions:
-
-                * One instance dimension exactly matching the instance dimension on `values`.
-                  It enumerates the positions of stored entries.
-                * One channel dimension called `vector`.
-                  Its item names must match the dimension names of `dense_shape` but the order can be arbitrary.
-                * Any number of batch dimensions
-
-            values: `Tensor` containing the stored values at positions given by `indices`. It has the following dimensions:
-
-                * One instance dimension exactly matching the instance dimension on `indices`.
-                  It enumerates the values of stored entries.
-                * Any number of channel dimensions if multiple values are stored at each index.
-                * Any number of batch dimensions
-
-            dense_shape: Dimensions listed in `indices`.
-                The order can differ from the item names of `indices`.
-            can_contain_double_entries: Whether some indices might occur more than once.
-                If so, values at the same index will be summed.
-            indices_sorted: Whether the indices are sorted in ascending order given the dimension order of the item names of `indices`.
         """
         assert isinstance(indices, Tensor), f"indices must be a Tensor but got {type(indices)}"
         assert isinstance(values, Tensor), f"values must be a Tensor but got {type(values)}"
