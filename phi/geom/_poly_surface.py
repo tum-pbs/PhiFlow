@@ -1,7 +1,9 @@
-from typing import Tuple
+from typing import Tuple, Dict
+
+import numpy as np
 
 from .. import math
-from ..math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, pack_dims, wrap, sparse_tensor
+from ..math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, pack_dims, wrap, sparse_tensor, vec
 from ._geom import Geometry
 
 
@@ -149,13 +151,34 @@ class PolygonSurface(Geometry):
         return hash(self._vertices) + hash(self._polygons)
 
 
-def load_su2() -> Tuple[PolygonSurface, Tensor]:
+def load_su2(file: str) -> Tuple[PolygonSurface, Dict[str, Tensor]]:
     """
+    Loads an unstructured mesh from a `.su2` file.
+
+    Args:
+        file: Path to `.su2` file.
 
     Returns:
         surface: `PolygonSurface`
         markers: Edges/Faces marked
             sparse (vertices, vertices) -> int
     """
-    import ezmesh
+    from ezmesh import import_from_file
+    mesh = import_from_file(file)
+    if mesh.dim == 2:
+        vertices = vec(x=mesh.points[:, 0].tolist(), y=mesh.points[:, 1].tolist())
+    elif mesh.dim == 3:
+        vertices = vec(x=mesh.points[:, 0].tolist(), y=mesh.points[:, 1].tolist(), z=mesh.points[:, 2].tolist())
+    else:
+        raise NotImplementedError(f"dim={mesh.dim} not supported")
+    elements = np.stack(mesh.elements).astype(np.int32)
+    polygons = wrap(elements, instance('polygons'), spatial('vertex_index'))
+    surface = PolygonSurface(vertices, polygons, vertex_count=4)
+    markers = {}
+    for name, pair_list in mesh.markers.items():
+        marker_indices = wrap(np.stack(pair_list).astype(np.int32), instance('edges'), channel(vector='~vertices,vertices'))
+        marker_values = expand(True, instance(marker_indices))
+        marker_shape = dual(vertices=instance(vertices).size) & instance(vertices=instance(vertices).size)
+        marker = sparse_tensor(marker_indices, marker_values, marker_shape, can_contain_double_entries=False, indices_sorted=False)
+        markers[name] = marker
     return surface, markers
