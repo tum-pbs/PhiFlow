@@ -3017,7 +3017,8 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 <span>def <span class="ident">gather</span></span>(<span>values: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Gathers the entries of <code>values</code> at positions described by <code>indices</code>.</p>
+<div class="desc"><p>Gathers the entries of <code>values</code> at positions described by <code>indices</code>.
+All non-channel dimensions of <code>indices</code> that are part of <code>values</code> but not indexed are treated as batch dimensions.</p>
 <p>See Also:
 <code><a title="phi.math.scatter" href="#phi.math.scatter">scatter()</a></code>.</p>
 <h2 id="args">Args</h2>
@@ -3042,6 +3043,7 @@ If <code>None</code> and no index item names are specified, will default to all 
 <pre><code class="python">def gather(values: Tensor, indices: Tensor, dims: DimFilter or None = None):
     &#34;&#34;&#34;
     Gathers the entries of `values` at positions described by `indices`.
+    All non-channel dimensions of `indices` that are part of `values` but not indexed are treated as batch dimensions.
 
     See Also:
         `scatter()`.
@@ -3070,13 +3072,21 @@ If <code>None</code> and no index item names are specified, will default to all 
         indices = to_int32(indices)
     dims = parse_dim_order(dims)
     assert dims in values.shape, f&#34;Trying to index non-existant dimensions with indices {indices.shape} into values {values.shape}&#34;
-    batch_ = (values.shape.batch &amp; indices.shape.batch).without(dims)
+    treat_as_batch = non_channel(indices).only(values.shape).without(dims)
+    batch_ = (values.shape.batch &amp; indices.shape.batch).without(dims) &amp; treat_as_batch
     channel_ = values.shape.without(dims).without(batch_)
+    index_list_dims = indices.shape.non_channel.without(batch_)
+    squeeze_index_list = False
+    if not index_list_dims:
+        index_list_dims = instance(&#39;_single_index&#39;)
+        squeeze_index_list = True
     native_values = reshaped_native(values, [batch_, *dims, channel_])
-    native_indices = reshaped_native(indices, [batch_, *indices.shape.non_batch.non_channel, channel(indices)])
+    native_indices = reshaped_native(indices, [batch_, *index_list_dims, channel(indices)])
     backend = choose_backend(native_values, native_indices)
     native_result = backend.batched_gather_nd(native_values, native_indices)
-    result = reshaped_tensor(native_result, [batch_, *indices.shape.non_channel.non_batch, channel_], convert=False)
+    result = reshaped_tensor(native_result, [batch_, *index_list_dims, channel_], convert=False)
+    if squeeze_index_list:
+        result = result[{&#39;_single_index&#39;: 0}]
     return result</code></pre>
 </details>
 </dd>
@@ -9911,13 +9921,14 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         self.item_names: Tuple[str or &#39;Shape&#39;] = (None,) * len(sizes) if item_names is None else item_names  # undocumented
         if DEBUG_CHECKS:
             assert len(sizes) == len(names) == len(types) == len(item_names), f&#34;sizes={sizes}, names={names}, types={types}, item_names={item_names}&#34;
+            assert len(set(names)) == len(names), f&#34;Duplicate dimension names: {names}&#34;
             assert all(isinstance(n, str) for n in names), f&#34;All names must be of type string but got {names}&#34;
             assert isinstance(self.item_names, tuple)
             assert all([items is None or isinstance(items, tuple) for items in self.item_names])
             assert all([items is None or all([isinstance(n, str) for n in items]) for items in self.item_names])
             from ._tensors import Tensor
             for name, size in zip(names, sizes):
-                if size is not None and isinstance(size, Tensor):
+                if isinstance(size, Tensor):
                     assert size.rank &gt; 0
             for size, item_names in zip(self.sizes, self.item_names):
                 if item_names is not None:
@@ -10322,22 +10333,25 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         &#34;&#34;&#34;
         if dim == &#39;dims&#39;:
             return tuple(Shape((self.sizes[i],), (self.names[i],), (self.types[i],), (self.item_names[i],)) for i in range(self.rank))
-        if dim not in self:
+        if dim not in self and self.is_uniform:
             return tuple([self])
-        else:
-            from ._tensors import Tensor
+        from ._tensors import Tensor
+        if dim in self:
             inner = self.without(dim)
-            sizes = []
             dim_size = self.get_size(dim)
-            for size in inner.sizes:
-                if isinstance(size, Tensor) and dim in size.shape:
-                    sizes.append(size.unstack(dim))
-                    dim_size = size.shape.get_size(dim)
-                else:
-                    sizes.append(size)
-            assert isinstance(dim_size, int)
-            shapes = tuple(Shape(tuple([int(size[i]) if isinstance(size, tuple) else size for size in sizes]), inner.names, inner.types, inner.item_names) for i in range(dim_size))
-            return shapes
+        else:
+            inner = self
+            dim_size = self.shape.get_size(dim)
+        sizes = []
+        for size in inner.sizes:
+            if isinstance(size, Tensor) and dim in size.shape:
+                sizes.append(size.unstack(dim))
+                dim_size = size.shape.get_size(dim)
+            else:
+                sizes.append(size)
+        assert isinstance(dim_size, int)
+        shapes = tuple(Shape(tuple([int(size[i]) if isinstance(size, tuple) else size for size in sizes]), inner.names, inner.types, inner.item_names) for i in range(dim_size))
+        return shapes
 
     @property
     def name(self) -&gt; str:
@@ -10620,7 +10634,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         See Also:
             `Shape.is_non_uniform`, `Shape.shape`.
         &#34;&#34;&#34;
-        return not self.is_non_uniform
+        return all(isinstance(s, int) for s in self.sizes)
 
     @property
     def is_non_uniform(self) -&gt; bool:
@@ -10630,11 +10644,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         See Also:
             `Shape.is_uniform`, `Shape.shape`.
         &#34;&#34;&#34;
-        from phi.math import Tensor
-        for size in self.sizes:
-            if isinstance(size, Tensor) and size.rank &gt; 0:
-                return True
-        return False
+        return not self.is_uniform
 
     @property
     def non_uniform(self) -&gt; &#39;Shape&#39;:
@@ -11200,11 +11210,7 @@ def is_non_uniform(self) -&gt; bool:
     See Also:
         `Shape.is_uniform`, `Shape.shape`.
     &#34;&#34;&#34;
-    from phi.math import Tensor
-    for size in self.sizes:
-        if isinstance(size, Tensor) and size.rank &gt; 0:
-            return True
-    return False</code></pre>
+    return not self.is_uniform</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.is_uniform"><code class="name">var <span class="ident">is_uniform</span> : bool</code></dt>
@@ -11224,7 +11230,7 @@ def is_uniform(self) -&gt; bool:
     See Also:
         `Shape.is_non_uniform`, `Shape.shape`.
     &#34;&#34;&#34;
-    return not self.is_non_uniform</code></pre>
+    return all(isinstance(s, int) for s in self.sizes)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.name"><code class="name">var <span class="ident">name</span> : str</code></dt>
@@ -12356,22 +12362,25 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
     &#34;&#34;&#34;
     if dim == &#39;dims&#39;:
         return tuple(Shape((self.sizes[i],), (self.names[i],), (self.types[i],), (self.item_names[i],)) for i in range(self.rank))
-    if dim not in self:
+    if dim not in self and self.is_uniform:
         return tuple([self])
-    else:
-        from ._tensors import Tensor
+    from ._tensors import Tensor
+    if dim in self:
         inner = self.without(dim)
-        sizes = []
         dim_size = self.get_size(dim)
-        for size in inner.sizes:
-            if isinstance(size, Tensor) and dim in size.shape:
-                sizes.append(size.unstack(dim))
-                dim_size = size.shape.get_size(dim)
-            else:
-                sizes.append(size)
-        assert isinstance(dim_size, int)
-        shapes = tuple(Shape(tuple([int(size[i]) if isinstance(size, tuple) else size for size in sizes]), inner.names, inner.types, inner.item_names) for i in range(dim_size))
-        return shapes</code></pre>
+    else:
+        inner = self
+        dim_size = self.shape.get_size(dim)
+    sizes = []
+    for size in inner.sizes:
+        if isinstance(size, Tensor) and dim in size.shape:
+            sizes.append(size.unstack(dim))
+            dim_size = size.shape.get_size(dim)
+        else:
+            sizes.append(size)
+    assert isinstance(dim_size, int)
+    shapes = tuple(Shape(tuple([int(size[i]) if isinstance(size, tuple) else size for size in sizes]), inner.names, inner.types, inner.item_names) for i in range(dim_size))
+    return shapes</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.with_dim_size"><code class="name flex">
