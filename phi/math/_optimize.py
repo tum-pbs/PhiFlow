@@ -32,7 +32,7 @@ class Solve(Generic[X, Y]):
                  rel_tol: float or Tensor = None,
                  abs_tol: float or Tensor = None,
                  x0: X or Any = None,
-                 max_iterations: int or Tensor = 1000,
+                 max_iterations: Union[int, Tensor] = 1000,
                  suppress: tuple or list = (),
                  preprocess_y: Callable = None,
                  preprocess_y_args: tuple = (),
@@ -77,7 +77,7 @@ class Solve(Generic[X, Y]):
         return self._gradient_solve
 
     def __repr__(self):
-        return f"{self.method} with tolerance {self.rel_tol} (rel), {self.abs_tol} (abs), max_iterations={self.max_iterations}"
+        return f"{self.method} with tolerance {self.rel_tol} (rel), {self.abs_tol} (abs), max_iterations={self.max_iterations}" + (" including preprocessing" if self.preprocess_y else "")
 
     def __eq__(self, other):
         if not isinstance(other, Solve):
@@ -102,6 +102,21 @@ class Solve(Generic[X, Y]):
         if result.abs_tol is None:
             result = copy_with(result, abs_tol=_default_tolerance())
         return result
+
+    def with_preprocessing(self, preprocess_y: Callable, *args) -> 'Solve':
+        """
+        Adds preprocessing to this `Solve` and all corresponding gradient solves.
+
+        Args:
+            preprocess_y: Preprocessing function.
+            *args: Arguments for the preprocessing function.
+
+        Returns:
+            Copy of this `Solve` with given preprocessing.
+        """
+        assert self.preprocess_y is None, f"preprocessing for linear solve '{self}' already set"
+        gradient_solve = self._gradient_solve.with_preprocessing(preprocess_y, *args) if self._gradient_solve is not None else None
+        return copy_with(self, preprocess_y=preprocess_y, preprocess_y_args=args, _gradient_solve=gradient_solve)
 
 
 def _default_tolerance():
@@ -497,7 +512,6 @@ def solve_linear(f: Callable[[X], Y] or Tensor,
     f_kwargs.update(f_kwargs_)
     f_args = f_args[0] if len(f_args) == 1 and isinstance(f_args[0], tuple) else f_args
     # --- Get input and output tensors ---
-    solve = solve.with_defaults('solve')
     y_tree, y_tensors = disassemble_tree(y)
     x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert solve.x0 is not None, "Please specify the initial guess as Solve(..., x0=initial_guess)"
@@ -557,6 +571,7 @@ def _linear_solve_forward(y,
                           pattern_dims_out: Tuple[str, ...],
                           backend: Backend,
                           is_backprop: bool) -> Any:
+    solve = solve.with_defaults('solve')
     PHI_LOGGER.debug(f"Performing linear solve {solve} with backend {backend}")
     if solve.preprocess_y is not None:
         y = solve.preprocess_y(y, *solve.preprocess_y_args)
