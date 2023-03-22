@@ -24,6 +24,7 @@ class PolygonSurface(Geometry):
         assert 'vector' in channel(vertices) and channel(vertices).get_item_names('vector') is not None, "vertices must have a 'vector' dim listing the physical dimensions"
         vertex_count = expand(vertex_count, instance(polygons))
         assert 'vertex_index' in spatial(polygons), f"polygons must have exactly one spatial dimension called 'vertex_index' but got {shape(polygons)}"
+        assert polygons.dtype.kind == int, f"polygons must be integer lists but got dtype {polygons.dtype}"
         self._vertices = vertices
         self._polygons = polygons
         self._vertex_count = vertex_count
@@ -109,6 +110,26 @@ class PolygonSurface(Geometry):
         #     shared_vertex_count = math.where(shared_vertex_count >= min_shared_vertices, shared_vertex_count, 0)
         return shared_vertex_count
 
+    def faces(self) -> Tuple[Tensor, Tensor, Tensor]:
+        """
+        Assembles information about the boundaries of the polygons that make up the surface.
+        For 2D polygons, the faces are edges, for 3D polygons, the faces are planar polygons.
+
+        Returns:
+            center: Center of face connecting a pair of polygons. Shape (~polygons, polygons, vector).
+                Returns 0-vectors for unconnected polygons.
+            area: Area of face connecting a pair of polygons. Shape (~polygons, polygons).
+                Returns 0 for unconnected polygons.
+            normal: Normal vector of face connecting a pair of polygons. Shape (~polygons, polygons, vector).
+                Unconnected polygons are assigned the vector 0.
+                The vector points out of polygon and into ~polygon.
+        """
+        raise NotImplementedError
+
+    @property
+    def vertices(self):
+        return self._vertices
+
     @property
     def volume(self) -> Tensor:
         raise NotImplementedError
@@ -151,29 +172,47 @@ class PolygonSurface(Geometry):
         return hash(self._vertices) + hash(self._polygons)
 
 
-def load_su2(file: str) -> Tuple[PolygonSurface, Dict[str, Tensor]]:
+def surface_from_numpy(points, elements) -> PolygonSurface:
+    points = np.asarray(points)
+    dim = points.shape[-1]
+    if dim == 2:
+        vertices = vec(x=points[:, 0].tolist(), y=points[:, 1].tolist())
+    elif dim == 3:
+        vertices = vec(x=points[:, 0].tolist(), y=points[:, 1].tolist(), z=points[:, 2].tolist())
+    else:
+        raise NotImplementedError(f"dim={dim} not supported")
+    try:
+        elements_np = np.stack(elements).astype(np.int32)
+        vertex_count = elements_np.shape[-1]
+    except ValueError:
+        vertex_count = wrap([len(e) for e in elements], instance('polygons'))
+        max_len = vertex_count.max
+        elements_np = np.zeros((len(elements), max_len), dtype=np.int32)
+        for i, element in enumerate(elements):
+            elements_np[i, :len(element)] = element
+    polygons = wrap(elements_np, instance('polygons'), spatial('vertex_index'))
+    return PolygonSurface(vertices, polygons, vertex_count=vertex_count)
+
+
+def load_su2(file_or_mesh: str) -> Tuple[PolygonSurface, Dict[str, Tensor]]:
     """
     Loads an unstructured mesh from a `.su2` file.
 
     Args:
-        file: Path to `.su2` file.
+        file_or_mesh: Path to `.su2` file or *ezmesh* `Mesh` instance.
 
     Returns:
         surface: `PolygonSurface`
         markers: Edges/Faces marked
             sparse (vertices, vertices) -> int
     """
-    from ezmesh import import_from_file
-    mesh = import_from_file(file)
-    if mesh.dim == 2:
-        vertices = vec(x=mesh.points[:, 0].tolist(), y=mesh.points[:, 1].tolist())
-    elif mesh.dim == 3:
-        vertices = vec(x=mesh.points[:, 0].tolist(), y=mesh.points[:, 1].tolist(), z=mesh.points[:, 2].tolist())
+    if isinstance(file_or_mesh, str):
+        from ezmesh import import_from_file
+        mesh = import_from_file(file_or_mesh)
     else:
-        raise NotImplementedError(f"dim={mesh.dim} not supported")
-    elements = np.stack(mesh.elements).astype(np.int32)
-    polygons = wrap(elements, instance('polygons'), spatial('vertex_index'))
-    surface = PolygonSurface(vertices, polygons, vertex_count=4)
+        mesh = file_or_mesh
+    surface = surface_from_numpy(mesh.points, mesh.elements)
+    vertices = surface.vertices
     markers = {}
     for name, pair_list in mesh.markers.items():
         marker_indices = wrap(np.stack(pair_list).astype(np.int32), instance('edges'), channel(vector='~vertices,vertices'))
