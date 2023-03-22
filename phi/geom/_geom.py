@@ -77,7 +77,7 @@ class Geometry:
     @property
     def spatial_rank(self) -> int:
         """ Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. """
-        return self.center.shape.get_size('vector')
+        return self.shape.get_size('vector')
 
     def lies_inside(self, location: Tensor) -> Tensor:
         """
