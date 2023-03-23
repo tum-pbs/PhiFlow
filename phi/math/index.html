@@ -7483,7 +7483,6 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
     f_kwargs.update(f_kwargs_)
     f_args = f_args[0] if len(f_args) == 1 and isinstance(f_args[0], tuple) else f_args
     # --- Get input and output tensors ---
-    solve = solve.with_defaults(&#39;solve&#39;)
     y_tree, y_tensors = disassemble_tree(y)
     x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert solve.x0 is not None, &#34;Please specify the initial guess as Solve(..., x0=initial_guess)&#34;
@@ -12589,7 +12588,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 <dt id="phi.math.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>method: str = 'auto', rel_tol: float = None, abs_tol: float = None, x0: ~X = None, max_iterations: int = 1000, suppress: tuple = (), preprocess_y: Callable = None, preprocess_y_args: tuple = (), gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X] = None)</span>
+<span>(</span><span>method: str = 'auto', rel_tol: float = None, abs_tol: float = None, x0: ~X = None, max_iterations: Union[int, phi.math._tensors.Tensor] = 1000, suppress: tuple = (), preprocess_y: Callable = None, preprocess_y_args: tuple = (), gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specifies parameters and stopping criteria for solving a minimization problem or system of equations.</p></div>
@@ -12607,7 +12606,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
                  rel_tol: float or Tensor = None,
                  abs_tol: float or Tensor = None,
                  x0: X or Any = None,
-                 max_iterations: int or Tensor = 1000,
+                 max_iterations: Union[int, Tensor] = 1000,
                  suppress: tuple or list = (),
                  preprocess_y: Callable = None,
                  preprocess_y_args: tuple = (),
@@ -12652,7 +12651,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
         return self._gradient_solve
 
     def __repr__(self):
-        return f&#34;{self.method} with tolerance {self.rel_tol} (rel), {self.abs_tol} (abs), max_iterations={self.max_iterations}&#34;
+        return f&#34;{self.method} with tolerance {self.rel_tol} (rel), {self.abs_tol} (abs), max_iterations={self.max_iterations}&#34; + (&#34; including preprocessing&#34; if self.preprocess_y else &#34;&#34;)
 
     def __eq__(self, other):
         if not isinstance(other, Solve):
@@ -12676,7 +12675,22 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
             result = copy_with(result, rel_tol=_default_tolerance() if mode == &#39;solve&#39; else wrap(0.))
         if result.abs_tol is None:
             result = copy_with(result, abs_tol=_default_tolerance())
-        return result</code></pre>
+        return result
+
+    def with_preprocessing(self, preprocess_y: Callable, *args) -&gt; &#39;Solve&#39;:
+        &#34;&#34;&#34;
+        Adds preprocessing to this `Solve` and all corresponding gradient solves.
+
+        Args:
+            preprocess_y: Preprocessing function.
+            *args: Arguments for the preprocessing function.
+
+        Returns:
+            Copy of this `Solve` with given preprocessing.
+        &#34;&#34;&#34;
+        assert self.preprocess_y is None, f&#34;preprocessing for linear solve &#39;{self}&#39; already set&#34;
+        gradient_solve = self._gradient_solve.with_preprocessing(preprocess_y, *args) if self._gradient_solve is not None else None
+        return copy_with(self, preprocess_y=preprocess_y, preprocess_y_args=args, _gradient_solve=gradient_solve)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -12760,6 +12774,40 @@ This property must be set to a value compatible with the solution <code>x</code>
     if result.abs_tol is None:
         result = copy_with(result, abs_tol=_default_tolerance())
     return result</code></pre>
+</details>
+</dd>
+<dt id="phi.math.Solve.with_preprocessing"><code class="name flex">
+<span>def <span class="ident">with_preprocessing</span></span>(<span>self, preprocess_y: Callable, *args) ‑> phi.math._optimize.Solve</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Adds preprocessing to this <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> and all corresponding gradient solves.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>preprocess_y</code></strong></dt>
+<dd>Preprocessing function.</dd>
+<dt><strong><code>*args</code></strong></dt>
+<dd>Arguments for the preprocessing function.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Copy of this <code><a title="phi.math.Solve" href="#phi.math.Solve">Solve</a></code> with given preprocessing.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def with_preprocessing(self, preprocess_y: Callable, *args) -&gt; &#39;Solve&#39;:
+    &#34;&#34;&#34;
+    Adds preprocessing to this `Solve` and all corresponding gradient solves.
+
+    Args:
+        preprocess_y: Preprocessing function.
+        *args: Arguments for the preprocessing function.
+
+    Returns:
+        Copy of this `Solve` with given preprocessing.
+    &#34;&#34;&#34;
+    assert self.preprocess_y is None, f&#34;preprocessing for linear solve &#39;{self}&#39; already set&#34;
+    gradient_solve = self._gradient_solve.with_preprocessing(preprocess_y, *args) if self._gradient_solve is not None else None
+    return copy_with(self, preprocess_y=preprocess_y, preprocess_y_args=args, _gradient_solve=gradient_solve)</code></pre>
 </details>
 </dd>
 </dl>
@@ -14677,6 +14725,7 @@ The returned tensors have the same dimensions as this tensor save the unstacked 
 <li><code><a title="phi.math.Solve.rel_tol" href="#phi.math.Solve.rel_tol">rel_tol</a></code></li>
 <li><code><a title="phi.math.Solve.suppress" href="#phi.math.Solve.suppress">suppress</a></code></li>
 <li><code><a title="phi.math.Solve.with_defaults" href="#phi.math.Solve.with_defaults">with_defaults</a></code></li>
+<li><code><a title="phi.math.Solve.with_preprocessing" href="#phi.math.Solve.with_preprocessing">with_preprocessing</a></code></li>
 <li><code><a title="phi.math.Solve.x0" href="#phi.math.Solve.x0">x0</a></code></li>
 </ul>
 </li>

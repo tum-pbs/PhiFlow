@@ -1641,7 +1641,7 @@ use_res_blocks : use convolutional blocks with skip connections instead of regul
 </details>
 </dd>
 <dt id="phi.tf.nets.update_weights"><code class="name flex">
-<span>def <span class="ident">update_weights</span></span>(<span>net: keras.engine.training.Model, optimizer: keras.optimizers.optimizer_experimental.optimizer.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs)</span>
+<span>def <span class="ident">update_weights</span></span>(<span>net: keras.engine.training.Model, optimizer: keras.optimizers.optimizer.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the gradients of <code>loss_function</code> w.r.t. the parameters of <code>net</code> and updates its weights using <code>optimizer</code>.</p>
@@ -1699,7 +1699,7 @@ use_res_blocks : use convolutional blocks with skip connections instead of regul
 <span>(</span><span>in_channels, activation, batch_norm, in_spatial, net, reverse_mask)</span>
 </code></dt>
 <dd>
-<div class="desc"><p><code>Model</code> groups layers into an object with training and inference features.</p>
+<div class="desc"><p>A model grouping layers into an object with training/inference features.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>inputs</code></strong></dt>
@@ -1914,7 +1914,7 @@ a list of tensors if there are more than one outputs.</p></div>
 <span>(</span><span>in_channels, out_channels, width, modes, activation, batch_norm, in_spatial)</span>
 </code></dt>
 <dd>
-<div class="desc"><p><code>Model</code> groups layers into an object with training and inference features.</p>
+<div class="desc"><p>A model grouping layers into an object with training/inference features.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>inputs</code></strong></dt>
@@ -2186,7 +2186,7 @@ a list of tensors if there are more than one outputs.</p></div>
 <span>(</span><span>in_channels, num_blocks, activation, batch_norm, in_spatial, net)</span>
 </code></dt>
 <dd>
-<div class="desc"><p><code>Model</code> groups layers into an object with training and inference features.</p>
+<div class="desc"><p>A model grouping layers into an object with training/inference features.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>inputs</code></strong></dt>
@@ -2361,7 +2361,7 @@ a list of tensors if there are more than one outputs.</p></div>
 <span>(</span><span>in_channels, out_channels, modes, in_spatial)</span>
 </code></dt>
 <dd>
-<div class="desc"><p><code>Model</code> groups layers into an object with training and inference features.</p>
+<div class="desc"><p>A model grouping layers into an object with training/inference features.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>inputs</code></strong></dt>

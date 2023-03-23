@@ -2523,7 +2523,6 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
     f_kwargs.update(f_kwargs_)
     f_args = f_args[0] if len(f_args) == 1 and isinstance(f_args[0], tuple) else f_args
     # --- Get input and output tensors ---
-    solve = solve.with_defaults(&#39;solve&#39;)
     y_tree, y_tensors = disassemble_tree(y)
     x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert solve.x0 is not None, &#34;Please specify the initial guess as Solve(..., x0=initial_guess)&#34;
