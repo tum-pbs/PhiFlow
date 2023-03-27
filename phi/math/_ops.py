@@ -1023,7 +1023,8 @@ def reduce_(f, value, dims, require_all_dims_present=False, required_kind: type 
         if isinstance(value, (tuple, list)):
             values = [wrap(v) for v in value]
             value = stack_tensors(values, instance('0'))
-            assert dims in ('0', None), "dim must be '0' or None when passing a sequence of tensors"
+            dims = value.shape.only(dims)
+            assert '0' in dims, "When passing a sequence of tensors to be reduced, the sequence dimension '0' must be reduced."
         elif isinstance(value, Layout):
             if not value.shape.without(dims):  # reduce all
                 dims = batch('_flat_layout')
