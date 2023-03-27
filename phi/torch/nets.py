@@ -88,7 +88,7 @@ def load_state(obj: Union[nn.Module, optim.Optimizer], path: str):
     obj.load_state_dict(torch.load(path))
 
 
-def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs):
+def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, check_nan=False, **loss_kwargs):
     """
     Computes the gradients of `loss_function` w.r.t. the parameters of `net` and updates its weights using `optimizer`.
 
@@ -113,6 +113,10 @@ def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Ca
             return loss_function(*loss_args, **loss_kwargs).sum
         optimizer.step(closure=closure)
     else:
+        if check_nan:
+            for p in net.parameters():
+                if not torch.all(torch.isfinite(p.grad)):
+                    raise RuntimeError(f"NaN in network gradient detected. Parameter: {p}")
         optimizer.step()
     return output
 
