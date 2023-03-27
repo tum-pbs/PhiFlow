@@ -14,9 +14,9 @@ from .. import math
 from ..field import SampledField, Scene, Field
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
-from ..math import Tensor, layout, batch, Shape
+from ..math import Tensor, layout, batch, Shape, vec
 from ..math import wrap
-from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes
+from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
 
 
 def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
@@ -276,7 +276,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
          overlay: DimFilter = 'overlay',
          title: Union[str, Tensor] = None,
          size=(12, 5),
-         same_scale=True,
+         same_scale: Union[bool, Shape, tuple, list, str] = True,
          log_dims: Union[str, tuple, list, Shape] = '',
          show_color_bar=True,
          color: Union[str, int, Tensor] = None,
@@ -338,15 +338,6 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
     # --- Process arguments ---
-    if same_scale:
-        if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
-            min_val = 0
-            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l])
-        else:
-            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l])
-            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l])
-    else:
-        min_val = max_val = None
     subplots = {pos: _space(*fields, ignore_dims=animate) for pos, fields in positioning.items()}
     if isinstance(title, str):
         title = {pos: title for pos in positioning}
@@ -359,6 +350,24 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
     err = layout_pytree_node(err, wrap_leaf=True)
+    # --- Create figure ---
+    if same_scale:
+        if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
+            min_val = 0
+            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l])
+        else:
+            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l])
+            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l])
+    else:
+        min_val = max_val = None
+    if same_scale is True:
+        same_scale = '_'
+    elif same_scale is False or same_scale is None:
+        same_scale = ''
+    same_scale = parse_dim_order(same_scale)
+    if same_scale:
+        shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
+        subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
     # --- animate or plot ---
     if fig_shape.volume == 1:
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
@@ -465,11 +474,9 @@ def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
     all_bounds = [embed(f.bounds.without(ignore_dims.names), all_dims) for f in values]
-    if len(all_bounds) == 1:
-        return all_bounds[0]
     bounds: Box = math.stack(all_bounds, batch('_fields'))
-    lower = math.finite_min(bounds.lower, '_fields', default=-math.INF)
-    upper = math.finite_max(bounds.upper, '_fields', default=math.INF)
+    lower = math.finite_min(bounds.lower, bounds.shape.without('vector'), default=-math.INF)
+    upper = math.finite_max(bounds.upper, bounds.shape.without('vector'), default=math.INF)
     return Box(lower, upper)
 
 
@@ -596,3 +603,20 @@ def get_plots_by_figure(figure):
     else:
         raise ValueError(f"No library found matching figure {figure} from list {_LOADED_PLOTTING_LIBRARIES}")
 
+
+def share_axes(*lims: Box, axes: Tuple[str]) -> Box or None:
+    lower = {}
+    upper = {}
+    for axis in axes:
+        if any(axis in box.vector.item_names for box in lims):
+            lower[axis] = math.min([box.lower.vector[axis] for box in lims if axis in box.vector.item_names], shape)
+            upper[axis] = math.max([box.upper.vector[axis] for box in lims if axis in box.vector.item_names], shape)
+    return Box(vec(**lower), vec(**upper)) if lower else None
+
+
+def replace_bounds(box: Box, replace: Box):
+    if replace is None:
+        return box
+    lower = {axis: replace.lower.vector[axis] if axis in replace.vector.item_names else box.lower.vector[axis] for axis in box.vector.item_names}
+    upper = {axis: replace.upper.vector[axis] if axis in replace.vector.item_names else box.upper.vector[axis] for axis in box.vector.item_names}
+    return Box(vec(**lower), vec(**upper))

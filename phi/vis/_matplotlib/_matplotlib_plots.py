@@ -53,8 +53,9 @@ class MatplotlibPlots(PlottingLibrary):
                         if '_' in log_dims:
                             axis.set_yscale('log')
                     elif bounds.spatial_rank == 2:
-                        axis.set_xlabel(display_name(bounds.vector.item_names[0]))
-                        axis.set_ylabel(display_name(bounds.vector.item_names[1]))
+                        x, y = bounds.vector.item_names
+                        axis.set_xlabel(display_name(x))
+                        axis.set_ylabel(display_name(y))
                         x_range, y_range = [_get_range(bounds, i) for i in (0, 1)]
                         axis.set_xlim(x_range)
                         axis.set_ylim(y_range)
@@ -68,6 +69,15 @@ class MatplotlibPlots(PlottingLibrary):
                             any_log = True
                         if not any_log and x_size > 0 and y_size > 0 and max(x_size/y_size/subplot_aspect, y_size/x_size*subplot_aspect) < 4:
                             axis.set_aspect('equal', adjustable='box')
+                        # --- Remove labels if axes shared ---
+                        for left_col in range(col):
+                            if (row, left_col) in spaces and spaces[(row, left_col)].vector[y] == bounds.vector[y]:
+                                axis.set_ylabel("")
+                                axis.tick_params(labelleft=False)
+                        for below_row in range(row + 1, rows + 1):
+                            if (below_row, col) in spaces and spaces[(below_row, col)].vector[x] == bounds.vector[x]:
+                                axis.set_xlabel("")
+                                axis.tick_params(labelbottom=False)
                     elif bounds.spatial_rank == 3:
                         axis.remove()
                         axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
