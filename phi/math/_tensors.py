@@ -948,6 +948,8 @@ class Layout(Tensor):
         return repr(self._obj)
 
     def __format__(self, format_spec):
+        if BROADCAST_FORMATTER.values is not None:
+            return BROADCAST_FORMATTER.register_formatted(self, format_spec)
         return repr(self._obj)
 
     def unstack(self, dimension: str):
