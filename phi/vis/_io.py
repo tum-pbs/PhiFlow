@@ -4,7 +4,7 @@ import numpy
 
 from phi import math
 from phi.field import Scene
-from phi.math import shape, wrap, channel, spatial
+from phi.math import shape, wrap, channel, spatial, batch
 from phi.math.backend import PHI_LOGGER
 
 
@@ -14,7 +14,8 @@ def load_scalars(scene: Scene or str,
                  prefix='log_',
                  suffix='.txt',
                  x='steps',
-                 entries_dim=spatial('entries')):
+                 entries_dim=spatial('entries'),
+                 batch_dim=batch('batch')):
     """
     Read one or a `Tensor` of scalar logs as curves.
 
@@ -37,9 +38,10 @@ def load_scalars(scene: Scene or str,
     PHI_LOGGER.debug(f"Reading {os.path.join(scene.path, f'{prefix}{name}{suffix}')}")
     curve = numpy.loadtxt(os.path.join(scene.path, f"log_{name}.txt"))
     if curve.ndim == 2:
-        x_values, values, *_ = curve.T
+        x_values = curve[:, 0]
+        values = curve[:, 1:]
     else:
-        values = curve
+        values = curve[:, None]
         x_values = numpy.arange(len(values))
     if x == 'time':
         assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
@@ -48,4 +50,6 @@ def load_scalars(scene: Scene or str,
         values = values[:len(x_values + 1)]
         x_values = numpy.cumsum(x_values[:len(values) - 1])
         x_values = numpy.concatenate([[0.], x_values])
-    return wrap(numpy.stack([x_values, values], -1), entries_dim, channel(vector=[x, name]))
+    x_values = wrap(x_values, entries_dim)
+    values = wrap(values, entries_dim, batch_dim)
+    return math.stack([x_values, values], channel(vector=[x, name]))
