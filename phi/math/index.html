@@ -7867,17 +7867,17 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f&#34;Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}&#34;
     # --- Add missing dimensions ---
     if expand_values:
-        all_dims = merge_shapes(*values_)
+        all_dims = merge_shapes(*values_, allow_varying_sizes=True)
         if isinstance(values, dict):
-            values = {k: expand(v, all_dims.without(shape(v).non_batch)) for k, v in values.items()}
+            values = {k: expand(v, all_dims.without(shape(v))) for k, v in values.items()}
         else:
-            values = [expand(v, all_dims.without(shape(v).non_batch)) for v in values]
+            values = [expand(v, all_dims.without(shape(v))) for v in values]
     else:
-        all_batch_dims = merge_shapes(*[batch(v) for v in values_])
+        all_batch_dims = merge_shapes(*[batch(v) for v in values_], allow_varying_sizes=True)
         if isinstance(values, dict):
-            values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+            values = {k: expand(v, all_batch_dims.without(shape(v))) for k, v in values.items()}
         else:
-            values = [expand(v, all_batch_dims) for v in values]
+            values = [expand(v, all_batch_dims.without(shape(v))) for v in values]
     if dim.rank == 1:
         assert dim.size == len(values) or dim.size is None, f&#34;stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values&#34;
         if dim.size is None:
@@ -8291,13 +8291,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
             try:
                 inner_shape = [] if shape is None else [shape[1:]]
                 tensors = [d if isinstance(d, Tensor) else tensor(d, *inner_shape, convert=convert) for d in data]
-                common_shape = merge_shapes(*[e.shape for e in tensors])
-                stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(tensors)])
-                assert all(stack_dim not in t.shape for t in tensors), f&#34;Cannot stack tensors with dimension &#39;{stack_dim}&#39; because a tensor already has that dimension.&#34;
-                elements = [CollapsedTensor(e, common_shape) if e.shape.rank &lt; common_shape.rank else e for e in tensors]
-                from ._ops import cast_same
-                elements = cast_same(*elements)
-                return TensorStack(elements, stack_dim)
+                return stack(tensors, default_list_dim if shape is None else shape[0].with_sizes([len(tensors)]), expand_values=True)
             except IncompatibleShapes:
                 assert not convert, f&#34;Cannot convert {data} to tensor given shape {shape}&#34;
                 return layout(data, shape or default_list_dim)
@@ -13556,14 +13550,23 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return self._with_shape_replaced(rename_dims(self.shape, dims, new_dims))
 
     def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -&gt; &#39;Tensor&#39;:
-        native = self.native(self.shape.names)
-        new_shape = self.shape.without(dim)
-        i = self.shape.index(dim)
-        for d in unpacked_dims:
-            new_shape = new_shape._expand(d, pos=i)
-            i += 1
-        native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
-        return NativeTensor(native_reshaped, new_shape)
+        if self.shape.is_uniform:
+            native = self.native(self.shape.names)
+            new_shape = self.shape.without(dim)
+            i = self.shape.index(dim)
+            for d in unpacked_dims:
+                new_shape = new_shape._expand(d, pos=i)
+                i += 1
+            native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
+            return NativeTensor(native_reshaped, new_shape)
+        else:
+            tensors = self._tensors
+            if dim == self._stack_dim.name:
+                for udim in unpacked_dims:
+                    tensors = [TensorStack(tensors[o::len(tensors)//udim.size], udim) for o in range(len(tensors)//udim.size)]
+                assert len(tensors) == 1
+                return tensors[0]
+            raise NotImplementedError
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Tensor&#39;:
         order = self.shape._order_group(dims)
