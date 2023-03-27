@@ -136,6 +136,14 @@ class TestPlots(TestCase):
     def test_plot_point_cloud_3d_points(self):
         self._test_plot(PointCloud(math.random_normal(instance(points=5), channel(vector='x,y,z'))))
 
+    def test_same_scale(self):
+        curve1 = vec(x=(0, 1, 2), y=(0, 1, 0))
+        curve2 = vec(x=(1, 1, 2), y=(-1, .5, .5))
+        try:
+            self._test_plot(curve1, curve2, same_scale='y')
+        except NotImplementedError:
+            pass
+
     def test_plot_arbitrary_lines(self):
         points = vec(resolution=wrap([0, 1, 4], spatial('line')), error=wrap([0, 1, .5], spatial('line')))
         points = stack([points, points + (0, -1)], instance('disconnected'))
