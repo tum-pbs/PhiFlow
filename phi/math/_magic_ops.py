@@ -151,17 +151,17 @@ def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwar
             assert set(non_batch(v).names) == set(non_batch(values_[0]).names), f"Stacked values must have the same non-batch dimensions but got {non_batch(values_[0])} and {non_batch(v)}"
     # --- Add missing dimensions ---
     if expand_values:
-        all_dims = merge_shapes(*values_)
+        all_dims = merge_shapes(*values_, allow_varying_sizes=True)
         if isinstance(values, dict):
-            values = {k: expand(v, all_dims.without(shape(v).non_batch)) for k, v in values.items()}
+            values = {k: expand(v, all_dims.without(shape(v))) for k, v in values.items()}
         else:
-            values = [expand(v, all_dims.without(shape(v).non_batch)) for v in values]
+            values = [expand(v, all_dims.without(shape(v))) for v in values]
     else:
-        all_batch_dims = merge_shapes(*[batch(v) for v in values_])
+        all_batch_dims = merge_shapes(*[batch(v) for v in values_], allow_varying_sizes=True)
         if isinstance(values, dict):
-            values = {k: expand(v, all_batch_dims) for k, v in values.items()}
+            values = {k: expand(v, all_batch_dims.without(shape(v))) for k, v in values.items()}
         else:
-            values = [expand(v, all_batch_dims) for v in values]
+            values = [expand(v, all_batch_dims.without(shape(v))) for v in values]
     if dim.rank == 1:
         assert dim.size == len(values) or dim.size is None, f"stack dim size must match len(values) or be undefined but got {dim} for {len(values)} values"
         if dim.size is None:
