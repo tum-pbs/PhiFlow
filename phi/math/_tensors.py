@@ -497,14 +497,23 @@ class Tensor:
         return self._with_shape_replaced(rename_dims(self.shape, dims, new_dims))
 
     def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Tensor':
-        native = self.native(self.shape.names)
-        new_shape = self.shape.without(dim)
-        i = self.shape.index(dim)
-        for d in unpacked_dims:
-            new_shape = new_shape._expand(d, pos=i)
-            i += 1
-        native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
-        return NativeTensor(native_reshaped, new_shape)
+        if self.shape.is_uniform:
+            native = self.native(self.shape.names)
+            new_shape = self.shape.without(dim)
+            i = self.shape.index(dim)
+            for d in unpacked_dims:
+                new_shape = new_shape._expand(d, pos=i)
+                i += 1
+            native_reshaped = choose_backend(native).reshape(native, new_shape.sizes)
+            return NativeTensor(native_reshaped, new_shape)
+        else:
+            tensors = self._tensors
+            if dim == self._stack_dim.name:
+                for udim in unpacked_dims:
+                    tensors = [TensorStack(tensors[o::len(tensors)//udim.size], udim) for o in range(len(tensors)//udim.size)]
+                assert len(tensors) == 1
+                return tensors[0]
+            raise NotImplementedError
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Tensor':
         order = self.shape._order_group(dims)
@@ -1718,13 +1727,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
             try:
                 inner_shape = [] if shape is None else [shape[1:]]
                 tensors = [d if isinstance(d, Tensor) else tensor(d, *inner_shape, convert=convert) for d in data]
-                common_shape = merge_shapes(*[e.shape for e in tensors])
-                stack_dim = default_list_dim if shape is None else shape[0].with_sizes([len(tensors)])
-                assert all(stack_dim not in t.shape for t in tensors), f"Cannot stack tensors with dimension '{stack_dim}' because a tensor already has that dimension."
-                elements = [CollapsedTensor(e, common_shape) if e.shape.rank < common_shape.rank else e for e in tensors]
-                from ._ops import cast_same
-                elements = cast_same(*elements)
-                return TensorStack(elements, stack_dim)
+                return stack(tensors, default_list_dim if shape is None else shape[0].with_sizes([len(tensors)]), expand_values=True)
             except IncompatibleShapes:
                 assert not convert, f"Cannot convert {data} to tensor given shape {shape}"
                 return layout(data, shape or default_list_dim)
