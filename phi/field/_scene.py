@@ -8,6 +8,8 @@ import warnings
 from os.path import join, isfile, isdir, abspath, expanduser, basename, split
 from typing import Tuple
 
+import numpy as np
+
 from phi import math, __version__ as phi_version
 from ._field import SampledField
 from ._field_io import read, write
@@ -312,6 +314,12 @@ class Scene:
         if update:
             self._properties.update(update)
         self._properties.update(kw_updates)
+        for key, value in self._properties.items():
+            if isinstance(value, (np.int64, np.int32)):
+                value = int(value)
+            elif isinstance(value, (np.float32, np.float64, np.float16, np.float128)):
+                value = float(value)
+            self._properties[key] = value
         self._write_properties()
 
     def _get_properties(self, index: dict):
