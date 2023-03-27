@@ -1052,7 +1052,7 @@ def as_extrapolation(obj) -> Extrapolation:
             tangential = as_extrapolation(obj['tangential'])
             return combine_by_direction(normal=normal, tangential=tangential)
         else:
-            ext = {dim: as_extrapolation(spec) for dim, spec in obj.items()}
+            ext = {dim: (as_extrapolation(spec[0]), as_extrapolation(spec[1])) if isinstance(spec, tuple) else as_extrapolation(spec) for dim, spec in obj.items()}
             return combine_sides(**ext)
     return ConstantExtrapolation(obj)
 
