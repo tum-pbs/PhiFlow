@@ -79,10 +79,13 @@ In the meantime, please cite the ICLR 2020 paper.
 * [Half-Inverse Gradients for Physical Deep Learning](https://arxiv.org/abs/2203.10131), *Patrick Schnell, Philipp Holl, Nils Thuerey*, ICLR 2022.
 * [Scale-invariant Learning by Physics Inversion](https://arxiv.org/abs/2109.15048), *Philipp Holl, Vladlen Koltun, Nils Thuerey*, NeurIPS 2022.
 
-Φ<sub>Flow</sub> has been used in the following data sets:
 
-* [PDEBench](https://github.com/pdebench/PDEBench)
-* [PDEarena](https://microsoft.github.io/pdearena/)
+## Benchmarks & Data Sets
+
+Φ<sub>Flow</sub> has been used in the creation of various public data sets, such as
+[PDEBench](https://github.com/pdebench/PDEBench) and [PDEarena](https://microsoft.github.io/pdearena/).
+
+[See more packages that use Φ<sub>Flow</sub>](https://github.com/tum-pbs/PhiFlow/network/dependents)
 
 ## Version History
 
