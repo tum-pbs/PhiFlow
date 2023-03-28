@@ -215,18 +215,22 @@ class BarChart(Recipe):
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         vector = data.bounds.shape['vector']
         x, = reshaped_numpy(data.points, [vector, instance(data)])
+        x_range = x.max() - x.min()
+        x_min = x.min() - x_range / (len(x)-1) / 2
+        x_max = x.max() + x_range / (len(x)-1) / 2
+        width = x_max - x_min
         channels = channel(data.values).volume
         for i, ch in enumerate(channel(data.values).meshgrid(names=True)):
             height = reshaped_numpy(data.values[ch], [instance(data)], force_expand=True)
             errs = reshaped_numpy(err[ch], [instance(data)], force_expand=True)
             cols = matplotlib_colors(color[ch], instance(data))
             alpha_f = float(alpha[ch].max)
-            w = self.col_width / channels
+            w = self.col_width / channels * width / len(x)
             pos = x + w * i + w/2 - w * channels / 2
             bar_plt = subplot.bar(pos, height=height, width=w, yerr=errs, color=cols, alpha=alpha_f, label=index_label(ch))
             if channels < 3:
                 try:
-                    subplot.bar_label(bar_plt, label_type='edge', fmt='%.2f')
+                    subplot.bar_label(bar_plt, label_type='edge', fmt='%.2f' if data.values.dtype.kind == float else '%d')
                 except AttributeError:
                     warnings.warn(f"Matplotlib is outdated, version={matplotlib.__version__}. Update it to show bar labels", RuntimeWarning)
         subplot.set_xticks(x, instance(data).item_names[0])
