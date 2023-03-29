@@ -24,7 +24,13 @@ from ._shape import (
     enable_debug_checks,
 )
 
-from ._magic_ops import slice_ as slice, unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, copy_with, replace
+from ._magic_ops import (
+    slice_ as slice, unstack,
+    stack, concat, expand,
+    rename_dims, pack_dims, unpack_dim, flatten,
+    b2i, c2b, i2b, s2b,
+    copy_with, replace
+)
 
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar, BROADCAST_FORMATTER as f
 
