@@ -1,7 +1,7 @@
 import copy
 import warnings
 from numbers import Number
-from typing import TypeVar, Tuple, Set, Dict, Union
+from typing import TypeVar, Tuple, Set, Dict, Union, Optional
 
 import dataclasses
 
@@ -418,7 +418,27 @@ def rename_dims(value,
     return value
 
 
-def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: Union[int, None] = None, **kwargs):
+def b2i(value):
+    """ Change the type of all *batch* dimensions of `value` to *instance* dimensions. See `rename_dims`. """
+    return rename_dims(value, batch, instance)
+
+
+def c2b(value):
+    """ Change the type of all *channel* dimensions of `value` to *batch* dimensions. See `rename_dims`. """
+    return rename_dims(value, channel, batch)
+
+
+def s2b(value):
+    """ Change the type of all *spatial* dimensions of `value` to *batch* dimensions. See `rename_dims`. """
+    return rename_dims(value, spatial, batch)
+
+
+def i2b(value):
+    """ Change the type of all *instance* dimensions of `value` to *batch* dimensions. See `rename_dims`. """
+    return rename_dims(value, instance, batch)
+
+
+def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: Optional[int] = None, **kwargs):
     """
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
