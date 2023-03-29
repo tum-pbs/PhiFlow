@@ -747,6 +747,18 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def histogram1d(self, values, weights, bin_edges):
+        """
+        Args:
+            values: (batch, values)
+            bin_edges: (batch, edges)
+            weights: (batch, values)
+
+        Returns:
+            (batch, edges) with dtype matching weights
+        """
+        raise NotImplementedError(self)
+
     def any(self, boolean_tensor, axis=None, keepdims=False):
         raise NotImplementedError(self)
 

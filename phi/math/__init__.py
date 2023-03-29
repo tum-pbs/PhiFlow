@@ -55,6 +55,7 @@ from ._ops import (
     boolean_mask,
     is_finite, is_finite as isfinite,
     closest_grid_values, grid_sample, scatter, gather,
+    histogram,
     fft, ifft, convolve, cumulative_sum,
     dtype, cast,
     close, assert_close,

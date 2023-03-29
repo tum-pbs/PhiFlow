@@ -429,6 +429,12 @@ class JaxBackend(Backend):
             result.append(scatter(b_grid, b_indices, b_values, dnums))
         return jnp.stack(result)
 
+    def histogram1d(self, values, weights, bin_edges):
+        def unbatched_hist(values, weights, bin_edges):
+            hist, _ = jnp.histogram(values, bin_edges, weights=weights)
+            return hist
+        return jax.vmap(unbatched_hist)(values, weights, bin_edges)
+
     def quantile(self, x, quantiles):
         return jnp.quantile(x, quantiles, axis=-1)
 
