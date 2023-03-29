@@ -306,6 +306,14 @@ class NumPyBackend(Backend):
         #     return array / count
         return result
 
+    def histogram1d(self, values, weights, bin_edges):
+        batch_size, value_count = self.staticshape(values)
+        result = []
+        for b in range(batch_size):
+            hist, _ = np.histogram(values[b], bins=bin_edges[b], weights=weights[b])
+            result.append(hist)
+        return np.stack(result)
+
     def quantile(self, x, quantiles):
         return np.quantile(x, quantiles, axis=-1)
 

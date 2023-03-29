@@ -470,6 +470,13 @@ class TestMathFunctions(TestCase):
         updated = math.scatter(base, indices, values, outside_handling='discard')
         assert_close(updated, math.tensor([[0, 1, 0], [0, 0, 0]], spatial('y,x')))
 
+    def test_histogram_1d(self):
+        for backend in BACKENDS:
+            with backend:
+                data = vec(instance('losses'), 0, .1, .1, .2, .1, .2, .3, .5)
+                hist, bin_edges, bin_center = math.histogram(data, instance(loss=10))
+                assert_close(hist, [1, 0, 3, 0, 2, 0, 1, 0, 0, 1])
+
     def test_sin(self):
         for backend in BACKENDS:
             with backend:

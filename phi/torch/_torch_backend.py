@@ -583,6 +583,17 @@ class TorchBackend(Backend):
         result = scatter(base_grid_flat, dim=1, index=indices, src=values)
         return torch.reshape(result, base_grid.shape)
 
+    def histogram1d(self, values, weights, bin_edges):
+        values = self.as_tensor(values)
+        weights = self.as_tensor(weights)
+        bin_edges = self.as_tensor(bin_edges)
+        bin_count = self.staticshape(bin_edges)[-1] - 1
+        batch_size, _ = self.staticshape(values)
+        bin_indices = torch.minimum(torch.searchsorted(bin_edges, values, side='right') - 1, self.as_tensor(bin_count - 1))  # ToDo this includes values outside
+        result = torch.zeros(batch_size, bin_count, dtype=weights.dtype, device=values.device)
+        hist = torch.scatter_add(result, -1, bin_indices, weights)
+        return hist
+
     def arctan2(self, y, x):
         y, x = self.auto_cast(y, x)
         return torch.arctan2(y, x)
