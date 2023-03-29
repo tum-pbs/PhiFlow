@@ -443,6 +443,8 @@ class TFBackend(Backend):
             return tf.boolean_mask(x, mask, axis=axis)
 
     def isfinite(self, x):
+        if self.dtype(x).kind in (bool, int):
+            return self.ones(self.shape(x), dtype=DType(bool))
         with tf.device(x.device):
             return tf.math.is_finite(x)
 
@@ -478,6 +480,13 @@ class TFBackend(Backend):
                 b_values = values[min(b, values.shape[0] - 1), ...]
                 result.append(scatter(b_grid, b_indices, b_values))
             return self.stack(result, axis=0)
+
+    def histogram1d(self, values, weights, bin_edges):
+        with self._device_for(values, weights, bin_edges):
+            bin_count = self.staticshape(bin_edges)[-1] - 1
+            bin_indices = tf.minimum(tf.searchsorted(bin_edges, values, side='right') - 1, bin_count - 1)  # ToDo this includes values outside
+            hist = tf.math.bincount(bin_indices, weights=weights, minlength=bin_count, maxlength=bin_count, axis=-1)
+            return hist
 
     def fft(self, x, axes: Union[tuple, list]):
         if not axes:

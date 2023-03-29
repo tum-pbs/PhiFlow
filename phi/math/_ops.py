@@ -2175,6 +2175,52 @@ def scatter(base_grid: Union[Tensor, Shape],
     return result
 
 
+def histogram(values: Tensor, bins: Shape or Tensor = spatial(bins=30), weights=1):
+    """
+    Compute a histogram of a distribution of values.
+
+    *Important Note:* In its current implementation, values outside the range of bins may or may not be added to the outermost bins.
+
+    Args:
+        values: `Tensor` listing the values to be binned along spatial or instance dimensions.
+            `values´ may not contain channel or dual dimensions.
+        bins: Either `Shape` specifying the number of equally-spaced bins to use or bin edge positions as `Tensor` with a spatial or instance dimension.
+        weights: `Tensor` assigning a weight to every value in `values` that will be added to the bin, default 1.
+
+    Returns:
+        hist: `Tensor` containing all batch dimensions and the `bins` dimension with dtype matching `weights`.
+        bin_edges: `Tensor`
+        bin_center: `Tensor`
+    """
+    assert isinstance(values, Tensor), f"values must be a Tensor but got {type(values)}"
+    assert channel(values).is_empty, f"Only 1D histograms supported but values have a channel dimension: {values.shape}"
+    assert dual(values).is_empty, f"values cannot contain dual dimensions but got shape {values.shape}"
+    weights = wrap(weights)
+    if isinstance(bins, Shape):
+        def equal_bins(v):
+            return linspace(min_(v), max_(v), bins.with_size(bins.size + 1))
+        bins = broadcast_op(equal_bins, [values], iter_dims=batch(values) & batch(weights))
+    assert isinstance(bins, Tensor), f"bins must be a Tensor but got {type(bins)}"
+    assert non_batch(bins).rank == 1, f"bins must contain exactly one spatial or instance dimension listing the bin edges but got shape {bins.shape}"
+    assert channel(bins).rank == dual(bins).rank == 0, f"bins cannot have any channel or dual dimensions but got shape {bins.shape}"
+    tensors = [values, bins] if weights is None else [values, weights, bins]
+    backend = choose_backend_t(*tensors)
+
+    def histogram_uniform(values: Tensor, bin_edges: Tensor, weights):
+        batch_dims = batch(values) & batch(bin_edges) & batch(weights)
+        value_dims = non_batch(values) & non_batch(weights)
+        values_native = reshaped_native(values, [batch_dims, value_dims], force_expand=True)
+        weights_native = reshaped_native(weights, [batch_dims, value_dims], force_expand=True)
+        bin_edges_native = reshaped_native(bin_edges, [batch_dims, non_batch(bin_edges)], force_expand=True)
+        hist_native = backend.histogram1d(values_native, weights_native, bin_edges_native)
+        hist = reshaped_tensor(hist_native, [batch_dims, non_batch(bin_edges).with_size(non_batch(bin_edges).size - 1)])
+        return hist
+        # return stack_tensors([bin_edges, hist], channel(vector=[bin_edges.shape.name, 'hist']))
+
+    bin_center = (bins[{non_batch(bins).name: slice(1, None)}] + bins[{non_batch(bins).name: slice(0, -1)}]) / 2
+    return broadcast_op(histogram_uniform, [values, bins, weights]), bins, bin_center
+
+
 def fft(x: Tensor, dims: DimFilter = spatial) -> Tensor:
     """
     Performs a fast Fourier transform (FFT) on all spatial dimensions of x.
