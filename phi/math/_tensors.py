@@ -2408,8 +2408,12 @@ def format_row(self: Tensor, options: PrintOptions) -> str:  # all values in a s
     colors = options.get_colors()
     if self.shape.rank == 1:
         content = _format_vector(self, options)
-        if self.shape.name != 'vector' or self.shape.non_channel if options.include_shape is None else options.include_shape:
+        is_vector = self.shape.name == 'vector' and self.shape.channel_rank == 1
+        is_dual_vector = self.shape.name == '~vector'
+        if (not is_vector and not is_dual_vector) if options.include_shape is None else options.include_shape:
             content += f" along {colors.shape(f'{self.shape.name}{TYPE_ABBR[self.shape.type]}')}"
+        elif is_dual_vector:
+            content = "~" + content
     else:
         if channel(self):
             rows = [_format_vector(self[b], options) for b in self.shape.non_channel.meshgrid()]
