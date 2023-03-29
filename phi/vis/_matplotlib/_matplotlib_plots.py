@@ -440,22 +440,23 @@ class PointCloud2D(Recipe):
             axis.add_collection(c)
         if spatial(data.points):  # Connect by line
             for idx in instance(data).meshgrid():
-                x, y = reshaped_numpy(data[idx].points.vector[dims], [vector, spatial(data)])
-                if (color == None).all:
-                    col = _next_line_color(axis)
-                else:
-                    col = _plt_col(color)
-                alpha_f = float(alpha[idx].max)
-                if (err[idx] != 0).any:
-                    x_err = reshaped_numpy(err[idx].vector[dims[0]], [spatial(data)]) if dims[0] in err.vector.item_names else 0
-                    y_err = reshaped_numpy(err[idx].vector[dims[1]], [spatial(data)]) if dims[1] in err.vector.item_names else 0
-                    if math.max(x_err) > math.max(y_err):
-                        axis.fill_betweenx(y, x - x_err, x + x_err, color=col, alpha=alpha_f * .2)
+                for sp_dim in spatial(data):
+                    x, y = reshaped_numpy(data[idx].points.vector[dims], [vector, sp_dim, spatial(data).without(sp_dim)])
+                    if (color == None).all:
+                        col = _next_line_color(axis)
                     else:
-                        axis.fill_between(x, y - y_err, y + y_err, color=col, alpha=alpha_f * .2)
-                axis.plot(x, y, color=col, alpha=alpha_f)
-                if isinstance(data.elements, Point) and 2 < spatial(data.elements).volume < 100:
-                    axis.scatter(x, y, s=3, marker='o', c=col, alpha=alphas)
+                        col = _plt_col(color)
+                    alpha_f = float(alpha[idx].max)
+                    if (err[idx] != 0).any:
+                        x_err = reshaped_numpy(err[idx].vector[dims[0]], [spatial(data)]) if dims[0] in err.vector.item_names else 0
+                        y_err = reshaped_numpy(err[idx].vector[dims[1]], [spatial(data)]) if dims[1] in err.vector.item_names else 0
+                        if math.max(x_err) > math.max(y_err):
+                            axis.fill_betweenx(y, x - x_err, x + x_err, color=col, alpha=alpha_f * .2)
+                        else:
+                            axis.fill_between(x, y - y_err, y + y_err, color=col, alpha=alpha_f * .2)
+                    axis.plot(x, y, color=col, alpha=alpha_f)
+                    if isinstance(data.elements, Point) and 2 < spatial(data.elements).volume < 100:
+                        axis.scatter(x, y, s=3, marker='o', c=col, alpha=alphas)
 
         if any(non_channel(data).item_names):
             PointCloud2D._annotate_points(axis, data.points, color, alpha)
