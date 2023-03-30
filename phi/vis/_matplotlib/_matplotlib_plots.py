@@ -167,6 +167,11 @@ def _get_range(bounds: Box, index: int):
     return lower, upper
 
 
+def _next_line_color(axes: Axes):
+    next_index = len(axes.lines) + len(axes.patches)
+    return _default_color(next_index)
+
+
 def _default_color(i: int):
     default_colors = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
     return default_colors[i % len(default_colors)]
@@ -180,14 +185,14 @@ class LinePlot(Recipe):
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         x = data.points.staggered_direction[0].vector[0].numpy()
         requires_legend = False
-        if (color == None).all:
-            color = math.range_tensor(channel(data))
         for c_idx, c_idx_n in zip(channel(data).meshgrid(), channel(data).meshgrid(names=True)):
             label = index_label(c_idx_n)
             values = data.values[c_idx].numpy()
-            col = _plt_col(color[c_idx])
+            if (color[c_idx] == None).all:
+                col = _next_line_color(subplot)
+            else:
+                col = _plt_col(color[c_idx])
             alpha_f = float(alpha[c_idx])
-            # color = _default_color(len(subplot.lines))
             if (err[c_idx] != 0).any:
                 v_err = reshaped_numpy(err, [spatial(data)])
                 subplot.fill_between(x, values - v_err, values + v_err, color=col, alpha=alpha_f * .2)
@@ -236,6 +241,25 @@ class BarChart(Recipe):
         subplot.set_xticks(x, instance(data).item_names[0])
         if channels > 1:
             subplot.legend()
+
+
+class Histogram(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.elements.vector.size == 1 and data.elements.vector.item_names == spatial(data).names and spatial(data.values).rank == 1 and not instance(data)
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        vector = data.bounds.shape['vector']
+        x, = reshaped_numpy(data.points, [vector, spatial(data)])
+        bin_edges = [x[0] - (x[1]-x[0]) / 2, *((x[1:] + x[:-1]) / 2), x[-1] + (x[-1] - x[-2]) / 2]
+        for i, ch in enumerate(channel(data.values).meshgrid(names=True)):
+            counts = reshaped_numpy(data.values[ch], [spatial(data)], force_expand=True)
+            # errs = reshaped_numpy(err[ch], [spatial(data)], force_expand=True)  ToDo
+            if (color[ch] == None).all:
+                col = _next_line_color(subplot)
+            else:
+                col = _plt_col(color[ch])
+            subplot.hist(bin_edges[:-1], bins=bin_edges, weights=counts, orientation='vertical', histtype='step', color=col, alpha=float(alpha[ch].max))
 
 
 class Heatmap2D(Recipe):
@@ -568,4 +592,5 @@ MATPLOTLIB.recipes.extend([
             PointCloud3D(),
             BarChart(),
             Mesh2D(),
+            Histogram(),
         ])
