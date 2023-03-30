@@ -175,6 +175,7 @@ class Scene:
         if not isdir(abs_dir):
             return ()
         names = [sim for sim in os.listdir(abs_dir) if sim.startswith(f"{name}_") or (include_other and isdir(join(abs_dir, sim)))]
+        names = list(sorted(names))
         if dim is None:
             return tuple(Scene(join(parent_directory, n)) for n in names)
         else:
