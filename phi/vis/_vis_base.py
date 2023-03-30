@@ -415,6 +415,9 @@ def gui_interrupt(*args, **kwargs):
 def display_name(python_name: Any):
     if isinstance(python_name, (int, bool)):
         return str(python_name)
+    assert isinstance(python_name, str), f"name must be a str, int or bool but got {type(python_name)}"
+    if python_name == '_':
+        return ""
     n = list(python_name)
     n[0] = n[0].upper()
     for i in range(1, len(n)):
