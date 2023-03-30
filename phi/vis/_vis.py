@@ -11,12 +11,12 @@ from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field
 from ._vis_base import title_label
 from .. import math
-from ..field import SampledField, Scene, Field
+from ..field import SampledField, Scene, Field, PointCloud
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from ..math import Tensor, layout, batch, Shape, vec, stack, concat
 from ..math import wrap
-from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
+from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape, non_batch
 
 
 def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
@@ -476,11 +476,19 @@ def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
         for dim in f.bounds.vector.item_names:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
-    all_bounds = [embed(f.bounds.without(ignore_dims.names), all_dims) for f in values]
+    all_bounds = [embed(_default_bounds(f).without(ignore_dims.names), all_dims) for f in values]
     bounds: Box = math.stack(all_bounds, batch('_fields'))
     lower = math.finite_min(bounds.lower, bounds.shape.without('vector'), default=-math.INF)
     upper = math.finite_max(bounds.upper, bounds.shape.without('vector'), default=math.INF)
     return Box(lower, upper)
+
+
+def _default_bounds(f: Field) -> Box:
+    if isinstance(f, PointCloud) and f.spatial_rank == 1:
+        bounds = f.bounds
+        count = non_batch(f).non_dual.non_channel.volume
+        return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
+    return f.bounds
 
 
 def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val, max_val):
