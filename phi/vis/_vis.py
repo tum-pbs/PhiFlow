@@ -98,6 +98,8 @@ def close(figure=None):
         plots.close(figure)
 
 
+close_ = close
+
 
 RECORDINGS = {}
 
@@ -511,7 +513,7 @@ def overlay(*fields: Union[SampledField, Tensor]) -> Tensor:
     return layout(fields, math.channel('overlay'))
 
 
-def write_image(path: str, figure=None, dpi=120.):
+def write_image(path: str, figure=None, dpi=120., close=False):
     """
     Save a figure to an image file.
 
@@ -519,6 +521,7 @@ def write_image(path: str, figure=None, dpi=120.):
         figure: Matplotlib or Plotly figure or text.
         path: File path.
         dpi: Pixels per inch.
+        close: Whether to close the figure after saving it.
     """
     figure = figure or LAST_FIGURE[0]
     if figure is None:
@@ -526,6 +529,8 @@ def write_image(path: str, figure=None, dpi=120.):
     assert figure is not None, "No figure to save."
     lib = get_plots_by_figure(figure)
     lib.save(figure, path, dpi)
+    if close:
+        close_(figure=figure)
 
 
 def default_gui() -> Gui:
