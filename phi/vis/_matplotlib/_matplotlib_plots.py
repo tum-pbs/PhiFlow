@@ -441,7 +441,10 @@ class PointCloud2D(Recipe):
         if spatial(data.points):  # Connect by line
             for idx in instance(data).meshgrid():
                 x, y = reshaped_numpy(data[idx].points.vector[dims], [vector, spatial(data)])
-                col = _plt_col(color)
+                if (color == None).all:
+                    col = _next_line_color(axis)
+                else:
+                    col = _plt_col(color)
                 alpha_f = float(alpha[idx].max)
                 if (err[idx] != 0).any:
                     x_err = reshaped_numpy(err[idx].vector[dims[0]], [spatial(data)]) if dims[0] in err.vector.item_names else 0
