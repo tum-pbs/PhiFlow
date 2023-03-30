@@ -14,7 +14,7 @@ def load_scalars(scene: Scene or str,
                  prefix='log_',
                  suffix='.txt',
                  x='steps',
-                 entries_dim=spatial('entries'),
+                 entries_dim=spatial('iteration'),
                  batch_dim=batch('batch')):
     """
     Read one or a `Tensor` of scalar logs as curves.
