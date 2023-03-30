@@ -14,7 +14,7 @@ from .. import math
 from ..field import SampledField, Scene, Field
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
-from ..math import Tensor, layout, batch, Shape, vec
+from ..math import Tensor, layout, batch, Shape, vec, stack, concat
 from ..math import wrap
 from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
 
@@ -338,7 +338,6 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
     # --- Process arguments ---
-    subplots = {pos: _space(*fields, ignore_dims=animate) for pos, fields in positioning.items()}
     if isinstance(title, str):
         title = {pos: title for pos in positioning}
     elif isinstance(title, Tensor):
@@ -350,8 +349,12 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
     err = layout_pytree_node(err, wrap_leaf=True)
-    # --- Create figure ---
-    if same_scale:
+    if same_scale is True:
+        same_scale = '_'
+    elif same_scale is False or same_scale is None:
+        same_scale = ''
+    same_scale = parse_dim_order(same_scale)
+    if '_' in same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
             max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l])
@@ -360,11 +363,9 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
             max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l])
     else:
         min_val = max_val = None
-    if same_scale is True:
-        same_scale = '_'
-    elif same_scale is False or same_scale is None:
-        same_scale = ''
-    same_scale = parse_dim_order(same_scale)
+    # --- Layout ---
+    subplots = {pos: _space(*fields, ignore_dims=animate) for pos, fields in positioning.items()}
+    subplots = {pos: _insert_value_dim(space, pos, subplots, min_val, max_val) for pos, space in subplots.items()}
     if same_scale:
         shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
         subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
@@ -478,6 +479,20 @@ def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
     lower = math.finite_min(bounds.lower, bounds.shape.without('vector'), default=-math.INF)
     upper = math.finite_max(bounds.upper, bounds.shape.without('vector'), default=math.INF)
     return Box(lower, upper)
+
+
+def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val, max_val):
+    row, col = pos
+    axis = space.vector.item_names[0]
+    new_axis = Box(_=(min_val, max_val))
+    if space.vector.size <= 1:
+        for (r, c), other_space in subplots.items():
+            dims: tuple = other_space.vector.item_names
+            if r == row and axis in dims and len(dims) == 2 and dims.index(axis) == 1:
+                return concat([new_axis, space], 'vector')  # values along X
+        return concat([space, new_axis], 'vector')  # values along Y (standard)
+    else:
+        return space
 
 
 def overlay(*fields: Union[SampledField, Tensor]) -> Tensor:

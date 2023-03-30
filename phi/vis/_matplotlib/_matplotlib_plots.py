@@ -45,21 +45,15 @@ class MatplotlibPlots(PlottingLibrary):
                     axis.remove()
                 else:
                     bounds = spaces[(row, col)]
-                    if bounds.spatial_rank == 1:
-                        axis.set_xlabel(display_name(bounds.vector.item_names[0]))
-                        axis.set_xlim(_get_range(bounds, 0))
-                        if bounds.vector.item_names[0] in log_dims:
-                            axis.set_xscale('log')
-                        if '_' in log_dims:
-                            axis.set_yscale('log')
-                    elif bounds.spatial_rank == 2:
+                    if bounds.spatial_rank == 2:
                         x, y = bounds.vector.item_names
                         axis.set_xlabel(display_name(x))
                         axis.set_ylabel(display_name(y))
                         x_range, y_range = [_get_range(bounds, i) for i in (0, 1)]
-                        axis.set_xlim(x_range)
-                        axis.set_ylim(y_range)
-                        x_size, y_size = x_range[1] - x_range[0], y_range[1] - y_range[0]
+                        if None not in x_range:
+                            axis.set_xlim(x_range)
+                        if None not in y_range:
+                            axis.set_ylim(y_range)
                         any_log = False
                         if bounds.vector.item_names[0] in log_dims:
                             axis.set_xscale('log')
@@ -67,8 +61,11 @@ class MatplotlibPlots(PlottingLibrary):
                         if bounds.vector.item_names[1] in log_dims:
                             axis.set_yscale('log')
                             any_log = True
-                        if not any_log and x_size > 0 and y_size > 0 and max(x_size/y_size/subplot_aspect, y_size/x_size*subplot_aspect) < 4:
-                            axis.set_aspect('equal', adjustable='box')
+                        # --- Equal aspect ---
+                        if None not in x_range and None not in y_range and '_' not in bounds.vector.item_names:
+                            x_size, y_size = x_range[1] - x_range[0], y_range[1] - y_range[0]
+                            if not any_log and x_size > 0 and y_size > 0 and max(x_size/y_size/subplot_aspect, y_size/x_size*subplot_aspect) < 4:
+                                axis.set_aspect('equal', adjustable='box')
                         # --- Remove labels if axes shared ---
                         for left_col in range(col):
                             if (row, left_col) in spaces and spaces[(row, left_col)].vector[y] == bounds.vector[y]:
@@ -164,7 +161,7 @@ class MatplotlibPlots(PlottingLibrary):
 def _get_range(bounds: Box, index: int):
     lower = float(bounds.lower.vector[index].min)
     upper = float(bounds.upper.vector[index].max)
-    return lower, upper
+    return lower if math.is_finite(lower) else None, upper if math.is_finite(upper) else None
 
 
 def _next_line_color(axes: Axes):
@@ -249,6 +246,7 @@ class Histogram(Recipe):
         return isinstance(data, PointCloud) and data.elements.vector.size == 1 and data.elements.vector.item_names == spatial(data).names and spatial(data.values).rank == 1 and not instance(data)
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        orientation = ['vertical', 'horizontal'][space.vector.item_names.index(data.elements.vector.item_names[0])]
         vector = data.bounds.shape['vector']
         x, = reshaped_numpy(data.points, [vector, spatial(data)])
         bin_edges = [x[0] - (x[1]-x[0]) / 2, *((x[1:] + x[:-1]) / 2), x[-1] + (x[-1] - x[-2]) / 2]
@@ -259,7 +257,7 @@ class Histogram(Recipe):
                 col = _next_line_color(subplot)
             else:
                 col = _plt_col(color[ch])
-            subplot.hist(bin_edges[:-1], bins=bin_edges, weights=counts, orientation='vertical', histtype='step', color=col, alpha=float(alpha[ch].max))
+            subplot.hist(bin_edges[:-1], bins=bin_edges, weights=counts, orientation=orientation, histtype='step', color=col, alpha=float(alpha[ch].max))
 
 
 class Heatmap2D(Recipe):
