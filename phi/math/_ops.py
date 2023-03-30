@@ -453,6 +453,7 @@ def map_(function, *values, range=range, **kwargs) -> Union[Tensor, None]:
 
 def _initialize(uniform_initializer, shapes: Tuple[Shape]) -> Tensor:
     shape = concat_shapes(*shapes)
+    assert shape.well_defined, f"When creating a Tensor, shape needs to have definitive sizes but got {shape}"
     if shape.is_non_uniform:
         stack_dim = shape.shape.without('dims')[0:1]
         shapes = shape.unstack(stack_dim.name)
@@ -2218,7 +2219,9 @@ def histogram(values: Tensor, bins: Shape or Tensor = spatial(bins=30), weights=
         # return stack_tensors([bin_edges, hist], channel(vector=[bin_edges.shape.name, 'hist']))
 
     bin_center = (bins[{non_batch(bins).name: slice(1, None)}] + bins[{non_batch(bins).name: slice(0, -1)}]) / 2
-    return broadcast_op(histogram_uniform, [values, bins, weights]), bins, bin_center
+    bin_center = expand(bin_center, channel(vector=non_batch(bins).names))
+    bin_edges = stack_tensors([bins], channel(values)) if channel(values) else bins
+    return broadcast_op(histogram_uniform, [values, bins, weights]), bin_edges, bin_center
 
 
 def fft(x: Tensor, dims: DimFilter = spatial) -> Tensor:
