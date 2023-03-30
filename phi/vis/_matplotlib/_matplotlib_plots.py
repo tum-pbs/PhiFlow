@@ -165,7 +165,7 @@ def _get_range(bounds: Box, index: int):
 
 
 def _next_line_color(axes: Axes):
-    next_index = len(axes.lines) + len(axes.patches)
+    next_index = len(axes.lines) + len(axes.patches) + len(axes.collections)
     return _default_color(next_index)
 
 
@@ -395,8 +395,6 @@ class PointCloud2D(Recipe):
         vector = data.bounds.shape['vector']
         channels = channel(data.points).without('vector')
         legend_patches = []
-        if (color == None).all:
-            color = math.range_tensor(channels)
         for idx, idx_n in zip(channels.meshgrid(), channels.meshgrid(names=True)):
             col = color[idx]
             PointCloud2D._plot_points(subplot, data[idx], dims, vector, col, alpha[idx], err[idx])
@@ -412,7 +410,10 @@ class PointCloud2D(Recipe):
                 PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx])
             return
         x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)], force_expand=True)
-        mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
+        if (color == None).all:
+            mpl_colors = [_next_line_color(axis)] * non_channel(data).volume
+        else:
+            mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
         alphas = reshaped_numpy(alpha, [non_channel(data)], force_expand=True)
         if isinstance(data.elements, Point):
             if spatial(data.points).is_empty:
