@@ -165,7 +165,7 @@ def _get_range(bounds: Box, index: int):
 
 
 def _next_line_color(axes: Axes):
-    next_index = len(axes.lines) + len(axes.patches) + len(axes.collections)
+    next_index = max(len(axes.lines), len(axes.patches), len(axes.collections))
     return _default_color(next_index)
 
 
