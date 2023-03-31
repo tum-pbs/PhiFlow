@@ -865,8 +865,8 @@ class TensorDim(BoundDim):
 
     def __mul__(self, other):
         from ._ops import dot
-        if isinstance(other, TensorDim):
-            return dot(self.tensor, (self.name,), other.tensor, (other.name,))
+        if isinstance(other, BoundDim):
+            return dot(self.obj, (self.name,), other.obj, (other.name,))
         if isinstance(other, (tuple, list)):
             other = wrap(other, self.obj.shape[self.name])
         if isinstance(other, Tensor):
@@ -874,6 +874,8 @@ class TensorDim(BoundDim):
             return dot(self.tensor, (self.name,), other, (self.name,))
         else:
             return NotImplemented
+
+    __rmul__ = __mul__
 
     def sum(self):
         from ._ops import sum_
