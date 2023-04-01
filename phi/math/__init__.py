@@ -34,7 +34,7 @@ from ._magic_ops import (
 
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar, BROADCAST_FORMATTER as f
 
-from ._sparse import dense, get_sparsity, factor_ilu, get_format, sparse_tensor
+from ._sparse import dense, get_sparsity, factor_ilu, get_format, sparse_tensor, stored_indices, stored_values, tensor_like
 
 from .extrapolation import Extrapolation
 
@@ -66,7 +66,7 @@ from ._ops import (
     dtype, cast,
     close, assert_close,
     stop_gradient,
-    pairwise_distances,
+    pairwise_distances, map_pairs,
 )
 
 from ._trace import matrix_from_function
