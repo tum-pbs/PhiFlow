@@ -2,7 +2,7 @@ import functools
 import math
 import warnings
 from numbers import Number
-from typing import Tuple, Callable, Any, Union
+from typing import Tuple, Callable, Any, Union, Optional
 
 import numpy as np
 
@@ -11,7 +11,7 @@ from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_at
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, dual, non_channel)
-from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format
+from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format, stored_indices, tensor_like, sparse_dims, same_sparsity_pattern, is_sparse
 from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
                        custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
                        is_scalar, Layout, expand_tensor)
@@ -769,6 +769,9 @@ def stack_tensors(values: Union[tuple, list], dim: Shape):
 
     def inner_stack(*values):
         if len(values) > 1 or not isinstance(values[0], NativeTensor):
+            if all(isinstance(t, SparseCoordinateTensor) for t in values):
+                if all(values[0]._indices is t._indices for t in values):
+                    return values[0]._with_values(stack_tensors([v._values for v in values], dim))
             return TensorStack(values, dim)
         else:
             value: NativeTensor = values[0]
@@ -1016,6 +1019,11 @@ def where(condition: Union[Tensor, float, int], value_true: Union[Tensor, float,
     def inner_where(c: Tensor, vt: Tensor, vf: Tensor):
         if vt._is_tracer or vf._is_tracer or c._is_tracer:
             return c * vt + (1 - c) * vf  # ToDo this does not take NaN into account
+        if is_sparse(vt) or is_sparse(vf):
+            if same_sparsity_pattern(vt, vf) and same_sparsity_pattern(c, vt):
+                result_values = where(c._values, vt._values, vf._values)
+                return c._with_values(result_values)
+            raise NotImplementedError
         shape, (c, vt, vf) = broadcastable_native_tensors(c, vt, vf)
         result = choose_backend(c, vt, vf).where(c, vt, vf)
         return NativeTensor(result, shape)
@@ -1048,10 +1056,8 @@ def nonzero(value: Tensor, list_dim: Union[Shape, str] = instance('nonzero'), in
     """
     if value.shape.channel_rank > 0:
         value = sum_(abs(value), value.shape.channel)
-
     if isinstance(list_dim, str):
         list_dim = instance(list_dim)
-
     def unbatched_nonzero(value: Tensor):
         if isinstance(value, CompressedSparseMatrix):
             value = value.decompress()
@@ -1066,7 +1072,6 @@ def nonzero(value: Tensor, list_dim: Union[Shape, str] = instance('nonzero'), in
             indices = backend.nonzero(native)
             indices_shape = Shape(backend.staticshape(indices), (list_dim.name, index_dim.name), (list_dim.type, index_dim.type), (None, dims.names))
             return NativeTensor(indices, indices_shape)
-
     return broadcast_op(unbatched_nonzero, [value], iter_dims=value.shape.batch.names)
 
 
@@ -1306,8 +1311,11 @@ def _all(value: Tensor, dims: Shape) -> Tensor:
     elif isinstance(value, TensorStack):
         reduced_inners = [_all(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: x & y, reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
-    else:
-        raise ValueError(type(value))
+    elif isinstance(value, (SparseCoordinateTensor, CompressedSparseMatrix)):
+        if sparse_dims(value) in dims:
+            values_all = _all(value._values, dims.without(sparse_dims(value)) & instance(value._values))
+            return all_([values_all, value._default], '0') if value._default is not None else values_all
+    raise ValueError(type(value))
 
 
 def max_(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
@@ -1338,8 +1346,11 @@ def _max(value: Tensor, dims: Shape) -> Tensor:
     elif isinstance(value, TensorStack):
         reduced_inners = [_max(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: maximum(x, y), reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
-    else:
-        raise ValueError(type(value))
+    elif isinstance(value, (SparseCoordinateTensor, CompressedSparseMatrix)):
+        if sparse_dims(value) in dims:
+            values_max = _max(value._values, dims.without(sparse_dims(value)) & instance(value._values))
+            return maximum(values_max, value._default) if value._default is not None else values_max
+    raise ValueError(type(value))
 
 
 def min_(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
@@ -1370,8 +1381,11 @@ def _min(value: Tensor, dims: Shape) -> Tensor:
     elif isinstance(value, TensorStack):
         reduced_inners = [_min(t, dims.without(value._stack_dim)) for t in value._tensors]
         return functools.reduce(lambda x, y: minimum(x, y), reduced_inners) if value._stack_dim in dims else TensorStack(reduced_inners, value._stack_dim)
-    else:
-        raise ValueError(type(value))
+    elif isinstance(value, (SparseCoordinateTensor, CompressedSparseMatrix)):
+        if sparse_dims(value) in dims:
+            values_min = _min(value._values, dims.without(sparse_dims(value)) & instance(value._values))
+            return minimum(values_min, value._default) if value._default is not None else values_min
+    raise ValueError(type(value))
 
 
 def finite_min(value, dim: DimFilter = non_batch, default: Union[complex, float] = float('NaN')):
@@ -1576,7 +1590,11 @@ def dot(x: Tensor,
         return x * y
     if isinstance(x, CompressedSparseMatrix):
         if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+            if x_dims.isdisjoint(sparse_dims(x)) and y_dims.isdisjoint(sparse_dims(y)):
+                return x._op2(y, lambda vx, vy: dot(vx, x_dims, vy, y_dims), None, 'dot', '@')
+            if x_dims.only(sparse_dims(x)) and y_dims.only(sparse_dims(y)):
+                raise NotImplementedError("sparse-sparse multiplication not yet supported")
+            raise NotImplementedError
         return dot_compressed_dense(x, x_dims, y, y_dims)
     elif isinstance(y, CompressedSparseMatrix):
         if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
@@ -2479,9 +2497,9 @@ def stop_gradient(x):
 
 
 def pairwise_distances(positions: Tensor,
-                       max_distance: Union[float, Tensor] = None,
-                       edges: Tensor = None,
-                       format: str or None = 'dense') -> Tensor:
+                         max_distance: Union[float, Tensor] = None,
+                         format: str = 'dense',
+                         default: Optional[float] = None) -> Tensor:
     """
     Computes the distance matrix containing the pairwise position differences between each pair of points.
     Points that are further apart than `max_distance` (if specified) are assigned a distance value of `0`.
@@ -2494,9 +2512,11 @@ def pairwise_distances(positions: Tensor,
         max_distance: Scalar or `Tensor` specifying a max_radius for each point separately.
             Can contain additional batch dimensions but spatial/instance dimensions must match `positions` if present.
             If not specified, uses an infinite cutoff radius, i.e. all points will be considered neighbors.
-        edges: Connectivity matrix containing all spatial/instance dims of `positions` as primal and dual dims.
-            When
-        format: Matrix format as `str`. Allowed values are `'dense', `'csr'`, `'coo'`, and `'as edges'` if `edges` are given.
+        format: Matrix format as `str` or concrete sparsity pattern as `Tensor`.
+            Allowed strings are `'dense', `'csr'`, `'coo'`, `'csc'`.
+            When a `Tensor` is passed, it needs to have all instance and spatial dims as `positions` as well as corresponding dual dimensions.
+            The distances will be evaluated at all stored entries of the `format` tensor.
+        default: Value the sparse tensor returns for non-stored values. Must be `0` or `None`.
 
     Returns:
         Distance matrix as sparse or dense `Tensor`, depending on `format`.
@@ -2510,29 +2530,20 @@ def pairwise_distances(positions: Tensor,
         (x=0.000, y=0.000); (x=0.000, y=1.000); (x=0.000, y=0.000) (~particlesᵈ=3, vectorᶜ=x,y)
     """
     assert isinstance(positions, Tensor), f"positions must be a Tensor but got {type(positions)}"
+    assert default in [0, None], f"default value must be either 0 or None but got '{default}'"
     primal_dims = positions.shape.non_batch.non_channel.non_dual
     dual_dims = dual(**primal_dims.untyped_dict)
     # --- Connectivity given ---
-    if edges is not None:
-        if format == 'as edges':
-            format = get_format(edges)
+    if isinstance(format, Tensor):
         assert max_distance is None, "max_distance not allowed when edges are specified"
-        inst_dim = instance(positions).name
-        edge_indices = nonzero(edges)
-        origin = positions[{inst_dim: edge_indices[inst_dim]}]
-        target = positions[{inst_dim: edge_indices['~' + inst_dim]}]
-        dx = target - origin
-        from phi.math._sparse import SparseCoordinateTensor
-        result = SparseCoordinateTensor(edge_indices, dx, primal_dims & dual_dims, can_contain_double_entries=False, indices_sorted=False)
-        return to_format(result, format)
+        return map_pairs(lambda p1, p2: p2 - p1, positions, format)
     # --- Dense connectivity ---
-    if format == 'dense':
-        # if not count_self:
-        #     warnings.warn(f"count_self has no effect when using format '{format}'", SyntaxWarning, stacklevel=2)
-        dx = unpack_dim(pack_dims(positions, non_batch(positions).non_channel, instance('_tmp')), '_tmp', dual_dims) - positions
+    elif format == 'dense':
+        dx = unpack_dim(pack_dims(positions, non_batch(positions).non_channel.non_dual, instance('_tmp')), '_tmp', dual_dims) - positions
         if max_distance is not None:
             neighbors = sum_(dx ** 2, channel) <= max_distance ** 2
-            dx = where(neighbors, dx, 0)
+            default = float('nan') if default is None else default
+            dx = where(neighbors, dx, default)
         return dx
     # --- Sparse connectivity ---
     assert max_distance is not None, "max_distance must be specified when computing distance in sparse format"
@@ -2560,7 +2571,7 @@ def pairwise_distances(positions: Tensor,
             indices = wrap(indices, instance('nnz'))
             pointers = wrap(pointers, instance('pointers'))
             values = wrap(values, instance('nnz'), channel(positions))
-            tensors.append(CompressedSparseMatrix(indices, pointers, values, dual_dims, pos_i_shape))
+            tensors.append(CompressedSparseMatrix(indices, pointers, values, dual_dims, pos_i_shape, default))
     elif format == 'coo':
         raise NotImplementedError
     elif format == 'csc':
@@ -2568,3 +2579,25 @@ def pairwise_distances(positions: Tensor,
     else:
         raise ValueError(format)
     return stack_tensors(tensors, batch_shape)
+
+
+def map_pairs(map_function: Callable, values: Tensor, connections: Tensor):
+    """
+    Evaluates `map_function` on all pairs of elements present in the sparsity pattern of `connections`.
+
+    Args:
+        map_function: Function with signature `(Tensor, Tensor) -> Tensor`.
+        values: Values to evaluate `map_function` on.
+            Needs to have a spatial or instance dimension but must not have a dual dimension.
+        connections: Sparse tensor.
+
+    Returns:
+        `Tensor` with the sparse dimensions of `connections` and all non-instance dimensions returned by `map_function`.
+    """
+    assert dual(values).is_empty, f"values must not have a dual dimension but got {values.shape}"
+    inst_dim = non_batch(values).non_channel.non_dual.name
+    indices = stored_indices(connections, invalid='clamp')
+    origin = values[{inst_dim: indices[inst_dim]}]
+    target = values[{inst_dim: indices['~' + inst_dim]}]
+    result = map_function(origin, target)
+    return tensor_like(connections, result, value_order='as existing')

@@ -305,7 +305,7 @@ def tracer_to_coo(tracer: Tensor, sparsify_batch: bool, separate_independent: bo
             values = math.concat_tensor([m._values for m in matrices], 'entries')
             # matrix = stack(matrices, tracer._stack_dim)
             dense_shape = concat_shapes(matrices[0]._dense_shape, tracer._stack_dim)
-            matrix = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False)
+            matrix = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False, default=0)
         else:
             matrix = stack(matrices, tracer._stack_dim)
         return matrix, bias
@@ -352,5 +352,5 @@ def tracer_to_coo(tracer: Tensor, sparsify_batch: bool, separate_independent: bo
     backend = choose_backend(*values)
     values = math.reshaped_tensor(backend.concat(values, axis=-1), [batch_val, instance('entries')])
     dense_shape = concat_shapes((sliced_src_shape if separate_independent else src_shape) & out_shape)
-    matrix = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False)
+    matrix = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False, default=0)
     return matrix, tracer.bias
