@@ -17,7 +17,7 @@ from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, Nativ
                        is_scalar, Layout, expand_tensor)
 from .backend import default_backend, choose_backend, Backend, get_precision, convert as b_convert, BACKENDS, NoBackendFound, ComputeDevice, NUMPY
 from .backend._dtype import DType, combine_types
-from .magic import PhiTreeNode
+from .magic import PhiTreeNode, Shapable
 
 
 def choose_backend_t(*values, prefer_default=False) -> Backend:
@@ -424,9 +424,9 @@ def map_(function, *values, range=range, **kwargs) -> Union[Tensor, None]:
     """
     if not values:
         return function(**kwargs)
-    values = [wrap(v) for v in values]
+    values = [v if isinstance(v, Shapable) else wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
-    flat = [pack_dims(expand(v, shape), shape, batch('flat')) for v in values]
+    flat = [pack_dims(expand(v, shape), shape, channel('flat')) for v in values]
     result = []
     results = None
     for _, items in zip(range(flat[0].flat.size_or_1), zip(*flat)):
@@ -442,13 +442,13 @@ def map_(function, *values, range=range, **kwargs) -> Union[Tensor, None]:
         if any(r is None for r in result):
             assert all(r is None for r in result), f"map function returned None for some elements, {result}"
             return None
-        return unpack_dim(stack(result, channel('_c')), '_c', shape)
+        return unpack_dim(stack(result, channel('_c')) if isinstance(result, Shapable) else wrap(result, channel('_c')), '_c', shape)
     else:
         for i, result_i in enumerate(results):
             if any(r is None for r in result_i):
                 assert all(r is None for r in result_i), f"map function returned None for some elements at output index {i}, {result_i}"
                 results[i] = None
-        return tuple([unpack_dim(stack(result_i, channel('_c')), '_c', shape) for result_i in results])
+        return tuple([unpack_dim(stack(result_i, channel('_c')) if isinstance(result_i, Shapable) else wrap(result_i, channel('_c')), '_c', shape) for result_i in results])
 
 
 def _initialize(uniform_initializer, shapes: Tuple[Shape]) -> Tensor:
@@ -1237,8 +1237,13 @@ def std(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor
 
 
 def _std(value: Tensor, dims: Shape) -> Tensor:
-    result = value.default_backend.std(value.native(value.shape), value.shape.indices(dims))
-    return NativeTensor(result, value.shape.without(dims))
+    if value.shape.is_uniform:
+        result = value.default_backend.std(value.native(value.shape), value.shape.indices(dims))
+        return NativeTensor(result, value.shape.without(dims))
+    else:
+        non_uniform_dim = value.shape.shape.without('dims')
+        assert non_uniform_dim.only(dims).is_empty, f"Cannot compute std along non-uniform dims {dims}. shape={value.shape}"
+        return stack([_std(t, dims) for t in value.unstack(non_uniform_dim.name)], non_uniform_dim)
 
 
 def any_(boolean_tensor: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
@@ -2065,7 +2070,7 @@ def gather(values: Tensor, indices: Tensor, dims: Union[DimFilter, None] = None)
 
 
 def scatter(base_grid: Union[Tensor, Shape],
-            indices: Tensor,
+            indices: Union[Tensor, dict],
             values: Union[Tensor, float],
             mode: str = 'update',
             outside_handling: str = 'discard',
@@ -2110,6 +2115,24 @@ def scatter(base_grid: Union[Tensor, Shape],
     assert mode in ('update', 'add', 'mean')
     assert outside_handling in ('discard', 'clamp', 'undefined')
     assert isinstance(indices_gradient, bool)
+    if isinstance(indices, dict):  # update a slice
+        if len(indices) == 1 and isinstance(next(iter(indices.values())), (str, int, slice)):  # update a range
+            dim, sel = next(iter(indices.items()))
+            full_dim = base_grid.shape[dim]
+            if isinstance(sel, str):
+                sel = full_dim.item_names[0].index(sel)
+            if isinstance(sel, int):
+                sel = slice(sel, sel+1)
+            assert isinstance(sel, slice), f"Selection must be a str, int or slice but got {type(sel)}"
+            values = expand(values, full_dim.after_gather({dim: sel}))
+            parts = [
+                base_grid[{dim: slice(sel.start)}],
+                values,
+                base_grid[{dim: slice(sel.stop, None)}]
+            ]
+            return concat(parts, dim)
+        else:
+            raise NotImplementedError("scattering into non-continuous values not yet supported by dimension")
     grid_shape = base_grid if isinstance(base_grid, Shape) else base_grid.shape
     assert channel(indices).rank < 2
     if channel(indices) and channel(indices).item_names[0]:
