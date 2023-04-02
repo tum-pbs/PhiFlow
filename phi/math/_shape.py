@@ -436,6 +436,19 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t != DUAL_DIM]]
 
     @property
+    def non_primal(self) -> 'Shape':
+        """
+        Filters this shape, returning only batch and dual dimensions as a new `Shape` object.
+
+        See also:
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.dual`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`, `Shape.non_dual`.
+
+        Returns:
+            New `Shape` object
+        """
+        return self[[i for i, t in enumerate(self.types) if t in [DUAL_DIM, BATCH_DIM]]]
+
+    @property
     def non_singleton(self) -> 'Shape':
         """
         Filters this shape, returning only non-singleton dimensions as a new `Shape` object.
@@ -1693,6 +1706,25 @@ def non_dual(obj) -> Shape:
         return obj.non_dual
     elif isinstance(obj, Shaped):
         return shape(obj).non_dual
+    else:
+        raise AssertionError(f"non_dual() must be called either on a Shape or an object with a 'shape' property but got {obj}")
+
+
+def non_primal(obj) -> Shape:
+    """
+    Returns the batch and dual dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    from .magic import Shaped
+    if isinstance(obj, Shape):
+        return obj.non_primal
+    elif isinstance(obj, Shaped):
+        return shape(obj).non_primal
     else:
         raise AssertionError(f"non_dual() must be called either on a Shape or an object with a 'shape' property but got {obj}")
 
