@@ -9,6 +9,7 @@ from matplotlib import animation
 from matplotlib import rc
 from matplotlib.axes import Axes
 from matplotlib.patches import Patch
+from matplotlib.ticker import NullFormatter
 from matplotlib.transforms import Bbox
 
 from phi import math, field
@@ -49,11 +50,13 @@ class MatplotlibPlots(PlottingLibrary):
                         x, y = bounds.vector.item_names
                         axis.set_xlabel(display_name(x))
                         axis.set_ylabel(display_name(y))
+                        # --- limits ---
                         x_range, y_range = [_get_range(bounds, i) for i in (0, 1)]
                         if None not in x_range:
                             axis.set_xlim(x_range)
                         if None not in y_range:
                             axis.set_ylim(y_range)
+                        # --- Log axes ---
                         any_log = False
                         if bounds.vector.item_names[0] in log_dims:
                             axis.set_xscale('log')
@@ -71,10 +74,12 @@ class MatplotlibPlots(PlottingLibrary):
                             if (row, left_col) in spaces and spaces[(row, left_col)].vector[y] == bounds.vector[y]:
                                 axis.set_ylabel("")
                                 axis.tick_params(labelleft=False)
+                                axis.yaxis.set_minor_formatter(NullFormatter())  # sometimes required for log axis
                         for below_row in range(row + 1, rows + 1):
                             if (below_row, col) in spaces and spaces[(below_row, col)].vector[x] == bounds.vector[x]:
                                 axis.set_xlabel("")
                                 axis.tick_params(labelbottom=False)
+                                axis.xaxis.set_minor_formatter(NullFormatter())  # sometimes required for log axis
                     elif bounds.spatial_rank == 3:
                         axis.remove()
                         axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
@@ -94,7 +99,10 @@ class MatplotlibPlots(PlottingLibrary):
                             axis.set_zscale('log')
                     axis.set_title(titles.get((row, col), None))
                     axes_by_pos[(row, col)] = axes[row, col]
-        figure.tight_layout()
+        try:
+            figure.tight_layout()
+        except ValueError as err:
+            warnings.warn(f"tight_layout could not be applied: {err}")
         return figure, axes_by_pos
 
     def animate(self, fig: plt.Figure, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
