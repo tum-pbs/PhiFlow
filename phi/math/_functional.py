@@ -126,24 +126,28 @@ def key_from_args(args: tuple, kwargs: Dict[str, Any], parameters: Tuple[str, ..
 #     return key, tensors, natives, kwargs, batch_shape
 
 
-def function_parameters(f):
+def function_parameters(f) -> Tuple[str]:
+    return tuple(get_function_parameters(f).keys())
+
+
+def get_function_parameters(f) -> Dict[str, inspect.Parameter]:
     if isinstance(f, (JitFunction, GradientFunction, HessianFunction, CustomGradientFunction, LinearFunction)):
-        return f.f_params
+        return get_function_parameters(f.f)
     elif hasattr(f, '__wrapped__') and f.__wrapped__ is not None:
-        inner_params = function_parameters(f.__wrapped__)
+        inner_params = get_function_parameters(f.__wrapped__)
         outer_parameters = dict(inspect.signature(f, follow_wrapped=False).parameters)
         args_param = [name for name, param in outer_parameters.items() if param.kind == inspect.Parameter.VAR_POSITIONAL]
         assert args_param, f"Wrapping function {f.__name__} must have a varargs parameter"
         kwargs_param = [name for name, param in outer_parameters.items() if param.kind == inspect.Parameter.VAR_KEYWORD]
-        outer_params = list(outer_parameters.keys())
+        outer_names: List[str] = list(outer_parameters.keys())
         if kwargs_param:
-            outer_params.remove(kwargs_param[0])
-        index = outer_params.index(args_param[0])
-        return tuple(outer_params[:index]) + inner_params + tuple(outer_params[index + 1:])
+            outer_names.remove(kwargs_param[0])
+        index = outer_names.index(args_param[0])
+        return dict(**{n: outer_parameters[n] for n in outer_names[:index]}, **inner_params, **{n: outer_parameters[n] for n in outer_names[index + 1:]})
     else:
-        params = inspect.signature(f).parameters.keys()
+        params = dict(inspect.signature(f).parameters)
         assert 'args' not in params, f"Failed to determine signature of {f}. If it wraps another function, decorate it with @functools.wraps(func_with_signature)"
-        return tuple(params)
+        return params
 
 
 def f_name(f):
