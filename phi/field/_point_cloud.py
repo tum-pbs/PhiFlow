@@ -64,10 +64,12 @@ class PointCloud(SampledField):
         item = slicing_dict(self, item)
         if not item:
             return self
-        elements = self.elements[{dim: selection for dim, selection in item.items() if dim != 'vector'}]
+        item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
+        elements = self.elements[item_without_vec]
         values = self._values[item]
         extrapolation = self._extrapolation[item]
-        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds)
+        bounds = self._bounds[item_without_vec] if self._bounds is not None else None
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, bounds)
 
     def with_elements(self, elements: Geometry):
         return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
