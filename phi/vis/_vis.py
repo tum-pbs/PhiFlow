@@ -303,7 +303,9 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
             `Shape` or comma-separated names as `str`, `tuple` or `list`.
         col_dims: Batch dimensions along which sub-figures should be laid out horizontally.
             `Shape` or comma-separated names as `str`, `tuple` or `list`.
-        title: String `Tensor` with dimensions `rows` and `cols`.
+        title: `str` for figures with a single subplot.
+            For subplots, pass a string `Tensor` matching the content dimensions, i.e. `row_dims` and `col_dims`.
+            Passing a `tuple`, `list` or `dict`, will create a tensor with these names internally.
         size: Figure size in inches, `(width, height)`.
         same_scale: Whether to use the same axis limits for all sub-figures.
         log_dims: Dimensions for which the plot axes should be scaled logarithmically.
@@ -340,13 +342,13 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
     # --- Process arguments ---
-    if isinstance(title, str):
-        title = {pos: title for pos in positioning}
-    elif isinstance(title, Tensor):
-        title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
+    if title is None:
+        title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
+    elif isinstance(title, Tensor) and ('rows' in title.shape or 'cols' in title.shape):
+        title_by_subplot = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
     else:
-        assert title is None, f"title must be a str or Tensor but got {title}"
-        title = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
+        title = layout_pytree_node(title, wrap_leaf=True)
+        title_by_subplot = {pos: title[i[0]].native() for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
@@ -373,7 +375,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
         subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
     # --- animate or plot ---
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
