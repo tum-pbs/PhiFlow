@@ -1401,7 +1401,7 @@ class TensorStack(Tensor):
         if self._stack_dim.name in selection:
             selection = selection[self._stack_dim.name]
             if isinstance(selection, int):
-                return self._tensors[selection]
+                return tensors[selection]
             elif isinstance(selection, slice):
                 return TensorStack(tensors[selection], self._stack_dim)
             else:
