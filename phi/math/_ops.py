@@ -7,7 +7,7 @@ from typing import Tuple, Callable, Any, Union
 import numpy as np
 
 from . import extrapolation as e_
-from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int, tree_map
+from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int, tree_map, concat, stack
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, dual, non_channel)
@@ -442,13 +442,13 @@ def map_(function, *values, range=range, **kwargs) -> Union[Tensor, None]:
         if any(r is None for r in result):
             assert all(r is None for r in result), f"map function returned None for some elements, {result}"
             return None
-        return unpack_dim(wrap(result, channel('_c')), '_c', shape)
+        return unpack_dim(stack(result, channel('_c')), '_c', shape)
     else:
         for i, result_i in enumerate(results):
             if any(r is None for r in result_i):
                 assert all(r is None for r in result_i), f"map function returned None for some elements at output index {i}, {result_i}"
                 results[i] = None
-        return tuple([unpack_dim(wrap(result_i, channel('_c')), '_c', shape) for result_i in results])
+        return tuple([unpack_dim(stack(result_i, channel('_c')), '_c', shape) for result_i in results])
 
 
 def _initialize(uniform_initializer, shapes: Tuple[Shape]) -> Tensor:
