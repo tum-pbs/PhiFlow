@@ -714,6 +714,11 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def batched_gather_1d(self, values, indices):
+        values = self.expand_dims(values, -1)
+        indices = self.expand_dims(indices, -1)
+        return self.batched_gather_nd(values, indices)[..., 0]
+
     def flatten(self, x):
         return self.reshape(x, (-1,))
 
