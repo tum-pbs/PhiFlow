@@ -1997,7 +1997,7 @@ def convolve(value: Tensor,
     return result
 
 
-def boolean_mask(x: Tensor, dim: str, mask: Tensor):
+def boolean_mask(x: Tensor, dim: DimFilter, mask: Tensor):
     """
     Discards values `x.dim[i]` where `mask.dim[i]=False`.
     All dimensions of `mask` that are not `dim` are treated as batch dimensions.
@@ -2019,7 +2019,9 @@ def boolean_mask(x: Tensor, dim: str, mask: Tensor):
     Returns:
         Selected values of `x` as `Tensor` with dimensions from `x` and `mask`.
     """
-    assert dim in mask.shape, f"mask dimension '{dim}' must be present on the mask but got {mask.shape}"
+    dim, original_dim = mask.shape.only(dim), dim  # ToDo
+    assert dim, f"mask dimension '{original_dim}' must be present on the mask {mask.shape}"
+    assert dim.rank == 1, f"boolean mask only supports 1D selection"
     
     def uniform_boolean_mask(x: Tensor, mask_1d: Tensor):
         if dim in x.shape:

@@ -527,7 +527,7 @@ class Shape:
         See Also:
             `Shape.sizes`, `Shape.get_size()`.
         """
-        assert self.rank == 1, "Shape.size is only defined for shapes of rank 1."
+        assert self.rank == 1, f"Shape.size is only defined for shapes of rank 1 but has dims {self}"
         return self.sizes[0]
 
     @property
