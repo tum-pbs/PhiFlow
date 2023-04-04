@@ -28,7 +28,7 @@ from ._magic_ops import (
     slice_ as slice, unstack,
     stack, concat, expand,
     rename_dims, pack_dims, unpack_dim, flatten,
-    b2i, c2b, i2b, s2b,
+    b2i, c2b, i2b, s2b, si2d,
     copy_with, replace
 )
 
