@@ -8,7 +8,7 @@ import dataclasses
 from . import channel
 from .backend import choose_backend, NoBackendFound
 from .backend._dtype import DType
-from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes, spatial, parse_dim_order
+from ._shape import Shape, DimFilter, batch, instance, shape, non_batch, merge_shapes, concat_shapes, spatial, parse_dim_order, dual
 from .magic import Sliceable, Shaped, Shapable, PhiTreeNode
 
 
@@ -431,6 +431,11 @@ def c2b(value):
 def s2b(value):
     """ Change the type of all *spatial* dimensions of `value` to *batch* dimensions. See `rename_dims`. """
     return rename_dims(value, spatial, batch)
+
+
+def si2d(value):
+    """ Change the type of all *spatial* and *instance* dimensions of `value` to *dual* dimensions. See `rename_dims`. """
+    return rename_dims(value, lambda s: s.non_channel.non_dual.non_batch, dual)
 
 
 def i2b(value):
