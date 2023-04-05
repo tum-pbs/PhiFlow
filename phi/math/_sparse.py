@@ -572,7 +572,11 @@ class CompressedSparseMatrix(Tensor):
 
     def _with_shape_replaced(self, new_shape: Shape):
         assert self._shape.rank == new_shape.rank
-        raise NotImplementedError
+        values = self._values._with_shape_replaced(self._values.shape.replace(self._shape, new_shape))
+        indices = self._indices._with_shape_replaced(self._indices.shape.replace(self._shape, new_shape))
+        pointers = self._pointers._with_shape_replaced(self._pointers.shape.replace(self._shape, new_shape))
+        uncompressed_indices = self._uncompressed_indices._with_shape_replaced(self._uncompressed_indices.shape.replace(self._shape, new_shape)) if self._uncompressed_indices is not None else None
+        return CompressedSparseMatrix(indices, pointers, values, self._uncompressed_dims.replace(self._shape, new_shape), self._compressed_dims.replace(self._shape, new_shape), self._default, self._uncompressed_offset, uncompressed_indices, self._uncompressed_indices_perm)
 
     def _native_csr_components(self, invalid='clamp'):
         assert invalid in ['clamp', 'discard', 'keep']
@@ -947,3 +951,25 @@ def native_matrix(value: Tensor, target_backend: Backend):
         v = pack_dims(v, cols, channel('_col'))
         from ._ops import reshaped_native
         return reshaped_native(v, ['_row', '_col'])
+
+
+def sparse_dot(x: Tensor, x_dims: Shape, y: Tensor, y_dims: Shape):
+    if isinstance(x, CompressedSparseMatrix):
+        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            if x_dims.only(sparse_dims(x)) and y_dims.only(sparse_dims(y)):
+                raise NotImplementedError("sparse-sparse multiplication not yet supported")
+            raise NotImplementedError
+        return dot_compressed_dense(x, x_dims, y, y_dims)
+    elif isinstance(y, CompressedSparseMatrix):
+        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+        return dot_compressed_dense(y, y_dims, x, x_dims)
+    if isinstance(x, SparseCoordinateTensor):
+        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+        return dot_coordinate_dense(x, x_dims, y, y_dims)
+    elif isinstance(y, SparseCoordinateTensor):
+        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+        return dot_coordinate_dense(y, y_dims, x, x_dims)
+    raise NotImplementedError

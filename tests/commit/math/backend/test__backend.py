@@ -160,6 +160,12 @@ class TestBackends(TestCase):
             numpy.testing.assert_equal([1, 3, 2], result)
             result = b.numpy(b.bincount(data, None, bins=5))
             numpy.testing.assert_equal([1, 3, 2, 0, 0], result)
+            # --- sorted ---
+            data = b.as_tensor([0, 1, 1, 1, 2, 2])
+            result = b.numpy(b.bincount(data, None, bins=3, x_sorted=True))
+            numpy.testing.assert_equal([1, 3, 2], result)
+            result = b.numpy(b.bincount(data, None, bins=5, x_sorted=True))
+            numpy.testing.assert_equal([1, 3, 2, 0, 0], result)
 
     def test_vectorized_call(self):
         for b in BACKENDS:
@@ -176,3 +182,14 @@ class TestBackends(TestCase):
         for b in BACKENDS:
             result = b.linspace_without_last(-1, 1, 4)
             numpy.testing.assert_equal([-1, -.5, 0, .5], b.numpy(result))
+
+    def test_nonzero(self):
+        for b in BACKENDS:
+            data = b.as_tensor([0, 1, 0, -1])
+            result = b.nonzero(data)
+            numpy.testing.assert_equal([(1,), (3,)], b.numpy(result))
+            result = b.nonzero(data, length=4)
+            numpy.testing.assert_equal([[1], [3], [-1], [-1]], b.numpy(result))
+            result = b.nonzero(data, length=1)
+            numpy.testing.assert_equal([[1]], b.numpy(result))
+

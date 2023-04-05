@@ -1,7 +1,7 @@
 import numbers
 from contextlib import contextmanager
 from functools import wraps, partial
-from typing import List, Callable, Tuple, Union
+from typing import List, Callable, Tuple, Union, Optional
 
 import keras
 import numpy as np
@@ -234,9 +234,12 @@ class TFBackend(Backend):
             condition = tf.cast(condition, tf.bool)
             return tf.where(condition, x, y)
 
-    def nonzero(self, values):
+    def nonzero(self, values, length=None, fill_value=-1):
         with tf.device(values.device):
-            return tf.where(tf.not_equal(values, 0))
+            result = tf.where(tf.not_equal(values, 0))
+            if length is not None:
+                result = self.pad_to(result, 0, length, fill_value)
+            return result
 
     def mean(self, value, axis=None, keepdims=False):
         with tf.device(value.device):
@@ -538,7 +541,10 @@ class TFBackend(Backend):
             hist = tf.math.bincount(bin_indices, weights=weights, minlength=bin_count, maxlength=bin_count, axis=-1)
             return hist
 
-    def bincount(self, x, weights, bins: int):
+    def bincount(self, x, weights: Optional[TensorType], bins: int, x_sorted=False):
+        # if x_sorted:
+        #     return tf.math.segment_sum(weights or 1, x)
+        # else:
         return tf.math.bincount(x, weights=weights, minlength=bins, maxlength=bins)
 
     def fft(self, x, axes: Union[tuple, list]):

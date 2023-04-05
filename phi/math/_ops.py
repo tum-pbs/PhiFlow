@@ -11,7 +11,7 @@ from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_at
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, dual, non_channel, shape)
-from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format, stored_indices, tensor_like, sparse_dims, same_sparsity_pattern, is_sparse
+from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format, stored_indices, tensor_like, sparse_dims, same_sparsity_pattern, is_sparse, sparse_dot
 from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
                        custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
                        is_scalar, Layout, expand_tensor)
@@ -1630,28 +1630,14 @@ def dot(x: Tensor,
         assert x_dims.volume == 1, f"Cannot compute dot product between dimensions {x_dims} on {x.shape} and {y_dims} on {y.shape}"
         x = x[{d: 0 for d in x_dims.names}]
         return x * y
-    if isinstance(x, CompressedSparseMatrix):
-        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            if x_dims.isdisjoint(sparse_dims(x)) and y_dims.isdisjoint(sparse_dims(y)):
+    if is_sparse(x) or is_sparse(y):
+        if x_dims.isdisjoint(sparse_dims(x)) and y_dims.isdisjoint(sparse_dims(y)):
+            if is_sparse(x):
                 return x._op2(y, lambda vx, vy: dot(vx, x_dims, vy, y_dims), None, 'dot', '@')
-            if x_dims.only(sparse_dims(x)) and y_dims.only(sparse_dims(y)):
-                raise NotImplementedError("sparse-sparse multiplication not yet supported")
-            raise NotImplementedError
-        return dot_compressed_dense(x, x_dims, y, y_dims)
-    elif isinstance(y, CompressedSparseMatrix):
-        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            raise NotImplementedError("sparse-sparse multiplication not yet supported")
-        return dot_compressed_dense(y, y_dims, x, x_dims)
-    if isinstance(x, SparseCoordinateTensor):
-        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            if x_dims.isdisjoint(sparse_dims(x)) and y_dims.isdisjoint(sparse_dims(y)):
-                return x._op2(y, lambda vx, vy: dot(vx, x_dims, vy, y_dims), None, 'dot', '@')
-            raise NotImplementedError("sparse-sparse multiplication not yet supported")
-        return dot_coordinate_dense(x, x_dims, y, y_dims)
-    elif isinstance(y, SparseCoordinateTensor):
-        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            raise NotImplementedError("sparse-sparse multiplication not yet supported")
-        return dot_coordinate_dense(y, y_dims, x, x_dims)
+            else:
+                return y._op2(x, lambda vy, vx: dot(vx, x_dims, vy, y_dims), None, 'dot', '@')
+        else:
+            return sparse_dot(x, x_dims, y, y_dims)
     x_native = x.native(x.shape)
     y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)
@@ -2577,7 +2563,7 @@ def stop_gradient(x):
 
 def pairwise_distances(positions: Tensor,
                        max_distance: Union[float, Tensor] = None,
-                       format: str = 'dense',
+                       format: Union[str, Tensor] = 'dense',
                        default: Optional[float] = None,
                        method: str = 'sparse') -> Tensor:
     """
@@ -2648,7 +2634,7 @@ def pairwise_distances(positions: Tensor,
             pair_count = 7
             mode = 'vectorize'
     # --- Run neighborhood search ---
-    from .backend._partition import find_neighbors, find_neighbors_matscipy, find_neighbors_sklearn
+    from .backend._partition import find_neighbors_sparse, find_neighbors_semi_sparse, find_neighbors_matscipy, find_neighbors_sklearn
     if mode == 'loop':
         indices = []
         values = []
@@ -2656,7 +2642,9 @@ def pairwise_distances(positions: Tensor,
             native_positions = reshaped_native(positions[b], [primal_dims, channel(positions)])
             native_max_dist = max_distance[b].native()
             if method == 'sparse':
-                nat_rows, nat_cols, nat_vals = find_neighbors(native_positions, native_max_dist, None, periodic=False, default=default)
+                nat_rows, nat_cols, nat_vals = find_neighbors_sparse(native_positions, native_max_dist, None, periodic=False, default=default)
+            elif method == 'semi-sparse':
+                nat_rows, nat_cols, nat_vals, req_pair_count, req_max_occupancy = find_neighbors_semi_sparse(native_positions, native_max_dist, None, periodic=False, default=default)
             elif method == 'matscipy':
                 assert positions.available, f"Cannot jit-compile matscipy neighborhood search"
                 nat_rows, nat_cols, nat_vals = find_neighbors_matscipy(native_positions, native_max_dist, None, periodic=False)
@@ -2702,9 +2690,12 @@ def map_pairs(map_function: Callable, values: Tensor, connections: Tensor):
         `Tensor` with the sparse dimensions of `connections` and all non-instance dimensions returned by `map_function`.
     """
     assert dual(values).is_empty, f"values must not have a dual dimension but got {values.shape}"
-    inst_dim = non_batch(values).non_channel.non_dual.name
     indices = stored_indices(connections, invalid='clamp')
-    origin = values[{inst_dim: indices[inst_dim]}]
-    target = values[{inst_dim: indices['~' + inst_dim]}]
+    origin_dim, neighbors_dim = channel(indices).item_names[0]
+    if origin_dim not in values.shape:
+        origin_dim, neighbors_dim = neighbors_dim, origin_dim
+    assert origin_dim in values.shape, f"No dimension of connections {connections.shape} is present in values {values.shape}"
+    origin = values[{origin_dim: indices[origin_dim]}]
+    target = values[{origin_dim: indices[neighbors_dim]}]
     result = map_function(origin, target)
     return tensor_like(connections, result, value_order='as existing')

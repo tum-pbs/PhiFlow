@@ -524,6 +524,17 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def pad_to(self, x, axis, new_size, fill_value):
+        shape = self.staticshape(x)
+        current = shape[axis]
+        if new_size > current:
+            pad_width = [(0, new_size - current) if i == axis else (0, 0) for i in range(len(shape))]
+            return self.pad(x, pad_width, mode='constant', constant_values=fill_value)
+        elif new_size < current:
+            return x[tuple([slice(new_size) if i == axis else slice(None) for i in range(len(shape))])]
+        else:
+            return x
+
     def reshape(self, value, shape):
         raise NotImplementedError(self)
 
@@ -544,13 +555,14 @@ class Backend:
     def where(self, condition, x=None, y=None):
         raise NotImplementedError(self)
 
-    def nonzero(self, values):
+    def nonzero(self, values, length=None, fill_value=-1):
         """
         Args:
             values: Tensor with only spatial dimensions
+            length: (Optional) Length of the resulting array. If specified, the result array will be padded with `fill_value` or trimmed.
 
         Returns:
-            non-zero multi-indices as tensor of shape (nnz, vector)
+            non-zero multi-indices as tensor of shape (nnz/length, vector)
         """
         raise NotImplementedError(self)
 
@@ -836,6 +848,9 @@ class Backend:
     def batched_gather_1d(self, values, indices):
         return self.batched_gather_nd(values[:, :, None], indices[:, :, None])[..., 0]
 
+    def gather_nd(self, values, indices):
+        return self.batched_gather_nd(values[None, :, :], indices[None, :, :])[0, :, :]
+
     def gather_1d(self, values, indices):
         return self.gather(values, indices, 0)
 
@@ -880,6 +895,38 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def scatter_nd(self, base_grid, indices, values, mode: str):
+        """
+        Non-batched scatter.
+
+        Args:
+            base_grid: (spatial..., channels)
+            indices: (update_count, index_vector)
+            values: (update_count or 1, channels or 1)
+            mode: One of ('update', 'add')
+        """
+        return self.scatter(base_grid[None, ...], indices[None, ...], values[None, ...], mode=mode)[0, ...]
+
+    def scatter_1d_scalar(self, base_grid, indices, values, mode: str):
+        """
+        Args:
+            base_grid: (spatial,)
+            indices: (update_count,)
+            values: (update_count or 1,)
+            mode: One of ('update', 'add')
+        """
+        return self.scatter(base_grid[None, :, None], indices[None, :, None], values[None, :, None], mode=mode)[0, :, 0]
+
+    def scatter_nd_scalar(self, base_grid, indices, values, mode: str):
+        """
+        Args:
+            base_grid: (spatial...,)
+            indices: (update_count, index_vector)
+            values: (update_count or 1,)
+            mode: One of ('update', 'add')
+        """
+        return self.scatter(base_grid[None, ..., None], indices[None, ...], values[None, :, None], mode=mode)[0, ..., 0]
+
     def histogram1d(self, values, weights, bin_edges):
         """
         Args:
@@ -892,7 +939,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def bincount(self, x, weights: Optional[TensorType], bins: int):
+    def bincount(self, x, weights: Optional[TensorType], bins: int, x_sorted=False):
         raise NotImplementedError(self)
 
     def batched_bincount(self, x, weights: Optional[TensorType], bins: int):

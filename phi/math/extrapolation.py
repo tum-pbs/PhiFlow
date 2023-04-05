@@ -6,12 +6,12 @@ Extrapolations are an important part of sampled fields such as grids.
 See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
 import warnings
-from typing import Union, Dict, Callable, Tuple
+from typing import Union, Dict, Callable, Tuple, Optional
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
-from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes
-from ._magic_ops import concat, stack, expand
+from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes, dual, non_dual, instance
+from ._magic_ops import concat, stack, expand, rename_dims
 from ._tensors import Tensor, NativeTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -106,7 +106,10 @@ class Extrapolation:
         Returns:
             `Tensor` that can be concatenated to `value` along `dimension`
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
+
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        raise NotImplementedError(self.__class__)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
         """
@@ -275,6 +278,9 @@ class ConstantExtrapolation(Extrapolation):
         shape = value.shape.after_gather({dim: slice(0, width)})
         return math.expand(self.value, shape)
 
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        return math.expand(self.value, dual(connectivity) & non_dual(value))
+
     def __eq__(self, other):
         return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
 
@@ -376,6 +382,10 @@ class _CopyExtrapolation(Extrapolation):
     def to_dict(self) -> dict:
         return {'type': repr(self)}
 
+    @property
+    def backend_pad_mode(self) -> Optional[str]:
+        return repr(self)
+
     def __value_attrs__(self):
         return ()
 
@@ -400,7 +410,7 @@ class _CopyExtrapolation(Extrapolation):
             should_pad_native = any(dim in value._native_shape for dim in widths)
             if should_pad_native:
                 ordered_pad_widths = order_by_shape(value._native_shape, widths, default=(0, 0))
-                result_native = value.default_backend.pad(value._native, ordered_pad_widths, repr(self))
+                result_native = value.default_backend.pad(value._native, ordered_pad_widths, self.backend_pad_mode)
             else:
                 result_native = value._native
             if result_native is not NotImplemented:
@@ -476,13 +486,17 @@ class _CopyExtrapolation(Extrapolation):
         return self._op(other, ConstantExtrapolation.__lt__)
 
 
-class _BoundaryExtrapolation(_CopyExtrapolation):
+class _ZeroGradient(_CopyExtrapolation):
     """Uses the closest defined value for points lying outside the defined region."""
 
     _CACHED_LOWER_MASKS = {}
     _CACHED_UPPER_MASKS = {}
 
     def __repr__(self):
+        return 'zero-gradient'
+
+    @property
+    def backend_pad_mode(self) -> Optional[str]:
         return 'boundary'
 
     def spatial_gradient(self):
@@ -554,6 +568,19 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
             # _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
             return mask
+
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        from ._sparse import stored_indices
+        from ._ops import arange
+        dual_dim = dual(value).name
+        primal_dim = dual(value).name[1:]
+        # --- Gather the edge values ---
+        indices = stored_indices(connectivity, invalid='discard')
+        gathered = value[{dual_dim: indices[primal_dim]}]
+        # --- Scatter, but knowing there is only one entry per row & col, we can simply permute ---
+        inv_perm = arange(dual(connectivity))[{dual_dim: indices[dual_dim]}]
+        inv_perm = rename_dims(inv_perm, instance, dual(connectivity))
+        return gathered[{instance(gathered).name: inv_perm}]
 
 
 class _PeriodicExtrapolation(_CopyExtrapolation):
@@ -988,7 +1015,7 @@ ONE = ConstantExtrapolation(1)
 """ Extrapolates with the constant value 1 (Dirichlet boundary condition). """
 PERIODIC = _PeriodicExtrapolation(1)
 """ Extends a grid by tiling it (Periodic boundary condition). """
-ZERO_GRADIENT = _BoundaryExtrapolation(2)
+ZERO_GRADIENT = _ZeroGradient(2)
 """ Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). """
 BOUNDARY = ZERO_GRADIENT
 # undocumented, use ZERO_GRADIENT instead
@@ -1007,7 +1034,7 @@ NONE = _NoExtrapolation(-1)
 """ Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. """
 
 
-_PRIMITIVES = {  # used by as_extrapolation() and from_dict()
+_PRIMITIVES = {  # used by as_boundary() and from_dict()
     'periodic': PERIODIC,
     'zero': ZERO,
     'one': ONE,
@@ -1174,6 +1201,10 @@ class _MixedExtrapolation(Extrapolation):
     def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         extrap: Extrapolation = self.ext[dim][upper_edge]
         return extrap.pad_values(value, width, dim, upper_edge, **kwargs)
+
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        extrap: Extrapolation = self.ext[dim][upper_edge]
+        return extrap.sparse_pad_values(value, connectivity, dim, upper_edge, **kwargs)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
         assert len(self.ext) == len(shape.spatial) == coordinates.vector.size

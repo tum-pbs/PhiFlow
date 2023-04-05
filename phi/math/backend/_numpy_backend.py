@@ -36,7 +36,6 @@ class NumPyBackend(Backend):
     maximum = np.maximum
     ones_like = staticmethod(np.ones_like)
     zeros_like = staticmethod(np.zeros_like)
-    nonzero = staticmethod(np.argwhere)
     reshape = staticmethod(np.reshape)
     concat = staticmethod(np.concatenate)
     stack = staticmethod(np.stack)
@@ -192,6 +191,12 @@ class NumPyBackend(Backend):
             return np.argwhere(condition)
         return np.where(condition, x, y)
 
+    def nonzero(self, values, length=None, fill_value=-1):
+        result = np.argwhere(values)
+        if length is not None:
+            result = self.pad_to(result, 0, length, fill_value)
+        return result
+
     def zeros(self, shape, dtype: DType = None):
         return np.zeros(shape, dtype=to_numpy_dtype(dtype or self.float_type))
 
@@ -297,11 +302,7 @@ class NumPyBackend(Backend):
         slices = [mask if i == axis else slice(None) for i in range(len(x.shape))]
         result = x[tuple(slices)]
         if new_length is not None:
-            if new_length > result.shape[axis]:
-                pad_width = [(0, new_length - result.shape[axis]) if i == axis else (0, 0) for i in range(len(x.shape))]
-                result = np.pad(result, pad_width, mode='constant', constant_values=fill_value)
-            elif new_length < result.shape[axis]:
-                result = result[tuple([slice(new_length) if i == axis else slice(None) for i in range(len(x.shape))])]
+            result = self.pad_to(result, axis, new_length, fill_value)
         return result
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
@@ -347,7 +348,7 @@ class NumPyBackend(Backend):
             result.append(hist)
         return np.stack(result)
 
-    def bincount(self, x, weights, bins: int):
+    def bincount(self, x, weights: Optional[TensorType], bins: int, x_sorted=False):
         result = np.bincount(x, weights=weights, minlength=bins)
         assert result.shape[-1] == bins
         return result
