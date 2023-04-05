@@ -10,8 +10,8 @@ from typing import Union, Dict, Callable, Tuple
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
-from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes
-from ._magic_ops import concat, stack, expand
+from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes, dual, non_dual, instance
+from ._magic_ops import concat, stack, expand, rename_dims
 from ._tensors import Tensor, NativeTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
@@ -106,7 +106,10 @@ class Extrapolation:
         Returns:
             `Tensor` that can be concatenated to `value` along `dimension`
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
+
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        raise NotImplementedError(self.__class__)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
         """
@@ -274,6 +277,9 @@ class ConstantExtrapolation(Extrapolation):
     def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         shape = value.shape.after_gather({dim: slice(0, width)})
         return math.expand(self.value, shape)
+
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        return math.expand(self.value, dual(connectivity) & non_dual(value))
 
     def __eq__(self, other):
         return isinstance(other, ConstantExtrapolation) and math.close(self.value, other.value)
@@ -554,6 +560,19 @@ class _BoundaryExtrapolation(_CopyExtrapolation):
             mask = ZERO.pad(mask, {dim: (bound_lo, i) if dim == bound_dim else (lo, hi) for dim, (lo, hi) in widths.items()})
             # _BoundaryExtrapolation._CACHED_UPPER_MASKS[key] = mask
             return mask
+
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        from ._sparse import stored_indices
+        from ._ops import arange
+        dual_dim = dual(value).name
+        primal_dim = dual(value).name[1:]
+        # --- Gather the edge values ---
+        indices = stored_indices(connectivity, invalid='discard')
+        gathered = value[{dual_dim: indices[primal_dim]}]
+        # --- Scatter, but knowing there is only one entry per row & col, we can simply permute ---
+        inv_perm = arange(dual(connectivity))[{dual_dim: indices[dual_dim]}]
+        inv_perm = rename_dims(inv_perm, instance, dual(connectivity))
+        return gathered[{instance(gathered).name: inv_perm}]
 
 
 class _PeriodicExtrapolation(_CopyExtrapolation):
@@ -1174,6 +1193,10 @@ class _MixedExtrapolation(Extrapolation):
     def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, **kwargs) -> Tensor:
         extrap: Extrapolation = self.ext[dim][upper_edge]
         return extrap.pad_values(value, width, dim, upper_edge, **kwargs)
+
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        extrap: Extrapolation = self.ext[dim][upper_edge]
+        return extrap.sparse_pad_values(value, connectivity, dim, upper_edge, **kwargs)
 
     def transform_coordinates(self, coordinates: Tensor, shape: Shape, **kwargs) -> Tensor:
         assert len(self.ext) == len(shape.spatial) == coordinates.vector.size
