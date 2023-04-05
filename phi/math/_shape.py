@@ -240,7 +240,7 @@ class Shape:
         Returns:
             Dimension type, one of `batch`, `spatial`, `instance`, `channel`.
         """
-        return {BATCH_DIM: batch, SPATIAL_DIM: spatial, INSTANCE_DIM: instance, CHANNEL_DIM: channel}[self.get_type(dim)]
+        return DIM_FUNCTIONS[self.get_type(dim)]
 
     def get_types(self, dims: Union[tuple, list, 'Shape']) -> tuple:
         # undocumented, do not use
@@ -531,7 +531,7 @@ class Shape:
         return self.sizes[0]
 
     @property
-    def type(self) -> int:
+    def type(self) -> str:
         """
         Only for Shapes containing exactly one single dimension.
         Returns the type of the dimension.
@@ -541,6 +541,12 @@ class Shape:
         """
         assert self.rank == 1, "Shape.type is only defined for shapes of rank 1."
         return self.types[0]
+
+    @property
+    def dim_type(self):
+        types = set(self.types)
+        assert len(types) == 1, f"Shape contains multiple types: {self}"
+        return DIM_FUNCTIONS[next(iter(types))]
 
     def __int__(self):
         assert self.rank == 1, "int(Shape) is only defined for shapes of rank 1."
@@ -1560,6 +1566,9 @@ def dual(*args, **dims: Union[int, str, tuple, list, Shape]) -> Shape:
         return shape(args[0]).dual
     else:
         raise AssertionError(f"dual() must be called either as a selector dual(Shape) or dual(Tensor) or as a constructor dual(*names, **dims). Got *args={args}, **dims={dims}")
+
+
+DIM_FUNCTIONS = {BATCH_DIM: batch, SPATIAL_DIM: spatial, INSTANCE_DIM: instance, CHANNEL_DIM: channel, DUAL_DIM: dual}
 
 
 def merge_shapes(*objs: Union[Shape, Any], order=(batch, dual, instance, spatial, channel), allow_varying_sizes=False):
