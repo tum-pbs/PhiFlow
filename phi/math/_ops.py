@@ -635,45 +635,66 @@ def fftfreq(resolution: Shape, dx: Union[Tensor, float] = 1, dtype: DType = None
     return to_float(k) if dtype is None else cast(k, dtype)
 
 
-def meshgrid(dim_type=spatial, stack_dim=channel('vector'), assign_item_names=True, **dimensions: Union[int, Tensor]) -> Tensor:
+def meshgrid(dims: Union[Callable, Shape] = spatial, stack_dim=channel('vector'), **dimensions: Union[int, Tensor]) -> Tensor:
     """
     Generate a mesh-grid `Tensor` from keyword dimensions.
 
     Args:
         **dimensions: Mesh-grid dimensions, mapping names to values.
             Values may be `int`, 1D `Tensor` or 1D native tensor.
-        dim_type: Dimension type of mesh-grid dimensions, one of `spatial`, `channel`, `batch`, `instance`.
-        stack_dim: Vector dimension along which grids are stacked.
-        assign_item_names: Whether to use the dimension names from `**dimensions` as item names for `stack_dim`.
+        dims: Dimension type of mesh-grid dimensions, one of `spatial`, `channel`, `batch`, `instance`.
+        stack_dim: Channel dim along which grids are stacked.
+            This is optional for 1D mesh-grids. In that case returns a `Tensor` without a stack dim if `None` or an empty `Shape` is passed.
 
     Returns:
-        Mesh-grid `Tensor`
+        Mesh-grid `Tensor` with the dimensions of `dims` / `dimensions` and `stack_dim`.
+
+    Examples:
+        >>> math.meshgrid(x=2, y=2)
+        (xˢ=2, yˢ=2, vectorᶜ=x,y) 0.500 ± 0.500 (0e+00...1e+00)
+
+        >>> math.meshgrid(x=2, y=(-1, 1))
+        (xˢ=2, yˢ=2, vectorᶜ=x,y) 0.250 ± 0.829 (-1e+00...1e+00)
+
+        >>> math.meshgrid(x=2, stack_dim=None)
+        (0, 1) along xˢ
     """
-    assert 'vector' not in dimensions
-    dim_values = []
-    dim_sizes = []
-    for dim, spec in dimensions.items():
-        if isinstance(spec, int):
-            dim_values.append(tuple(range(spec)))
-            dim_sizes.append(spec)
-        elif isinstance(spec, Tensor):
-            assert spec.rank == 1, f"Only 1D sequences allowed, got {spec} for dimension '{dim}'."
-            dim_values.append(spec.native())
-            dim_sizes.append(spec.shape.volume)
-        else:
-            backend = choose_backend(spec)
-            shape = backend.staticshape(spec)
-            assert len(shape) == 1, "Only 1D sequences allowed, got {spec} for dimension '{dim}'."
-            dim_values.append(spec)
-            dim_sizes.append(shape[0])
+    assert 'dim_type' not in dimensions, f"dim_type has been renamed to dims"
+    assert not stack_dim or stack_dim.name not in dimensions
+    if isinstance(dims, Shape):
+        assert not dimensions, f"When passing a Shape to meshgrid(), no kwargs are allowed"
+        dimensions = {d: s for d, s in zip(dims.names, dims.sizes)}
+        grid_shape = dims
+        dim_values = [tuple(range(s)) for s in dims.sizes]
+    else:
+        dim_type = dims
+        assert callable(dim_type), f"dims must be a Shape or dimension type but got {dims}"
+        dim_values = []
+        dim_sizes = []
+        for dim, spec in dimensions.items():
+            if isinstance(spec, int):
+                dim_values.append(tuple(range(spec)))
+                dim_sizes.append(spec)
+            elif isinstance(spec, Tensor):
+                assert spec.rank == 1, f"Only 1D sequences allowed, got {spec} for dimension '{dim}'."
+                dim_values.append(spec.native())
+                dim_sizes.append(spec.shape.volume)
+            else:
+                backend = choose_backend(spec)
+                shape = backend.staticshape(spec)
+                assert len(shape) == 1, "Only 1D sequences allowed, got {spec} for dimension '{dim}'."
+                dim_values.append(spec)
+                dim_sizes.append(shape[0])
+        grid_shape = dim_type(**{dim: size for dim, size in zip(dimensions.keys(), dim_sizes)})
     backend = choose_backend(*dim_values, prefer_default=True)
     indices_list = backend.meshgrid(*dim_values)
-    grid_shape = dim_type(**{dim: size for dim, size in zip(dimensions.keys(), dim_sizes)})
     channels = [NativeTensor(t, grid_shape) for t in indices_list]
-    if assign_item_names:
-        return stack_tensors(channels, stack_dim.with_size(tuple(dimensions.keys())))
-    else:
-        return stack_tensors(channels, stack_dim)
+    if not stack_dim:
+        assert len(channels) == 1, f"meshgrid with multiple dimension requires a valid stack_dim but got {stack_dim}"
+        return channels[0]
+    if stack_dim.item_names[0] is None:
+        stack_dim = stack_dim.with_size(tuple(dimensions.keys()))
+    return stack_tensors(channels, stack_dim)
 
 
 def linspace(start: Union[int, Tensor], stop, dim: Shape) -> Tensor:
@@ -947,7 +968,7 @@ def _grid_sample(grid: Tensor, coordinates: Tensor, extrap: Union['e_.Extrapolat
             return result
     # fallback to slower grid sampling
     neighbors = _closest_grid_values(grid, coordinates, extrap or e_.ZERO, '_closest_', pad_kwargs)
-    binary = meshgrid(**{f'_closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, dim_type=channel, assign_item_names=False)
+    binary = meshgrid(channel, **{f'_closest_{dim}': (0, 1) for dim in grid.shape.spatial.names}, stack_dim=channel(coordinates))
     right_weights = coordinates % 1
     weights = prod(binary * right_weights + (1 - binary) * (1 - right_weights), 'vector')
     result = sum_(neighbors * weights, dim=[f"_closest_{dim}" for dim in grid.shape.spatial.names])
