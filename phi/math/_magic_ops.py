@@ -501,7 +501,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: Optional[int] = No
 
 
 
-def unpack_dim(value, dim: Union[str, Shape], *unpacked_dims: Shape, **kwargs):
+def unpack_dim(value, dim: DimFilter, *unpacked_dims: Shape, **kwargs):
     """
     Decompresses a dimension by unstacking the elements along it.
     This function replaces the traditional `reshape` for these cases.
@@ -514,7 +514,7 @@ def unpack_dim(value, dim: Union[str, Shape], *unpacked_dims: Shape, **kwargs):
 
     Args:
         value: `phi.math.magic.Shapable`, such as `Tensor`, for which one dimension should be split.
-        dim: Dimension to be decompressed.
+        dim: Single dimension to be decompressed.
         *unpacked_dims: Vararg `Shape`, ordered dimensions to replace `dim`, fulfilling `unpacked_dims.volume == shape(self)[dim].rank`.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
@@ -530,11 +530,11 @@ def unpack_dim(value, dim: Union[str, Shape], *unpacked_dims: Shape, **kwargs):
     if isinstance(value, (Number, bool)):
         return value
     assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f"value must be Shapable but got {type(value)}"
-    if isinstance(dim, Shape):
-        dim = dim.name
-    assert isinstance(dim, str), f"dim must be a str or Shape but got {type(dim)}"
-    if dim not in shape(value):
+    dim = shape(value).only(dim)
+    if dim.is_empty:
         return value  # Nothing to do, maybe expand?
+    assert dim.rank == 1, f"unpack_dim requires as single dimension to be unpacked but got {dim}"
+    dim = dim.name
     unpacked_dims = concat_shapes(*unpacked_dims)
     if unpacked_dims.rank == 0:
         return value[{dim: 0}]  # remove dim
