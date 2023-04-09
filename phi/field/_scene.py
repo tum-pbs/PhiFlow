@@ -317,7 +317,7 @@ class Scene:
         for key, value in self._properties.items():
             if isinstance(value, (np.int64, np.int32)):
                 value = int(value)
-            elif isinstance(value, (np.float32, np.float64, np.float16, np.float128)):
+            elif isinstance(value, (np.float16, np.float32, np.float64, np.float16)) or (hasattr(np, 'float128') and isinstance(value, np.float128)):
                 value = float(value)
             self._properties[key] = value
         self._write_properties()
