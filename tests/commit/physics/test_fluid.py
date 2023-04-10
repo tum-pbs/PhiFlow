@@ -67,6 +67,6 @@ class FluidTest(TestCase):
                 with backend:
                     velocity = velocity0.with_values(math.tensor(velocity0.values))
                     grad, = sim_grad(velocity)
-                    assert math.isfinite(grad).all
+                    assert math.isfinite(grad.values).all
                     grads.append(grad)
         math.assert_close(*grads, abs_tolerance=1e-5)
