@@ -218,6 +218,7 @@ def reshaped_native(value: Tensor,
         Native tensor with dimensions matching `groups`.
     """
     assert isinstance(value, Tensor), f"value must be a Tensor but got {type(value)}"
+    assert value.shape.is_uniform, f"Only uniform (homogenous) tensors can be converted to native but got shape {value.shape}"
     assert isinstance(groups, (tuple, list)), f"groups must be a tuple or list but got {type(value)}"
     order = []
     groups = [group(value) if callable(group) else group for group in groups]
