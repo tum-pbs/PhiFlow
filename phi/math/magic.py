@@ -617,6 +617,9 @@ class BoundDim:
         from ._magic_ops import unpack_dim
         return unpack_dim(self.obj, self.name, *dims, **kwargs)
 
+    def __bool__(self):
+        raise SyntaxError(f"{self} cannot be converted to bool. The property you want to access likely does not exist.")
+
 
 class _BoundDims:
 
@@ -693,6 +696,9 @@ class _BoundDims:
     def as_dual(self):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
         return self.retype(dual)
+
+    def __bool__(self):
+        raise SyntaxError(f"{self} cannot be converted to bool. The property you want to access likely does not exist.")
 
 
 def slicing_dict(obj, item) -> dict:
