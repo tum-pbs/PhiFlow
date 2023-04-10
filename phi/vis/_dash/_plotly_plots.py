@@ -190,12 +190,8 @@ class VectorCloud2D(Recipe):
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
-        if data.color.shape:
-            # color = data.color.numpy(data.shape.non_channel).reshape(-1)
-            warnings.warn("Multi-colored vector plots not yet supported")
-        else:
-            color = data.color.native()
-            quiver.line.update(color=color)
+        if (color != None).all:
+            quiver.line.update(color=color.native())
         figure.add_trace(quiver, row=row, col=col)
 
 
