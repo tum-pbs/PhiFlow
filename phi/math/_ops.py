@@ -365,7 +365,7 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
             assert isinstance(spatial_dim, Shape), "spatial_dim must be a Shape or str"
             groups = (batch, *spatial_dim, channel_dim) if channels_last else (batch, channel_dim, *spatial_dim)
         result = reshaped_tensor(output, groups, convert=False)
-        if result.shape.get_size(channel_dim.name) == 1:
+        if result.shape.get_size(channel_dim.name) == 1 and not channel_dim.item_names[0]:
             result = result.dimension(channel_dim.name)[0]  # remove vector dim if not required
         return result
 
