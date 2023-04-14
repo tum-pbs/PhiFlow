@@ -167,4 +167,4 @@ def combine_types(*dtypes: DType, fp_precision: int = None) -> DType:
     if any(dt.kind == str for dt in dtypes):
         largest = max([dt for dt in dtypes if dt.kind == str], key=lambda dt: dt.bits)
         return largest
-    raise ValueError(dtypes)
+    return DType(object)
