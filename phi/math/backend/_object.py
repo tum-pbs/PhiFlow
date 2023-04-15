@@ -8,7 +8,7 @@ from ._dtype import DType
 class ObjectBackend(Backend):
     def __init__(self):
         device = ComputeDevice(self, 'Python', 'CPU', -1, 1, "", None)
-        super().__init__('objects', [device], device)
+        super().__init__('Python', [device], device)
 
     def is_tensor(self, x, only_native=False):
         return isinstance(x, str)
