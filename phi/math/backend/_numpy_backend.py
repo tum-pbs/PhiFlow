@@ -250,6 +250,13 @@ class NumPyBackend(Backend):
         else:
             return np.array(x, to_numpy_dtype(dtype))
 
+    def unravel_index(self, flat_index, shape):
+        return np.stack(np.unravel_index(flat_index, shape), -1)
+
+    def ravel_multi_index(self, multi_index, shape, wrap=False):
+        idx_first = np.swapaxes(multi_index, 0, -1)
+        return np.ravel_multi_index(idx_first, shape, mode='wrap' if wrap else 'raise')
+
     def gather(self, values, indices, axis: int):
         slices = [indices if i == axis else slice(None) for i in range(self.ndims(values))]
         return values[tuple(slices)]

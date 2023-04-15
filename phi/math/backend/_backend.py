@@ -686,6 +686,25 @@ class Backend:
     def to_complex(self, x):
         return self.cast(x, DType(complex, max(64, self.precision * 2)))
 
+    def unravel_index(self, flat_index, shape):
+        strides = [1]
+        for size in reversed(shape[1:]):
+            strides.append(strides[-1] * size)
+        strides = strides[::-1]
+        result = []
+        for i in range(len(shape)):
+            result.append(flat_index // strides[i] % shape[i])
+        return self.stack(result, -1)
+
+    def ravel_multi_index(self, multi_index, shape, wrap=False):
+        strides = [1]
+        for size in reversed(shape[1:]):
+            strides.append(strides[-1] * size)
+        strides = self.as_tensor(strides[::-1])
+        if wrap:
+            raise NotImplementedError
+        return self.sum(multi_index * strides, -1)
+
     def gather(self, values, indices, axis: int):
         """
         Gathers values from the tensor `values` at locations `indices`.
