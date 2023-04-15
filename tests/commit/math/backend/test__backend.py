@@ -48,6 +48,15 @@ class TestBackends(TestCase):
             x_sorted = b.numpy(b.gather_1d(x, perm))
             numpy.testing.assert_equal([-5, 0, 1, 1, 2], x_sorted)
 
+    def test_searchsorted(self):
+        for b in BACKENDS:
+            seq = b.as_tensor([1, 2, 2, 5, 5, 5])
+            val = b.as_tensor([0, 6, 1, 2, 2, 3, 5])
+            left = b.numpy(b.searchsorted(seq, val, side='left'))
+            numpy.testing.assert_equal([0, 6, 0, 1, 1, 3, 3], left)
+            right = b.numpy(b.searchsorted(seq, val, side='right'))
+            numpy.testing.assert_equal([0, 6, 1, 3, 3, 3, 6], right)
+
     def test_sparse(self):
         idx = [[0, 1, 1],
                [2, 0, 2]]

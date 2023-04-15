@@ -340,6 +340,10 @@ class TorchBackend(Backend):
     def argsort(self, x, axis=-1):
         return torch.argsort(x, axis)
 
+    def searchsorted(self, sorted_sequence, search_values, side: str, dtype=DType(int, 32)):
+        int32 = {32: True, 64: False}[dtype.bits]
+        return torch.searchsorted(sorted_sequence, search_values, right=side == 'right', side=side, out_int32=int32)
+
     def divide_no_nan(self, x, y):
         x, y = self.auto_cast(x, y)
         return divide_no_nan(x, y)
