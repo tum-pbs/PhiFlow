@@ -34,6 +34,18 @@ class TestBackends(TestCase):
             t_ = b.allocate_on_device(t, b.get_default_device())
             assert b.get_device(t_) == b.get_default_device()
 
+    def test_unravel_index(self):
+        for b in BACKENDS:
+            flat = b.as_tensor([0, 2, 3])
+            indices = b.numpy(b.unravel_index(flat, (1, 2, 3)))
+            numpy.testing.assert_equal([(0, 0, 0), (0, 0, 2), (0, 1, 0)], indices, err_msg=b.name)
+
+    def test_ravel_multi_index(self):
+        for b in BACKENDS:
+            indices = b.as_tensor([(0, 0, 0), (0, 0, 2), (0, 1, 0)])
+            flat = b.ravel_multi_index(indices, (1, 2, 3), wrap=False)
+            numpy.testing.assert_equal([0, 2, 3], b.numpy(flat), err_msg=b.name)
+
     def test_gather(self):
         for b in BACKENDS:
             t = b.zeros((4, 3, 2))
