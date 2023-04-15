@@ -470,6 +470,9 @@ class TFBackend(Backend):
     def argsort(self, x, axis=-1):
         return tf.argsort(x, axis)
 
+    def searchsorted(self, sorted_sequence, search_values, side: str, dtype=DType(int, 32)):
+        return tf.searchsorted(sorted_sequence, search_values, side=side, out_type=to_numpy_dtype(dtype))
+
     def scatter(self, base_grid, indices, values, mode: str):
         with self._device_for(base_grid, indices, values):
             base_grid, values = self.auto_cast(base_grid, values)
