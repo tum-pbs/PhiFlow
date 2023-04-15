@@ -10,7 +10,7 @@ from . import extrapolation as e_
 from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_attributes, bool_to_int, tree_map, concat, stack
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
-                     IncompatibleShapes, DimFilter, non_batch, dual, non_channel)
+                     IncompatibleShapes, DimFilter, non_batch, dual, non_channel, shape)
 from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format, stored_indices, tensor_like, sparse_dims, same_sparsity_pattern, is_sparse
 from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
                        custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
@@ -2241,7 +2241,7 @@ def scatter(base_grid: Union[Tensor, Shape],
     return result
 
 
-def histogram(values: Tensor, bins: Shape or Tensor = spatial(bins=30), weights=1):
+def histogram(values: Tensor, bins: Shape or Tensor = spatial(bins=30), weights=1, same_bins: DimFilter = None):
     """
     Compute a histogram of a distribution of values.
 
@@ -2252,6 +2252,9 @@ def histogram(values: Tensor, bins: Shape or Tensor = spatial(bins=30), weights=
             `values´ may not contain channel or dual dimensions.
         bins: Either `Shape` specifying the number of equally-spaced bins to use or bin edge positions as `Tensor` with a spatial or instance dimension.
         weights: `Tensor` assigning a weight to every value in `values` that will be added to the bin, default 1.
+        same_bins: Only used if `bins` is given as a `Shape`.
+            Use the same bin sizes and positions across these batch dimensions.
+            By default, bins will be chosen independently for each example.
 
     Returns:
         hist: `Tensor` containing all batch dimensions and the `bins` dimension with dtype matching `weights`.
@@ -2264,8 +2267,8 @@ def histogram(values: Tensor, bins: Shape or Tensor = spatial(bins=30), weights=
     weights = wrap(weights)
     if isinstance(bins, Shape):
         def equal_bins(v):
-            return linspace(min_(v), max_(v), bins.with_size(bins.size + 1))
-        bins = broadcast_op(equal_bins, [values], iter_dims=batch(values) & batch(weights))
+            return linspace(min_(v, shape), max_(v, shape), bins.with_size(bins.size + 1))
+        bins = broadcast_op(equal_bins, [values], iter_dims=(batch(values) & batch(weights)).without(same_bins))
     assert isinstance(bins, Tensor), f"bins must be a Tensor but got {type(bins)}"
     assert non_batch(bins).rank == 1, f"bins must contain exactly one spatial or instance dimension listing the bin edges but got shape {bins.shape}"
     assert channel(bins).rank == dual(bins).rank == 0, f"bins cannot have any channel or dual dimensions but got shape {bins.shape}"
