@@ -444,6 +444,9 @@ class JaxBackend(Backend):
     def argsort(self, x, axis=-1):
         return jnp.argsort(x, axis)
 
+    def searchsorted(self, sorted_sequence, search_values, side: str, dtype=DType(int, 32)):
+        return jnp.searchsorted(sorted_sequence, search_values, side=side).astype(to_numpy_dtype(dtype))
+
     def fft(self, x, axes: Union[tuple, list]):
         x = self.to_complex(x)
         if not axes:
