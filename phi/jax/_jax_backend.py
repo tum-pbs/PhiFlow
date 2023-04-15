@@ -441,6 +441,9 @@ class JaxBackend(Backend):
     def quantile(self, x, quantiles):
         return jnp.quantile(x, quantiles, axis=-1)
 
+    def argsort(self, x, axis=-1):
+        return jnp.argsort(x, axis)
+
     def fft(self, x, axes: Union[tuple, list]):
         x = self.to_complex(x)
         if not axes:

@@ -719,6 +719,11 @@ class Backend:
         indices = self.expand_dims(indices, -1)
         return self.batched_gather_nd(values, indices)[..., 0]
 
+    def gather_1d(self, values, indices):
+        values = values[None, :, None]
+        indices = indices[None, :, None]
+        return self.batched_gather_nd(values, indices)[0, ..., 0]
+
     def flatten(self, x):
         return self.reshape(x, (-1,))
 
@@ -784,6 +789,9 @@ class Backend:
         Returns:
             Tensor with shape (quantiles, *x.shape[:-1])
         """
+        raise NotImplementedError(self)
+
+    def argsort(self, x, axis=-1):
         raise NotImplementedError(self)
 
     def fft(self, x, axes: Union[tuple, list]):
