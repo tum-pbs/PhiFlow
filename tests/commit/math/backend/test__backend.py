@@ -41,6 +41,13 @@ class TestBackends(TestCase):
             result = b.gather(t, indices, axis=0)
             self.assertEqual((2, 3, 2), b.staticshape(result))
 
+    def test_argsort(self):
+        for b in BACKENDS:
+            x = b.as_tensor([1, 0, 2, 1, -5])
+            perm = b.argsort(x)
+            x_sorted = b.numpy(b.gather_1d(x, perm))
+            numpy.testing.assert_equal([-5, 0, 1, 1, 2], x_sorted)
+
     def test_sparse(self):
         idx = [[0, 1, 1],
                [2, 0, 2]]

@@ -336,6 +336,9 @@ class TorchBackend(Backend):
         x = self.to_float(x)
         result = torch.quantile(x, quantiles, dim=-1)
         return result
+    
+    def argsort(self, x, axis=-1):
+        return torch.argsort(x, axis)
 
     def divide_no_nan(self, x, y):
         x, y = self.auto_cast(x, y)
