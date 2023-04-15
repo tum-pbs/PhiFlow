@@ -435,6 +435,9 @@ class JaxBackend(Backend):
             return hist
         return jax.vmap(unbatched_hist)(values, weights, bin_edges)
 
+    def bincount(self, x, weights, bins: int):
+        return jnp.bincount(x, weights=weights, minlength=bins, length=bins)
+
     def quantile(self, x, quantiles):
         return jnp.quantile(x, quantiles, axis=-1)
 

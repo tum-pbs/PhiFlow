@@ -314,6 +314,11 @@ class NumPyBackend(Backend):
             result.append(hist)
         return np.stack(result)
 
+    def bincount(self, x, weights, bins: int):
+        result = np.bincount(x, weights=weights, minlength=bins)
+        assert result.shape[-1] == bins
+        return result
+
     def quantile(self, x, quantiles):
         return np.quantile(x, quantiles, axis=-1)
 
