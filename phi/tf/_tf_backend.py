@@ -467,6 +467,9 @@ class TFBackend(Backend):
             result = tfp.stats.percentile(x, quantiles * 100, axis=-1, interpolation='linear')
             return result
 
+    def argsort(self, x, axis=-1):
+        return tf.argsort(x, axis)
+
     def scatter(self, base_grid, indices, values, mode: str):
         with self._device_for(base_grid, indices, values):
             base_grid, values = self.auto_cast(base_grid, values)
