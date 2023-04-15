@@ -488,6 +488,9 @@ class TFBackend(Backend):
             hist = tf.math.bincount(bin_indices, weights=weights, minlength=bin_count, maxlength=bin_count, axis=-1)
             return hist
 
+    def bincount(self, x, weights, bins: int):
+        return tf.math.bincount(x, weights=weights, minlength=bins, maxlength=bins)
+
     def fft(self, x, axes: Union[tuple, list]):
         if not axes:
             return x

@@ -594,6 +594,9 @@ class TorchBackend(Backend):
         hist = torch.scatter_add(result, -1, bin_indices, weights)
         return hist
 
+    def bincount(self, x, weights, bins: int):
+        return torch.bincount(x, weights, minlength=bins)
+
     def arctan2(self, y, x):
         y, x = self.auto_cast(y, x)
         return torch.arctan2(y, x)

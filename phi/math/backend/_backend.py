@@ -764,6 +764,9 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def bincount(self, x, weights, bins: int):
+        raise NotImplementedError(self)
+
     def any(self, boolean_tensor, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
