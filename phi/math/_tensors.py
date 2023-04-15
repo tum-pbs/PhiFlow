@@ -1560,8 +1560,7 @@ class TensorStack(Tensor):
         else:
             if self.requires_broadcast:
                 unstacked = [t.unstack(dimension) for t in self._tensors]
-                result = [TensorStack(items, self._stack_dim) for items in zip(*unstacked)]
-                return result
+                return tuple([TensorStack(items, self._stack_dim) for items in zip(*unstacked)])
             else:
                 return self._cache().unstack(dimension=dimension)
 
