@@ -302,6 +302,8 @@ class TorchBackend(Backend):
         return torch.sum(value, dim=axis, keepdim=keepdims)
 
     def prod(self, value, axis=None):
+        if not self.is_tensor(value, only_native=True):
+            return NUMPY.prod(value, axis)
         if isinstance(axis, (tuple, list)):
             for dim in reversed(sorted(axis)):
                 value = torch.prod(value, dim=dim)

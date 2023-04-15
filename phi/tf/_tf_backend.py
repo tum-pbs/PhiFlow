@@ -554,6 +554,10 @@ class TFBackend(Backend):
             with tf.device(x.device):
                 return tf.cast(x, to_numpy_dtype(dtype))
 
+    def unravel_index(self, flat_index, shape):
+        idx_first = tf.unravel_index(flat_index, shape)
+        return tf.transpose(idx_first, perm=tuple(range(1, self.ndims(flat_index)+1)) + (0,))
+
     def sin(self, x):
         with tf.device(x.device):
             return tf.math.sin(x)
