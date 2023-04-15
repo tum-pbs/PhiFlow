@@ -59,7 +59,7 @@ def detect_backends() -> tuple:
     except ImportError:
         pass
     from .math.backend import BACKENDS
-    return tuple(BACKENDS)
+    return tuple([b for b in BACKENDS if b.name != 'Python'])
 
 
 def set_logging_level(level='debug'):
