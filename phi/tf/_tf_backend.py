@@ -416,6 +416,7 @@ class TFBackend(Backend):
 
     def gather(self, values, indices, axis: int):
         with self._device_for(values, indices):
+            indices = indices % self.shape(values)[axis]
             return tf.gather(values, indices, axis=axis)
 
     def batched_gather_nd(self, values, indices):
