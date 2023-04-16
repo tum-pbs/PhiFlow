@@ -380,9 +380,14 @@ class JaxBackend(Backend):
     def unravel_index(self, flat_index, shape):
         return jnp.stack(jnp.unravel_index(flat_index, shape), -1)
 
-    def ravel_multi_index(self, multi_index, shape, wrap=False):
-        idx_first = jnp.swapaxes(multi_index, 0, -1)
-        return np.ravel_multi_index(idx_first, shape, mode='wrap' if wrap else 'raise')
+    def ravel_multi_index(self, multi_index, shape, mode: Union[str, int] = 'undefined'):
+        mode = mode if isinstance(mode, int) else {'undefined': 'raise', 'periodic': 'wrap', 'clamp': 'clip'}[mode]
+        idx_first = jnp.transpose(multi_index, (self.ndims(multi_index)-1,) + tuple(range(self.ndims(multi_index)-1)))
+        result = np.ravel_multi_index(idx_first, shape, mode='wrap' if isinstance(mode, int) else mode)
+        if isinstance(mode, int):
+            outside = self.any((multi_index < 0) | (multi_index >= jnp.asarray(shape, dtype=multi_index.dtype)), -1)
+            result = self.where(outside, mode, result)
+        return result
 
     def gather(self, values, indices, axis: int):
         slices = [indices if i == axis else slice(None) for i in range(self.ndims(values))]

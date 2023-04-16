@@ -696,14 +696,29 @@ class Backend:
             result.append(flat_index // strides[i] % shape[i])
         return self.stack(result, -1)
 
-    def ravel_multi_index(self, multi_index, shape, wrap=False):
+    def ravel_multi_index(self, multi_index, shape, mode: Union[str, int] = 'undefined'):
+        """
+        Args:
+            multi_index: (batch..., index_dim)
+            shape: 1D tensor or tuple/list
+            mode: `'undefined'`, `'periodic'`, `'clamp'` or an `int` to use for all invalid indices.
+
+        Returns:
+            Integer tensor of shape (batch...)
+        """
         strides = [1]
         for size in reversed(shape[1:]):
             strides.append(strides[-1] * size)
         strides = self.as_tensor(strides[::-1])
-        if wrap:
-            raise NotImplementedError
-        return self.sum(multi_index * strides, -1)
+        if mode == 'periodic':
+            multi_index %= self.as_tensor(shape)
+        elif mode == 'clamp':
+            multi_index = self.clip(multi_index, 0, self.as_tensor(shape) - 1)
+        result = self.sum(multi_index * strides, -1)
+        if isinstance(mode, int):
+            inside = self.all((0 <= multi_index) & (multi_index < self.as_tensor(shape)), -1)
+            result = self.where(inside, result, mode)
+        return result
 
     def gather(self, values, indices, axis: int):
         """

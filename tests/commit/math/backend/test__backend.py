@@ -42,9 +42,22 @@ class TestBackends(TestCase):
 
     def test_ravel_multi_index(self):
         for b in BACKENDS:
+            # --- All inside ---
             indices = b.as_tensor([(0, 0, 0), (0, 0, 2), (0, 1, 0)])
-            flat = b.ravel_multi_index(indices, (1, 2, 3), wrap=False)
+            flat = b.ravel_multi_index(indices, (1, 2, 3), mode='undefined')
             numpy.testing.assert_equal([0, 2, 3], b.numpy(flat), err_msg=b.name)
+            # --- Default ---
+            indices = b.as_tensor([(0, 0, 0), (0, 0, -1), (0, 0, 3), (0, 1, 0)])
+            flat = b.ravel_multi_index(indices, (1, 2, 3), mode=-1)
+            numpy.testing.assert_equal([0, -1, -1, 3], b.numpy(flat), err_msg=b.name)
+            # --- Periodic ---
+            indices = b.as_tensor([(0, 0, 0), (0, 0, -1), (0, 0, 3), (0, 1, 0)])
+            flat = b.ravel_multi_index(indices, (1, 2, 3), mode='periodic')
+            numpy.testing.assert_equal([0, 2, 0, 3], b.numpy(flat), err_msg=b.name)
+            # --- Clamp ---
+            indices = b.as_tensor([(0, 0, 0), (0, 0, -1), (0, 0, 3), (0, 1, 0)])
+            flat = b.ravel_multi_index(indices, (1, 2, 3), mode='clamp')
+            numpy.testing.assert_equal([0, 0, 2, 3], b.numpy(flat), err_msg=b.name)
 
     def test_gather(self):
         for b in BACKENDS:
