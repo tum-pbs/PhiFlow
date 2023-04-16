@@ -419,6 +419,10 @@ class TFBackend(Backend):
             indices = indices % self.shape(values)[axis]
             return tf.gather(values, indices, axis=axis)
 
+    def gather_by_component_indices(self, values, *component_indices):
+        indices = self.stack(component_indices, -1)
+        return tf.gather_nd(values, indices)
+
     def batched_gather_nd(self, values, indices):
         with self._device_for(values, indices):
             values_shape = self.staticshape(values)
