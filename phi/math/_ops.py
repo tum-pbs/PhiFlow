@@ -2529,9 +2529,9 @@ def stop_gradient(x):
 
 
 def pairwise_distances(positions: Tensor,
-                         max_distance: Union[float, Tensor] = None,
-                         format: str = 'dense',
-                         default: Optional[float] = None) -> Tensor:
+                       max_distance: Union[float, Tensor] = None,
+                       format: str = 'dense',
+                       default: Optional[float] = None) -> Tensor:
     """
     Computes the distance matrix containing the pairwise position differences between each pair of points.
     Points that are further apart than `max_distance` (if specified) are assigned a distance value of `0`.
@@ -2565,11 +2565,10 @@ def pairwise_distances(positions: Tensor,
     assert default in [0, None], f"default value must be either 0 or None but got '{default}'"
     primal_dims = positions.shape.non_batch.non_channel.non_dual
     dual_dims = dual(**primal_dims.untyped_dict)
-    # --- Connectivity given ---
-    if isinstance(format, Tensor):
-        assert max_distance is None, "max_distance not allowed when edges are specified"
+    if isinstance(format, Tensor):  # sparse connectivity specified, no neighborhood search required
+        assert max_distance is None, "max_distance not allowed when connectivity is specified (passing a Tensor for format)"
         return map_pairs(lambda p1, p2: p2 - p1, positions, format)
-    # --- Dense connectivity ---
+    # --- Dense ---
     elif format == 'dense':
         dx = unpack_dim(pack_dims(positions, non_batch(positions).non_channel.non_dual, instance('_tmp')), '_tmp', dual_dims) - positions
         if max_distance is not None:
@@ -2577,40 +2576,61 @@ def pairwise_distances(positions: Tensor,
             default = float('nan') if default is None else default
             dx = where(neighbors, dx, default)
         return dx
-    # --- Sparse connectivity ---
+    # --- Sparse neighbor search from here on ---
     assert max_distance is not None, "max_distance must be specified when computing distance in sparse format"
+    max_distance = wrap(max_distance)
     backend = choose_backend_t(positions, max_distance)
     batch_shape = batch(positions) & batch(max_distance)
-    pos_i_shape = non_batch(positions).non_channel
-    native_positions = reshaped_native(positions, [batch_shape, pos_i_shape, channel(positions)], force_expand=True)
-    if isinstance(max_distance, Tensor):
-        if max_distance.shape:
-            rad_i_shape = non_batch(max_distance).non_channel
-            if rad_i_shape:  # different values for each particle
-                assert rad_i_shape == pos_i_shape, f"spatial/instance dimensions of max_radius {rad_i_shape} must match positions {pos_i_shape} if present."
-                max_distance = reshaped_native(max_distance, [batch_shape, rad_i_shape], force_expand=True)
-            else:
-                max_distance = reshaped_native(max_distance, [batch_shape], force_expand=True)
-        else:
-            max_distance = max_distance.native()
     if not dual_dims.well_defined:
         assert dual_dims.rank == 1, f"others_dims sizes must be specified when passing more then one dimension but got {dual_dims}"
-        dual_dims = dual_dims.with_size(pos_i_shape.volume)
-    sparse_natives = backend.pairwise_distances(native_positions, max_distance, format)
-    tensors = []
-    if format == 'csr':
-        for indices, pointers, values in sparse_natives:
-            indices = wrap(indices, instance('nnz'))
-            pointers = wrap(pointers, instance('pointers'))
-            values = wrap(values, instance('nnz'), channel(positions))
-            tensors.append(CompressedSparseMatrix(indices, pointers, values, dual_dims, pos_i_shape, default))
-    elif format == 'coo':
-        raise NotImplementedError
-    elif format == 'csc':
-        raise NotImplementedError
+        dual_dims = dual_dims.with_size(primal_dims.volume)
+    # --- Determine mode ---
+    tmp_pair_count = None
+    pair_count = None
+    table_len = None
+    mode = 'vectorize' if batch_shape.volume > 1 and batch_shape.is_uniform else 'loop'
+    if backend.is_available(positions):
+        if mode == 'vectorize':
+            # ToDo determine limits from positions? build_cells+bincount would be enough
+            tmp_pair_count = 10
+            pair_count = 7
+            table_len = 10
+    else:  # tracing
+        if backend.requires_fixed_shapes_when_tracing():
+            # ToDo use fixed limits (set by user)
+            tmp_pair_count = 10
+            pair_count = 7
+            table_len = 10
+            mode = 'vectorize'
+    # --- Run neighborhood search ---
+    from .backend._partition import neighbor_search
+    if mode == 'loop':
+        indices = []
+        values = []
+        for b in batch_shape.meshgrid():
+            native_positions = reshaped_native(positions[b], [primal_dims, channel(positions)], force_expand=True)
+            native_max_dist = max_distance[b].native()
+            nat_rows, nat_cols, nat_vals = neighbor_search(backend, native_positions, native_max_dist, default=default)
+            nat_indices = backend.stack([nat_rows, nat_cols], -1)
+            indices.append(reshaped_tensor(nat_indices, [instance('pairs'), channel(vector=primal_dims.names + dual_dims.names)], convert=False))
+            values.append(reshaped_tensor(nat_vals, [instance('pairs'), channel(positions)]))
+        indices = stack(indices, batch_shape)
+        values = stack(values, batch_shape)
+    elif mode == 'vectorize':
+        native_positions = reshaped_native(positions, [batch_shape, primal_dims, channel(positions)], force_expand=True)
+        native_max_dist = reshaped_native(max_distance, [batch_shape, primal_dims], force_expand=False)
+        def single_search(pos, r):
+            return neighbor_search(backend, pos, r, tmp_pair_count=tmp_pair_count, pair_count=pair_count, table_len=table_len, default=default)
+        nat_rows, nat_cols, nat_vals = backend.vectorized_call(single_search, native_positions, native_max_dist)
+        nat_indices = backend.stack([nat_rows, nat_cols], -1)
+        indices = reshaped_tensor(nat_indices, [batch_shape, instance('pairs'), channel(vector=primal_dims.names + dual_dims.names)], convert=False)
+        values = reshaped_tensor(nat_vals, [batch_shape, instance('pairs'), channel(positions)])
     else:
-        raise ValueError(format)
-    return stack_tensors(tensors, batch_shape)
+        raise RuntimeError
+    # --- Assemble sparse matrix ---
+    dense_shape = primal_dims & dual_dims
+    coo = SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries=False, indices_sorted=False, default=default)
+    return to_format(coo, format)
 
 
 def map_pairs(map_function: Callable, values: Tensor, connections: Tensor):
