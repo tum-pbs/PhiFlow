@@ -284,9 +284,16 @@ class NumPyBackend(Backend):
     def std(self, x, axis=None, keepdims=False):
         return np.std(x, axis, keepdims=keepdims)
 
-    def boolean_mask(self, x, mask, axis=0):
+    def boolean_mask(self, x, mask, axis=0, new_length=None, fill_value=0):
         slices = [mask if i == axis else slice(None) for i in range(len(x.shape))]
-        return x[tuple(slices)]
+        result = x[tuple(slices)]
+        if new_length is not None:
+            if new_length > result.shape[axis]:
+                pad_width = [(0, new_length - result.shape[axis]) if i == axis else (0, 0) for i in range(len(x.shape))]
+                result = np.pad(result, pad_width, mode='constant', constant_values=fill_value)
+            elif new_length < result.shape[axis]:
+                result = result[tuple([slice(new_length) if i == axis else slice(None) for i in range(len(x.shape))])]
+        return result
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         return np.any(boolean_tensor, axis=axis, keepdims=keepdims)

@@ -447,7 +447,7 @@ class TFBackend(Backend):
             _mean, var = tf.nn.moments(x, axis, keepdims=keepdims)
             return tf.sqrt(var)
 
-    def boolean_mask(self, x, mask, axis=0):
+    def boolean_mask(self, x, mask, axis=0, new_length=None, fill_value=0):
         with self._device_for(x, mask):
             return tf.boolean_mask(x, mask, axis=axis)
 
