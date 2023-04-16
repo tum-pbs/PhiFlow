@@ -117,6 +117,7 @@ class JaxBackend(Backend):
 
     sqrt = staticmethod(jnp.sqrt)
     exp = staticmethod(jnp.exp)
+    softplus = staticmethod(jax.nn.softplus)
     sin = staticmethod(jnp.sin)
     arcsin = staticmethod(jnp.arcsin)
     cos = staticmethod(jnp.cos)
