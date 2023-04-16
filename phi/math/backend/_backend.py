@@ -737,6 +737,9 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def gather_by_component_indices(self, values, *component_indices):
+        return values[component_indices]
+
     def batched_gather_nd(self, values, indices):
         """
         Gathers values from the tensor `values` at locations `indices`.
