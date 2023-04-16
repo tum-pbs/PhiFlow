@@ -199,7 +199,7 @@ class LinePlot(Recipe):
                 col = _plt_col(color[c_idx])
             alpha_f = float(alpha[c_idx])
             if (err[c_idx] != 0).any:
-                v_err = reshaped_numpy(err, [spatial(data)])
+                v_err = reshaped_numpy(err[c_idx], [spatial(data)])
                 subplot.fill_between(x, values - v_err, values + v_err, color=col, alpha=alpha_f * .2)
             if values.dtype in (np.complex64, np.complex128):
                 subplot.plot(x, values.real, label=f"{label} real" if label else "real", color=col, alpha=alpha_f)
