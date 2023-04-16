@@ -543,6 +543,10 @@ class TorchBackend(Backend):
         slices = [indices if i == axis else slice(None) for i in range(self.ndims(values))]
         return values[tuple(slices)]
 
+    def gather_by_component_indices(self, values, *component_indices):
+        component_indices = [self.to_int64(c) for c in component_indices]
+        return values[tuple(component_indices)]
+
     def batched_gather_nd(self, values, indices):
         values = self.as_tensor(values)
         indices = self.as_tensor(indices).long()
