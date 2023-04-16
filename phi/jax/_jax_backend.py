@@ -460,7 +460,10 @@ class JaxBackend(Backend):
         return jnp.argsort(x, axis)
 
     def searchsorted(self, sorted_sequence, search_values, side: str, dtype=DType(int, 32)):
-        return jnp.searchsorted(sorted_sequence, search_values, side=side).astype(to_numpy_dtype(dtype))
+        if self.ndims(sorted_sequence) == 1:
+            return jnp.searchsorted(sorted_sequence, search_values, side=side).astype(to_numpy_dtype(dtype))
+        else:
+            return jax.vmap(partial(self.searchsorted, side=side, dtype=dtype))(sorted_sequence, search_values)
 
     def fft(self, x, axes: Union[tuple, list]):
         x = self.to_complex(x)
