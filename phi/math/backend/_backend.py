@@ -709,10 +709,10 @@ class Backend:
         Returns:
             Integer tensor of shape (batch...)
         """
-        strides = [1]
+        strides = [self.ones((), DType(int, 32))]
         for size in reversed(shape[1:]):
             strides.append(strides[-1] * size)
-        strides = self.as_tensor(strides[::-1])
+        strides = self.stack(strides[::-1])
         if mode == 'periodic':
             multi_index %= self.as_tensor(shape)
         elif mode == 'clamp':
