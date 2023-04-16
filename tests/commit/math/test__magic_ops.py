@@ -123,7 +123,8 @@ class TestMagicOps(TestCase):
             self.assertIsInstance(a, Shaped)
             self.assertIsInstance(a, Sliceable)
             self.assertIsInstance(a, Shapable)
-        self.assertNotIsInstance('test', Shaped)
+        self.assertNotIsInstance('test', Shapable)
+        self.assertNotIsInstance('test', Sliceable)
         class S:
             def __shape__(self):
                 return batch()
