@@ -34,6 +34,12 @@ class TestMathFunctions(TestCase):
             assert_not_close(math.zeros(a), math.ones(a) * 1e-100, rel_tolerance=0, abs_tolerance=0)
             assert_close(math.zeros(a), math.ones(a) * 1e-100, rel_tolerance=0, abs_tolerance=1e-15)
 
+    def test_soft_plus(self):
+        for backend in BACKENDS:
+            with backend:
+                x = math.linspace(-4, 4, spatial(samples=5))
+                math.assert_close([0.01815, 0.126928, 0.693147, 2.126928, 4.01815], math.soft_plus(x))
+
     def test_concat(self):
         c = math.concat([math.zeros(spatial(b=3, a=2)), math.ones(spatial(a=2, b=4))], spatial('b'))
         self.assertEqual(2, c.shape.get_size('a'))

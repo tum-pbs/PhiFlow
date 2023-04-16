@@ -1,7 +1,7 @@
 import numbers
 import os
 import sys
-from typing import List, Any, Callable, Union
+from typing import List, Any, Callable, Union, Optional
 
 import numpy as np
 import numpy.random
@@ -138,7 +138,10 @@ class NumPyBackend(Backend):
             result = x / y
         return np.where(y == 0, 0, result)
 
-    def random_uniform(self, shape, low, high, dtype: Union[DType, None]):
+    def softplus(self, x):
+        return np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0)
+
+    def random_uniform(self, shape, low, high, dtype: Optional[DType]):
         dtype = dtype or self.float_type
         if dtype.kind == float:
             return np.random.uniform(low, high, shape).astype(to_numpy_dtype(dtype))
