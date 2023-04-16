@@ -153,6 +153,9 @@ class TorchBackend(Backend):
     flip = torch.flip
     seed = staticmethod(torch.manual_seed)
 
+    def softplus(self, x):
+        return torch.nn.Softplus()(x)
+
     def einsum(self, equation, *tensors):
         tensors = self.auto_cast(*tensors, bool_to_int=True, int_to_float=True)
         return torch.einsum(equation, *tensors)

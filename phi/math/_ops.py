@@ -1734,6 +1734,11 @@ def exp(x) -> Union[Tensor, PhiTreeNode]:
     return _backend_op1(x, Backend.exp)
 
 
+def soft_plus(x) -> Union[Tensor, PhiTreeNode]:
+    """ Computes *softplus(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
+    return _backend_op1(x, Backend.softplus)
+
+
 def to_float(x) -> Union[Tensor, PhiTreeNode]:
     """
     Converts the given tensor to floating point format with the currently specified precision.

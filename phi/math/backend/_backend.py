@@ -602,6 +602,9 @@ class Backend:
     def exp(self, x):
         raise NotImplementedError(self)
 
+    def softplus(self, x):
+        raise NotImplementedError(self)
+
     def conv(self, value, kernel, zero_padding=True):
         """
         Convolve value with kernel.
