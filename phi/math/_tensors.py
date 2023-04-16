@@ -15,7 +15,7 @@ from ._shape import (Shape,
                      parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
                      TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual, instance, shape, DimFilter, non_batch, DEBUG_CHECKS)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
-    Backend, ComputeDevice
+    Backend, ComputeDevice, OBJECTS
 from .backend._dtype import DType, combine_types
 from .magic import BoundDim, PhiTreeNode, slicing_dict
 from .magic import Shapable
@@ -1859,6 +1859,8 @@ def disassemble_tree(obj: PhiTreeNodeType) -> Tuple[PhiTreeNodeType, List[Tensor
     else:
         try:
             backend = choose_backend(obj)
+            if backend == OBJECTS:
+                return obj, []
             sizes = backend.staticshape(obj)
             shape = Shape(sizes, tuple([f"dim{i}" for i in range(len(sizes))]), (None,) * len(sizes), (None,) * len(sizes))
             return NATIVE_TENSOR, [NativeTensor(obj, shape)]
