@@ -568,7 +568,7 @@ class TorchBackend(Backend):
             x = self.to_float(x)
         return torch.std(x, dim=axis, keepdim=keepdims, unbiased=False)
 
-    def boolean_mask(self, x, mask, axis=0):
+    def boolean_mask(self, x, mask, axis=0, new_length=None, fill_value=0):
         x = self.as_tensor(x)
         mask = self.as_tensor(mask)
         result = []

@@ -770,12 +770,14 @@ class Backend:
     def std(self, x, axis=None, keepdims=False):
         raise NotImplementedError(self)
 
-    def boolean_mask(self, x, mask, axis=0):
+    def boolean_mask(self, x, mask, axis=0, new_length=None, fill_value=0):
         """
         Args:
             x: tensor with any number of dimensions
             mask: 1D mask tensor
             axis: Axis index >= 0
+            new_length: Maximum size of the output along `axis`. This must be set when jit-compiling with Jax.
+            fill_value: If `new_length` is larger than the filtered result, the remaining values will be set to `fill_value`.
         """
         raise NotImplementedError(self)
 

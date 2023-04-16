@@ -1,6 +1,6 @@
 import numbers
 import warnings
-from functools import wraps
+from functools import wraps, partial
 from typing import List, Callable, Tuple, Union
 from packaging import version
 
@@ -414,9 +414,16 @@ class JaxBackend(Backend):
     def std(self, x, axis=None, keepdims=False):
         return jnp.std(x, axis, keepdims=keepdims)
 
-    def boolean_mask(self, x, mask, axis=0):
-        slices = [mask if i == axis else slice(None) for i in range(len(x.shape))]
-        return x[tuple(slices)]
+    def boolean_mask(self, x, mask, axis=0, new_length=None, fill_value=0):
+        if new_length is None:
+            slices = [mask if i == axis else slice(None) for i in range(len(x.shape))]
+            return x[tuple(slices)]
+        else:
+            indices = jnp.argwhere(mask, size=new_length, fill_value=-1)[..., 0]
+            valid = indices >= 0
+            valid = valid[tuple([slice(None) if i == axis else None for i in range(len(x.shape))])]
+            result = self.gather(x, jnp.maximum(0, indices), axis)
+            return jnp.where(valid, result, fill_value)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         if isinstance(boolean_tensor, (tuple, list)):
