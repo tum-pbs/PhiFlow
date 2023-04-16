@@ -400,8 +400,8 @@ class JaxBackend(Backend):
             results.append(b_values[b_indices])
         return jnp.stack(results)
 
-    def repeat(self, x, repeats, axis: int):
-        return jnp.repeat(x, self.as_tensor(repeats), axis)
+    def repeat(self, x, repeats, axis: int, new_length=None):
+        return jnp.repeat(x, self.as_tensor(repeats), axis, total_repeat_length=new_length)
 
     def std(self, x, axis=None, keepdims=False):
         return jnp.std(x, axis, keepdims=keepdims)

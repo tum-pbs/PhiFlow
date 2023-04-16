@@ -156,7 +156,7 @@ class TFBackend(Backend):
                 value = self.expand_dims(value, axis=0, number=len(multiples) - self.ndims(value))
             return tf.tile(value, multiples)
 
-    def repeat(self, x, repeats, axis: int):
+    def repeat(self, x, repeats, axis: int, new_length=None):
         x = self.as_tensor(x)
         with tf.device(x.device):
             return tf.repeat(x, repeats, axis)

@@ -920,7 +920,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def repeat(self, x, repeats, axis: int):
+    def repeat(self, x, repeats, axis: int, new_length=None):
         """
         Repeats the elements along `axis` `repeats` times.
 
@@ -928,6 +928,7 @@ class Backend:
             x: Tensor
             repeats: How often to repeat each element. 1D tensor of length x.shape[axis]
             axis: Which axis to repeat elements along
+            new_length: Set the length of `axis` after repeating. This is required for jit compilation with Jax.
 
         Returns:
             repeated Tensor
