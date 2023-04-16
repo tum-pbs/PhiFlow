@@ -664,7 +664,7 @@ class TorchBackend(Backend):
             multiples = multiples.tolist()
         return self.as_tensor(value).repeat(multiples)
 
-    def repeat(self, x, repeats, axis: int):
+    def repeat(self, x, repeats, axis: int, new_length=None):
         if isinstance(repeats, (np.ndarray, tuple, list)):
             repeats = self.as_tensor(repeats)
         return torch.repeat_interleave(self.as_tensor(x), repeats, axis)

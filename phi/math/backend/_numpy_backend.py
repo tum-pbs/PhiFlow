@@ -41,7 +41,6 @@ class NumPyBackend(Backend):
     concat = staticmethod(np.concatenate)
     stack = staticmethod(np.stack)
     tile = staticmethod(np.tile)
-    repeat = staticmethod(np.repeat)
     transpose = staticmethod(np.transpose)
     sqrt = np.sqrt
     exp = np.exp
@@ -199,6 +198,9 @@ class NumPyBackend(Backend):
     def mean(self, value, axis=None, keepdims=False):
         return np.mean(value, axis, keepdims=keepdims)
 
+    def repeat(self, x, repeats, axis: int, new_length=None):
+        return np.repeat(x, repeats, axis)
+
     def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
         return np.tensordot(a, b, (a_axes, b_axes))
 
@@ -333,7 +335,10 @@ class NumPyBackend(Backend):
         return np.argsort(x, axis)
 
     def searchsorted(self, sorted_sequence, search_values, side: str, dtype=DType(int, 32)):
-        return np.searchsorted(sorted_sequence, search_values, side=side).astype(to_numpy_dtype(dtype))
+        if self.ndims(sorted_sequence) == 1:
+            return np.searchsorted(sorted_sequence, search_values, side=side).astype(to_numpy_dtype(dtype))
+        else:
+            return np.stack([self.searchsorted(seq, val, side, dtype) for seq, val in zip(sorted_sequence, search_values)])
 
     def fft(self, x, axes: Union[tuple, list]):
         x = self.to_complex(x)
