@@ -1,6 +1,7 @@
 import logging
 import sys
 from os.path import isfile
+from typing import Union
 
 import numpy as np
 
@@ -43,7 +44,7 @@ class SceneLog:
     def log(self, message):
         self.logger.info(message)
 
-    def log_scalars(self, frame: int, **values: float or math.Tensor):
+    def log_scalars(self, frame: int, **values: Union[float, math.Tensor]):
         """
         Adds `values` to the curves by name.
         This can be used to log the evolution of scalar quantities or summaries.

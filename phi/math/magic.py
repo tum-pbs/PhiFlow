@@ -16,7 +16,7 @@ This is analogous to interfaces defined in the built-in `collections` package, s
 To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`.
 """
 import warnings
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 
 import dataclasses
 
@@ -242,7 +242,7 @@ class Shapable(metaclass=_ShapableType):
         """
         raise NotImplementedError
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Shapable':
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -> 'Shapable':
         """
         Compresses multiple dimensions into a single dimension by concatenating the elements.
         Elements along the new dimensions are laid out according to the order of `dims`.
@@ -522,7 +522,7 @@ class BoundDim:
     def __getattr__(self, item):
         return _BoundDims(self.obj, (self.name, item))
 
-    def unstack(self, size: int or None = None) -> tuple:
+    def unstack(self, size: Union[int, None] = None) -> tuple:
         """
         Lists the slices along this dimension as a `tuple`.
 

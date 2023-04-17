@@ -1,6 +1,6 @@
 import warnings
 from numbers import Number
-from typing import List, Callable, Tuple
+from typing import List, Callable, Tuple, Union
 
 import numpy as np
 import scipy.sparse
@@ -59,7 +59,7 @@ class SparseCoordinateTensor(Tensor):
     def dtype(self) -> DType:
         return self._values.dtype
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         raise RuntimeError("Sparse tensors do not have a native representation. Use math.dense(tensor).native() instead")
 
     @property
@@ -167,7 +167,7 @@ class SparseCoordinateTensor(Tensor):
         pointers = wrap(scipy_csr.indptr, instance('pointers'))
         return CompressedSparseMatrix(indices, pointers, values, u_dims, c_dims, uncompressed_indices=self._indices, uncompressed_indices_perm=perm)
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Tensor':
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -> 'Tensor':
         dims = self._shape.only(dims)
         assert dims in self._dense_shape, f"Can only pack sparse dimensions on SparseCoordinateTensor but got {dims} of which {dims.without(self._dense_shape)} are not sparse"
         assert self._indices.default_backend is NUMPY, "Can only pack NumPy indices as of yet"
@@ -417,10 +417,10 @@ class CompressedSparseMatrix(Tensor):
             self._uncompressed_indices_perm = None
         return SparseCoordinateTensor(self._uncompressed_indices, self._values, self._compressed_dims & self._uncompressed_dims, False, False)
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         raise RuntimeError("Sparse tensors do not have a native representation. Use math.dense(tensor).native() instead")
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Tensor':
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -> 'Tensor':
         assert all(d in self._shape for d in dims)
         dims = self._shape.only(dims, reorder=True)
         if dims.only(self._compressed_dims).is_empty:  # pack cols

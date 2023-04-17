@@ -2,7 +2,7 @@ import inspect
 import json
 from contextlib import contextmanager
 from time import perf_counter
-from typing import Optional, Callable
+from typing import Optional, Callable, Union
 
 from ._backend import Backend, BACKENDS, _DEFAULT
 
@@ -58,11 +58,11 @@ class ExtCall:
     """ Function invocation that is not a Backend method but internally calls Backend methods. """
 
     def __init__(self,
-                 parent: 'ExtCall' or None,
+                 parent: Union['ExtCall', None],
                  name: str,
                  level: int,
                  function: str,
-                 code_context: list or None,
+                 code_context: Union[list, None],
                  file_name: str,
                  line_number: int):
         """
@@ -232,7 +232,7 @@ class Profile:
     Profiles can be printed or saved to disc.
     """
 
-    def __init__(self, trace: bool, backends: tuple or list, subtract_trace_time: bool):
+    def __init__(self, trace: bool, backends: Union[tuple, list], subtract_trace_time: bool):
         self._start = perf_counter()
         self._stop = None
         self._root = ExtCall(None, "", 0, "", "", "", -1)
@@ -469,7 +469,7 @@ _PROFILE = []
 
 
 @contextmanager
-def profile(backends=None, trace=True, subtract_trace_time=True, save: str or None = None) -> Profile:
+def profile(backends=None, trace=True, subtract_trace_time=True, save: Union[str, None] = None) -> Profile:
     """
     To be used in `with` statements, `with math.backend.profile() as prof: ...`.
     Creates a `Profile` for the code executed within the context by tracking calls to the `backends` and optionally tracing the call.
@@ -495,8 +495,8 @@ def profile(backends=None, trace=True, subtract_trace_time=True, save: str or No
 
 
 def profile_function(fun: Callable,
-                     args: tuple or list = (),
-                     kwargs: dict or None = None,
+                     args: Union[tuple, list] = (),
+                     kwargs: Union[dict, None] = None,
                      backends=None,
                      trace=True,
                      subtract_trace_time=True,
@@ -538,7 +538,7 @@ def profile_function(fun: Callable,
     return prof
 
 
-def _start_profiling(prof: Profile, backends: tuple or list):
+def _start_profiling(prof: Profile, backends: Union[tuple, list]):
     _PROFILE.append(prof)
     original_default = _DEFAULT[-1]
     original_backends = tuple(BACKENDS)

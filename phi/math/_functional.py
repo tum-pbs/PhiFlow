@@ -2,7 +2,7 @@ import inspect
 import types
 import warnings
 from functools import wraps, partial
-from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any, Set
+from typing import Tuple, Callable, Dict, Generic, List, TypeVar, Any, Set, Union
 
 import numpy as np
 
@@ -23,10 +23,10 @@ Y = TypeVar('Y')
 class SignatureKey:
 
     def __init__(self,
-                 source_function: Callable or None,
+                 source_function: Union[Callable, None],
                  tree: Dict[str, Any],
-                 shapes: Shape or Tuple[Shape],
-                 specs: Tuple[Shape] or None,
+                 shapes: Union[Shape, Tuple[Shape]],
+                 specs: Union[Tuple[Shape], None],
                  backend: Backend,
                  tracing: bool,
                  condition: Any = None):
@@ -409,7 +409,7 @@ def jit_compile_linear(f: Callable[[X], Y] = None, auxiliary_args: str = None, f
     return f if isinstance(f, LinearFunction) and f.auxiliary_args == auxiliary_args else LinearFunction(f, auxiliary_args, forget_traces or False)
 
 
-def simplify_wrt(f, wrt: str or int or tuple or list):
+def simplify_wrt(f, wrt: Union[str, int, tuple, list]):
     f_params = function_parameters(f)
     if wrt is None:  # Old default
         wrt = f_params[0],
@@ -434,7 +434,7 @@ def simplify_wrt(f, wrt: str or int or tuple or list):
 class GradientFunction:
     """ Jacobian or Gradient of a function. """
 
-    def __init__(self, f: Callable, f_params, wrt: str or Tuple[str, ...], get_output: bool, is_f_scalar: bool, jit=False):
+    def __init__(self, f: Callable, f_params, wrt: Union[str, Tuple[str, ...]], get_output: bool, is_f_scalar: bool, jit=False):
         self.f = f
         self.f_params = f_params
         self.wrt = wrt
@@ -962,7 +962,7 @@ def trace_check(f, *args, **kwargs):
     return True
 
 
-def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_type: Callable or str) -> Callable:
+def map_types(f: Callable, dims: Union[Shape, tuple, list, str, Callable], dim_type: Union[Callable, str]) -> Callable:
     """
     Wraps a function to change the dimension types of its `Tensor` and `phi.math.magic.PhiTreeNode` arguments.
 
@@ -1021,7 +1021,7 @@ def map_i2b(f: Callable) -> Callable:
 
 
 def iterate(f: Callable,
-            iterations: int or Shape,
+            iterations: Union[int, Shape],
             *x0,
             f_kwargs: dict = None,
             range: Callable = range,

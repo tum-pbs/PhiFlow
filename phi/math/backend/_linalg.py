@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 
 import numpy as np
 
@@ -10,7 +10,7 @@ def identity(x):
     return x
 
 
-def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged: Exception or None = None):
+def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged: Union[Exception, None] = None):
     max_iter = b.as_tensor(max_iter[-1, :])
     rsq0 = []
     def check_progress(iterations, residual_squared):
@@ -27,7 +27,7 @@ def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged:
     return check_progress
 
 
-def _max_iter(max_iter: np.ndarray) -> int or list:
+def _max_iter(max_iter: np.ndarray) -> Union[int, list]:
     trj_size, batch_size = max_iter.shape
     if trj_size == 1:
         return int(np.max(max_iter))
@@ -36,7 +36,7 @@ def _max_iter(max_iter: np.ndarray) -> int or list:
         return max_iter[:, 0].tolist()
 
 
-def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Callable = identity) -> SolveResult or List[SolveResult]:
+def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Callable = identity) -> Union[SolveResult, List[SolveResult]]:
     """
     Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
     symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b, pre=M
@@ -72,7 +72,7 @@ def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Callable
     return SolveResult(f"Φ-Flow CG ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter) -> SolveResult or List[SolveResult]:
+def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter) -> Union[SolveResult, List[SolveResult]]:
     """
     Based on the variant described in "Methods of Conjugate Gradients for Solving Linear Systems" by Magnus R. Hestenes and Eduard Stiefel https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
     """
@@ -106,7 +106,7 @@ def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter) -> SolveResul
     return SolveResult(f"Φ-Flow CG-adaptive ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, poly_order: int) -> SolveResult or List[SolveResult]:
+def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, poly_order: int) -> Union[SolveResult, List[SolveResult]]:
     """ Adapted from [BiCGstab for linear equations involving unsymmetric matrices with complex spectrum](https://dspace.library.uu.nl/bitstream/handle/1874/16827/sleijpen_93_bicgstab.pdf) """
     # Based on "BiCGstab(L) for linear equations involving unsymmetric matrices with complex spectrum" by Gerard L.G. Sleijpen
     y = b.to_float(y)

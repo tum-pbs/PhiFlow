@@ -1,3 +1,5 @@
+from typing import Union
+
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Output, Input, State
@@ -80,7 +82,7 @@ def build_player_controls(app: DashApp):
     return layout
 
 
-def parse_step_count(step_count, app, default: int or None = 1):
+def parse_step_count(step_count, app, default: Union[int, None] = 1):
     if step_count is None:
         return default
     try:

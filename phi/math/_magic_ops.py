@@ -108,7 +108,7 @@ def _any_uniform_dim(dims: Shape):
     raise ValueError(f"Uniform dimension required but found only non-uniform dimensions {dims}")
 
 
-def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwargs):
+def stack(values: Union[tuple, list, dict], dim: Shape, expand_values=False, **kwargs):
     """
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
@@ -233,7 +233,7 @@ def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwar
         return values[0]
 
 
-def concat(values: tuple or list, dim: str or Shape, **kwargs):
+def concat(values: Union[tuple, list], dim: Union[str, Shape], **kwargs):
     """
     Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
     All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
@@ -419,7 +419,7 @@ def rename_dims(value,
     return value
 
 
-def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None, **kwargs):
+def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: Union[int, None] = None, **kwargs):
     """
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
@@ -477,7 +477,7 @@ def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None
 
 
 
-def unpack_dim(value, dim: str or Shape, *unpacked_dims: Shape, **kwargs):
+def unpack_dim(value, dim: Union[str, Shape], *unpacked_dims: Shape, **kwargs):
     """
     Decompresses a dimension by unstacking the elements along it.
     This function replaces the traditional `reshape` for these cases.
@@ -651,7 +651,7 @@ MagicType = TypeVar('MagicType')
 OtherMagicType = TypeVar('OtherMagicType')
 
 
-def cast(x: MagicType, dtype: DType or type) -> OtherMagicType:
+def cast(x: MagicType, dtype: Union[DType, type]) -> OtherMagicType:
     """
     Casts `x` to a different data type.
 

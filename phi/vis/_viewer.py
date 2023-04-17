@@ -4,7 +4,7 @@ import time
 import warnings
 from functools import partial
 from threading import Event
-from typing import Tuple
+from typing import Tuple, Union
 
 from ._log import SceneLog
 from ._user_namespace import UserNamespace
@@ -19,7 +19,7 @@ def create_viewer(namespace: UserNamespace,
                   fields: dict,
                   name: str,
                   description: str,
-                  scene: Scene or None,
+                  scene: Union[Scene, None],
                   asynchronous: bool,
                   controls: tuple,
                   actions: dict,
@@ -277,7 +277,7 @@ class AsyncViewer(Viewer):
 
 class Record:
 
-    def __init__(self, dim: str or None):
+    def __init__(self, dim: Union[str, None]):
         self.dim = dim
         self.history = {}
 

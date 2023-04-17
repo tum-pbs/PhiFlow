@@ -3,7 +3,7 @@ import numbers
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
-from typing import Tuple, Callable, List, TypeVar
+from typing import Tuple, Callable, List, TypeVar, Union
 
 from dataclasses import dataclass
 import numpy
@@ -40,7 +40,7 @@ class Tensor:
     When backed by an editable native tensor, e.g. a `numpy.ndarray`, do not edit the underlying data structure.
     """
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         """
         Returns a native tensor object with the dimensions ordered according to `order`.
         
@@ -58,7 +58,7 @@ class Tensor:
         """
         raise NotImplementedError(self.__class__)
 
-    def numpy(self, order: str or tuple or list or Shape = None) -> np.ndarray:
+    def numpy(self, order: Union[str, tuple, list, Shape] = None) -> np.ndarray:
         """
         Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
         
@@ -346,7 +346,7 @@ class Tensor:
         return all(natives_available)
 
     @property
-    def device(self) -> ComputeDevice or None:
+    def device(self) -> Union[ComputeDevice, None]:
         """
         Returns the `ComputeDevice` that this tensor is allocated on.
         The device belongs to this tensor's `default_backend`.
@@ -430,7 +430,7 @@ class Tensor:
         Slice the tensor along specified dimensions.
 
         Args:
-          selection: dim_name: str -> int or slice
+          selection: dim_name: str -> Union[int, slice]
           selection: dict: 
 
         Returns:
@@ -515,7 +515,7 @@ class Tensor:
                 return tensors[0]
             raise NotImplementedError
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Tensor':
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -> 'Tensor':
         order = self.shape._order_group(dims)
         if self.shape.is_uniform:
             native = self.native(order)
@@ -536,7 +536,7 @@ class Tensor:
     def __cast__(self, dtype: DType):
         return self._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
 
-    def dimension(self, name: str or Shape) -> 'TensorDim':
+    def dimension(self, name: Union[str, Shape]) -> 'TensorDim':
         """
         Returns a reference to a specific dimension of this tensor.
         This is equivalent to the syntax `tensor.<name>`.
@@ -830,10 +830,10 @@ class TensorDim(BoundDim):
         """ Returns a shallow copy of the `Tensor` where the type of this dimension is *instance*. """
         return self._as(INSTANCE_DIM, name)
 
-    def as_type(self, dim_type: Callable or str):
+    def as_type(self, dim_type: Union[Callable, str]):
         return self._as(dim_type('d').type if callable(dim_type) else dim_type, None)
 
-    def _as(self, dim_type: str, name: str or None):
+    def _as(self, dim_type: str, name: Union[str, None]):
         if not self.exists:
             return self.tensor
         shape = self.tensor.shape
@@ -927,12 +927,12 @@ class Layout(Tensor):
     def default_backend(self):
         return None
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         order = parse_dim_order(order)
         assert order is None or order == self._shape.names, "Layout.native() does not allow for changing the dimension order"
         return self._obj
 
-    def numpy(self, order: str or tuple or list or Shape = None) -> np.ndarray:
+    def numpy(self, order: Union[str, tuple, list, Shape] = None) -> np.ndarray:
         native = self.native(order=order)
         return numpy.asarray(native)
 
@@ -1023,7 +1023,7 @@ class Layout(Tensor):
         new_shape = self._shape.replace(dims, new_dims)
         return Layout(self._obj, new_shape)
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -> 'Layout':
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -> 'Layout':
         if dims == self.shape.names:
             native = self._as_list()
             return Layout(native, packed_dim.with_size(len(native)))
@@ -1133,7 +1133,7 @@ class NativeTensor(Tensor):
         self._native = native_tensor
         self._shape = shape
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         order = parse_dim_order(order, check_rank=self.rank)
         if order is None or tuple(order) == self.shape.names:
             if self.dtype.precision in [None, get_precision()]:
@@ -1298,7 +1298,7 @@ class CollapsedTensor(Tensor):  # package-private
         else:
             return self
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         if self.is_cached:
             return self._cached.native(order)
         order = parse_dim_order(order, check_rank=self.rank)
@@ -1439,7 +1439,7 @@ class TensorStack(Tensor):
 
     """
 
-    def __init__(self, components: tuple or list, stack_dim: Shape):
+    def __init__(self, components: Union[tuple, list], stack_dim: Shape):
         assert isinstance(stack_dim, Shape) and stack_dim.rank == 1, f"stack_dim must be a single-dimension Shape object but got {type(stack_dim)}"
         # assert len(components) > 1, "Use a CollapsedTensor instead"
         for t in components:
@@ -1494,7 +1494,7 @@ class TensorStack(Tensor):
     def shape(self):
         return self._shape
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         if self._cached is not None:
             return self._cached.native(order=order)
         else:
@@ -1629,7 +1629,7 @@ class TensorStack(Tensor):
             return self
 
 
-def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
+def tensor(data: Union[Tensor, Shape, tuple, list, numbers.Number],
            *shape: Shape,
            convert: bool = True,
            default_list_dim=channel('vector')) -> Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
@@ -1756,7 +1756,7 @@ def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
         raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
 
 
-def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
+def wrap(data: Union[Tensor, Shape, tuple, list, numbers.Number],
          *shape: Shape) -> Tensor:
     """ Short for `phi.math.tensor()` with `convert=False`. """
     return tensor(data, *shape, convert=False)  # TODO inline, simplify
@@ -1885,7 +1885,7 @@ def op2_native(x: Tensor, y: Tensor, native_function: Callable):
     return NativeTensor(result_tensor, new_shape)
 
 
-def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_function, r_operator=None, r_native_function=None, op_name: str = 'unknown', op_symbol: str = None) -> Tensor:
+def custom_op2(x: Union[Tensor, float], y: Union[Tensor, float], l_operator, l_native_function, r_operator=None, r_native_function=None, op_name: str = 'unknown', op_symbol: str = None) -> Tensor:
     """
     Perform a custom operator on two tensors.
     This method first tries calling _op2() on the first tensor and if that fails, tries it on the second tensor.
@@ -1919,7 +1919,7 @@ def custom_op2(x: Tensor or float, y: Tensor or float, l_operator, l_native_func
     return result
 
 
-def disassemble_tensors(tensors: Tuple[Tensor, ...] or List[Tensor], expand: bool) -> Tuple[tuple, Tuple[Shape], tuple]:
+def disassemble_tensors(tensors: Union[Tuple[Tensor, ...], List[Tensor]], expand: bool) -> Tuple[tuple, Tuple[Shape], tuple]:
     """
     Args:
         tensors: Tuple or list of Tensors.
@@ -1939,7 +1939,7 @@ def disassemble_tensors(tensors: Tuple[Tensor, ...] or List[Tensor], expand: boo
     return natives, shapes, specs
 
 
-def assemble_tensors(natives: tuple or list, specs: Tuple[dict, ...] or List[dict]):
+def assemble_tensors(natives: Union[tuple, list], specs: Union[Tuple[dict, ...], List[dict]]):
     natives = list(natives)
     result = []
     for spec in specs:
@@ -2033,7 +2033,7 @@ def assemble_tree(obj: PhiTreeNodeType, values: List[Tensor]) -> PhiTreeNodeType
         return obj
 
 
-def cached(t: Tensor or 'PhiTreeNode') -> Tensor or 'PhiTreeNode':
+def cached(t: Union[Tensor, 'PhiTreeNode']) -> Union[Tensor, 'PhiTreeNode']:
     assert isinstance(t, (Tensor, PhiTreeNode)), f"All arguments must be Tensors but got {type(t)}"
     if isinstance(t, NativeTensor):
         return t
@@ -2241,7 +2241,7 @@ class Dict(dict):
         return Dict(self)
 
 
-def to_dict(value: Tensor or Shape):
+def to_dict(value: Union[Tensor, Shape]):
     """
     Returns a serializable form of a `Tensor` or `Shape`.
     The result can be written to a JSON file, for example.

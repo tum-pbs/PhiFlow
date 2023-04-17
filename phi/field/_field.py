@@ -143,8 +143,8 @@ class SampledField(Field):
     def __init__(self,
                  elements: Union[Geometry, Tensor],
                  values: Tensor,
-                 extrapolation: float or Extrapolation or Field or None,
-                 bounds: Box or None):
+                 extrapolation: Union[float, Extrapolation, Field, None],
+                 bounds: Union[Box, None]):
         """
         Args:
           elements: Geometry object specifying the sample points and sizes
@@ -297,8 +297,8 @@ class SampledField(Field):
             return self.with_values(values)
 
 
-def sample(field: Field or Geometry,
-           geometry: Geometry or SampledField or Tensor,
+def sample(field: Union[Field, Geometry],
+           geometry: Union[Geometry, SampledField, Tensor],
            **kwargs) -> math.Tensor:
     """
     Computes the field value inside the volume of the (batched) `geometry`.
@@ -339,8 +339,8 @@ def sample(field: Field or Geometry,
         return field._sample(geometry, **kwargs)
 
 
-def reduce_sample(field: Field or Geometry,
-                  geometry: Geometry or SampledField or Tensor,
+def reduce_sample(field: Union[Field, Geometry],
+                  geometry: Union[Geometry, SampledField, Tensor],
                   dim=channel('vector'),
                   **kwargs) -> math.Tensor:
     """
@@ -444,7 +444,7 @@ FieldType = TypeVar('FieldType', bound=Field)
 SampledFieldType = TypeVar('SampledFieldType', bound=SampledField)
 
 
-def as_extrapolation(obj: Extrapolation or float or Field or None) -> Extrapolation:
+def as_extrapolation(obj: Union[Extrapolation, float, Field, None]) -> Extrapolation:
     """
     Returns an `Extrapolation` representing `obj`.
 

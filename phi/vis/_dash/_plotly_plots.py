@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple, Any, Dict, List, Callable
+from typing import Tuple, Any, Dict, List, Callable, Union
 
 import numpy
 import numpy as np
@@ -378,7 +378,7 @@ def get_color_interpolation(val, cm_arr):
     return center
 
 
-def plot_scalars(curves: tuple or list, labels, subplots=True, log_scale='', smooth: int = 1):
+def plot_scalars(curves: Union[tuple, list], labels, subplots=True, log_scale='', smooth: int = 1):
     if not curves:
         return graph_objects.Figure()
     if subplots:

@@ -2,7 +2,7 @@ import numbers
 import warnings
 from contextlib import contextmanager
 from functools import wraps
-from typing import List, Callable, Optional, Set, Tuple, Any
+from typing import List, Callable, Optional, Set, Tuple, Any, Union
 
 import numpy as np
 import torch
@@ -188,7 +188,7 @@ class TorchBackend(Backend):
         x, y = self.auto_cast(x, y)
         return x == y
 
-    def random_uniform(self, shape, low, high, dtype: DType or None):
+    def random_uniform(self, shape, low, high, dtype: Union[DType, None]):
         dtype = dtype or self.float_type
         if dtype.kind == float:
             return low + (high - low) * torch.rand(size=shape, dtype=to_torch_dtype(dtype), device=self.get_default_device().ref)
@@ -385,7 +385,7 @@ class TorchBackend(Backend):
         else:
             return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
-    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+    def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
         a, b = self.auto_cast(a, b)
         return torch.tensordot(a, b, (a_axes, b_axes))
 
@@ -403,7 +403,7 @@ class TorchBackend(Backend):
     def cumsum(self, x, axis: int):
         return torch.cumsum(x, dim=axis)
 
-    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: Union[int, Tuple[int, ...], List[int]]):
         tracing = torch._C._get_tracing_state() is not None
         if not tracing:
             return Backend.while_loop(self, loop, values, max_iter)
@@ -587,14 +587,14 @@ class TorchBackend(Backend):
         y, x = self.auto_cast(y, x)
         return torch.arctan2(y, x)
 
-    def fft(self, x, axes: tuple or list):
+    def fft(self, x, axes: Union[tuple, list]):
         if not x.is_complex():
             x = self.to_complex(x)
         for i in axes:
             x = torch.fft.fft(x, dim=i)
         return x
 
-    def ifft(self, k, axes: tuple or list):
+    def ifft(self, k, axes: Union[tuple, list]):
         if not k.is_complex():
             k = self.to_complex(k)
         for i in axes:
@@ -761,7 +761,7 @@ class TorchBackend(Backend):
         x = torch.linalg.solve_triangular(matrix, rhs, upper=not lower, unitriangular=unit_diagonal)
         return x[..., 0]
 
-    def _prepare_graph_inputs(self, args: tuple, wrt: tuple or list):
+    def _prepare_graph_inputs(self, args: tuple, wrt: Union[tuple, list]):
         args = [self.as_tensor(arg, True) if i in wrt else arg for i, arg in enumerate(args)]
         args = [self.to_float(arg) if self.dtype(arg).kind == int else arg for arg in args]
         for i, arg in enumerate(args):
@@ -779,7 +779,7 @@ class TorchBackend(Backend):
             assert t.requires_grad
         return args, wrt_args
 
-    def jacobian(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+    def jacobian(self, f, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
         @wraps(f)
         def eval_grad(*args):
             args, wrt_args = self._prepare_graph_inputs(args, wrt)
@@ -792,7 +792,7 @@ class TorchBackend(Backend):
             return (*output, *grads) if get_output else grads
         return eval_grad
 
-    def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def hessian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool):
         # if not get_output and not get_gradient:
         # @wraps(f)
         # def eval_hessian(*args):
@@ -880,11 +880,11 @@ class TorchBackend(Backend):
 
         return eval_hessian
 
-    def jit_compile_grad(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+    def jit_compile_grad(self, f, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
         jit = self.jit_compile(f)
         return self.jacobian(jit, wrt, get_output, is_f_scalar)
 
-    def jit_compile_hessian(self, f, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def jit_compile_hessian(self, f, wrt: Union[tuple, list], get_output: bool, get_gradient: bool):
         jit = self.jit_compile(f)
         return self.hessian(jit, wrt, get_output, get_gradient)
 
