@@ -356,6 +356,29 @@ class Backend:
     def block_until_ready(self, values):
         pass
 
+    def vectorized_call(self, f, *args):
+        batch_dim = self.determine_size(args, 0)
+        result = []
+        for b in range(batch_dim):
+            result.append(f(*[t[min(b, self.staticshape(t)[0] - 1)] for t in args]))
+        return self.stack(result)
+
+    def determine_size(self, tensors, axis):
+        sizes = [self.staticshape(t)[axis] for t in tensors]
+        non_singleton_sizes = [b for b in sizes if b != 1]
+        size = non_singleton_sizes[0] if non_singleton_sizes else 1
+        assert all([b in (1, size) for b in sizes])
+        return size
+
+    def tile_to(self, x, axis, size):
+        current_size = self.staticshape(x)[axis]
+        if current_size == size:
+            return x
+        assert size > current_size
+        assert size % current_size == 0
+        multiples = [size // current_size if i == axis else 1 for i in range(self.ndims(x))]
+        return self.tile(x, multiples)
+
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
@@ -760,9 +783,7 @@ class Backend:
         return self.batched_gather_nd(values, indices)[..., 0]
 
     def gather_1d(self, values, indices):
-        values = values[None, :, None]
-        indices = indices[None, :, None]
-        return self.batched_gather_nd(values, indices)[0, ..., 0]
+        return self.gather(values, indices, 0)
 
     def flatten(self, x):
         return self.reshape(x, (-1,))

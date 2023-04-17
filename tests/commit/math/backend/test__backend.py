@@ -154,3 +154,12 @@ class TestBackends(TestCase):
             numpy.testing.assert_equal([1, 3, 2], result)
             result = b.numpy(b.bincount(data, None, bins=5))
             numpy.testing.assert_equal([1, 3, 2, 0, 0], result)
+
+    def test_vectorized_call(self):
+        for b in BACKENDS:
+            def gather1d(val, idx):
+                return b.gather_1d(val, idx)
+            values = b.as_tensor([(0, 1, 2, 3), (1, 2, 3, 4)])
+            indices = b.as_tensor([(-1, 0)])
+            result = b.vectorized_call(gather1d, values, indices)
+            numpy.testing.assert_equal([(3, 0), (4, 1)], b.numpy(result))
