@@ -162,6 +162,12 @@ class JaxBackend(Backend):
         result = jnp.nonzero(values)
         return jnp.stack(result, -1)
 
+    def vectorized_call(self, f, *args):
+        batch_size = self.determine_size(args, 0)
+        args = [self.tile_to(t, 0, batch_size) for t in args]
+        vec_f = jax.vmap(f, 0, 0)
+        return vec_f(*args)
+
     def jit_compile(self, f: Callable) -> Callable:
         def run_jit_f(*args):
             # print(jax.make_jaxpr(f)(*args))

@@ -104,6 +104,13 @@ class TFBackend(Backend):
             assert self.get_device(result) == device
             return result
 
+    def vectorized_call(self, f, *args):
+        batch_size = self.determine_size(args, 0)
+        args = [self.tile_to(t, 0, batch_size) for t in args]
+        output0 = f(*[t[0] for t in args])  # Call f to determine its output signature.
+        output_signature = tf.nest.map_structure(lambda x: x.dtype, output0)
+        return tf.map_fn(lambda vals: f(*vals), tuple(args), fn_output_signature=output_signature)
+
     def jit_compile(self, f: Callable) -> Callable:
         compiled = tf.function(f)
         return lambda *args: self.as_registered.call(compiled, *args, name=f"run jit-compiled '{f.__name__}'")
