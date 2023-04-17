@@ -4,7 +4,7 @@ Equivalent functions also exist for the other frameworks.
 
 For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 """
-from typing import Callable, Tuple, List
+from typing import Callable, Tuple, List, Union
 import pickle
 from typing import Callable
 from typing import Tuple, List
@@ -72,7 +72,7 @@ def get_parameters(model: keras.Model, wrap=True) -> dict:
     return result
 
 
-def save_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str):
+def save_state(obj: Union[keras.models.Model, keras.optimizers.Optimizer], path: str):
     """
     Write the state of a module or optimizer to a file.
 
@@ -97,7 +97,7 @@ def save_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str)
         raise ValueError("obj must be a Keras model or optimizer")
 
 
-def load_state(obj: keras.models.Model or keras.optimizers.Optimizer, path: str):
+def load_state(obj: Union[keras.models.Model, keras.optimizers.Optimizer], path: str):
     """
     Read the state of a module or optimizer from a file.
 
@@ -180,7 +180,7 @@ def rmsprop(net: keras.Model, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08
 
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: Tuple[int, ...] or List[int],
+              layers: Union[Tuple[int, ...], List[int]],
               batch_norm=False,
               activation='ReLU',
               softmax=False) -> keras.Model:
@@ -211,10 +211,10 @@ def dense_net(in_channels: int,
 def u_net(in_channels: int,
           out_channels: int,
           levels: int = 4,
-          filters: int or tuple or list = 16,
+          filters: Union[int, tuple, list] = 16,
           batch_norm: bool = True,
-          activation: str or Callable = 'ReLU',
-          in_spatial: tuple or int = 2,
+          activation: Union[str, Callable] = 'ReLU',
+          in_spatial: Union[tuple, int] = 2,
           periodic=False,
           use_res_blocks: bool = False, **kwargs) -> keras.Model:
     """
@@ -295,11 +295,11 @@ def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: boo
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Tuple[int, ...] or List[int],
+             layers: Union[Tuple[int, ...], List[int]],
              batch_norm: bool = False,
-             activation: str or Callable = 'ReLU',
+             activation: Union[str, Callable] = 'ReLU',
              periodic=False,
-             in_spatial: int or tuple = 2, **kwargs) -> keras.Model:
+             in_spatial: Union[int, tuple] = 2, **kwargs) -> keras.Model:
     """
     Built in Conv-Nets are also provided. Contrary to the classical convolutional neural networks, the feature map spatial size remains the same throughout the layers. Each layer of the network is essentially a convolutional block comprising of two conv layers. A filter size of 3 is used in the convolutional layers.
     Arguments:
@@ -338,8 +338,8 @@ def resnet_block(in_channels: int,
                  out_channels: int,
                  periodic: bool,
                  batch_norm: bool = False,
-                 activation: str or Callable = 'ReLU',
-                 in_spatial: int or tuple = 2):
+                 activation: Union[str, Callable] = 'ReLU',
+                 in_spatial: Union[int, tuple] = 2):
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     if isinstance(in_spatial, int):
         d = in_spatial
@@ -365,11 +365,11 @@ def resnet_block(in_channels: int,
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Tuple[int, ...] or List[int],
+            layers: Union[Tuple[int, ...], List[int]],
             batch_norm: bool = False,
-            activation: str or Callable = 'ReLU',
+            activation: Union[str, Callable] = 'ReLU',
             periodic=False,
-            in_spatial: int or tuple = 2, **kwargs):
+            in_spatial: Union[int, tuple] = 2, **kwargs):
     """
     Built in Res-Nets are provided in the ΦFlow framework. Similar to the conv-net, the feature map spatial size remains the same throughout the layers.
     These networks use residual blocks composed of two conv layers with a skip connection added from the input to the output feature map.
@@ -406,7 +406,7 @@ def res_net(in_channels: int,
 
 
 def conv_classifier(in_features: int,
-                    in_spatial: tuple or list,
+                    in_spatial: Union[tuple, list],
                     num_classes: int,
                     blocks=(64, 128, 256, 256, 512, 512),
                     dense_layers=(4096, 4096, 100),
@@ -480,7 +480,7 @@ def get_mask(inputs, reverse_mask, data_format='NHWC'):
 def Dense_resnet_block(in_channels: int,
                        mid_channels: int,
                        batch_norm: bool = False,
-                       activation: str or Callable = 'ReLU'):
+                       activation: Union[str, Callable] = 'ReLU'):
     inputs = keras.Input(shape=(in_channels,))
     x_1 = inputs
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
@@ -580,8 +580,8 @@ def invertible_net(in_channels: int,
                    num_blocks: int,
                    batch_norm: bool = False,
                    net: str = 'u_net',
-                   activation: str or type = 'ReLU',
-                   in_spatial: tuple or int = 2, **kwargs):
+                   activation: Union[str, type] = 'ReLU',
+                   in_spatial: Union[tuple, int] = 2, **kwargs):
     """
     ΦFlow also provides invertible neural networks that are capable of inverting the output tensor back to the input tensor initially passed.\ These networks have far reaching applications in predicting input parameters of a problem given its observations.\ Invertible nets are composed of multiple concatenated coupling blocks wherein each such block consists of arbitrary neural networks.
 
@@ -780,8 +780,8 @@ class FNO(keras.Model):
 def fno(in_channels: int,
         out_channels: int,
         mid_channels: int,
-        modes: Tuple[int, ...] or List[int],
-        activation: str or type = 'ReLU',
+        modes: Union[Tuple[int, ...], List[int]],
+        activation: Union[str, type] = 'ReLU',
         batch_norm: bool = False,
         in_spatial: int = 2):
     """

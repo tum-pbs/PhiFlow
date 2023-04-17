@@ -1,7 +1,7 @@
 import numbers
 import warnings
 from functools import wraps
-from typing import List, Callable, Tuple
+from typing import List, Callable, Tuple, Union
 from packaging import version
 
 import jax
@@ -178,7 +178,7 @@ class JaxBackend(Backend):
             for v in values:
                 self.block_until_ready(v)
 
-    def jacobian(self, f, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+    def jacobian(self, f, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
         if get_output:
             jax_grad_f = jax.value_and_grad(f, argnums=wrt, has_aux=True)
             @wraps(f)
@@ -213,7 +213,7 @@ class JaxBackend(Backend):
         return jnp.where(y == 0, 0, x / y)
         # jnp.nan_to_num(x / y, copy=True, nan=0) covers up NaNs from before
 
-    def random_uniform(self, shape, low, high, dtype: DType or None):
+    def random_uniform(self, shape, low, high, dtype: Union[DType, None]):
         self._check_float64()
         self.rnd_key, subkey = jax.random.split(self.rnd_key)
 
@@ -301,7 +301,7 @@ class JaxBackend(Backend):
     def mean(self, value, axis=None, keepdims=False):
         return jnp.mean(value, axis, keepdims=keepdims)
 
-    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+    def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
         return jnp.tensordot(a, b, (a_axes, b_axes))
 
     def mul(self, a, b):
@@ -322,7 +322,7 @@ class JaxBackend(Backend):
         result = jnp.diagonal(matrices, offset=offset, axis1=1, axis2=2)
         return jnp.transpose(result, [0, 2, 1])
 
-    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: Union[int, Tuple[int, ...], List[int]]):
         if all(self.is_available(t) for t in values):
             return self.stop_gradient_tree(Backend.while_loop(self, loop, values, max_iter))
         if isinstance(max_iter, (tuple, list)):  # stack traced trajectory, unroll until max_iter
@@ -432,7 +432,7 @@ class JaxBackend(Backend):
     def quantile(self, x, quantiles):
         return jnp.quantile(x, quantiles, axis=-1)
 
-    def fft(self, x, axes: tuple or list):
+    def fft(self, x, axes: Union[tuple, list]):
         x = self.to_complex(x)
         if not axes:
             return x
@@ -443,7 +443,7 @@ class JaxBackend(Backend):
         else:
             return jnp.fft.fftn(x, axes=axes).astype(x.dtype)
 
-    def ifft(self, k, axes: tuple or list):
+    def ifft(self, k, axes: Union[tuple, list]):
         if not axes:
             return k
         if len(axes) == 1:
@@ -473,7 +473,7 @@ class JaxBackend(Backend):
         x = jax.lax.linalg.triangular_solve(matrix, rhs, lower=lower, unit_diagonal=unit_diagonal, left_side=True)
         return x
 
-    def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
+    def sparse_coo_tensor(self, indices: Union[tuple, list], values, shape: tuple):
         return BCOO((values, indices), shape=shape)
 
 

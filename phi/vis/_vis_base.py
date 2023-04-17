@@ -3,7 +3,7 @@ import time
 from collections import namedtuple
 from math import log10
 from threading import Lock
-from typing import Tuple, Any, Optional, Dict, Callable
+from typing import Tuple, Any, Optional, Dict, Callable, Union
 
 from phi import field, math
 from phi.field import SampledField, Scene, PointCloud, CenteredGrid
@@ -221,7 +221,7 @@ class AsyncPlay:
         return status_message(self.model, self)
 
 
-def status_message(model: VisModel, play_status: AsyncPlay or None):
+def status_message(model: VisModel, play_status: Union[AsyncPlay, None]):
     pausing = "/Pausing" if (play_status and play_status.paused) else ""
     current_action = "Running" if model.is_progressing else "Waiting"
     action = current_action if play_status else "Idle"
@@ -322,7 +322,7 @@ class Gui:
 
 class PlottingLibrary:
 
-    def __init__(self, name: str, figure_classes: tuple or list):
+    def __init__(self, name: str, figure_classes: Union[tuple, list]):
         self.name = name
         self.figure_classes = tuple(figure_classes)
         self.current_figure = None
@@ -428,7 +428,7 @@ def display_name(python_name: Any):
         return text
 
 
-def index_label(idx: dict) -> str or None:
+def index_label(idx: dict) -> Union[str, None]:
     if len(idx) == 0:
         return None
     elif len(idx) == 1:
@@ -460,7 +460,7 @@ def common_index(*indices: dict, exclude=()):
     return {k: v for k, v in indices[0].items() if k not in exclude and all(i[k] == v for i in indices)}
 
 
-def select_channel(value: SampledField or Tensor or tuple or list, channel: str or None):
+def select_channel(value: Union[SampledField, Tensor, tuple, list], channel: Union[str, None]):
     if isinstance(value, (tuple, list)):
         return [select_channel(v, channel) for v in value]
     if channel is None:

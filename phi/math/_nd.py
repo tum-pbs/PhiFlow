@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Union
 
 import numpy as np
 
@@ -14,7 +14,7 @@ from ._functional import jit_compile_linear
 from ._optimize import solve_linear
 
 
-def vec(name: str or Shape = 'vector', *sequence, tuple_dim=spatial('sequence'), list_dim=instance('sequence'), **components) -> Tensor:
+def vec(name: Union[str, Shape] = 'vector', *sequence, tuple_dim=spatial('sequence'), list_dim=instance('sequence'), **components) -> Tensor:
     """
     Lay out the given values along a channel dimension without converting them to the current backend.
 
@@ -66,7 +66,7 @@ def vec(name: str or Shape = 'vector', *sequence, tuple_dim=spatial('sequence'),
         return stack(components, dim, expand_values=True)
 
 
-def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):
+def const_vec(value: Union[float, Tensor], dim: Union[Shape, tuple, list, str]):
     """
     Creates a single-dimension tensor with all values equal to `value`.
     `value` is not converted to the default backend, even when it is a Python primitive.
@@ -92,7 +92,7 @@ def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):
     return wrap([value] * shape.size, shape)
 
 
-def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: float or Tensor = None):
+def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: Union[float, Tensor] = None):
     """
     Computes the vector length of `vec`.
 
@@ -146,7 +146,7 @@ def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
         raise AssertionError(f'dims = {spatial_rank}. Vector product not available in > 3 dimensions')
 
 
-def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
+def rotate_vector(vector: math.Tensor, angle: Union[float, math.Tensor]) -> Tensor:
     """
     Rotates `vector` around the origin.
 
@@ -171,7 +171,7 @@ def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -> Tensor:
         raise NotImplementedError(f"Rotation in {vector.vector.size}D not yet implemented.")
 
 
-def dim_mask(all_dims: Shape or tuple or list, dims: DimFilter, mask_dim=channel('vector')) -> Tensor:
+def dim_mask(all_dims: Union[Shape, tuple, list], dims: DimFilter, mask_dim=channel('vector')) -> Tensor:
     """
     Creates a masked vector with 1 elements for `dims` and 0 for all other dimensions in `all_dims`.
 
@@ -193,7 +193,7 @@ def dim_mask(all_dims: Shape or tuple or list, dims: DimFilter, mask_dim=channel
     return wrap(mask, mask_dim)
 
 
-def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
+def normalize_to(target: Tensor, source: Union[float, Tensor], epsilon=1e-5):
     """
     Multiplies the target so that its sum matches the source.
 
@@ -361,7 +361,7 @@ def abs_square(complex_values: Tensor) -> Tensor:
 def shift(x: Tensor,
           offsets: tuple,
           dims: DimFilter = math.spatial,
-          padding: Extrapolation or Tensor or float or None = extrapolation.BOUNDARY,
+          padding: Union[Extrapolation, Tensor, float, None] = extrapolation.BOUNDARY,
           stack_dim: Optional[Shape] = channel('shift'),
           extend_bounds=0) -> list:
     """
@@ -477,11 +477,11 @@ def finite_fill(values: Tensor, dims: DimFilter = spatial, distance: int = 1, di
 # Gradient
 
 def spatial_gradient(grid: Tensor,
-                     dx: float or Tensor = 1,
+                     dx: Union[float, Tensor] = 1,
                      difference: str = 'central',
-                     padding: Extrapolation or None = extrapolation.BOUNDARY,
+                     padding: Union[Extrapolation, None] = extrapolation.BOUNDARY,
                      dims: DimFilter = spatial,
-                     stack_dim: Shape or None = channel('gradient'),
+                     stack_dim: Union[Shape, None] = channel('gradient'),
                      pad=0) -> Tensor:
     """
     Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -527,7 +527,7 @@ def spatial_gradient(grid: Tensor,
 # Laplace
 
 def laplace(x: Tensor,
-            dx: Tensor or float = 1,
+            dx: Union[Tensor, float] = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
             dims: DimFilter = spatial,
             weights: Tensor = None):
@@ -564,7 +564,7 @@ def laplace(x: Tensor,
 
 
 def fourier_laplace(grid: Tensor,
-                    dx: Tensor or Shape or float or list or tuple,
+                    dx: Union[Tensor, Shape, float, list, tuple],
                     times: int = 1):
     """
     Applies the spatial laplace operator to the given tensor with periodic boundary conditions.
@@ -594,7 +594,7 @@ def fourier_laplace(grid: Tensor,
 
 
 def fourier_poisson(grid: Tensor,
-                    dx: Tensor or Shape or float or list or tuple,
+                    dx: Union[Tensor, Shape, float, list, tuple],
                     times: int = 1):
     """
     Inverse operation to `fourier_laplace`.

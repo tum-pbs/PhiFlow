@@ -191,7 +191,7 @@ class ConstantExtrapolation(Extrapolation):
     Extrapolate with a constant value.
     """
 
-    def __init__(self, value: Tensor or float):
+    def __init__(self, value: Union[Tensor, float]):
         Extrapolation.__init__(self, 5)
         self.value = wrap(value)
         """ Extrapolation value """
@@ -1057,7 +1057,7 @@ def as_extrapolation(obj) -> Extrapolation:
     return ConstantExtrapolation(obj)
 
 
-def combine_sides(**extrapolations: Extrapolation or tuple) -> Extrapolation:
+def combine_sides(**extrapolations: Union[Extrapolation, tuple]) -> Extrapolation:
     """
     Specify extrapolations for each side / face of a box.
 
@@ -1342,7 +1342,7 @@ class _NormalTangentialExtrapolation(Extrapolation):
         return combine_by_direction(normal=-self.normal, tangential=-self.tangential)
 
 
-def combine_by_direction(normal: Extrapolation or float or Tensor, tangential: Extrapolation or float or Tensor) -> Extrapolation:
+def combine_by_direction(normal: Union[Extrapolation, float, Tensor], tangential: Union[Extrapolation, float, Tensor]) -> Extrapolation:
     """
     Use a different extrapolation for the normal component of vector-valued tensors.
 
@@ -1390,7 +1390,7 @@ def from_dict(dictionary: dict) -> Extrapolation:
         raise ValueError(dictionary)
 
 
-def order_by_shape(shape: Shape, sequence, default=None) -> tuple or list:
+def order_by_shape(shape: Shape, sequence, default=None) -> Union[tuple, list]:
     """
     If sequence is a dict with dimension names as keys, orders its values according to this shape.
 

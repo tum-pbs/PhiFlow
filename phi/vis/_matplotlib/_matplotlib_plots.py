@@ -1,6 +1,6 @@
 import sys
 import warnings
-from typing import Callable, Tuple, Any, Dict
+from typing import Callable, Tuple, Any, Dict, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -419,7 +419,7 @@ def _plt_col(col):
     return col
 
 
-def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> list or None:
+def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> Union[list, None]:
     if color.rank == 0 and color.native() is None:
         if default is None:
             return None
