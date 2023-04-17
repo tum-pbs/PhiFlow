@@ -1,4 +1,5 @@
 import warnings
+from typing import Union
 
 from phi import math
 from phi.geom import Geometry
@@ -31,7 +32,7 @@ class SoftGeometryMask(HardGeometryMask):
     """
     Deprecated since version 1.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
     """
-    def __init__(self, geometry: Geometry, balance: Tensor or float = 0.5):
+    def __init__(self, geometry: Geometry, balance: Union[Tensor, float] = 0.5):
         warnings.warn("HardGeometryMask and SoftGeometryMask are deprecated. Use field.mask or field.resample instead.", DeprecationWarning, stacklevel=2)
         super().__init__(geometry)
         self.balance = balance

@@ -1,6 +1,6 @@
 import warnings
 from numbers import Number
-from typing import Callable, List, Tuple, Optional
+from typing import Callable, List, Tuple, Optional, Union
 
 from phi import geom
 from phi import math
@@ -42,7 +42,7 @@ def laplace(field: GridType,
             axes=spatial,
             order=2,
             implicit: math.Solve = None,
-            weights: Tensor or Field = None) -> GridType:
+            weights: Union[Tensor, Field] = None) -> GridType:
     """
     Spatial Laplace operator for scalar grid.
     If a vector grid is passed, it is assumed to be centered and the laplace is computed component-wise.
@@ -256,7 +256,7 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Optional[Shape] = chann
 
 def stagger(field: CenteredGrid,
             face_function: Callable,
-            extrapolation: float or math.extrapolation.Extrapolation,
+            extrapolation: Union[float, math.extrapolation.Extrapolation],
             type: type = StaggeredGrid):
     """
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
@@ -432,7 +432,7 @@ def fourier_poisson(grid: GridType, times=1) -> GridType:
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
 
 
-def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> SampledField or Tensor:
+def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> Union[SampledField, Tensor]:
     """
     Similar to `phi.math.native_call()`.
 
@@ -457,7 +457,7 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
         raise AssertionError("At least one input must be a SampledField.")
 
 
-def data_bounds(loc: SampledField or Tensor) -> Box:
+def data_bounds(loc: Union[SampledField, Tensor]) -> Box:
     if isinstance(loc, SampledField):
         loc = loc.points
     assert isinstance(loc, Tensor), f"loc must be a Tensor or SampledField but got {type(loc)}"
@@ -499,7 +499,7 @@ def center_of_mass(density: SampledField):
     return mean(density.points * density) / mean(density)
 
 
-def pad(grid: GridType, widths: int or tuple or list or dict) -> GridType:
+def pad(grid: GridType, widths: Union[int, tuple, list, dict]) -> GridType:
     """
     Pads a `Grid` using its extrapolation.
 
@@ -580,7 +580,7 @@ def upsample2x(grid: GridType) -> GridType:
         raise ValueError(type(grid))
 
 
-def concat(fields: List[SampledFieldType] or Tuple[SampledFieldType, ...], dim: str or Shape) -> SampledFieldType:
+def concat(fields: Union[List[SampledFieldType], Tuple[SampledFieldType, ...]], dim: Union[str, Shape]) -> SampledFieldType:
     """
     Concatenates the given `SampledField`s along `dim`.
 
@@ -642,7 +642,7 @@ def stack(fields, dim: Shape, dim_bounds: Box = None):
     raise NotImplementedError(type(fields[0]))
 
 
-def assert_close(*fields: SampledField or Tensor or Number,
+def assert_close(*fields: Union[SampledField, Tensor, Number],
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0,
                  msg: str = "",
@@ -653,7 +653,7 @@ def assert_close(*fields: SampledField or Tensor or Number,
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
 
 
-def where(mask: Field or Geometry or float, field_true: Field or float, field_false: Field or float) -> SampledFieldType:
+def where(mask: Union[Field, Geometry, float], field_true: Union[Field, float], field_false: Union[Field, float]) -> SampledFieldType:
     """
     Element-wise where operation.
     Picks the value of `field_true` where `mask=1 / True` and the value of `field_false` where `mask=0 / False`.
@@ -674,7 +674,7 @@ def where(mask: Field or Geometry or float, field_true: Field or float, field_fa
     return field_true.with_values(values)
 
 
-def maximum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+def maximum(f1: Union[Field, Geometry, float], f2: Union[Field, Geometry, float]):
     """
     Element-wise maximum.
     One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
@@ -691,7 +691,7 @@ def maximum(f1: Field or Geometry or float, f2: Field or Geometry or float):
     return f1.with_values(math.maximum(f1.values, f2.values))
 
 
-def minimum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+def minimum(f1: Union[Field, Geometry, float], f2: Union[Field, Geometry, float]):
     """
     Element-wise minimum.
     One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
@@ -788,9 +788,9 @@ def integrate(field: Field, region: Geometry, **kwargs) -> Tensor:
 
 
 def pack_dims(field: SampledFieldType,
-              dims: Shape or tuple or list or str,
+              dims: Union[Shape, tuple, list, str],
               packed_dim: Shape,
-              pos: int or None = None) -> SampledFieldType:
+              pos: Union[int, None] = None) -> SampledFieldType:
     """
     Currently only supports grids and non-spatial dimensions.
 
@@ -811,7 +811,7 @@ def pack_dims(field: SampledFieldType,
         raise NotImplementedError()
 
 
-def support(field: SampledField, list_dim: Shape or str = instance('nonzero')) -> Tensor:
+def support(field: SampledField, list_dim: Union[Shape, str] = instance('nonzero')) -> Tensor:
     """
     Returns the points at which the field values are non-zero.
 
@@ -825,7 +825,7 @@ def support(field: SampledField, list_dim: Shape or str = instance('nonzero')) -
     return field.points[math.nonzero(field.values, list_dim=list_dim)]
 
 
-def mask(obj: SampledFieldType or Geometry) -> SampledFieldType:
+def mask(obj: Union[SampledFieldType, Geometry]) -> SampledFieldType:
     """
     Returns a `Field` that masks the inside (or non-zero values when `obj` is a grid) of a physical object.
     The mask takes the value 1 inside the object and 0 outside.

@@ -28,15 +28,15 @@ class Solve(Generic[X, Y]):
     """
 
     def __init__(self,
-                 method: str or None = 'auto',
-                 rel_tol: float or Tensor = None,
-                 abs_tol: float or Tensor = None,
-                 x0: X or Any = None,
+                 method: Union[str, None] = 'auto',
+                 rel_tol: Union[float, Tensor] = None,
+                 abs_tol: Union[float, Tensor] = None,
+                 x0: Union[X, Any] = None,
                  max_iterations: Union[int, Tensor] = 1000,
-                 suppress: tuple or list = (),
+                 suppress: Union[tuple, list] = (),
                  preprocess_y: Callable = None,
                  preprocess_y_args: tuple = (),
-                 gradient_solve: 'Solve[Y, X]' or None = None):
+                 gradient_solve: Union['Solve[Y, X]', None] = None):
         method = method or 'auto'
         assert isinstance(method, str)
         self.method: str = method
@@ -138,9 +138,9 @@ class SolveInfo(Generic[X, Y]):
     def __init__(self,
                  solve: Solve,
                  x: X,
-                 residual: Y or None,
-                 iterations: Tensor or None,
-                 function_evaluations: Tensor or None,
+                 residual: Union[Y, None],
+                 iterations: Union[Tensor, None],
+                 function_evaluations: Union[Tensor, None],
                  converged: Tensor,
                  diverged: Tensor,
                  method: str,
@@ -455,7 +455,7 @@ def solve_nonlinear(f: Callable, y, solve: Solve) -> Tensor:
     return minimize(min_func, min_solve)
 
 
-def solve_linear(f: Callable[[X], Y] or Tensor,
+def solve_linear(f: Union[Callable[[X], Y], Tensor],
                  y: Y,
                  solve: Solve[X, Y],
                  *f_args,

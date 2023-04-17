@@ -192,12 +192,12 @@ def nonzero(field: SampledField):
     return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds)
 
 
-def distribute_points(geometries: tuple or list or Geometry or float,
+def distribute_points(geometries: Union[tuple, list, Geometry, float],
                       dim: Shape = instance('points'),
                       points_per_cell: int = 8,
                       center: bool = False,
                       radius: float = None,
-                      extrapolation: float or Extrapolation = math.NAN,
+                      extrapolation: Union[float, Extrapolation] = math.NAN,
                       **domain) -> PointCloud:
     """
     Transforms `Geometry` objects into a PointCloud.

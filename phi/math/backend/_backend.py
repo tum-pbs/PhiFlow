@@ -2,7 +2,7 @@ import sys
 import warnings
 from collections import namedtuple
 from contextlib import contextmanager
-from typing import List, Callable, TypeVar, Tuple, Any
+from typing import List, Callable, TypeVar, Tuple, Any, Union
 
 import logging
 import numpy
@@ -83,7 +83,7 @@ class Backend:
     def name(self) -> str:
         return self._name
 
-    def supports(self, feature: str or Callable) -> bool:
+    def supports(self, feature: Union[str, Callable]) -> bool:
         """
         Tests if this backend supports the given feature.
         Features correspond to a method of this backend that must be implemented if the feature is supported.
@@ -163,7 +163,7 @@ class Backend:
     def __repr__(self):
         return self.name
 
-    def list_devices(self, device_type: str or None = None) -> List[ComputeDevice]:
+    def list_devices(self, device_type: Union[str, None] = None) -> List[ComputeDevice]:
         """
         Fetches information about all available compute devices this backend can use.
 
@@ -192,7 +192,7 @@ class Backend:
     def get_default_device(self) -> ComputeDevice:
         return self._default_device
 
-    def set_default_device(self, device: ComputeDevice or str) -> bool:
+    def set_default_device(self, device: Union[ComputeDevice, str]) -> bool:
         """
         Sets the device new tensors will be allocated on.
         This function will do nothing if the target device type is not available.
@@ -359,7 +359,7 @@ class Backend:
     def jit_compile(self, f: Callable) -> Callable:
         return NotImplemented
 
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+    def jacobian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
         """
         Args:
             f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
@@ -374,7 +374,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -> tuple:
+    def hessian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool) -> tuple:
         """
         First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
         Element-wise Hessians will be computed along the batch dimension.
@@ -405,17 +405,17 @@ class Backend:
         """
         return NotImplemented
 
-    def jit_compile_grad(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+    def jit_compile_grad(self, f: Callable, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
         raise NotImplementedError()
 
-    def jit_compile_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def jit_compile_hessian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool):
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):
         """ Transposes the dimensions of `tensor` given the new axes order. The tensor will be cast to the default precision in the process. """
         raise NotImplementedError()
 
-    def random_uniform(self, shape, low, high, dtype: DType or None):
+    def random_uniform(self, shape, low, high, dtype: Union[DType, None]):
         """ Float tensor of selected precision containing random values in the range [0, 1) """
         raise NotImplementedError(self)
 
@@ -426,7 +426,7 @@ class Backend:
     def stack(self, values, axis=0):
         raise NotImplementedError(self)
 
-    def stack_leaves(self, trees: tuple or list, axis=0):
+    def stack_leaves(self, trees: Union[tuple, list], axis=0):
         tree0 = trees[0]
         if isinstance(tree0, tuple):
             return tuple([self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))])
@@ -462,7 +462,7 @@ class Backend:
     def reshape(self, value, shape):
         raise NotImplementedError(self)
 
-    def flip(self, value, axes: tuple or list):
+    def flip(self, value, axes: Union[tuple, list]):
         slices = tuple(slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value)))
         return value[slices]
 
@@ -513,7 +513,7 @@ class Backend:
     def linspace(self, start, stop, number):
         raise NotImplementedError(self)
 
-    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+    def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
         """ Multiply-sum-reduce a_axes of a with b_axes of b. """
         raise NotImplementedError(self)
 
@@ -526,7 +526,7 @@ class Backend:
     def cumsum(self, x, axis: int):
         raise NotImplementedError(self)
 
-    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: Union[int, Tuple[int, ...], List[int]]):
         """
         If `max_iter is None`, runs
 
@@ -766,7 +766,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def fft(self, x, axes: tuple or list):
+    def fft(self, x, axes: Union[tuple, list]):
         """
         Computes the n-dimensional FFT along all but the first and last dimensions.
 
@@ -779,7 +779,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def ifft(self, k, axes: tuple or list):
+    def ifft(self, k, axes: Union[tuple, list]):
         """
         Computes the n-dimensional inverse FFT along all but the first and last dimensions.
 
@@ -908,7 +908,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
+    def sparse_coo_tensor(self, indices: Union[tuple, list], values, shape: tuple):
         """
         Create a sparse matrix in coordinate list (COO) format.
 
@@ -927,7 +927,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def sparse_coo_tensor_batched(self, indices: tuple or list, values, shape: tuple):
+    def sparse_coo_tensor_batched(self, indices: Union[tuple, list], values, shape: tuple):
         """
         Args:
             indices: shape (batch_size, dims, nnz)
@@ -1414,7 +1414,7 @@ def default_backend() -> Backend:
     return _DEFAULT[-1]
 
 
-def context_backend() -> Backend or None:
+def context_backend() -> Union[Backend, None]:
     """
     Returns the backend set by the inner-most surrounding `with backend:` block.
     If called outside a backend context, returns `None`.

@@ -1,6 +1,6 @@
 import os
 from numbers import Number
-from typing import Callable
+from typing import Callable, Union
 
 import matplotlib.pyplot as plt
 import numpy
@@ -16,9 +16,9 @@ from phi.vis._vis_base import display_name
 from ._matplotlib_plots import MATPLOTLIB
 
 
-def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
-                 names: str or tuple or list or math.Tensor = None,
-                 reduce: str or tuple or list or math.Shape = 'names',
+def plot_scalars(scene: Union[str, tuple, list, Scene, math.Tensor],
+                 names: Union[str, tuple, list, math.Tensor] = None,
+                 reduce: Union[str, tuple, list, math.Shape] = 'names',
                  down='',
                  smooth=1,
                  smooth_alpha=0.2,
@@ -26,7 +26,7 @@ def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
                  size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
-                 grid: str or dict = 'y',
+                 grid: Union[str, dict] = 'y',
                  log_scale='',
                  legend='upper right',
                  x='steps',

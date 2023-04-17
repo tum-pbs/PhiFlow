@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Union
 from numbers import Number
 
 from phi import math
@@ -18,8 +18,8 @@ class AngularVelocity(Field):
     """
 
     def __init__(self,
-                 location: Tensor or tuple or list or Number,
-                 strength: Tensor or Number = 1.0,
+                 location: Union[Tensor, tuple, list, Number],
+                 strength: Union[Tensor, Number] = 1.0,
                  falloff: Callable = None,
                  component: str = None):
         location = wrap(location)

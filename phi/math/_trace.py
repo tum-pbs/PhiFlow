@@ -1,5 +1,5 @@
 from collections import namedtuple
-from typing import Callable, Dict, Set, Tuple
+from typing import Callable, Dict, Set, Tuple, Union
 
 import numpy
 import numpy as np
@@ -46,7 +46,7 @@ class ShiftLinTracer(Tensor):
     def __repr__(self):
         return f"Linear tracer {self._shape}"
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         """
         Evaluates the value of the linear operation applied to the original source tensor.
 

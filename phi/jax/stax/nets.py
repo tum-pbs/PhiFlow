@@ -7,7 +7,7 @@ For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 import functools
 import inspect
 import warnings
-from typing import Callable, Tuple, List
+from typing import Callable, Tuple, List, Union
 
 import numpy
 import jax
@@ -176,7 +176,7 @@ def _recursive_add_parameters(param, wrap: bool, prefix: tuple, result: dict):
             result[name] = phi_tensor
 
 
-def save_state(obj: StaxNet or JaxOptimizer, path: str):
+def save_state(obj: Union[StaxNet, JaxOptimizer], path: str):
     """
     Write the state of a module or optimizer to a file.
 
@@ -196,7 +196,7 @@ def save_state(obj: StaxNet or JaxOptimizer, path: str):
         # numpy.save(path, obj._state)
 
 
-def load_state(obj: StaxNet or JaxOptimizer, path: str):
+def load_state(obj: Union[StaxNet, JaxOptimizer], path: str):
     """
     Read the state of a module or optimizer from a file.
 
@@ -285,7 +285,7 @@ def rmsprop(net: StaxNet, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, we
 
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: Tuple[int, ...] or List[int],
+              layers: Union[Tuple[int, ...], List[int]],
               batch_norm=False,
               activation='ReLU',
               softmax=False) -> StaxNet:
@@ -320,10 +320,10 @@ def dense_net(in_channels: int,
 def u_net(in_channels: int,
           out_channels: int,
           levels: int = 4,
-          filters: int or tuple or list = 16,
+          filters: Union[int, tuple, list] = 16,
           batch_norm: bool = True,
           activation='ReLU',
-          in_spatial: tuple or int = 2,
+          in_spatial: Union[tuple, int] = 2,
           periodic=False,
           use_res_blocks: bool = False) -> StaxNet:
     """
@@ -469,7 +469,7 @@ def create_upsample():
 
 
 def conv_classifier(in_features: int,
-                    in_spatial: tuple or list,
+                    in_spatial: Union[tuple, list],
                     num_classes: int,
                     blocks=(64, 128, 256, 256, 512, 512),
                     dense_layers=(4096, 4096, 100),
@@ -545,11 +545,11 @@ def conv_classifier(in_features: int,
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Tuple[int, ...] or List[int],
+             layers: Union[Tuple[int, ...], List[int]],
              batch_norm: bool = False,
-             activation: str or Callable = 'ReLU',
+             activation: Union[str, Callable] = 'ReLU',
              periodic=False,
-             in_spatial: int or tuple = 2) -> StaxNet:
+             in_spatial: Union[int, tuple] = 2) -> StaxNet:
     """
     Built in Conv-Nets are also provided. Contrary to the classical convolutional neural networks, the feature map spatial size remains the same throughout the layers. Each layer of the network is essentially a convolutional block comprising of two conv layers. A filter size of 3 is used in the convolutional layers.
     Arguments:
@@ -616,11 +616,11 @@ def conv_net(in_channels: int,
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Tuple[int, ...] or List[int],
+            layers: Union[Tuple[int, ...], List[int]],
             batch_norm: bool = False,
-            activation: str or Callable = 'ReLU',
+            activation: Union[str, Callable] = 'ReLU',
             periodic=False,
-            in_spatial: int or tuple = 2) -> StaxNet:
+            in_spatial: Union[int, tuple] = 2) -> StaxNet:
     """
     Built in Res-Nets are provided in the ΦFlow framework. Similar to the conv-net, the feature map spatial size remains the same throughout the layers.
     These networks use residual blocks composed of two conv layers with a skip connection added from the input to the output feature map.
@@ -666,8 +666,8 @@ def resnet_block(in_channels: int,
                  out_channels: int,
                  periodic: bool,
                  batch_norm: bool,
-                 activation: str or Callable = 'ReLU',
-                 d: int or tuple = 2):
+                 activation: Union[str, Callable] = 'ReLU',
+                 d: Union[int, tuple] = 2):
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     init_fn, apply_fn = {}, {}
     init_fn['conv1'], apply_fn['conv1'] = stax.serial(
@@ -757,7 +757,7 @@ def get_mask(inputs, reverse_mask, data_format='NHWC'):
 def Dense_resnet_block(in_channels: int,
                        mid_channels: int,
                        batch_norm: bool = False,
-                       activation: str or Callable = 'ReLU'):
+                       activation: Union[str, Callable] = 'ReLU'):
     inputs = keras.Input(shape=(in_channels,))
     x_1 = inputs
 
@@ -795,11 +795,11 @@ def Dense_resnet_block(in_channels: int,
 
 def conv_net_unit(in_channels: int,
                   out_channels: int,
-                  layers: Tuple[int, ...] or List[int, ...],
+                  layers: Union[Tuple[int, ...], List[int, ...]],
                   periodic: bool = False,
                   batch_norm: bool = False,
-                  activation: str or Callable = 'ReLU',
-                  in_spatial: int or tuple = 2, **kwargs):
+                  activation: Union[str, Callable] = 'ReLU',
+                  in_spatial: Union[int, tuple] = 2, **kwargs):
     """ Conv-net unit for Invertible Nets"""
     if isinstance(in_spatial, int):
         d = in_spatial
@@ -863,11 +863,11 @@ def conv_net_unit(in_channels: int,
 def u_net_unit(in_channels: int,
                out_channels: int,
                levels: int = 4,
-               filters: int or tuple or list = 16,
+               filters: Union[int, tuple, list] = 16,
                batch_norm: bool = True,
                activation='ReLU',
                periodic=False,
-               in_spatial: tuple or int = 2,
+               in_spatial: Union[tuple, int] = 2,
                use_res_blocks: bool = False, **kwargs):
     """ U-net unit for Invertible Nets"""
     if isinstance(filters, (tuple, list)):
@@ -936,11 +936,11 @@ def u_net_unit(in_channels: int,
 
 def res_net_unit(in_channels: int,
                  out_channels: int,
-                 layers: Tuple[int, ...] or List[int],
+                 layers: Union[Tuple[int, ...], List[int]],
                  batch_norm: bool = False,
-                 activation: str or Callable = 'ReLU',
+                 activation: Union[str, Callable] = 'ReLU',
                  periodic=False,
-                 in_spatial: int or tuple = 2, **kwargs):
+                 in_spatial: Union[int, tuple] = 2, **kwargs):
     """ Res-net unit for Invertible Nets"""
     if isinstance(in_spatial, int):
         d = in_spatial
@@ -962,9 +962,9 @@ NET = {'u_net': u_net_unit, 'res_net': res_net_unit, 'conv_net': conv_net_unit}
 
 
 def coupling_layer(in_channels: int,
-                   activation: str or Callable = 'ReLU',
+                   activation: Union[str, Callable] = 'ReLU',
                    batch_norm: bool = False,
-                   in_spatial: int or tuple = 2,
+                   in_spatial: Union[int, tuple] = 2,
                    net: str = 'u_net',
                    reverse_mask: bool = False,
                    **kwargs):
@@ -1045,8 +1045,8 @@ def invertible_net(in_channels: int,
                    num_blocks: int,
                    batch_norm: bool = False,
                    net: str = 'u_net',
-                   activation: str or type = 'ReLU',
-                   in_spatial: tuple or int = 2, **kwargs):
+                   activation: Union[str, type] = 'ReLU',
+                   in_spatial: Union[tuple, int] = 2, **kwargs):
     """
     ΦFlow also provides invertible neural networks that are capable of inverting the output tensor back to the input tensor initially passed.\ These networks have far reaching applications in predicting input parameters of a problem given its observations.\ Invertible nets are composed of multiple concatenated coupling blocks wherein each such block consists of arbitrary neural networks.
 

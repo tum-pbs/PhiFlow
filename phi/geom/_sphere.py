@@ -1,3 +1,5 @@
+from typing import Union
+
 from phi import math
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, Tensor, expand
@@ -12,8 +14,8 @@ class Sphere(Geometry):
 
     def __init__(self,
                  center: Tensor = None,
-                 radius: float or Tensor = None,
-                 **center_: float or Tensor):
+                 radius: Union[float, Tensor] = None,
+                 **center_: Union[float, Tensor]):
         """
         Args:
             center: Sphere center as `Tensor` with `vector` dimension.
@@ -67,7 +69,7 @@ class Sphere(Geometry):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
         return math.any(distance_squared <= self.radius ** 2, self.shape.instance)  # union for instance dimensions
 
-    def approximate_signed_distance(self, location: Tensor or tuple):
+    def approximate_signed_distance(self, location: Union[Tensor, tuple]):
         """
         Computes the exact distance from location to the closest point on the sphere.
         Very close to the sphere center, the distance takes a constant value.
@@ -99,7 +101,7 @@ class Sphere(Geometry):
     def rotated(self, angle):
         return self
 
-    def scaled(self, factor: float or Tensor) -> 'Geometry':
+    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return Sphere(self.center, self.radius * factor)
 
     def __variable_attrs__(self):

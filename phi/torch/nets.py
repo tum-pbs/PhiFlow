@@ -4,7 +4,7 @@ Equivalent functions also exist for the other frameworks.
 
 For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 """
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 import numpy
 import numpy as np
@@ -56,7 +56,7 @@ def get_parameters(net: nn.Module, wrap=True) -> dict:
     return result
 
 
-def save_state(obj: nn.Module or optim.Optimizer, path: str):
+def save_state(obj: Union[nn.Module, optim.Optimizer], path: str):
     """
     Write the state of a module or optimizer to a file.
 
@@ -72,7 +72,7 @@ def save_state(obj: nn.Module or optim.Optimizer, path: str):
     torch.save(obj.state_dict(), path)
 
 
-def load_state(obj: nn.Module or optim.Optimizer, path: str):
+def load_state(obj: Union[nn.Module, optim.Optimizer], path: str):
     """
     Read the state of a module or optimizer from a file.
 
@@ -161,9 +161,9 @@ ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh, 'SiLU': 
 
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: Tuple[int, ...] or List[int],
+              layers: Union[Tuple[int, ...], List[int]],
               batch_norm=False,
-              activation: str or Callable = 'ReLU',
+              activation: Union[str, Callable] = 'ReLU',
               softmax=False) -> nn.Module:
     """
     Fully-connected neural networks are available in Φ-Flow via dense_net().
@@ -217,10 +217,10 @@ class DenseNet(nn.Module):
 def u_net(in_channels: int,
           out_channels: int,
           levels: int = 4,
-          filters: int or tuple or list = 16,
+          filters: Union[int, tuple, list] = 16,
           batch_norm: bool = True,
-          activation: str or type = 'ReLU',
-          in_spatial: tuple or int = 2,
+          activation: Union[str, type] = 'ReLU',
+          in_spatial: Union[tuple, int] = 2,
           periodic=False,
           use_res_blocks: bool = False,
           **kwargs) -> nn.Module:
@@ -310,7 +310,7 @@ MAX_POOL = [None, nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]
 class Down(nn.Module):
     """Downscaling with maxpool then double conv or resnet_block"""
 
-    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: str or type, use_res_blocks: bool, periodic):
+    def __init__(self, d: int, in_channels: int, out_channels: int, batch_norm: bool, activation: Union[str, type], use_res_blocks: bool, periodic):
         super().__init__()
         self.add_module('maxpool', MAX_POOL[d](2))
         if use_res_blocks:
@@ -380,10 +380,10 @@ class ConvNet(nn.Module):
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Tuple[int, ...] or List[int],
+             layers: Union[Tuple[int, ...], List[int]],
              batch_norm: bool = False,
-             activation: str or type = 'ReLU',
-             in_spatial: int or tuple = 2,
+             activation: Union[str, type] = 'ReLU',
+             in_spatial: Union[int, tuple] = 2,
              periodic=False,
              **kwargs) -> nn.Module:
     """
@@ -515,10 +515,10 @@ class ResNet(nn.Module):
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Tuple[int, ...] or List[int],
+            layers: Union[Tuple[int, ...], List[int]],
             batch_norm: bool = False,
-            activation: str or type = 'ReLU',
-            in_spatial: int or tuple = 2,
+            activation: Union[str, type] = 'ReLU',
+            in_spatial: Union[int, tuple] = 2,
             periodic=False,
             **kwargs) -> nn.Module:
     """
@@ -551,7 +551,7 @@ def res_net(in_channels: int,
 
 
 def conv_classifier(in_features: int,
-                    in_spatial: tuple or list,
+                    in_spatial: Union[tuple, list],
                     num_classes: int,
                     blocks=(64, 128, 256, 256, 512, 512),
                     dense_layers=(4096, 4096, 100),
@@ -672,8 +672,8 @@ def invertible_net(in_channels: int,
                    num_blocks: int,
                    batch_norm: bool = False,
                    net: str = 'u_net',
-                   activation: str or type = 'ReLU',
-                   in_spatial: tuple or int = 2, **kwargs):
+                   activation: Union[str, type] = 'ReLU',
+                   in_spatial: Union[tuple, int] = 2, **kwargs):
     """
     Phiflow also provides invertible neural networks that are capable of inverting the output tensor back to the input tensor initially passed.\ These networks have far reaching applications in predicting input parameters of a problem given its observations.\ Invertible nets are composed of multiple concatenated coupling blocks wherein each such block consists of arbitrary neural networks.
 
@@ -704,10 +704,10 @@ def invertible_net(in_channels: int,
 
 
 def coupling_layer(in_channels: int,
-                   activation: str or type = 'ReLU',
+                   activation: Union[str, type] = 'ReLU',
                    batch_norm=False,
                    reverse_mask=False,
-                   in_spatial: tuple or int = 2):
+                   in_spatial: Union[tuple, int] = 2):
     if isinstance(in_spatial, tuple):
         in_spatial = len(in_spatial)
 
@@ -881,8 +881,8 @@ class FNO(nn.Module):
 def fno(in_channels: int,
         out_channels: int,
         mid_channels: int,
-        modes: Tuple[int, ...] or List[int],
-        activation: str or type = 'ReLU',
+        modes: Union[Tuple[int, ...], List[int]],
+        activation: Union[str, type] = 'ReLU',
         batch_norm: bool = False,
         in_spatial: int = 2):
     """

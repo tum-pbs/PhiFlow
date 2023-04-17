@@ -4,7 +4,7 @@ import sys
 import warnings
 from contextlib import contextmanager
 from threading import Thread
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Union
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
@@ -17,10 +17,10 @@ from ..math import Tensor, layout, batch, Shape, wrap, merge_shapes, EMPTY_SHAPE
 from ..math._shape import parse_dim_order, DimFilter
 
 
-def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry,
+def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
          play=True,
-         gui: Gui or str = None,
-         lib: Gui or str = None,
+         gui: Union[Gui, str] = None,
+         lib: Union[Gui, str] = None,
          keep_alive=True,
          **config):
     """
@@ -100,7 +100,7 @@ def close(figure=None):
 RECORDINGS = {}
 
 
-def record(*fields: str or SampledField) -> Viewer:
+def record(*fields: Union[str, SampledField]) -> Viewer:
     user_namespace = get_user_namespace(1)
     variables = _default_field_variables(user_namespace, fields)
     viewer = create_viewer(user_namespace, variables, "record", "", scene=None, asynchronous=False, controls=(),
@@ -110,14 +110,14 @@ def record(*fields: str or SampledField) -> Viewer:
     return viewer
 
 
-def view(*fields: str or SampledField,
+def view(*fields: Union[str, SampledField],
          play: bool = True,
          gui=None,
          name: str = None,
          description: str = None,
-         scene: bool or Scene = False,
+         scene: Union[bool, Scene] = False,
          keep_alive=True,
-         select: str or tuple or list = '',
+         select: Union[str, tuple, list] = '',
          framerate=None,
          namespace=None,
          log_performance=True,
@@ -266,19 +266,19 @@ def get_current_figure():
     return LAST_FIGURE[0]
 
 
-def plot(*fields: SampledField or Tensor,
-         lib: str or PlottingLibrary = None,
+def plot(*fields: Union[SampledField, Tensor],
+         lib: Union[str, PlottingLibrary] = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
          animate: DimFilter = None,
          overlay: DimFilter = 'overlay',
-         title: str or Tensor = None,
+         title: Union[str, Tensor] = None,
          size=(12, 5),
          same_scale=True,
-         log_dims: str or tuple or list or Shape = '',
+         log_dims: Union[str, tuple, list, Shape] = '',
          show_color_bar=True,
-         color: str or int or Tensor = None,
-         alpha: float or Tensor = 1.,
+         color: Union[str, int, Tensor] = None,
+         alpha: Union[float, Tensor] = 1.,
          frame_time=100,
          repeat=True):
     """
@@ -389,7 +389,7 @@ def layout_pytree_node(data, wrap_leaf=False):
     return wrap(data) if wrap_leaf else data
 
 
-def layout_sub_figures(data: Tensor or SampledField,
+def layout_sub_figures(data: Union[Tensor, SampledField],
                        row_dims: DimFilter,
                        col_dims: DimFilter,
                        animate: DimFilter,  # do not reduce these dims, has priority
@@ -398,7 +398,7 @@ def layout_sub_figures(data: Tensor or SampledField,
                        offset_col: int,
                        positioning: Dict[Tuple[int, int], List],
                        indices: Dict[Tuple[int, int], List[dict]],
-                       base_index: Dict[str, int or str]) -> Tuple[int, int, Shape, Shape]:  # rows, cols
+                       base_index: Dict[str, Union[int, str]]) -> Tuple[int, int, Shape, Shape]:  # rows, cols
     if data is None:
         raise ValueError(f"Cannot layout figure for '{data}'")
     data = layout_pytree_node(data)
@@ -470,7 +470,7 @@ def _space(fields: Tuple[Field, ...], ignore_dims: Shape) -> Box:
     return Box(lower, upper)
 
 
-def overlay(*fields: SampledField or Tensor) -> Tensor:
+def overlay(*fields: Union[SampledField, Tensor]) -> Tensor:
     """
     Specify that multiple fields should be drawn on top of one another in the same figure.
     The fields will be plotted in the order they are given, i.e. the last field on top.
@@ -518,7 +518,7 @@ def default_gui() -> Gui:
     raise RuntimeError("No user interface available.")
 
 
-def get_gui(gui: str or Gui) -> Gui:
+def get_gui(gui: Union[str, Gui]) -> Gui:
     if GUI_OVERRIDES:
         return GUI_OVERRIDES[-1]
     if isinstance(gui, str):
@@ -564,7 +564,7 @@ def default_plots() -> PlottingLibrary:
     raise RuntimeError("No user interface available.")
 
 
-def get_plots(lib: str or PlottingLibrary) -> PlottingLibrary:
+def get_plots(lib: Union[str, PlottingLibrary]) -> PlottingLibrary:
     if isinstance(lib, PlottingLibrary):
         return lib
     for loaded_lib in _LOADED_PLOTTING_LIBRARIES:

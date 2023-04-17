@@ -1,4 +1,5 @@
 from numbers import Number
+from typing import Union
 
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
@@ -93,7 +94,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_signed_distance(self, location: Tensor or tuple) -> Tensor:
+    def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
         """
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -115,7 +116,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Union[Tensor, Number] = 0.5) -> Tensor:
         """
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
@@ -251,7 +252,7 @@ class Geometry:
     def __matmul__(self, other):
         return self.at(other)
 
-    def rotated(self, angle: float or Tensor) -> 'Geometry':
+    def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         """
         Returns a rotated version of this geometry.
         The geometry is rotated about its center point.
@@ -264,7 +265,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def scaled(self, factor: float or Tensor) -> 'Geometry':
+    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         """
         Scales each individual geometry by `factor`.
         The individual `center` points act as pivots for the operation.
@@ -373,7 +374,7 @@ class _InvertedGeometry(Geometry):
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
-    def scaled(self, factor: float or Tensor) -> 'Geometry':
+    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return _InvertedGeometry(self.geometry.scaled(factor))
 
     def __getitem__(self, item: dict):
@@ -393,7 +394,7 @@ class _InvertedGeometry(Geometry):
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
         return -self.geometry.approximate_signed_distance(location)
 
-    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Union[Tensor, Number] = 0.5) -> Tensor:
         return 1 - self.geometry.approximate_fraction_inside(other_geometry, 1 - balance)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
@@ -446,7 +447,7 @@ class _NoGeometry(Geometry):
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
-    def scaled(self, factor: float or Tensor) -> 'Geometry':
+    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return self
 
     def __getitem__(self, item: dict):
@@ -476,7 +477,7 @@ class _NoGeometry(Geometry):
     def lies_inside(self, location):
         return math.zeros(non_channel(location), dtype=bool)
 
-    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Tensor or Number = 0.5) -> Tensor:
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Union[Tensor, Number] = 0.5) -> Tensor:
         return math.zeros(other_geometry.shape)
 
     def at(self, center: Tensor) -> 'Geometry':
@@ -523,7 +524,7 @@ class Point(Geometry):
     def lies_inside(self, location: Tensor) -> Tensor:
         return expand(math.wrap(False), shape(location).without('vector'))
 
-    def approximate_signed_distance(self, location: Tensor or tuple) -> Tensor:
+    def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
         return math.vec_abs(location - self._location)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
@@ -558,7 +559,7 @@ class Point(Geometry):
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
-    def scaled(self, factor: float or Tensor) -> 'Geometry':
+    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return self
 
     def __getitem__(self, item):

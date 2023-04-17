@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 
 from phi import geom
@@ -7,7 +9,7 @@ from ._field_math import stack
 from ..math import extrapolation, wrap, tensor, Shape, channel, Tensor, spatial
 
 
-def write(field: SampledField, file: str or Tensor):
+def write(field: SampledField, file: Union[str, Tensor]):
     """
     Writes a field to disc using a NumPy file format.
     Depending on `file`, the data may be split up into multiple files.
@@ -64,7 +66,7 @@ def write_single_field(field: SampledField, file: str):
         raise NotImplementedError(f"{type(field)} not implemented. Only Grid allowed.")
 
 
-def read(file: str or Tensor, convert_to_backend=True) -> SampledField:
+def read(file: Union[str, Tensor], convert_to_backend=True) -> SampledField:
     """
     Loads a previously saved `SampledField` from disc.
 

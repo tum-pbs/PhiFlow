@@ -7,6 +7,8 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 """
+from typing import Union
+
 from phi.math import Solve, channel
 
 from phi import math
@@ -48,7 +50,7 @@ def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = 
 
 def advect(field: SampledField,
            velocity: Field,
-           dt: float or math.Tensor,
+           dt: Union[float, math.Tensor],
            integrator=euler) -> FieldType:
     """
     Advect `field` along the `velocity` vectors using the specified integrator.
