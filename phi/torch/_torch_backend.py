@@ -160,6 +160,10 @@ class TorchBackend(Backend):
         tensors = self.auto_cast(*tensors, bool_to_int=True, int_to_float=True)
         return torch.einsum(equation, *tensors)
 
+    def vectorized_call(self, f, *args):
+        f_vec = torch.vmap(f, 0, 0)
+        return f_vec(*args)
+
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(self, f)
 
