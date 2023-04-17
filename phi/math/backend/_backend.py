@@ -109,6 +109,9 @@ class Backend:
     def prefers_channels_last(self) -> bool:
         raise NotImplementedError()
 
+    def requires_fixed_shapes_when_tracing(self) -> bool:
+        return False
+
     @property
     def precision(self) -> int:
         """ Short for math.backend.get_precision() """
