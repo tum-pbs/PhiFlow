@@ -5,18 +5,15 @@ Equivalent functions also exist for the other frameworks.
 For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 """
 import functools
-import inspect
 import warnings
-from typing import Callable, Tuple, List, Union
+from typing import Callable, Union, Sequence
 
-import numpy
 import jax
 import jax.numpy as jnp
 import keras
 import numpy
 import numpy as np
 from jax import random
-
 from packaging import version
 
 if version.parse(jax.__version__) >= version.parse(
@@ -285,7 +282,7 @@ def rmsprop(net: StaxNet, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08, we
 
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: Union[Tuple[int, ...], List[int]],
+              layers: Sequence[int],
               batch_norm=False,
               activation='ReLU',
               softmax=False) -> StaxNet:
@@ -545,7 +542,7 @@ def conv_classifier(in_features: int,
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Union[Tuple[int, ...], List[int]],
+             layers: Sequence[int],
              batch_norm: bool = False,
              activation: Union[str, Callable] = 'ReLU',
              periodic=False,
@@ -616,7 +613,7 @@ def conv_net(in_channels: int,
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Union[Tuple[int, ...], List[int]],
+            layers: Sequence[int],
             batch_norm: bool = False,
             activation: Union[str, Callable] = 'ReLU',
             periodic=False,
@@ -795,7 +792,7 @@ def Dense_resnet_block(in_channels: int,
 
 def conv_net_unit(in_channels: int,
                   out_channels: int,
-                  layers: Union[Tuple[int, ...], List[int, ...]],
+                  layers: Sequence[int],
                   periodic: bool = False,
                   batch_norm: bool = False,
                   activation: Union[str, Callable] = 'ReLU',
@@ -936,7 +933,7 @@ def u_net_unit(in_channels: int,
 
 def res_net_unit(in_channels: int,
                  out_channels: int,
-                 layers: Union[Tuple[int, ...], List[int]],
+                 layers: Sequence[int],
                  batch_norm: bool = False,
                  activation: Union[str, Callable] = 'ReLU',
                  periodic=False,
