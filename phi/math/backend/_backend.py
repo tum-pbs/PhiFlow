@@ -359,7 +359,14 @@ class Backend:
     def block_until_ready(self, values):
         pass
 
-    def vectorized_call(self, f, *args):
+    def vectorized_call(self, f, *args, output_dtypes=None):
+        """
+        Args:
+            f: Function with only positional tensor argument, returning one or multiple tensors.
+            *args: Batched inputs for `f`. The first dimension of all `args` is vectorized.
+                All tensors in `args` must have the same size or `1` in their first dimension.
+            output_dtypes: Single `DType` or tuple of DTypes declaring the dtypes of the tensors returned by `f`.
+        """
         batch_dim = self.determine_size(args, 0)
         result = []
         for b in range(batch_dim):
