@@ -4,6 +4,7 @@ from unittest import TestCase
 import numpy
 
 import phi
+from phi.math import DType
 from phi.math.backend import ComputeDevice, convert, Backend
 
 BACKENDS: Tuple[Backend] = phi.detect_backends()
@@ -162,4 +163,6 @@ class TestBackends(TestCase):
             values = b.as_tensor([(0, 1, 2, 3), (1, 2, 3, 4)])
             indices = b.as_tensor([(-1, 0)])
             result = b.vectorized_call(gather1d, values, indices)
+            numpy.testing.assert_equal([(3, 0), (4, 1)], b.numpy(result))
+            result = b.vectorized_call(gather1d, values, indices, output_dtypes=b.dtype(values))
             numpy.testing.assert_equal([(3, 0), (4, 1)], b.numpy(result))

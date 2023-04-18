@@ -160,7 +160,11 @@ class TorchBackend(Backend):
         tensors = self.auto_cast(*tensors, bool_to_int=True, int_to_float=True)
         return torch.einsum(equation, *tensors)
 
-    def vectorized_call(self, f, *args):
+    def vectorized_call(self, f, *args, output_dtypes=None):
+        if not hasattr(torch, 'vmap'):
+            return Backend.vectorized_call(self, f, *args, output_dtypes=output_dtypes)
+        batch_size = self.determine_size(args, 0)
+        args = [self.tile_to(t, 0, batch_size) for t in args]
         f_vec = torch.vmap(f, 0, 0)
         return f_vec(*args)
 
