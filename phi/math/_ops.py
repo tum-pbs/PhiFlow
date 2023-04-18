@@ -2579,6 +2579,7 @@ def pairwise_distances(positions: Tensor,
     # --- Sparse neighbor search from here on ---
     assert max_distance is not None, "max_distance must be specified when computing distance in sparse format"
     max_distance = wrap(max_distance)
+    index_dtype = DType(int, 32)
     backend = choose_backend_t(positions, max_distance)
     batch_shape = batch(positions) & batch(max_distance)
     if not dual_dims.well_defined:
@@ -2621,7 +2622,7 @@ def pairwise_distances(positions: Tensor,
         native_max_dist = reshaped_native(max_distance, [batch_shape, primal_dims], force_expand=False)
         def single_search(pos, r):
             return neighbor_search(backend, pos, r, tmp_pair_count=tmp_pair_count, pair_count=pair_count, table_len=table_len, default=default)
-        nat_rows, nat_cols, nat_vals = backend.vectorized_call(single_search, native_positions, native_max_dist)
+        nat_rows, nat_cols, nat_vals = backend.vectorized_call(single_search, native_positions, native_max_dist, output_dtypes=(index_dtype, index_dtype, positions.dtype))
         nat_indices = backend.stack([nat_rows, nat_cols], -1)
         indices = reshaped_tensor(nat_indices, [batch_shape, instance('pairs'), channel(vector=primal_dims.names + dual_dims.names)], convert=False)
         values = reshaped_tensor(nat_vals, [batch_shape, instance('pairs'), channel(positions)])

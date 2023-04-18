@@ -165,7 +165,7 @@ class JaxBackend(Backend):
         result = jnp.nonzero(values)
         return jnp.stack(result, -1)
 
-    def vectorized_call(self, f, *args):
+    def vectorized_call(self, f, *args, output_dtypes=None):
         batch_size = self.determine_size(args, 0)
         args = [self.tile_to(t, 0, batch_size) for t in args]
         vec_f = jax.vmap(f, 0, 0)
