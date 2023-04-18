@@ -17,6 +17,9 @@ from ..math import Shape, batch, stack, unpack_dim, wrap
 from ..math.magic import BoundDim
 
 
+typing_list = list
+
+
 def _filename(simpath, name, frame):
     return join(simpath, f"{slugify(name)}_{frame:06d}.npz")
 
@@ -179,7 +182,7 @@ class Scene:
             return Scene(paths)
 
     @staticmethod
-    def at(directory: Union[str, tuple, list, math.Tensor, 'Scene'], id: Union[int, math.Tensor, None] = None) -> 'Scene':
+    def at(directory: Union[str, tuple, typing_list, math.Tensor, 'Scene'], id: Union[int, math.Tensor, None] = None) -> 'Scene':
         """
         Creates a `Scene` for an existing directory.
 
