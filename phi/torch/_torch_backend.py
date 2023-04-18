@@ -548,6 +548,7 @@ class TorchBackend(Backend):
             return NUMPY.staticshape(tensor)
 
     def gather(self, values, indices, axis: int):
+        indices = self.to_int64(indices)
         slices = [indices if i == axis else slice(None) for i in range(self.ndims(values))]
         return values[tuple(slices)]
 
