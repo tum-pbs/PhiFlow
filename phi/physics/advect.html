@@ -42,6 +42,8 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 &#34;&#34;&#34;
+from typing import Union
+
 from phi.math import Solve, channel
 
 from phi import math
@@ -83,7 +85,7 @@ def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = 
 
 def advect(field: SampledField,
            velocity: Field,
-           dt: float or math.Tensor,
+           dt: Union[float, math.Tensor],
            integrator=euler) -&gt; FieldType:
     &#34;&#34;&#34;
     Advect `field` along the `velocity` vectors using the specified integrator.
@@ -238,7 +240,7 @@ def mac_cormack(field: GridType,
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.advect.advect"><code class="name flex">
-<span>def <span class="ident">advect</span></span>(<span>field: phi.field._field.SampledField, velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;) ‑> ~FieldType</span>
+<span>def <span class="ident">advect</span></span>(<span>field: phi.field._field.SampledField, velocity: phi.field._field.Field, dt: Union[phi.math._tensors.Tensor, float], integrator=&lt;function euler&gt;) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Advect <code>field</code> along the <code>velocity</code> vectors using the specified integrator.</p>
@@ -266,7 +268,7 @@ def mac_cormack(field: GridType,
 </summary>
 <pre><code class="python">def advect(field: SampledField,
            velocity: Field,
-           dt: float or math.Tensor,
+           dt: Union[float, math.Tensor],
            integrator=euler) -&gt; FieldType:
     &#34;&#34;&#34;
     Advect `field` along the `velocity` vectors using the specified integrator.

@@ -195,7 +195,7 @@ Standard extrapolations are listed as global …</p></div>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.math.abs"><code class="name flex">
-<span>def <span class="ident">abs</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">abs</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>||x||<sub>1</sub></em>.
@@ -213,7 +213,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs_(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def abs_(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     Computes *||x||&lt;sub&gt;1&lt;/sub&gt;*.
     Complex `x` result in matching precision float values.
@@ -264,7 +264,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 </details>
 </dd>
 <dt id="phi.math.all"><code class="name flex">
-<span>def <span class="ident">all</span></span>(<span>boolean_tensor: phi.math._tensors.Tensor, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">all</span></span>(<span>boolean_tensor: Union[phi.math._tensors.Tensor, list, tuple], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether all entries of <code>boolean_tensor</code> are <code>True</code> along the specified dimensions.</p>
@@ -291,7 +291,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def all_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) -&gt; Tensor:
+<pre><code class="python">def all_(boolean_tensor: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -&gt; Tensor:
     &#34;&#34;&#34;
     Tests whether all entries of `boolean_tensor` are `True` along the specified dimensions.
 
@@ -362,7 +362,7 @@ Tracing placeholders are considered not available, even when they hold example v
 </details>
 </dd>
 <dt id="phi.math.any"><code class="name flex">
-<span>def <span class="ident">any</span></span>(<span>boolean_tensor: phi.math._tensors.Tensor, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">any</span></span>(<span>boolean_tensor: Union[phi.math._tensors.Tensor, list, tuple], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether any entry of <code>boolean_tensor</code> is <code>True</code> along the specified dimensions.</p>
@@ -389,7 +389,7 @@ Tracing placeholders are considered not available, even when they hold example v
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def any_(boolean_tensor: Tensor or list or tuple, dim: DimFilter = non_batch) -&gt; Tensor:
+<pre><code class="python">def any_(boolean_tensor: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -&gt; Tensor:
     &#34;&#34;&#34;
     Tests whether any entry of `boolean_tensor` is `True` along the specified dimensions.
 
@@ -411,7 +411,7 @@ Tracing placeholders are considered not available, even when they hold example v
 </details>
 </dd>
 <dt id="phi.math.arccos"><code class="name flex">
-<span>def <span class="ident">arccos</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">arccos</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the inverse of <em>cos(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.
@@ -420,7 +420,7 @@ For real arguments, the result lies in the range [0, π].</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def arccos(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def arccos(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes the inverse of *cos(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`.
     For real arguments, the result lies in the range [0, π].
     &#34;&#34;&#34;
@@ -428,7 +428,7 @@ For real arguments, the result lies in the range [0, π].</p></div>
 </details>
 </dd>
 <dt id="phi.math.arccosh"><code class="name flex">
-<span>def <span class="ident">arccosh</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">arccosh</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the inverse of <em>cosh(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -436,13 +436,13 @@ For real arguments, the result lies in the range [0, π].</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def arccosh(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def arccosh(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes the inverse of *cosh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.arccosh)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.arcsin"><code class="name flex">
-<span>def <span class="ident">arcsin</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">arcsin</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the inverse of <em>sin(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.
@@ -451,7 +451,7 @@ For real arguments, the result lies in the range [-π/2, π/2].</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def arcsin(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def arcsin(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes the inverse of *sin(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`.
     For real arguments, the result lies in the range [-π/2, π/2].
     &#34;&#34;&#34;
@@ -459,7 +459,7 @@ For real arguments, the result lies in the range [-π/2, π/2].</p></div>
 </details>
 </dd>
 <dt id="phi.math.arcsinh"><code class="name flex">
-<span>def <span class="ident">arcsinh</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">arcsinh</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the inverse of <em>sinh(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -467,13 +467,13 @@ For real arguments, the result lies in the range [-π/2, π/2].</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def arcsinh(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def arcsinh(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes the inverse of *sinh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.arcsinh)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.arctan"><code class="name flex">
-<span>def <span class="ident">arctan</span></span>(<span>x, divide_by=None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">arctan</span></span>(<span>x, divide_by=None) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the inverse of <em>tan(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p>
@@ -489,7 +489,7 @@ This is equivalent to the common <code>arctan2</code> function.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def arctan(x, divide_by=None) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def arctan(x, divide_by=None) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     Computes the inverse of *tan(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`.
 
@@ -506,7 +506,7 @@ This is equivalent to the common <code>arctan2</code> function.</dd>
 </details>
 </dd>
 <dt id="phi.math.arctanh"><code class="name flex">
-<span>def <span class="ident">arctanh</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">arctanh</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the inverse of <em>tanh(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -514,7 +514,7 @@ This is equivalent to the common <code>arctan2</code> function.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def arctanh(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def arctanh(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes the inverse of *tanh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.arctanh)</code></pre>
 </details>
@@ -582,7 +582,7 @@ Raises an AssertionError if the values of this tensor are not within tolerance o
 </details>
 </dd>
 <dt id="phi.math.batch"><code class="name flex">
-<span>def <span class="ident">batch</span></span>(<span>*args, **dims: int) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">batch</span></span>(<span>*args, **dims: Union[int, str, tuple, list, phi.math._shape.Shape]) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the batch dimensions of an existing <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or creates a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only batch dimensions.</p>
@@ -618,7 +618,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def batch(*args, **dims: int or str or tuple or list or Shape) -&gt; Shape:
+<pre><code class="python">def batch(*args, **dims: Union[int, str, tuple, list, Shape]) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the batch dimensions of an existing `Shape` or creates a new `Shape` with only batch dimensions.
 
@@ -730,7 +730,7 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
 </details>
 </dd>
 <dt id="phi.math.cast"><code class="name flex">
-<span>def <span class="ident">cast</span></span>(<span>x: ~MagicType, dtype: phi.math.backend._dtype.DType) ‑> ~OtherMagicType</span>
+<span>def <span class="ident">cast</span></span>(<span>x: ~MagicType, dtype: Union[phi.math.backend._dtype.DType, type]) ‑> ~OtherMagicType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Casts <code>x</code> to a different data type.</p>
@@ -756,7 +756,7 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cast(x: MagicType, dtype: DType or type) -&gt; OtherMagicType:
+<pre><code class="python">def cast(x: MagicType, dtype: Union[DType, type]) -&gt; OtherMagicType:
     &#34;&#34;&#34;
     Casts `x` to a different data type.
 
@@ -797,7 +797,7 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
 </details>
 </dd>
 <dt id="phi.math.ceil"><code class="name flex">
-<span>def <span class="ident">ceil</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">ceil</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>⌈x⌉</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -805,13 +805,13 @@ All dimensions of <code>mask</code> that are not <code>dim</code> are treated as
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ceil(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def ceil(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *⌈x⌉* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.ceil)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.channel"><code class="name flex">
-<span>def <span class="ident">channel</span></span>(<span>*args, **dims: int) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">channel</span></span>(<span>*args, **dims: Union[int, str, tuple, list, phi.math._shape.Shape]) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the channel dimensions of an existing <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or creates a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only channel dimensions.</p>
@@ -847,7 +847,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def channel(*args, **dims: int or str or tuple or list or Shape) -&gt; Shape:
+<pre><code class="python">def channel(*args, **dims: Union[int, str, tuple, list, Shape]) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the channel dimensions of an existing `Shape` or creates a new `Shape` with only channel dimensions.
 
@@ -925,7 +925,7 @@ Backends need to be registered to be available, e.g. via the global import <code
 </details>
 </dd>
 <dt id="phi.math.clip"><code class="name flex">
-<span>def <span class="ident">clip</span></span>(<span>x: phi.math._tensors.Tensor, lower_limit: float, upper_limit: float)</span>
+<span>def <span class="ident">clip</span></span>(<span>x: phi.math._tensors.Tensor, lower_limit: Union[phi.math._tensors.Tensor, float], upper_limit: Union[phi.math._tensors.Tensor, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Limits the values of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> <code>x</code> to lie between <code>lower_limit</code> and <code>upper_limit</code> (inclusive).</p></div>
@@ -933,7 +933,7 @@ Backends need to be registered to be available, e.g. via the global import <code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def clip(x: Tensor, lower_limit: float or Tensor, upper_limit: float or Tensor):
+<pre><code class="python">def clip(x: Tensor, lower_limit: Union[float, Tensor], upper_limit: Union[float, Tensor]):
     &#34;&#34;&#34; Limits the values of the `Tensor` `x` to lie between `lower_limit` and `upper_limit` (inclusive). &#34;&#34;&#34;
     if isinstance(lower_limit, Number) and isinstance(upper_limit, Number):
 
@@ -1038,7 +1038,7 @@ The result will have 2^d values for each vector in coordiantes in d dimensions.<
 </details>
 </dd>
 <dt id="phi.math.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>values: tuple, dim: str, **kwargs)</span>
+<span>def <span class="ident">concat</span></span>(<span>values: Union[tuple, list], dim: Union[str, phi.math._shape.Shape], **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenates a sequence of <code><a title="phi.math.magic.Shapable" href="magic.html#phi.math.magic.Shapable">Shapable</a></code> objects, e.g. <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, along one dimension.
@@ -1069,7 +1069,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat(values: tuple or list, dim: str or Shape, **kwargs):
+<pre><code class="python">def concat(values: Union[tuple, list], dim: Union[str, Shape], **kwargs):
     &#34;&#34;&#34;
     Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
     All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
@@ -1139,7 +1139,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.concat_shapes"><code class="name flex">
-<span>def <span class="ident">concat_shapes</span></span>(<span>*shapes: phi.math._shape.Shape) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">concat_shapes</span></span>(<span>*shapes: Union[phi.math._shape.Shape, Any]) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> listing the dimensions of all <code>shapes</code> in the given order.</p>
@@ -1156,7 +1156,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat_shapes(*shapes: Shape or Any) -&gt; Shape:
+<pre><code class="python">def concat_shapes(*shapes: Union[Shape, Any]) -&gt; Shape:
     &#34;&#34;&#34;
     Creates a `Shape` listing the dimensions of all `shapes` in the given order.
 
@@ -1180,7 +1180,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.conjugate"><code class="name flex">
-<span>def <span class="ident">conjugate</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">conjugate</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See Also:
@@ -1196,7 +1196,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def conjugate(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def conjugate(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     See Also:
         `imag()`, `real()`.
@@ -1211,7 +1211,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.const_vec"><code class="name flex">
-<span>def <span class="ident">const_vec</span></span>(<span>value: float, dim: phi.math._shape.Shape)</span>
+<span>def <span class="ident">const_vec</span></span>(<span>value: Union[phi.math._tensors.Tensor, float], dim: Union[phi.math._shape.Shape, tuple, list, str])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a single-dimension tensor with all values equal to <code>value</code>.
@@ -1230,7 +1230,7 @@ In the latter case, a new channel dimension named <code>'vector'</code> will be 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def const_vec(value: float or Tensor, dim: Shape or tuple or list or str):
+<pre><code class="python">def const_vec(value: Union[float, Tensor], dim: Union[Shape, tuple, list, str]):
     &#34;&#34;&#34;
     Creates a single-dimension tensor with all values equal to `value`.
     `value` is not converted to the default backend, even when it is a Python primitive.
@@ -1435,7 +1435,7 @@ Otherwise, the <code><a title="phi.math.copy" href="#phi.math.copy">copy()</a></
 </details>
 </dd>
 <dt id="phi.math.cos"><code class="name flex">
-<span>def <span class="ident">cos</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">cos</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>cos(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -1443,13 +1443,13 @@ Otherwise, the <code><a title="phi.math.copy" href="#phi.math.copy">copy()</a></
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cos(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def cos(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *cos(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.cos)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.cosh"><code class="name flex">
-<span>def <span class="ident">cosh</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">cosh</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>cosh(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -1457,7 +1457,7 @@ Otherwise, the <code><a title="phi.math.copy" href="#phi.math.copy">copy()</a></
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cosh(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def cosh(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *cosh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.cosh)</code></pre>
 </details>
@@ -1663,7 +1663,7 @@ Python primitives like <code>float</code>, <code>int</code> or <code>bool</code>
 </details>
 </dd>
 <dt id="phi.math.dim_mask"><code class="name flex">
-<span>def <span class="ident">dim_mask</span></span>(<span>all_dims: phi.math._shape.Shape, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], mask_dim=(vectorᶜ=None)) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">dim_mask</span></span>(<span>all_dims: Union[phi.math._shape.Shape, tuple, list], dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], mask_dim=(vectorᶜ=None)) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a masked vector with 1 elements for <code>dims</code> and 0 for all other dimensions in <code>all_dims</code>.</p>
@@ -1682,7 +1682,7 @@ Python primitives like <code>float</code>, <code>int</code> or <code>bool</code>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def dim_mask(all_dims: Shape or tuple or list, dims: DimFilter, mask_dim=channel(&#39;vector&#39;)) -&gt; Tensor:
+<pre><code class="python">def dim_mask(all_dims: Union[Shape, tuple, list], dims: DimFilter, mask_dim=channel(&#39;vector&#39;)) -&gt; Tensor:
     &#34;&#34;&#34;
     Creates a masked vector with 1 elements for `dims` and 0 for all other dimensions in `all_dims`.
 
@@ -1705,7 +1705,7 @@ Python primitives like <code>float</code>, <code>int</code> or <code>bool</code>
 </details>
 </dd>
 <dt id="phi.math.divide_no_nan"><code class="name flex">
-<span>def <span class="ident">divide_no_nan</span></span>(<span>x: float, y: float)</span>
+<span>def <span class="ident">divide_no_nan</span></span>(<span>x: Union[phi.math._tensors.Tensor, float], y: Union[phi.math._tensors.Tensor, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>x/y</em> with the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>s <code>x</code> and <code>y</code> but returns 0 where <em>y=0</em>.</p></div>
@@ -1713,7 +1713,7 @@ Python primitives like <code>float</code>, <code>int</code> or <code>bool</code>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def divide_no_nan(x: float or Tensor, y: float or Tensor):
+<pre><code class="python">def divide_no_nan(x: Union[float, Tensor], y: Union[float, Tensor]):
     &#34;&#34;&#34; Computes *x/y* with the `Tensor`s `x` and `y` but returns 0 where *y=0*. &#34;&#34;&#34;
     return custom_op2(x, y,
                       l_operator=divide_no_nan,
@@ -1928,7 +1928,7 @@ The grid values at the new points are determined via mean (linear interpolation)
 </details>
 </dd>
 <dt id="phi.math.dual"><code class="name flex">
-<span>def <span class="ident">dual</span></span>(<span>*args, **dims: int) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">dual</span></span>(<span>*args, **dims: Union[int, str, tuple, list, phi.math._shape.Shape]) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the dual dimensions of an existing <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or creates a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only dual dimensions.</p>
@@ -1969,7 +1969,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def dual(*args, **dims: int or str or tuple or list or Shape) -&gt; Shape:
+<pre><code class="python">def dual(*args, **dims: Union[int, str, tuple, list, Shape]) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the dual dimensions of an existing `Shape` or creates a new `Shape` with only dual dimensions.
 
@@ -2040,7 +2040,7 @@ This may result in a noticeable drop in performance.</p></div>
 </details>
 </dd>
 <dt id="phi.math.exp"><code class="name flex">
-<span>def <span class="ident">exp</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">exp</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>exp(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -2048,7 +2048,7 @@ This may result in a noticeable drop in performance.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def exp(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def exp(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *exp(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
@@ -2321,7 +2321,7 @@ If <code>None</code>, performs the FFT along all spatial dimensions of <code>x</
 </details>
 </dd>
 <dt id="phi.math.fftfreq"><code class="name flex">
-<span>def <span class="ident">fftfreq</span></span>(<span>resolution: phi.math._shape.Shape, dx: phi.math._tensors.Tensor = 1, dtype: phi.math.backend._dtype.DType = None)</span>
+<span>def <span class="ident">fftfreq</span></span>(<span>resolution: phi.math._shape.Shape, dx: Union[phi.math._tensors.Tensor, float] = 1, dtype: phi.math.backend._dtype.DType = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the discrete Fourier transform sample frequencies.
@@ -2341,7 +2341,7 @@ These are the frequencies corresponding to the components of the result of <code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def fftfreq(resolution: Shape, dx: Tensor or float = 1, dtype: DType = None):
+<pre><code class="python">def fftfreq(resolution: Shape, dx: Union[Tensor, float] = 1, dtype: DType = None):
     &#34;&#34;&#34;
     Returns the discrete Fourier transform sample frequencies.
     These are the frequencies corresponding to the components of the result of `math.fft` on a tensor of shape `resolution`.
@@ -2425,7 +2425,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 </details>
 </dd>
 <dt id="phi.math.finite_max"><code class="name flex">
-<span>def <span class="ident">finite_max</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;, default: complex = nan)</span>
+<span>def <span class="ident">finite_max</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;, default: Union[complex, float] = nan)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds the maximum along <code>dim</code> ignoring all non-finite values.</p>
@@ -2454,7 +2454,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def finite_max(value, dim: DimFilter = non_batch, default: complex or float = float(&#39;NaN&#39;)):
+<pre><code class="python">def finite_max(value, dim: DimFilter = non_batch, default: Union[complex, float] = float(&#39;NaN&#39;)):
     &#34;&#34;&#34;
     Finds the maximum along `dim` ignoring all non-finite values.
 
@@ -2480,7 +2480,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 </details>
 </dd>
 <dt id="phi.math.finite_mean"><code class="name flex">
-<span>def <span class="ident">finite_mean</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;, default: complex = nan)</span>
+<span>def <span class="ident">finite_mean</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;, default: Union[complex, float] = nan)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the mean value of all finite values in <code>value</code> along <code>dim</code>.</p>
@@ -2509,7 +2509,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def finite_mean(value, dim: DimFilter = non_batch, default: complex or float = float(&#39;NaN&#39;)):
+<pre><code class="python">def finite_mean(value, dim: DimFilter = non_batch, default: Union[complex, float] = float(&#39;NaN&#39;)):
     &#34;&#34;&#34;
     Computes the mean value of all finite values in `value` along `dim`.
 
@@ -2537,7 +2537,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 </details>
 </dd>
 <dt id="phi.math.finite_min"><code class="name flex">
-<span>def <span class="ident">finite_min</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;, default: complex = nan)</span>
+<span>def <span class="ident">finite_min</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;, default: Union[complex, float] = nan)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds the minimum along <code>dim</code> ignoring all non-finite values.</p>
@@ -2566,7 +2566,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def finite_min(value, dim: DimFilter = non_batch, default: complex or float = float(&#39;NaN&#39;)):
+<pre><code class="python">def finite_min(value, dim: DimFilter = non_batch, default: Union[complex, float] = float(&#39;NaN&#39;)):
     &#34;&#34;&#34;
     Finds the minimum along `dim` ignoring all non-finite values.
 
@@ -2592,7 +2592,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 </details>
 </dd>
 <dt id="phi.math.finite_sum"><code class="name flex">
-<span>def <span class="ident">finite_sum</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;, default: complex = nan)</span>
+<span>def <span class="ident">finite_sum</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;, default: Union[complex, float] = nan)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sums all finite values in <code>value</code> along <code>dim</code>.</p>
@@ -2621,7 +2621,7 @@ Where multiple finite values could fill an invalid value, the average is compute
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def finite_sum(value, dim: DimFilter = non_batch, default: complex or float = float(&#39;NaN&#39;)):
+<pre><code class="python">def finite_sum(value, dim: DimFilter = non_batch, default: Union[complex, float] = float(&#39;NaN&#39;)):
     &#34;&#34;&#34;
     Sums all finite values in `value` along `dim`.
 
@@ -2710,7 +2710,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.floor"><code class="name flex">
-<span>def <span class="ident">floor</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">floor</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>⌊x⌋</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -2718,13 +2718,13 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def floor(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def floor(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *⌊x⌋* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.floor)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.fourier_laplace"><code class="name flex">
-<span>def <span class="ident">fourier_laplace</span></span>(<span>grid: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor, times: int = 1)</span>
+<span>def <span class="ident">fourier_laplace</span></span>(<span>grid: phi.math._tensors.Tensor, dx: Union[phi.math._tensors.Tensor, phi.math._shape.Shape, float, list, tuple], times: int = 1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Applies the spatial laplace operator to the given tensor with periodic boundary conditions.</p>
@@ -2754,7 +2754,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def fourier_laplace(grid: Tensor,
-                    dx: Tensor or Shape or float or list or tuple,
+                    dx: Union[Tensor, Shape, float, list, tuple],
                     times: int = 1):
     &#34;&#34;&#34;
     Applies the spatial laplace operator to the given tensor with periodic boundary conditions.
@@ -2784,7 +2784,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 </details>
 </dd>
 <dt id="phi.math.fourier_poisson"><code class="name flex">
-<span>def <span class="ident">fourier_poisson</span></span>(<span>grid: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor, times: int = 1)</span>
+<span>def <span class="ident">fourier_poisson</span></span>(<span>grid: phi.math._tensors.Tensor, dx: Union[phi.math._tensors.Tensor, phi.math._shape.Shape, float, list, tuple], times: int = 1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Inverse operation to <code><a title="phi.math.fourier_laplace" href="#phi.math.fourier_laplace">fourier_laplace()</a></code>.</p>
@@ -2804,7 +2804,7 @@ The result for periodic fields is exact, i.e. no numerical instabilities can occ
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def fourier_poisson(grid: Tensor,
-                    dx: Tensor or Shape or float or list or tuple,
+                    dx: Union[Tensor, Shape, float, list, tuple],
                     times: int = 1):
     &#34;&#34;&#34;
     Inverse operation to `fourier_laplace`.
@@ -3014,7 +3014,7 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 </details>
 </dd>
 <dt id="phi.math.gather"><code class="name flex">
-<span>def <span class="ident">gather</span></span>(<span>values: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None)</span>
+<span>def <span class="ident">gather</span></span>(<span>values: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable, None] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Gathers the entries of <code>values</code> at positions described by <code>indices</code>.
@@ -3040,7 +3040,7 @@ If <code>None</code> and no index item names are specified, will default to all 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gather(values: Tensor, indices: Tensor, dims: DimFilter or None = None):
+<pre><code class="python">def gather(values: Tensor, indices: Tensor, dims: Union[DimFilter, None] = None):
     &#34;&#34;&#34;
     Gathers the entries of `values` at positions described by `indices`.
     All non-channel dimensions of `indices` that are part of `values` but not indexed are treated as batch dimensions.
@@ -3379,7 +3379,7 @@ If <code>None</code>, performs the inverse FFT along all spatial dimensions of <
 </details>
 </dd>
 <dt id="phi.math.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">imag</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the imaginary part of <code>x</code>.
@@ -3397,7 +3397,7 @@ If <code>x</code> does not store complex numbers, returns a zero tensor with the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def imag(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     Returns the imaginary part of `x`.
     If `x` does not store complex numbers, returns a zero tensor with the same shape and dtype as this tensor.
@@ -3415,7 +3415,7 @@ If <code>x</code> does not store complex numbers, returns a zero tensor with the
 </details>
 </dd>
 <dt id="phi.math.instance"><code class="name flex">
-<span>def <span class="ident">instance</span></span>(<span>*args, **dims: int) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">instance</span></span>(<span>*args, **dims: Union[int, str, tuple, list, phi.math._shape.Shape]) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the instance dimensions of an existing <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or creates a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only instance dimensions.</p>
@@ -3451,7 +3451,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def instance(*args, **dims: int or str or tuple or list or Shape) -&gt; Shape:
+<pre><code class="python">def instance(*args, **dims: Union[int, str, tuple, list, Shape]) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the instance dimensions of an existing `Shape` or creates a new `Shape` with only instance dimensions.
 
@@ -3494,7 +3494,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 </details>
 </dd>
 <dt id="phi.math.is_finite"><code class="name flex">
-<span>def <span class="ident">is_finite</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">is_finite</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
@@ -3502,7 +3502,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def is_finite(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def is_finite(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
@@ -3542,7 +3542,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 </details>
 </dd>
 <dt id="phi.math.isfinite"><code class="name flex">
-<span>def <span class="ident">isfinite</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">isfinite</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
@@ -3550,13 +3550,13 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def is_finite(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def is_finite(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.iterate"><code class="name flex">
-<span>def <span class="ident">iterate</span></span>(<span>f: Callable, iterations: int, *x0, f_kwargs: dict = None, range: Callable = builtins.range, measure: Callable = None, **f_kwargs_)</span>
+<span>def <span class="ident">iterate</span></span>(<span>f: Callable, iterations: Union[int, phi.math._shape.Shape], *x0, f_kwargs: dict = None, range: Callable = builtins.range, measure: Callable = None, **f_kwargs_)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Repeatedly call <code>function</code>, passing the previous output as the next input.</p>
@@ -3593,7 +3593,7 @@ These arguments can be of any type.</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def iterate(f: Callable,
-            iterations: int or Shape,
+            iterations: Union[int, Shape],
             *x0,
             f_kwargs: dict = None,
             range: Callable = range,
@@ -4011,7 +4011,7 @@ For <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.
 </details>
 </dd>
 <dt id="phi.math.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>x: phi.math._tensors.Tensor, dx: phi.math._tensors.Tensor = 1, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, weights: phi.math._tensors.Tensor = None)</span>
+<span>def <span class="ident">laplace</span></span>(<span>x: phi.math._tensors.Tensor, dx: Union[phi.math._tensors.Tensor, float] = 1, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, weights: phi.math._tensors.Tensor = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spatial Laplace operator as defined for scalar fields.
@@ -4037,7 +4037,7 @@ Must be a Tensor with a single channel dimension that lists all laplace dims by 
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def laplace(x: Tensor,
-            dx: Tensor or float = 1,
+            dx: Union[Tensor, float] = 1,
             padding: Extrapolation = extrapolation.BOUNDARY,
             dims: DimFilter = spatial,
             weights: Tensor = None):
@@ -4169,7 +4169,7 @@ Calling <code><a title="phi.math.Tensor.native" href="#phi.math.Tensor.native">T
 </details>
 </dd>
 <dt id="phi.math.linspace"><code class="name flex">
-<span>def <span class="ident">linspace</span></span>(<span>start: int, stop, dim: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">linspace</span></span>(<span>start: Union[int, phi.math._tensors.Tensor], stop, dim: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns <code>number</code> evenly spaced numbers between <code>start</code> and <code>stop</code>.</p>
@@ -4199,7 +4199,7 @@ The values will be laid out along <code>dim</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def linspace(start: int or Tensor, stop, dim: Shape) -&gt; Tensor:
+<pre><code class="python">def linspace(start: Union[int, Tensor], stop, dim: Shape) -&gt; Tensor:
     &#34;&#34;&#34;
     Returns `number` evenly spaced numbers between `start` and `stop`.
 
@@ -4236,7 +4236,7 @@ The values will be laid out along <code>dim</code>.</dd>
 </details>
 </dd>
 <dt id="phi.math.log"><code class="name flex">
-<span>def <span class="ident">log</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">log</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the natural logarithm of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -4244,13 +4244,13 @@ The values will be laid out along <code>dim</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def log(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes the natural logarithm of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.log)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.log10"><code class="name flex">
-<span>def <span class="ident">log10</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">log10</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>log(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> with base 10.</p></div>
@@ -4258,13 +4258,13 @@ The values will be laid out along <code>dim</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log10(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def log10(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *log(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x` with base 10. &#34;&#34;&#34;
     return _backend_op1(x, Backend.log10)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.log2"><code class="name flex">
-<span>def <span class="ident">log2</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">log2</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>log(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> with base 2.</p></div>
@@ -4272,13 +4272,13 @@ The values will be laid out along <code>dim</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log2(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def log2(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *log(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x` with base 2. &#34;&#34;&#34;
     return _backend_op1(x, Backend.log2)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.map"><code class="name flex">
-<span>def <span class="ident">map</span></span>(<span>function, *values, range=builtins.range, **kwargs) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">map</span></span>(<span>function, *values, range=builtins.range, **kwargs) ‑> Optional[phi.math._tensors.Tensor]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calls <code>function</code> on all elements of <code>values</code>.</p>
@@ -4301,7 +4301,7 @@ Their shapes are not broadcast with the positional arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def map_(function, *values, range=range, **kwargs) -&gt; Tensor or None:
+<pre><code class="python">def map_(function, *values, range=range, **kwargs) -&gt; Union[Tensor, None]:
     &#34;&#34;&#34;
     Calls `function` on all elements of `values`.
 
@@ -4372,7 +4372,7 @@ Their shapes are not broadcast with the positional arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.map_types"><code class="name flex">
-<span>def <span class="ident">map_types</span></span>(<span>f: Callable, dims: phi.math._shape.Shape, dim_type: Callable) ‑> Callable</span>
+<span>def <span class="ident">map_types</span></span>(<span>f: Callable, dims: Union[phi.math._shape.Shape, tuple, list, str, Callable], dim_type: Union[str, Callable]) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Wraps a function to change the dimension types of its <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> and <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> arguments.</p>
@@ -4393,7 +4393,7 @@ These dimensions will be mapped to <code>dim_type</code> for all positional func
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def map_types(f: Callable, dims: Shape or tuple or list or str or Callable, dim_type: Callable or str) -&gt; Callable:
+<pre><code class="python">def map_types(f: Callable, dims: Union[Shape, tuple, list, str, Callable], dim_type: Union[Callable, str]) -&gt; Callable:
     &#34;&#34;&#34;
     Wraps a function to change the dimension types of its `Tensor` and `phi.math.magic.PhiTreeNode` arguments.
 
@@ -4601,7 +4601,7 @@ Input dimensions will be <code><a title="phi.math.dual" href="#phi.math.dual">du
 </details>
 </dd>
 <dt id="phi.math.max"><code class="name flex">
-<span>def <span class="ident">max</span></span>(<span>value: phi.math._tensors.Tensor, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">max</span></span>(<span>value: Union[phi.math._tensors.Tensor, list, tuple], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Determines the maximum value of <code>values</code> along the specified dimensions.</p>
@@ -4628,7 +4628,7 @@ Input dimensions will be <code><a title="phi.math.dual" href="#phi.math.dual">du
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def max_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -&gt; Tensor:
+<pre><code class="python">def max_(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -&gt; Tensor:
     &#34;&#34;&#34;
     Determines the maximum value of `values` along the specified dimensions.
 
@@ -4650,7 +4650,7 @@ Input dimensions will be <code><a title="phi.math.dual" href="#phi.math.dual">du
 </details>
 </dd>
 <dt id="phi.math.maximum"><code class="name flex">
-<span>def <span class="ident">maximum</span></span>(<span>x: phi.math._tensors.Tensor, y: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">maximum</span></span>(<span>x: Union[phi.math._tensors.Tensor, float], y: Union[phi.math._tensors.Tensor, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the element-wise maximum of <code>x</code> and <code>y</code>.</p></div>
@@ -4658,13 +4658,13 @@ Input dimensions will be <code><a title="phi.math.dual" href="#phi.math.dual">du
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def maximum(x: Tensor or float, y: Tensor or float):
+<pre><code class="python">def maximum(x: Union[Tensor, float], y: Union[Tensor, float]):
     &#34;&#34;&#34; Computes the element-wise maximum of `x` and `y`. &#34;&#34;&#34;
     return custom_op2(x, y, maximum, lambda x_, y_: choose_backend(x_, y_).maximum(x_, y_), op_name=&#39;maximum&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.mean"><code class="name flex">
-<span>def <span class="ident">mean</span></span>(<span>value: phi.math._tensors.Tensor, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">mean</span></span>(<span>value: Union[phi.math._tensors.Tensor, list, tuple], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the mean over <code>values</code> along the specified dimensions.</p>
@@ -4691,7 +4691,7 @@ Input dimensions will be <code><a title="phi.math.dual" href="#phi.math.dual">du
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mean(value: Tensor or list or tuple, dim: DimFilter = non_batch) -&gt; Tensor:
+<pre><code class="python">def mean(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the mean over `values` along the specified dimensions.
 
@@ -4767,7 +4767,7 @@ For odd dimension sizes (ambigous choice), the linear average of the two median 
 </details>
 </dd>
 <dt id="phi.math.merge_shapes"><code class="name flex">
-<span>def <span class="ident">merge_shapes</span></span>(<span>*objs: phi.math._shape.Shape, order=(&lt;function batch&gt;, &lt;function dual&gt;, &lt;function instance&gt;, &lt;function spatial&gt;, &lt;function channel&gt;), allow_varying_sizes=False)</span>
+<span>def <span class="ident">merge_shapes</span></span>(<span>*objs: Union[phi.math._shape.Shape, Any], order=(&lt;function batch&gt;, &lt;function dual&gt;, &lt;function instance&gt;, &lt;function spatial&gt;, &lt;function channel&gt;), allow_varying_sizes=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Combines <code>shapes</code> into a single <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>, grouping dimensions by type.
@@ -4790,7 +4790,7 @@ If dimensions with equal names are present in multiple shapes, their types and s
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def merge_shapes(*objs: Shape or Any, order=(batch, dual, instance, spatial, channel), allow_varying_sizes=False):
+<pre><code class="python">def merge_shapes(*objs: Union[Shape, Any], order=(batch, dual, instance, spatial, channel), allow_varying_sizes=False):
     &#34;&#34;&#34;
     Combines `shapes` into a single `Shape`, grouping dimensions by type.
     If dimensions with equal names are present in multiple shapes, their types and sizes must match.
@@ -4844,7 +4844,7 @@ If dimensions with equal names are present in multiple shapes, their types and s
 </details>
 </dd>
 <dt id="phi.math.meshgrid"><code class="name flex">
-<span>def <span class="ident">meshgrid</span></span>(<span>dim_type=&lt;function spatial&gt;, stack_dim=(vectorᶜ=None), assign_item_names=True, **dimensions: int) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">meshgrid</span></span>(<span>dim_type=&lt;function spatial&gt;, stack_dim=(vectorᶜ=None), assign_item_names=True, **dimensions: Union[int, phi.math._tensors.Tensor]) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate a mesh-grid <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> from keyword dimensions.</p>
@@ -4866,7 +4866,7 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def meshgrid(dim_type=spatial, stack_dim=channel(&#39;vector&#39;), assign_item_names=True, **dimensions: int or Tensor) -&gt; Tensor:
+<pre><code class="python">def meshgrid(dim_type=spatial, stack_dim=channel(&#39;vector&#39;), assign_item_names=True, **dimensions: Union[int, Tensor]) -&gt; Tensor:
     &#34;&#34;&#34;
     Generate a mesh-grid `Tensor` from keyword dimensions.
 
@@ -4908,7 +4908,7 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
 </details>
 </dd>
 <dt id="phi.math.min"><code class="name flex">
-<span>def <span class="ident">min</span></span>(<span>value: phi.math._tensors.Tensor, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">min</span></span>(<span>value: Union[phi.math._tensors.Tensor, list, tuple], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Determines the minimum value of <code>values</code> along the specified dimensions.</p>
@@ -4935,7 +4935,7 @@ Values may be <code>int</code>, 1D <code><a title="phi.math.Tensor" href="#phi.m
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def min_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -&gt; Tensor:
+<pre><code class="python">def min_(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -&gt; Tensor:
     &#34;&#34;&#34;
     Determines the minimum value of `values` along the specified dimensions.
 
@@ -5097,7 +5097,7 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
 </details>
 </dd>
 <dt id="phi.math.minimum"><code class="name flex">
-<span>def <span class="ident">minimum</span></span>(<span>x: phi.math._tensors.Tensor, y: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">minimum</span></span>(<span>x: Union[phi.math._tensors.Tensor, float], y: Union[phi.math._tensors.Tensor, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the element-wise minimum of <code>x</code> and <code>y</code>.</p></div>
@@ -5105,13 +5105,13 @@ The first return value of <code>f</code> must be a scalar float <code><a title="
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimum(x: Tensor or float, y: Tensor or float):
+<pre><code class="python">def minimum(x: Union[Tensor, float], y: Union[Tensor, float]):
     &#34;&#34;&#34; Computes the element-wise minimum of `x` and `y`. &#34;&#34;&#34;
     return custom_op2(x, y, minimum, lambda x_, y_: choose_backend(x_, y_).minimum(x_, y_), op_name=&#39;minimum&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.native"><code class="name flex">
-<span>def <span class="ident">native</span></span>(<span>value: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">native</span></span>(<span>value: Union[phi.math._tensors.Tensor, numbers.Number, tuple, list, Any])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the native tensor representation of <code>value</code>.
@@ -5130,7 +5130,7 @@ Otherwise, checks that <code>value</code> is a valid tensor object and returns i
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def native(value: Tensor or Number or tuple or list or Any):
+<pre><code class="python">def native(value: Union[Tensor, Number, tuple, list, Any]):
     &#34;&#34;&#34;
     Returns the native tensor representation of `value`.
     If `value` is a `phi.math.Tensor`, this is equal to calling `phi.math.Tensor.native()`.
@@ -5426,7 +5426,7 @@ and single channel dimension <code>channel_dim</code>.</p></div>
 </details>
 </dd>
 <dt id="phi.math.nonzero"><code class="name flex">
-<span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim: phi.math._shape.Shape = (nonzeroⁱ=None), index_dim: phi.math._shape.Shape = (vectorᶜ=None))</span>
+<span>def <span class="ident">nonzero</span></span>(<span>value: phi.math._tensors.Tensor, list_dim: Union[str, phi.math._shape.Shape] = (nonzeroⁱ=None), index_dim: phi.math._shape.Shape = (vectorᶜ=None))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get spatial indices of non-zero / True values.</p>
@@ -5454,7 +5454,7 @@ If channel dimensions are present, this method returns the indices where any com
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def nonzero(value: Tensor, list_dim: Shape or str = instance(&#39;nonzero&#39;), index_dim: Shape = channel(&#39;vector&#39;)):
+<pre><code class="python">def nonzero(value: Tensor, list_dim: Union[Shape, str] = instance(&#39;nonzero&#39;), index_dim: Shape = channel(&#39;vector&#39;)):
     &#34;&#34;&#34;
     Get spatial indices of non-zero / True values.
     
@@ -5494,7 +5494,7 @@ If channel dimensions are present, this method returns the indices where any com
 </details>
 </dd>
 <dt id="phi.math.normalize_to"><code class="name flex">
-<span>def <span class="ident">normalize_to</span></span>(<span>target: phi.math._tensors.Tensor, source: float, epsilon=1e-05)</span>
+<span>def <span class="ident">normalize_to</span></span>(<span>target: phi.math._tensors.Tensor, source: Union[phi.math._tensors.Tensor, float], epsilon=1e-05)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Multiplies the target so that its sum matches the source.</p>
@@ -5513,7 +5513,7 @@ If channel dimensions are present, this method returns the indices where any com
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def normalize_to(target: Tensor, source: float or Tensor, epsilon=1e-5):
+<pre><code class="python">def normalize_to(target: Tensor, source: Union[float, Tensor], epsilon=1e-5):
     &#34;&#34;&#34;
     Multiplies the target so that its sum matches the source.
 
@@ -5532,7 +5532,7 @@ If channel dimensions are present, this method returns the indices where any com
 </details>
 </dd>
 <dt id="phi.math.numpy"><code class="name flex">
-<span>def <span class="ident">numpy</span></span>(<span>value: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">numpy</span></span>(<span>value: Union[phi.math._tensors.Tensor, numbers.Number, tuple, list, Any])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts <code>value</code> to a <code>numpy.ndarray</code> where value must be a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code>, backend tensor or tensor-like.
@@ -5550,7 +5550,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def numpy(value: Tensor or Number or tuple or list or Any):
+<pre><code class="python">def numpy(value: Union[Tensor, Number, tuple, list, Any]):
     &#34;&#34;&#34;
     Converts `value` to a `numpy.ndarray` where value must be a `Tensor`, backend tensor or tensor-like.
     If `value` is a `phi.math.Tensor`, this is equal to calling `phi.math.Tensor.numpy()`.
@@ -5631,7 +5631,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 </details>
 </dd>
 <dt id="phi.math.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], packed_dim: phi.math._shape.Shape, pos: int = None, **kwargs)</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], packed_dim: phi.math._shape.Shape, pos: Optional[int] = None, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
@@ -5668,7 +5668,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None, **kwargs):
+<pre><code class="python">def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: Union[int, None] = None, **kwargs):
     &#34;&#34;&#34;
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
@@ -5725,7 +5725,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.pad"><code class="name flex">
-<span>def <span class="ident">pad</span></span>(<span>value: phi.math._tensors.Tensor, widths: dict, mode: e_.Extrapolation, **kwargs) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">pad</span></span>(<span>value: phi.math._tensors.Tensor, widths: dict, mode: Union[ForwardRef('e_.Extrapolation'), phi.math._tensors.Tensor, numbers.Number], **kwargs) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
@@ -5758,7 +5758,7 @@ Grid classes from <code><a title="phi.field" href="../field/index.html">phi.fiel
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pad(value: Tensor, widths: dict, mode: &#39;e_.Extrapolation&#39; or Tensor or Number, **kwargs) -&gt; Tensor:
+<pre><code class="python">def pad(value: Tensor, widths: dict, mode: Union[&#39;e_.Extrapolation&#39;, Tensor, Number], **kwargs) -&gt; Tensor:
     &#34;&#34;&#34;
     Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
     Unlike `Extrapolation.pad()`, this function can handle negative widths which slice off outer values.
@@ -5796,7 +5796,7 @@ Grid classes from <code><a title="phi.field" href="../field/index.html">phi.fiel
 </details>
 </dd>
 <dt id="phi.math.pairwise_distances"><code class="name flex">
-<span>def <span class="ident">pairwise_distances</span></span>(<span>positions: phi.math._tensors.Tensor, max_distance: float = None, others_dims=(othersⁱ=None), format='dense') ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">pairwise_distances</span></span>(<span>positions: phi.math._tensors.Tensor, max_distance: Union[phi.math._tensors.Tensor, float] = None, others_dims=(othersⁱ=None), format='dense') ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the distance matrix containing the pairwise position differences between each pair of points.
@@ -5830,7 +5830,7 @@ One of <code>'dense', 'csr'</code></p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pairwise_distances(positions: Tensor, max_distance: float or Tensor = None, others_dims=instance(&#39;others&#39;), format=&#39;dense&#39;) -&gt; Tensor:
+<pre><code class="python">def pairwise_distances(positions: Tensor, max_distance: Union[float, Tensor] = None, others_dims=instance(&#39;others&#39;), format=&#39;dense&#39;) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the distance matrix containing the pairwise position differences between each pair of points.
     Points that are further apart than `max_distance` are assigned a distance value of `0`.
@@ -5937,7 +5937,7 @@ def precision(floating_point_bits: int):
 </details>
 </dd>
 <dt id="phi.math.print"><code class="name flex">
-<span>def <span class="ident">print</span></span>(<span>obj: phi.math._tensors.Tensor = None, name: str = '')</span>
+<span>def <span class="ident">print</span></span>(<span>obj: Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>, numbers.Number, tuple, list, None] = None, name: str = '')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.</p>
@@ -5956,7 +5956,7 @@ Typically, this means x right, y up.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def print_(obj: Tensor or PhiTreeNode or Number or tuple or list or None = None, name: str = &#34;&#34;):
+<pre><code class="python">def print_(obj: Union[Tensor, PhiTreeNode, Number, tuple, list, None] = None, name: str = &#34;&#34;):
     &#34;&#34;&#34;
     Print a tensor with no more than two spatial dimensions, slicing it along all batch and channel dimensions.
     
@@ -6064,7 +6064,7 @@ math.jacobian(f)(math.ones(x=6))
 </details>
 </dd>
 <dt id="phi.math.prod"><code class="name flex">
-<span>def <span class="ident">prod</span></span>(<span>value: phi.math._tensors.Tensor, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">prod</span></span>(<span>value: Union[phi.math._tensors.Tensor, list, tuple], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Multiplies <code>values</code> along the specified dimensions.</p>
@@ -6091,7 +6091,7 @@ math.jacobian(f)(math.ones(x=6))
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def prod(value: Tensor or list or tuple, dim: DimFilter = non_batch) -&gt; Tensor:
+<pre><code class="python">def prod(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -&gt; Tensor:
     &#34;&#34;&#34;
     Multiplies `values` along the specified dimensions.
 
@@ -6113,7 +6113,7 @@ math.jacobian(f)(math.ones(x=6))
 </details>
 </dd>
 <dt id="phi.math.quantile"><code class="name flex">
-<span>def <span class="ident">quantile</span></span>(<span>value: phi.math._tensors.Tensor, quantiles: float, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;)</span>
+<span>def <span class="ident">quantile</span></span>(<span>value: phi.math._tensors.Tensor, quantiles: Union[float, tuple, list, phi.math._tensors.Tensor], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compute the q-th quantile of <code>value</code> along <code>dim</code> for each q in <code>quantiles</code>.</p>
@@ -6151,7 +6151,7 @@ Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <co
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def quantile(value: Tensor,
-             quantiles: float or tuple or list or Tensor,
+             quantiles: Union[float, tuple, list, Tensor],
              dim: DimFilter = non_batch):
     &#34;&#34;&#34;
     Compute the q-th quantile of `value` along `dim` for each q in `quantiles`.
@@ -6240,7 +6240,7 @@ Must be of type <code>float</code>, <code>tuple</code>, <code>list</code> or <co
 </details>
 </dd>
 <dt id="phi.math.random_uniform"><code class="name flex">
-<span>def <span class="ident">random_uniform</span></span>(<span>*shape: phi.math._shape.Shape, low: phi.math._tensors.Tensor = 0, high: phi.math._tensors.Tensor = 1, dtype: phi.math.backend._dtype.DType = None) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">random_uniform</span></span>(<span>*shape: phi.math._shape.Shape, low: Union[phi.math._tensors.Tensor, float] = 0, high: Union[phi.math._tensors.Tensor, float] = 1, dtype: Union[phi.math.backend._dtype.DType, tuple] = None) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> with the specified shape, filled with random values sampled from a uniform distribution.</p>
@@ -6264,9 +6264,9 @@ If not specified, a <code>float</code> tensor with the current default precision
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def random_uniform(*shape: Shape,
-                   low: Tensor or float = 0,
-                   high: Tensor or float = 1,
-                   dtype: DType or tuple = None) -&gt; Tensor:
+                   low: Union[Tensor, float] = 0,
+                   high: Union[Tensor, float] = 1,
+                   dtype: Union[DType, tuple] = None) -&gt; Tensor:
     &#34;&#34;&#34;
     Creates a `Tensor` with the specified shape, filled with random values sampled from a uniform distribution.
 
@@ -6288,7 +6288,7 @@ If not specified, a <code>float</code> tensor with the current default precision
 </details>
 </dd>
 <dt id="phi.math.range"><code class="name flex">
-<span>def <span class="ident">range</span></span>(<span>dim: phi.math._shape.Shape, start_or_stop: int = None, stop: int = None, step=1)</span>
+<span>def <span class="ident">range</span></span>(<span>dim: phi.math._shape.Shape, start_or_stop: Optional[int] = None, stop: Optional[int] = None, step=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns evenly spaced values between <code>start</code> and <code>stop</code>.
@@ -6313,7 +6313,7 @@ The <code>size</code> of <code>dim</code> is interpreted as <code>stop</code> un
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def arange(dim: Shape, start_or_stop: int or None = None, stop: int or None = None, step=1):
+<pre><code class="python">def arange(dim: Shape, start_or_stop: Union[int, None] = None, stop: Union[int, None] = None, step=1):
     &#34;&#34;&#34;
     Returns evenly spaced values between `start` and `stop`.
     If only one limit is given, `0` is used for the start.
@@ -6382,7 +6382,7 @@ For 1D tensors, this equivalent to <code>arange()</code> with <code>step=1</code
 </details>
 </dd>
 <dt id="phi.math.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">real</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See Also:
@@ -6398,7 +6398,7 @@ For 1D tensors, this equivalent to <code>arange()</code> with <code>step=1</code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def real(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     See Also:
         `imag()`, `conjugate()`.
@@ -6550,7 +6550,7 @@ Otherwise, the <code><a title="phi.math.copy" href="#phi.math.copy">copy()</a></
 </details>
 </dd>
 <dt id="phi.math.reshaped_native"><code class="name flex">
-<span>def <span class="ident">reshaped_native</span></span>(<span>value: phi.math._tensors.Tensor, groups: tuple, force_expand: Any = False, to_numpy=False)</span>
+<span>def <span class="ident">reshaped_native</span></span>(<span>value: phi.math._tensors.Tensor, groups: Union[tuple, list], force_expand: Any = False, to_numpy=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a native representation of <code>value</code> where dimensions are laid out according to <code>groups</code>.</p>
@@ -6584,7 +6584,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def reshaped_native(value: Tensor,
-                    groups: tuple or list,
+                    groups: Union[tuple, list],
                     force_expand: Any = False,
                     to_numpy=False):
     &#34;&#34;&#34;
@@ -6629,7 +6629,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 </details>
 </dd>
 <dt id="phi.math.reshaped_numpy"><code class="name flex">
-<span>def <span class="ident">reshaped_numpy</span></span>(<span>value: phi.math._tensors.Tensor, groups: tuple, force_expand: Any = False)</span>
+<span>def <span class="ident">reshaped_numpy</span></span>(<span>value: phi.math._tensors.Tensor, groups: Union[tuple, list], force_expand: Any = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the NumPy representation of <code>value</code> where dimensions are laid out according to <code>groups</code>.</p>
@@ -6653,7 +6653,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def reshaped_numpy(value: Tensor, groups: tuple or list, force_expand: Any = False):
+<pre><code class="python">def reshaped_numpy(value: Tensor, groups: Union[tuple, list], force_expand: Any = False):
     &#34;&#34;&#34;
     Returns the NumPy representation of `value` where dimensions are laid out according to `groups`.
 
@@ -6675,7 +6675,7 @@ If a sequence of dimensions is provided, only forces the expansion for groups co
 </details>
 </dd>
 <dt id="phi.math.reshaped_tensor"><code class="name flex">
-<span>def <span class="ident">reshaped_tensor</span></span>(<span>value: Any, groups: tuple, check_sizes=False, convert=True)</span>
+<span>def <span class="ident">reshaped_tensor</span></span>(<span>value: Any, groups: Union[tuple, list], check_sizes=False, convert=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> from a native tensor or tensor-like whereby the dimensions of <code>value</code> are split according to <code>groups</code>.</p>
@@ -6700,7 +6700,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def reshaped_tensor(value: Any,
-                    groups: tuple or list,
+                    groups: Union[tuple, list],
                     check_sizes=False,
                     convert=True):
     &#34;&#34;&#34;
@@ -6736,7 +6736,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.rotate_vector"><code class="name flex">
-<span>def <span class="ident">rotate_vector</span></span>(<span>vector: phi.math._tensors.Tensor, angle: float) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">rotate_vector</span></span>(<span>vector: phi.math._tensors.Tensor, angle: Union[phi.math._tensors.Tensor, float]) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Rotates <code>vector</code> around the origin.</p>
@@ -6753,7 +6753,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rotate_vector(vector: math.Tensor, angle: float or math.Tensor) -&gt; Tensor:
+<pre><code class="python">def rotate_vector(vector: math.Tensor, angle: Union[float, math.Tensor]) -&gt; Tensor:
     &#34;&#34;&#34;
     Rotates `vector` around the origin.
 
@@ -6779,7 +6779,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.round"><code class="name flex">
-<span>def <span class="ident">round</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">round</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Rounds the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to the closest integer.</p></div>
@@ -6787,7 +6787,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def round_(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def round_(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Rounds the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to the closest integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
@@ -6851,7 +6851,7 @@ The order of dims must be equal to <code>start</code> and <code>grid.shape.spati
 </details>
 </dd>
 <dt id="phi.math.scatter"><code class="name flex">
-<span>def <span class="ident">scatter</span></span>(<span>base_grid: phi.math._tensors.Tensor, indices: phi.math._tensors.Tensor, values: phi.math._tensors.Tensor, mode: str = 'update', outside_handling: str = 'discard', indices_gradient=False)</span>
+<span>def <span class="ident">scatter</span></span>(<span>base_grid: Union[phi.math._tensors.Tensor, phi.math._shape.Shape], indices: phi.math._tensors.Tensor, values: Union[phi.math._tensors.Tensor, float], mode: str = 'update', outside_handling: str = 'discard', indices_gradient=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scatters <code>values</code> into <code>base_grid</code> at <code>indices</code>.
@@ -6902,9 +6902,9 @@ Must also contain all <code>scatter_dims</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scatter(base_grid: Tensor or Shape,
+<pre><code class="python">def scatter(base_grid: Union[Tensor, Shape],
             indices: Tensor,
-            values: Tensor or float,
+            values: Union[Tensor, float],
             mode: str = &#39;update&#39;,
             outside_handling: str = &#39;discard&#39;,
             indices_gradient=False):
@@ -7145,7 +7145,7 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
 </details>
 </dd>
 <dt id="phi.math.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, stack_dim: Optional[phi.math._shape.Shape] = (shiftᶜ=None), extend_bounds=0) ‑> list</span>
+<span>def <span class="ident">shift</span></span>(<span>x: phi.math._tensors.Tensor, offsets: tuple, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, padding: Union[<a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, phi.math._tensors.Tensor, float, None] = boundary, stack_dim: Optional[phi.math._shape.Shape] = (shiftᶜ=None), extend_bounds=0) ‑> list</span>
 </code></dt>
 <dd>
 <div class="desc"><p>shift Tensor by a fixed offset and abiding by extrapolation</p>
@@ -7174,7 +7174,7 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
 <pre><code class="python">def shift(x: Tensor,
           offsets: tuple,
           dims: DimFilter = math.spatial,
-          padding: Extrapolation or Tensor or float or None = extrapolation.BOUNDARY,
+          padding: Union[Extrapolation, Tensor, float, None] = extrapolation.BOUNDARY,
           stack_dim: Optional[Shape] = channel(&#39;shift&#39;),
           extend_bounds=0) -&gt; list:
     &#34;&#34;&#34;
@@ -7217,7 +7217,7 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
 </details>
 </dd>
 <dt id="phi.math.sigmoid"><code class="name flex">
-<span>def <span class="ident">sigmoid</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sigmoid</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the sigmoid function of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -7225,13 +7225,13 @@ If <code>obj</code> is a <code><a title="phi.math.Shape" href="#phi.math.Shape">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sigmoid(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def sigmoid(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes the sigmoid function of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sigmoid)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sign</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The sign of positive numbers is 1 and -1 for negative numbers.
@@ -7247,7 +7247,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sign(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def sign(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     The sign of positive numbers is 1 and -1 for negative numbers.
     The sign of 0 is undefined.
@@ -7262,7 +7262,7 @@ The sign of 0 is undefined.</p>
 </details>
 </dd>
 <dt id="phi.math.sin"><code class="name flex">
-<span>def <span class="ident">sin</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sin</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>sin(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -7270,13 +7270,13 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sin(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def sin(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *sin(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.sinh"><code class="name flex">
-<span>def <span class="ident">sinh</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sinh</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>sinh(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -7284,7 +7284,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sinh(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def sinh(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *sinh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sinh)</code></pre>
 </details>
@@ -7366,7 +7366,7 @@ The sign of 0 is undefined.</p>
 </details>
 </dd>
 <dt id="phi.math.solve_linear"><code class="name flex">
-<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable[[~X], ~Y], y: ~Y, solve: phi.math._optimize.Solve[~X, ~Y], *f_args, grad_for_f=False, f_kwargs: dict = None, **f_kwargs_) ‑> ~X</span>
+<span>def <span class="ident">solve_linear</span></span>(<span>f: Union[Callable[[~X], ~Y], phi.math._tensors.Tensor], y: ~Y, solve: phi.math._optimize.Solve[~X, ~Y], *f_args, grad_for_f=False, f_kwargs: dict = None, **f_kwargs_) ‑> ~X</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solves the system of linear equations <em>f(x) = y</em> and returns <em>x</em>.
@@ -7426,7 +7426,7 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve_linear(f: Callable[[X], Y] or Tensor,
+<pre><code class="python">def solve_linear(f: Union[Callable[[X], Y], Tensor],
                  y: Y,
                  solve: Solve[X, Y],
                  *f_args,
@@ -7610,7 +7610,7 @@ The output of <code>f</code> must match <code>y</code>.</dd>
 </details>
 </dd>
 <dt id="phi.math.spatial"><code class="name flex">
-<span>def <span class="ident">spatial</span></span>(<span>*args, **dims: int) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">spatial</span></span>(<span>*args, **dims: Union[int, str, tuple, list, phi.math._shape.Shape]) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the spatial dimensions of an existing <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> or creates a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> with only spatial dimensions.</p>
@@ -7646,7 +7646,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def spatial(*args, **dims: int or str or tuple or list or Shape) -&gt; Shape:
+<pre><code class="python">def spatial(*args, **dims: Union[int, str, tuple, list, Shape]) -&gt; Shape:
     &#34;&#34;&#34;
     Returns the spatial dimensions of an existing `Shape` or creates a new `Shape` with only spatial dimensions.
 
@@ -7689,7 +7689,7 @@ Undefined sizes are automatically filled in by <code><a title="phi.math.tensor" 
 </details>
 </dd>
 <dt id="phi.math.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: float = 1, difference: str = 'central', padding: <a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = boundary, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, stack_dim: phi.math._shape.Shape = (gradientᶜ=None), pad=0) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>grid: phi.math._tensors.Tensor, dx: Union[phi.math._tensors.Tensor, float] = 1, difference: str = 'central', padding: Optional[<a title="phi.math.extrapolation.Extrapolation" href="extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>] = boundary, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, stack_dim: Optional[phi.math._shape.Shape] = (gradientᶜ=None), pad=0) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -7720,11 +7720,11 @@ This value is added to the internal padding. For non-trivial extrapolations, thi
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def spatial_gradient(grid: Tensor,
-                     dx: float or Tensor = 1,
+                     dx: Union[float, Tensor] = 1,
                      difference: str = &#39;central&#39;,
-                     padding: Extrapolation or None = extrapolation.BOUNDARY,
+                     padding: Union[Extrapolation, None] = extrapolation.BOUNDARY,
                      dims: DimFilter = spatial,
-                     stack_dim: Shape or None = channel(&#39;gradient&#39;),
+                     stack_dim: Union[Shape, None] = channel(&#39;gradient&#39;),
                      pad=0) -&gt; Tensor:
     &#34;&#34;&#34;
     Calculates the spatial_gradient of a scalar channel from finite differences.
@@ -7768,7 +7768,7 @@ This value is added to the internal padding. For non-trivial extrapolations, thi
 </details>
 </dd>
 <dt id="phi.math.sqrt"><code class="name flex">
-<span>def <span class="ident">sqrt</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sqrt</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>sqrt(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -7776,13 +7776,13 @@ This value is added to the internal padding. For non-trivial extrapolations, thi
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sqrt(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def sqrt(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *sqrt(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sqrt)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>values: tuple, dim: phi.math._shape.Shape, expand_values=False, **kwargs)</span>
+<span>def <span class="ident">stack</span></span>(<span>values: Union[tuple, list, dict], dim: phi.math._shape.Shape, expand_values=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.
@@ -7824,7 +7824,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwargs):
+<pre><code class="python">def stack(values: Union[tuple, list, dict], dim: Shape, expand_values=False, **kwargs):
     &#34;&#34;&#34;
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
@@ -7950,7 +7950,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.std"><code class="name flex">
-<span>def <span class="ident">std</span></span>(<span>value: phi.math._tensors.Tensor, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">std</span></span>(<span>value: Union[phi.math._tensors.Tensor, list, tuple], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the standard deviation over <code>values</code> along the specified dimensions.</p>
@@ -7978,7 +7978,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def std(value: Tensor or list or tuple, dim: DimFilter = non_batch) -&gt; Tensor:
+<pre><code class="python">def std(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the standard deviation over `values` along the specified dimensions.
 
@@ -8052,7 +8052,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.math.sum"><code class="name flex">
-<span>def <span class="ident">sum</span></span>(<span>value: phi.math._tensors.Tensor, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sum</span></span>(<span>value: Union[phi.math._tensors.Tensor, list, tuple], dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sums <code>values</code> along the specified dimensions.</p>
@@ -8079,7 +8079,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sum_(value: Tensor or list or tuple, dim: DimFilter = non_batch) -&gt; Tensor:
+<pre><code class="python">def sum_(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -&gt; Tensor:
     &#34;&#34;&#34;
     Sums `values` along the specified dimensions.
 
@@ -8101,7 +8101,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.math.tan"><code class="name flex">
-<span>def <span class="ident">tan</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">tan</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>tan(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -8109,13 +8109,13 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def tan(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def tan(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *tan(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.tan)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.tanh"><code class="name flex">
-<span>def <span class="ident">tanh</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">tanh</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>tanh(x)</em> of the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -8123,13 +8123,13 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def tanh(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def tanh(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *tanh(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.tanh)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.tensor"><code class="name flex">
-<span>def <span class="ident">tensor</span></span>(<span>data: phi.math._tensors.Tensor, *shape: phi.math._shape.Shape, convert: bool = True, default_list_dim=(vectorᶜ=None)) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">tensor</span></span>(<span>data: Union[phi.math._tensors.Tensor, phi.math._shape.Shape, tuple, list, numbers.Number], *shape: phi.math._shape.Shape, convert: bool = True, default_list_dim=(vectorᶜ=None)) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a Tensor from the specified <code>data</code>.
@@ -8193,7 +8193,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def tensor(data: Tensor or Shape or tuple or list or numbers.Number,
+<pre><code class="python">def tensor(data: Union[Tensor, Shape, tuple, list, numbers.Number],
            *shape: Shape,
            convert: bool = True,
            default_list_dim=channel(&#39;vector&#39;)) -&gt; Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
@@ -8321,7 +8321,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.to_complex"><code class="name flex">
-<span>def <span class="ident">to_complex</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_complex</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the given tensor to complex floating point format with the currently specified precision.</p>
@@ -8340,7 +8340,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_complex(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def to_complex(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     Converts the given tensor to complex floating point format with the currently specified precision.
 
@@ -8361,7 +8361,7 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
 </details>
 </dd>
 <dt id="phi.math.to_dict"><code class="name flex">
-<span>def <span class="ident">to_dict</span></span>(<span>value: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">to_dict</span></span>(<span>value: Union[phi.math._tensors.Tensor, phi.math._shape.Shape])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a serializable form of a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.
@@ -8379,7 +8379,7 @@ The result can be written to a JSON file, for example.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_dict(value: Tensor or Shape):
+<pre><code class="python">def to_dict(value: Union[Tensor, Shape]):
     &#34;&#34;&#34;
     Returns a serializable form of a `Tensor` or `Shape`.
     The result can be written to a JSON file, for example.
@@ -8401,7 +8401,7 @@ The result can be written to a JSON file, for example.</p>
 </details>
 </dd>
 <dt id="phi.math.to_float"><code class="name flex">
-<span>def <span class="ident">to_float</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_float</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the given tensor to floating point format with the currently specified precision.</p>
@@ -8420,7 +8420,7 @@ The result can be written to a JSON file, for example.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_float(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def to_float(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -8441,7 +8441,7 @@ The result can be written to a JSON file, for example.</p>
 </details>
 </dd>
 <dt id="phi.math.to_int32"><code class="name flex">
-<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to 32-bit integer.</p></div>
@@ -8449,13 +8449,13 @@ The result can be written to a JSON file, for example.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int32(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def to_int32(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Converts the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to 32-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int32)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.to_int64"><code class="name flex">
-<span>def <span class="ident">to_int64</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_int64</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to 64-bit integer.</p></div>
@@ -8463,7 +8463,7 @@ The result can be written to a JSON file, for example.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int64(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def to_int64(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Converts the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to 64-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int64)</code></pre>
 </details>
@@ -8592,7 +8592,7 @@ This operation is superfluous since tensors will be reshaped under the hood or w
 </details>
 </dd>
 <dt id="phi.math.unpack_dim"><code class="name flex">
-<span>def <span class="ident">unpack_dim</span></span>(<span>value, dim: str, *unpacked_dims: phi.math._shape.Shape, **kwargs)</span>
+<span>def <span class="ident">unpack_dim</span></span>(<span>value, dim: Union[str, phi.math._shape.Shape], *unpacked_dims: phi.math._shape.Shape, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Decompresses a dimension by unstacking the elements along it.
@@ -8624,7 +8624,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unpack_dim(value, dim: str or Shape, *unpacked_dims: Shape, **kwargs):
+<pre><code class="python">def unpack_dim(value, dim: Union[str, Shape], *unpacked_dims: Shape, **kwargs):
     &#34;&#34;&#34;
     Decompresses a dimension by unstacking the elements along it.
     This function replaces the traditional `reshape` for these cases.
@@ -8807,7 +8807,7 @@ The grid values at the new points are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.math.vec"><code class="name flex">
-<span>def <span class="ident">vec</span></span>(<span>name: str = 'vector', *sequence, tuple_dim=(sequenceˢ=None), list_dim=(sequenceⁱ=None), **components) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">vec</span></span>(<span>name: Union[str, phi.math._shape.Shape] = 'vector', *sequence, tuple_dim=(sequenceˢ=None), list_dim=(sequenceⁱ=None), **components) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lay out the given values along a channel dimension without converting them to the current backend.</p>
@@ -8848,7 +8848,7 @@ If specified, no additional positional arguments must be given.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec(name: str or Shape = &#39;vector&#39;, *sequence, tuple_dim=spatial(&#39;sequence&#39;), list_dim=instance(&#39;sequence&#39;), **components) -&gt; Tensor:
+<pre><code class="python">def vec(name: Union[str, Shape] = &#39;vector&#39;, *sequence, tuple_dim=spatial(&#39;sequence&#39;), list_dim=instance(&#39;sequence&#39;), **components) -&gt; Tensor:
     &#34;&#34;&#34;
     Lay out the given values along a channel dimension without converting them to the current backend.
 
@@ -8901,7 +8901,7 @@ If specified, no additional positional arguments must be given.</dd>
 </details>
 </dd>
 <dt id="phi.math.vec_abs"><code class="name flex">
-<span>def <span class="ident">vec_abs</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function channel&gt;, eps: float = None)</span>
+<span>def <span class="ident">vec_abs</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function channel&gt;, eps: Union[phi.math._tensors.Tensor, float] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the vector length of <code><a title="phi.math.vec" href="#phi.math.vec">vec()</a></code>.</p>
@@ -8914,7 +8914,7 @@ If specified, no additional positional arguments must be given.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: float or Tensor = None):
+<pre><code class="python">def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: Union[float, Tensor] = None):
     &#34;&#34;&#34;
     Computes the vector length of `vec`.
 
@@ -8930,7 +8930,7 @@ If specified, no additional positional arguments must be given.</dd>
 </details>
 </dd>
 <dt id="phi.math.vec_length"><code class="name flex">
-<span>def <span class="ident">vec_length</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function channel&gt;, eps: float = None)</span>
+<span>def <span class="ident">vec_length</span></span>(<span>vec: phi.math._tensors.Tensor, vec_dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function channel&gt;, eps: Union[phi.math._tensors.Tensor, float] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the vector length of <code><a title="phi.math.vec" href="#phi.math.vec">vec()</a></code>.</p>
@@ -8943,7 +8943,7 @@ If specified, no additional positional arguments must be given.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: float or Tensor = None):
+<pre><code class="python">def vec_abs(vec: Tensor, vec_dim: DimFilter = channel, eps: Union[float, Tensor] = None):
     &#34;&#34;&#34;
     Computes the vector length of `vec`.
 
@@ -8987,7 +8987,7 @@ If specified, no additional positional arguments must be given.</dd>
 </details>
 </dd>
 <dt id="phi.math.where"><code class="name flex">
-<span>def <span class="ident">where</span></span>(<span>condition: phi.math._tensors.Tensor, value_true: phi.math._tensors.Tensor, value_false: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">where</span></span>(<span>condition: Union[phi.math._tensors.Tensor, float, int], value_true: Union[phi.math._tensors.Tensor, float, int], value_false: Union[phi.math._tensors.Tensor, float, int])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Builds a tensor by choosing either values from <code>value_true</code> or <code>value_false</code> depending on <code>condition</code>.
@@ -9009,7 +9009,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def where(condition: Tensor or float or int, value_true: Tensor or float or int, value_false: Tensor or float or int):
+<pre><code class="python">def where(condition: Union[Tensor, float, int], value_true: Union[Tensor, float, int], value_false: Union[Tensor, float, int]):
     &#34;&#34;&#34;
     Builds a tensor by choosing either values from `value_true` or `value_false` depending on `condition`.
     If `condition` is not of type boolean, non-zero values are interpreted as True.
@@ -9040,7 +9040,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </details>
 </dd>
 <dt id="phi.math.wrap"><code class="name flex">
-<span>def <span class="ident">wrap</span></span>(<span>data: phi.math._tensors.Tensor, *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">wrap</span></span>(<span>data: Union[phi.math._tensors.Tensor, phi.math._shape.Shape, tuple, list, numbers.Number], *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Short for <code><a title="phi.math.tensor" href="#phi.math.tensor">tensor()</a></code> with <code>convert=False</code>.</p></div>
@@ -9048,7 +9048,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def wrap(data: Tensor or Shape or tuple or list or numbers.Number,
+<pre><code class="python">def wrap(data: Union[Tensor, Shape, tuple, list, numbers.Number],
          *shape: Shape) -&gt; Tensor:
     &#34;&#34;&#34; Short for `phi.math.tensor()` with `convert=False`. &#34;&#34;&#34;
     return tensor(data, *shape, convert=False)  # TODO inline, simplify</code></pre>
@@ -9095,7 +9095,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 </details>
 </dd>
 <dt id="phi.math.zeros_like"><code class="name flex">
-<span>def <span class="ident">zeros_like</span></span>(<span>obj: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">zeros_like</span></span>(<span>obj: Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a <code><a title="phi.math.Tensor" href="#phi.math.Tensor">Tensor</a></code> containing only <code>0.0</code> / <code>0</code> / <code>False</code> with the same shape and dtype as <code>obj</code>.</p></div>
@@ -9103,7 +9103,7 @@ To get the indices of True / non-zero values, use :func:<code><a title="phi.math
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def zeros_like(obj: Tensor or PhiTreeNode) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def zeros_like(obj: Union[Tensor, PhiTreeNode]) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Create a `Tensor` containing only `0.0` / `0` / `False` with the same shape and dtype as `obj`. &#34;&#34;&#34;
     nest, values = disassemble_tree(obj)
     zeros_ = []
@@ -9265,7 +9265,7 @@ Instead, data types can simply be instantiated as needed.</p>
         return f&#34;{self.kind.__name__}{self.bits}&#34;
 
     @staticmethod
-    def as_dtype(value: &#39;DType&#39; or tuple or type or None) -&gt; &#39;DType&#39; or None:
+    def as_dtype(value: Union[&#39;DType&#39;, tuple, type, None]) -&gt; Union[&#39;DType&#39;, None]:
         if isinstance(value, DType):
             return value
         elif value is int:
@@ -9288,7 +9288,7 @@ Instead, data types can simply be instantiated as needed.</p>
 <h3>Static methods</h3>
 <dl>
 <dt id="phi.math.DType.as_dtype"><code class="name flex">
-<span>def <span class="ident">as_dtype</span></span>(<span>value: <a title="phi.math.DType" href="#phi.math.DType">DType</a>) ‑> phi.math.backend._dtype.DType</span>
+<span>def <span class="ident">as_dtype</span></span>(<span>value: Union[ForwardRef('<a title="phi.math.DType" href="#phi.math.DType">DType</a>'), tuple, type, None]) ‑> Optional[phi.math.backend._dtype.DType]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -9297,7 +9297,7 @@ Instead, data types can simply be instantiated as needed.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@staticmethod
-def as_dtype(value: &#39;DType&#39; or tuple or type or None) -&gt; &#39;DType&#39; or None:
+def as_dtype(value: Union[&#39;DType&#39;, tuple, type, None]) -&gt; Union[&#39;DType&#39;, None]:
     if isinstance(value, DType):
         return value
     elif value is int:
@@ -9911,7 +9911,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
             `Shape.name`.
         &#34;&#34;&#34;
         self.types: Tuple[str] = types  # undocumented, may be private
-        self.item_names: Tuple[str or &#39;Shape&#39;] = (None,) * len(sizes) if item_names is None else item_names  # undocumented
+        self.item_names: Tuple[Union[str, &#39;Shape&#39;]] = (None,) * len(sizes) if item_names is None else item_names  # undocumented
         if DEBUG_CHECKS:
             assert len(sizes) == len(names) == len(types) == len(item_names), f&#34;sizes={sizes}, names={names}, types={types}, item_names={item_names}&#34;
             assert len(set(names)) == len(names), f&#34;Duplicate dimension names: {names}&#34;
@@ -9980,7 +9980,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             raise ValueError(item)
 
-    def isdisjoint(self, other: &#39;Shape&#39; or tuple or list or str):
+    def isdisjoint(self, other: Union[&#39;Shape&#39;, tuple, list, str]):
         &#34;&#34;&#34; Shapes are disjoint if all dimension names of one shape do not occur in the other shape. &#34;&#34;&#34;
         other = parse_dim_order(other)
         return not any(dim in self.names for dim in other)
@@ -9988,7 +9988,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
     def __iter__(self):
         return iter(self[i] for i in range(self.rank))
 
-    def index(self, dim: str or &#39;Shape&#39; or None) -&gt; int:
+    def index(self, dim: Union[str, &#39;Shape&#39;, None]) -&gt; int:
         &#34;&#34;&#34;
         Finds the index of the dimension within this `Shape`.
 
@@ -10013,7 +10013,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             raise ValueError(f&#34;index() requires a single dimension as input but got {dim}&#34;)
 
-    def indices(self, dims: tuple or list or &#39;Shape&#39;) -&gt; Tuple[int]:
+    def indices(self, dims: Union[tuple, list, &#39;Shape&#39;]) -&gt; Tuple[int]:
         &#34;&#34;&#34;
         Finds the indices of the given dimensions within this `Shape`.
 
@@ -10033,7 +10033,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             raise ValueError(f&#34;indices() requires a sequence of dimensions but got {dims}&#34;)
 
-    def get_size(self, dim: str or &#39;Shape&#39; or int, default=None):
+    def get_size(self, dim: Union[str, &#39;Shape&#39;, int], default=None):
         &#34;&#34;&#34;
         See Also:
             `Shape.get_sizes()`, `Shape.size`
@@ -10061,7 +10061,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             raise ValueError(f&#34;get_size() requires a single dimension but got {dim}. Use indices() to get multiple sizes.&#34;)
 
-    def get_sizes(self, dims: tuple or list or &#39;Shape&#39;) -&gt; tuple:
+    def get_sizes(self, dims: Union[tuple, list, &#39;Shape&#39;]) -&gt; tuple:
         &#34;&#34;&#34;
         See Also:
             `Shape.get_size()`
@@ -10075,7 +10075,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         assert isinstance(dims, (tuple, list, Shape)), f&#34;get_sizes() requires a sequence of dimensions but got {dims}&#34;
         return tuple([self.get_size(dim) for dim in dims])
 
-    def get_type(self, dim: str or &#39;Shape&#39;) -&gt; str:
+    def get_type(self, dim: Union[str, &#39;Shape&#39;]) -&gt; str:
         # undocumented, use get_dim_type() instead.
         if isinstance(dim, str):
             return self.types[self.names.index(dim)]
@@ -10085,7 +10085,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             raise ValueError(dim)
 
-    def get_dim_type(self, dim: str or &#39;Shape&#39;) -&gt; Callable:
+    def get_dim_type(self, dim: Union[str, &#39;Shape&#39;]) -&gt; Callable:
         &#34;&#34;&#34;
         Args:
             dim: Dimension, either as name `str` or single-dimension `Shape`.
@@ -10095,7 +10095,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         &#34;&#34;&#34;
         return {BATCH_DIM: batch, SPATIAL_DIM: spatial, INSTANCE_DIM: instance, CHANNEL_DIM: channel}[self.get_type(dim)]
 
-    def get_types(self, dims: tuple or list or &#39;Shape&#39;) -&gt; tuple:
+    def get_types(self, dims: Union[tuple, list, &#39;Shape&#39;]) -&gt; tuple:
         # undocumented, do not use
         if isinstance(dims, (tuple, list)):
             return tuple(self.get_type(n) for n in dims)
@@ -10104,7 +10104,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             raise ValueError(dims)
 
-    def get_item_names(self, dim: str or &#39;Shape&#39; or int, fallback_spatial=False) -&gt; tuple or None:
+    def get_item_names(self, dim: Union[str, &#39;Shape&#39;, int], fallback_spatial=False) -&gt; Union[tuple, None]:
         &#34;&#34;&#34;
         Args:
             fallback_spatial: If `True` and no item names are defined for `dim` and `dim` is a channel dimension, the spatial dimension names are interpreted as item names along `dim` in the order they are listed in this `Shape`.
@@ -10129,7 +10129,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         else:
             return None
 
-    def flipped(self, dims: List[str] or Tuple[str]):
+    def flipped(self, dims: Union[List[str], Tuple[str]]):
         item_names = list(self.item_names)
         for dim in dims:
             if dim in self.names:
@@ -10386,7 +10386,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         assert self.rank == 1, &#34;int(Shape) is only defined for shapes of rank 1.&#34;
         return self.sizes[0]
 
-    def mask(self, names: tuple or list or set or &#39;Shape&#39;):
+    def mask(self, names: Union[tuple, list, set, &#39;Shape&#39;]):
         &#34;&#34;&#34;
         Returns a binary sequence corresponding to the names of this Shape.
         A value of 1 means that a dimension of this Shape is contained in `names`.
@@ -10442,14 +10442,14 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
     def __bool__(self):
         return self.rank &gt; 0
 
-    def _reorder(self, names: tuple or list or &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
+    def _reorder(self, names: Union[tuple, list, &#39;Shape&#39;]) -&gt; &#39;Shape&#39;:
         assert len(names) == self.rank
         if isinstance(names, Shape):
             names = names.names
         order = [self.index(n) for n in names]
         return self[order]
 
-    def _order_group(self, names: tuple or list or &#39;Shape&#39;) -&gt; list:
+    def _order_group(self, names: Union[tuple, list, &#39;Shape&#39;]) -&gt; list:
         &#34;&#34;&#34; Reorders the dimensions of this `Shape` so that `names` are clustered together and occur in the specified order. &#34;&#34;&#34;
         if isinstance(names, Shape):
             names = names.names
@@ -10648,7 +10648,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         indices = [i for i, size in enumerate(self.sizes) if isinstance(size, Tensor) and size.rank &gt; 0]
         return self[indices]
 
-    def with_size(self, size: int or None):
+    def with_size(self, size: Union[int, None]):
         &#34;&#34;&#34;
         Only for single-dimension shapes.
         Returns a `Shape` representing this dimension but with a different size.
@@ -10665,7 +10665,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         assert self.rank == 1, &#34;Shape.with_size() is only defined for shapes of rank 1.&#34;
         return self.with_sizes([size])
 
-    def with_sizes(self, sizes: tuple or list or &#39;Shape&#39; or int, keep_item_names=True):
+    def with_sizes(self, sizes: Union[tuple, list, &#39;Shape&#39;, int], keep_item_names=True):
         &#34;&#34;&#34;
         Returns a new `Shape` matching the dimension names and types of `self` but with different sizes.
 
@@ -10725,7 +10725,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         new_sizes[self.index(dim)] = size
         return self.with_sizes(new_sizes, keep_item_names=keep_item_names)
 
-    def with_dim_size(self, dim: str or &#39;Shape&#39;, size: int or &#39;math.Tensor&#39; or str or tuple or list, keep_item_names=True):
+    def with_dim_size(self, dim: Union[str, &#39;Shape&#39;], size: Union[int, &#39;math.Tensor&#39;, str, tuple, list], keep_item_names=True):
         &#34;&#34;&#34;
         Returns a new `Shape` that has a different size for `dim`.
 
@@ -10742,15 +10742,15 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         new_size, new_item_names = Shape._size_and_item_names_from_obj(size, self.get_size(dim), self.get_item_names(dim), keep_item_names)
         return self.replace(dim, Shape((new_size,), (dim,), (self.get_type(dim),), (new_item_names,)))
 
-    def _with_names(self, names: str or tuple or list):
+    def _with_names(self, names: Union[str, tuple, list]):
         if isinstance(names, str):
             names = parse_dim_names(names, self.rank)
             names = [n if n is not None else o for n, o in zip(names, self.names)]
         return Shape(self.sizes, tuple(names), self.types, self.item_names)
 
     def _replace_names_and_types(self,
-                                 dims: &#39;Shape&#39; or str or tuple or list,
-                                 new: &#39;Shape&#39; or str or tuple or list) -&gt; &#39;Shape&#39;:
+                                 dims: Union[&#39;Shape&#39;, str, tuple, list],
+                                 new: Union[&#39;Shape&#39;, str, tuple, list]) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
         Returns a copy of `self` with `dims` replaced by `new`.
         Dimensions that are not present in `self` are ignored.
@@ -10781,7 +10781,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
                     names[self.index(old_name)] = new_dim
         return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
 
-    def replace(self, dims: &#39;Shape&#39; or str or tuple or list, new: &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
+    def replace(self, dims: Union[&#39;Shape&#39;, str, tuple, list], new: &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
         &#34;&#34;&#34;
         Returns a copy of `self` with `dims` replaced by `new`.
         Dimensions that are not present in `self` are ignored.
@@ -10818,7 +10818,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         to_remove = dims[-(len(dims) - len(new)):]
         return replaced.without(to_remove)
 
-    def _with_types(self, types: &#39;Shape&#39; or str):
+    def _with_types(self, types: Union[&#39;Shape&#39;, str]):
         &#34;&#34;&#34;
         Only for internal use.
         Note: This method does not rename dimensions to comply with type requirements (e.g. ~ for dual dims).
@@ -10848,7 +10848,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
         return perm
 
     @property
-    def volume(self) -&gt; int or None:
+    def volume(self) -&gt; Union[int, None]:
         &#34;&#34;&#34;
         Returns the total number of values contained in a tensor of this shape.
         This is the product of all dimension sizes.
@@ -10981,7 +10981,7 @@ To create a shape with multiple types, use <code><a title="phi.math.merge_shapes
     def first_index(self, names=False):
         return next(iter(self.meshgrid(names=names)))
 
-    def are_adjacent(self, dims: str or tuple or list or set or &#39;Shape&#39;):
+    def are_adjacent(self, dims: Union[str, tuple, list, set, &#39;Shape&#39;]):
         indices = self.indices(dims)
         return (max(indices) - min(indices)) == len(dims) - 1
 
@@ -11620,7 +11620,7 @@ def untyped_dict(self):
     return {name: self.get_item_names(i) or self.get_size(i) for i, name in enumerate(self.names)}</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Shape.volume"><code class="name">var <span class="ident">volume</span> : int</code></dt>
+<dt id="phi.math.Shape.volume"><code class="name">var <span class="ident">volume</span> : Optional[int]</code></dt>
 <dd>
 <div class="desc"><p>Returns the total number of values contained in a tensor of this shape.
 This is the product of all dimension sizes.</p>
@@ -11631,7 +11631,7 @@ This is the product of all dimension sizes.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def volume(self) -&gt; int or None:
+def volume(self) -&gt; Union[int, None]:
     &#34;&#34;&#34;
     Returns the total number of values contained in a tensor of this shape.
     This is the product of all dimension sizes.
@@ -11755,7 +11755,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.are_adjacent"><code class="name flex">
-<span>def <span class="ident">are_adjacent</span></span>(<span>self, dims: str)</span>
+<span>def <span class="ident">are_adjacent</span></span>(<span>self, dims: Union[str, tuple, list, set, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>')])</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -11763,7 +11763,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def are_adjacent(self, dims: str or tuple or list or set or &#39;Shape&#39;):
+<pre><code class="python">def are_adjacent(self, dims: Union[str, tuple, list, set, &#39;Shape&#39;]):
     indices = self.indices(dims)
     return (max(indices) - min(indices)) == len(dims) - 1</code></pre>
 </details>
@@ -11782,7 +11782,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.flipped"><code class="name flex">
-<span>def <span class="ident">flipped</span></span>(<span>self, dims: List[str])</span>
+<span>def <span class="ident">flipped</span></span>(<span>self, dims: Union[List[str], Tuple[str]])</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -11790,7 +11790,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def flipped(self, dims: List[str] or Tuple[str]):
+<pre><code class="python">def flipped(self, dims: Union[List[str], Tuple[str]]):
     item_names = list(self.item_names)
     for dim in dims:
         if dim in self.names:
@@ -11801,7 +11801,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.get_dim_type"><code class="name flex">
-<span>def <span class="ident">get_dim_type</span></span>(<span>self, dim: str) ‑> Callable</span>
+<span>def <span class="ident">get_dim_type</span></span>(<span>self, dim: Union[str, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>')]) ‑> Callable</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -11815,7 +11815,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_dim_type(self, dim: str or &#39;Shape&#39;) -&gt; Callable:
+<pre><code class="python">def get_dim_type(self, dim: Union[str, &#39;Shape&#39;]) -&gt; Callable:
     &#34;&#34;&#34;
     Args:
         dim: Dimension, either as name `str` or single-dimension `Shape`.
@@ -11827,7 +11827,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.get_item_names"><code class="name flex">
-<span>def <span class="ident">get_item_names</span></span>(<span>self, dim: str, fallback_spatial=False) ‑> tuple</span>
+<span>def <span class="ident">get_item_names</span></span>(<span>self, dim: Union[str, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>'), int], fallback_spatial=False) ‑> Optional[tuple]</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -11843,7 +11843,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_item_names(self, dim: str or &#39;Shape&#39; or int, fallback_spatial=False) -&gt; tuple or None:
+<pre><code class="python">def get_item_names(self, dim: Union[str, &#39;Shape&#39;, int], fallback_spatial=False) -&gt; Union[tuple, None]:
     &#34;&#34;&#34;
     Args:
         fallback_spatial: If `True` and no item names are defined for `dim` and `dim` is a channel dimension, the spatial dimension names are interpreted as item names along `dim` in the order they are listed in this `Shape`.
@@ -11870,7 +11870,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.get_size"><code class="name flex">
-<span>def <span class="ident">get_size</span></span>(<span>self, dim: str, default=None)</span>
+<span>def <span class="ident">get_size</span></span>(<span>self, dim: Union[str, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>'), int], default=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See Also:
@@ -11888,7 +11888,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_size(self, dim: str or &#39;Shape&#39; or int, default=None):
+<pre><code class="python">def get_size(self, dim: Union[str, &#39;Shape&#39;, int], default=None):
     &#34;&#34;&#34;
     See Also:
         `Shape.get_sizes()`, `Shape.size`
@@ -11918,7 +11918,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.get_sizes"><code class="name flex">
-<span>def <span class="ident">get_sizes</span></span>(<span>self, dims: tuple) ‑> tuple</span>
+<span>def <span class="ident">get_sizes</span></span>(<span>self, dims: Union[tuple, list, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>')]) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See Also:
@@ -11934,7 +11934,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_sizes(self, dims: tuple or list or &#39;Shape&#39;) -&gt; tuple:
+<pre><code class="python">def get_sizes(self, dims: Union[tuple, list, &#39;Shape&#39;]) -&gt; tuple:
     &#34;&#34;&#34;
     See Also:
         `Shape.get_size()`
@@ -11950,7 +11950,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.get_type"><code class="name flex">
-<span>def <span class="ident">get_type</span></span>(<span>self, dim: str) ‑> str</span>
+<span>def <span class="ident">get_type</span></span>(<span>self, dim: Union[str, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>')]) ‑> str</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -11958,7 +11958,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_type(self, dim: str or &#39;Shape&#39;) -&gt; str:
+<pre><code class="python">def get_type(self, dim: Union[str, &#39;Shape&#39;]) -&gt; str:
     # undocumented, use get_dim_type() instead.
     if isinstance(dim, str):
         return self.types[self.names.index(dim)]
@@ -11970,7 +11970,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.get_types"><code class="name flex">
-<span>def <span class="ident">get_types</span></span>(<span>self, dims: tuple) ‑> tuple</span>
+<span>def <span class="ident">get_types</span></span>(<span>self, dims: Union[tuple, list, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>')]) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -11978,7 +11978,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_types(self, dims: tuple or list or &#39;Shape&#39;) -&gt; tuple:
+<pre><code class="python">def get_types(self, dims: Union[tuple, list, &#39;Shape&#39;]) -&gt; tuple:
     # undocumented, do not use
     if isinstance(dims, (tuple, list)):
         return tuple(self.get_type(n) for n in dims)
@@ -11989,7 +11989,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.index"><code class="name flex">
-<span>def <span class="ident">index</span></span>(<span>self, dim: str) ‑> int</span>
+<span>def <span class="ident">index</span></span>(<span>self, dim: Union[str, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>'), None]) ‑> int</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds the index of the dimension within this <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</p>
@@ -12006,7 +12006,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def index(self, dim: str or &#39;Shape&#39; or None) -&gt; int:
+<pre><code class="python">def index(self, dim: Union[str, &#39;Shape&#39;, None]) -&gt; int:
     &#34;&#34;&#34;
     Finds the index of the dimension within this `Shape`.
 
@@ -12033,7 +12033,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.indices"><code class="name flex">
-<span>def <span class="ident">indices</span></span>(<span>self, dims: tuple) ‑> Tuple[int]</span>
+<span>def <span class="ident">indices</span></span>(<span>self, dims: Union[tuple, list, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>')]) ‑> Tuple[int]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds the indices of the given dimensions within this <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code>.</p>
@@ -12050,7 +12050,7 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def indices(self, dims: tuple or list or &#39;Shape&#39;) -&gt; Tuple[int]:
+<pre><code class="python">def indices(self, dims: Union[tuple, list, &#39;Shape&#39;]) -&gt; Tuple[int]:
     &#34;&#34;&#34;
     Finds the indices of the given dimensions within this `Shape`.
 
@@ -12072,7 +12072,7 @@ def well_defined(self):
 </details>
 </dd>
 <dt id="phi.math.Shape.isdisjoint"><code class="name flex">
-<span>def <span class="ident">isdisjoint</span></span>(<span>self, other: <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>)</span>
+<span>def <span class="ident">isdisjoint</span></span>(<span>self, other: Union[ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>'), tuple, list, str])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shapes are disjoint if all dimension names of one shape do not occur in the other shape.</p></div>
@@ -12080,14 +12080,14 @@ def well_defined(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def isdisjoint(self, other: &#39;Shape&#39; or tuple or list or str):
+<pre><code class="python">def isdisjoint(self, other: Union[&#39;Shape&#39;, tuple, list, str]):
     &#34;&#34;&#34; Shapes are disjoint if all dimension names of one shape do not occur in the other shape. &#34;&#34;&#34;
     other = parse_dim_order(other)
     return not any(dim in self.names for dim in other)</code></pre>
 </details>
 </dd>
 <dt id="phi.math.Shape.mask"><code class="name flex">
-<span>def <span class="ident">mask</span></span>(<span>self, names: tuple)</span>
+<span>def <span class="ident">mask</span></span>(<span>self, names: Union[tuple, list, set, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>')])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a binary sequence corresponding to the names of this Shape.
@@ -12105,7 +12105,7 @@ A value of 1 means that a dimension of this Shape is contained in <code>names</c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mask(self, names: tuple or list or set or &#39;Shape&#39;):
+<pre><code class="python">def mask(self, names: Union[tuple, list, set, &#39;Shape&#39;]):
     &#34;&#34;&#34;
     Returns a binary sequence corresponding to the names of this Shape.
     A value of 1 means that a dimension of this Shape is contained in `names`.
@@ -12262,7 +12262,7 @@ If <code>True</code>, reorders the dimensions of this shape to match the order o
 </details>
 </dd>
 <dt id="phi.math.Shape.replace"><code class="name flex">
-<span>def <span class="ident">replace</span></span>(<span>self, dims: <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>, new: <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>) ‑> phi.math._shape.Shape</span>
+<span>def <span class="ident">replace</span></span>(<span>self, dims: Union[ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>'), tuple, list, str], new: <a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>) ‑> phi.math._shape.Shape</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of <code>self</code> with <code>dims</code> replaced by <code>new</code>.
@@ -12282,7 +12282,7 @@ If a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> is 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def replace(self, dims: &#39;Shape&#39; or str or tuple or list, new: &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
+<pre><code class="python">def replace(self, dims: Union[&#39;Shape&#39;, str, tuple, list], new: &#39;Shape&#39;) -&gt; &#39;Shape&#39;:
     &#34;&#34;&#34;
     Returns a copy of `self` with `dims` replaced by `new`.
     Dimensions that are not present in `self` are ignored.
@@ -12377,7 +12377,7 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
 </details>
 </dd>
 <dt id="phi.math.Shape.with_dim_size"><code class="name flex">
-<span>def <span class="ident">with_dim_size</span></span>(<span>self, dim: str, size: int, keep_item_names=True)</span>
+<span>def <span class="ident">with_dim_size</span></span>(<span>self, dim: Union[str, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>')], size: Union[int, ForwardRef('math.Tensor'), str, tuple, list], keep_item_names=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> that has a different size for <code>dim</code>.</p>
@@ -12394,7 +12394,7 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_dim_size(self, dim: str or &#39;Shape&#39;, size: int or &#39;math.Tensor&#39; or str or tuple or list, keep_item_names=True):
+<pre><code class="python">def with_dim_size(self, dim: Union[str, &#39;Shape&#39;], size: Union[int, &#39;math.Tensor&#39;, str, tuple, list], keep_item_names=True):
     &#34;&#34;&#34;
     Returns a new `Shape` that has a different size for `dim`.
 
@@ -12413,7 +12413,7 @@ The dimension listing the sizes of the shape is referred to as <code>'dims'</cod
 </details>
 </dd>
 <dt id="phi.math.Shape.with_size"><code class="name flex">
-<span>def <span class="ident">with_size</span></span>(<span>self, size: int)</span>
+<span>def <span class="ident">with_size</span></span>(<span>self, size: Optional[int])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Only for single-dimension shapes.
@@ -12431,7 +12431,7 @@ Returns a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_size(self, size: int or None):
+<pre><code class="python">def with_size(self, size: Union[int, None]):
     &#34;&#34;&#34;
     Only for single-dimension shapes.
     Returns a `Shape` representing this dimension but with a different size.
@@ -12450,7 +12450,7 @@ Returns a <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code
 </details>
 </dd>
 <dt id="phi.math.Shape.with_sizes"><code class="name flex">
-<span>def <span class="ident">with_sizes</span></span>(<span>self, sizes: tuple, keep_item_names=True)</span>
+<span>def <span class="ident">with_sizes</span></span>(<span>self, sizes: Union[tuple, list, ForwardRef('<a title="phi.math.Shape" href="#phi.math.Shape">Shape</a>'), int], keep_item_names=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a new <code><a title="phi.math.Shape" href="#phi.math.Shape">Shape</a></code> matching the dimension names and types of <code>self</code> but with different sizes.</p>
@@ -12476,7 +12476,7 @@ If <code>True</code>, keeps item names where the size does not change.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def with_sizes(self, sizes: tuple or list or &#39;Shape&#39; or int, keep_item_names=True):
+<pre><code class="python">def with_sizes(self, sizes: Union[tuple, list, &#39;Shape&#39;, int], keep_item_names=True):
     &#34;&#34;&#34;
     Returns a new `Shape` matching the dimension names and types of `self` but with different sizes.
 
@@ -12582,7 +12582,7 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
 </dd>
 <dt id="phi.math.Solve"><code class="flex name class">
 <span>class <span class="ident">Solve</span></span>
-<span>(</span><span>method: str = 'auto', rel_tol: float = None, abs_tol: float = None, x0: ~X = None, max_iterations: Union[int, phi.math._tensors.Tensor] = 1000, suppress: tuple = (), preprocess_y: Callable = None, preprocess_y_args: tuple = (), gradient_solve: <a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X] = None)</span>
+<span>(</span><span>method: Optional[str] = 'auto', rel_tol: Union[phi.math._tensors.Tensor, float] = None, abs_tol: Union[phi.math._tensors.Tensor, float] = None, x0: Union[~X, Any] = None, max_iterations: Union[int, phi.math._tensors.Tensor] = 1000, suppress: Union[tuple, list] = (), preprocess_y: Callable = None, preprocess_y_args: tuple = (), gradient_solve: Optional[ForwardRef('<a title="phi.math.Solve" href="#phi.math.Solve">Solve</a>[Y, X]')] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specifies parameters and stopping criteria for solving a minimization problem or system of equations.</p></div>
@@ -12596,15 +12596,15 @@ Dimensions in <code>dims</code> that are not part of this Shape are ignored.</p>
     &#34;&#34;&#34;
 
     def __init__(self,
-                 method: str or None = &#39;auto&#39;,
-                 rel_tol: float or Tensor = None,
-                 abs_tol: float or Tensor = None,
-                 x0: X or Any = None,
+                 method: Union[str, None] = &#39;auto&#39;,
+                 rel_tol: Union[float, Tensor] = None,
+                 abs_tol: Union[float, Tensor] = None,
+                 x0: Union[X, Any] = None,
                  max_iterations: Union[int, Tensor] = 1000,
-                 suppress: tuple or list = (),
+                 suppress: Union[tuple, list] = (),
                  preprocess_y: Callable = None,
                  preprocess_y_args: tuple = (),
-                 gradient_solve: &#39;Solve[Y, X]&#39; or None = None):
+                 gradient_solve: Union[&#39;Solve[Y, X]&#39;, None] = None):
         method = method or &#39;auto&#39;
         assert isinstance(method, str)
         self.method: str = method
@@ -12826,9 +12826,9 @@ This property must be set to a value compatible with the solution <code>x</code>
     def __init__(self,
                  solve: Solve,
                  x: X,
-                 residual: Y or None,
-                 iterations: Tensor or None,
-                 function_evaluations: Tensor or None,
+                 residual: Union[Y, None],
+                 iterations: Union[Tensor, None],
+                 function_evaluations: Union[Tensor, None],
                  converged: Tensor,
                  diverged: Tensor,
                  method: str,
@@ -13093,7 +13093,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     When backed by an editable native tensor, e.g. a `numpy.ndarray`, do not edit the underlying data structure.
     &#34;&#34;&#34;
 
-    def native(self, order: str or tuple or list or Shape = None):
+    def native(self, order: Union[str, tuple, list, Shape] = None):
         &#34;&#34;&#34;
         Returns a native tensor object with the dimensions ordered according to `order`.
         
@@ -13111,7 +13111,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def numpy(self, order: str or tuple or list or Shape = None) -&gt; np.ndarray:
+    def numpy(self, order: Union[str, tuple, list, Shape] = None) -&gt; np.ndarray:
         &#34;&#34;&#34;
         Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
         
@@ -13399,7 +13399,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         return all(natives_available)
 
     @property
-    def device(self) -&gt; ComputeDevice or None:
+    def device(self) -&gt; Union[ComputeDevice, None]:
         &#34;&#34;&#34;
         Returns the `ComputeDevice` that this tensor is allocated on.
         The device belongs to this tensor&#39;s `default_backend`.
@@ -13483,7 +13483,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
         Slice the tensor along specified dimensions.
 
         Args:
-          selection: dim_name: str -&gt; int or slice
+          selection: dim_name: str -&gt; Union[int, slice]
           selection: dict: 
 
         Returns:
@@ -13568,7 +13568,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
                 return tensors[0]
             raise NotImplementedError
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Tensor&#39;:
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -&gt; &#39;Tensor&#39;:
         order = self.shape._order_group(dims)
         if self.shape.is_uniform:
             native = self.native(order)
@@ -13589,7 +13589,7 @@ When backed by an editable native tensor, e.g. a <code>numpy.ndarray</code>, do 
     def __cast__(self, dtype: DType):
         return self._op1(lambda native: choose_backend(native).cast(native, dtype=dtype))
 
-    def dimension(self, name: str or Shape) -&gt; &#39;TensorDim&#39;:
+    def dimension(self, name: Union[str, Shape]) -&gt; &#39;TensorDim&#39;:
         &#34;&#34;&#34;
         Returns a reference to a specific dimension of this tensor.
         This is equivalent to the syntax `tensor.&lt;name&gt;`.
@@ -13933,7 +13933,7 @@ def default_backend(self) -&gt; Backend:
     return choose_backend_t(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.math.Tensor.device"><code class="name">var <span class="ident">device</span> : phi.math.backend._backend.ComputeDevice</code></dt>
+<dt id="phi.math.Tensor.device"><code class="name">var <span class="ident">device</span> : Optional[phi.math.backend._backend.ComputeDevice]</code></dt>
 <dd>
 <div class="desc"><p>Returns the <code>ComputeDevice</code> that this tensor is allocated on.
 The device belongs to this tensor's <code>default_backend</code>.</p>
@@ -13944,7 +13944,7 @@ The device belongs to this tensor's <code>default_backend</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def device(self) -&gt; ComputeDevice or None:
+def device(self) -&gt; Union[ComputeDevice, None]:
     &#34;&#34;&#34;
     Returns the `ComputeDevice` that this tensor is allocated on.
     The device belongs to this tensor&#39;s `default_backend`.
@@ -14181,7 +14181,7 @@ def sum(self):
 <h3>Methods</h3>
 <dl>
 <dt id="phi.math.Tensor.dimension"><code class="name flex">
-<span>def <span class="ident">dimension</span></span>(<span>self, name: str) ‑> phi.math._tensors.TensorDim</span>
+<span>def <span class="ident">dimension</span></span>(<span>self, name: Union[str, phi.math._shape.Shape]) ‑> phi.math._tensors.TensorDim</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a reference to a specific dimension of this tensor.
@@ -14198,7 +14198,7 @@ This is equivalent to the syntax <code>tensor.&lt;name&gt;</code>.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def dimension(self, name: str or Shape) -&gt; &#39;TensorDim&#39;:
+<pre><code class="python">def dimension(self, name: Union[str, Shape]) -&gt; &#39;TensorDim&#39;:
     &#34;&#34;&#34;
     Returns a reference to a specific dimension of this tensor.
     This is equivalent to the syntax `tensor.&lt;name&gt;`.
@@ -14249,7 +14249,7 @@ This is equivalent to the syntax <code>tensor.&lt;name&gt;</code>.</p>
 </details>
 </dd>
 <dt id="phi.math.Tensor.native"><code class="name flex">
-<span>def <span class="ident">native</span></span>(<span>self, order: str = None)</span>
+<span>def <span class="ident">native</span></span>(<span>self, order: Union[phi.math._shape.Shape, tuple, list, str] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a native tensor object with the dimensions ordered according to <code>order</code>.</p>
@@ -14268,7 +14268,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def native(self, order: str or tuple or list or Shape = None):
+<pre><code class="python">def native(self, order: Union[str, tuple, list, Shape] = None):
     &#34;&#34;&#34;
     Returns a native tensor object with the dimensions ordered according to `order`.
     
@@ -14288,7 +14288,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 </details>
 </dd>
 <dt id="phi.math.Tensor.numpy"><code class="name flex">
-<span>def <span class="ident">numpy</span></span>(<span>self, order: str = None) ‑> numpy.ndarray</span>
+<span>def <span class="ident">numpy</span></span>(<span>self, order: Union[phi.math._shape.Shape, tuple, list, str] = None) ‑> numpy.ndarray</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts this tensor to a <code>numpy.ndarray</code> with dimensions ordered according to <code>order</code>.</p>
@@ -14312,7 +14312,7 @@ If a dimension of the tensor is not listed in <code>order</code>, a <code>ValueE
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def numpy(self, order: str or tuple or list or Shape = None) -&gt; np.ndarray:
+<pre><code class="python">def numpy(self, order: Union[str, tuple, list, Shape] = None) -&gt; np.ndarray:
     &#34;&#34;&#34;
     Converts this tensor to a `numpy.ndarray` with dimensions ordered according to `order`.
     

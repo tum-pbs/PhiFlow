@@ -79,7 +79,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.geom.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>values: tuple, dim: str, **kwargs)</span>
+<span>def <span class="ident">concat</span></span>(<span>values: Union[tuple, list], dim: Union[str, phi.math._shape.Shape], **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenates a sequence of <code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code> objects, e.g. <code>Tensor</code>, along one dimension.
@@ -110,7 +110,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat(values: tuple or list, dim: str or Shape, **kwargs):
+<pre><code class="python">def concat(values: Union[tuple, list], dim: Union[str, Shape], **kwargs):
     &#34;&#34;&#34;
     Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
     All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
@@ -180,7 +180,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.geom.embed"><code class="name flex">
-<span>def <span class="ident">embed</span></span>(<span>geometry: phi.geom._geom.Geometry, projected_dims: phi.math._shape.Shape) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">embed</span></span>(<span>geometry: phi.geom._geom.Geometry, projected_dims: Union[phi.math._shape.Shape, str, tuple, list, None]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Adds fake spatial dimensions to a geometry.
@@ -199,7 +199,7 @@ The geometry value will be constant along the added dimensions, as if it had inf
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def embed(geometry: Geometry, projected_dims: math.Shape or str or tuple or list or None) -&gt; Geometry:
+<pre><code class="python">def embed(geometry: Geometry, projected_dims: Union[math.Shape, str, tuple, list, None]) -&gt; Geometry:
     &#34;&#34;&#34;
     Adds fake spatial dimensions to a geometry.
     The geometry value will be constant along the added dimensions, as if it had infinite length in these directions.
@@ -229,7 +229,7 @@ The geometry value will be constant along the added dimensions, as if it had inf
 </details>
 </dd>
 <dt id="phi.geom.infinite_cylinder"><code class="name flex">
-<span>def <span class="ident">infinite_cylinder</span></span>(<span>center=None, radius=None, inf_dim: str = None, **center_) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">infinite_cylinder</span></span>(<span>center=None, radius=None, inf_dim: Union[phi.math._shape.Shape, tuple, list, str] = None, **center_) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates an infinite cylinder.
@@ -254,7 +254,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def infinite_cylinder(center=None, radius=None, inf_dim: str or Shape or tuple or list = None, **center_) -&gt; Geometry:
+<pre><code class="python">def infinite_cylinder(center=None, radius=None, inf_dim: Union[str, Shape, tuple, list] = None, **center_) -&gt; Geometry:
     &#34;&#34;&#34;
     Creates an infinite cylinder.
     This is equal to embedding an `n`-dimensional `Sphere` in `n+1` dimensions.
@@ -306,7 +306,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 </details>
 </dd>
 <dt id="phi.geom.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], packed_dim: phi.math._shape.Shape, pos: int = None, **kwargs)</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], packed_dim: phi.math._shape.Shape, pos: Optional[int] = None, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
@@ -343,7 +343,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: int or None = None, **kwargs):
+<pre><code class="python">def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: Union[int, None] = None, **kwargs):
     &#34;&#34;&#34;
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
@@ -400,7 +400,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.geom.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>values: tuple, dim: phi.math._shape.Shape, expand_values=False, **kwargs)</span>
+<span>def <span class="ident">stack</span></span>(<span>values: Union[tuple, list, dict], dim: phi.math._shape.Shape, expand_values=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.
@@ -442,7 +442,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(values: tuple or list or dict, dim: Shape, expand_values=False, **kwargs):
+<pre><code class="python">def stack(values: Union[tuple, list, dict], dim: Shape, expand_values=False, **kwargs):
     &#34;&#34;&#34;
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
@@ -700,7 +700,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
         return bool_inside
 
-    def approximate_signed_distance(self, location: Tensor or tuple):
+    def approximate_signed_distance(self, location: Union[Tensor, tuple]):
         &#34;&#34;&#34;
         Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
         For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
@@ -757,7 +757,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         from ._transform import rotate
         return rotate(self, angle)
 
-    def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
         return Cuboid(self.center, self.half_size * factor)</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -884,7 +884,7 @@ def volume(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.BaseBox.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phi.math._tensors.Tensor, tuple])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
@@ -901,7 +901,7 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_signed_distance(self, location: Tensor or tuple):
+<pre><code class="python">def approximate_signed_distance(self, location: Union[Tensor, tuple]):
     &#34;&#34;&#34;
     Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
     For an outside location `l` with the closest surface point `s`, the distance is `max(abs(l - s))`.
@@ -1179,7 +1179,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: float) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
@@ -1191,7 +1191,7 @@ Returns:</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+<pre><code class="python">def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
     return Cuboid(self.center, self.half_size * factor)</code></pre>
 </details>
 </dd>
@@ -1199,7 +1199,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Box"><code class="flex name class">
 <span>class <span class="ident">Box</span></span>
-<span>(</span><span>lower: phi.math._tensors.Tensor = None, upper: phi.math._tensors.Tensor = None, **size: int)</span>
+<span>(</span><span>lower: phi.math._tensors.Tensor = None, upper: phi.math._tensors.Tensor = None, **size: Union[int, phi.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simple cuboid defined by location of lower and upper corner in physical space.</p>
@@ -1241,7 +1241,7 @@ Returns:</p></div>
         &gt;&gt;&gt; Box[&#39;x,y&#39;, :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     &#34;&#34;&#34;
 
-    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: int or Tensor):
+    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: Union[int, Tensor]):
         &#34;&#34;&#34;
         Args:
           lower: physical location of lower corner
@@ -1503,7 +1503,7 @@ def upper(self):
 </dd>
 <dt id="phi.geom.Cuboid"><code class="flex name class">
 <span>class <span class="ident">Cuboid</span></span>
-<span>(</span><span>center: phi.math._tensors.Tensor = 0, half_size: float = None, **size: float)</span>
+<span>(</span><span>center: phi.math._tensors.Tensor = 0, half_size: Union[phi.math._tensors.Tensor, float] = None, **size: Union[phi.math._tensors.Tensor, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Box specified by center position and half size.</p></div>
@@ -1518,8 +1518,8 @@ def upper(self):
 
     def __init__(self,
                  center: Tensor = 0,
-                 half_size: float or Tensor = None,
-                 **size: float or Tensor):
+                 half_size: Union[float, Tensor] = None,
+                 **size: Union[float, Tensor]):
         if half_size is not None:
             assert isinstance(half_size, Tensor), &#34;half_size must be a Tensor&#34;
             assert &#39;vector&#39; in half_size.shape, f&#34;Cuboid size must have a &#39;vector&#39; dimension.&#34;
@@ -1813,7 +1813,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def approximate_signed_distance(self, location: Tensor or tuple) -&gt; Tensor:
+    def approximate_signed_distance(self, location: Union[Tensor, tuple]) -&gt; Tensor:
         &#34;&#34;&#34;
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -1835,7 +1835,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;, balance: Tensor or Number = 0.5) -&gt; Tensor:
+    def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;, balance: Union[Tensor, Number] = 0.5) -&gt; Tensor:
         &#34;&#34;&#34;
         Computes the approximate overlap between the geometry and a small other geometry.
         Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
@@ -1971,7 +1971,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     def __matmul__(self, other):
         return self.at(other)
 
-    def rotated(self, angle: float or Tensor) -&gt; &#39;Geometry&#39;:
+    def rotated(self, angle: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
         &#34;&#34;&#34;
         Returns a rotated version of this geometry.
         The geometry is rotated about its center point.
@@ -1984,7 +1984,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
-    def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
         &#34;&#34;&#34;
         Scales each individual geometry by `factor`.
         The individual `center` points act as pivots for the operation.
@@ -2191,7 +2191,7 @@ def volume(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Geometry.approximate_fraction_inside"><code class="name flex">
-<span>def <span class="ident">approximate_fraction_inside</span></span>(<span>self, other_geometry: <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a>, balance: phi.math._tensors.Tensor = 0.5) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">approximate_fraction_inside</span></span>(<span>self, other_geometry: <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a>, balance: Union[phi.math._tensors.Tensor, numbers.Number] = 0.5) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the approximate overlap between the geometry and a small other geometry.
@@ -2217,7 +2217,7 @@ This value is returned when exactly half of <code>other_geometry</code> lies ins
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;, balance: Tensor or Number = 0.5) -&gt; Tensor:
+<pre><code class="python">def approximate_fraction_inside(self, other_geometry: &#39;Geometry&#39;, balance: Union[Tensor, Number] = 0.5) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the approximate overlap between the geometry and a small other geometry.
     Returns 1.0 if `other_geometry` is fully enclosed in this geometry and 0.0 if there is no overlap.
@@ -2251,7 +2251,7 @@ This value is returned when exactly half of <code>other_geometry</code> lies ins
 </details>
 </dd>
 <dt id="phi.geom.Geometry.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phi.math._tensors.Tensor, tuple]) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the approximate distance from location to the surface of the geometry.
@@ -2274,7 +2274,7 @@ This also holds for negative distances.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_signed_distance(self, location: Tensor or tuple) -&gt; Tensor:
+<pre><code class="python">def approximate_signed_distance(self, location: Union[Tensor, tuple]) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes the approximate distance from location to the surface of the geometry.
     Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -2487,7 +2487,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.rotated"><code class="name flex">
-<span>def <span class="ident">rotated</span></span>(<span>self, angle: float) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">rotated</span></span>(<span>self, angle: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a rotated version of this geometry.
@@ -2503,7 +2503,7 @@ The geometry is rotated about its center point.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rotated(self, angle: float or Tensor) -&gt; &#39;Geometry&#39;:
+<pre><code class="python">def rotated(self, angle: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
     &#34;&#34;&#34;
     Returns a rotated version of this geometry.
     The geometry is rotated about its center point.
@@ -2547,7 +2547,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: float) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
@@ -2559,7 +2559,7 @@ Returns:</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+<pre><code class="python">def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
     &#34;&#34;&#34;
     Scales each individual geometry by `factor`.
     The individual `center` points act as pivots for the operation.
@@ -2776,7 +2776,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         resolution = self._resolution.after_gather(gather_dict)
         return GridCell(resolution, bounds[{d: s for d, s in item.items() if d != &#39;vector&#39;}])
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Cuboid&#39;:
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -&gt; &#39;Cuboid&#39;:
         return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
 
     @staticmethod
@@ -3154,7 +3154,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
     def lies_inside(self, location: Tensor) -&gt; Tensor:
         return expand(math.wrap(False), shape(location).without(&#39;vector&#39;))
 
-    def approximate_signed_distance(self, location: Tensor or tuple) -&gt; Tensor:
+    def approximate_signed_distance(self, location: Union[Tensor, tuple]) -&gt; Tensor:
         return math.vec_abs(location - self._location)
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
@@ -3189,7 +3189,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
     def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
         raise NotImplementedError
 
-    def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
         return self
 
     def __getitem__(self, item):
@@ -3265,7 +3265,7 @@ def volume(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Point.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phi.math._tensors.Tensor, tuple]) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the approximate distance from location to the surface of the geometry.
@@ -3288,7 +3288,7 @@ This also holds for negative distances.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_signed_distance(self, location: Tensor or tuple) -&gt; Tensor:
+<pre><code class="python">def approximate_signed_distance(self, location: Union[Tensor, tuple]) -&gt; Tensor:
     return math.vec_abs(location - self._location)</code></pre>
 </details>
 </dd>
@@ -3438,7 +3438,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Point.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: float) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
@@ -3450,7 +3450,7 @@ Returns:</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+<pre><code class="python">def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
     return self</code></pre>
 </details>
 </dd>
@@ -3482,7 +3482,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 <dt id="phi.geom.Sphere"><code class="flex name class">
 <span>class <span class="ident">Sphere</span></span>
-<span>(</span><span>center: phi.math._tensors.Tensor = None, radius: float = None, **center_: float)</span>
+<span>(</span><span>center: phi.math._tensors.Tensor = None, radius: Union[phi.math._tensors.Tensor, float] = None, **center_: Union[phi.math._tensors.Tensor, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional sphere.
@@ -3509,8 +3509,8 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
 
     def __init__(self,
                  center: Tensor = None,
-                 radius: float or Tensor = None,
-                 **center_: float or Tensor):
+                 radius: Union[float, Tensor] = None,
+                 **center_: Union[float, Tensor]):
         &#34;&#34;&#34;
         Args:
             center: Sphere center as `Tensor` with `vector` dimension.
@@ -3564,7 +3564,7 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
         return math.any(distance_squared &lt;= self.radius ** 2, self.shape.instance)  # union for instance dimensions
 
-    def approximate_signed_distance(self, location: Tensor or tuple):
+    def approximate_signed_distance(self, location: Union[Tensor, tuple]):
         &#34;&#34;&#34;
         Computes the exact distance from location to the closest point on the sphere.
         Very close to the sphere center, the distance takes a constant value.
@@ -3596,7 +3596,7 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
     def rotated(self, angle):
         return self
 
-    def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
         return Sphere(self.center, self.radius * factor)
 
     def __variable_attrs__(self):
@@ -3705,7 +3705,7 @@ def volume(self) -&gt; math.Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Sphere.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phi.math._tensors.Tensor)</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phi.math._tensors.Tensor, tuple])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the exact distance from location to the closest point on the sphere.
@@ -3721,7 +3721,7 @@ Very close to the sphere center, the distance takes a constant value.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def approximate_signed_distance(self, location: Tensor or tuple):
+<pre><code class="python">def approximate_signed_distance(self, location: Union[Tensor, tuple]):
     &#34;&#34;&#34;
     Computes the exact distance from location to the closest point on the sphere.
     Very close to the sphere center, the distance takes a constant value.
@@ -3886,7 +3886,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: float) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
@@ -3898,7 +3898,7 @@ Returns:</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scaled(self, factor: float or Tensor) -&gt; &#39;Geometry&#39;:
+<pre><code class="python">def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
     return Sphere(self.center, self.radius * factor)</code></pre>
 </details>
 </dd>

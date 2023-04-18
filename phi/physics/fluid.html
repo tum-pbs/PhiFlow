@@ -34,7 +34,7 @@ Functions for simulating incompressible fluids, both grid-based and particle-bas
 The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 &#34;&#34;&#34;
 import warnings
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 
 from phi import math, field
 from phi.math import wrap, channel, Solve
@@ -93,7 +93,7 @@ def _get_obstacles_for(obstacles, space: Field):
 
 
 def make_incompressible(velocity: GridType,
-                        obstacles: Obstacle or Geometry or tuple or list = (),
+                        obstacles: Union[Obstacle, Geometry, tuple, list] = (),
                         solve: Solve = Solve(),
                         active: CenteredGrid = None,
                         order: int = 2) -&gt; Tuple[GridType, CenteredGrid]:
@@ -187,7 +187,7 @@ def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle or Geometry or tuple or list):
+def apply_boundary_conditions(velocity: Union[Grid, PointCloud], obstacles: Union[Obstacle, Geometry, tuple, list]):
     &#34;&#34;&#34;
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -215,7 +215,7 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle 
     return velocity
 
 
-def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -&gt; PointCloud:
+def boundary_push(particles: PointCloud, obstacles: Union[tuple, list], offset: float = 0.5) -&gt; PointCloud:
     &#34;&#34;&#34;
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
     obstacles or back into the domain.
@@ -319,7 +319,7 @@ def incompressible_rk4(pde: Callable, velocity: GridType, pressure: CenteredGrid
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.fluid.apply_boundary_conditions"><code class="name flex">
-<span>def <span class="ident">apply_boundary_conditions</span></span>(<span>velocity: phi.field._grid.Grid, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a>)</span>
+<span>def <span class="ident">apply_boundary_conditions</span></span>(<span>velocity: Union[phi.field._grid.Grid, phi.field._point_cloud.PointCloud], obstacles: Union[<a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a>, phi.geom._geom.Geometry, tuple, list])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Enforces velocities boundary conditions on a velocity grid.
@@ -337,7 +337,7 @@ obstacles: <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle or Geometry or tuple or list):
+<pre><code class="python">def apply_boundary_conditions(velocity: Union[Grid, PointCloud], obstacles: Union[Obstacle, Geometry, tuple, list]):
     &#34;&#34;&#34;
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -366,7 +366,7 @@ obstacles: <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.
 </details>
 </dd>
 <dt id="phi.physics.fluid.boundary_push"><code class="name flex">
-<span>def <span class="ident">boundary_push</span></span>(<span>particles: phi.field._point_cloud.PointCloud, obstacles: tuple, offset: float = 0.5) ‑> phi.field._point_cloud.PointCloud</span>
+<span>def <span class="ident">boundary_push</span></span>(<span>particles: phi.field._point_cloud.PointCloud, obstacles: Union[tuple, list], offset: float = 0.5) ‑> phi.field._point_cloud.PointCloud</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
@@ -386,7 +386,7 @@ obstacles or back into the domain.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -&gt; PointCloud:
+<pre><code class="python">def boundary_push(particles: PointCloud, obstacles: Union[tuple, list], offset: float = 0.5) -&gt; PointCloud:
     &#34;&#34;&#34;
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
     obstacles or back into the domain.
@@ -491,7 +491,7 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phi.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: phi.field._grid.CenteredGrid = None, order: int = 2) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: Union[<a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a>, phi.geom._geom.Geometry, tuple, list] = (), solve: phi.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: phi.field._grid.CenteredGrid = None, order: int = 2) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -526,7 +526,7 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def make_incompressible(velocity: GridType,
-                        obstacles: Obstacle or Geometry or tuple or list = (),
+                        obstacles: Union[Obstacle, Geometry, tuple, list] = (),
                         solve: Solve = Solve(),
                         active: CenteredGrid = None,
                         order: int = 2) -&gt; Tuple[GridType, CenteredGrid]:

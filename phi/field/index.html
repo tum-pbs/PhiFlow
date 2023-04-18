@@ -106,7 +106,7 @@ __pdoc__ = {
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.field.abs"><code class="name flex">
-<span>def <span class="ident">abs</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">abs</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>||x||<sub>1</sub></em>.
@@ -124,7 +124,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs_(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def abs_(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     Computes *||x||&lt;sub&gt;1&lt;/sub&gt;*.
     Complex `x` result in matching precision float values.
@@ -142,7 +142,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 </details>
 </dd>
 <dt id="phi.field.as_extrapolation"><code class="name flex">
-<span>def <span class="ident">as_extrapolation</span></span>(<span>obj: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>) ‑> <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+<span>def <span class="ident">as_extrapolation</span></span>(<span>obj: Union[<a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, float, phi.field._field.Field, None]) ‑> <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns an <code>Extrapolation</code> representing <code>obj</code>.</p>
@@ -164,7 +164,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def as_extrapolation(obj: Extrapolation or float or Field or None) -&gt; Extrapolation:
+<pre><code class="python">def as_extrapolation(obj: Union[Extrapolation, float, Field, None]) -&gt; Extrapolation:
     &#34;&#34;&#34;
     Returns an `Extrapolation` representing `obj`.
 
@@ -186,7 +186,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 </details>
 </dd>
 <dt id="phi.field.assert_close"><code class="name flex">
-<span>def <span class="ident">assert_close</span></span>(<span>*fields: phi.field._field.SampledField, rel_tolerance: float = 1e-05, abs_tolerance: float = 0, msg: str = '', verbose: bool = True)</span>
+<span>def <span class="ident">assert_close</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor, numbers.Number], rel_tolerance: float = 1e-05, abs_tolerance: float = 0, msg: str = '', verbose: bool = True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Raises an AssertionError if the <code>values</code> of the given fields are not close. See <code><a title="phi.math.assert_close" href="../math/index.html#phi.math.assert_close">assert_close()</a></code>.</p></div>
@@ -194,7 +194,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def assert_close(*fields: SampledField or Tensor or Number,
+<pre><code class="python">def assert_close(*fields: Union[SampledField, Tensor, Number],
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0,
                  msg: str = &#34;&#34;,
@@ -249,7 +249,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.cast"><code class="name flex">
-<span>def <span class="ident">cast</span></span>(<span>x: ~MagicType, dtype: phi.math.backend._dtype.DType) ‑> ~OtherMagicType</span>
+<span>def <span class="ident">cast</span></span>(<span>x: ~MagicType, dtype: Union[phi.math.backend._dtype.DType, type]) ‑> ~OtherMagicType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Casts <code>x</code> to a different data type.</p>
@@ -275,7 +275,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cast(x: MagicType, dtype: DType or type) -&gt; OtherMagicType:
+<pre><code class="python">def cast(x: MagicType, dtype: Union[DType, type]) -&gt; OtherMagicType:
     &#34;&#34;&#34;
     Casts `x` to a different data type.
 
@@ -316,7 +316,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.ceil"><code class="name flex">
-<span>def <span class="ident">ceil</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">ceil</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>⌈x⌉</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -324,7 +324,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ceil(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def ceil(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *⌈x⌉* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.ceil)</code></pre>
 </details>
@@ -360,7 +360,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>fields: List[~SampledFieldType], dim: str) ‑> ~SampledFieldType</span>
+<span>def <span class="ident">concat</span></span>(<span>fields: Union[List[~SampledFieldType], Tuple[~SampledFieldType, ...]], dim: Union[str, phi.math._shape.Shape]) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenates the given <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>s along <code>dim</code>.</p>
@@ -379,7 +379,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat(fields: List[SampledFieldType] or Tuple[SampledFieldType, ...], dim: str or Shape) -&gt; SampledFieldType:
+<pre><code class="python">def concat(fields: Union[List[SampledFieldType], Tuple[SampledFieldType, ...]], dim: Union[str, Shape]) -&gt; SampledFieldType:
     &#34;&#34;&#34;
     Concatenates the given `SampledField`s along `dim`.
 
@@ -453,7 +453,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.cos"><code class="name flex">
-<span>def <span class="ident">cos</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">cos</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>cos(x)</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -461,7 +461,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cos(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def cos(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *cos(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.cos)</code></pre>
 </details>
@@ -659,7 +659,7 @@ The new values are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.field.exp"><code class="name flex">
-<span>def <span class="ident">exp</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">exp</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>exp(x)</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -667,7 +667,7 @@ The new values are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def exp(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def exp(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *exp(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
@@ -723,7 +723,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.floor"><code class="name flex">
-<span>def <span class="ident">floor</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">floor</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>⌊x⌋</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -731,7 +731,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def floor(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def floor(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *⌊x⌋* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.floor)</code></pre>
 </details>
@@ -1003,7 +1003,7 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">imag</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the imaginary part of <code>x</code>.
@@ -1021,7 +1021,7 @@ If <code>x</code> does not store complex numbers, returns a zero tensor with the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def imag(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     Returns the imaginary part of `x`.
     If `x` does not store complex numbers, returns a zero tensor with the same shape and dtype as this tensor.
@@ -1081,7 +1081,7 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 </details>
 </dd>
 <dt id="phi.field.is_finite"><code class="name flex">
-<span>def <span class="ident">is_finite</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">is_finite</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
@@ -1089,13 +1089,13 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def is_finite(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def is_finite(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.isfinite"><code class="name flex">
-<span>def <span class="ident">isfinite</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">isfinite</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
@@ -1103,7 +1103,7 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def is_finite(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def is_finite(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
@@ -1468,7 +1468,7 @@ For <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.mat
 </details>
 </dd>
 <dt id="phi.field.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>field: ~GridType, axes=&lt;function spatial&gt;, order=2, implicit: phi.math._optimize.Solve = None, weights: phi.math._tensors.Tensor = None) ‑> ~GridType</span>
+<span>def <span class="ident">laplace</span></span>(<span>field: ~GridType, axes=&lt;function spatial&gt;, order=2, implicit: phi.math._optimize.Solve = None, weights: Union[phi.math._tensors.Tensor, phi.field._field.Field] = None) ‑> ~GridType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spatial Laplace operator for scalar grid.
@@ -1500,7 +1500,7 @@ Otherwise, an explicit stencil is used.</dd>
             axes=spatial,
             order=2,
             implicit: math.Solve = None,
-            weights: Tensor or Field = None) -&gt; GridType:
+            weights: Union[Tensor, Field] = None) -&gt; GridType:
     &#34;&#34;&#34;
     Spatial Laplace operator for scalar grid.
     If a vector grid is passed, it is assumed to be centered and the laplace is computed component-wise.
@@ -1560,7 +1560,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.field.mask"><code class="name flex">
-<span>def <span class="ident">mask</span></span>(<span>obj: ~SampledFieldType) ‑> ~SampledFieldType</span>
+<span>def <span class="ident">mask</span></span>(<span>obj: Union[~SampledFieldType, phi.geom._geom.Geometry]) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> that masks the inside (or non-zero values when <code>obj</code> is a grid) of a physical object.
@@ -1572,7 +1572,7 @@ For <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">Cente
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mask(obj: SampledFieldType or Geometry) -&gt; SampledFieldType:
+<pre><code class="python">def mask(obj: Union[SampledFieldType, Geometry]) -&gt; SampledFieldType:
     &#34;&#34;&#34;
     Returns a `Field` that masks the inside (or non-zero values when `obj` is a grid) of a physical object.
     The mask takes the value 1 inside the object and 0 outside.
@@ -1593,7 +1593,7 @@ For <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">Cente
 </details>
 </dd>
 <dt id="phi.field.maximum"><code class="name flex">
-<span>def <span class="ident">maximum</span></span>(<span>f1: phi.field._field.Field, f2: phi.field._field.Field)</span>
+<span>def <span class="ident">maximum</span></span>(<span>f1: Union[phi.field._field.Field, phi.geom._geom.Geometry, float], f2: Union[phi.field._field.Field, phi.geom._geom.Geometry, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Element-wise maximum.
@@ -1612,7 +1612,7 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def maximum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+<pre><code class="python">def maximum(f1: Union[Field, Geometry, float], f2: Union[Field, Geometry, float]):
     &#34;&#34;&#34;
     Element-wise maximum.
     One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
@@ -1799,7 +1799,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
 </details>
 </dd>
 <dt id="phi.field.minimum"><code class="name flex">
-<span>def <span class="ident">minimum</span></span>(<span>f1: phi.field._field.Field, f2: phi.field._field.Field)</span>
+<span>def <span class="ident">minimum</span></span>(<span>f1: Union[phi.field._field.Field, phi.geom._geom.Geometry, float], f2: Union[phi.field._field.Field, phi.geom._geom.Geometry, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Element-wise minimum.
@@ -1818,7 +1818,7 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def minimum(f1: Field or Geometry or float, f2: Field or Geometry or float):
+<pre><code class="python">def minimum(f1: Union[Field, Geometry, float], f2: Union[Field, Geometry, float]):
     &#34;&#34;&#34;
     Element-wise minimum.
     One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
@@ -1836,7 +1836,7 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 </details>
 </dd>
 <dt id="phi.field.native_call"><code class="name flex">
-<span>def <span class="ident">native_call</span></span>(<span>f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">native_call</span></span>(<span>f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) ‑> Union[phi.field._field.SampledField, phi.math._tensors.Tensor]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Similar to <code><a title="phi.math.native_call" href="../math/index.html#phi.math.native_call">native_call()</a></code>.</p>
@@ -1856,7 +1856,7 @@ The function output must have the same dimension layout as the inputs and the ba
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def native_call(f, *inputs, channels_last=None, channel_dim=&#39;vector&#39;, extrapolation=None) -&gt; SampledField or Tensor:
+<pre><code class="python">def native_call(f, *inputs, channels_last=None, channel_dim=&#39;vector&#39;, extrapolation=None) -&gt; Union[SampledField, Tensor]:
     &#34;&#34;&#34;
     Similar to `phi.math.native_call()`.
 
@@ -1897,7 +1897,7 @@ The function output must have the same dimension layout as the inputs and the ba
 </details>
 </dd>
 <dt id="phi.field.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>field: ~SampledFieldType, dims: phi.math._shape.Shape, packed_dim: phi.math._shape.Shape, pos: int = None) ‑> ~SampledFieldType</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>field: ~SampledFieldType, dims: Union[phi.math._shape.Shape, tuple, list, str], packed_dim: phi.math._shape.Shape, pos: Optional[int] = None) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Currently only supports grids and non-spatial dimensions.</p>
@@ -1915,9 +1915,9 @@ The function output must have the same dimension layout as the inputs and the ba
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def pack_dims(field: SampledFieldType,
-              dims: Shape or tuple or list or str,
+              dims: Union[Shape, tuple, list, str],
               packed_dim: Shape,
-              pos: int or None = None) -&gt; SampledFieldType:
+              pos: Union[int, None] = None) -&gt; SampledFieldType:
     &#34;&#34;&#34;
     Currently only supports grids and non-spatial dimensions.
 
@@ -1939,7 +1939,7 @@ The function output must have the same dimension layout as the inputs and the ba
 </details>
 </dd>
 <dt id="phi.field.pad"><code class="name flex">
-<span>def <span class="ident">pad</span></span>(<span>grid: ~GridType, widths: int) ‑> ~GridType</span>
+<span>def <span class="ident">pad</span></span>(<span>grid: ~GridType, widths: Union[int, tuple, list, dict]) ‑> ~GridType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Pads a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> using its extrapolation.</p>
@@ -1958,7 +1958,7 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pad(grid: GridType, widths: int or tuple or list or dict) -&gt; GridType:
+<pre><code class="python">def pad(grid: GridType, widths: Union[int, tuple, list, dict]) -&gt; GridType:
     &#34;&#34;&#34;
     Pads a `Grid` using its extrapolation.
 
@@ -1989,7 +1989,7 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
 </details>
 </dd>
 <dt id="phi.field.read"><code class="name flex">
-<span>def <span class="ident">read</span></span>(<span>file: str, convert_to_backend=True) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">read</span></span>(<span>file: Union[str, phi.math._tensors.Tensor], convert_to_backend=True) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Loads a previously saved <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> from disc.</p>
@@ -2009,7 +2009,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def read(file: str or Tensor, convert_to_backend=True) -&gt; SampledField:
+<pre><code class="python">def read(file: Union[str, Tensor], convert_to_backend=True) -&gt; SampledField:
     &#34;&#34;&#34;
     Loads a previously saved `SampledField` from disc.
 
@@ -2039,7 +2039,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">real</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See Also:
@@ -2055,7 +2055,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def real(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     See Also:
         `imag()`, `conjugate()`.
@@ -2070,7 +2070,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.reduce_sample"><code class="name flex">
-<span>def <span class="ident">reduce_sample</span></span>(<span>field: phi.field._field.Field, geometry: phi.geom._geom.Geometry, dim=(vectorᶜ=None), **kwargs) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">reduce_sample</span></span>(<span>field: Union[phi.field._field.Field, phi.geom._geom.Geometry], geometry: Union[phi.geom._geom.Geometry, phi.field._field.SampledField, phi.math._tensors.Tensor], dim=(vectorᶜ=None), **kwargs) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Similar to <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, but matches channel dimensions of <code>geometry</code> with channel dimensions of this field.
@@ -2098,8 +2098,8 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def reduce_sample(field: Field or Geometry,
-                  geometry: Geometry or SampledField or Tensor,
+<pre><code class="python">def reduce_sample(field: Union[Field, Geometry],
+                  geometry: Union[Geometry, SampledField, Tensor],
                   dim=channel(&#39;vector&#39;),
                   **kwargs) -&gt; math.Tensor:
     &#34;&#34;&#34;
@@ -2234,7 +2234,7 @@ True
 </details>
 </dd>
 <dt id="phi.field.round"><code class="name flex">
-<span>def <span class="ident">round</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">round</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Rounds the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to the closest integer.</p></div>
@@ -2242,13 +2242,13 @@ True
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def round_(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def round_(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Rounds the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to the closest integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>field: phi.field._field.Field, geometry: phi.geom._geom.Geometry, **kwargs) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sample</span></span>(<span>field: Union[phi.field._field.Field, phi.geom._geom.Geometry], geometry: Union[phi.geom._geom.Geometry, phi.field._field.SampledField, phi.math._tensors.Tensor], **kwargs) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the field value inside the volume of the (batched) <code>geometry</code>.</p>
@@ -2277,8 +2277,8 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sample(field: Field or Geometry,
-           geometry: Geometry or SampledField or Tensor,
+<pre><code class="python">def sample(field: Union[Field, Geometry],
+           geometry: Union[Geometry, SampledField, Tensor],
            **kwargs) -&gt; math.Tensor:
     &#34;&#34;&#34;
     Computes the field value inside the volume of the (batched) `geometry`.
@@ -2361,7 +2361,7 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
 </details>
 </dd>
 <dt id="phi.field.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sign</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The sign of positive numbers is 1 and -1 for negative numbers.
@@ -2377,7 +2377,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sign(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def sign(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     The sign of positive numbers is 1 and -1 for negative numbers.
     The sign of 0 is undefined.
@@ -2392,7 +2392,7 @@ The sign of 0 is undefined.</p>
 </details>
 </dd>
 <dt id="phi.field.sin"><code class="name flex">
-<span>def <span class="ident">sin</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sin</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>sin(x)</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -2400,13 +2400,13 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sin(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def sin(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *sin(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.solve_linear"><code class="name flex">
-<span>def <span class="ident">solve_linear</span></span>(<span>f: Callable[[~X], ~Y], y: ~Y, solve: phi.math._optimize.Solve[~X, ~Y], *f_args, grad_for_f=False, f_kwargs: dict = None, **f_kwargs_) ‑> ~X</span>
+<span>def <span class="ident">solve_linear</span></span>(<span>f: Union[Callable[[~X], ~Y], phi.math._tensors.Tensor], y: ~Y, solve: phi.math._optimize.Solve[~X, ~Y], *f_args, grad_for_f=False, f_kwargs: dict = None, **f_kwargs_) ‑> ~X</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solves the system of linear equations <em>f(x) = y</em> and returns <em>x</em>.
@@ -2466,7 +2466,7 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def solve_linear(f: Callable[[X], Y] or Tensor,
+<pre><code class="python">def solve_linear(f: Union[Callable[[X], Y], Tensor],
                  y: Y,
                  solve: Solve[X, Y],
                  *f_args,
@@ -2786,7 +2786,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.field.sqrt"><code class="name flex">
-<span>def <span class="ident">sqrt</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sqrt</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>sqrt(x)</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
@@ -2794,7 +2794,7 @@ Otherwise, an explicit stencil is used.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sqrt(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def sqrt(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Computes *sqrt(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sqrt)</code></pre>
 </details>
@@ -2856,7 +2856,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.field.stagger"><code class="name flex">
-<span>def <span class="ident">stagger</span></span>(<span>field: phi.field._grid.CenteredGrid, face_function: Callable, extrapolation: float, type: type = phi.field._grid.StaggeredGrid)</span>
+<span>def <span class="ident">stagger</span></span>(<span>field: phi.field._grid.CenteredGrid, face_function: Callable, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>], type: type = phi.field._grid.StaggeredGrid)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a new grid by evaluating <code>face_function</code> given two neighbouring cells.
@@ -2892,7 +2892,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 </summary>
 <pre><code class="python">def stagger(field: CenteredGrid,
             face_function: Callable,
-            extrapolation: float or math.extrapolation.Extrapolation,
+            extrapolation: Union[float, math.extrapolation.Extrapolation],
             type: type = StaggeredGrid):
     &#34;&#34;&#34;
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
@@ -2997,7 +2997,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.field.support"><code class="name flex">
-<span>def <span class="ident">support</span></span>(<span>field: phi.field._field.SampledField, list_dim: phi.math._shape.Shape = (nonzeroⁱ=None)) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">support</span></span>(<span>field: phi.field._field.SampledField, list_dim: Union[str, phi.math._shape.Shape] = (nonzeroⁱ=None)) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the points at which the field values are non-zero.</p>
@@ -3014,7 +3014,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def support(field: SampledField, list_dim: Shape or str = instance(&#39;nonzero&#39;)) -&gt; Tensor:
+<pre><code class="python">def support(field: SampledField, list_dim: Union[Shape, str] = instance(&#39;nonzero&#39;)) -&gt; Tensor:
     &#34;&#34;&#34;
     Returns the points at which the field values are non-zero.
 
@@ -3029,7 +3029,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.field.to_float"><code class="name flex">
-<span>def <span class="ident">to_float</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_float</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the given tensor to floating point format with the currently specified precision.</p>
@@ -3048,7 +3048,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_float(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def to_float(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34;
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -3069,7 +3069,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.field.to_int32"><code class="name flex">
-<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to 32-bit integer.</p></div>
@@ -3077,13 +3077,13 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int32(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def to_int32(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Converts the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to 32-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int32)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.to_int64"><code class="name flex">
-<span>def <span class="ident">to_int64</span></span>(<span>x) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">to_int64</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to 64-bit integer.</p></div>
@@ -3091,7 +3091,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int64(x) -&gt; Tensor or PhiTreeNode:
+<pre><code class="python">def to_int64(x) -&gt; Union[Tensor, PhiTreeNode]:
     &#34;&#34;&#34; Converts the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to 64-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int64)</code></pre>
 </details>
@@ -3257,7 +3257,7 @@ The new values are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.field.where"><code class="name flex">
-<span>def <span class="ident">where</span></span>(<span>mask: phi.field._field.Field, field_true: phi.field._field.Field, field_false: phi.field._field.Field) ‑> ~SampledFieldType</span>
+<span>def <span class="ident">where</span></span>(<span>mask: Union[phi.field._field.Field, phi.geom._geom.Geometry, float], field_true: Union[phi.field._field.Field, float], field_false: Union[phi.field._field.Field, float]) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Element-wise where operation.
@@ -3279,7 +3279,7 @@ At least one of the arguments must be a <code><a title="phi.field.SampledField" 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def where(mask: Field or Geometry or float, field_true: Field or float, field_false: Field or float) -&gt; SampledFieldType:
+<pre><code class="python">def where(mask: Union[Field, Geometry, float], field_true: Union[Field, float], field_false: Union[Field, float]) -&gt; SampledFieldType:
     &#34;&#34;&#34;
     Element-wise where operation.
     Picks the value of `field_true` where `mask=1 / True` and the value of `field_false` where `mask=0 / False`.
@@ -3301,7 +3301,7 @@ At least one of the arguments must be a <code><a title="phi.field.SampledField" 
 </details>
 </dd>
 <dt id="phi.field.write"><code class="name flex">
-<span>def <span class="ident">write</span></span>(<span>field: phi.field._field.SampledField, file: str)</span>
+<span>def <span class="ident">write</span></span>(<span>field: phi.field._field.SampledField, file: Union[str, phi.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Writes a field to disc using a NumPy file format.
@@ -3323,7 +3323,7 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def write(field: SampledField, file: str or Tensor):
+<pre><code class="python">def write(field: SampledField, file: Union[str, Tensor]):
     &#34;&#34;&#34;
     Writes a field to disc using a NumPy file format.
     Depending on `file`, the data may be split up into multiple files.
@@ -3362,7 +3362,7 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 <dl>
 <dt id="phi.field.AngularVelocity"><code class="flex name class">
 <span>class <span class="ident">AngularVelocity</span></span>
-<span>(</span><span>location: phi.math._tensors.Tensor, strength: phi.math._tensors.Tensor = 1.0, falloff: Callable = None, component: str = None)</span>
+<span>(</span><span>location: Union[phi.math._tensors.Tensor, tuple, list, numbers.Number], strength: Union[phi.math._tensors.Tensor, numbers.Number] = 1.0, falloff: Callable = None, component: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Model of a single vortex or set of vortices.
@@ -3383,8 +3383,8 @@ This is the case with rotating rigid bodies, for example.</p></div>
     &#34;&#34;&#34;
 
     def __init__(self,
-                 location: Tensor or tuple or list or Number,
-                 strength: Tensor or Number = 1.0,
+                 location: Union[Tensor, tuple, list, Number],
+                 strength: Union[Tensor, Number] = 1.0,
                  falloff: Callable = None,
                  component: str = None):
         location = wrap(location)
@@ -3450,7 +3450,7 @@ def shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values: Any = 0.0, extrapolation: Any = 0.0, bounds: phi.geom._box.Box = None, resolution: int = None, **resolution_: int)</span>
+<span>(</span><span>values: Any = 0.0, extrapolation: Any = 0.0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phi.math._shape.Shape] = None, **resolution_: Union[int, phi.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
@@ -3512,9 +3512,9 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
     def __init__(self,
                  values: Any = 0.,
                  extrapolation: Any = 0.,
-                 bounds: Box or float = None,
-                 resolution: int or Shape = None,
-                 **resolution_: int or Tensor):
+                 bounds: Union[Box, float] = None,
+                 resolution: Union[int, Shape] = None,
+                 **resolution_: Union[int, Tensor]):
         &#34;&#34;&#34;
         Args:
             values: Values to use for the grid.
@@ -3979,7 +3979,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
     Base class for `CenteredGrid` and `StaggeredGrid`.
     &#34;&#34;&#34;
 
-    def __init__(self, elements: Geometry, values: Tensor, extrapolation: float or Extrapolation, resolution: Shape or int, bounds: Box or float):
+    def __init__(self, elements: Geometry, values: Tensor, extrapolation: Union[float, Extrapolation], resolution: Union[Shape, int], bounds: Union[Box, float]):
         assert isinstance(bounds, Box)
         assert isinstance(resolution, Shape)
         if bounds.size.vector.item_names is None:
@@ -4486,7 +4486,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
 <span>class <span class="ident">PointCloud</span></span>
-<span>(</span><span>elements: Union[phi.math._tensors.Tensor, phi.geom._geom.Geometry], values: Any = 1.0, extrapolation: Union[<a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, float] = 0.0, add_overlapping=False, bounds: phi.geom._box.Box = None)</span>
+<span>(</span><span>elements: Union[phi.math._tensors.Tensor, phi.geom._geom.Geometry], values: Any = 1.0, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>] = 0.0, add_overlapping=False, bounds: phi.geom._box.Box = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A <code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a></code> comprises:</p>
@@ -4857,7 +4857,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.SampledField"><code class="flex name class">
 <span>class <span class="ident">SampledField</span></span>
-<span>(</span><span>elements: Union[phi.math._tensors.Tensor, phi.geom._geom.Geometry], values: phi.math._tensors.Tensor, extrapolation: float, bounds: phi.geom._box.Box)</span>
+<span>(</span><span>elements: Union[phi.math._tensors.Tensor, phi.geom._geom.Geometry], values: phi.math._tensors.Tensor, extrapolation: Union[<a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, float, phi.field._field.Field, None], bounds: Optional[phi.geom._box.Box])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
@@ -4882,8 +4882,8 @@ def shape(self):
     def __init__(self,
                  elements: Union[Geometry, Tensor],
                  values: Tensor,
-                 extrapolation: float or Extrapolation or Field or None,
-                 bounds: Box or None):
+                 extrapolation: Union[float, Extrapolation, Field, None],
+                 bounds: Union[Box, None]):
         &#34;&#34;&#34;
         Args:
           elements: Geometry object specifying the sample points and sizes
@@ -5225,9 +5225,9 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
     To list all scenes within a directory, use `Scene.list()`.
     &#34;&#34;&#34;
 
-    def __init__(self, paths: str or math.Tensor):
+    def __init__(self, paths: Union[str, math.Tensor]):
         self._paths = math.wrap(paths)
-        self._properties: dict or None = None
+        self._properties: Union[dict, None] = None
 
     def __getitem__(self, item):
         return Scene(self._paths[item])
@@ -5316,7 +5316,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
     def list(parent_directory: str,
              name=&#39;sim&#39;,
              include_other: bool = False,
-             dim: Shape or None = None) -&gt; &#39;Scene&#39; or tuple:
+             dim: Union[Shape, None] = None) -&gt; Union[&#39;Scene&#39;, tuple]:
         &#34;&#34;&#34;
         Lists all scenes inside the given directory.
 
@@ -5344,7 +5344,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             return Scene(paths)
 
     @staticmethod
-    def at(directory: str or tuple or list or math.Tensor or &#39;Scene&#39;, id: int or math.Tensor or None = None) -&gt; &#39;Scene&#39;:
+    def at(directory: Union[str, tuple, typing_list, math.Tensor, &#39;Scene&#39;], id: Union[int, math.Tensor, None] = None) -&gt; &#39;Scene&#39;:
         &#34;&#34;&#34;
         Creates a `Scene` for an existing directory.
 
@@ -5375,7 +5375,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
                 raise IOError(f&#34;There is no scene at &#39;{path}&#39;&#34;)
         return Scene(paths)
 
-    def subpath(self, name: str, create=False, create_parent=False) -&gt; str or tuple:
+    def subpath(self, name: str, create=False, create_parent=False) -&gt; Union[str, tuple]:
         &#34;&#34;&#34;
         Resolves the relative path `name` with this `Scene` as the root folder.
 
@@ -5666,7 +5666,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 <h3>Static methods</h3>
 <dl>
 <dt id="phi.field.Scene.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>directory: str, id: int = None) ‑> phi.field._scene.Scene</span>
+<span>def <span class="ident">at</span></span>(<span>directory: Union[str, tuple, list, phi.math._tensors.Tensor, ForwardRef('<a title="phi.field.Scene" href="#phi.field.Scene">Scene</a>')], id: Union[int, phi.math._tensors.Tensor, None] = None) ‑> phi.field._scene.Scene</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> for an existing directory.</p>
@@ -5686,7 +5686,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@staticmethod
-def at(directory: str or tuple or list or math.Tensor or &#39;Scene&#39;, id: int or math.Tensor or None = None) -&gt; &#39;Scene&#39;:
+def at(directory: Union[str, tuple, typing_list, math.Tensor, &#39;Scene&#39;], id: Union[int, math.Tensor, None] = None) -&gt; &#39;Scene&#39;:
     &#34;&#34;&#34;
     Creates a `Scene` for an existing directory.
 
@@ -5790,7 +5790,7 @@ def create(parent_directory: str,
 </details>
 </dd>
 <dt id="phi.field.Scene.list"><code class="name flex">
-<span>def <span class="ident">list</span></span>(<span>parent_directory: str, name='sim', include_other: bool = False, dim: phi.math._shape.Shape = None) ‑> phi.field._scene.Scene</span>
+<span>def <span class="ident">list</span></span>(<span>parent_directory: str, name='sim', include_other: bool = False, dim: Optional[phi.math._shape.Shape] = None) ‑> Union[phi.field._scene.Scene, tuple]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lists all scenes inside the given directory.</p>
@@ -5817,7 +5817,7 @@ def create(parent_directory: str,
 def list(parent_directory: str,
          name=&#39;sim&#39;,
          include_other: bool = False,
-         dim: Shape or None = None) -&gt; &#39;Scene&#39; or tuple:
+         dim: Union[Shape, None] = None) -&gt; Union[&#39;Scene&#39;, tuple]:
     &#34;&#34;&#34;
     Lists all scenes inside the given directory.
 
@@ -6299,7 +6299,7 @@ def shape(self):
 </details>
 </dd>
 <dt id="phi.field.Scene.subpath"><code class="name flex">
-<span>def <span class="ident">subpath</span></span>(<span>self, name: str, create=False, create_parent=False) ‑> str</span>
+<span>def <span class="ident">subpath</span></span>(<span>self, name: str, create=False, create_parent=False) ‑> Union[str, tuple]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Resolves the relative path <code>name</code> with this <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> as the root folder.</p>
@@ -6319,7 +6319,7 @@ In batch mode, returns a <code>tuple</code>, else a <code>str</code>.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def subpath(self, name: str, create=False, create_parent=False) -&gt; str or tuple:
+<pre><code class="python">def subpath(self, name: str, create=False, create_parent=False) -&gt; Union[str, tuple]:
     &#34;&#34;&#34;
     Resolves the relative path `name` with this `Scene` as the root folder.
 
@@ -6429,7 +6429,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
 <span>class <span class="ident">GeometryMask</span></span>
-<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: phi.math._tensors.Tensor = 0.5)</span>
+<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: Union[phi.math._tensors.Tensor, float] = 0.5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Deprecated since version 1.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
@@ -6441,7 +6441,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
     &#34;&#34;&#34;
     Deprecated since version 1.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
     &#34;&#34;&#34;
-    def __init__(self, geometry: Geometry, balance: Tensor or float = 0.5):
+    def __init__(self, geometry: Geometry, balance: Union[Tensor, float] = 0.5):
         warnings.warn(&#34;HardGeometryMask and SoftGeometryMask are deprecated. Use field.mask or field.resample instead.&#34;, DeprecationWarning, stacklevel=2)
         super().__init__(geometry)
         self.balance = balance
@@ -6460,7 +6460,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
 <span>class <span class="ident">SoftGeometryMask</span></span>
-<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: phi.math._tensors.Tensor = 0.5)</span>
+<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: Union[phi.math._tensors.Tensor, float] = 0.5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Deprecated since version 1.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
@@ -6472,7 +6472,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
     &#34;&#34;&#34;
     Deprecated since version 1.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
     &#34;&#34;&#34;
-    def __init__(self, geometry: Geometry, balance: Tensor or float = 0.5):
+    def __init__(self, geometry: Geometry, balance: Union[Tensor, float] = 0.5):
         warnings.warn(&#34;HardGeometryMask and SoftGeometryMask are deprecated. Use field.mask or field.resample instead.&#34;, DeprecationWarning, stacklevel=2)
         super().__init__(geometry)
         self.balance = balance
@@ -6491,7 +6491,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: Any = 0.0, extrapolation: float = 0, bounds: phi.geom._box.Box = None, resolution: phi.math._shape.Shape = None, **resolution_: int)</span>
+<span>(</span><span>values: Any = 0.0, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>] = 0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phi.math._shape.Shape] = None, **resolution_: Union[int, phi.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -6554,10 +6554,10 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
 
     def __init__(self,
                  values: Any = 0.,
-                 extrapolation: float or Extrapolation = 0,
-                 bounds: Box or float = None,
-                 resolution: Shape or int = None,
-                 **resolution_: int or Tensor):
+                 extrapolation: Union[float, Extrapolation] = 0,
+                 bounds: Union[Box, float] = None,
+                 resolution: Union[Shape, int] = None,
+                 **resolution_: Union[int, Tensor]):
         &#34;&#34;&#34;
         Args:
             values: Values to use for the grid.

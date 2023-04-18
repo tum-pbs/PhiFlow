@@ -185,7 +185,7 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 </details>
 </dd>
 <dt id="phi.vis.overlay"><code class="name flex">
-<span>def <span class="ident">overlay</span></span>(<span>*fields: phi.field._field.SampledField) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">overlay</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor]) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specify that multiple fields should be drawn on top of one another in the same figure.
@@ -203,7 +203,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def overlay(*fields: SampledField or Tensor) -&gt; Tensor:
+<pre><code class="python">def overlay(*fields: Union[SampledField, Tensor]) -&gt; Tensor:
     &#34;&#34;&#34;
     Specify that multiple fields should be drawn on top of one another in the same figure.
     The fields will be plotted in the order they are given, i.e. the last field on top.
@@ -220,7 +220,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.SampledField, lib: str = None, row_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = 'overlay', title: str = None, size=(12, 5), same_scale=True, log_dims: str = '', show_color_bar=True, color: str = None, alpha: float = 1.0, frame_time=100, repeat=True)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = 'overlay', title: Union[str, phi.math._tensors.Tensor] = None, size=(12, 5), same_scale=True, log_dims: Union[phi.math._shape.Shape, tuple, list, str] = '', show_color_bar=True, color: Union[str, int, phi.math._tensors.Tensor] = None, alpha: Union[phi.math._tensors.Tensor, float] = 1.0, frame_time=100, repeat=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
@@ -281,19 +281,19 @@ Currently, only single-figure plots are supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(*fields: SampledField or Tensor,
-         lib: str or PlottingLibrary = None,
+<pre><code class="python">def plot(*fields: Union[SampledField, Tensor],
+         lib: Union[str, PlottingLibrary] = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
          animate: DimFilter = None,
          overlay: DimFilter = &#39;overlay&#39;,
-         title: str or Tensor = None,
+         title: Union[str, Tensor] = None,
          size=(12, 5),
          same_scale=True,
-         log_dims: str or tuple or list or Shape = &#39;&#39;,
+         log_dims: Union[str, tuple, list, Shape] = &#39;&#39;,
          show_color_bar=True,
-         color: str or int or Tensor = None,
-         alpha: float or Tensor = 1.,
+         color: Union[str, int, Tensor] = None,
+         alpha: Union[float, Tensor] = 1.,
          frame_time=100,
          repeat=True):
     &#34;&#34;&#34;
@@ -395,7 +395,7 @@ Currently, only single-figure plots are supported.</p>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: str, names: str = None, reduce: str = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: str = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default', dashed: phi.math._tensors.Tensor = False)</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: Union[str, tuple, list, phi.field._scene.Scene, phi.math._tensors.Tensor], names: Union[str, tuple, list, phi.math._tensors.Tensor] = None, reduce: Union[phi.math._shape.Shape, tuple, list, str] = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: Union[str, dict] = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default', dashed: phi.math._tensors.Tensor = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -438,9 +438,9 @@ Currently, only single-figure plots are supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_scalars(scene: str or tuple or list or Scene or math.Tensor,
-                 names: str or tuple or list or math.Tensor = None,
-                 reduce: str or tuple or list or math.Shape = &#39;names&#39;,
+<pre><code class="python">def plot_scalars(scene: Union[str, tuple, list, Scene, math.Tensor],
+                 names: Union[str, tuple, list, math.Tensor] = None,
+                 reduce: Union[str, tuple, list, math.Shape] = &#39;names&#39;,
                  down=&#39;&#39;,
                  smooth=1,
                  smooth_alpha=0.2,
@@ -448,7 +448,7 @@ Currently, only single-figure plots are supported.</p>
                  size=(8, 6),
                  transform: Callable = None,
                  tight_layout=True,
-                 grid: str or dict = &#39;y&#39;,
+                 grid: Union[str, dict] = &#39;y&#39;,
                  log_scale=&#39;&#39;,
                  legend=&#39;upper right&#39;,
                  x=&#39;steps&#39;,
@@ -636,7 +636,7 @@ Currently, only single-figure plots are supported.</p>
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
-<span>def <span class="ident">show</span></span>(<span>*model: phi.vis._vis_base.VisModel, play=True, gui: phi.vis._vis_base.Gui = None, lib: phi.vis._vis_base.Gui = None, keep_alive=True, **config)</span>
+<span>def <span class="ident">show</span></span>(<span>*model: Union[phi.vis._vis_base.VisModel, phi.field._field.SampledField, tuple, list, phi.math._tensors.Tensor, phi.geom._geom.Geometry], play=True, gui: Union[phi.vis._vis_base.Gui, str] = None, lib: Union[phi.vis._vis_base.Gui, str] = None, keep_alive=True, **config)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>If <code>model</code> is a user interface model, launches the registered user interface.
@@ -671,10 +671,10 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show(*model: VisModel or SampledField or tuple or list or Tensor or Geometry,
+<pre><code class="python">def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
          play=True,
-         gui: Gui or str = None,
-         lib: Gui or str = None,
+         gui: Union[Gui, str] = None,
+         lib: Union[Gui, str] = None,
          keep_alive=True,
          **config):
     &#34;&#34;&#34;
@@ -733,7 +733,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
-<span>def <span class="ident">view</span></span>(<span>*fields: str, play: bool = True, gui=None, name: str = None, description: str = None, scene: bool = False, keep_alive=True, select: str = '', framerate=None, namespace=None, log_performance=True, **config) ‑> phi.vis._viewer.Viewer</span>
+<span>def <span class="ident">view</span></span>(<span>*fields: Union[str, phi.field._field.SampledField], play: bool = True, gui=None, name: str = None, description: str = None, scene: Union[bool, phi.field._scene.Scene] = False, keep_alive=True, select: Union[str, tuple, list] = '', framerate=None, namespace=None, log_performance=True, **config) ‑> phi.vis._viewer.Viewer</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show <code>fields</code> in a graphical user interface.</p>
@@ -782,14 +782,14 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def view(*fields: str or SampledField,
+<pre><code class="python">def view(*fields: Union[str, SampledField],
          play: bool = True,
          gui=None,
          name: str = None,
          description: str = None,
-         scene: bool or Scene = False,
+         scene: Union[bool, Scene] = False,
          keep_alive=True,
-         select: str or tuple or list = &#39;&#39;,
+         select: Union[str, tuple, list] = &#39;&#39;,
          framerate=None,
          namespace=None,
          log_performance=True,

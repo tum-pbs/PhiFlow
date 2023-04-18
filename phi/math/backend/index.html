@@ -120,7 +120,7 @@ __pdoc__ = {
 </details>
 </dd>
 <dt id="phi.math.backend.context_backend"><code class="name flex">
-<span>def <span class="ident">context_backend</span></span>(<span>) ‑> phi.math.backend._backend.Backend</span>
+<span>def <span class="ident">context_backend</span></span>(<span>) ‑> Optional[phi.math.backend._backend.Backend]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the backend set by the inner-most surrounding <code>with backend:</code> block.
@@ -131,7 +131,7 @@ If called outside a backend context, returns <code>None</code>.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def context_backend() -&gt; Backend or None:
+<pre><code class="python">def context_backend() -&gt; Union[Backend, None]:
     &#34;&#34;&#34;
     Returns the backend set by the inner-most surrounding `with backend:` block.
     If called outside a backend context, returns `None`.
@@ -293,7 +293,7 @@ def precision(floating_point_bits: int):
 </details>
 </dd>
 <dt id="phi.math.backend.profile"><code class="name flex">
-<span>def <span class="ident">profile</span></span>(<span>backends=None, trace=True, subtract_trace_time=True, save: str = None) ‑> phi.math.backend._profile.Profile</span>
+<span>def <span class="ident">profile</span></span>(<span>backends=None, trace=True, subtract_trace_time=True, save: Optional[str] = None) ‑> phi.math.backend._profile.Profile</span>
 </code></dt>
 <dd>
 <div class="desc"><p>To be used in <code>with</code> statements, <code>with math.backend.profile() as prof: ...</code>.
@@ -316,7 +316,7 @@ Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Prof
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@contextmanager
-def profile(backends=None, trace=True, subtract_trace_time=True, save: str or None = None) -&gt; Profile:
+def profile(backends=None, trace=True, subtract_trace_time=True, save: Union[str, None] = None) -&gt; Profile:
     &#34;&#34;&#34;
     To be used in `with` statements, `with math.backend.profile() as prof: ...`.
     Creates a `Profile` for the code executed within the context by tracking calls to the `backends` and optionally tracing the call.
@@ -342,7 +342,7 @@ def profile(backends=None, trace=True, subtract_trace_time=True, save: str or No
 </details>
 </dd>
 <dt id="phi.math.backend.profile_function"><code class="name flex">
-<span>def <span class="ident">profile_function</span></span>(<span>fun: Callable, args: tuple = (), kwargs: dict = None, backends=None, trace=True, subtract_trace_time=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
+<span>def <span class="ident">profile_function</span></span>(<span>fun: Callable, args: Union[tuple, list] = (), kwargs: Optional[dict] = None, backends=None, trace=True, subtract_trace_time=True, retime=True, warmup=1, call_count=1) ‑> phi.math.backend._profile.Profile</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.math.backend.Profile" href="#phi.math.backend.Profile">Profile</a></code> for the function <code>fun(*args, **kwargs)</code>.</p>
@@ -377,8 +377,8 @@ See <code><a title="phi.math.backend.Profile.retime" href="#phi.math.backend.Pro
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def profile_function(fun: Callable,
-                     args: tuple or list = (),
-                     kwargs: dict or None = None,
+                     args: Union[tuple, list] = (),
+                     kwargs: Union[dict, None] = None,
                      backends=None,
                      trace=True,
                      subtract_trace_time=True,
@@ -536,7 +536,7 @@ The output of math operations has the same precision as its inputs.</p>
     def name(self) -&gt; str:
         return self._name
 
-    def supports(self, feature: str or Callable) -&gt; bool:
+    def supports(self, feature: Union[str, Callable]) -&gt; bool:
         &#34;&#34;&#34;
         Tests if this backend supports the given feature.
         Features correspond to a method of this backend that must be implemented if the feature is supported.
@@ -616,7 +616,7 @@ The output of math operations has the same precision as its inputs.</p>
     def __repr__(self):
         return self.name
 
-    def list_devices(self, device_type: str or None = None) -&gt; List[ComputeDevice]:
+    def list_devices(self, device_type: Union[str, None] = None) -&gt; List[ComputeDevice]:
         &#34;&#34;&#34;
         Fetches information about all available compute devices this backend can use.
 
@@ -645,7 +645,7 @@ The output of math operations has the same precision as its inputs.</p>
     def get_default_device(self) -&gt; ComputeDevice:
         return self._default_device
 
-    def set_default_device(self, device: ComputeDevice or str) -&gt; bool:
+    def set_default_device(self, device: Union[ComputeDevice, str]) -&gt; bool:
         &#34;&#34;&#34;
         Sets the device new tensors will be allocated on.
         This function will do nothing if the target device type is not available.
@@ -812,7 +812,7 @@ The output of math operations has the same precision as its inputs.</p>
     def jit_compile(self, f: Callable) -&gt; Callable:
         return NotImplemented
 
-    def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+    def jacobian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
         &#34;&#34;&#34;
         Args:
             f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
@@ -827,7 +827,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -&gt; tuple:
+    def hessian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool) -&gt; tuple:
         &#34;&#34;&#34;
         First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
         Element-wise Hessians will be computed along the batch dimension.
@@ -858,17 +858,17 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         return NotImplemented
 
-    def jit_compile_grad(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+    def jit_compile_grad(self, f: Callable, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
         raise NotImplementedError()
 
-    def jit_compile_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
+    def jit_compile_hessian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool):
         raise NotImplementedError()
 
     def transpose(self, tensor, axes):
         &#34;&#34;&#34; Transposes the dimensions of `tensor` given the new axes order. The tensor will be cast to the default precision in the process. &#34;&#34;&#34;
         raise NotImplementedError()
 
-    def random_uniform(self, shape, low, high, dtype: DType or None):
+    def random_uniform(self, shape, low, high, dtype: Union[DType, None]):
         &#34;&#34;&#34; Float tensor of selected precision containing random values in the range [0, 1) &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -879,7 +879,7 @@ The output of math operations has the same precision as its inputs.</p>
     def stack(self, values, axis=0):
         raise NotImplementedError(self)
 
-    def stack_leaves(self, trees: tuple or list, axis=0):
+    def stack_leaves(self, trees: Union[tuple, list], axis=0):
         tree0 = trees[0]
         if isinstance(tree0, tuple):
             return tuple([self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))])
@@ -915,7 +915,7 @@ The output of math operations has the same precision as its inputs.</p>
     def reshape(self, value, shape):
         raise NotImplementedError(self)
 
-    def flip(self, value, axes: tuple or list):
+    def flip(self, value, axes: Union[tuple, list]):
         slices = tuple(slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value)))
         return value[slices]
 
@@ -966,7 +966,7 @@ The output of math operations has the same precision as its inputs.</p>
     def linspace(self, start, stop, number):
         raise NotImplementedError(self)
 
-    def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+    def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
         &#34;&#34;&#34; Multiply-sum-reduce a_axes of a with b_axes of b. &#34;&#34;&#34;
         raise NotImplementedError(self)
 
@@ -979,7 +979,7 @@ The output of math operations has the same precision as its inputs.</p>
     def cumsum(self, x, axis: int):
         raise NotImplementedError(self)
 
-    def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
+    def while_loop(self, loop: Callable, values: tuple, max_iter: Union[int, Tuple[int, ...], List[int]]):
         &#34;&#34;&#34;
         If `max_iter is None`, runs
 
@@ -1219,7 +1219,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def fft(self, x, axes: tuple or list):
+    def fft(self, x, axes: Union[tuple, list]):
         &#34;&#34;&#34;
         Computes the n-dimensional FFT along all but the first and last dimensions.
 
@@ -1232,7 +1232,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def ifft(self, k, axes: tuple or list):
+    def ifft(self, k, axes: Union[tuple, list]):
         &#34;&#34;&#34;
         Computes the n-dimensional inverse FFT along all but the first and last dimensions.
 
@@ -1361,7 +1361,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
+    def sparse_coo_tensor(self, indices: Union[tuple, list], values, shape: tuple):
         &#34;&#34;&#34;
         Create a sparse matrix in coordinate list (COO) format.
 
@@ -1380,7 +1380,7 @@ The output of math operations has the same precision as its inputs.</p>
         &#34;&#34;&#34;
         raise NotImplementedError(self)
 
-    def sparse_coo_tensor_batched(self, indices: tuple or list, values, shape: tuple):
+    def sparse_coo_tensor_batched(self, indices: Union[tuple, list], values, shape: tuple):
         &#34;&#34;&#34;
         Args:
             indices: shape (batch_size, dims, nnz)
@@ -2852,7 +2852,7 @@ Higher dimensions may not be supported.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.fft"><code class="name flex">
-<span>def <span class="ident">fft</span></span>(<span>self, x, axes: tuple)</span>
+<span>def <span class="ident">fft</span></span>(<span>self, x, axes: Union[tuple, list])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the n-dimensional FFT along all but the first and last dimensions.</p>
@@ -2869,7 +2869,7 @@ Higher dimensions may not be supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def fft(self, x, axes: tuple or list):
+<pre><code class="python">def fft(self, x, axes: Union[tuple, list]):
     &#34;&#34;&#34;
     Computes the n-dimensional FFT along all but the first and last dimensions.
 
@@ -2897,7 +2897,7 @@ Higher dimensions may not be supported.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.flip"><code class="name flex">
-<span>def <span class="ident">flip</span></span>(<span>self, value, axes: tuple)</span>
+<span>def <span class="ident">flip</span></span>(<span>self, value, axes: Union[tuple, list])</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2905,7 +2905,7 @@ Higher dimensions may not be supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def flip(self, value, axes: tuple or list):
+<pre><code class="python">def flip(self, value, axes: Union[tuple, list]):
     slices = tuple(slice(None, None, -1 if i in axes else None) for i in range(self.ndims(value)))
     return value[slices]</code></pre>
 </details>
@@ -3131,7 +3131,7 @@ One of <code>('undefined', 'zeros', 'boundary', 'periodic', 'symmetric', 'reflec
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.hessian"><code class="name flex">
-<span>def <span class="ident">hessian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool) ‑> tuple</span>
+<span>def <span class="ident">hessian</span></span>(<span>self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"><p>First dimension of all inputs/outputs of <code>f</code> is assumed to be a batch dimension.
@@ -3152,7 +3152,7 @@ The result is always a <code>tuple</code> holding at most these three items.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool) -&gt; tuple:
+<pre><code class="python">def hessian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool) -&gt; tuple:
     &#34;&#34;&#34;
     First dimension of all inputs/outputs of `f` is assumed to be a batch dimension.
     Element-wise Hessians will be computed along the batch dimension.
@@ -3172,7 +3172,7 @@ The result is always a <code>tuple</code> holding at most these three items.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.ifft"><code class="name flex">
-<span>def <span class="ident">ifft</span></span>(<span>self, k, axes: tuple)</span>
+<span>def <span class="ident">ifft</span></span>(<span>self, k, axes: Union[tuple, list])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the n-dimensional inverse FFT along all but the first and last dimensions.</p>
@@ -3189,7 +3189,7 @@ The result is always a <code>tuple</code> holding at most these three items.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ifft(self, k, axes: tuple or list):
+<pre><code class="python">def ifft(self, k, axes: Union[tuple, list]):
     &#34;&#34;&#34;
     Computes the n-dimensional inverse FFT along all but the first and last dimensions.
 
@@ -3406,7 +3406,7 @@ An object is considered a tensor (nativer or otherwise) by a backend if it is no
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.jacobian"><code class="name flex">
-<span>def <span class="ident">jacobian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, is_f_scalar: bool)</span>
+<span>def <span class="ident">jacobian</span></span>(<span>self, f: Callable, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -3428,7 +3428,7 @@ The gradients retain the dimensions of <code>reduced_loss</code> in order as out
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jacobian(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+<pre><code class="python">def jacobian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
     &#34;&#34;&#34;
     Args:
         f: Function to differentiate. Returns a tuple containing `(reduced_loss, output)`
@@ -3458,7 +3458,7 @@ The gradients retain the dimensions of <code>reduced_loss</code> in order as out
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.jit_compile_grad"><code class="name flex">
-<span>def <span class="ident">jit_compile_grad</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, is_f_scalar: bool)</span>
+<span>def <span class="ident">jit_compile_grad</span></span>(<span>self, f: Callable, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3466,12 +3466,12 @@ The gradients retain the dimensions of <code>reduced_loss</code> in order as out
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_grad(self, f: Callable, wrt: tuple or list, get_output: bool, is_f_scalar: bool):
+<pre><code class="python">def jit_compile_grad(self, f: Callable, wrt: Union[tuple, list], get_output: bool, is_f_scalar: bool):
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.jit_compile_hessian"><code class="name flex">
-<span>def <span class="ident">jit_compile_hessian</span></span>(<span>self, f: Callable, wrt: tuple, get_output: bool, get_gradient: bool)</span>
+<span>def <span class="ident">jit_compile_hessian</span></span>(<span>self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3479,7 +3479,7 @@ The gradients retain the dimensions of <code>reduced_loss</code> in order as out
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jit_compile_hessian(self, f: Callable, wrt: tuple or list, get_output: bool, get_gradient: bool):
+<pre><code class="python">def jit_compile_hessian(self, f: Callable, wrt: Union[tuple, list], get_output: bool, get_gradient: bool):
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
@@ -3587,7 +3587,7 @@ This method need not provide a gradient for the operation.</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.list_devices"><code class="name flex">
-<span>def <span class="ident">list_devices</span></span>(<span>self, device_type: str = None) ‑> List[phi.math.backend._backend.ComputeDevice]</span>
+<span>def <span class="ident">list_devices</span></span>(<span>self, device_type: Optional[str] = None) ‑> List[phi.math.backend._backend.ComputeDevice]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Fetches information about all available compute devices this backend can use.</p>
@@ -3611,7 +3611,7 @@ This method need not provide a gradient for the operation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def list_devices(self, device_type: str or None = None) -&gt; List[ComputeDevice]:
+<pre><code class="python">def list_devices(self, device_type: Union[str, None] = None) -&gt; List[ComputeDevice]:
     &#34;&#34;&#34;
     Fetches information about all available compute devices this backend can use.
 
@@ -4312,7 +4312,7 @@ Not yet implemented: 'sparse', 'coo', 'csc'</dd>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.random_uniform"><code class="name flex">
-<span>def <span class="ident">random_uniform</span></span>(<span>self, shape, low, high, dtype: phi.math.backend._dtype.DType)</span>
+<span>def <span class="ident">random_uniform</span></span>(<span>self, shape, low, high, dtype: Optional[phi.math.backend._dtype.DType])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Float tensor of selected precision containing random values in the range [0, 1)</p></div>
@@ -4320,7 +4320,7 @@ Not yet implemented: 'sparse', 'coo', 'csc'</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def random_uniform(self, shape, low, high, dtype: DType or None):
+<pre><code class="python">def random_uniform(self, shape, low, high, dtype: Union[DType, None]):
     &#34;&#34;&#34; Float tensor of selected precision containing random values in the range [0, 1) &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -4464,7 +4464,7 @@ Not yet implemented: 'sparse', 'coo', 'csc'</dd>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.set_default_device"><code class="name flex">
-<span>def <span class="ident">set_default_device</span></span>(<span>self, device: phi.math.backend._backend.ComputeDevice) ‑> bool</span>
+<span>def <span class="ident">set_default_device</span></span>(<span>self, device: Union[phi.math.backend._backend.ComputeDevice, str]) ‑> bool</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sets the device new tensors will be allocated on.
@@ -4482,7 +4482,7 @@ This function will do nothing if the target device type is not available.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def set_default_device(self, device: ComputeDevice or str) -&gt; bool:
+<pre><code class="python">def set_default_device(self, device: Union[ComputeDevice, str]) -&gt; bool:
     &#34;&#34;&#34;
     Sets the device new tensors will be allocated on.
     This function will do nothing if the target device type is not available.
@@ -4673,7 +4673,7 @@ unit_diagonal:</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.sparse_coo_tensor"><code class="name flex">
-<span>def <span class="ident">sparse_coo_tensor</span></span>(<span>self, indices: tuple, values, shape: tuple)</span>
+<span>def <span class="ident">sparse_coo_tensor</span></span>(<span>self, indices: Union[tuple, list], values, shape: tuple)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a sparse matrix in coordinate list (COO) format.</p>
@@ -4695,7 +4695,7 @@ unit_diagonal:</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sparse_coo_tensor(self, indices: tuple or list, values, shape: tuple):
+<pre><code class="python">def sparse_coo_tensor(self, indices: Union[tuple, list], values, shape: tuple):
     &#34;&#34;&#34;
     Create a sparse matrix in coordinate list (COO) format.
 
@@ -4716,7 +4716,7 @@ unit_diagonal:</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.sparse_coo_tensor_batched"><code class="name flex">
-<span>def <span class="ident">sparse_coo_tensor_batched</span></span>(<span>self, indices: tuple, values, shape: tuple)</span>
+<span>def <span class="ident">sparse_coo_tensor_batched</span></span>(<span>self, indices: Union[tuple, list], values, shape: tuple)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -4732,7 +4732,7 @@ unit_diagonal:</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sparse_coo_tensor_batched(self, indices: tuple or list, values, shape: tuple):
+<pre><code class="python">def sparse_coo_tensor_batched(self, indices: Union[tuple, list], values, shape: tuple):
     &#34;&#34;&#34;
     Args:
         indices: shape (batch_size, dims, nnz)
@@ -4769,7 +4769,7 @@ unit_diagonal:</p>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.stack_leaves"><code class="name flex">
-<span>def <span class="ident">stack_leaves</span></span>(<span>self, trees: tuple, axis=0)</span>
+<span>def <span class="ident">stack_leaves</span></span>(<span>self, trees: Union[tuple, list], axis=0)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4777,7 +4777,7 @@ unit_diagonal:</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack_leaves(self, trees: tuple or list, axis=0):
+<pre><code class="python">def stack_leaves(self, trees: Union[tuple, list], axis=0):
     tree0 = trees[0]
     if isinstance(tree0, tuple):
         return tuple([self.stack_leaves([tree[i] for tree in trees], axis=axis) for i in range(len(tree0))])
@@ -4900,7 +4900,7 @@ For placeholder tensors, unknown dimensions are represented as <code>None</code>
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.supports"><code class="name flex">
-<span>def <span class="ident">supports</span></span>(<span>self, feature: str) ‑> bool</span>
+<span>def <span class="ident">supports</span></span>(<span>self, feature: Union[str, Callable]) ‑> bool</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests if this backend supports the given feature.
@@ -4921,7 +4921,7 @@ Features correspond to a method of this backend that must be implemented if the 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def supports(self, feature: str or Callable) -&gt; bool:
+<pre><code class="python">def supports(self, feature: Union[str, Callable]) -&gt; bool:
     &#34;&#34;&#34;
     Tests if this backend supports the given feature.
     Features correspond to a method of this backend that must be implemented if the feature is supported.
@@ -4972,7 +4972,7 @@ Features correspond to a method of this backend that must be implemented if the 
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.tensordot"><code class="name flex">
-<span>def <span class="ident">tensordot</span></span>(<span>self, a, a_axes: tuple, b, b_axes: tuple)</span>
+<span>def <span class="ident">tensordot</span></span>(<span>self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Multiply-sum-reduce a_axes of a with b_axes of b.</p></div>
@@ -4980,7 +4980,7 @@ Features correspond to a method of this backend that must be implemented if the 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def tensordot(self, a, a_axes: tuple or list, b, b_axes: tuple or list):
+<pre><code class="python">def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
     &#34;&#34;&#34; Multiply-sum-reduce a_axes of a with b_axes of b. &#34;&#34;&#34;
     raise NotImplementedError(self)</code></pre>
 </details>
@@ -5176,7 +5176,7 @@ If <code>multiples</code> has more dimensions than <code>value</code>, these dim
 </details>
 </dd>
 <dt id="phi.math.backend.Backend.while_loop"><code class="name flex">
-<span>def <span class="ident">while_loop</span></span>(<span>self, loop: Callable, values: tuple, max_iter: int)</span>
+<span>def <span class="ident">while_loop</span></span>(<span>self, loop: Callable, values: tuple, max_iter: Union[int, Tuple[int, ...], List[int]])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>If <code>max_iter is None</code>, runs</p>
@@ -5203,7 +5203,7 @@ If the loop is broken, the values returned by the last loop are expected to be c
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def while_loop(self, loop: Callable, values: tuple, max_iter: int or Tuple[int, ...] or List[int]):
+<pre><code class="python">def while_loop(self, loop: Callable, values: tuple, max_iter: Union[int, Tuple[int, ...], List[int]]):
     &#34;&#34;&#34;
     If `max_iter is None`, runs
 
@@ -5407,7 +5407,7 @@ If the loop is broken, the values returned by the last loop are expected to be c
     Profiles can be printed or saved to disc.
     &#34;&#34;&#34;
 
-    def __init__(self, trace: bool, backends: tuple or list, subtract_trace_time: bool):
+    def __init__(self, trace: bool, backends: Union[tuple, list], subtract_trace_time: bool):
         self._start = perf_counter()
         self._stop = None
         self._root = ExtCall(None, &#34;&#34;, 0, &#34;&#34;, &#34;&#34;, &#34;&#34;, -1)

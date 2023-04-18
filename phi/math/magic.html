@@ -57,7 +57,7 @@ This is analogous to interfaces defined in the built-in `collections` package, s
 To check whether `len(obj)` can be performed, you check `isinstance(obj, Sized)`.
 &#34;&#34;&#34;
 import warnings
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 
 import dataclasses
 
@@ -283,7 +283,7 @@ class Shapable(metaclass=_ShapableType):
         &#34;&#34;&#34;
         raise NotImplementedError
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Shapable&#39;:
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -&gt; &#39;Shapable&#39;:
         &#34;&#34;&#34;
         Compresses multiple dimensions into a single dimension by concatenating the elements.
         Elements along the new dimensions are laid out according to the order of `dims`.
@@ -563,7 +563,7 @@ class BoundDim:
     def __getattr__(self, item):
         return _BoundDims(self.obj, (self.name, item))
 
-    def unstack(self, size: int or None = None) -&gt; tuple:
+    def unstack(self, size: Union[int, None] = None) -&gt; tuple:
         &#34;&#34;&#34;
         Lists the slices along this dimension as a `tuple`.
 
@@ -1017,7 +1017,7 @@ This supports the following operations:</p>
     def __getattr__(self, item):
         return _BoundDims(self.obj, (self.name, item))
 
-    def unstack(self, size: int or None = None) -&gt; tuple:
+    def unstack(self, size: Union[int, None] = None) -&gt; tuple:
         &#34;&#34;&#34;
         Lists the slices along this dimension as a `tuple`.
 
@@ -1377,7 +1377,7 @@ def size(self):
 </details>
 </dd>
 <dt id="phi.math.magic.BoundDim.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>self, size: int = None) ‑> tuple</span>
+<span>def <span class="ident">unstack</span></span>(<span>self, size: Optional[int] = None) ‑> tuple</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lists the slices along this dimension as a <code>tuple</code>.</p>
@@ -1393,7 +1393,7 @@ In that case, <code>size</code> copies of the object are returned.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(self, size: int or None = None) -&gt; tuple:
+<pre><code class="python">def unstack(self, size: Union[int, None] = None) -&gt; tuple:
     &#34;&#34;&#34;
     Lists the slices along this dimension as a `tuple`.
 
@@ -1765,7 +1765,7 @@ If this method is not implemented, tensor attributes are replaced using <code>se
         &#34;&#34;&#34;
         raise NotImplementedError
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Shapable&#39;:
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -&gt; &#39;Shapable&#39;:
         &#34;&#34;&#34;
         Compresses multiple dimensions into a single dimension by concatenating the elements.
         Elements along the new dimensions are laid out according to the order of `dims`.
@@ -2006,7 +2006,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.math.magic.Shapable.__pack_dims__"><code class="name flex">
-<span>def <span class="ident">__pack_dims__</span></span>(<span>self, dims: Tuple[str, ...], packed_dim: phi.math._shape.Shape, pos: int, **kwargs) ‑> <a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></span>
+<span>def <span class="ident">__pack_dims__</span></span>(<span>self, dims: Tuple[str, ...], packed_dim: phi.math._shape.Shape, pos: Optional[int], **kwargs) ‑> <a title="phi.math.magic.Shapable" href="#phi.math.magic.Shapable">Shapable</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
@@ -2032,7 +2032,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: int or None, **kwargs) -&gt; &#39;Shapable&#39;:
+<pre><code class="python">def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -&gt; &#39;Shapable&#39;:
     &#34;&#34;&#34;
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
