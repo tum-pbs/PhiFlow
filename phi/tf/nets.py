@@ -4,10 +4,9 @@ Equivalent functions also exist for the other frameworks.
 
 For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 """
-from typing import Callable, Tuple, List, Union
 import pickle
 from typing import Callable
-from typing import Tuple, List
+from typing import Union, Sequence
 
 import numpy
 import numpy as np
@@ -15,7 +14,6 @@ import tensorflow as tf
 from tensorflow import Tensor
 from tensorflow import keras
 from tensorflow.keras import layers as kl
-from tensorflow import Tensor
 
 from .. import math
 
@@ -180,7 +178,7 @@ def rmsprop(net: keras.Model, learning_rate: float = 1e-3, alpha=0.99, eps=1e-08
 
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: Union[Tuple[int, ...], List[int]],
+              layers: Sequence[int],
               batch_norm=False,
               activation='ReLU',
               softmax=False) -> keras.Model:
@@ -295,7 +293,7 @@ def double_conv(x, d: int, out_channels: int, mid_channels: int, batch_norm: boo
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Union[Tuple[int, ...], List[int]],
+             layers: Sequence[int],
              batch_norm: bool = False,
              activation: Union[str, Callable] = 'ReLU',
              periodic=False,
@@ -365,7 +363,7 @@ def resnet_block(in_channels: int,
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Union[Tuple[int, ...], List[int]],
+            layers: Sequence[int],
             batch_norm: bool = False,
             activation: Union[str, Callable] = 'ReLU',
             periodic=False,
@@ -780,7 +778,7 @@ class FNO(keras.Model):
 def fno(in_channels: int,
         out_channels: int,
         mid_channels: int,
-        modes: Union[Tuple[int, ...], List[int]],
+        modes: Sequence[int],
         activation: Union[str, type] = 'ReLU',
         batch_norm: bool = False,
         in_spatial: int = 2):

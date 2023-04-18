@@ -4,7 +4,7 @@ Equivalent functions also exist for the other frameworks.
 
 For API documentation, see https://tum-pbs.github.io/PhiFlow/Network_API .
 """
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Union, Sequence
 
 import numpy
 import numpy as np
@@ -161,7 +161,7 @@ ACTIVATIONS = {'ReLU': nn.ReLU, 'Sigmoid': nn.Sigmoid, 'tanh': nn.Tanh, 'SiLU': 
 
 def dense_net(in_channels: int,
               out_channels: int,
-              layers: Union[Tuple[int, ...], List[int]],
+              layers: Sequence[int],
               batch_norm=False,
               activation: Union[str, Callable] = 'ReLU',
               softmax=False) -> nn.Module:
@@ -380,7 +380,7 @@ class ConvNet(nn.Module):
 
 def conv_net(in_channels: int,
              out_channels: int,
-             layers: Union[Tuple[int, ...], List[int]],
+             layers: Sequence[int],
              batch_norm: bool = False,
              activation: Union[str, type] = 'ReLU',
              in_spatial: Union[int, tuple] = 2,
@@ -515,7 +515,7 @@ class ResNet(nn.Module):
 
 def res_net(in_channels: int,
             out_channels: int,
-            layers: Union[Tuple[int, ...], List[int]],
+            layers: Sequence[int],
             batch_norm: bool = False,
             activation: Union[str, type] = 'ReLU',
             in_spatial: Union[int, tuple] = 2,
@@ -881,7 +881,7 @@ class FNO(nn.Module):
 def fno(in_channels: int,
         out_channels: int,
         mid_channels: int,
-        modes: Union[Tuple[int, ...], List[int]],
+        modes: Sequence[int],
         activation: Union[str, type] = 'ReLU',
         batch_norm: bool = False,
         in_spatial: int = 2):
