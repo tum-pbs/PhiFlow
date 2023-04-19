@@ -107,6 +107,9 @@ class NumPyBackend(Backend):
             return all([self.is_tensor(item, False) for item in x])
         return False
 
+    def is_sparse(self, x) -> bool:
+        return issparse(x)
+
     def is_available(self, tensor):
         return True
 

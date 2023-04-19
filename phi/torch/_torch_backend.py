@@ -44,6 +44,9 @@ class TorchBackend(Backend):
             return True  # this is pretty much required, else we couldn't perform NP+PyTorch operations
         return False
 
+    def is_sparse(self, x) -> bool:
+        return x.is_sparse
+
     def as_tensor(self, x, convert_external=True):
         if isinstance(x, torch.nn.Module):
             return x
