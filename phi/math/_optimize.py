@@ -1,7 +1,7 @@
 import time
 import uuid
 import warnings
-from typing import Callable, Generic, List, TypeVar, Any, Tuple, Union
+from typing import Callable, Generic, List, TypeVar, Any, Tuple, Union, Optional
 
 import numpy
 import numpy as np
@@ -15,8 +15,7 @@ from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, reshaped_native, reshaped_tensor, to_float, reshaped_numpy
 from ._functional import custom_gradient, LinearFunction, f_name
 from .backend import Backend
-from .backend._backend import SolveResult, PHI_LOGGER
-
+from .backend._backend import SolveResult, PHI_LOGGER, IncompleteLU
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -36,6 +35,7 @@ class Solve(Generic[X, Y]):
                  suppress: Union[tuple, list] = (),
                  preprocess_y: Callable = None,
                  preprocess_y_args: tuple = (),
+                 preconditioner: Optional[str] = None,
                  gradient_solve: Union['Solve[Y, X]', None] = None):
         method = method or 'auto'
         assert isinstance(method, str)
@@ -61,6 +61,7 @@ class Solve(Generic[X, Y]):
         assert all(issubclass(err, ConvergenceException) for err in suppress)
         self.suppress: tuple = tuple(suppress)
         """ Error types to suppress; `tuple` of `ConvergenceException` types. For these errors, the solve function will instead return the partial result without raising the error. """
+        self.preconditioner = preconditioner
         self._gradient_solve: Solve[Y, X] = gradient_solve
         self.id = str(uuid.uuid4())  # not altered by copy_with(), so that the lookup SolveTape[Solve] works after solve has been copied
 
@@ -535,12 +536,21 @@ def solve_linear(f: Union[Callable[[X], Y], Tensor],
         else:
             matrix = f
             bias = 0
+        if solve.preconditioner is not None:
+            if solve.preconditioner == 'ilu':
+                from ._sparse import factor_ilu
+                lower, upper = factor_ilu(matrix)
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
             backend_matrix = native_matrix(matrix)
             pattern_dims_in = channel(**dual(matrix).untyped_dict).names
             pattern_dims_out = non_dual(matrix).names  # batch dims can be sparse or batched matrices
-            result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, backend, is_backprop)
+            preconditioner = None
+            if solve.preconditioner is not None:
+                native_lower = native_matrix(lower)
+                native_upper = native_matrix(upper)
+                preconditioner = IncompleteLU(native_lower, True, native_upper, False, rank_deficiency=0)  # ToDo rank deficiency
+            result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
             return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
         _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args='is_backprop,solve', matrix_adjoint=grad_for_f)
@@ -549,6 +559,7 @@ def solve_linear(f: Union[Callable[[X], Y], Tensor],
         f_args = cached(f_args)
         solve = cached(solve)
         assert not grad_for_f, f"grad_for_f=True can only be used for math.jit_compile_linear functions but got '{f_name(f)}'. Please decorate the linear function with @jit_compile_linear"
+        assert solve.preconditioner is None, f"Preconditioners not currently supported for matrix-free solves. Decorate '{f_name(f)}' with @math.jit_compile_linear to perform a matrix solve."
 
         def _function_solve_forward(y, solve: Solve, f_args: tuple, f_kwargs: dict = None, is_backprop=False):
             y_nest, (y_tensor,) = disassemble_tree(y)
@@ -567,7 +578,7 @@ def solve_linear(f: Union[Callable[[X], Y], Tensor],
                     y_native = y_native[batch_index]
                 return y_native
 
-            result = _linear_solve_forward(y, solve, native_lin_f, pattern_dims_in=non_batch(x0_tensor).names, pattern_dims_out=non_batch(y_tensor).names, backend=backend, is_backprop=is_backprop)
+            result = _linear_solve_forward(y, solve, native_lin_f, pattern_dims_in=non_batch(x0_tensor).names, pattern_dims_out=non_batch(y_tensor).names, preconditioner=None, backend=backend, is_backprop=is_backprop)
             return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
         _function_solve = attach_gradient_solve(_function_solve_forward, auxiliary_args='is_backprop,f_kwargs,solve', matrix_adjoint=grad_for_f)
@@ -576,9 +587,10 @@ def solve_linear(f: Union[Callable[[X], Y], Tensor],
 
 def _linear_solve_forward(y,
                           solve: Solve,
-                          native_lin_op,
+                          native_lin_op: Union[Callable, Any],  # native function or native matrix
                           pattern_dims_in: Tuple[str, ...],
                           pattern_dims_out: Tuple[str, ...],
+                          preconditioner: Optional[Callable],
                           backend: Backend,
                           is_backprop: bool) -> Any:
     solve = solve.with_defaults('solve')
@@ -601,7 +613,7 @@ def _linear_solve_forward(y,
     else:
         max_iter = reshaped_numpy(solve.max_iterations, [shape(solve.max_iterations).without(batch_dims), batch_dims], force_expand=True)
     t = time.perf_counter()
-    ret = backend.linear_solve(solve.method, native_lin_op, y_native, x0_native, tol_sq, max_iter)
+    ret = backend.linear_solve(solve.method, native_lin_op, y_native, x0_native, tol_sq, max_iter, preconditioner)
     t = time.perf_counter() - t
     trj_dims = [batch(trajectory=len(max_iter))] if trj else []
     assert isinstance(ret, SolveResult)

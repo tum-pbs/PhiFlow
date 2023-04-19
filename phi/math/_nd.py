@@ -528,7 +528,7 @@ def spatial_gradient(grid: Tensor,
 
 def laplace(x: Tensor,
             dx: Union[Tensor, float] = 1,
-            padding: Extrapolation = extrapolation.BOUNDARY,
+            padding: Union[Extrapolation, float, Tensor] = extrapolation.BOUNDARY,
             dims: DimFilter = spatial,
             weights: Tensor = None):
     """
