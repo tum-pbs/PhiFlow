@@ -275,6 +275,13 @@ class Backend:
         """
         raise NotImplementedError()
 
+    def is_sparse(self, x) -> bool:
+        """
+        Args:
+            x: Tensor native to this `Backend`.
+        """
+        raise NotImplementedError(self)
+
     def as_tensor(self, x, convert_external=True):
         """
         Converts a tensor-like object to the native tensor representation of this backend.

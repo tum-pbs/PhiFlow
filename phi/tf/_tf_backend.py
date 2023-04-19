@@ -54,6 +54,9 @@ class TFBackend(Backend):
         else:
             return is_tf_tensor or NUMPY.is_tensor(x, only_native=False)
 
+    def is_sparse(self, x) -> bool:
+        return isinstance(x, tf.SparseTensor)
+
     def as_tensor(self, x, convert_external=True):
         with tf.device(self._default_device.ref):
             if self.is_tensor(x, only_native=convert_external):
