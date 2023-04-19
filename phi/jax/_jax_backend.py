@@ -79,7 +79,7 @@ class JaxBackend(Backend):
             return True
         if isinstance(x, jnp.bool_) and not isinstance(x, np.bool_):
             return True
-        if isinstance(x, (COO, BCOO, CSR, CSC)):
+        if self.is_sparse(x):
             return True
         # --- Above considered native ---
         if only_native:
@@ -94,6 +94,9 @@ class JaxBackend(Backend):
         if isinstance(x, (tuple, list)):
             return all([self.is_tensor(item, False) for item in x])
         return False
+
+    def is_sparse(self, x) -> bool:
+        return isinstance(x, (COO, BCOO, CSR, CSC))
 
     def is_available(self, tensor):
         return not isinstance(tensor, Tracer)

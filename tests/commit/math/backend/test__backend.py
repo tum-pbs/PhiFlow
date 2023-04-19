@@ -93,6 +93,8 @@ class TestBackends(TestCase):
                 idx_ = b.transpose(b.as_tensor(idx), [1, 0])
                 matrix = b.sparse_coo_tensor(idx_, v, shape)
                 self.assertTrue(b.is_tensor(matrix), b.name)
+                self.assertTrue(b.is_sparse(matrix), b.name)
+                self.assertFalse(b.is_sparse(b.random_normal((2, 2), DType(float, 32))), b.name)
 
     def test_get_diagonal(self):
         for b in BACKENDS:
