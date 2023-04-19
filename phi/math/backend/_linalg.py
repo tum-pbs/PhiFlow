@@ -1,19 +1,21 @@
+import warnings
 from functools import partial
-from typing import Tuple, Callable, Union
+from typing import Tuple, Callable, Union, Optional
 
 import numpy as np
 
-from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation
+from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, Preconditioner
 
 
 def identity(x):
     return x
 
 
-def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged: Union[Exception, None] = None):
+def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged: Optional[Callable] = None):
     max_iter = b.as_tensor(max_iter[-1, :])
     rsq0 = []
     def check_progress(iterations, residual_squared):
+        residual_squared = abs(residual_squared)
         converged = b.all(residual_squared <= tolerance_squared, axis=(1,))
         if not rsq0:
             diverged = b.any(~b.isfinite(residual_squared), axis=(1,))
@@ -36,11 +38,12 @@ def _max_iter(max_iter: np.ndarray) -> Union[int, list]:
         return max_iter[:, 0].tolist()
 
 
-def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Callable = identity) -> Union[SolveResult, List[SolveResult]]:
+def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner]) -> Union[SolveResult, List[SolveResult]]:
     """
     Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
     symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b, pre=M
     """
+    pre = pre or identity
     batch_size = b.staticshape(y)[0]
     y = b.to_float(y)
     x = b.copy(b.to_float(x0), only_mutable=True)
@@ -72,10 +75,13 @@ def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Callable
     return SolveResult(f"Φ-Flow CG ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter) -> Union[SolveResult, List[SolveResult]]:
+def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner]) -> Union[SolveResult, List[SolveResult]]:
     """
     Based on the variant described in "Methods of Conjugate Gradients for Solving Linear Systems" by Magnus R. Hestenes and Eduard Stiefel https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
     """
+    if pre:
+        warnings.warn("CG-adaptive does not yet support preconditioners. Using regular CG instead.", RuntimeWarning)
+        return cg(b, lin, y, x0, check_progress, max_iter, pre)
     y = b.to_float(y)
     x0 = b.copy(b.to_float(x0), only_mutable=True)
     batch_size = b.staticshape(y)[0]
@@ -106,9 +112,11 @@ def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter) -> Union[Solv
     return SolveResult(f"Φ-Flow CG-adaptive ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, poly_order: int) -> Union[SolveResult, List[SolveResult]]:
+def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner], poly_order: int) -> Union[SolveResult, List[SolveResult]]:
     """ Adapted from [BiCGstab for linear equations involving unsymmetric matrices with complex spectrum](https://dspace.library.uu.nl/bitstream/handle/1874/16827/sleijpen_93_bicgstab.pdf) """
     # Based on "BiCGstab(L) for linear equations involving unsymmetric matrices with complex spectrum" by Gerard L.G. Sleijpen
+    if pre:
+        raise NotImplementedError("generic biCG does not yet support preconditioners")
     y = b.to_float(y)
     x = b.copy(b.to_float(x0), only_mutable=True)
     batch_size = b.staticshape(y)[0]
@@ -249,25 +257,27 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
     rows, cols = shape
     assert rows == cols, "incomplete_lu_coo only implemented for square matrices"
     is_lower = np.expand_dims(row > col, -1)
+    is_lower_b = b.as_tensor(is_lower)
     diagonal_indices = np.expand_dims(get_lower_diagonal_indices(row, col, shape), -1)  # indices of corresponding values that lie on the diagonal
     is_diagonal = np.expand_dims(row == col, -1)
+    is_diagonal_b = b.cast(is_diagonal, b.dtype(values))
     mm_above, mm_left, mm_is_valid = strict_lu_mm_pattern_coo_batched(row, col, rows, cols)
-    mm_above = np.expand_dims(mm_above, -1)
-    mm_left = np.expand_dims(mm_left, -1)
-    mm_is_valid = np.expand_dims(mm_is_valid, -1)
+    mm_above = b.as_tensor(np.expand_dims(mm_above, -1))
+    mm_left = b.as_tensor(np.expand_dims(mm_left, -1))
+    mm_is_valid = b.as_tensor(np.expand_dims(mm_is_valid, -1))
     # --- Initialize U as the diagonal of A, then compute off-diagonal of L ---
     lower = values / b.batched_gather_nd(values, diagonal_indices)  # Since U=diag(A), L can be computed by a simple division
-    lu = values * is_diagonal + lower * is_lower  # combine lower + diag(A) + 0
+    lu = values * is_diagonal_b + lower * b.cast(is_lower_b, b.dtype(values))  # combine lower + diag(A) + 0
     # --- Fixed-point iterations ---
     for sweep in range(iterations):
         diag = b.batched_gather_nd(lu, diagonal_indices)  # should never contain 0
         sum_l_u = b.einsum('bnkc,bnkc->bnc', b.batched_gather_nd(lu, mm_above) * mm_is_valid, b.batched_gather_nd(lu, mm_left))
         l = (values - sum_l_u) / diag if not safe else b.divide_no_nan(values - sum_l_u, diag)
-        lu = b.where(is_lower, l, values - sum_l_u)
+        lu = b.where(is_lower_b, l, values - sum_l_u)
     # --- Assemble L=lower+unit_diagonal and U. If nnz varies along batch, keep the full sparsity pattern ---
-    u_values = b.where(~is_lower, lu, 0)
+    u_values = b.where(~is_lower_b, lu, 0)
     belongs_to_lower = (is_lower | is_diagonal)
-    l_values = b.where(is_lower, lu, b.cast(is_diagonal, b.dtype(values)))
+    l_values = b.where(is_lower_b, lu, is_diagonal_b)
     u_mask_indices_b, u_mask_indices = np.where(~is_lower[..., 0])
     _, u_nnz = np.unique(u_mask_indices_b, return_counts=True)
     if np.all(u_nnz == u_nnz[0]):  # nnz for lower/upper does not vary along batch
