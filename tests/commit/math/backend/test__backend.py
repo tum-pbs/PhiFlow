@@ -5,7 +5,7 @@ import numpy
 
 import phi
 from phi.math import DType
-from phi.math.backend import ComputeDevice, convert, Backend
+from phi.math.backend import ComputeDevice, convert, Backend, NUMPY
 
 BACKENDS: Tuple[Backend] = phi.detect_backends()
 
@@ -95,6 +95,9 @@ class TestBackends(TestCase):
                 self.assertTrue(b.is_tensor(matrix), b.name)
                 self.assertTrue(b.is_sparse(matrix), b.name)
                 self.assertFalse(b.is_sparse(b.random_normal((2, 2), DType(float, 32))), b.name)
+                np_matrix = b.numpy(matrix)
+                self.assertTrue(NUMPY.is_sparse(np_matrix))
+                self.assertEqual(np_matrix.shape, b.staticshape(matrix))
 
     def test_get_diagonal(self):
         for b in BACKENDS:

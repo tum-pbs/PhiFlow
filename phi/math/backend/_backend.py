@@ -325,7 +325,7 @@ class Backend:
         Use `is_available(tensor)` to check if the value can be represented as a NumPy array.
 
         Args:
-          tensor: backend-compatible tensor
+            tensor: backend-compatible tensor or sparse tensor
 
         Returns:
           NumPy representation of the values stored in the tensor
