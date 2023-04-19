@@ -101,8 +101,22 @@ class JaxBackend(Backend):
     def is_available(self, tensor):
         return not isinstance(tensor, Tracer)
 
-    def numpy(self, x):
-        return np.array(x)
+    def numpy(self, tensor):
+        if isinstance(tensor, COO):
+            raise NotImplementedError
+        elif isinstance(tensor, BCOO):
+            indices = np.array(tensor.indices)
+            values = np.array(tensor.data)
+            indices = indices[..., 0], indices[..., 1]
+            assert values.ndim == 1, f"Cannot convert batched COO to NumPy"
+            from scipy.sparse import coo_matrix
+            return coo_matrix((values, indices), shape=self.staticshape(tensor))
+        elif isinstance(tensor, CSR):
+            raise NotImplementedError
+        elif isinstance(tensor, CSC):
+            raise NotImplementedError
+        else:
+            return np.array(tensor)
 
     def to_dlpack(self, tensor):
         from jax import dlpack

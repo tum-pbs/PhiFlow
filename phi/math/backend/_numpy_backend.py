@@ -114,7 +114,7 @@ class NumPyBackend(Backend):
         return True
 
     def numpy(self, tensor):
-        if isinstance(tensor, np.ndarray):
+        if isinstance(tensor, np.ndarray) or issparse(tensor):
             return tensor
         else:
             return np.array(tensor)
