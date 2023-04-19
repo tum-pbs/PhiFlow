@@ -77,6 +77,12 @@ class TFBackend(Backend):
             return True
 
     def numpy(self, tensor):
+        if self.is_sparse(tensor):
+            indices = np.array(tensor.indices)
+            values = np.array(tensor.values)
+            indices = indices[..., 0], indices[..., 1]
+            from scipy.sparse import coo_matrix
+            return coo_matrix((values, indices), shape=self.staticshape(tensor))
         if tf.is_tensor(tensor):
             return tensor.numpy()
         return NUMPY.numpy(tensor)

@@ -95,12 +95,27 @@ class TorchBackend(Backend):
         # return True
         return torch._C._get_tracing_state() is None  # TODO can we find out whether this tensor specifically is being traced?
 
-    def numpy(self, tensor):
+    def numpy(self, tensor, coalesce=False):
         if tensor.requires_grad:
             tensor = tensor.detach()
         if hasattr(tensor, 'resolve_conj'):
             tensor = tensor.resolve_conj()
-        return tensor.cpu().numpy()
+        if tensor.is_sparse:
+            if coalesce:
+                tensor = tensor.coalesce()
+                indices = tensor.indices()
+                values = tensor.values()
+            else:
+                indices = tensor._indices()
+                values = tensor._values()
+            indices = self.numpy(indices)
+            values = self.numpy(values)
+            from scipy.sparse import coo_matrix
+            return coo_matrix((values, indices), shape=self.staticshape(tensor))
+        elif tensor.is_sparse_csr:
+            raise NotImplementedError
+        else:
+            return tensor.cpu().numpy()
 
     def to_dlpack(self, tensor):
         from torch.utils import dlpack
