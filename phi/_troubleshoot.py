@@ -169,9 +169,9 @@ def plot_solves():
                 print(f"Solve {i}: {result.method} ({1000 * result.solve_time:.1f} ms)\n"
                       f"\t{result.solve}\n"
                       f"\t{result.msg}\n"
-                      f"\tConverged: {result.converged}\n"
-                      f"\tDiverged: {result.diverged}\n"
-                      f"\tIterations: {result.iterations}\n"
+                      f"\tConverged: {result.converged.trajectory[-1]}\n"
+                      f"\tDiverged: {result.diverged.trajectory[-1]}\n"
+                      f"\tIterations: {result.iterations.trajectory[-1]}\n"
                       f"\tFunction evaulations: {result.function_evaluations.trajectory[-1]}")
             pylab.yscale('log')
             pylab.ylabel("Residual: MSE / max / individual max")

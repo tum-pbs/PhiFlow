@@ -1,20 +1,28 @@
+import logging
 import sys
 import warnings
-from collections import namedtuple
 from contextlib import contextmanager
-from typing import List, Callable, TypeVar, Tuple, Any, Union
+from dataclasses import dataclass
+from typing import List, Callable, TypeVar, Tuple, Union, Optional
 
-import logging
 import numpy
 
-from ._dtype import DType, combine_types, to_numpy_dtype
+from ._dtype import DType, combine_types
 
-
-SolveResult = namedtuple('SolveResult', [
-    'method', 'x', 'residual', 'iterations', 'function_evaluations', 'converged', 'diverged', 'message',
-])
 
 TensorType = TypeVar('TensorType')
+
+
+@dataclass
+class SolveResult:
+    method: str
+    x: TensorType
+    residual: TensorType
+    iterations: TensorType
+    function_evaluations: TensorType
+    converged: TensorType  # (max_iter+1, batch) or (batch,)
+    diverged: TensorType  # (max_iter+1, batch) or (batch,)
+    message: List[str]  # (batch,)
 
 
 class ComputeDevice:
@@ -53,6 +61,52 @@ class ComputeDevice:
 
     def __hash__(self):
         return hash(self.ref)
+
+
+class Preconditioner:
+    def apply(self, vec):
+        raise NotImplementedError
+
+    def apply_transposed(self, vec):
+        raise NotImplementedError
+
+    def __call__(self, *args, **kwargs):
+        assert len(args) == 1
+        assert not kwargs
+        return self.apply(args[0])
+
+
+@dataclass
+class IncompleteLU(Preconditioner):
+    lower: TensorType
+    lower_unit_diagonal: bool
+    upper: TensorType
+    upper_unit_diagonal: bool
+    rank_deficiency: int
+
+    def __post_init__(self):  # ToDo this is temporary until backend.solve_triangular supports sparse matrices
+        self._np_lower = choose_backend(self.lower).numpy(self.lower)
+        self._np_upper = choose_backend(self.upper).numpy(self.upper)
+
+    def apply(self, vec):
+        b = choose_backend(self.lower, self.upper, vec)
+        np_vec = b.numpy(vec)
+        from scipy.sparse.linalg import spsolve_triangular
+        np_intermediate = spsolve_triangular(self._np_lower, np_vec.T, lower=True, unit_diagonal=self.lower_unit_diagonal)
+        np_result = spsolve_triangular(self._np_upper, np_intermediate, lower=False, unit_diagonal=self.upper_unit_diagonal).T
+        return b.as_tensor(np_result)
+        # intermediate = b.solve_triangular(self.lower, rhs, lower=True, unit_diagonal=self.lower_unit_diagonal)
+        # # ToDo if set last rank_deficiency entries to 0, then solve smaller system
+        # result = b.solve_triangular(self.upper, intermediate, lower=True, unit_diagonal=self.lower_unit_diagonal)
+        # return result
+
+    def apply_transposed(self, vec):
+        b = choose_backend(self.lower, self.upper, vec)
+        np_vec = b.numpy(vec)
+        from scipy.sparse.linalg import spsolve_triangular, spsolve
+        np_intermediate = spsolve_triangular(self._np_upper.T, np_vec.T, lower=True, unit_diagonal=self.upper_unit_diagonal)
+        np_result = spsolve_triangular(self._np_lower.T, np_intermediate, lower=False, unit_diagonal=self.lower_unit_diagonal).T
+        return b.as_tensor(np_result)
 
 
 class Backend:
@@ -1215,7 +1269,7 @@ class Backend:
             from ._minimize import scipy_minimize
             return scipy_minimize(self, method, f, x0, atol, max_iter, trj)
 
-    def linear_solve(self, method: str, lin, y, x0, tol_sq, max_iter) -> SolveResult:
+    def linear_solve(self, method: str, lin, y, x0, tol_sq, max_iter, pre: Optional[Callable]) -> SolveResult:
         """
         Solve the system of linear equations A · x = y.
         This method need not provide a gradient for the operation.
@@ -1229,42 +1283,43 @@ class Backend:
             y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
             x0: Initial guess of size (batch, parameters)
             tol_sq: Squared absolute tolerance of size (batch,)
-            max_iter: Maximum number of iterations of size (batch,) or a sequence of maximum iterations to obtain a trajectory.
+            max_iter: Maximum number of iterations of shape (checkpoints, batch).
+            pre: Preconditioner, function taking one native tensor like `y` as input and returning a native tensor like `x0`.
 
         Returns:
             `SolveResult`
         """
         if method == 'auto':
-            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter)
+            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter, pre)
         elif method == 'CG':
-            return self.conjugate_gradient(lin, y, x0, tol_sq, max_iter)
+            return self.conjugate_gradient(lin, y, x0, tol_sq, max_iter, pre)
         elif method == 'CG-adaptive':
-            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter)
+            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter, pre)
         elif method in ['biCG', 'biCG-stab(0)']:
             raise NotImplementedError("Unstabilized Bi-CG not yet supported")
             # return self.bi_conjugate_gradient_original(lin, y, x0, tol_sq, max_iter)
         elif method == 'biCG-stab':
-            return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, poly_order=1)
+            return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, pre, poly_order=1)
         elif method.startswith('biCG-stab('):
             order = int(method[len('biCG-stab('):-1])
-            return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, poly_order=order)
+            return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, pre, poly_order=order)
         else:
             raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
 
-    def conjugate_gradient(self, lin, y, x0, tol_sq, max_iter) -> SolveResult:
+    def conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
         """ Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. """
         from ._linalg import cg, stop_on_l2
-        return cg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter)
+        return cg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, pre)
 
-    def conjugate_gradient_adaptive(self, lin, y, x0, tol_sq, max_iter) -> SolveResult:
+    def conjugate_gradient_adaptive(self, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
         """ Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. """
         from ._linalg import cg_adaptive, stop_on_l2
-        return cg_adaptive(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter)
+        return cg_adaptive(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, pre)
 
-    def bi_conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, poly_order=2) -> SolveResult:
+    def bi_conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre, poly_order=2) -> SolveResult:
         """ Generalized stabilized biconjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. """
         from ._linalg import bicg, stop_on_l2
-        return bicg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, poly_order)
+        return bicg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, pre, poly_order)
 
     def linear(self, lin, vector):
         if callable(lin):
@@ -1293,9 +1348,15 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def solve_triangular(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        """Performs a sparse or dense triangular solve, depending on the format of `matrix`."""
+        if self.is_sparse(matrix):
+            return self.solve_triangular_sparse(matrix, rhs, lower, unit_diagonal)
+        else:
+            return self.solve_triangular_dense(matrix, rhs, lower, unit_diagonal)
+
     def solve_triangular_dense(self, matrix, rhs, lower: bool, unit_diagonal: bool):
         """
-
         Args:
             matrix: (batch_size, rows, cols)
             rhs: (batch_size, cols)
@@ -1306,6 +1367,13 @@ class Backend:
             (batch_size, cols)
         """
         raise NotImplementedError(self)
+
+    # def solve_triangular_sparse(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+    #     np_matrix = self.numpy(matrix)
+    #     np_rhs = self.numpy(rhs)
+    #     from scipy.sparse.linalg import spsolve_triangular
+    #     np_result = spsolve_triangular(np_matrix, np_rhs.T, lower=lower, unit_diagonal=unit_diagonal).T
+    #     return self.as_tensor(np_result)
 
     def stop_gradient(self, value):
         raise NotImplementedError(self)
