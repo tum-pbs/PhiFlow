@@ -266,7 +266,7 @@ def get_current_figure():
     return LAST_FIGURE[0]
 
 
-def plot(*fields: Union[SampledField, Tensor],
+def plot(*fields: Union[SampledField, Tensor, Geometry],
          lib: Union[str, PlottingLibrary] = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
