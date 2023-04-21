@@ -178,7 +178,7 @@ class Box(BaseBox, metaclass=BoxType):
         >>> Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     """
 
-    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: Union[int, Tensor]):
+    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: Union[int, Tensor, tuple, list]):
         """
         Args:
           lower: physical location of lower corner
