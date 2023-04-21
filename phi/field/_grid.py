@@ -160,7 +160,7 @@ class CenteredGrid(Grid):
 
     def __init__(self,
                  values: Any = 0.,
-                 extrapolation: Any = 0.,
+                 extrapolation: Union[float, Extrapolation, dict, Field] = 0.,
                  bounds: Union[Box, float] = None,
                  resolution: Union[int, Shape] = None,
                  **resolution_: Union[int, Tensor]):
@@ -298,7 +298,7 @@ class StaggeredGrid(Grid):
 
     def __init__(self,
                  values: Any = 0.,
-                 extrapolation: Union[float, Extrapolation] = 0,
+                 extrapolation: Union[float, Extrapolation, dict, Field] = 0,
                  bounds: Union[Box, float] = None,
                  resolution: Union[Shape, int] = None,
                  **resolution_: Union[int, Tensor]):
