@@ -8,8 +8,8 @@ from typing import Tuple, Any, Optional, Dict, Callable, Union
 from phi import field, math
 from phi.field import SampledField, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
-from phi.geom import Box, Cuboid, Geometry
-from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand
+from phi.geom import Box, Cuboid, Geometry, Point
+from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
 
 Control = namedtuple('Control', [
     'name',
@@ -517,3 +517,31 @@ def to_field(obj):
             # positions = expand(positions, vector)
             # return PointCloud(positions, values=obj)
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
+
+
+def get_default_limits(f: SampledField) -> Box:
+    if f._bounds is not None:
+        return f.bounds
+    # --- Determine element size ---
+    if (f.elements.bounding_half_extent() > 0).any:
+        size = 2 * f.elements.bounding_half_extent()
+    elif isinstance(f, PointCloud) and f.spatial_rank == 1:
+        bounds = f.bounds
+        count = non_batch(f).non_dual.non_channel.volume
+        return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
+    # elif instance(f) and f.spatial_rank == 1:
+    #     lower = expand(-.5, vector)
+    #     upper = expand(equal_spacing.max + .5, vector)
+    #     size =
+    else:
+        size = expand(0, f.elements.shape['vector'])
+    if (size == 0).all:
+        size = math.const_vec(.1, f.elements.shape['vector'])
+    bounds = data_bounds(f.elements.center)
+    extended_bounds = Cuboid(bounds.center, bounds.half_size + size * 0.6)
+    extended_bounds = Box(math.min(extended_bounds.lower, size.shape.without('vector')), math.max(extended_bounds.upper, size.shape.without('vector')))
+    if isinstance(f.elements, Point):
+        lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
+        upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.lower * .9, extended_bounds.upper)
+        extended_bounds = Box(lower, upper)
+    return extended_bounds
