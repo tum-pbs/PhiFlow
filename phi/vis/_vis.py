@@ -8,7 +8,7 @@ from typing import Tuple, List, Dict, Union
 
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field
+from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, get_default_limits
 from ._vis_base import title_label
 from .. import math
 from ..field import SampledField, Scene, Field, PointCloud
@@ -478,19 +478,11 @@ def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
         for dim in f.bounds.vector.item_names:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
-    all_bounds = [embed(_default_bounds(f).without(ignore_dims.names), all_dims) for f in values]
+    all_bounds = [embed(get_default_limits(f).without(ignore_dims.names), all_dims) for f in values]
     bounds: Box = math.stack(all_bounds, batch('_fields'))
     lower = math.finite_min(bounds.lower, bounds.shape.without('vector'), default=-math.INF)
     upper = math.finite_max(bounds.upper, bounds.shape.without('vector'), default=math.INF)
     return Box(lower, upper)
-
-
-def _default_bounds(f: Field) -> Box:
-    if isinstance(f, PointCloud) and f.spatial_rank == 1:
-        bounds = f.bounds
-        count = non_batch(f).non_dual.non_channel.volume
-        return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
-    return f.bounds
 
 
 def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val, max_val):
