@@ -10,7 +10,7 @@ from . import _ops as math
 from ._magic_ops import stack
 from ._shape import EMPTY_SHAPE, Shape, spatial, instance, batch, channel
 from ._sparse import SparseCoordinateTensor
-from ._tensors import Tensor, disassemble_tree, assemble_tree, disassemble_tensors, assemble_tensors, variable_attributes, wrap
+from ._tensors import Tensor, disassemble_tree, assemble_tree, disassemble_tensors, assemble_tensors, variable_attributes, wrap, specs_equal
 from ._trace import ShiftLinTracer, matrix_from_function, LinearTraceInProgress
 from .backend import Backend, NUMPY
 from .backend._backend import get_spatial_derivative_order, functional_derivative_evaluation, PHI_LOGGER
@@ -50,7 +50,8 @@ class SignatureKey:
         if isinstance(cond_equal, Tensor):
             cond_equal = cond_equal.all
         # shapes need not be compared because they are included in specs
-        return self.tree == other.tree and self.specs == other.specs and self.backend == other.backend and self.spatial_derivative_order == other.spatial_derivative_order and cond_equal
+        specs = specs_equal(self.specs, other.specs)
+        return self.tree == other.tree and specs and self.backend == other.backend and self.spatial_derivative_order == other.spatial_derivative_order and cond_equal
 
     def __hash__(self):
         return hash(self.shapes) + hash(self.backend)
