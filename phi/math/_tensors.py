@@ -2516,3 +2516,16 @@ def is_scalar(value) -> bool:
 def may_vary_along(value, dims: DimFilter):
     s = value._native_shape if isinstance(value, NativeTensor) else shape(value)
     return s.only(dims).volume > 1
+
+
+def specs_equal(spec1, spec2):
+    if isinstance(spec1, Tensor) or isinstance(spec2, Tensor):
+        if isinstance(spec1, Tensor) and isinstance(spec2, Tensor):
+            from ._ops import close
+            return close(spec1, spec2, rel_tolerance=0, abs_tolerance=0)
+        return False
+    if isinstance(spec1, dict):
+        return set(spec1) == set(spec2) and all([key in spec2 and specs_equal(spec1[key], spec2[key]) for key in spec1.keys()])
+    if isinstance(spec1, (tuple, list)):
+        return len(spec1) == len(spec2) and all([specs_equal(s1, s2) for s1, s2 in zip(spec1, spec2)])
+    return spec1 == spec2
