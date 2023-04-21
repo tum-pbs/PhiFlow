@@ -47,7 +47,7 @@ from ._ops import (
     zeros_like, ones_like,
     pad,
     transpose,  # reshape operations
-    divide_no_nan,
+    safe_div, safe_div as divide_no_nan,
     where, nonzero,
     sum_ as sum, finite_sum, mean, finite_mean, std, prod, max_ as max, finite_max, min_ as min, finite_min, any_ as any, all_ as all, quantile, median,  # reduce
     dot,

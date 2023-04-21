@@ -418,7 +418,7 @@ def masked_fill(values: Tensor, valid: Tensor, distance: int = 1) -> Tuple[Tenso
         valid: mask marking all valid values after extrapolation
     """
     def binarize(x):
-        return math.divide_no_nan(x, x)
+        return math.safe_div(x, x)
     distance = min(distance, max(values.shape.sizes))
     for _ in range(distance):
         valid = binarize(valid)
@@ -429,7 +429,7 @@ def masked_fill(values: Tensor, valid: Tensor, distance: int = 1) -> Tuple[Tenso
             valid_values = math.sum_(values_l + values_r + valid_values, dim='shift')
             mask_l, mask_r = shift(overlap, (-1, 1), dims=dim, padding=extrapolation.ZERO)
             overlap = math.sum_(mask_l + mask_r + overlap, dim='shift')
-        extp = math.divide_no_nan(valid_values, overlap)  # take mean where extrapolated values overlap
+        extp = math.safe_div(valid_values, overlap)  # take mean where extrapolated values overlap
         values = math.where(valid, values, math.where(binarize(overlap), extp, values))
         valid = overlap
     return values, binarize(valid)
@@ -611,7 +611,7 @@ def fourier_poisson(grid: Tensor,
     k_squared = math.sum_(math.fftfreq(grid.shape) ** 2, 'vector')
     fft_laplace = -(2 * np.pi) ** 2 * k_squared
     # fft_laplace.tensor[(0,) * math.ndims(k_squared)] = math.inf  # assume NumPy array to edit
-    result = math.real(math.ifft(math.divide_no_nan(frequencies, math.to_complex(fft_laplace ** times))))
+    result = math.real(math.ifft(math.safe_div(frequencies, math.to_complex(fft_laplace ** times))))
     return math.cast(result * wrap(dx) ** 2, grid.dtype)
 
 

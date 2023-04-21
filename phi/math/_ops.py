@@ -1960,12 +1960,12 @@ def cast_same(*values: Tensor) -> Tuple[Tensor]:
         return values
 
 
-def divide_no_nan(x: Union[float, Tensor], y: Union[float, Tensor]):
+def safe_div(x: Union[float, Tensor], y: Union[float, Tensor]):
     """ Computes *x/y* with the `Tensor`s `x` and `y` but returns 0 where *y=0*. """
     return custom_op2(x, y,
-                      l_operator=divide_no_nan,
+                      l_operator=safe_div,
                       l_native_function=lambda x_, y_: choose_backend(x_, y_).divide_no_nan(x_, y_),
-                      r_operator=lambda y_, x_: divide_no_nan(x_, y_),
+                      r_operator=lambda y_, x_: safe_div(x_, y_),
                       r_native_function=lambda y_, x_: choose_backend(x_, y_).divide_no_nan(x_, y_),
                       op_name='divide_no_nan')
 
