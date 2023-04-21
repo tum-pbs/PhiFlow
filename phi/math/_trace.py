@@ -7,7 +7,7 @@ import numpy as np
 from .backend import choose_backend, NUMPY, Backend
 from ._shape import Shape, parse_dim_order, merge_shapes, spatial, instance, batch, concat_shapes, EMPTY_SHAPE, dual, channel, non_batch
 from ._magic_ops import stack, expand
-from ._tensors import Tensor, wrap, disassemble_tree, disassemble_tensors, assemble_tree, TensorStack
+from ._tensors import Tensor, wrap, disassemble_tree, disassemble_tensors, assemble_tree, TensorStack, may_vary_along
 from ._sparse import SparseCoordinateTensor
 from . import _ops as math
 
@@ -72,7 +72,8 @@ class ShiftLinTracer(Tensor):
         This includes `pattern_dims` as well as dimensions along which only the values vary.
         These dimensions cannot be parallelized trivially with a non-batched matrix.
         """
-        return self.pattern_dim_names | set(sum([t.shape.names for t in self.val.values()], ())) | set(self.bias.shape.names)
+        bias_dims = [dim for dim in self.bias.shape.names if may_vary_along(self.bias, dim)]
+        return self.pattern_dim_names | set(sum([t.shape.names for t in self.val.values()], ())) | set(bias_dims)
 
     @property
     def pattern_dim_names(self) -> Set[str]:
