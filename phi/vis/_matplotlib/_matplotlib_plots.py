@@ -1,5 +1,6 @@
 import sys
 import warnings
+from numbers import Number
 from typing import Callable, Tuple, Any, Dict, Union
 
 import matplotlib
@@ -8,6 +9,8 @@ import numpy as np
 from matplotlib import animation
 from matplotlib import rc
 from matplotlib.axes import Axes
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 from matplotlib.patches import Patch
 from matplotlib.ticker import NullFormatter
 from matplotlib.transforms import Bbox
@@ -287,7 +290,7 @@ class Heatmap2D(Recipe):
         if space.spatial_rank == 3:  # surface plot
             z = data.values.numpy(dims)
             x, y = reshaped_numpy(data.points, [vector, *spatial(data)])
-            im = subplot.plot_surface(x, y, z)
+            subplot.plot_surface(x, y, z)
         else:  # heatmap
             aspect = subplot.get_aspect()
             image = data.values.numpy(dims.reversed)
@@ -296,28 +299,11 @@ class Heatmap2D(Recipe):
                 phase = np.angle(image) / (2*np.pi) + .5
                 hsv = np.stack([phase, np.ones_like(amplitude), amplitude], -1)
                 rgb = matplotlib.colors.hsv_to_rgb(hsv)
-                im = subplot.imshow(rgb, origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect, alpha=float(alpha))
+                subplot.imshow(rgb, origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect, alpha=float(alpha))
             else:
-                im = subplot.imshow(image, origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect, alpha=float(alpha))
+                subplot.imshow(image, origin='lower', extent=extent, vmin=min_val, vmax=max_val, aspect=aspect, alpha=float(alpha))
         if show_color_bar:
-            figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in subplot.figure.axes])
-            if min_val is None or max_val is None or not figure_has_color_bar:
-                if min_val is not None and max_val is not None:  # only one color bar for all subplots
-                    figure.subplots_adjust(left=.1, bottom=.1, right=0.85, top=.92)
-                    cax = figure.add_axes([0.87, 0.1, 0.08 if data.values.dtype.kind == complex else 0.03, 0.82])
-                else:
-                    cax = None
-                if data.values.dtype.kind == complex:
-                    if cax is not None:
-                        amp, phase = np.meshgrid(np.linspace(0, 1, 100), np.linspace(0, 1, 100))
-                        cbar_img = matplotlib.colors.hsv_to_rgb(np.stack([phase, np.ones_like(phase), amp], -1))
-                        cmap_extent = (min_val, max_val, 0, 2 * np.pi)
-                        cax.imshow(cbar_img, extent=cmap_extent, aspect='auto', origin='lower')
-                        cax.yaxis.tick_right()
-                        cax.set_yticks([0, np.pi, 2 * np.pi], ['0', 'π', '2π'])
-                        cax.yaxis.set_label_position('right')
-                else:
-                    subplot.figure.colorbar(im, ax=subplot if cax is None else None, cax=cax)  # adds a new Axis to the figure
+            add_color_bar(subplot, data.values.numpy(dims), min_val, max_val)
         return True
 
 
@@ -405,21 +391,25 @@ class PointCloud2D(Recipe):
         legend_patches = []
         for idx, idx_n in zip(channels.meshgrid(), channels.meshgrid(names=True)):
             col = color[idx]
-            PointCloud2D._plot_points(subplot, data[idx], dims, vector, col, alpha[idx], err[idx])
+            PointCloud2D._plot_points(subplot, data[idx], dims, vector, col, alpha[idx], err[idx], min_val, max_val)
             if col.rank < color.rank:  # There are multiple colors
                 legend_patches.append(Patch(color=_plt_col(col), label=index_label(idx_n)))
         if legend_patches:
             subplot.legend(handles=legend_patches)
 
     @staticmethod
-    def _plot_points(axis: Axes, data: PointCloud, dims: tuple, vector: Shape, color: Tensor, alpha: Tensor, err: Tensor):
+    def _plot_points(axis: Axes, data: PointCloud, dims: tuple, vector: Shape, color: Tensor, alpha: Tensor, err: Tensor, min_val, max_val):
         if isinstance(data.elements, GeometryStack):
             for idx in data.elements.geometries.shape[0].meshgrid():
-                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx])
+                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val)
             return
         x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)], force_expand=True)
         if (color == None).all:
-            mpl_colors = [_next_line_color(axis)] * non_channel(data).volume
+            if data.values.max == data.values.min:
+                mpl_colors = [_next_line_color(axis)] * non_channel(data).volume
+            else:
+                values = reshaped_numpy(data.values, [non_channel(data)])
+                mpl_colors = add_color_bar(axis, values, min_val, max_val)
         else:
             mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
         alphas = reshaped_numpy(alpha, [non_channel(data)], force_expand=True)
@@ -574,6 +564,34 @@ def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> Union[list, N
         return [cycle[int(color[idx]) % len(cycle)] for idx in dims.meshgrid()]
     else:
         return [color[idx].native() for idx in dims.meshgrid()]
+
+
+def add_color_bar(axis: Axes, values, min_val, max_val, cmap=plt.cm.viridis):
+    figure = axis.figure
+    figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in figure.axes])
+    is_complex = np.iscomplex(max_val)
+    if min_val is None or max_val is None or not figure_has_color_bar:
+        if min_val is not None and max_val is not None:  # only one color bar for all subplots
+            figure.subplots_adjust(left=.1, bottom=.1, right=0.85, top=.92)
+            cax = figure.add_axes([0.87, 0.1, 0.08 if is_complex else 0.03, 0.82])
+        else:
+            cax = None
+        if is_complex:
+            if cax is not None:
+                amp, phase = np.meshgrid(np.linspace(0, 1, 100), np.linspace(0, 1, 100))
+                cbar_img = matplotlib.colors.hsv_to_rgb(np.stack([phase, np.ones_like(phase), amp], -1))
+                cmap_extent = (min_val, max_val, 0, 2 * np.pi)
+                cax.imshow(cbar_img, extent=cmap_extent, aspect='auto', origin='lower')
+                cax.yaxis.tick_right()
+                cax.set_yticks([0, np.pi, 2 * np.pi], ['0', 'π', '2π'])
+                cax.yaxis.set_label_position('right')
+        else:
+            min_val = np.min(values) if min_val is None else min_val
+            max_val = np.max(values) if max_val is None else max_val
+            norm = Normalize(vmin=min_val, vmax=max_val)
+            mappable = ScalarMappable(norm=norm, cmap=cmap)
+            figure.colorbar(mappable, ax=axis if cax is None else None, cax=cax)  # adds a new Axis to the figure
+    return cmap(norm(values))
 
 
 
