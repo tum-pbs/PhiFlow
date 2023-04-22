@@ -172,3 +172,50 @@ def pairwise_distances_sklearn(self: Backend, positions, max_dist, index_dtype=D
         # sparse_matrix = self.csr_matrix(column_indices, row_pointers, values, (point_count, point_count))
         # sparse_matrix.eliminate_zeros()  # setdiag(0) keeps zero entries
     return result
+
+
+def find_neighbors_matscipy(positions: TensorType,
+                            cutoff: Union[float, TensorType],
+                            domain: Optional[Tuple[TensorType, TensorType]] = None,
+                            periodic: Union[bool, Tuple[bool, ...]] = False,
+                            index_dtype=DType(int, 32)):
+    """
+    Args:
+        positions: (points, d) where 0 < d <= 3.
+        cutoff: Global cutoff value.
+        domain: Lower and upper box extent as a 2-`tuple` `(lower, upper)`
+        periodic: Single `bool` or `tuple` specifying periodicity by dimension.
+        index_dtype: Either int32 or int64.
+
+    Returns:
+        row: Row index (self / distance from)
+        col: Column index (other / distance to)
+        delta: Differentiable position differences (col - row)
+    """
+    from matscipy.neighbours import neighbour_list
+    b = choose_backend(positions)
+    pos_count, d = b.staticshape(positions)
+    np_positions = b.numpy(positions)
+    cutoff = float(cutoff)  # if b.ndims(cutoff) == 0 else b.numpy(cutoff).tolist()  # interpreted as overlap sphere radius if a list, else the cutoff
+    max_cutoff = cutoff if isinstance(cutoff, float) else np.max(cutoff)
+    periodic = [periodic] * d if np.ndim(periodic) == 0 else tuple(periodic)
+    # --- Pad to 3D ---
+    np_positions_3d = np.pad(np_positions, ((0, 0), (0, 3 - d)))
+    if domain is None:  # we cannot pass None to matscipy if d < 3, else cells get zero volume
+        domain = b.min(positions, 0), b.max(positions, 0)
+    domain_origin_3d = np.pad(b.numpy(domain[0]), (0, 3 - d), constant_values=-max_cutoff / 2)
+    domain_size_3d = np.diag(b.numpy(b.maximum(np.pad(b.numpy(domain[1] - domain[0]), (0, 3 - d)), max_cutoff)))
+    # --- Run neighbor search ---
+    row, col = neighbour_list('ij', positions=np_positions_3d, cutoff=cutoff, cell_origin=domain_origin_3d, cell=domain_size_3d, pbc=periodic)
+    row = row.astype(to_numpy_dtype(index_dtype), copy=False)
+    col = col.astype(to_numpy_dtype(index_dtype), copy=False)
+    pos_self = b.gather(positions, row, 0)
+    pos_neighbors = b.gather(positions, col, 0)
+    deltas = pos_neighbors - pos_self
+    # --- Add self as neighbor with distance 0 ---
+    self_indices = np.arange(pos_count, dtype=to_numpy_dtype(index_dtype))
+    self_deltas = b.zeros((pos_count, d), b.dtype(positions))
+    row = b.concat([self_indices, row], 0)
+    col = b.concat([self_indices, col], 0)
+    deltas = b.concat([self_deltas, deltas], 0)
+    return row, col, deltas
