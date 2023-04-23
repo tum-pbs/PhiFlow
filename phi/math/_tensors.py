@@ -1494,7 +1494,7 @@ class TensorStack(Tensor):
             return self
 
 
-def tensor(data: Union[Tensor, Shape, tuple, list, numbers.Number],
+def tensor(data,
            *shape: Shape,
            convert: bool = True,
            default_list_dim=channel('vector')) -> Tensor:  # TODO assume convert_unsupported, add convert_external=False for constants
@@ -1621,7 +1621,7 @@ def tensor(data: Union[Tensor, Shape, tuple, list, numbers.Number],
         raise ValueError(f"{type(data)} is not supported. Only (Tensor, tuple, list, np.ndarray, native tensors) are allowed.\nCurrent backends: {BACKENDS}")
 
 
-def wrap(data: Union[Tensor, Shape, tuple, list, numbers.Number],
+def wrap(data,
          *shape: Shape) -> Tensor:
     """ Short for `phi.math.tensor()` with `convert=False`. """
     return tensor(data, *shape, convert=False)  # TODO inline, simplify
