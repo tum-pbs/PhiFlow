@@ -2,6 +2,7 @@ import warnings
 from typing import Dict, Tuple, Union
 
 import numpy as np
+from phi.math import DimFilter
 
 from phi import math
 from ._geom import Geometry, _keep_vector
@@ -246,6 +247,12 @@ class Box(BaseBox, metaclass=BoxType):
             if dim in remaining:
                 remaining.remove(dim)
         return self.vector[remaining]
+
+    def largest(self, dim: DimFilter) -> 'Box':
+        dim = self.shape.without('vector').only(dim)
+        if not dim:
+            return self
+        return Box(math.min(self._lower, dim), math.max(self._upper, dim))
 
     def __hash__(self):
         return hash(self._upper)
