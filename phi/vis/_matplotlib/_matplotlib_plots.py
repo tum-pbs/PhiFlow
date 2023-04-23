@@ -268,7 +268,9 @@ class Histogram(Recipe):
                 col = _next_line_color(subplot)
             else:
                 col = _plt_col(color[ch])
-            subplot.hist(bin_edges[:-1], bins=bin_edges, weights=counts, orientation=orientation, histtype='step', color=col, alpha=float(alpha[ch].max))
+            subplot.hist(bin_edges[:-1], bins=bin_edges, weights=counts, orientation=orientation, histtype='step', color=col, alpha=float(alpha[ch].max), label=index_label(ch))
+        if channel(data.values).volume > 1:
+            subplot.legend()
 
 
 class Heatmap2D(Recipe):
