@@ -436,6 +436,19 @@ class Shape:
         return self[[i for i, t in enumerate(self.types) if t != DUAL_DIM]]
 
     @property
+    def primal(self) -> 'Shape':
+        """
+        Filters this shape, returning only the dual dimensions as a new `Shape` object.
+
+        See also:
+            `Shape.batch`, `Shape.spatial`, `Shape.instance`, `Shape.channel`, `Shape.dual`, `Shape.non_batch`, `Shape.non_spatial`, `Shape.non_instance`, `Shape.non_channel`, `Shape.non_dual`.
+
+        Returns:
+            New `Shape` object
+        """
+        return self[[i for i, t in enumerate(self.types) if t not in [DUAL_DIM, BATCH_DIM]]]
+
+    @property
     def non_primal(self) -> 'Shape':
         """
         Filters this shape, returning only batch and dual dimensions as a new `Shape` object.
@@ -1737,6 +1750,24 @@ def non_primal(obj) -> Shape:
     else:
         raise AssertionError(f"non_dual() must be called either on a Shape or an object with a 'shape' property but got {obj}")
 
+
+def primal(obj) -> Shape:
+    """
+    Returns the instance, spatial and channel dimensions of an object.
+
+    Args:
+        obj: `Shape` or object with a valid `shape` property.
+
+    Returns:
+        `Shape`
+    """
+    from .magic import Shaped
+    if isinstance(obj, Shape):
+        return obj.primal
+    elif isinstance(obj, Shaped):
+        return shape(obj).primal
+    else:
+        raise AssertionError(f"primal() must be called either on a Shape or an object with a 'shape' property but got {obj}")
 
 
 def _size_equal(s1, s2):
