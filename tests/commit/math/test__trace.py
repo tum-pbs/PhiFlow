@@ -21,5 +21,6 @@ class TestTrace(TestCase):
         for f in [simple_gradient, diagonal]:
             x = expand(1, spatial(x=4))
             matrix, bias = math.matrix_from_function(f, x)
-            matrix = matrix.compress(non_dual)
+            if math.get_format(matrix) != 'dense':
+                matrix = matrix.compress(non_dual)
             math.assert_close(f(x), matrix @ x)
