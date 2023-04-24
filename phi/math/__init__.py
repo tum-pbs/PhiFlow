@@ -19,7 +19,7 @@ from .backend import NUMPY, precision, set_global_precision, get_precision
 from ._shape import (
     shape, Shape, EMPTY_SHAPE, DimFilter,
     spatial, channel, batch, instance, dual,
-    non_batch, non_spatial, non_instance, non_channel, non_dual,
+    non_batch, non_spatial, non_instance, non_channel, non_dual, non_primal, primal,
     merge_shapes, concat_shapes, IncompatibleShapes,
     enable_debug_checks,
 )
