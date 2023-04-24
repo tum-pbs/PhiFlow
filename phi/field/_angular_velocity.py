@@ -3,12 +3,12 @@ from numbers import Number
 
 from phi import math
 
-from ._field import Field
-from ..geom import Geometry
-from ..math import Shape, spatial, instance, Tensor, wrap
+from ._field import FieldInitializer
+from ..geom import Geometry, UniformGrid
+from ..math import Shape, spatial, instance, Tensor, wrap, Extrapolation
 
 
-class AngularVelocity(Field):
+class AngularVelocity(FieldInitializer):
     """
     Model of a single vortex or set of vortices.
     The falloff of the velocity magnitude can be controlled.
@@ -35,7 +35,7 @@ class AngularVelocity(Field):
         assert spatial_names is not None, "location.vector must list spatial dimensions as item names"
         self._shape = location.shape & spatial(**{dim: 1 for dim in spatial_names})
 
-    def _sample(self, geometry: Geometry, **kwargs) -> Tensor:
+    def _sample(self, geometry: Geometry, at: str, boundaries: Extrapolation, **kwargs) -> math.Tensor:
         points = geometry.center
         distances = points - self.location
         strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)
@@ -43,7 +43,11 @@ class AngularVelocity(Field):
         velocity = math.sum(velocity, self.location.shape.batch.without(points.shape))
         if self.component:
             velocity = velocity.vector[self.component]
-        return velocity
+        if at == 'center':
+            return velocity
+        elif at == 'face':
+            assert isinstance(geometry, UniformGrid)
+            return velocity.vector.as_dual()
 
     @property
     def shape(self) -> Shape:

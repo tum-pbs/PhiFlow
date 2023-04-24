@@ -11,7 +11,7 @@ from typing import Tuple, Union
 import numpy as np
 
 from phi import math, __version__ as phi_version
-from ._field import SampledField
+from ._field import Field
 from ._field_io import read, write
 from ..math import Shape, batch, stack, unpack_dim, wrap
 from ..math.magic import BoundDim
@@ -372,9 +372,9 @@ class Scene:
         for name, field in data.items():
             self.write_field(field, name, frame)
 
-    def write_field(self, field: SampledField, name: str, frame: int):
+    def write_field(self, field: Field, name: str, frame: int):
         """
-        Write a `SampledField` to a file.
+        Write a `Field` to a file.
         The filenames are created from the provided names and the frame index in accordance with the
         scene format specification at https://tum-pbs.github.io/PhiFlow/Scene_Format_Specification.html .
 
@@ -383,15 +383,15 @@ class Scene:
             name: Base file name.
             frame: Frame number as `int`, typically time step index.
         """
-        if not isinstance(field, SampledField):
-            raise ValueError(f"Only SampledField instances can be saved but got {field}")
+        if not isinstance(field, Field):
+            raise ValueError(f"Only Field instances can be saved but got {field}")
         name = _slugify_filename(name)
         files = math.map(lambda dir_: _filename(dir_, name, frame), self._paths)
         write(field, files)
 
-    def read_field(self, name: str, frame: int, convert_to_backend=True) -> SampledField:
+    def read_field(self, name: str, frame: int, convert_to_backend=True) -> Field:
         """
-        Reads a single `SampledField` from files contained in this `Scene` (batch).
+        Reads a single `Field` from files contained in this `Scene` (batch).
 
         Args:
             name: Base file name.
@@ -399,7 +399,7 @@ class Scene:
             convert_to_backend: Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.
 
         Returns:
-            `SampledField`
+            `Field`
         """
         name = _slugify_filename(name)
         files = math.map(lambda dir_: _filename(dir_, name, frame), self._paths)

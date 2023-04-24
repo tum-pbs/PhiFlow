@@ -1,19 +1,22 @@
 import warnings
 from numbers import Number
-from typing import Callable, List, Tuple, Optional, Union
+from typing import Callable, List, Tuple, Optional, Union, Sequence
 
 from phi import geom
 from phi import math
-from phi.geom import Box, Geometry
-from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile, rename_dims, flatten, batch
-from ._field import Field, SampledField, SampledFieldType, as_extrapolation
-from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
-from ._mesh import Mesh
+from phi.geom import Box, Geometry, UniformGrid, Point, UnstructuredMesh
+from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile, rename_dims, flatten, batch, dual
+from ._embed import FieldEmbedding
+from ._field import Field, as_boundary
+from ._grid import CenteredGrid, StaggeredGrid, grid
 from ._point_cloud import PointCloud
-from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction
+from ..geom._stack import GeometryStack
+from ..math._tensors import may_vary_along
+from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction, ConstantExtrapolation
+from ._resample import sample
 
 
-def bake_extrapolation(grid: GridType) -> GridType:
+def bake_extrapolation(grid: Field) -> Field:
     """
     Pads `grid` with its current extrapolation.
     For `StaggeredGrid`s, the resulting grid will have a consistent shape, independent of the original extrapolation.
@@ -26,24 +29,24 @@ def bake_extrapolation(grid: GridType) -> GridType:
     """
     if grid.extrapolation == math.extrapolation.NONE:
         return grid
-    if isinstance(grid, StaggeredGrid):
-        values = grid.values.unstack('vector')
+    if grid.is_grid and grid.is_staggered:
         padded = []
-        for dim, value in zip(grid.shape.spatial.names, values):
+        for dim in grid.vector.item_names:
             lower, upper = grid.extrapolation.valid_outer_faces(dim)
+            value = grid.values.vector.dual[dim]
             padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation[{'vector': dim}], bounds=grid.bounds))
         return StaggeredGrid(math.stack(padded, grid.shape['vector']), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
-    elif isinstance(grid, CenteredGrid):
+    elif grid.is_grid:
         return pad(grid, 1).with_extrapolation(math.extrapolation.NONE)
     else:
         raise ValueError(f"Not a valid grid: {grid}")
 
 
-def laplace(field: GridType,
+def laplace(field: Field,
             axes=spatial,
             order=2,
             implicit: math.Solve = None,
-            weights: Union[Tensor, Field] = None) -> GridType:
+            weights: Union[Tensor, Field] = None) -> Field:
     """
     Spatial Laplace operator for scalar grid.
     If a vector grid is passed, it is assumed to be centered and the laplace is computed component-wise.
@@ -102,9 +105,9 @@ def laplace(field: GridType,
     return result
 
 
-def spatial_gradient(field: CenteredGrid,
+def spatial_gradient(field: Field,
                      gradient_extrapolation: Extrapolation = None,
-                     type: type = CenteredGrid,
+                     at: str = 'center',
                      dims: math.DimFilter = spatial,
                      stack_dim: Shape = channel('vector'),
                      order=2,
@@ -120,7 +123,7 @@ def spatial_gradient(field: CenteredGrid,
     Args:
         field: centered grid of any number of dimensions (scalar field, vector field, tensor field)
         gradient_extrapolation: Extrapolation of the output
-        type: either `CenteredGrid` or `StaggeredGrid`
+        at: Either `'face'` or `'center'`
         dims: Along which dimensions to compute the spatial gradient. Only supported when `type==CenteredGrid`.
         stack_dim: Dimension to be added. This dimension lists the spatial_gradient w.r.t. the spatial dimensions.
             The `field` must not have a dimension of the same name.
@@ -133,17 +136,20 @@ def spatial_gradient(field: CenteredGrid,
     Returns:
         spatial_gradient field of type `type`.
     """
+    assert at in ['face', 'center']
     if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
+    if field.is_mesh and at == 'center':
+        raise NotImplementedError
     extrap_map = {}
     if not implicit:
         if order == 2:
-            if type == CenteredGrid:
+            if at == 'center':
                 values, needed_shifts = [-1/2, 1/2], (-1, 1)
             else:
                 values, needed_shifts = [-1, 1], (0, 1)
         elif order == 4:
-            if type == CenteredGrid:
+            if at == 'center':
                 values, needed_shifts = [1/12, -2/3, 2/3, -1/12], (-2, -1, 1, 2)
             else:
                 values, needed_shifts = [1/24, -27/24, 27/24, -1/24], (-1, 0, 1, 2)
@@ -152,7 +158,7 @@ def spatial_gradient(field: CenteredGrid,
     else:
         extrap_map_rhs = {}
         if order == 6:
-            if type == CenteredGrid:
+            if at == 'center':
                 values, needed_shifts = [-1/36, -14/18, 14/18, 1/36], (-2, -1, 1, 2)
                 values_rhs, needed_shifts_rhs = [1/3, 1, 1/3], (-1, 0, 1)
             else:
@@ -168,7 +174,7 @@ def spatial_gradient(field: CenteredGrid,
         gradient_extrapolation = extrapolation.map(_ex_map_f(extrap_map_rhs), gradient_extrapolation)
     spatial_dims = field.shape.only(dims).names
     stack_dim = stack_dim.with_size(spatial_dims)
-    if type == CenteredGrid:
+    if at == 'center':
         # ToDo if extrapolation == math.extrapolation.NONE, extend size by 1
         # pad = 1 if extrapolation == math.extrapolation.NONE else 0
         # bounds = Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx) if extrapolation == math.extrapolation.NONE else field.bounds
@@ -176,28 +182,25 @@ def spatial_gradient(field: CenteredGrid,
         if gradient_extrapolation == math.extrapolation.NONE:
             base_widths = (abs(min(needed_shifts))+1, max(needed_shifts)+1)
             std_widths = (1, 1)
-        padded_components = [pad(field, {dim_: base_widths if dim_ == dim else std_widths for dim_ in spatial_dims}) for dim in spatial_dims]
-    elif type == StaggeredGrid:
+        padded_components = [math.pad(field.values, {dim_: base_widths if dim_ == dim else std_widths for dim_ in spatial_dims}, field.extrapolation) for dim in spatial_dims]
+        shifted_components = [math.shift(padded_component, needed_shifts, stack_dim=None, padding=None, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
+        result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
+        result = CenteredGrid(math.stack(result_components, stack_dim), gradient_extrapolation, field.bounds)
+    elif at == 'face':
         assert spatial_dims == field.shape.spatial.names, f"spatial_gradient with type=StaggeredGrid requires dims=spatial, i.e. dims='{','.join(field.shape.spatial.names)}'"
         base_widths = (base_widths[0], base_widths[1]-1)
-        padded_components = pad_for_staggered_output(field, gradient_extrapolation, field.shape.spatial.names, base_widths)
-    else:
-        raise ValueError(type)
-    shifted_components = [shift(padded_component, needed_shifts, stack_dim=None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
-    result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
-    if type == CenteredGrid:
-        result = stack(result_components, stack_dim)
-    else:
+        padded_components = []
+        for dim in spatial_dims:
+            lo, up = gradient_extrapolation.valid_outer_faces(dim)
+            padding_widths = (lo + base_widths[0], up + base_widths[1])
+            padded_components.append(math.pad(field.values, {dim: padding_widths}, field.extrapolation))
+        shifted_components = [math.shift(padded_component, needed_shifts, stack_dim=None, padding=None, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
+        result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
         assert stack_dim.name == 'vector', f"spatial_gradient with type=StaggeredGrid requires stack_dim.name == 'vector' but got '{stack_dim.name}'"
-        result = StaggeredGrid(math.stack([component.values for component in result_components], channel(vector=spatial_dims)), bounds=field.bounds, extrapolation=gradient_extrapolation)
-    result = result.with_extrapolation(gradient_extrapolation)
+        result = StaggeredGrid(math.stack(result_components, dual(vector=spatial_dims)), gradient_extrapolation, field.bounds)
     if implicit:
         implicit.x0 = result
         result = solve_linear(_lhs_for_implicit_scheme, result, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=stack_dim, staggered_output=type != CenteredGrid)
-    if type == CenteredGrid and gradient_extrapolation == math.extrapolation.NONE:
-        result = result.with_bounds(Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx))
-    else:
-        result = result.with_bounds(field.bounds)
     return result
 
 
@@ -222,17 +225,7 @@ def _lhs_for_implicit_scheme(x, values_rhs, needed_shifts_rhs, stack_dim, stagge
     return result
 
 
-def pad_for_staggered_output(field: CenteredGrid, output_extrapolation: Extrapolation, dims: tuple, base_widths: tuple):
-    padded_components = []
-    for dim in dims:
-        border_valid = output_extrapolation.valid_outer_faces(dim)
-        padding_widths = (border_valid[0] + base_widths[0], border_valid[1] + base_widths[1])
-        padded_components.append(pad(field, {dim: padding_widths}))
-
-    return padded_components
-
-
-def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Optional[Shape] = channel('shift'), dims=spatial, pad=True):
+def shift(grid: Field, offsets: tuple, stack_dim: Optional[Shape] = channel('shift'), dims=spatial, pad=True):
     """
     Wraps :func:`math.shift` for CenteredGrid.
 
@@ -250,15 +243,15 @@ def shift(grid: CenteredGrid, offsets: tuple, stack_dim: Optional[Shape] = chann
         max_upper_shift = max(offsets) if max(offsets) > 0 else 0
         w_lower = math.wrap([max_lower_shift if dim in dims else 0 for dim in grid.shape.spatial.names])
         w_upper = math.wrap([max_upper_shift if dim in dims else 0 for dim in grid.shape.spatial.names])
-        new_bounds = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper - w_upper * grid.dx)
+        new_bounds = Box(grid.bounds.lower - w_lower * grid.dx, grid.bounds.upper - w_upper * grid.dx)
     data = math.shift(grid.values, offsets, dims=dims, padding=padding, stack_dim=stack_dim)
-    return [type(grid)(data[i], bounds=new_bounds, extrapolation=grid.extrapolation) for i in range(len(offsets))]
+    return [create_similar_grid(grid, data[i], grid.extrapolation, new_bounds) for i in range(len(offsets))]
 
 
-def stagger(field: CenteredGrid,
+def stagger(field: Field,
             face_function: Callable,
-            extrapolation: Union[float, math.extrapolation.Extrapolation],
-            type: type = StaggeredGrid):
+            extrapolation: float or math.extrapolation.Extrapolation,
+            at='face'):
     """
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
     One layer of missing cells is inferred from the extrapolation.
@@ -268,23 +261,19 @@ def stagger(field: CenteredGrid,
     When returning a CenteredGrid, the new grid has the same resolution as `field`.
 
     Args:
-      field: centered grid
-      face_function: function mapping (value1: Tensor, value2: Tensor) -> center_value: Tensor
-      extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
-      type: one of (StaggeredGrid, CenteredGrid)
-      field: CenteredGrid: 
-      face_function: Callable:
-      extrapolation: math.extrapolation.Extrapolation: 
-      type: type:  (Default value = StaggeredGrid)
+        field: Grid
+        face_function: function mapping (value1: Tensor, value2: Tensor) -> center_value: Tensor
+        extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
+        at: Where the result should be sampled, one of 'face', 'center'
 
     Returns:
-      grid of type matching the `type` argument
+        grid of type matching the `type` argument
 
     """
-    extrapolation = as_extrapolation(extrapolation)
+    extrapolation = as_boundary(extrapolation)
     all_lower = []
     all_upper = []
-    if type == StaggeredGrid:
+    if at == 'face':
         for dim in field.resolution.names:
             valid_lo, valid_up = extrapolation.valid_outer_faces(dim)
             if valid_lo and valid_up:
@@ -303,15 +292,14 @@ def stagger(field: CenteredGrid,
         result = StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
         assert result.shape.spatial == field.shape.spatial
         return result
-    elif type == CenteredGrid:
+    else:
+        assert at == 'center', f"type must be 'face' or 'center' but got '{at}'"
         left, right = math.shift(field.values, (-1, 1), padding=field.extrapolation, stack_dim=channel('vector'))
         values = face_function(left, right)
         return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
-    else:
-        raise ValueError(type)
 
 
-def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
+def divergence(field: Field, order=2, implicit: Solve = None) -> CenteredGrid:
     """
     Computes the divergence of a grid using finite differences.
 
@@ -331,27 +319,29 @@ def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
     Returns:
         Divergence field as `CenteredGrid`
     """
-
     extrap_map = {}
     if not implicit:
         if order == 2:
-            if isinstance(field, CenteredGrid):
+            if field.is_grid and not field.is_staggered:
                 values, needed_shifts = [-1 / 2, 1 / 2], (-1, 1)
-            else:
+            elif field.is_grid and field.is_staggered:
                 values, needed_shifts = [-1, 1], (0, 1)
-
-        elif order == 4:
-            if isinstance(field, CenteredGrid):
-                values, needed_shifts = [1 / 12, -2 / 3, 2 / 3, -1 / 12], (-2, -1, 1, 2)
             else:
+                raise NotImplementedError
+        elif order == 4:
+            if field.is_grid and not field.is_staggered:
+                values, needed_shifts = [1 / 12, -2 / 3, 2 / 3, -1 / 12], (-2, -1, 1, 2)
+            elif field.is_grid and field.is_staggered:
                 values, needed_shifts = [1 / 24, -27 / 24, 27 / 24, -1 / 24], (-1, 0, 1, 2)
+            else:
+                raise NotImplementedError
     else:
         extrap_map_rhs = {}
         if order == 6:
             extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
             extrap_map_rhs['symmetric'] = combine_by_direction(ANTIREFLECT, ANTISYMMETRIC)
 
-            if isinstance(field, CenteredGrid):
+            if field.is_grid and not field.is_staggered:
                 values, needed_shifts = [-1 / 36, -14 / 18, 14 / 18, 1 / 36], (-2, -1, 1, 2)
                 values_rhs, needed_shifts_rhs = [1 / 3, 1, 1 / 3], (-1, 0, 1)
 
@@ -361,115 +351,123 @@ def divergence(field: Grid, order=2, implicit: Solve = None) -> CenteredGrid:
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
     field.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
     spatial_dims = field.shape.spatial.names
-    if isinstance(field, StaggeredGrid):
+    if field.is_grid and field.is_staggered:
         base_widths = (base_widths[0]+1, base_widths[1])
         padded_components = []
-        for dim, component in zip(field.shape.spatial.names, unstack(field, 'vector')):
+        for dim, component in zip(field.shape.spatial.names, field.values.vector.dual):
             border_valid = field.extrapolation.valid_outer_faces(dim)
             padding_widths = (base_widths[0] - border_valid[0], base_widths[1] - border_valid[1])
-            padded_components.append(pad(component, {dim: padding_widths}))
-    elif isinstance(field, CenteredGrid):
-        padded_components = [pad(component, {dim: base_widths}) for dim, component in zip(spatial_dims, unstack(field, 'vector'))]
+            padded_components.append(math.pad(component, {dim: padding_widths}, field.extrapolation))
+    elif field.is_grid and not field.is_staggered:
+        padded_components = [math.pad(component, {dim: base_widths}, field.extrapolation) for dim, component in zip(spatial_dims, field.values.vector)]
         if field.extrapolation == math.extrapolation.NONE:
-            padded_components = [pad(component, {dim_: (0, 0) if dim_ == dim else (-1, -1) for dim_ in spatial_dims}) for dim, component in zip(spatial_dims, padded_components)]
-    shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
-    result_components = [sum([value * shift for value, shift in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, spatial_dims)]
+            padded_components = [math.pad(component, {dim_: (0, 0) if dim_ == dim else (-1, -1) for dim_ in spatial_dims}, field.extrapolation) for dim, component in zip(spatial_dims, padded_components)]
+    else:
+        raise NotImplementedError
+    shifted_components = [math.shift(c, needed_shifts, dim, padding=None, stack_dim=None) for c, dim in zip(padded_components, spatial_dims)]
+    result_components = [sum([value * shift for value, shift in zip(values, c)]) / field.dx.vector[dim] for c, dim in zip(shifted_components, spatial_dims)]
     if implicit:
         result_components = stack(result_components, channel('vector'))
         result_components.with_values(result_components.values._cache())
         implicit.x0 = field
         result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('vector'))
         result_components = unstack(result_components, 'vector')
-    result_components = [component.with_bounds(field.bounds) for component in result_components]
-    result = sum(result_components)
-    if field.extrapolation == math.extrapolation.NONE and isinstance(field, CenteredGrid):
+    # result_components = [component.with_bounds(field.bounds) for component in result_components]
+    result = math.sum(result_components, '0')
+    if field.extrapolation == math.extrapolation.NONE and field.is_grid and not field.is_staggered:
         result = result.with_bounds(Box(field.bounds.lower + field.dx, field.bounds.upper - field.dx))
-    return result
+    return CenteredGrid(result, field.extrapolation.spatial_gradient(), field.bounds)
 
 
-def curl(field: Grid, type: type = CenteredGrid):
-    """ Computes the finite-difference curl of the give 2D `StaggeredGrid`. """
+def curl(field: Field, at='center'):
+    """
+    Computes the finite-difference curl of the give 2D `StaggeredGrid`.
+
+    Args:
+        field: `Field`
+        at: Either `center` or `face`.
+    """
     assert field.spatial_rank in (2, 3), "curl is only defined in 2 and 3 spatial dimensions."
-    if isinstance(field, CenteredGrid) and field.spatial_rank == 2:
-        if 'vector' not in field.shape and type == StaggeredGrid:
+    if field.is_grid and not field.is_staggered and field.spatial_rank == 2:
+        if 'vector' not in field.shape and at == 'face':
             # 2D curl of scalar field
             grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
             result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
             bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
             return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
-        if 'vector' in field.shape and type == CenteredGrid:
+        if 'vector' in field.shape and at == 'center':
             # 2D curl of vector field
-            x, y = field.shape.spatial.names
+            x, y = field.resolution.names
             vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
             vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
             c = vy_dx - vx_dy
             return field.with_values(c)
-    elif isinstance(field, StaggeredGrid) and field.spatial_rank == 2:
-        if type == CenteredGrid:
+    elif field.is_grid and field.is_staggered and field.spatial_rank == 2:
+        if at == 'center':
             values = bake_extrapolation(field).values
             x_padded = math.pad(values.vector['x'], {'y': (1, 1)}, field.extrapolation)
             y_padded = math.pad(values.vector['y'], {'x': (1, 1)}, field.extrapolation)
             vx_dy = math.spatial_gradient(x_padded, field.dx, 'forward', None, dims='y', stack_dim=None)
             vy_dx = math.spatial_gradient(y_padded, field.dx, 'forward', None, dims='x', stack_dim=None)
             result = vy_dx - vx_dy
-            return CenteredGrid(result, field.extrapolation.spatial_gradient(), bounds=field.bounds)
+            return CenteredGrid(result, field.extrapolation.spatial_gradient(), field.bounds)
     raise NotImplementedError()
 
 
-def fourier_laplace(grid: GridType, times=1) -> GridType:
+def fourier_laplace(grid: Field, times=1) -> Field:
     """ See `phi.math.fourier_laplace()` """
     assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
     values = math.fourier_laplace(grid.values, dx=grid.dx, times=times)
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
 
 
-def fourier_poisson(grid: GridType, times=1) -> GridType:
+def fourier_poisson(grid: Field, times=1) -> Field:
     """ See `phi.math.fourier_poisson()` """
     assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
     values = math.fourier_poisson(grid.values, dx=grid.dx, times=times)
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
 
 
-def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> Union[SampledField, Tensor]:
+def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> Union[Field, Tensor]:
     """
     Similar to `phi.math.native_call()`.
 
     Args:
         f: Function to be called on native tensors of `inputs.values`.
             The function output must have the same dimension layout as the inputs and the batch size must be identical.
-        *inputs: `SampledField` or `phi.Tensor` instances.
+        *inputs: `Field` or `phi.Tensor` instances.
         extrapolation: (Optional) Extrapolation of the output field. If `None`, uses the extrapolation of the first input field.
 
     Returns:
-        `SampledField` matching the first `SampledField` in `inputs`.
+        `Field` matching the first `Field` in `inputs`.
     """
-    input_tensors = [i.values if isinstance(i, SampledField) else tensor(i) for i in inputs]
+    input_tensors = [i.values if isinstance(i, Field) else tensor(i) for i in inputs]
     values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
-        if isinstance(i, SampledField):
+        if isinstance(i, Field):
             result = i.with_values(values=values)
             if extrapolation is not None:
                 result = result.with_extrapolation(extrapolation)
             return result
     else:
-        raise AssertionError("At least one input must be a SampledField.")
+        raise AssertionError("At least one input must be a Field.")
 
 
-def data_bounds(loc: Union[SampledField, Tensor]) -> Box:
-    if isinstance(loc, SampledField):
+def data_bounds(loc: Union[Field, Tensor]) -> Box:
+    if isinstance(loc, Field):
         loc = loc.points
-    assert isinstance(loc, Tensor), f"loc must be a Tensor or SampledField but got {type(loc)}"
+    assert isinstance(loc, Tensor), f"loc must be a Tensor or Field but got {type(loc)}"
     min_vec = math.min(loc, dim=loc.shape.non_batch.non_channel)
     max_vec = math.max(loc, dim=loc.shape.non_batch.non_channel)
     return Box(min_vec, max_vec)
 
 
-def mean(field: SampledField) -> Tensor:
+def mean(field: Field) -> Tensor:
     """
     Computes the mean value by reducing all spatial / instance dimensions.
 
     Args:
-        field: `SampledField`
+        field: `Field`
 
     Returns:
         `phi.Tensor`
@@ -477,18 +475,18 @@ def mean(field: SampledField) -> Tensor:
     return math.mean(field.values, field.shape.non_channel.non_batch)
 
 
-def normalize(field: SampledField, norm: SampledField, epsilon=1e-5):
+def normalize(field: Field, norm: Field, epsilon=1e-5):
     """ Multiplies the values of `field` so that its sum matches the source. """
     data = math.normalize_to(field.values, norm.values, epsilon)
     return field.with_values(data)
 
 
-def center_of_mass(density: SampledField):
+def center_of_mass(density: Field):
     """
     Compute the center of mass of a density field.
 
     Args:
-        density: Scalar `SampledField`
+        density: Scalar `Field`
 
     Returns:
         `Tensor` holding only batch dimensions.
@@ -497,7 +495,7 @@ def center_of_mass(density: SampledField):
     return mean(density.points * density) / mean(density)
 
 
-def pad(grid: GridType, widths: Union[int, tuple, list, dict]) -> GridType:
+def pad(grid: Field, widths: Union[int, tuple, list, dict]) -> Field:
     """
     Pads a `Grid` using its extrapolation.
 
@@ -518,16 +516,25 @@ def pad(grid: GridType, widths: Union[int, tuple, list, dict]) -> GridType:
     else:
         assert isinstance(widths, dict)
     widths_list = [widths[axis] if axis in widths.keys() else (0, 0) for axis in grid.shape.spatial.names]
-    if isinstance(grid, Grid):
+    if grid.is_grid:
         data = math.pad(grid.values, widths, grid.extrapolation, bounds=grid.bounds)
         w_lower = math.wrap([w[0] for w in widths_list])
         w_upper = math.wrap([w[1] for w in widths_list])
-        bounds = Box(grid.box.lower - w_lower * grid.dx, grid.box.upper + w_upper * grid.dx)
-        return type(grid)(values=data, bounds=bounds, extrapolation=grid.extrapolation)
+        bounds = Box(grid.bounds.lower - w_lower * grid.dx, grid.bounds.upper + w_upper * grid.dx)
+        return create_similar_grid(grid, data, grid.extrapolation, bounds)
     raise NotImplementedError(f"{type(grid)} not supported. Only Grid instances allowed.")
 
 
-def downsample2x(grid: Grid) -> GridType:
+def create_similar_grid(grid: Field, data, extrapolation, bounds):
+    if grid.is_grid and not grid.is_staggered:
+        return CenteredGrid(data, extrapolation, bounds)
+    elif grid.is_grid and grid.is_staggered:
+        return StaggeredGrid(data, extrapolation, bounds)
+    else:
+        raise ValueError(grid)
+
+
+def downsample2x(grid: Field) -> Field:
     """
     Reduces the number of sample points by a factor of 2 in each spatial dimension.
     The new values are determined via linear interpolation.
@@ -541,21 +548,21 @@ def downsample2x(grid: Grid) -> GridType:
     Returns:
         `Grid` of same type as `grid`.
     """
-    if isinstance(grid, CenteredGrid):
+    if grid.is_grid and grid.is_centered:
         values = math.downsample2x(grid.values, grid.extrapolation)
         return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
-    elif isinstance(grid, StaggeredGrid):
-        values = []
-        for dim, centered_grid in zip(grid.shape.spatial.names, unstack(grid, 'vector')):
-            odd_discarded = centered_grid.values[{dim: slice(None, None, 2)}]
+    elif grid.is_grid and grid.is_staggered:
+        values = {}
+        for dim in grid.vector.item_names:
+            odd_discarded = grid.values[{'~vector': dim, dim: slice(None, None, 2)}]
             others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
-            values.append(others_interpolated)
-        return StaggeredGrid(math.stack(values, channel('vector')), bounds=grid.bounds, extrapolation=grid.extrapolation)
+            values[dim] = others_interpolated
+        return StaggeredGrid(math.stack(values, channel('vector')), grid.extrapolation, grid.bounds)
     else:
         raise ValueError(type(grid))
 
 
-def upsample2x(grid: GridType) -> GridType:
+def upsample2x(grid: Field) -> Field:
     """
     Increases the number of sample points by a factor of 2 in each spatial dimension.
     The new values are determined via linear interpolation.
@@ -578,25 +585,25 @@ def upsample2x(grid: GridType) -> GridType:
         raise ValueError(type(grid))
 
 
-def concat(fields: Union[List[SampledFieldType], Tuple[SampledFieldType, ...]], dim: Union[str, Shape]) -> SampledFieldType:
+def concat(fields: List[Field] or Tuple[Field, ...], dim: str or Shape) -> Field:
     """
-    Concatenates the given `SampledField`s along `dim`.
+    Concatenates the given `Field`s along `dim`.
 
     See Also:
         `stack()`.
 
     Args:
-        fields: List of matching `SampledField` instances.
+        fields: List of matching `Field` instances.
         dim: Concatenation dimension as `Shape`. Size is ignored.
 
     Returns:
-        `SampledField` matching concatenated fields.
+        `Field` matching concatenated fields.
     """
-    assert all(isinstance(f, SampledField) for f in fields)
+    assert all(isinstance(f, Field) for f in fields)
     assert all(isinstance(f, type(fields[0])) for f in fields)
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
         raise NotImplementedError("Concatenating extrapolations not supported")
-    if isinstance(fields[0], Grid):
+    if fields[0].is_grid:
         values = math.concat([f.values for f in fields], dim)
         return fields[0].with_values(values)
     elif isinstance(fields[0], PointCloud):
@@ -606,58 +613,58 @@ def concat(fields: Union[List[SampledFieldType], Tuple[SampledFieldType, ...]], 
     raise NotImplementedError(type(fields[0]))
 
 
-def stack(fields, dim: Shape, dim_bounds: Box = None):
+def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
     """
-    Stacks the given `SampledField`s along `dim`.
+    Stacks the given `Field`s along `dim`.
 
     See Also:
         `concat()`.
 
     Args:
-        fields: List of matching `SampledField` instances.
+        fields: List of matching `Field` instances.
         dim: Stack dimension as `Shape`. Size is ignored.
         dim_bounds: `Box` defining the physical size for `dim`.
 
     Returns:
-        `SampledField` matching stacked fields.
+        `Field` matching stacked fields.
     """
-    assert all(isinstance(f, SampledField) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
-    assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be SampledFields of the same type but got {fields}"
+    assert all(isinstance(f, Field) for f in fields), f"All fields must be Fields of the same type but got {fields}"
+    assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be Fields of the same type but got {fields}"
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
         raise NotImplementedError("Concatenating extrapolations not supported")
-    if isinstance(fields[0], Grid):
+    if fields[0].is_grid:
         values = math.stack([f.values for f in fields], dim)
         if spatial(dim):
             if dim_bounds is None:
                 dim_bounds = Box(**{dim.name: len(fields)})
-            return type(fields[0])(values, extrapolation=fields[0].extrapolation, bounds=fields[0].bounds * dim_bounds)
+            return grid(values, fields[0].extrapolation, fields[0].bounds * dim_bounds)
         else:
             return fields[0].with_values(values)
-    elif isinstance(fields[0], PointCloud):
+    elif fields[0].is_point_cloud:
         elements = geom.stack([f.elements for f in fields], dim)
         values = math.stack([f.values for f in fields], dim)
-        return PointCloud(elements=elements, values=values, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
+        return PointCloud(elements, values, fields[0].extrapolation)
     raise NotImplementedError(type(fields[0]))
 
 
-def assert_close(*fields: Union[SampledField, Tensor, Number],
+def assert_close(*fields: Field or Tensor or Number,
                  rel_tolerance: float = 1e-5,
                  abs_tolerance: float = 0,
                  msg: str = "",
                  verbose: bool = True):
     """ Raises an AssertionError if the `values` of the given fields are not close. See `phi.math.assert_close()`. """
-    f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
-    values = [(f @ f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
+    f0 = next(filter(lambda t: isinstance(t, Field), fields))
+    values = [(f @ f0).values if isinstance(f, Field) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
 
 
-def where(mask: Union[Field, Geometry, float], field_true: Union[Field, float], field_false: Union[Field, float]) -> SampledFieldType:
+def where(mask: Field or Geometry or float, field_true: Field or float, field_false: Field or float) -> Field:
     """
     Element-wise where operation.
     Picks the value of `field_true` where `mask=1 / True` and the value of `field_false` where `mask=0 / False`.
 
     The fields are automatically resampled if necessary, preferring the sample points of `mask`.
-    At least one of the arguments must be a `SampledField`.
+    At least one of the arguments must be a `Field`.
 
     Args:
         mask: `Field` or `Geometry` object.
@@ -665,71 +672,71 @@ def where(mask: Union[Field, Geometry, float], field_true: Union[Field, float], 
         field_false: `Field`
 
     Returns:
-        `SampledField`
+        `Field`
     """
     field_true, field_false, mask = _auto_resample(field_true, field_false, mask)
     values = math.where(mask.values, field_true.values, field_false.values)
     return field_true.with_values(values)
 
 
-def maximum(f1: Union[Field, Geometry, float], f2: Union[Field, Geometry, float]):
+def maximum(f1: Field or Geometry or float, f2: Field or Geometry or float):
     """
     Element-wise maximum.
-    One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
-    If both are `SampledFields` but have different points, `f1` takes priority.
+    One of the given fields needs to be an instance of `Field` and the the result will be sampled at the corresponding points.
+    If both are `Fields` but have different points, `f1` takes priority.
 
     Args:
         f1: `Field` or `Geometry` or constant.
         f2: `Field` or `Geometry` or constant.
 
     Returns:
-        `SampledField`
+        `Field`
     """
     f1, f2 = _auto_resample(f1, f2)
     return f1.with_values(math.maximum(f1.values, f2.values))
 
 
-def minimum(f1: Union[Field, Geometry, float], f2: Union[Field, Geometry, float]):
+def minimum(f1: Field or Geometry or float, f2: Field or Geometry or float):
     """
     Element-wise minimum.
-    One of the given fields needs to be an instance of `SampledField` and the the result will be sampled at the corresponding points.
-    If both are `SampledFields` but have different points, `f1` takes priority.
+    One of the given fields needs to be an instance of `Field` and the the result will be sampled at the corresponding points.
+    If both are `Fields` but have different points, `f1` takes priority.
 
     Args:
         f1: `Field` or `Geometry` or constant.
         f2: `Field` or `Geometry` or constant.
 
     Returns:
-        `SampledField`
+        `Field`
     """
     f1, f2 = _auto_resample(f1, f2)
     return f1.with_values(math.minimum(f1.values, f2.values))
 
 
 def _auto_resample(*fields: Field):
-    """ Prefers extrapolation from first SampledField """
+    """ Prefers extrapolation from first Field """
     for sampled_field in fields:
-        if isinstance(sampled_field, SampledField):
+        if isinstance(sampled_field, Field):
             return [f @ sampled_field for f in fields]
-    raise AssertionError(f"At least one argument must be a SampledField but got {fields}")
+    raise AssertionError(f"At least one argument must be a Field but got {fields}")
 
 
-def vec_length(field: SampledField):
+def vec_length(field: Field):
     """ See `phi.math.vec_abs()` """
-    assert isinstance(field, SampledField), f"SampledField required but got {type(field).__name__}"
-    if isinstance(field, StaggeredGrid):
+    assert isinstance(field, Field), f"Field required but got {type(field).__name__}"
+    if field.is_grid and field.is_staggered:
         field = field.at_centers()
     return field.with_values(math.vec_abs(field.values))
 
 
-def vec_squared(field: SampledField):
+def vec_squared(field: Field):
     """ See `phi.math.vec_squared()` """
-    if isinstance(field, StaggeredGrid):
+    if field.is_grid and field.is_staggered:
         field = field.at_centers()
     return field.with_values(math.vec_squared(field.values))
 
 
-def finite_fill(grid: GridType, distance=1, diagonal=True) -> GridType:
+def finite_fill(grid: Field, distance=1, diagonal=True) -> Field:
     """
     Extrapolates values of `grid` which are marked by nonzero values in `valid` using `phi.math.masked_fill().
     If `values` is a StaggeredGrid, its components get extrapolated independently.
@@ -743,17 +750,17 @@ def finite_fill(grid: GridType, distance=1, diagonal=True) -> GridType:
         grid: Grid with extrapolated values.
         valid: binary Grid marking all valid values after extrapolation.
     """
-    if isinstance(grid, CenteredGrid):
+    if grid.is_grid and grid.is_centered:
         new_values = math.finite_fill(grid.values, distance=distance, diagonal=diagonal, padding=grid.extrapolation)
         return grid.with_values(new_values)
-    elif isinstance(grid, StaggeredGrid):
+    elif grid.is_grid and grid.is_staggered:
         new_values = [finite_fill(c, distance=distance, diagonal=diagonal).values for c in grid.vector]
         return grid.with_values(math.stack(new_values, channel(grid)))
     else:
         raise ValueError(grid)
 
 
-def discretize(grid: Grid, filled_fraction=0.25):
+def discretize(grid: Field, filled_fraction=0.25):
     """ Treats channel dimensions as batch dimensions. """
     import numpy as np
     data = math.reshaped_native(grid.values, [grid.shape.non_spatial, grid.shape.spatial])
@@ -780,15 +787,15 @@ def integrate(field: Field, region: Geometry, **kwargs) -> Tensor:
     Returns:
         Integral as `phi.Tensor`
     """
-    if not isinstance(field, CenteredGrid):
+    if not field.is_grid and not field.is_staggered:
         raise NotImplementedError()
-    return field._sample(region, **kwargs) * region.volume
+    return sample(field, region, **kwargs) * region.volume
 
 
-def pack_dims(field: SampledFieldType,
-              dims: Union[Shape, tuple, list, str],
+def pack_dims(field: Field,
+              dims: Shape or tuple or list or str,
               packed_dim: Shape,
-              pos: Union[int, None] = None) -> SampledFieldType:
+              pos: int or None = None) -> Field:
     """
     Currently only supports grids and non-spatial dimensions.
 
@@ -796,12 +803,12 @@ def pack_dims(field: SampledFieldType,
         `phi.math.pack_dims()`.
 
     Args:
-        field: `SampledField`
+        field: `Field`
 
     Returns:
-        `SampledField` of same type as `field`.
+        `Field` of same type as `field`.
     """
-    if isinstance(field, Grid):
+    if isinstance(field, Field):
         if spatial(field.shape.only(dims)):
             raise NotImplementedError("Packing spatial dimensions not supported for grids")
         return field.with_values(math.pack_dims(field.values, dims, packed_dim, pos))
@@ -809,12 +816,12 @@ def pack_dims(field: SampledFieldType,
         raise NotImplementedError()
 
 
-def support(field: SampledField, list_dim: Union[Shape, str] = instance('nonzero')) -> Tensor:
+def support(field: Field, list_dim: Shape or str = instance('nonzero')) -> Tensor:
     """
     Returns the points at which the field values are non-zero.
 
     Args:
-        field: `SampledField`
+        field: `Field`
         list_dim: Dimension to list the non-zero values.
 
     Returns:
@@ -823,7 +830,7 @@ def support(field: SampledField, list_dim: Union[Shape, str] = instance('nonzero
     return field.points[math.nonzero(field.values, list_dim=list_dim)]
 
 
-def mask(obj: Union[SampledFieldType, Geometry]) -> SampledFieldType:
+def mask(obj: Field or Geometry) -> Field:
     """
     Returns a `Field` that masks the inside (or non-zero values when `obj` is a grid) of a physical object.
     The mask takes the value 1 inside the object and 0 outside.
@@ -832,62 +839,63 @@ def mask(obj: Union[SampledFieldType, Geometry]) -> SampledFieldType:
     Returns:
         `Grid` type or `PointCloud`
     """
-    if isinstance(obj, PointCloud):
-        return PointCloud(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation), bounds=obj.bounds)
-    elif isinstance(obj, Geometry):
-        return PointCloud(obj, 1, 0)
-    elif isinstance(obj, CenteredGrid):
+    if isinstance(obj, Geometry):
+        return Field(obj, 1, 0)
+    assert isinstance(obj, Field), f"obj must be a Geometry or Field but got {type(obj)}"
+    if obj.is_grid and not obj.is_staggered:
         values = math.cast(obj.values != 0, int)
         return obj.with_values(values)
+    elif obj.is_staggered:
+        raise NotImplementedError
     else:
-        raise ValueError(obj)
+        return Field(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation), obj.bounds)
 
 
-def connect(obj: SampledField, connections: Tensor) -> Mesh:
-    """
-    Build a `Mesh` by connecting elements from a field.
-
-    See Also:
-        `connect_neighbors()`.
-
-    Args:
-        obj: `PointCloud` or `Mesh`.
-        connections: Connectivity matrix. Any non-zero entry represents a connection.
-
-    Returns:
-        `Mesh`
-    """
-    if isinstance(obj, (PointCloud, Mesh)):
-        return Mesh(obj.elements, connections, obj.values, extrapolation=obj.extrapolation, bounds=obj.bounds)
-    else:
-        raise ValueError(f"connect requires a PointCloud or Mesh but got {type(obj)}")
-
-
-def connect_neighbors(obj: SampledField, max_distance: float or Tensor, format: str = 'dense') -> Mesh:
-    """
-    Build  a `Mesh` by connecting proximate elements of a `SampledField`.
-
-    See Also:
-        `connect()`.
-
-    Args:
-        obj: `PointCloud`, `Mesh`, `CenteredGrid` or `StaggeredGrid`.
-        max_distance: Connectivity threshold distance. Elements further apart than this will not be connected.
-        format: Connectivity matrix format, `'dense'`, `'coo'` or `'csr'`.
-
-    Returns:
-        `Mesh`.
-    """
-    if isinstance(obj, CenteredGrid):
-        elements = flatten(obj.elements, instance('elements'))
-        values = math.pack_dims(obj.values, spatial, instance('elements'))
-        obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
-    elif isinstance(obj, StaggeredGrid):
-        elements = flatten(obj.elements, instance('elements'), flatten_batch=True)
-        values = math.pack_dims(obj.values, spatial(obj.values).names + ('vector',), instance('elements'))
-        obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
-    assert isinstance(obj, (PointCloud, Mesh)), f"obj must be a PointCloud, Mesh or Grid but got {type(obj)}"
-    points = math.rename_dims(obj.elements, spatial, instance).center
-    dx = math.pairwise_distances(points, max_distance=max_distance, format=format)
-    con = math.vec_length(dx) > 0
-    return connect(obj, con)
+# def connect(obj: Field, connections: Tensor) -> Mesh:
+#     """
+#     Build a `Mesh` by connecting elements from a field.
+#
+#     See Also:
+#         `connect_neighbors()`.
+#
+#     Args:
+#         obj: `PointCloud` or `Mesh`.
+#         connections: Connectivity matrix. Any non-zero entry represents a connection.
+#
+#     Returns:
+#         `Mesh`
+#     """
+#     if isinstance(obj, (PointCloud, Mesh)):
+#         return Mesh(obj.elements, connections, obj.values, extrapolation=obj.extrapolation, bounds=obj.bounds)
+#     else:
+#         raise ValueError(f"connect requires a PointCloud or Mesh but got {type(obj)}")
+#
+#
+# def connect_neighbors(obj: Field, max_distance: float or Tensor, format: str = 'dense') -> Mesh:
+#     """
+#     Build  a `Mesh` by connecting proximate elements of a `Field`.
+#
+#     See Also:
+#         `connect()`.
+#
+#     Args:
+#         obj: `PointCloud`, `Mesh`, `CenteredGrid` or `StaggeredGrid`.
+#         max_distance: Connectivity threshold distance. Elements further apart than this will not be connected.
+#         format: Connectivity matrix format, `'dense'`, `'coo'` or `'csr'`.
+#
+#     Returns:
+#         `Mesh`.
+#     """
+#     if isinstance(obj, CenteredGrid):
+#         elements = flatten(obj.elements, instance('elements'))
+#         values = math.pack_dims(obj.values, spatial, instance('elements'))
+#         obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
+#     elif isinstance(obj, StaggeredGrid):
+#         elements = flatten(obj.elements, instance('elements'), flatten_batch=True)
+#         values = math.pack_dims(obj.values, spatial(obj.values).names + ('vector',), instance('elements'))
+#         obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
+#     assert isinstance(obj, (PointCloud, Mesh)), f"obj must be a PointCloud, Mesh or Grid but got {type(obj)}"
+#     points = math.rename_dims(obj.elements, spatial, instance).center
+#     dx = math.pairwise_distances(points, max_distance=max_distance, format=format)
+#     con = math.vec_length(dx) > 0
+#     return connect(obj, con)

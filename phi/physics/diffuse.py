@@ -1,21 +1,17 @@
 """
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 """
-from typing import Union
-
 from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
-from phi.field._field import FieldType
-from phi.field._grid import GridType
 from phi.math import copy_with, shape, Solve
 
 
-def explicit(field: FieldType,
-             diffusivity: Union[float, math.Tensor, Field],
-             dt: Union[float, math.Tensor],
-             substeps: int = 1) -> FieldType:
+def explicit(field: Field,
+             diffusivity: float or math.Tensor or Field,
+             dt: float or math.Tensor,
+             substeps: int = 1) -> Field:
     """
-    Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` FieldType with diffusion coefficient α.
+    Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` Field with diffusion coefficient α.
 
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
@@ -38,11 +34,11 @@ def explicit(field: FieldType,
     return field
 
 
-def implicit(field: FieldType,
-             diffusivity: Union[float, math.Tensor, Field],
-             dt: Union[float, math.Tensor],
+def implicit(field: Field,
+             diffusivity: float or math.Tensor or Field,
+             dt: float or math.Tensor,
              order: int = 1,
-             solve=Solve('CG')) -> FieldType:
+             solve=Solve('CG')) -> Field:
     """
     Diffusion by solving a linear system of equations.
 
@@ -66,9 +62,9 @@ def implicit(field: FieldType,
 
 
 def finite_difference(grid: Grid,
-                      diffusivity: Union[float, math.Tensor, Field],
+                      diffusivity: float or math.Tensor or Field,
                       order: int,
-                      implicit: math.Solve) -> FieldType:
+                      implicit: math.Solve) -> Field:
 
     """
     Diffusion by using a finite difference scheme.
@@ -91,9 +87,9 @@ def finite_difference(grid: Grid,
     return diffusivity * laplace(grid, order=order, implicit=implicit).with_extrapolation(grid.extrapolation)
 
 
-def fourier(field: GridType,
-            diffusivity: Union[float, math.Tensor],
-            dt: Union[float, math.Tensor]) -> FieldType:
+def fourier(field: Field,
+            diffusivity: float or math.Tensor,
+            dt: float or math.Tensor) -> Field:
     """
     Exact diffusion of a periodic field in frequency space.
 

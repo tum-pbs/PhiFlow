@@ -1,12 +1,12 @@
 import warnings
 
 from phi import math
-from phi.geom import GridCell, Geometry
-from phi.math import random_normal, Tensor, channel
-from ._field import Field
+from phi.geom import UniformGrid, Geometry
+from phi.math import random_normal, Tensor, channel, dual, Extrapolation, vec
+from ._field import FieldInitializer
 
 
-class Noise(Field):
+class Noise(FieldInitializer):
     """
     Generates random noise fluctuations which can be configured in physical size and smoothness.
     Each time values are sampled from a Noise field, a new noise field is generated.
@@ -30,10 +30,14 @@ class Noise(Field):
     def shape(self):
         return self._shape
 
-    def _sample(self, geometry: Geometry, **kwargs) -> Tensor:
-        if isinstance(geometry, GridCell):
-            return self.grid_sample(geometry.resolution, geometry.grid_size)
-        raise NotImplementedError(f"{type(geometry)} not supported. Only GridCell allowed.")
+    def _sample(self, geometry: Geometry, at: str, boundaries: Extrapolation, **kwargs) -> Tensor:
+        if isinstance(geometry, UniformGrid):
+            if at == 'center':
+                return self.grid_sample(geometry.resolution, geometry.grid_size)
+            elif at == 'face':
+                result = {dim: self.grid_sample(grid.resolution, grid.grid_size) for dim, grid in geometry.staggered_cells(boundaries).items()}
+                return vec(geometry.face_shape.dual, **result)
+        raise NotImplementedError(f"{type(geometry)} not supported. Only UniformGrid allowed.")
 
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
         shape = (self._shape if shape is None else shape) & resolution

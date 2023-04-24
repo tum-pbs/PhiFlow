@@ -4,14 +4,14 @@ Functions for simulating incompressible fluids, both grid-based and particle-bas
 The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 """
 import warnings
-from typing import Tuple, Callable, Union
+from typing import Tuple, Callable
 
 from phi import math, field
 from phi.math import wrap, channel, Solve
 from phi.field import AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field, resample
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
-from ..field._grid import GridType, StaggeredGrid
+from ..field._grid import StaggeredGrid
 from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
 from ..math._magic_ops import copy_with
 from ..math.extrapolation import combine_sides, Extrapolation
@@ -62,11 +62,11 @@ def _get_obstacles_for(obstacles, space: Field):
     return obstacles
 
 
-def make_incompressible(velocity: GridType,
-                        obstacles: Union[Obstacle, Geometry, tuple, list] = (),
+def make_incompressible(velocity: Field,
+                        obstacles: Obstacle or Geometry or tuple or list = (),
                         solve: Solve = Solve(),
                         active: CenteredGrid = None,
-                        order: int = 2) -> Tuple[GridType, CenteredGrid]:
+                        order: int = 2) -> Tuple[Field, CenteredGrid]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -95,7 +95,7 @@ def make_incompressible(velocity: GridType,
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
     with NUMPY:
         accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
-        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, type=type(velocity))
+        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, at='face' if velocity.is_staggered else 'center')
     all_active = active is None
     if active is None:
         active = accessible.with_extrapolation(extrapolation.NONE)
@@ -115,7 +115,7 @@ def make_incompressible(velocity: GridType,
         solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
     pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, type=type(velocity), order=order) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at='face' if velocity.is_staggered else 'center', order=order) * hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure
 
@@ -143,7 +143,7 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid,
         `CenteredGrid`
     """
     if order == 2 and not implicit:
-        grad = spatial_gradient(pressure, hard_bcs.extrapolation, type=type(hard_bcs))
+        grad = spatial_gradient(pressure, hard_bcs.extrapolation, at='face' if hard_bcs.is_staggered else 'center')
         valid_grad = grad * hard_bcs
         valid_grad = valid_grad.with_extrapolation(extrapolation.remove_constant_offset(valid_grad.extrapolation))
         div = divergence(valid_grad)
@@ -157,7 +157,7 @@ def _balance_divergence(div, active):
     return div - active * (field.mean(div) / field.mean(active))
 
 
-def apply_boundary_conditions(velocity: Union[Grid, PointCloud], obstacles: Union[Obstacle, Geometry, tuple, list]):
+def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle or Geometry or tuple or list):
     """
     Enforces velocities boundary conditions on a velocity grid.
     Cells inside obstacles will get their velocity from the obstacle movement.
@@ -185,7 +185,7 @@ def apply_boundary_conditions(velocity: Union[Grid, PointCloud], obstacles: Unio
     return velocity
 
 
-def boundary_push(particles: PointCloud, obstacles: Union[tuple, list], offset: float = 0.5) -> PointCloud:
+def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -> PointCloud:
     """
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
     obstacles or back into the domain.
@@ -235,7 +235,7 @@ def _accessible_extrapolation(vext: Extrapolation):
         raise ValueError(f"Unsupported extrapolation: {type(vext)}")
 
 
-def incompressible_rk4(pde: Callable, velocity: GridType, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve('CG'), **pde_aux_kwargs):
+def incompressible_rk4(pde: Callable, velocity: Field, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve('CG'), **pde_aux_kwargs):
     """
     Implements the 4th-order Runge-Kutta time advancement scheme for incompressible vector fields.
     This approach is inspired by [Kampanis et. al., 2006](https://www.sciencedirect.com/science/article/pii/S0021999105005061) and incorporates the pressure treatment into the time step.

@@ -6,7 +6,7 @@ from threading import Lock
 from typing import Tuple, Any, Optional, Dict, Callable, Union
 
 from phi import field, math
-from phi.field import SampledField, Scene, PointCloud, CenteredGrid
+from phi.field import Field, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
 from phi.geom import Box, Cuboid, Geometry, Point
 from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
@@ -117,7 +117,7 @@ class VisModel:
     def field_names(self) -> tuple:
         raise NotImplementedError(self)
 
-    def get_field(self, name: str, dim_selection: dict) -> SampledField:
+    def get_field(self, name: str, dim_selection: dict) -> Field:
         """
         Returns the current value of a field.
         The name must be part of `VisModel.field_names`.
@@ -130,13 +130,13 @@ class VisModel:
             dim_selection: Slices the field according to `selection`. `dict` mapping dimension names to `int` or `slice`.
 
         Returns:
-            `SampledField`
+            `Field`
         """
         raise NotImplementedError(self)
 
     def get_field_shape(self, name: str) -> Shape:
         value = self.get_field(name, {})
-        if isinstance(value, (Tensor, SampledField)):
+        if isinstance(value, (Tensor, Field)):
             return value.shape
         else:
             return EMPTY_SHAPE
@@ -384,11 +384,11 @@ class PlottingLibrary:
 
 class Recipe:
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
+    def can_plot(self, data: Field, space: Box) -> bool:
         raise NotImplementedError
 
     def plot(self,
-             data: SampledField,
+             data: Field,
              figure,
              subplot,
              space: Box,
@@ -468,14 +468,14 @@ def common_index(*indices: dict, exclude=()):
     return {k: v for k, v in indices[0].items() if k not in exclude and all([i[k] == v for i in indices])}
 
 
-def select_channel(value: Union[SampledField, Tensor, tuple, list], channel: Union[str, None]):
+def select_channel(value: Union[Field, Tensor, tuple, list], channel: Union[str, None]):
     if isinstance(value, (tuple, list)):
         return [select_channel(v, channel) for v in value]
     if channel is None:
         return value
     elif channel == 'abs':
         if value.vector.exists:
-            return field.vec_abs(value) if isinstance(value, SampledField) else math.vec_length(value)
+            return field.vec_abs(value) if isinstance(value, Field) else math.vec_length(value)
         else:
             return value
     else:  # x, y, z
@@ -489,7 +489,7 @@ def select_channel(value: Union[SampledField, Tensor, tuple, list], channel: Uni
 
 
 def to_field(obj):
-    if isinstance(obj, SampledField):
+    if isinstance(obj, Field):
         return obj
     if isinstance(obj, Geometry):
         return PointCloud(obj)
@@ -497,6 +497,8 @@ def to_field(obj):
         arbitrary_lines_1d = spatial(obj).rank == 1 and 'vector' in obj.shape
         point_cloud = instance(obj) and 'vector' in obj.shape
         if point_cloud or arbitrary_lines_1d:
+            if math.get_format(obj) != 'dense':
+                obj = math.stored_values(obj)
             return PointCloud(obj)
         elif spatial(obj):
             return CenteredGrid(obj, 0, bounds=Box(math.const_vec(-0.5, spatial(obj)), wrap(spatial(obj), channel('vector')) - 0.5))
@@ -515,13 +517,13 @@ def to_field(obj):
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
 
 
-def get_default_limits(f: SampledField) -> Box:
-    if f._bounds is not None:
-        return f.bounds
+def get_default_limits(f: Field) -> Box:
+    # if f.bounds is not None:
+    #     return f.bounds
     # --- Determine element size ---
     if (f.elements.bounding_half_extent() > 0).any:
         size = 2 * f.elements.bounding_half_extent()
-    elif isinstance(f, PointCloud) and f.spatial_rank == 1:
+    elif f.is_point_cloud and f.spatial_rank == 1:
         bounds = f.bounds
         count = non_batch(f).non_dual.non_channel.volume
         return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
@@ -541,3 +543,11 @@ def get_default_limits(f: SampledField) -> Box:
         upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.lower * .9, extended_bounds.upper)
         extended_bounds = Box(lower, upper)
     return extended_bounds
+
+
+def only_stored_elements(f: Field):
+    if math.get_format(f.points) == 'dense':
+        return f
+    elements = f.elements.at(f.points._values)
+    values = f.values[f.points._indices]
+    return Field(elements, values, math.extrapolation.NONE)

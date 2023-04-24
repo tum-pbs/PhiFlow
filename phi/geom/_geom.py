@@ -1,8 +1,9 @@
+import warnings
 from numbers import Number
-from typing import Union
+from typing import Union, Dict, Any, Tuple
 
 from phi import math
-from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
+from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
 from phi.math._magic_ops import variable_attributes, expand
 from phi.math.magic import BoundDim, slicing_dict
 
@@ -26,7 +27,7 @@ class Geometry:
         """
         Center location in single channel dimension.
         """
-        raise NotImplementedError(self)
+        raise NotImplementedError(self.__class__)
 
     @property
     def shape(self) -> Shape:
@@ -38,15 +39,76 @@ class Geometry:
         * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
         * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
 
     @property
     def volume(self) -> Tensor:
         """
-        Volume of the geometry as `phi.math.Tensor`.
-        The result retains all batch dimensions while instance dimensions are summed over.
+        `phi.math.Tensor` representing the volume of each element.
+        The result retains batch, spatial and instance dimensions.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_centers(self) -> Tensor:
+        """
+        Center of face connecting a pair of cells. Shape `(elements, ~, vector)`.
+        Here, `~` represents arbitrary internal dual dimensions, such as `~staggered_direction` or `~elements`.
+        Returns 0-vectors for unconnected cells.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_areas(self) -> Tensor:
+        """
+        Area of face connecting a pair of cells. Shape `(elements, ~)`.
+        Returns 0 for unconnected cells.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_normals(self) -> Tensor:
+        """
+        Normal vector of face connecting a pair of cells. Shape `(elements, ~, vector)`.
+        Unconnected cells are assigned the vector 0.
+        The vector points out of cells and into ~.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        """
+        Slices on the primal dimensions to mark boundary elements.
+        Grids and meshes have no boundary elements and return `{}`.
+        Dynamic graphs can define boundary elements for obstacles and walls.
+
+        Returns:
+            Map from `(name, is_upper)` to slicing `dict`.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        """
+        Slices on the dual dimensions to mark boundary faces.
+
+        Regular grids use the keys (dim, is_upper) to identify boundaries.
+        Unstructured meshes use string identifiers for the boundaries.
+        Dynamic graphs return slices along the dual dimensions.
+
+        Returns:
+            Map from `(name, is_upper)` to slicing `dict`.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_shape(self) -> Shape:
+        """
+        Returns:
+            Full Shape to identify each face of this `Geometry`, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
+            If this `Geometry` has no faces, returns an empty `Shape`.
+        """
+        raise NotImplementedError(self.__class__)
 
     @property
     def shape_type(self) -> Tensor:
@@ -59,7 +121,44 @@ class Geometry:
         Returns:
             String `Tensor`
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)  # ToDo deprecate this
+
+    def integrate_surface(self, values: Tensor) -> Tensor:
+        """
+        Multiplies `values´ by the corresponding face area, computes the sum over all faces and divides by the cell volume.
+        ∑ values * A / V.
+
+        Args:
+            values: Values sampled at the face centers.
+
+        Returns:
+            `Tensor` of values sampled at the centroids.
+        """
+        return math.sum(values * self.face_areas, self.face_shape.dual) / self.volume
+
+    # def resample_to_faces(self, values: Tensor, boundary: Extrapolation, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def resample_to_centers(self, values: Tensor, boundary: Extrapolation, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def centered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def staggered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def divergence_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def laplace_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def centered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def staggered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
 
     def unstack(self, dimension: str) -> tuple:
         """
@@ -72,6 +171,7 @@ class Geometry:
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         """
+        warnings.warn(f"Geometry.unstack() is deprecated. Use math.unstack(geometry) instead.", DeprecationWarning)
         return math.unstack(self, dimension)
 
     @property
@@ -247,7 +347,7 @@ class Geometry:
         Returns:
             `Geometry`.
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__)
 
     def __matmul__(self, other):
         return self.at(other)
@@ -421,6 +521,10 @@ class _InvertedGeometry(Geometry):
     def __hash__(self):
         return -hash(self.geometry)
 
+    @property
+    def normal(self) -> Tensor:
+        return -self.geometry.normal
+
 
 def invert(geometry: Geometry):
     """
@@ -495,6 +599,16 @@ class _NoGeometry(Geometry):
     def __hash__(self):
         return 1
 
+    @property
+    def normal(self) -> Tensor:
+        raise GeometryException("Empty geometry does not have normals")
+
+    def surface(self, include_boundaries: Union[bool, Dict[str, Any]]) -> 'Geometry':
+        raise GeometryException("Empty geometry does not have a surface")
+
+    def interior(self) -> 'Geometry':
+        raise GeometryException("Empty geometry does not have an interior")
+
 
 NO_GEOMETRY = _NoGeometry()
 
@@ -562,8 +676,42 @@ class Point(Geometry):
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return self
 
+    @property
+    def face_centers(self) -> Tensor:
+        raise NotImplementedError
+
+    @property
+    def face_areas(self) -> Tensor:
+        raise NotImplementedError
+
+    @property
+    def face_normals(self) -> Tensor:
+        raise NotImplementedError
+
+    @property
+    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        raise NotImplementedError
+
+    @property
+    def face_shape(self) -> Shape:
+        return math.EMPTY_SHAPE
+
     def __getitem__(self, item):
         return Point(self._location[_keep_vector(slicing_dict(self, item))])
+
+
+class GeometryException(BaseException):
+    """
+    Raised when an operation is fundamentally not possible for a `Geometry`.
+    Possible causes:
+
+    * Trying to get the interior of a non-surface `Geometry`
+    * Trying to get the surface of a point-like `Geometry`
+    """
 
 
 def assert_same_rank(rank1, rank2, error_message):

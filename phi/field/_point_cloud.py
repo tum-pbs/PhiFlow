@@ -1,19 +1,15 @@
 import warnings
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
-from phi.math import wrap, expand, non_batch, extrapolation, spatial
-
-from phi import math
-from phi.geom import Geometry, GridCell, Box, Point
-from ._field import SampledField, resample
-from ..geom._stack import GeometryStack
-from ..math import Tensor, instance, Shape
-from ..math._tensors import may_vary_along
+from phi import math, geom
+from phi.geom import Geometry, Box
+from ._field import Field
+from ._resample import resample
+from ..math import Tensor, instance, Shape, dual
 from ..math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
-from ..math.magic import slicing_dict
 
 
-class PointCloud(SampledField):
+def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolation: Union[Extrapolation, float] = 0., bounds: Box = None):
     """
     A `PointCloud` comprises:
 
@@ -36,162 +32,30 @@ class PointCloud(SampledField):
       See the description in `phi.geom.Geometry.approximate_fraction_inside()`.
 
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
+
+    Args:
+        elements: `Tensor` or `Geometry` object specifying the sample points and sizes
+        values: values corresponding to elements
+        extrapolation: values outside elements
+        bounds: Deprecated. Has no use since 2.5.
     """
-
-    def __init__(self,
-                 elements: Union[Tensor, Geometry],
-                 values: Any = 1.,
-                 extrapolation: Union[Extrapolation, float] = 0.,
-                 add_overlapping=False,
-                 bounds: Box = None):
-        """
-        Args:
-          elements: `Tensor` or `Geometry` object specifying the sample points and sizes
-          values: values corresponding to elements
-          extrapolation: values outside elements
-          add_overlapping: True: values of overlapping geometries are summed. False: values between overlapping geometries are interpolated
-          bounds: (optional) size of the fixed domain in which the points should get visualized. None results in max and min coordinates of points.
-        """
-        SampledField.__init__(self, elements, expand(wrap(values), non_batch(elements).non_channel), extrapolation, bounds)
-        assert self._extrapolation is PERIODIC or isinstance(self._extrapolation, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {self._extrapolation}"
-        self._add_overlapping = add_overlapping
-
-    @property
-    def shape(self):
-        return self._elements.shape.without('vector') & self._values.shape
-
-    def __getitem__(self, item):
-        item = slicing_dict(self, item)
-        if not item:
-            return self
-        item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
-        elements = self.elements[item_without_vec]
-        values = self._values[item]
-        extrapolation = self._extrapolation[item]
-        bounds = self._bounds[item_without_vec] if self._bounds is not None else None
-        return PointCloud(elements, values, extrapolation, self._add_overlapping, bounds)
-
-    def with_elements(self, elements: Geometry):
-        return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
-
-    def shifted(self, delta):
-        return self.with_elements(self.elements.shifted(delta))
-
-    def with_values(self, values):
-        return PointCloud(elements=self.elements, values=values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
-
-    def with_extrapolation(self, extrapolation: Extrapolation):
-        return PointCloud(elements=self.elements, values=self.values, extrapolation=extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
-
-    def with_bounds(self, bounds: Box):
-        return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=bounds)
-
-    def __value_attrs__(self):
-        return '_values', '_extrapolation'
-
-    def __variable_attrs__(self):
-        return '_values', '_elements'
-
-    def __expand__(self, dims: Shape, **kwargs) -> 'PointCloud':
-        return self.with_values(expand(self.values, dims, **kwargs))
-
-    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'PointCloud':
-        elements = math.rename_dims(self.elements, dims, new_dims)
-        values = math.rename_dims(self.values, dims, new_dims)
-        extrapolation = math.rename_dims(self.extrapolation, dims, new_dims, **kwargs)
-        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds)
-
-    def __eq__(self, other):
-        if not type(self) == type(other):
-            return False
-        # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
-        if type(self.elements) is not type(other.elements):
-            return False
-        if self.extrapolation != other.extrapolation:
-            return False
-        if self._add_overlapping != other._add_overlapping:
-            return False
-        if self.values is None:
-            return other.values is None
-        if other.values is None:
-            return False
-        if not math.all_available(self.values) or not math.all_available(other.values):  # tracers involved
-            if math.all_available(self.values) != math.all_available(other.values):
-                return False
-            else:  # both tracers
-                return self.values.shape == other.values.shape
-        return bool((self.values == other.values).all)
-
-    @property
-    def bounds(self) -> Box:
-        if self._bounds is not None:
-            return self._bounds
-        else:
-            from phi.field._field_math import data_bounds
-            bounds = data_bounds(self.elements.center)
-            radius = math.max(self.elements.bounding_radius())
-            return Box(bounds.lower - radius, bounds.upper + radius)
-
-    def _sample(self, geometry: Geometry, soft=False, scatter=False, outside_handling='discard', balance=0.5) -> Tensor:
-        if geometry == self.elements:
-            return self.values
-        if isinstance(geometry, GeometryStack):
-            sampled = [self._sample(g, soft, scatter, outside_handling, balance) for g in geometry.geometries]
-            return math.stack(sampled, geometry.geometries.shape)
-        if self.extrapolation is extrapolation.PERIODIC:
-            raise NotImplementedError("Periodic PointClouds not yet supported")
-        if isinstance(geometry, GridCell) and scatter:
-            assert not soft, "Cannot soft-sample when scatter=True"
-            return self.grid_scatter(geometry.bounds, geometry.resolution, outside_handling)
-        else:
-            assert not isinstance(self._elements, Point), "Cannot sample Point-like elements with scatter=False"
-            if may_vary_along(self._values, instance(self._values) & spatial(self._values)):
-                raise NotImplementedError("Non-scatter resampling not yet supported for varying values")
-            idx0 = (instance(self._values) & spatial(self._values)).first_index()
-            outside = self._extrapolation.value if isinstance(self._extrapolation, ConstantExtrapolation) else 0
-            if soft:
-                frac_inside = self.elements.approximate_fraction_inside(geometry, balance)
-                return frac_inside * self._values[idx0] + (1 - frac_inside) * outside
-            else:
-                return math.where(self.elements.lies_inside(geometry.center), self._values[idx0], outside)
-
-    def grid_scatter(self, bounds: Box, resolution: math.Shape, outside_handling: str):
-        """
-        Approximately samples this field on a regular grid using math.scatter().
-
-        Args:
-            outside_handling: `str` passed to `phi.math.scatter()`.
-            bounds: physical dimensions of the grid
-            resolution: grid resolution
-
-        Returns:
-            `CenteredGrid`
-        """
-        closest_index = bounds.global_to_local(self.points) * resolution - 0.5
-        mode = 'add' if self._add_overlapping else 'mean'
-        base = math.zeros(resolution)
-        if isinstance(self._extrapolation, ConstantExtrapolation):
-            base += self._extrapolation.value
-        scattered = math.scatter(base, closest_index, self.values, mode=mode, outside_handling=outside_handling)
-        return scattered
-
-    def __repr__(self):
-        try:
-            return "PointCloud[%s]" % (self.shape,)
-        except:
-            return "PointCloud[invalid]"
-
-    def __and__(self, other):
-        assert isinstance(other, PointCloud)
-        assert instance(self).rank == instance(other).rank == 1, f"Can only use & on PointClouds that have a single instance dimension but got shapes {self.shape} & {other.shape}"
-        from ._field_math import concat
-        return concat([self, other], instance(self))
+    if dual(values):
+        assert dual(values).rank == 1, f"PointCloud cannot convert values with more than 1 dual dimension."
+        non_dual_name = dual(values).name[1:]
+        indices = math.stored_indices(values)[non_dual_name]
+        values = math.stored_values(values)
+        elements = elements[{non_dual_name: indices}]
+    if isinstance(elements, Tensor):
+        elements = geom.Point(elements)
+    result = Field(elements, values, extrapolation)
+    assert result.boundary is PERIODIC or isinstance(result.boundary, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {result._boundary}"
+    return result
 
 
-def nonzero(field: SampledField):
+def nonzero(field: Field) -> Field:
     indices = math.nonzero(field.values, list_dim=instance('points'))
     elements = field.elements[indices]
-    return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, add_overlapping=False, bounds=field.bounds)
+    return PointCloud(elements, values=math.tensor(1.), extrapolation=math.extrapolation.ZERO, bounds=field.bounds)
 
 
 def distribute_points(geometries: Union[tuple, list, Geometry, float],
@@ -199,8 +63,8 @@ def distribute_points(geometries: Union[tuple, list, Geometry, float],
                       points_per_cell: int = 8,
                       center: bool = False,
                       radius: float = None,
-                      extrapolation: Union[float, Extrapolation] = math.NAN,
-                      **domain) -> PointCloud:
+                      extrapolation: float or Extrapolation = math.NAN,
+                      **domain) -> Field:
     """
     Transforms `Geometry` objects into a PointCloud.
 

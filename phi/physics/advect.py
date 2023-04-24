@@ -7,14 +7,10 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 """
-from typing import Union
-
 from phi.math import Solve, channel
 
 from phi import math
-from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
-from phi.field._field import FieldType
-from phi.field._field_math import GridType
+from phi.field import Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
 from phi.geom import Geometry
 
 
@@ -48,10 +44,10 @@ def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = 
 
 
 
-def advect(field: SampledField,
+def advect(field: Field,
            velocity: Field,
-           dt: Union[float, math.Tensor],
-           integrator=euler) -> FieldType:
+           dt: float or math.Tensor,
+           integrator=euler) -> Field:
     """
     Advect `field` along the `velocity` vectors using the specified integrator.
 
@@ -61,7 +57,7 @@ def advect(field: SampledField,
     * `phi.field.Grid`: Sample points are traced backward, see `semi_lagrangian`.
 
     Args:
-        field: Field to be advected as `phi.field.SampledField`.
+        field: Field to be advected as `phi.field.Field`.
         velocity: Any `phi.field.Field` that can be sampled in the elements of `field`.
         dt: Time increment
         integrator: ODE integrator for solving the movement.
@@ -134,10 +130,10 @@ def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
     return field.with_elements(new_elements)
 
 
-def semi_lagrangian(field: GridType,
+def semi_lagrangian(field: Field,
                     velocity: Field,
                     dt: float,
-                    integrator=euler) -> GridType:
+                    integrator=euler) -> Field:
     """
     Semi-Lagrangian advection with simple backward lookup.
     
@@ -160,11 +156,11 @@ def semi_lagrangian(field: GridType,
     return field.with_values(interpolated)
 
 
-def mac_cormack(field: GridType,
+def mac_cormack(field: Field,
                 velocity: Field,
                 dt: float,
                 correction_strength=1.0,
-                integrator=euler) -> GridType:
+                integrator=euler) -> Field:
     """
     MacCormack advection uses a forward and backward lookup to determine the first-order error of semi-Lagrangian advection.
     It then uses that error estimate to correct the field values.

@@ -11,16 +11,16 @@ from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, get_default_limits
 from ._vis_base import title_label
 from .. import math
-from ..field import SampledField, Scene, Field, PointCloud
+from ..field import Scene, Field
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
-from ..math import Tensor, layout, batch, Shape, vec, stack, concat
+from ..math import Tensor, layout, batch, Shape, concat, vec
 from ..math import wrap
-from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape, non_batch
+from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
 from ..math._tensors import Layout
 
 
-def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
+def show(*model: Union[VisModel, Field, Tensor, Geometry, list, tuple, dict],
          play=True,
          gui: Union[Gui, str] = None,
          lib: Union[Gui, str] = None,
@@ -34,7 +34,7 @@ def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
     See Also:
         `view()`.
 
-    If `model` is plottable, e.g. a `SampledField` or `Tensor`, a figure is created and shown.
+    If `model` is plottable, e.g. a `Field` or `Tensor`, a figure is created and shown.
     If `model` is a figure, it is simply shown.
 
     See Also:
@@ -105,7 +105,7 @@ close_ = close
 RECORDINGS = {}
 
 
-def record(*fields: Union[str, SampledField]) -> Viewer:
+def record(*fields: Union[str, Field]) -> Viewer:
     user_namespace = get_user_namespace(1)
     variables = _default_field_variables(user_namespace, fields)
     viewer = create_viewer(user_namespace, variables, "record", "", scene=None, asynchronous=False, controls=(),
@@ -115,7 +115,7 @@ def record(*fields: Union[str, SampledField]) -> Viewer:
     return viewer
 
 
-def view(*fields: Union[str, SampledField],
+def view(*fields: Union[str, Field],
          play: bool = True,
          gui=None,
          name: str = None,
@@ -195,7 +195,7 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
     if len(fields) == 0:  # view all Fields
         user_variables = user_namespace.list_variables(only_public=True, only_current_scope=True)
         for name, val in user_variables.items():
-            if isinstance(val, SampledField):
+            if isinstance(val, Field):
                 names.append(name)
                 values.append(val)
     else:  # find variable names
@@ -271,7 +271,7 @@ def get_current_figure():
     return LAST_FIGURE[0]
 
 
-def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
+def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
          lib: Union[str, PlottingLibrary] = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
@@ -417,7 +417,7 @@ def layout_pytree_node(data, wrap_leaf=False):
     return wrap(data) if wrap_leaf else data
 
 
-def layout_sub_figures(data: Union[Tensor, SampledField],
+def layout_sub_figures(data: Union[Tensor, Field],
                        row_dims: DimFilter,
                        col_dims: DimFilter,
                        animate: DimFilter,  # do not reduce these dims, has priority
@@ -482,7 +482,7 @@ def layout_sub_figures(data: Union[Tensor, SampledField],
 def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
     all_dims = []
     for f in values:
-        for dim in f.bounds.vector.item_names:
+        for dim in get_default_limits(f).vector.item_names:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
     all_bounds = [embed(get_default_limits(f).without(ignore_dims.names).largest(shape), all_dims) for f in values]
@@ -506,7 +506,7 @@ def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val,
         return space
 
 
-def overlay(*fields: Union[SampledField, Tensor]) -> Tensor:
+def overlay(*fields: Union[Field, Tensor]) -> Tensor:
     """
     Specify that multiple fields should be drawn on top of one another in the same figure.
     The fields will be plotted in the order they are given, i.e. the last field on top.
@@ -514,7 +514,7 @@ def overlay(*fields: Union[SampledField, Tensor]) -> Tensor:
     >>> plot(vis.overlay(heatmap, points, velocity))
 
     Args:
-        *fields: `SampledField` or `Tensor` instances
+        *fields: `Field` or `Tensor` instances
 
     Returns:
         Plottable object

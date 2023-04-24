@@ -1,7 +1,7 @@
 from typing import List, Tuple
 
 from phi import math
-from . import GridCell
+from . import UniformGrid
 from ._geom import Geometry
 from ..math import Tensor, expand
 from ..math._shape import shape_stack, Shape, INSTANCE_DIM, non_channel

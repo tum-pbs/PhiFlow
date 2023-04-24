@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math, geom
 from phi import field
-from phi.field import Noise, CenteredGrid, StaggeredGrid
+from phi.field import Noise, CenteredGrid, StaggeredGrid, Field
 from phi.geom import Box, Sphere
 from phi.math import extrapolation, spatial, channel, batch
 from phi.math.magic import PhiTreeNode
@@ -65,8 +65,8 @@ class GridTest(TestCase):
         g = CenteredGrid(Noise(batch(batch=10), channel(vector=2)), x=10, y=20)
         s1 = g[{'vector': 0, 'batch': 1, 'x': 1}]
         s2 = g.vector[0].batch[1].x[1]
-        self.assertIsInstance(s1, CenteredGrid)
-        self.assertEqual(s1.bounds, Box(y=20))
+        self.assertTrue(s1.is_grid)
+        self.assertEqual(Box(y=20), s1.bounds.vector['y'])
         field.assert_close(s1, s2)
 
     def test_staggered_grid_with_extrapolation(self):
@@ -101,7 +101,7 @@ class GridTest(TestCase):
     def test_zero_staggered_grid(self):
         for data in [(0, 0), 0, Noise(), lambda x: x]:
             grid = StaggeredGrid(data, 0, x=4, y=3)
-            self.assertEqual(('x', 'y'), grid.values.vector.item_names)
+            self.assertEqual(('x', 'y'), grid.values.vector.dual.item_names)
             self.assertEqual(('x', 'y'), grid.dx.vector.item_names)
 
     def test_staggered_grid_from_uniform_values(self):
@@ -135,7 +135,7 @@ class GridTest(TestCase):
         math.assert_close(grid.points['t'], grid.values)
 
     def test_is_phi_tree_node(self):
-        self.assertTrue(issubclass(CenteredGrid, PhiTreeNode))
+        self.assertTrue(issubclass(Field, PhiTreeNode))
         grid = CenteredGrid(0, x=4)
         self.assertTrue(isinstance(grid, PhiTreeNode))
 
