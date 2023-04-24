@@ -12,7 +12,7 @@ import numpy as np
 from ._magic_ops import PhiTreeNodeType, variable_attributes, copy_with, stack, pack_dims, expand
 from ._shape import (Shape,
                      CHANNEL_DIM, BATCH_DIM, SPATIAL_DIM, EMPTY_SHAPE,
-                     parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes,
+                     parse_dim_order, shape_stack, merge_shapes, channel, concat_shapes, primal,
                      TYPE_ABBR, IncompatibleShapes, INSTANCE_DIM, batch, spatial, dual, instance, shape, DimFilter, non_batch, DEBUG_CHECKS)
 from .backend import NoBackendFound, choose_backend, BACKENDS, get_precision, default_backend, convert as convert_, \
     Backend, ComputeDevice, OBJECTS
@@ -719,6 +719,9 @@ class Tensor:
     def __matmul__(self, other):
         assert isinstance(other, Tensor), f"Matmul '@' requires two Tensor arguments but got {type(other)}"
         dims = batch(**self.shape.dual.untyped_dict).names
+        if not dims:  # this is not a matrix
+            assert self.shape.primal.only(other.shape).is_empty, f"Cannot compute matmul {self.shape} @ {other.shape}. First argument is not a matrix; it has no dual dimensions."
+            return self * other
         match = other.shape.only(dims, reorder=True)
         if not match:
             assert non_batch(other).non_dual.rank == 1, f"Cannot multiply {self.shape} @ {other.shape} because arg2 does not have appropriate non-dual dimensions"
