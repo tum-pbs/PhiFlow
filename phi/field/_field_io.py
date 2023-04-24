@@ -3,13 +3,13 @@ from typing import Union
 import numpy as np
 
 from phi import geom
-from ._field import SampledField
-from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor
+from ._field import Field
+from ._grid import unstack_staggered_tensor, CenteredGrid, StaggeredGrid
 from ._field_math import stack
 from ..math import extrapolation, wrap, tensor, Shape, channel, Tensor, spatial
 
 
-def write(field: SampledField, file: Union[str, Tensor]):
+def write(field: Field, file: Union[str, Tensor]):
     """
     Writes a field to disc using a NumPy file format.
     Depending on `file`, the data may be split up into multiple files.
@@ -41,13 +41,13 @@ def write(field: SampledField, file: Union[str, Tensor]):
         raise ValueError(file)
 
 
-def write_single_field(field: SampledField, file: str):
+def write_single_field(field: Field, file: str):
     if isinstance(field, StaggeredGrid):
         data = field.staggered_tensor().numpy(field.values.shape.names)
     else:
         data = field.values.numpy(field.values.shape.names)
     dim_names = field.values.shape.names
-    if isinstance(field, Grid):
+    if field.is_grid:
         lower = field.bounds.lower.numpy()
         upper = field.bounds.upper.numpy()
         bounds_item_names = field.bounds.size.vector.item_names
@@ -66,9 +66,9 @@ def write_single_field(field: SampledField, file: str):
         raise NotImplementedError(f"{type(field)} not implemented. Only Grid allowed.")
 
 
-def read(file: Union[str, Tensor], convert_to_backend=True) -> SampledField:
+def read(file: Union[str, Tensor], convert_to_backend=True) -> Field:
     """
-    Loads a previously saved `SampledField` from disc.
+    Loads a previously saved `Field` from disc.
 
     See Also:
         `write()`.
@@ -79,7 +79,7 @@ def read(file: Union[str, Tensor], convert_to_backend=True) -> SampledField:
         convert_to_backend: Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.
 
     Returns:
-        Loaded `SampledField`.
+        Loaded `Field`.
     """
     if isinstance(file, str):
         return read_single_field(file, convert_to_backend=convert_to_backend)
@@ -95,7 +95,7 @@ def read(file: Union[str, Tensor], convert_to_backend=True) -> SampledField:
         raise ValueError(file)
 
 
-def read_single_field(file: str, convert_to_backend=True) -> SampledField:
+def read_single_field(file: str, convert_to_backend=True) -> Field:
     stored = np.load(file, allow_pickle=True)
     ftype = stored['field_type']
     implemented_types = ('CenteredGrid', 'StaggeredGrid')

@@ -48,4 +48,4 @@ class TestField(TestCase):
     def test_legacy_resampling(self):
         for obj in [AngularVelocity(location=vec(x=0, y=0)), Sphere(x=0, y=0, radius=1)]:
             resampled = obj >> CenteredGrid(0, x=4, y=3)
-            self.assertIsInstance(resampled, CenteredGrid)
+            self.assertTrue(resampled.is_grid)

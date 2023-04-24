@@ -10,7 +10,7 @@ from ._log import SceneLog
 from ._user_namespace import UserNamespace
 from ._vis_base import VisModel, Control, Action
 from .. import field, math
-from ..field import Scene, SampledField
+from ..field import Scene, Field
 from ..math import batch, Tensor
 from ..math.backend import PHI_LOGGER
 
@@ -97,7 +97,7 @@ class Viewer(VisModel):
     def field_names(self) -> tuple:
         return tuple(self.initial_field_values.keys())
 
-    def get_field(self, name, dim_selection: dict) -> SampledField:
+    def get_field(self, name, dim_selection: dict) -> Field:
         if name not in self.initial_field_values:
             raise KeyError(name)
         if self._rec:
@@ -106,7 +106,7 @@ class Viewer(VisModel):
             value = self.namespace.get_variable(name)
         if callable(value):
             value = value()
-        if isinstance(value, (SampledField, Tensor)):
+        if isinstance(value, (Field, Tensor)):
             value = value[dim_selection]
         return value
 

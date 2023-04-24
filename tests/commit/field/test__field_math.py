@@ -27,13 +27,13 @@ class TestFieldMath(TestCase):
         bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
         grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
         grad = field.spatial_gradient(grid)
-        self.assertIsInstance(grad, CenteredGrid)
+        self.assertTrue(grad.is_grid and grad.is_centered)
 
     def test_laplace_batched(self):
         bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
         grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
         lap = field.laplace(grid)
-        self.assertIsInstance(lap, CenteredGrid)
+        self.assertTrue(lap.is_grid and lap.is_centered)
 
     def test_divergence_centered(self):
         v = CenteredGrid(1, extrapolation.ZERO, bounds=Box['x,y', 0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
@@ -69,11 +69,11 @@ class TestFieldMath(TestCase):
             if backend.supports(Backend.jacobian):
                 with backend:
                     dx, = grad(x, y)
-                    self.assertIsInstance(dx, StaggeredGrid)
+                    self.assertTrue(dx.is_grid and dx.is_staggered)
                     loss, (dx, dy) = fgrad(x, y)
                     self.assertIsInstance(loss, math.Tensor)
-                    self.assertIsInstance(dx, StaggeredGrid)
-                    self.assertIsInstance(dy, CenteredGrid)
+                    self.assertTrue(dx.is_grid and dx.is_staggered)
+                    self.assertTrue(dy.is_grid and dy.is_centered)
 
     def test_upsample_downsample_centered_1d(self):
         grid = CenteredGrid(math.tensor([0, 1, 2, 3], spatial('x')))
@@ -84,7 +84,7 @@ class TestFieldMath(TestCase):
     def test_downsample_staggered_2d(self):
         grid = StaggeredGrid(1, extrapolation.BOUNDARY, x=32, y=40)
         downsampled = field.downsample2x(grid)
-        self.assertEqual(set(spatial(x=16, y=20) & channel(vector=2)), set(downsampled.shape))
+        self.assertEqual(set(spatial(x=16, y=20) & channel(vector='x,y')), set(downsampled.shape))
 
     def test_abs(self):
         grid = StaggeredGrid(-1, x=4, y=3)
@@ -158,10 +158,10 @@ class TestFieldMath(TestCase):
 
     def test_curl_2d_centered_to_staggered(self):
         pot = CenteredGrid(Box['x,y', 1:2, 1:2], x=4, y=3)
-        curl = field.curl(pot, type=StaggeredGrid)
+        curl = field.curl(pot, at='face')
         math.assert_close(field.mean(curl), 0)
-        math.assert_close(curl.values.vector[0].x[1], [1, -1])
-        math.assert_close(curl.values.vector[1].y[1], [-1, 1, 0])
+        math.assert_close(curl.values.vector.dual[0].x[1], [1, -1])
+        math.assert_close(curl.values.vector.dual[1].y[1], [-1, 1, 0])
 
     def test_curl_2d_staggered_to_centered(self):
         velocity = StaggeredGrid((2, 0), extrapolation.BOUNDARY, x=2, y=2)

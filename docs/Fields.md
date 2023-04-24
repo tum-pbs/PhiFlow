@@ -49,7 +49,7 @@ They model `F(x)` as a function instead of from data.
 [`CenteredGrid`](phi/field/#phi.field.CenteredGrid) stores values in a regular grid structure.
 The grid values are stored in a `Tensor` whose spatial dimensions match the resolution of the grid.
 The `bounds` property stores the physical size of the grid from which the cell size is derived.
-`CenteredGrid.elements` is a `GridCell` matching the grid resolution.
+`CenteredGrid.elements` is a `UniformGrid` matching the grid resolution.
 
 [`StaggeredGrid`](phi/field/#phi.field.StaggeredGrid)
 stores vector fields in staggered form.

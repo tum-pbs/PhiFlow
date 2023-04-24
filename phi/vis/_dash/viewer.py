@@ -11,7 +11,7 @@ from .player_controls import STEP_COMPLETE, all_actions, REFRESH_INTERVAL
 from .viewsettings import parse_view_settings, all_view_settings
 from .. import plot
 from .._vis_base import select_channel
-from ...field import SampledField
+from ...field import Field
 
 
 def build_viewers(app: DashApp, count: int, height: int, viewer_group: str):

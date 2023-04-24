@@ -1,5 +1,5 @@
 from numbers import Number
-from typing import Union
+from typing import Union, Dict, Any, Tuple
 
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
@@ -26,7 +26,7 @@ class Geometry:
         """
         Center location in single channel dimension.
         """
-        raise NotImplementedError(self)
+        raise NotImplementedError(self.__class__)
 
     @property
     def shape(self) -> Shape:
@@ -38,15 +38,76 @@ class Geometry:
         * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
         * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
 
     @property
     def volume(self) -> Tensor:
         """
-        Volume of the geometry as `phi.math.Tensor`.
-        The result retains all batch dimensions while instance dimensions are summed over.
+        `phi.math.Tensor` representing the volume of each element.
+        The result retains batch, spatial and instance dimensions.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_centers(self) -> Tensor:
+        """
+        Center of face connecting a pair of cells. Shape `(elements, ~, vector)`.
+        Here, `~` represents arbitrary internal dual dimensions, such as `~staggered_direction` or `~elements`.
+        Returns 0-vectors for unconnected cells.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_areas(self) -> Tensor:
+        """
+        Area of face connecting a pair of cells. Shape `(elements, ~)`.
+        Returns 0 for unconnected cells.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_normals(self) -> Tensor:
+        """
+        Normal vector of face connecting a pair of cells. Shape `(elements, ~, vector)`.
+        Unconnected cells are assigned the vector 0.
+        The vector points out of cells and into ~.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        """
+        Slices on the primal dimensions to mark boundary elements.
+        Grids and meshes have no boundary elements and return `{}`.
+        Dynamic graphs can define boundary elements for obstacles and walls.
+
+        Returns:
+            Map from `(name, is_upper)` to slicing `dict`.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        """
+        Slices on the dual dimensions to mark boundary faces.
+
+        Regular grids use the keys (dim, is_upper) to identify boundaries.
+        Unstructured meshes use string identifiers for the boundaries.
+        Dynamic graphs return slices along the dual dimensions.
+
+        Returns:
+            Map from `(name, is_upper)` to slicing `dict`.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_shape(self) -> Shape:
+        """
+        Returns:
+            Full Shape to identify each face of this `Geometry`, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
+            If this `Geometry` has no faces, returns an empty `Shape`.
+        """
+        raise NotImplementedError(self.__class__)
 
     @property
     def shape_type(self) -> Tensor:
@@ -59,7 +120,7 @@ class Geometry:
         Returns:
             String `Tensor`
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)  # ToDo deprecate this
 
     def unstack(self, dimension: str) -> tuple:
         """
@@ -247,7 +308,7 @@ class Geometry:
         Returns:
             `Geometry`.
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__)
 
     def __matmul__(self, other):
         return self.at(other)
@@ -421,6 +482,10 @@ class _InvertedGeometry(Geometry):
     def __hash__(self):
         return -hash(self.geometry)
 
+    @property
+    def normal(self) -> Tensor:
+        return -self.geometry.normal
+
 
 def invert(geometry: Geometry):
     """
@@ -495,6 +560,16 @@ class _NoGeometry(Geometry):
     def __hash__(self):
         return 1
 
+    @property
+    def normal(self) -> Tensor:
+        raise GeometryException("Empty geometry does not have normals")
+
+    def surface(self, include_boundaries: Union[bool, Dict[str, Any]]) -> 'Geometry':
+        raise GeometryException("Empty geometry does not have a surface")
+
+    def interior(self) -> 'Geometry':
+        raise GeometryException("Empty geometry does not have an interior")
+
 
 NO_GEOMETRY = _NoGeometry()
 
@@ -562,8 +637,42 @@ class Point(Geometry):
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return self
 
+    @property
+    def face_centers(self) -> Tensor:
+        raise NotImplementedError
+
+    @property
+    def face_areas(self) -> Tensor:
+        raise NotImplementedError
+
+    @property
+    def face_normals(self) -> Tensor:
+        raise NotImplementedError
+
+    @property
+    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        raise NotImplementedError
+
+    @property
+    def face_shape(self) -> Shape:
+        return math.EMPTY_SHAPE
+
     def __getitem__(self, item):
         return Point(self._location[_keep_vector(slicing_dict(self, item))])
+
+
+class GeometryException(BaseException):
+    """
+    Raised when an operation is fundamentally not possible for a `Geometry`.
+    Possible causes:
+
+    * Trying to get the interior of a non-surface `Geometry`
+    * Trying to get the surface of a point-like `Geometry`
+    """
 
 
 def assert_same_rank(rank1, rank2, error_message):

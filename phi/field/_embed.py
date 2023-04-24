@@ -1,7 +1,8 @@
-from phi.geom import GridCell, Box
+from phi.geom import UniformGrid, Box
 from phi.math import Tensor, spatial, Extrapolation, Shape, stack
-from ._field import Field, sample
-from ..math.extrapolation import Undefined, ConstantExtrapolation
+from phi.math.extrapolation import Undefined, ConstantExtrapolation
+from ._field import Field
+from ._resample import sample
 
 
 class FieldEmbedding(Extrapolation):
@@ -28,20 +29,23 @@ class FieldEmbedding(Extrapolation):
 
     def spatial_gradient(self) -> 'Extrapolation':
         return NotImplemented
-        from ._field_math import spatial_gradient
-        return FieldEmbedding(spatial_gradient(self.field))  # this is not supported for all fields
+        # from ._field_math import spatial_gradient
+        # return FieldEmbedding(spatial_gradient(self.field))  # this is not supported for all fields
 
     def valid_outer_faces(self, dim) -> tuple:
         return False, False
+
+    def is_face_valid(self, key) -> bool:
+        return False
 
     def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, bounds: Box = None, already_padded: dict = None, **kwargs) -> Tensor:
         assert bounds is not None, f"{type(self)}.pad() requires 'bounds' argument"
         if already_padded:
             padded_res = spatial(**{dim: lo + up for dim, (lo, up) in already_padded.items()})
             resolution = spatial(value) - padded_res
-            value_grid = GridCell(resolution, bounds).padded(already_padded)
+            value_grid = UniformGrid(resolution, bounds).padded(already_padded)
         else:
-            value_grid = GridCell(spatial(value), bounds)
+            value_grid = UniformGrid(spatial(value), bounds)
         if upper_edge:
             pad_grid = value_grid.padded({dim: (0, width)})[{dim: slice(-width, None)}]
         else:

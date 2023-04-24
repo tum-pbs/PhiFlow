@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 
 from phi import math, field
-from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
+from phi.field import Field, PointCloud, Grid, StaggeredGrid
 from phi.geom import Sphere, BaseBox, Point, Box
 from phi.geom._stack import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
@@ -67,10 +67,10 @@ class PlotlyPlots(PlottingLibrary):
 
 class LinePlot(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 1 and data.is_grid
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.spatial_rank == 1 and isinstance(data, Grid)
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         subplot = figure.get_subplot(row, col)
         x = data.points.vector[0].numpy().flatten()
@@ -91,10 +91,10 @@ class LinePlot(Recipe):
 
 class Heatmap2D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 2 and data.is_grid and 'vector' not in data.shape
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         dims = spatial(data)
         values = real_values(data).numpy(dims.reversed)
@@ -109,15 +109,15 @@ class Heatmap2D(Recipe):
 
 class VectorField2D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 2 and data.is_grid
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.spatial_rank == 2 and isinstance(data, Grid)
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
-        if data.is_staggered:
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        if isinstance(data, StaggeredGrid):
             data = data.at_centers()
         row, col = subplot
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         extra_channels = data.shape.channel.without('vector')
         x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
         u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without(vector)])
@@ -138,13 +138,13 @@ class VectorField2D(Recipe):
 
 class Heatmap3D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 3 and data.is_grid and data.shape.channel.volume == 1
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.spatial_rank == 3 and isinstance(data, Grid) and data.shape.channel.volume == 1
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         values = real_values(data).numpy(dims)
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, *data.points.shape.spatial])
         min_val, max_val = numpy.nanmin(values), numpy.nanmax(values)
@@ -161,13 +161,13 @@ class Heatmap3D(Recipe):
 
 class VectorField3D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.is_grid and data.spatial_rank == 3
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return isinstance(data, Grid) and data.spatial_rank == 3
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         extra_channels = data.shape.channel.without('vector')
         if data.is_staggered:
             data = data.at_centers()
@@ -181,12 +181,12 @@ class VectorField3D(Recipe):
 
 class VectorCloud2D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.is_point_cloud and data.spatial_rank == 2 and 'vector' in channel(data)
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data)
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
-        vector = data.bounds.shape['vector']
+        vector = data.elements.shape['vector']
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')])
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
@@ -197,18 +197,18 @@ class VectorCloud2D(Recipe):
 
 class PointCloud2D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.is_point_cloud and data.spatial_rank == 2
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 2
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         if isinstance(data.elements, GeometryStack):
             for idx in data.elements.geometries.shape[0].meshgrid():
                 self.plot(data[idx], figure, subplot, space, min_val, max_val, show_color_bar, color[idx], alpha, err)
             return
         row, col = subplot
         subplot = figure.get_subplot(row, col)
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         size = figure._phi_size
         yrange = subplot.yaxis.range
         if spatial(data):
@@ -237,14 +237,14 @@ class PointCloud2D(Recipe):
 
 class PointCloud3D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.is_point_cloud and data.spatial_rank == 3
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 3
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         subplot = figure.get_subplot(row, col)
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         size = figure._phi_size
         yrange = subplot.yaxis.range
         if data.points.shape.non_channel.rank > 1:
@@ -279,7 +279,7 @@ def _get_range(bounds: Box, index: int):
     return lower, upper
 
 
-def real_values(field: SampledField):
+def real_values(field: Field):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
 
 
