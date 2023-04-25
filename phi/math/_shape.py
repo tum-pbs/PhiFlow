@@ -1,7 +1,7 @@
 import re
 import warnings
 from numbers import Number
-from typing import Tuple, Callable, List, Union, Any
+from typing import Tuple, Callable, List, Union, Any, Sequence, Optional
 
 from phi import math
 
@@ -58,7 +58,7 @@ class Shape:
             `Shape.name`.
         """
         self.types: Tuple[str] = types  # undocumented, may be private
-        self.item_names: Tuple[Union[str, 'Shape']] = (None,) * len(sizes) if item_names is None else item_names  # undocumented
+        self.item_names: Tuple[Optional[Tuple[str, ...]]] = (None,) * len(sizes) if item_names is None else item_names  # undocumented
         if DEBUG_CHECKS:
             assert len(sizes) == len(names) == len(types) == len(item_names), f"sizes={sizes}, names={names}, types={types}, item_names={item_names}"
             assert len(set(names)) == len(names), f"Duplicate dimension names: {names}"
@@ -824,7 +824,7 @@ class Shape:
         indices = [i for i, size in enumerate(self.sizes) if isinstance(size, Tensor) and size.rank > 0]
         return self[indices]
 
-    def with_size(self, size: Union[int, None]):
+    def with_size(self, size: Union[int, Tuple[str, ...]]):
         """
         Only for single-dimension shapes.
         Returns a `Shape` representing this dimension but with a different size.
@@ -841,7 +841,7 @@ class Shape:
         assert self.rank == 1, "Shape.with_size() is only defined for shapes of rank 1."
         return self.with_sizes([size])
 
-    def with_sizes(self, sizes: Union[tuple, list, 'Shape', int], keep_item_names=True):
+    def with_sizes(self, sizes: Union[Sequence[int], Sequence[Tuple[str, ...]], 'Shape', int], keep_item_names=True):
         """
         Returns a new `Shape` matching the dimension names and types of `self` but with different sizes.
 
@@ -851,8 +851,9 @@ class Shape:
         Args:
             sizes: One of
 
-                * `tuple` / `list` of same length as `self` containing replacement sizes.
+                * `tuple` / `list` of same length as `self` containing replacement sizes or replacement item names.
                 * `Shape` of any rank. Replaces sizes for dimensions shared by `sizes` and `self`.
+                * `int`: new size for all dimensions
 
             keep_item_names: If `False`, forgets all item names.
                 If `True`, keeps item names where the size does not change.
