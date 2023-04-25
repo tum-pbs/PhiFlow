@@ -799,7 +799,8 @@ def stored_indices(x: Tensor, list_dim=instance('entries'), index_dim=channel('i
     if isinstance(x, SparseCoordinateTensor):
         if x._can_contain_double_entries:
             warnings.warn(f"stored_values of sparse tensor {x.shape} may contain multiple values for the same position.")
-        return rename_dims(x._indices, [instance(x._indices).name, channel(x._indices).name], [list_dim, index_dim._with_item_name(channel(x._indices).item_names[0])])
+        new_index_dim = index_dim.with_size(channel(x._indices).item_names[0])
+        return rename_dims(x._indices, [instance(x._indices).name, channel(x._indices).name], [list_dim, new_index_dim])
     raise ValueError(x)
 
 
