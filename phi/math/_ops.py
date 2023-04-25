@@ -2531,7 +2531,8 @@ def stop_gradient(x):
 def pairwise_distances(positions: Tensor,
                        max_distance: Union[float, Tensor] = None,
                        format: str = 'dense',
-                       default: Optional[float] = None) -> Tensor:
+                       default: Optional[float] = None,
+                       method: str = 'sparse') -> Tensor:
     """
     Computes the distance matrix containing the pairwise position differences between each pair of points.
     Points that are further apart than `max_distance` (if specified) are assigned a distance value of `0`.
@@ -2593,39 +2594,45 @@ def pairwise_distances(positions: Tensor,
     if backend.is_available(positions):
         if mode == 'vectorize':
             # ToDo determine limits from positions? build_cells+bincount would be enough
-            tmp_pair_count = 10
             pair_count = 7
-            table_len = 10
     else:  # tracing
         if backend.requires_fixed_shapes_when_tracing():
             # ToDo use fixed limits (set by user)
-            tmp_pair_count = 10
             pair_count = 7
-            table_len = 10
             mode = 'vectorize'
     # --- Run neighborhood search ---
-    from .backend._partition import neighbor_search
+    from .backend._partition import find_neighbors, find_neighbors_matscipy, find_neighbors_sklearn
     if mode == 'loop':
         indices = []
         values = []
         for b in batch_shape.meshgrid():
             native_positions = reshaped_native(positions[b], [primal_dims, channel(positions)], force_expand=True)
             native_max_dist = max_distance[b].native()
-            nat_rows, nat_cols, nat_vals = neighbor_search(backend, native_positions, native_max_dist, default=default)
+            if method == 'sparse':
+                nat_rows, nat_cols, nat_vals = find_neighbors(native_positions, native_max_dist, None, periodic=False, default=default)
+            elif method == 'matscipy':
+                assert positions.available, f"Cannot jit-compile matscipy neighborhood search"
+                nat_rows, nat_cols, nat_vals = find_neighbors_matscipy(native_positions, native_max_dist, None, periodic=False)
+            elif method == 'sklearn':
+                assert positions.available, f"Cannot jit-compile matscipy neighborhood search"
+                nat_rows, nat_cols, nat_vals = find_neighbors_sklearn(native_positions, native_max_dist)
+            else:
+                raise ValueError(method)
             nat_indices = backend.stack([nat_rows, nat_cols], -1)
             indices.append(reshaped_tensor(nat_indices, [instance('pairs'), channel(vector=primal_dims.names + dual_dims.names)], convert=False))
             values.append(reshaped_tensor(nat_vals, [instance('pairs'), channel(positions)]))
         indices = stack(indices, batch_shape)
         values = stack(values, batch_shape)
     elif mode == 'vectorize':
-        native_positions = reshaped_native(positions, [batch_shape, primal_dims, channel(positions)], force_expand=True)
-        native_max_dist = reshaped_native(max_distance, [batch_shape, primal_dims], force_expand=False)
-        def single_search(pos, r):
-            return neighbor_search(backend, pos, r, tmp_pair_count=tmp_pair_count, pair_count=pair_count, table_len=table_len, default=default)
-        nat_rows, nat_cols, nat_vals = backend.vectorized_call(single_search, native_positions, native_max_dist, output_dtypes=(index_dtype, index_dtype, positions.dtype))
-        nat_indices = backend.stack([nat_rows, nat_cols], -1)
-        indices = reshaped_tensor(nat_indices, [batch_shape, instance('pairs'), channel(vector=primal_dims.names + dual_dims.names)], convert=False)
-        values = reshaped_tensor(nat_vals, [batch_shape, instance('pairs'), channel(positions)])
+        raise NotImplementedError
+        # native_positions = reshaped_native(positions, [batch_shape, primal_dims, channel(positions)], force_expand=True)
+        # native_max_dist = reshaped_native(max_distance, [batch_shape, primal_dims], force_expand=False)
+        # def single_search(pos, r):
+        #     return find_neighbors(pos, r, None, periodic=False, pair_count=pair_count, default=default)
+        # nat_rows, nat_cols, nat_vals = backend.vectorized_call(single_search, native_positions, native_max_dist, output_dtypes=(index_dtype, index_dtype, positions.dtype))
+        # nat_indices = backend.stack([nat_rows, nat_cols], -1)
+        # indices = reshaped_tensor(nat_indices, [batch_shape, instance('pairs'), channel(vector=primal_dims.names + dual_dims.names)], convert=False)
+        # values = reshaped_tensor(nat_vals, [batch_shape, instance('pairs'), channel(positions)])
     else:
         raise RuntimeError
     # --- Assemble sparse matrix ---
