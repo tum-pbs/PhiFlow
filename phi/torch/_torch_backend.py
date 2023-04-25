@@ -333,6 +333,8 @@ class TorchBackend(Backend):
     def prod(self, value, axis=None):
         if not self.is_tensor(value, only_native=True):
             return NUMPY.prod(value, axis)
+        if axis is None:
+            axis = tuple(range(len(value.shape)))
         if isinstance(axis, (tuple, list)):
             for dim in reversed(sorted(axis)):
                 value = torch.prod(value, dim=dim)
