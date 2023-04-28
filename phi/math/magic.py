@@ -526,6 +526,20 @@ class BoundDim:
     def __getattr__(self, item):
         return _BoundDims(self.obj, (self.name, item))
 
+    def keys(self):
+        """
+        Allows unstacking with item names as `dict(**obj.dim)`.
+
+        Returns:
+            Sequence of item names or indices.
+        """
+        if not self.exists:
+            raise SyntaxError(f"Cannot get keys of nonexistent dimension {self}")
+        if self.item_names is not None:
+            return self.item_names
+        else:
+            return range(self.size)
+
     def unstack(self, size: Union[int, None] = None) -> tuple:
         """
         Lists the slices along this dimension as a `tuple`.
@@ -668,6 +682,13 @@ class _BoundDims:
     def __iter__(self):
         """ Iterate over slices along this dim """
         return iter(self.unstack())
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError(f"Method {type(self.obj).__name__}.{self.name}() does not exist.")
+
+    def __repr__(self):
+        parts = [type(self.obj).__name__, *self.dims]
+        return ".".join(parts)
 
     def retype(self, dim_type: Callable, **kwargs):
         """
