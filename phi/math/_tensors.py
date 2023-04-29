@@ -1040,7 +1040,7 @@ class Layout(Tensor):
             obj = []
             for i in self._shape.only(dims, reorder=True).meshgrid():
                 obj.append(self[i].native())
-            return Layout(obj, concat_shapes(packed_dim, self._shape.without(dims)))
+            return Layout(obj, concat_shapes(packed_dim.with_size(self.shape.only(dims).volume), self._shape.without(dims)))
 
     def __unpack_dim__(self, dim: str, unpacked_dims: Shape, **kwargs) -> 'Layout':
         return NotImplemented
