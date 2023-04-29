@@ -465,7 +465,7 @@ def title_label(idx: dict):
 
 
 def common_index(*indices: dict, exclude=()):
-    return {k: v for k, v in indices[0].items() if k not in exclude and all(i[k] == v for i in indices)}
+    return {k: v for k, v in indices[0].items() if k not in exclude and all([i[k] == v for i in indices])}
 
 
 def select_channel(value: Union[SampledField, Tensor, tuple, list], channel: Union[str, None]):
@@ -497,15 +497,11 @@ def to_field(obj):
         arbitrary_lines_1d = spatial(obj).rank == 1 and 'vector' in obj.shape
         point_cloud = instance(obj) and 'vector' in obj.shape
         if point_cloud or arbitrary_lines_1d:
-            bounds = data_bounds(obj)
-            extended_bounds = Cuboid(bounds.center, bounds.half_size * 1.2).box()
-            lower = math.where(extended_bounds.lower * bounds.lower <= 0, bounds.lower * .9, extended_bounds.lower)
-            upper = math.where(extended_bounds.upper * bounds.upper <= 0, bounds.lower * .9, extended_bounds.upper)
-            return PointCloud(obj, bounds=Box(lower, upper))
+            return PointCloud(obj)
         elif spatial(obj):
             return CenteredGrid(obj, 0, bounds=Box(math.const_vec(-0.5, spatial(obj)), wrap(spatial(obj), channel('vector')) - 0.5))
         elif 'vector' in obj.shape:
-            return PointCloud(math.expand(obj, instance(points=1)), bounds=Cuboid(obj, half_size=math.const_vec(1, obj.shape['vector'])).box())
+            return PointCloud(math.expand(obj, instance(points=1)), bounds=Cuboid(obj, half_size=math.const_vec(1e-3, obj.shape['vector'])).box())
         elif instance(obj) and not spatial(obj):
             assert instance(obj).rank == 1, "Bar charts must have only one instance dimension"
             vector = channel(vector=instance(obj).names)
@@ -537,7 +533,7 @@ def get_default_limits(f: SampledField) -> Box:
         size = expand(0, f.elements.shape['vector'])
     if (size == 0).all:
         size = math.const_vec(.1, f.elements.shape['vector'])
-    bounds = data_bounds(f.elements.center)
+    bounds = data_bounds(f.elements.center).largest(channel)
     extended_bounds = Cuboid(bounds.center, bounds.half_size + size * 0.6)
     extended_bounds = Box(math.min(extended_bounds.lower, size.shape.without('vector')), math.max(extended_bounds.upper, size.shape.without('vector')))
     if isinstance(f.elements, Point):

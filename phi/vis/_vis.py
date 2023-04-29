@@ -348,7 +348,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
         title_by_subplot = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
     else:
         title = layout_pytree_node(title, wrap_leaf=True)
-        title_by_subplot = {pos: title[i[0]].native() for pos, i in indices.items()}
+        title_by_subplot = {pos: _title(title[i[0]]) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
@@ -643,3 +643,9 @@ def replace_bounds(box: Box, replace: Box):
     lower = {axis: replace.lower.vector[axis] if axis in replace.vector.item_names else box.lower.vector[axis] for axis in box.vector.item_names}
     upper = {axis: replace.upper.vector[axis] if axis in replace.vector.item_names else box.upper.vector[axis] for axis in box.vector.item_names}
     return Box(vec(**lower), vec(**upper))
+
+
+def _title(obj: Tensor):
+    if not obj.shape:
+        return obj.native(obj.shape)
+    return ", ".join(obj)
