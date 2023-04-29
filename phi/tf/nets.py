@@ -407,6 +407,7 @@ def conv_classifier(in_features: int,
                     in_spatial: Union[tuple, list],
                     num_classes: int,
                     blocks=(64, 128, 256, 256, 512, 512),
+                    block_sizes=(2, 2, 3, 3, 3),
                     dense_layers=(4096, 4096, 100),
                     batch_norm=True,
                     activation='ReLU',
@@ -419,17 +420,13 @@ def conv_classifier(in_features: int,
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
     d = len(in_spatial)
     x = inputs = keras.Input(shape=in_spatial + (in_features,))
-    for i, next in enumerate(blocks):
-        if i in (0, 1):
-            x = double_conv(x, d, next, next, batch_norm, activation, periodic)
-            x = MAX_POOL[d](2)(x)
-        else:
-            x = double_conv(x, d, next, next, batch_norm, activation, periodic)
+    for i, (next, block_size) in enumerate(zip(blocks, block_sizes)):
+        for j in range(block_size):
             x = CONV[d](next, 3, padding='valid')(pad_periodic(x)) if periodic else CONV[d](next, 3, padding='same')(x)
             if batch_norm:
                 x = kl.BatchNormalization()(x)
             x = activation(x)
-            x = MAX_POOL[d](2)(x)
+        x = MAX_POOL[d](2)(x)
     x = kl.Flatten()(x)
     flat_size = int(np.prod(in_spatial) * blocks[-1] / (2**d) ** len(blocks))
     x = dense_net(flat_size, num_classes, dense_layers, batch_norm, activation, softmax)(x)
