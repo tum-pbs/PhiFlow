@@ -53,24 +53,27 @@ class MatplotlibPlots(PlottingLibrary):
                         x, y = bounds.vector.item_names
                         axis.set_xlabel(display_name(x))
                         axis.set_ylabel(display_name(y))
+                        # --- Log axes ---
+                        x_log = bounds.vector.item_names[0] in log_dims
+                        y_log = bounds.vector.item_names[1] in log_dims
+                        if x_log:
+                            axis.set_xscale('log')
+                        if y_log:
+                            axis.set_yscale('log')
                         # --- limits ---
                         x_range, y_range = [_get_range(bounds, i) for i in (0, 1)]
                         if None not in x_range:
+                            if x_log and x_range[0] <= 0:
+                                x_range = (1e-3 * x_range[1], x_range[1])
                             axis.set_xlim(x_range)
                         if None not in y_range:
+                            if y_log and y_range[0] <= 0:
+                                y_range = (1e-3 * y_range[1], y_range[1])
                             axis.set_ylim(y_range)
-                        # --- Log axes ---
-                        any_log = False
-                        if bounds.vector.item_names[0] in log_dims:
-                            axis.set_xscale('log')
-                            any_log = True
-                        if bounds.vector.item_names[1] in log_dims:
-                            axis.set_yscale('log')
-                            any_log = True
                         # --- Equal aspect ---
                         if None not in x_range and None not in y_range and '_' not in bounds.vector.item_names:
                             x_size, y_size = x_range[1] - x_range[0], y_range[1] - y_range[0]
-                            if not any_log and x_size > 0 and y_size > 0 and max(x_size/y_size/subplot_aspect, y_size/x_size*subplot_aspect) < 4:
+                            if not x_log and not y_log and x_size > 0 and y_size > 0 and max(x_size/y_size/subplot_aspect, y_size/x_size*subplot_aspect) < 4:
                                 axis.set_aspect('equal', adjustable='box')
                         # --- Remove labels if axes shared ---
                         for left_col in range(col):
@@ -175,8 +178,9 @@ def _get_range(bounds: Box, index: int):
     return lower if math.is_finite(lower) else None, upper if math.is_finite(upper) else None
 
 
-def _next_line_color(axes: Axes):
-    next_index = max(len(axes.lines), len(axes.patches), len(axes.collections))
+def _next_line_color(axes: Axes, kind: str = None):
+    kind = ['patches', 'lines', 'collections', 'containers'] if kind is None else kind.split(',')
+    next_index = max([len(getattr(axes, a)) for a in kind])
     return _default_color(next_index)
 
 
@@ -262,13 +266,16 @@ class Histogram(Recipe):
         x, = reshaped_numpy(data.points, [vector, spatial(data)])
         bin_edges = [x[0] - (x[1]-x[0]) / 2, *((x[1:] + x[:-1]) / 2), x[-1] + (x[-1] - x[-2]) / 2]
         for i, ch in enumerate(channel(data.values).meshgrid(names=True)):
+            line_width = 1.5 + .5 * (channel(data.values).volume - i - 1)
             counts = reshaped_numpy(data.values[ch], [spatial(data)], force_expand=True)
             # errs = reshaped_numpy(err[ch], [spatial(data)], force_expand=True)  ToDo
+            histtype = 'bar' if i == 0 else 'step'
             if (color[ch] == None).all:
-                col = _next_line_color(subplot)
+                col = _default_color(i)
             else:
                 col = _plt_col(color[ch])
-            subplot.hist(bin_edges[:-1], bins=bin_edges, weights=counts, orientation=orientation, histtype='step', color=col, alpha=float(alpha[ch].max), label=index_label(ch))
+            alpha_fac = .3 if i == 0 else 1
+            subplot.hist(bin_edges[:-1], bins=bin_edges, weights=counts, orientation=orientation, histtype=histtype, color=col, alpha=float(alpha[ch].max) * alpha_fac, label=index_label(ch), linewidth=line_width)
         if channel(data.values).volume > 1:
             subplot.legend()
 
@@ -393,17 +400,19 @@ class PointCloud2D(Recipe):
         legend_patches = []
         for idx, idx_n in zip(channels.meshgrid(), channels.meshgrid(names=True)):
             col = color[idx]
-            PointCloud2D._plot_points(subplot, data[idx], dims, vector, col, alpha[idx], err[idx], min_val, max_val)
-            if col.rank < color.rank:  # There are multiple colors
+            PointCloud2D._plot_points(subplot, data[idx], dims, vector, col, alpha[idx], err[idx], min_val, max_val, index_label(idx_n))
+            if col.rank < color.rank or ((color == None).all and channels.volume > 1):  # There are multiple colors
                 legend_patches.append(Patch(color=_plt_col(col), label=index_label(idx_n)))
         if legend_patches:
-            subplot.legend(handles=legend_patches)
+            if not has_legend_like([index_label(idx_n) for idx_n in channels.meshgrid(names=True)], figure):
+                subplot.legend()
+            # subplot.legend(handles=legend_patches)
 
     @staticmethod
-    def _plot_points(axis: Axes, data: PointCloud, dims: tuple, vector: Shape, color: Tensor, alpha: Tensor, err: Tensor, min_val, max_val):
+    def _plot_points(axis: Axes, data: PointCloud, dims: tuple, vector: Shape, color: Tensor, alpha: Tensor, err: Tensor, min_val, max_val, label):
         if isinstance(data.elements, GeometryStack):
             for idx in data.elements.geometries.shape[0].meshgrid():
-                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val)
+                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val, label)
             return
         x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)], force_expand=True)
         if (color == None).all:
@@ -456,7 +465,7 @@ class PointCloud2D(Recipe):
                                 axis.fill_betweenx(y, x - x_err, x + x_err, color=col, alpha=alpha_f * .2)
                             else:
                                 axis.fill_between(x, y - y_err, y + y_err, color=col, alpha=alpha_f * .2)
-                    axis.plot(xs, ys, color=col, alpha=alpha_f)
+                    axis.plot(xs, ys, color=col, alpha=alpha_f, label=label)
                     if isinstance(data.elements, Point) and 2 < spatial(data.elements).volume < 100:
                         axis.scatter(xs, ys, s=3, marker='o', c=col, alpha=alphas)
 
@@ -595,6 +604,14 @@ def add_color_bar(axis: Axes, values, min_val, max_val, cmap=plt.cm.viridis):
             figure.colorbar(mappable, ax=axis if cax is None else None, cax=cax)  # adds a new Axis to the figure
     return cmap(norm(values))
 
+
+def has_legend_like(labels, figure):
+    for axes in figure.axes:
+        if axes.legend_ is not None:
+            texts = [t._text for t in axes.legend_.texts]
+            if texts == list(labels):
+                return True
+    return False
 
 
 def _get_pixels_per_unit(fig: plt.Figure, axis: plt.Axes, dpi=90):
