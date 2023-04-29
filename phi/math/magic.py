@@ -760,7 +760,9 @@ def slicing_dict(obj, item) -> dict:
         elif non_batch(obj).rank == 1:
             return {non_batch(obj).name: item}
         else:
-            raise AssertionError(f"Slicing {type(obj).__name__}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}")
+            from ._tensors import Tensor
+            class_name = "Tensor" if isinstance(obj, Tensor) else type(obj).__name__
+            raise AssertionError(f"Slicing {class_name}[{type(item).__name__}] is only supported for 1D values (excluding batch dimensions) but shape is {shape(obj)}")
 
 
 class OtherMagicFunctions:

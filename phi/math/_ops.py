@@ -427,7 +427,7 @@ def map_(function, *values, range=range, **kwargs) -> Union[Tensor, None]:
         return function(**kwargs)
     values = [v if isinstance(v, Shapable) else wrap(v) for v in values]
     shape = merge_shapes(*[v.shape for v in values])
-    flat = [pack_dims(expand(v, shape), shape, channel('flat')) for v in values]
+    flat = [pack_dims(expand(v, shape), shape, channel(flat=shape.volume)) for v in values]
     result = []
     results = None
     for _, items in zip(range(flat[0].flat.size_or_1), zip(*flat)):
@@ -698,7 +698,7 @@ def meshgrid(dims: Union[Callable, Shape] = spatial, stack_dim=channel('vector')
     return stack_tensors(channels, stack_dim)
 
 
-def linspace(start: Union[int, Tensor], stop, dim: Shape) -> Tensor:
+def linspace(start: Union[float, Tensor], stop: Union[float, Tensor], dim: Shape) -> Tensor:
     """
     Returns `number` evenly spaced numbers between `start` and `stop`.
 
@@ -2272,7 +2272,7 @@ def histogram(values: Tensor, bins: Shape or Tensor = spatial(bins=30), weights=
     weights = wrap(weights)
     if isinstance(bins, Shape):
         def equal_bins(v):
-            return linspace(min_(v, shape), max_(v, shape), bins.with_size(bins.size + 1))
+            return linspace(finite_min(v, shape), finite_max(v, shape), bins.with_size(bins.size + 1))
         bins = broadcast_op(equal_bins, [values], iter_dims=(batch(values) & batch(weights)).without(same_bins))
     assert isinstance(bins, Tensor), f"bins must be a Tensor but got {type(bins)}"
     assert non_batch(bins).rank == 1, f"bins must contain exactly one spatial or instance dimension listing the bin edges but got shape {bins.shape}"
