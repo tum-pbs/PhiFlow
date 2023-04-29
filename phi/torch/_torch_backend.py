@@ -423,7 +423,7 @@ class TorchBackend(Backend):
             unit = torch.linspace(0, 1, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
             return unit * (stop - start) + start
         else:
-            return torch.linspace(start, stop, number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
+            return torch.linspace(float(start), float(stop), number, dtype=to_torch_dtype(self.float_type), device=self.get_default_device().ref)
 
     def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
         a, b = self.auto_cast(a, b)
