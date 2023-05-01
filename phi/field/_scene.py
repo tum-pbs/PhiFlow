@@ -203,6 +203,11 @@ class Scene:
         if isinstance(directory, (tuple, list)):
             directory = math.wrap(directory, batch('scenes'))
         directory = math.map(lambda d: expanduser(d), math.wrap(directory))
+        if isinstance(id, int) and id < 0:
+            assert directory.shape.volume == 1
+            scenes = Scene.list(directory.native())
+            assert len(scenes) >= -id, f"Failed to get scene {id} at {directory}. {len(scenes)} scenes available in that directory."
+            return scenes[id]
         if id is None:
             paths = directory
         else:
