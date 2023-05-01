@@ -61,6 +61,8 @@ class NumPyBackend(Backend):
     log2 = np.log2
     log10 = np.log10
     isfinite = np.isfinite
+    isnan = np.isnan
+    isinf = np.isinf
     abs = np.abs
     sign = np.sign
     round = staticmethod(np.round)

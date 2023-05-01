@@ -1794,6 +1794,16 @@ def is_finite(x) -> Union[Tensor, PhiTreeNode]:
     return _backend_op1(x, Backend.isfinite)
 
 
+def is_nan(x) -> Union[Tensor, PhiTreeNode]:
+    """ Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` is `NaN` and `False` otherwise. """
+    return _backend_op1(x, Backend.isnan)
+
+
+def is_inf(x) -> Union[Tensor, PhiTreeNode]:
+    """ Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` is `+inf` or `-inf` and `False` otherwise. """
+    return _backend_op1(x, Backend.isnan)
+
+
 def real(x) -> Union[Tensor, PhiTreeNode]:
     """
     See Also:

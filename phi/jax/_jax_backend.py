@@ -155,6 +155,8 @@ class JaxBackend(Backend):
     log2 = staticmethod(jnp.log2)
     log10 = staticmethod(jnp.log10)
     isfinite = staticmethod(jnp.isfinite)
+    isnan = staticmethod(jnp.isnan)
+    isinf = staticmethod(jnp.isinf)
     abs = staticmethod(jnp.abs)
     sign = staticmethod(jnp.sign)
     round = staticmethod(jnp.round)
