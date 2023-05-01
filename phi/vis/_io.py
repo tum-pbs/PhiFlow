@@ -1,6 +1,7 @@
 import os
 
 import numpy
+from typing import Optional
 
 from phi import math
 from phi.field import Scene
@@ -13,7 +14,7 @@ def load_scalars(scene: Scene or str,
                  name: str,
                  prefix='log_',
                  suffix='.txt',
-                 x='steps',
+                 x: Optional[str]='steps',
                  entries_dim=spatial('iteration'),
                  batch_dim=batch('batch')):
     """
@@ -30,7 +31,7 @@ def load_scalars(scene: Scene or str,
     Returns:
         `Tensor` containing `entries_dim` and `vector`.
     """
-    assert x in ('steps', 'time')
+    assert x in (None, 'steps', 'time')
     if isinstance(scene, str):
         scene = Scene.at(scene)
     assert isinstance(scene, Scene), f"scene must be a Scene or str but got {type(scene)}"
@@ -40,6 +41,9 @@ def load_scalars(scene: Scene or str,
     if curve.ndim == 2:
         x_values = curve[:, 0]
         values = curve[:, 1:]
+    elif curve.ndim == 1 and numpy.floor(curve[0]) == curve[0]:  # new format but only one entry
+        x_values = curve[None, 0]
+        values = curve[None, 1:]
     else:
         values = curve[:, None]
         x_values = numpy.arange(len(values))
@@ -52,4 +56,6 @@ def load_scalars(scene: Scene or str,
         x_values = numpy.concatenate([[0.], x_values])
     x_values = wrap(x_values, entries_dim)
     values = wrap(values, entries_dim, batch_dim)
-    return math.stack([x_values, values], channel(vector=[x, name]))
+    if x is not None:
+        return math.stack([x_values, values], channel(vector=[x, name]))
+    return values
