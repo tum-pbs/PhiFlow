@@ -162,6 +162,8 @@ class TorchBackend(Backend):
     log10 = torch.log10
     sigmoid = torch.sigmoid
     isfinite = torch.isfinite
+    isnan = torch.isnan
+    isinf = torch.isinf
     abs = torch.abs
     sign = torch.sign
     round = torch.round

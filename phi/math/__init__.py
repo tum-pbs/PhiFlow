@@ -59,7 +59,7 @@ from ._ops import (
     to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
     degrees,
     boolean_mask,
-    is_finite, is_finite as isfinite,
+    is_finite, is_finite as isfinite, is_nan, is_inf,
     closest_grid_values, grid_sample, scatter, gather,
     histogram,
     fft, ifft, convolve, cumulative_sum,

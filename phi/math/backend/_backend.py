@@ -876,6 +876,12 @@ class Backend:
     def isfinite(self, x):
         raise NotImplementedError(self)
 
+    def isnan(self, x):
+        raise NotImplementedError(self)
+
+    def isinf(self, x):
+        raise NotImplementedError(self)
+
     def scatter(self, base_grid, indices, values, mode: str):
         """
         Depending on `mode`, performs scatter_update or scatter_add.

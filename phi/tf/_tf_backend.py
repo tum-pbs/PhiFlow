@@ -476,6 +476,18 @@ class TFBackend(Backend):
         with tf.device(x.device):
             return tf.math.is_finite(x)
 
+    def isnan(self, x):
+        if self.dtype(x).kind in (bool, int):
+            return self.zeros(self.shape(x), dtype=DType(bool))
+        with tf.device(x.device):
+            return tf.math.is_nan(x)
+
+    def isinf(self, x):
+        if self.dtype(x).kind in (bool, int):
+            return self.zeros(self.shape(x), dtype=DType(bool))
+        with tf.device(x.device):
+            return tf.math.is_inf(x)
+
     def any(self, boolean_tensor, axis=None, keepdims=False):
         with tf.device(boolean_tensor.device):
             if self.dtype(boolean_tensor).kind != bool:
