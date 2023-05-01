@@ -1330,7 +1330,7 @@ class TensorStack(Tensor):
 
     @property
     def requires_broadcast(self):
-        return self._varying_shapes or not self._shape.well_defined or self._is_tracer
+        return self._varying_shapes or not self._shape.well_defined or self._is_tracer or self._tensors[0].shape.is_non_uniform
     
     @property
     def stack_dim(self):
@@ -1347,6 +1347,8 @@ class TensorStack(Tensor):
                 self._cached = NativeTensor(native, self._shape)
             else:  # cache stack_dim on inner tensors
                 non_uniform_dim = self._tensors[0].shape.shape.without('dims')
+                if len(non_uniform_dim) > 1:
+                    raise NotImplementedError
                 unstacked = [t.unstack(non_uniform_dim.name) for t in self._tensors]
                 stacked = []
                 for to_stack in zip(*unstacked):
