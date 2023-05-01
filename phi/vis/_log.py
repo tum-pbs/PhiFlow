@@ -62,6 +62,8 @@ class SceneLog:
             assert isinstance(name, str)
             if reduce:
                 value = float(reduce(value, math.shape(value)))
+            else:
+                value = math.convert(value, math.NUMPY)
             if name not in self._scalars:
                 self._scalars[name] = []
                 if self.scene is not None:
