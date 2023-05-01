@@ -397,16 +397,15 @@ class PointCloud2D(Recipe):
         dims = space.vector.item_names
         vector = data.bounds.shape['vector']
         channels = channel(data.points).without('vector')
-        legend_patches = []
+        legend_patches = False
         for idx, idx_n in zip(channels.meshgrid(), channels.meshgrid(names=True)):
             col = color[idx]
             PointCloud2D._plot_points(subplot, data[idx], dims, vector, col, alpha[idx], err[idx], min_val, max_val, index_label(idx_n))
             if col.rank < color.rank or ((color == None).all and channels.volume > 1):  # There are multiple colors
-                legend_patches.append(Patch(color=_plt_col(col), label=index_label(idx_n)))
+                legend_patches = True
         if legend_patches:
             if not has_legend_like([index_label(idx_n) for idx_n in channels.meshgrid(names=True)], figure):
                 subplot.legend()
-            # subplot.legend(handles=legend_patches)
 
     @staticmethod
     def _plot_points(axis: Axes, data: PointCloud, dims: tuple, vector: Shape, color: Tensor, alpha: Tensor, err: Tensor, min_val, max_val, label):
@@ -448,7 +447,7 @@ class PointCloud2D(Recipe):
             c = matplotlib.collections.PatchCollection(shapes, match_original=True)
             axis.add_collection(c)
         if spatial(data.points):  # Connect by line
-            for idx in instance(data).meshgrid():
+            for i, idx in enumerate(instance(data).meshgrid()):
                 for sp_dim in spatial(data):
                     other_sp = spatial(data).without(sp_dim)
                     xs, ys = reshaped_numpy(data[idx].points.vector[dims], [vector, sp_dim, other_sp])
@@ -465,7 +464,7 @@ class PointCloud2D(Recipe):
                                 axis.fill_betweenx(y, x - x_err, x + x_err, color=col, alpha=alpha_f * .2)
                             else:
                                 axis.fill_between(x, y - y_err, y + y_err, color=col, alpha=alpha_f * .2)
-                    axis.plot(xs, ys, color=col, alpha=alpha_f, label=label)
+                    axis.plot(xs, ys, color=col, alpha=alpha_f, label=label if i == 0 else None)
                     if isinstance(data.elements, Point) and 2 < spatial(data.elements).volume < 100:
                         axis.scatter(xs, ys, s=3, marker='o', c=col, alpha=alphas)
 
