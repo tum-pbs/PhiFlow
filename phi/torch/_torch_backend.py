@@ -113,7 +113,11 @@ class TorchBackend(Backend):
             from scipy.sparse import coo_matrix
             return coo_matrix((values, indices), shape=self.staticshape(tensor))
         elif tensor.is_sparse_csr:
-            raise NotImplementedError
+            values = self.numpy(tensor.values())
+            indices = self.numpy(tensor.col_indices())
+            pointers = self.numpy(tensor.crow_indices())
+            from scipy.sparse import csr_matrix
+            return csr_matrix((values, indices, pointers), shape=self.staticshape(tensor))
         else:
             return tensor.cpu().numpy()
 
