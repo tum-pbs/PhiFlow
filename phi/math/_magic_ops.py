@@ -233,7 +233,7 @@ def stack(values: Union[tuple, list, dict], dim: Shape, expand_values=False, **k
         return values[0]
 
 
-def concat(values: Union[tuple, list], dim: Union[str, Shape], **kwargs):
+def concat(values: Union[tuple, list], dim: Union[str, Shape], expand_values=False, **kwargs):
     """
     Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
     All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
@@ -243,6 +243,9 @@ def concat(values: Union[tuple, list], dim: Union[str, Shape], **kwargs):
         values: Tuple or list of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dim: Concatenation dimension, must be present in all `values`.
             The size along `dim` is determined from `values` and can be set to undefined (`None`).
+        expand_values: If `True`, will first add missing dimensions to all values, not just batch dimensions.
+            This allows tensors with different dimensions to be concatenated.
+            The resulting tensor will have all dimensions that are present in `values`.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -261,13 +264,18 @@ def concat(values: Union[tuple, list], dim: Union[str, Shape], **kwargs):
     if isinstance(dim, Shape):
         dim = dim.name
     assert isinstance(dim, str), f"dim must be a str or Shape but got '{dim}' of type {type(dim)}"
-    for v in values:
-        assert dim in shape(v), f"dim must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}"
-    for v in values[1:]:
-        assert set(non_batch(v).names) == set(non_batch(values[0]).names), f"Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}"
-    # Add missing batch dimensions
-    all_batch_dims = merge_shapes(*[batch(v) for v in values])
-    values = [expand(v, all_batch_dims) for v in values]
+    # Add missing dimensions
+    if expand_values:
+        all_dims = merge_shapes(*values, allow_varying_sizes=True)
+        all_dims = all_dims.with_dim_size(dim, 1, keep_item_names=False)
+        values = [expand(v, all_dims.without(shape(v))) for v in values]
+    else:
+        for v in values:
+            assert dim in shape(v), f"dim must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}"
+        for v in values[1:]:
+            assert set(non_batch(v).names) == set(non_batch(values[0]).names), f"Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}"
+        all_batch_dims = merge_shapes(*[batch(v) for v in values])
+        values = [expand(v, all_batch_dims) for v in values]
     # --- First try __concat__ ---
     for v in values:
         if isinstance(v, Shapable):
