@@ -232,10 +232,13 @@ class BarChart(Recipe):
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         vector = data.bounds.shape['vector']
         x, = reshaped_numpy(data.points, [vector, instance(data)])
-        x_range = x.max() - x.min()
-        x_min = x.min() - x_range / (len(x)-1) / 2
-        x_max = x.max() + x_range / (len(x)-1) / 2
-        width = x_max - x_min
+        if len(x) == 1:
+            width = 1.
+        else:
+            x_range = x.max() - x.min()
+            x_min = x.min() - x_range / (len(x)-1) / 2
+            x_max = x.max() + x_range / (len(x)-1) / 2
+            width = x_max - x_min
         channels = channel(data.values).volume
         for i, ch in enumerate(channel(data.values).meshgrid(names=True)):
             height = reshaped_numpy(data.values[ch], [instance(data)], force_expand=True)
