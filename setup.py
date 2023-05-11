@@ -165,7 +165,8 @@ setup(
     install_requires=[
         'numpy',  # 1.20 causes TensorFlow tracing errors: NotImplementedError: Cannot convert a symbolic Tensor to a numpy array.
         'scipy>=1.5.4',
-        'matplotlib'  # also required by dash for color maps
+        'matplotlib>=3.5.0',  # also required by dash for color maps
+        'packaging',
     ],
     # Optional packages:
     # - dash + plotly (included in dash)
