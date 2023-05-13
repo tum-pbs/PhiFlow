@@ -1330,7 +1330,7 @@ def shape(obj) -> Shape:
     Returns:
         `Shape`
     """
-    from phi.math.magic import PhiTreeNode
+    from phi.math.magic import PhiTreeNode, Shaped
     if isinstance(obj, Shape):
         return obj
     elif hasattr(obj, '__shape__'):
@@ -1343,8 +1343,10 @@ def shape(obj) -> Shape:
         return channel('vector')
     elif isinstance(obj, (Number, bool)):
         return EMPTY_SHAPE
-    elif isinstance(obj, (tuple, list)) and all(isinstance(item, PhiTreeNode) for item in obj):
+    elif isinstance(obj, (tuple, list)) and all(isinstance(item, (PhiTreeNode, Shaped)) for item in obj):
         return merge_shapes(*obj, allow_varying_sizes=True)
+    if isinstance(obj, dict) and all(isinstance(item, (PhiTreeNode, Shaped)) for item in obj):
+        return merge_shapes(*obj.values(), allow_varying_sizes=True)
     elif isinstance(obj, PhiTreeNode):
         from phi.math._magic_ops import all_attributes
         return merge_shapes(*[getattr(obj, a) for a in all_attributes(obj, assert_any=True)], allow_varying_sizes=True)
