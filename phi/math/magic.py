@@ -318,7 +318,7 @@ class _PhiTreeNodeType(type):
         elif isinstance(instance, Dict):
             return True
         elif isinstance(instance, dict):
-            return all(isinstance(name, str) for name in instance.keys()) and all(isinstance(val, PhiTreeNode) for val in instance.values())
+            return all(isinstance(name, str) for name in instance.keys()) and all(isinstance(val, (Shaped, PhiTreeNode)) for val in instance.values())
         elif dataclasses.is_dataclass(instance):
             return True
         else:
