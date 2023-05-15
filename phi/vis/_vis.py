@@ -17,6 +17,7 @@ from ..geom import Geometry, Box, embed
 from ..math import Tensor, layout, batch, Shape, vec, stack, concat
 from ..math import wrap
 from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape, non_batch
+from ..math._tensors import Layout
 
 
 def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
@@ -270,7 +271,7 @@ def get_current_figure():
     return LAST_FIGURE[0]
 
 
-def plot(*fields: Union[SampledField, Tensor, Geometry],
+def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
          lib: Union[str, PlottingLibrary] = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
@@ -392,7 +393,13 @@ def plot(*fields: Union[SampledField, Tensor, Geometry],
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
+                    err_ = err[idx]
+                    while isinstance(err_, Layout) and not err_.shape and isinstance(err_.native(), Tensor):
+                        err_ = err_.native()[idx]
+                    color_ = color[idx]
+                    while isinstance(color_, Layout) and not color_.shape and isinstance(color_.native(), Tensor):
+                        color_ = color_.native()[idx]
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color_, alpha[idx], err_)
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             return layout(figure)
