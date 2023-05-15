@@ -255,7 +255,10 @@ class BarChart(Recipe):
                     warnings.warn(f"Matplotlib is outdated, version={matplotlib.__version__}. Update it to show bar labels", RuntimeWarning)
         subplot.set_xticks(x, instance(data).item_names[0])
         if channels > 1:
-            subplot.legend()
+            if not has_legend_like([index_label(ch) for ch in channel(data.values).meshgrid(names=True)], figure):
+                subplot.legend()
+        if float(math.finite_min(data.values, shape)) > 0:
+            subplot.set_ylim((0, float(math.finite_max(data.values, shape)) * 1.1))
 
 
 class Histogram(Recipe):
