@@ -205,7 +205,7 @@ class LinePlot(Recipe):
             else:
                 col = _plt_col(color[c_idx])
             alpha_f = float(alpha[c_idx])
-            if (err[c_idx] != 0).any:
+            if ((err[c_idx] != 0) & (err[c_idx] != None)).any:
                 v_err = reshaped_numpy(err[c_idx], [spatial(data)])
                 subplot.fill_between(x, values - v_err, values + v_err, color=col, alpha=alpha_f * .2)
             if values.dtype in (np.complex64, np.complex128):
@@ -462,7 +462,7 @@ class PointCloud2D(Recipe):
                     else:
                         col = _plt_col(color)
                     alpha_f = float(alpha[idx].max)
-                    if (err[idx] != 0).any:
+                    if ((err[idx] != 0) & (err[idx] != None)).any:
                         x_errs = reshaped_numpy(err[idx].vector[dims[0]], [other_sp, sp_dim]) if dims[0] in err.vector.item_names else 0
                         y_errs = reshaped_numpy(err[idx].vector[dims[1]], [other_sp, sp_dim]) if dims[1] in err.vector.item_names else 0
                         for x, y, x_err, y_err in zip(xs, ys, x_errs, y_errs):
