@@ -77,12 +77,12 @@ class MatplotlibPlots(PlottingLibrary):
                                 axis.set_aspect('equal', adjustable='box')
                         # --- Remove labels if axes shared ---
                         for left_col in range(col):
-                            if (row, left_col) in spaces and spaces[(row, left_col)].vector[y] == bounds.vector[y]:
+                            if (row, left_col) in spaces and y in spaces[(row, left_col)].vector.item_names and spaces[(row, left_col)].vector[y] == bounds.vector[y] and math.is_finite(bounds.vector[y].lower).all:
                                 axis.set_ylabel("")
                                 axis.tick_params(labelleft=False)
                                 axis.yaxis.set_minor_formatter(NullFormatter())  # sometimes required for log axis
                         for below_row in range(row + 1, rows + 1):
-                            if (below_row, col) in spaces and spaces[(below_row, col)].vector[x] == bounds.vector[x]:
+                            if (below_row, col) in spaces and x in spaces[(below_row, col)].vector.item_names and spaces[(below_row, col)].vector[x] == bounds.vector[x] and math.is_finite(bounds.vector[y].lower).all:
                                 axis.set_xlabel("")
                                 axis.tick_params(labelbottom=False)
                                 axis.xaxis.set_minor_formatter(NullFormatter())  # sometimes required for log axis
