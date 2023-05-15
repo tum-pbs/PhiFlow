@@ -406,9 +406,6 @@ def curl(field: Grid, type: type = CenteredGrid):
             return field.with_values(c)
     elif isinstance(field, StaggeredGrid) and field.spatial_rank == 2:
         if type == CenteredGrid:
-            for dim in field.resolution.names:
-                l, u = field.extrapolation.valid_outer_faces(dim)
-                assert l == u, "periodic extrapolation not yet supported"
             values = bake_extrapolation(field).values
             x_padded = math.pad(values.vector['x'], {'y': (1, 1)}, field.extrapolation)
             y_padded = math.pad(values.vector['y'], {'x': (1, 1)}, field.extrapolation)
