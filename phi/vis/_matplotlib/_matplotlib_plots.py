@@ -465,7 +465,7 @@ class PointCloud2D(Recipe):
                     if ((err[idx] != 0) & (err[idx] != None)).any:
                         x_errs = reshaped_numpy(err[idx].vector[dims[0]], [other_sp, sp_dim]) if dims[0] in err.vector.item_names else 0
                         y_errs = reshaped_numpy(err[idx].vector[dims[1]], [other_sp, sp_dim]) if dims[1] in err.vector.item_names else 0
-                        for x, y, x_err, y_err in zip(xs, ys, x_errs, y_errs):
+                        for x, y, x_err, y_err in zip(xs.T, ys.T, x_errs, y_errs):
                             if math.max(x_err) > math.max(y_err):
                                 axis.fill_betweenx(y, x - x_err, x + x_err, color=col, alpha=alpha_f * .2)
                             else:
