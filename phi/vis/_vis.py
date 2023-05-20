@@ -349,7 +349,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
         title_by_subplot = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
     else:
         title = layout_pytree_node(title, wrap_leaf=True)
-        title_by_subplot = {pos: _title(title[i[0]]) for pos, i in indices.items()}
+        title_by_subplot = {pos: _title(title, i[0]) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
@@ -652,7 +652,10 @@ def replace_bounds(box: Box, replace: Box):
     return Box(vec(**lower), vec(**upper))
 
 
-def _title(obj: Tensor):
+def _title(obj: Tensor, idx: dict):
+    obj = obj[idx]
+    while isinstance(obj, Layout) and not obj.shape and isinstance(obj.native(), Tensor):
+        obj = obj.native()[idx]
     if not obj.shape:
-        return obj.native(obj.shape)
+        return obj.native()
     return ", ".join(obj)
