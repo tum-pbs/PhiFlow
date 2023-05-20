@@ -1121,7 +1121,7 @@ def reduce_(f, value, dims, require_all_dims_present=False, required_kind: type 
         return f(value._simplify(), dims)
 
 
-def sum_(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
+def sum_(value: Union[Tensor, list, tuple, Number, bool], dim: DimFilter = non_batch) -> Tensor:
     """
     Sums `values` along the specified dimensions.
 
@@ -1174,7 +1174,7 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
         raise ValueError(type(value))
 
 
-def prod(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
+def prod(value: Union[Tensor, list, tuple, Number, bool], dim: DimFilter = non_batch) -> Tensor:
     """
     Multiplies `values` along the specified dimensions.
 
@@ -1206,7 +1206,7 @@ def _prod(value: Tensor, dims: Shape) -> Tensor:
         raise ValueError(type(value))
 
 
-def mean(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
+def mean(value: Union[Tensor, list, tuple, Number, bool], dim: DimFilter = non_batch) -> Tensor:
     """
     Computes the mean over `values` along the specified dimensions.
 
@@ -1240,7 +1240,7 @@ def _mean(value: Tensor, dims: Shape) -> Tensor:
         raise ValueError(type(value))
 
 
-def std(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
+def std(value: Union[Tensor, list, tuple, Number, bool], dim: DimFilter = non_batch) -> Tensor:
     """
     Computes the standard deviation over `values` along the specified dimensions.
 
@@ -1305,7 +1305,7 @@ def _any(value: Tensor, dims: Shape) -> Tensor:
         raise ValueError(type(value))
 
 
-def all_(boolean_tensor: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
+def all_(boolean_tensor: Union[Tensor, list, tuple, Number, bool], dim: DimFilter = non_batch) -> Tensor:
     """
     Tests whether all entries of `boolean_tensor` are `True` along the specified dimensions.
 
@@ -1340,7 +1340,7 @@ def _all(value: Tensor, dims: Shape) -> Tensor:
     raise ValueError(type(value))
 
 
-def max_(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
+def max_(value: Union[Tensor, list, tuple, Number, bool], dim: DimFilter = non_batch) -> Tensor:
     """
     Determines the maximum value of `values` along the specified dimensions.
 
@@ -1375,7 +1375,7 @@ def _max(value: Tensor, dims: Shape) -> Tensor:
     raise ValueError(type(value))
 
 
-def min_(value: Union[Tensor, list, tuple], dim: DimFilter = non_batch) -> Tensor:
+def min_(value: Union[Tensor, list, tuple, Number, bool], dim: DimFilter = non_batch) -> Tensor:
     """
     Determines the minimum value of `values` along the specified dimensions.
 
