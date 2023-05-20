@@ -71,7 +71,7 @@ class MatplotlibPlots(PlottingLibrary):
                                 y_range = (1e-3 * y_range[1], y_range[1])
                             axis.set_ylim(y_range)
                         # --- Equal aspect ---
-                        if None not in x_range and None not in y_range and '_' not in bounds.vector.item_names:
+                        if None not in x_range and None not in y_range and '_' not in bounds.vector.item_names and all([n in ['x', 'y', 'z'] for n in bounds.vector.item_names]):
                             x_size, y_size = x_range[1] - x_range[0], y_range[1] - y_range[0]
                             if not x_log and not y_log and x_size > 0 and y_size > 0 and max(x_size/y_size/subplot_aspect, y_size/x_size*subplot_aspect) < 4:
                                 axis.set_aspect('equal', adjustable='box')
