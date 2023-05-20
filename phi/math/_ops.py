@@ -1098,7 +1098,7 @@ def nonzero(value: Tensor, list_dim: Union[Shape, str] = instance('nonzero'), in
 
 
 def reduce_(f, value, dims, require_all_dims_present=False, required_kind: type = None):
-    if dims in ((), [], EMPTY_SHAPE):
+    if not dims:
         return value
     else:
         if isinstance(value, (tuple, list)):
@@ -1260,6 +1260,11 @@ def std(value: Union[Tensor, list, tuple, Number, bool], dim: DimFilter = non_ba
     Returns:
         `Tensor` without the reduced dimensions.
     """
+    if not dim:
+        warnings.warn("std along empty shape returns 0", RuntimeWarning, stacklevel=2)
+        return zeros_like(value)
+    if not callable(dim) and set(parse_dim_order(dim)) - set(value.shape.names):
+        return zeros_like(value)  # std along constant dim is 0
     return reduce_(_std, value, dim)
 
 
