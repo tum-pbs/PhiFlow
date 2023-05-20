@@ -507,6 +507,15 @@ class Scene:
             if isdir(p):
                 shutil.rmtree(p)
 
+    def rename(self, name: str):
+        """ Deletes the scene directory and all contained files. """
+        for p in math.flatten(self._paths, flatten_batch=True):
+            p = abspath(p)
+            if isdir(p):
+                new_path = os.path.join(os.path.dirname(p), name)
+                print(f"Renaming {p} to {new_path}")
+                shutil.move(p, new_path)
+
 
 def _slugify_filename(struct_name):
     struct_name = struct_name.replace('._', '.').replace('.', '_')
