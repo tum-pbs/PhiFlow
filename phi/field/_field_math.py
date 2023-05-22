@@ -167,7 +167,7 @@ def spatial_gradient(field: CenteredGrid,
     if implicit:
         gradient_extrapolation = extrapolation.map(_ex_map_f(extrap_map_rhs), gradient_extrapolation)
     spatial_dims = field.shape.only(dims).names
-    stack_dim = stack_dim._with_item_names((spatial_dims,))
+    stack_dim = stack_dim.with_size(spatial_dims)
     if type == CenteredGrid:
         # ToDo if extrapolation == math.extrapolation.NONE, extend size by 1
         # pad = 1 if extrapolation == math.extrapolation.NONE else 0
