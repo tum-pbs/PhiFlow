@@ -395,6 +395,26 @@ class VectorCloud2D(Recipe):
         subplot.quiver(x, y, u, v, color=col, units='xy', scale=1, alpha=alphas)
 
 
+class EmbeddedPoint2D(Recipe):
+
+    def can_plot(self, data: SampledField, space: Box) -> bool:
+        return isinstance(data, PointCloud) and data.spatial_rank == 1 and space.spatial_rank == 2
+
+    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        present_dim = data.elements.vector.item_names[0]
+        assert present_dim in space.vector.item_names
+        horizontal = present_dim == space.vector.item_names[1]
+        if data.elements.bounding_radius().max == 0:
+            if horizontal:
+                x = [float(space.lower.vector[0]), float(space.upper.vector[0])]
+                y, = reshaped_numpy(data.points, ['vector', instance])
+                subplot.plot(x, [y, y], '--', color='grey')
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError("Range not yet supported")
+
+
 class PointCloud2D(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
@@ -497,7 +517,7 @@ class PointCloud2D(Recipe):
                 if axis.get_xscale() == 'log':
                     offset_x = x * (1 + .0003 * x_view) if x < x_c else x * (1 - .0003 * x_view)
                 else:
-                    offset_x = x + .01 * x_view if x < x_c else x - .01 * x_view
+                    offset_x = x + .11 * x_view if x < x_c else x - .26 * x_view
                 if axis.get_yscale() == 'log':
                     offset_y = y * (1 + .0003 * y_view) if y < y_c else y * (1 - .0003 * y_view)
                 else:
@@ -650,4 +670,5 @@ MATPLOTLIB.recipes.extend([
             BarChart(),
             Mesh2D(),
             Histogram(),
+            EmbeddedPoint2D(),
         ])
