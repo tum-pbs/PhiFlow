@@ -216,6 +216,7 @@ class LinePlot(Recipe):
                 subplot.plot(x, values, label=label, color=col, alpha=alpha_f)
                 requires_legend = requires_legend or label
         if requires_legend:
+            # if not has_legend_like([index_label(idx_n) for idx_n in channel(data.values).meshgrid(names=True)], figure):
             subplot.legend()
         elif min_val is not None and max_val is not None:
             subplot.set_ylim((min_val - .02 * (max_val - min_val), max_val + .02 * (max_val - min_val)))
@@ -283,7 +284,8 @@ class Histogram(Recipe):
             alpha_fac = .3 if i == 0 else 1
             subplot.hist(bin_edges[:-1], bins=bin_edges, weights=counts, orientation=orientation, histtype=histtype, color=col, alpha=float(alpha[ch].max) * alpha_fac, label=index_label(ch), linewidth=line_width)
         if channel(data.values).volume > 1:
-            subplot.legend()
+            if not has_legend_like([index_label(idx_n) for idx_n in channel(data.values).meshgrid(names=True)], figure):
+                subplot.legend()
 
 
 class Heatmap2D(Recipe):
