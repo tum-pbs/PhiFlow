@@ -452,94 +452,20 @@ class NumPyBackend(Backend):
     #     return gradient
 
     def linear_solve(self, method: str, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
-        if method == 'direct':
-            return self.direct_linear_solve(lin, y)
-        elif method == 'CG-native':
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy.sparse.linalg.cg)
-        elif method == 'GMres':
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy.sparse.linalg.gmres)
-        elif method == 'biCG' and max_iter.shape[0] == 1:
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy.sparse.linalg.bicg)
-        elif method == 'biCG-stab' and max_iter.shape[0] == 1:
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy.sparse.linalg.bicgstab)
-        elif method == 'CGS':
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy.sparse.linalg.cgs)
-        elif method == 'lGMres':
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy.sparse.linalg.lgmres)
-        # elif method == 'minres':
-        #     return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, scipy_function=scipy.sparse.linalg.minres)
-        elif method == 'QMR':
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy.sparse.linalg.qmr)
-        elif method == 'GCrotMK':
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy.sparse.linalg.gcrotmk)
-        elif method == 'auto':
-            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter, pre)
-            # return self.conjugate_gradient(lin, y, x0, tol_sq, max_iter, trj)
-        else:
-            return Backend.linear_solve(self, method, lin, y, x0, tol_sq, max_iter, pre)
-
-    def direct_linear_solve(self, lin, y) -> Any:
-        batch_size = self.staticshape(y)[0]
-        xs = []
-        converged = []
-        if isinstance(lin, (tuple, list)):
-            assert all(issparse(l) for l in lin)
-        else:
-            assert issparse(lin)
-            lin = [lin] * batch_size
-        # Solve each example independently
-        for batch in range(batch_size):
-            # use_umfpack=self.precision == 64
-            x = spsolve(lin[batch], y[batch])  # returns nan when diverges
-            xs.append(x)
-            converged.append(np.all(np.isfinite(x)))
-        x = np.stack(xs)
-        converged = np.stack(converged)
-        diverged = ~converged
-        iterations = [-1] * batch_size  # spsolve does not perform iterations
-        return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, [""] * batch_size)
+        if method == 'CG-native':
+            method = 'CG'
+        if method in ['direct', 'CG', 'GMres', 'biCG', 'biCG-stab', 'CGS', 'lGMres', 'minres', 'QMR', 'GCrotMK']:
+            from phi.math.backend._linalg import scipy_spsolve
+            return scipy_spsolve(self, method, lin, y, x0, tol_sq, max_iter, pre)
+        return Backend.linear_solve(self, method, lin, y, x0, tol_sq, max_iter, pre)
 
     def conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
         if len(max_iter) > 1 or callable(lin):
             return Backend.conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre)  # generic implementation
         else:
             scipy_function = scipy.sparse.linalg.cg if pre else scipy.sparse.linalg.bicg  # bicg is more stable than cg
-            return self.scipy_iterative_sparse_solve(lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy_function)
-
-    def scipy_iterative_sparse_solve(self, lin, y, x0, tol_sq, max_iter, pre, scipy_function=cg) -> SolveResult:
-        if max_iter.shape[0] > 1:
-            raise RuntimeError(f"SciPy's sparse solvers (like {scipy_function.__name__}) do not record trajectories. Use a different solver instead.")
-        bs_y = self.staticshape(y)[0]
-        bs_x0 = self.staticshape(x0)[0]
-        batch_size = combined_dim(bs_y, bs_x0)
-        # if callable(A):
-        #     A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
-
-        def count_callback(x_n):  # called after each step, not with x0
-            iterations[b] += 1
-
-        xs = []
-        iterations = [0] * batch_size
-        converged = []
-        diverged = []
-        residual = []
-        messages = []
-        for b in range(batch_size):
-            lin_b = lin[min(b, len(lin)-1)] if isinstance(lin, (tuple, list)) or (isinstance(lin, np.ndarray) and len(lin.shape) > 2) else lin
-            pre_op = LinearOperator(shape=lin_b.shape, matvec=pre.apply, rmatvec=pre.apply_transposed) if isinstance(pre, Preconditioner) else None
-            x, ret_val = scipy_function(lin_b, y[b], x0=x0[b], tol=0, atol=np.sqrt(tol_sq[b]), maxiter=max_iter[-1, b], M=pre_op, callback=count_callback)
-            # ret_val: 0=success, >0=not converged, <0=error
-            messages.append(f"code {ret_val} (SciPy {scipy_function.__name__})")
-            xs.append(x)
-            converged.append(ret_val == 0)
-            diverged.append(ret_val < 0 or np.any(~np.isfinite(x)))
-            residual.append(lin_b @ x - y[b])
-        x = np.stack(xs)
-        residual = np.stack(residual)
-        iterations = np.stack(iterations)
-        converged = np.stack(converged)
-        diverged = np.stack(diverged)
-        return SolveResult(f'scipy.sparse.linalg.{scipy_function.__name__}', x, residual, iterations, iterations + 1, converged, diverged, messages)
+            from phi.math.backend._linalg import scipy_iterative_sparse_solve
+            return scipy_iterative_sparse_solve(self, lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy_function)
 
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> TensorType:
         solution, residuals, rank, singular_values = [], [], [], []
