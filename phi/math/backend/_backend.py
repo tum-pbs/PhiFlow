@@ -70,34 +70,67 @@ class Preconditioner:
     def apply_transposed(self, vec):
         raise NotImplementedError
 
+    def apply_inv_l(self, vec):
+        raise NotImplementedError
+
+    def apply_inv_u(self, vec):
+        raise NotImplementedError
+
     def __call__(self, *args, **kwargs):
         assert len(args) == 1
         assert not kwargs
         return self.apply(args[0])
 
 
+class NoPreconditioner(Preconditioner):
+
+    def apply(self, vec):
+        return vec
+
+    def apply_transposed(self, vec):
+        return vec
+
+    def apply_inv_l(self, vec):
+        return vec
+
+    def apply_inv_u(self, vec):
+        return vec
+
+
 @dataclass
 class IncompleteLU(Preconditioner):
-    lower: TensorType
+
+    lower: TensorType  # (batch_size, rows, cols)
     lower_unit_diagonal: bool
-    upper: TensorType
+    upper: TensorType  # (batch_size, rows, cols)
     upper_unit_diagonal: bool
     rank_deficiency: int
 
     def __post_init__(self):  # ToDo this is temporary until backend.solve_triangular supports sparse matrices
+        # assert choose_backend(self.lower).ndims(self.lower) == 3
+        # assert choose_backend(self.upper).ndims(self.lower) == 3
         self._np_lower = choose_backend(self.lower).numpy(self.lower)
         self._np_upper = choose_backend(self.upper).numpy(self.upper)
 
-    def apply(self, vec):
+    def apply_inv_l(self, vec):
         b = choose_backend(self.lower, self.upper, vec)
+        return b.solve_triangular(self.lower, vec, lower=True, unit_diagonal=self.lower_unit_diagonal)
+
+    def apply_inv_u(self, vec):
+        b = choose_backend(self.lower, self.upper, vec)
+        return b.solve_triangular(self.upper, vec, lower=False, unit_diagonal=self.upper_unit_diagonal)
+
+    def apply(self, vec):
+        b = choose_backend(vec)
         np_vec = vec if isinstance(vec, numpy.ndarray) else b.numpy(vec)
         from scipy.sparse.linalg import spsolve_triangular
         np_intermediate = spsolve_triangular(self._np_lower, np_vec.T, lower=True, unit_diagonal=self.lower_unit_diagonal)
         np_result = spsolve_triangular(self._np_upper, np_intermediate, lower=False, unit_diagonal=self.upper_unit_diagonal).T
         return np_result if isinstance(vec, numpy.ndarray) else b.as_tensor(np_result)
-        # intermediate = b.solve_triangular(self.lower, rhs, lower=True, unit_diagonal=self.lower_unit_diagonal)
+        # intermediate = b.solve_triangular(self.lower, vec, lower=True, unit_diagonal=self.lower_unit_diagonal)
         # # ToDo if set last rank_deficiency entries to 0, then solve smaller system
-        # result = b.solve_triangular(self.upper, intermediate, lower=True, unit_diagonal=self.lower_unit_diagonal)
+        # result = b.solve_triangular(self.upper, intermediate, lower=False, unit_diagonal=self.upper_unit_diagonal)
+        # # return result.T
         # return result
 
     def apply_transposed(self, vec):
@@ -107,6 +140,9 @@ class IncompleteLU(Preconditioner):
         np_intermediate = spsolve_triangular(self._np_upper.T, np_vec.T, lower=True, unit_diagonal=self.upper_unit_diagonal)
         np_result = spsolve_triangular(self._np_lower.T, np_intermediate, lower=False, unit_diagonal=self.lower_unit_diagonal).T
         return np_result if isinstance(vec, numpy.ndarray) else b.as_tensor(np_result)
+        # intermediate = b.solve_triangular(self.upper.T, vec.T, lower=True, unit_diagonal=self.upper_unit_diagonal)
+        # result = b.solve_triangular(self.lower.T, intermediate, lower=False, unit_diagonal=self.lower_unit_diagonal).T
+        # return result
 
 
 class Backend:
@@ -1281,7 +1317,14 @@ class Backend:
         This method need not provide a gradient for the operation.
 
         Args:
-            method: Which algorithm to use. One of `('auto', 'CG', 'CG-adaptive')`.
+            method: Which algorithm to use. One of:
+                * 'auto'
+                * 'CG'
+                * 'CG-adaptive'
+                * 'biCG-stab' or 'biCG-stab(1)'
+                * 'biCG-stab(n)'
+                * 'scipy-direct'
+                * 'scipy-CG', 'scipy-GMres', 'scipy-biCG', 'scipy-biCG-stab', 'scipy-CGS', 'scipy-QMR', 'scipy-GCrotMK'
             lin: Linear operation. One of
                 * sparse/dense matrix valid for all instances
                 * tuple/list of sparse/dense matrices for varying matrices along batch, must have the same nonzero locations.
@@ -1297,6 +1340,14 @@ class Backend:
         """
         if method == 'auto':
             return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter, pre)
+        elif method.startswith('scipy-'):
+            from ._linalg import scipy_spsolve
+            if not callable(lin):
+                lin = self.numpy(lin)
+            y = self.numpy(y)
+            x0 = self.numpy(x0)
+            tol_sq = self.numpy(tol_sq) if self.is_tensor(tol_sq, only_native=True) else tol_sq
+            return scipy_spsolve(self, method[len('scipy-'):], lin, y, x0, tol_sq, max_iter, pre)
         elif method == 'CG':
             return self.conjugate_gradient(lin, y, x0, tol_sq, max_iter, pre)
         elif method == 'CG-adaptive':
@@ -1325,16 +1376,16 @@ class Backend:
     def bi_conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre, poly_order=2) -> SolveResult:
         """ Generalized stabilized biconjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. """
         from ._linalg import bicg, stop_on_l2
-        if pre and poly_order == 1:
-            warnings.warn("Generic biCG does not yet support preconditioners. Falling back to SciPy. This cannot be jit-compiled!", RuntimeWarning)
-            if not callable(lin):
-                lin = self.numpy(lin)
-            from . import NUMPY
-            from scipy.sparse.linalg import bicgstab
-            r = NUMPY.scipy_iterative_sparse_solve(lin, self.numpy(y), self.numpy(x0), self.numpy(tol_sq), max_iter, pre, scipy_function=bicgstab)
-            return SolveResult(r.method, self.as_tensor(r.x), self.as_tensor(r.residual), self.as_tensor(r.iterations), self.as_tensor(r.function_evaluations), self.as_tensor(r.converged), self.as_tensor(r.diverged), r.message)
-        else:
-            return bicg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, pre, poly_order)
+        # if pre and poly_order == 1:
+        #     warnings.warn("Generic biCG does not yet support preconditioners. Falling back to SciPy. This cannot be jit-compiled!", RuntimeWarning)
+        #     if not callable(lin):
+        #         lin = self.numpy(lin)
+        #     from . import NUMPY
+        #     from scipy.sparse.linalg import bicgstab
+        #     r = NUMPY.scipy_iterative_sparse_solve(lin, self.numpy(y), self.numpy(x0), self.numpy(tol_sq), max_iter, pre, scipy_function=bicgstab)
+        #     return SolveResult(r.method, self.as_tensor(r.x), self.as_tensor(r.residual), self.as_tensor(r.iterations), self.as_tensor(r.function_evaluations), self.as_tensor(r.converged), self.as_tensor(r.diverged), r.message)
+        # else:
+        return bicg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, pre, poly_order)
 
     def linear(self, lin, vector):
         if callable(lin):
@@ -1383,12 +1434,12 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    # def solve_triangular_sparse(self, matrix, rhs, lower: bool, unit_diagonal: bool):
-    #     np_matrix = self.numpy(matrix)
-    #     np_rhs = self.numpy(rhs)
-    #     from scipy.sparse.linalg import spsolve_triangular
-    #     np_result = spsolve_triangular(np_matrix, np_rhs.T, lower=lower, unit_diagonal=unit_diagonal).T
-    #     return self.as_tensor(np_result)
+    def solve_triangular_sparse(self, matrix, rhs, lower: bool, unit_diagonal: bool):
+        np_matrix = self.numpy(matrix)
+        np_rhs = self.numpy(rhs)
+        from scipy.sparse.linalg import spsolve_triangular
+        np_result = spsolve_triangular(np_matrix, np_rhs.T, lower=lower, unit_diagonal=unit_diagonal).T
+        return self.as_tensor(np_result)
 
     def stop_gradient(self, value):
         raise NotImplementedError(self)

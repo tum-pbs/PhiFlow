@@ -3,8 +3,11 @@ from functools import partial
 from typing import Tuple, Callable, Union, Optional
 
 import numpy as np
+import scipy
+from scipy.sparse import issparse
+from scipy.sparse.linalg import spsolve, LinearOperator
 
-from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, Preconditioner
+from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, Preconditioner, NoPreconditioner, combined_dim
 
 
 def identity(x):
@@ -22,6 +25,7 @@ def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged:
             rsq0.append(residual_squared)
         else:
             diverged = b.any(residual_squared / rsq0[0] > 1e5, axis=(1,)) & (iterations >= 8)
+            diverged |= b.any(~b.isfinite(residual_squared), axis=(1,))
         continue_ = ~converged & ~diverged & (iterations < max_iter)
         if on_diverged is not None and b.any(diverged):
             on_diverged(iterations)
@@ -114,11 +118,12 @@ def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter, pre: Optional
 
 def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner], poly_order: int) -> Union[SolveResult, List[SolveResult]]:
     """ Adapted from [BiCGstab for linear equations involving unsymmetric matrices with complex spectrum](https://dspace.library.uu.nl/bitstream/handle/1874/16827/sleijpen_93_bicgstab.pdf) """
-    # Based on "BiCGstab(L) for linear equations involving unsymmetric matrices with complex spectrum" by Gerard L.G. Sleijpen
+    # Based on "BiCG-stab(L) for linear equations involving asymmetric matrices with complex spectrum" by Gerard L.G. Sleijpen
     if poly_order == 1:
-        return bicg_stab_first_order(b, lin, y, x0, check_progress, max_iter)
+        return bicg_stab_first_order(b, lin, y, x0, check_progress, max_iter, pre)
     if pre:
-        raise NotImplementedError("generic biCG does not yet support preconditioners")
+        warnings.warn(f"Φ-Flow biCG-stab({poly_order}) with preconditioner is experimental and may diverge.", RuntimeWarning)
+    pre = pre or NoPreconditioner()
     y = b.to_float(y)
     x = b.copy(b.to_float(x0), only_mutable=True)
     batch_size = b.staticshape(y)[0]
@@ -154,12 +159,14 @@ def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Option
             for i in range(0, j + 1):
                 u_hat[i] = beta * u_hat[i]
                 u_hat[i] = r0_hat[i] - u_hat[i]
-            u_hat[j + 1] = b.linear(lin, u_hat[j]); function_evaluations += continue_1
+            put = pre.apply(u_hat[j])
+            u_hat[j + 1] = b.linear(lin, put); function_evaluations += continue_1
             gamma_coeff = b.sum(u_hat[j + 1] * r0_tild, axis=-1, keepdims=True)
-            alpha = rho_0 / gamma_coeff
+            alpha = rho_0 / gamma_coeff  # ToDo produces NaN if pre is perfect
             for i in range(0, j + 1):
                 r0_hat[i] = r0_hat[i] - alpha * u_hat[i + 1]
-            r0_hat[j + 1] = b.linear(lin, r0_hat[j]); function_evaluations += continue_1
+            prt = pre.apply(r0_hat[j])
+            r0_hat[j + 1] = b.linear(lin, prt); function_evaluations += continue_1
             x = x + alpha * u_hat[0]
         for j in range(1, poly_order + 1):
             for i in range(1, j):
@@ -198,11 +205,12 @@ def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Option
     return SolveResult(f"Φ-Flow biCG-stab({poly_order}) ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def bicg_stab_first_order(b: Backend, lin, y, x0, check_progress: Callable, max_iter) -> SolveResult or List[SolveResult]:
+def bicg_stab_first_order(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner]) -> SolveResult or List[SolveResult]:
     """
     https://en.wikipedia.org/wiki/Biconjugate_gradient_stabilized_method
 
     L=1, """
+    pre = pre or NoPreconditioner()
     y = b.to_float(y)
     x = b.copy(b.to_float(x0), only_mutable=True)
     batch_size = b.staticshape(y)[0]
@@ -220,43 +228,23 @@ def bicg_stab_first_order(b: Backend, lin, y, x0, check_progress: Callable, max_
     p = b.zeros(x0.shape)
 
     def loop_body(continue_, x, residual, iterations, function_evaluations, _converged, _diverged, rho_prev, rho, omega, alpha, u, p):
-        # beta = step size,
-        # ToDo there is a problem in the loop
-
         continue_1 = b.to_int32(continue_)
         iterations += continue_1
-        r = residual
-
-        ### ================= no preconditioning ================= ###
-        rho = b.sum(r0_h * r, axis=-1, keepdims=True)
-        beta = b.divide_no_nan(rho, rho_prev) * b.divide_no_nan(alpha, omega) * b.to_float(continue_1);
-        rho_prev = rho
-        p = r + beta * (p - omega * u)
-        u = b.linear(lin, p);                           function_evaluations += continue_1
-        alpha = b.divide_no_nan(rho, b.sum(r0_h * u, axis=-1, keepdims=True)) * b.to_float(continue_1)
-        h = x + alpha * p
-        s = r - alpha * u
-        t = b.linear(lin, s);                           function_evaluations += continue_1
-        omega = b.where(continue_, b.divide_no_nan(b.sum(t * s, axis=-1, keepdims=True), b.sum(t * t, axis=-1, keepdims=True)), 0.)
-        x = h + omega * s
-        r = s - omega * t
-
-        ### ================ with preconditioning ================ ###
-        # rho = b.sum(r0_h * r, axis=-1, keepdims=True)
-        # beta = rho / rho_prev * alpha / omega;          rho_prev = rho
-        # p = r + beta * (p - omega * u)
-        # y = K2^(-1) K1^(-1) p
-        # u = b.linear(lin, y);                           function_evaluations += continue_1
-        # alpha = rho / b.sum(r0_h * u, axis=-1, keepdims=True)
-        # h = x + alpha * p
-        # s = r - alpha * u
-        # z = K2^(-1) K1^(-1) s
-        # t = b.linear(lin, z);                         function_evaluations += continue_1
-        # omega = b.sum(K1^(-1)*t * K1^(-1)*s, axis=-1, keepdims=True) / b.sum(K1^(-1)*t * K1^(-1)*t, axis=-1, keepdims=True)
-        # x = h + omega * s
-        # r = s - omega * t
-
-        residual = r
+        rho = b.sum(r0_h * residual, axis=-1, keepdims=True)
+        beta = rho / rho_prev * alpha / omega;          rho_prev = rho
+        p = residual + beta * (p - omega * u)
+        y = pre.apply(p)
+        u = b.linear(lin, y);                           function_evaluations += continue_1
+        alpha = rho / b.sum(r0_h * u, axis=-1, keepdims=True)
+        h = x + alpha * y
+        s = residual - alpha * u
+        s_pre = pre.apply_inv_l(s)
+        z = pre.apply(s)
+        t = b.linear(lin, z);                         function_evaluations += continue_1
+        t_pre = pre.apply_inv_l(t)
+        omega = b.sum(t_pre * s_pre, axis=-1, keepdims=True) / b.sum(t_pre * t_pre, axis=-1, keepdims=True)
+        x = h + omega * z
+        residual = s - omega * t
         residual_squared = b.sum(residual ** 2, -1, keepdims=True)
         continue_, converged, diverged = check_progress(iterations, residual_squared)
         # ToDo multiply step_size by continue_1 to avoid NaN when iterating after convergence
@@ -265,6 +253,85 @@ def bicg_stab_first_order(b: Backend, lin, y, x0, check_progress: Callable, max_
     _, x, residual, iterations, function_evaluations, converged, diverged, rho_prev, rho, omega, alpha, u, p = b.while_loop(loop_body, (continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_prev, rho, omega, alpha, u, p), _max_iter(max_iter))
     return SolveResult(f"Φ-Flow BICG", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
+
+def scipy_spsolve(b: Backend, method: Union[str, Callable], lin, y, x0, tol_sq, max_iter, pre: Optional[Preconditioner]):
+    assert max_iter.shape[0] == 1, f"Trajectory recording not supported for scipy_spsolve"
+    if method == 'direct':
+        return scipy_direct_linear_solve(b, lin, y)
+    else:
+        if isinstance(method, str):
+            function = {
+                'CG': scipy.sparse.linalg.cg,
+                'GMres': scipy.sparse.linalg.gmres,
+                'biCG': scipy.sparse.linalg.bicg,
+                'biCG-stab': scipy.sparse.linalg.bicgstab,
+                'CGS': scipy.sparse.linalg.cgs,
+                'lGMres': scipy.sparse.linalg.lgmres,
+                'QMR': scipy.sparse.linalg.qmr,
+                'GCrotMK': scipy.sparse.linalg.gcrotmk,
+                # 'minres': scipy.sparse.linalg.minres,  # this does not work like the others
+            }[method]
+        else:
+            function = method
+        return scipy_iterative_sparse_solve(b, lin, y, x0, tol_sq, max_iter, pre, function)
+
+
+def scipy_direct_linear_solve(b: Backend, lin, y):
+    batch_size = b.staticshape(y)[0]
+    xs = []
+    converged = []
+    if isinstance(lin, (tuple, list)):
+        assert all(issparse(l) for l in lin)
+    else:
+        assert issparse(lin)
+        lin = [lin] * batch_size
+    # Solve each example independently
+    for batch in range(batch_size):
+        # use_umfpack=self.precision == 64
+        x = spsolve(lin[batch], y[batch])  # returns nan when diverges
+        xs.append(x)
+        converged.append(np.all(np.isfinite(x)))
+    x = np.stack(xs)
+    converged = np.stack(converged)
+    diverged = ~converged
+    iterations = [-1] * batch_size  # spsolve does not perform iterations
+    return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, [""] * batch_size)
+
+
+def scipy_iterative_sparse_solve(b: Backend, lin, y, x0, tol_sq, max_iter, pre, scipy_function: Callable) -> SolveResult:
+    if max_iter.shape[0] > 1:
+        raise RuntimeError(f"SciPy's sparse solvers (like {scipy_function.__name__}) do not record trajectories. Use a different solver instead.")
+    bs_y = b.staticshape(y)[0]
+    bs_x0 = b.staticshape(x0)[0]
+    batch_size = combined_dim(bs_y, bs_x0)
+    # if callable(A):
+    #     A = LinearOperator(dtype=y.dtype, shape=(self.staticshape(y)[-1], self.staticshape(x0)[-1]), matvec=A)
+
+    def count_callback(x_n):  # called after each step, not with x0
+        iterations[b] += 1
+
+    xs = []
+    iterations = [0] * batch_size
+    converged = []
+    diverged = []
+    residual = []
+    messages = []
+    for b in range(batch_size):
+        lin_b = lin[min(b, len(lin)-1)] if isinstance(lin, (tuple, list)) or (isinstance(lin, np.ndarray) and len(lin.shape) > 2) else lin
+        pre_op = LinearOperator(shape=lin_b.shape, matvec=pre.apply, rmatvec=pre.apply_transposed) if isinstance(pre, Preconditioner) else None
+        x, ret_val = scipy_function(lin_b, y[b], x0=x0[b], tol=0, atol=np.sqrt(tol_sq[b]), maxiter=max_iter[-1, b], M=pre_op, callback=count_callback)
+        # ret_val: 0=success, >0=not converged, <0=error
+        messages.append(f"code {ret_val} (SciPy {scipy_function.__name__})")
+        xs.append(x)
+        converged.append(ret_val == 0)
+        diverged.append(ret_val < 0 or np.any(~np.isfinite(x)))
+        residual.append(lin_b @ x - y[b])
+    x = np.stack(xs)
+    residual = np.stack(residual)
+    iterations = np.stack(iterations)
+    converged = np.stack(converged)
+    diverged = np.stack(diverged)
+    return SolveResult(f'scipy.sparse.linalg.{scipy_function.__name__}', x, residual, iterations, iterations + 1, converged, diverged, messages)
 
 
 def incomplete_lu_dense(b: 'Backend', matrix, iterations: int, safe: bool):
