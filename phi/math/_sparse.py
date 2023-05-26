@@ -804,12 +804,17 @@ def stored_indices(x: Tensor, list_dim=instance('entries'), index_dim=channel('i
     raise ValueError(x)
 
 
-def same_sparsity_pattern(t1: Tensor, t2: Tensor):
+def same_sparsity_pattern(t1: Tensor, t2: Tensor, allow_const=False):
     if isinstance(t1, TensorStack):
         raise NotImplementedError
     if isinstance(t2, TensorStack):
         raise NotImplementedError
     from ._ops import close
+    if allow_const:
+        if is_sparse(t1) and not is_sparse(t2) and sparse_dims(t1) not in t2.shape:
+            return True
+        if is_sparse(t2) and not is_sparse(t1) and sparse_dims(t2) not in t2.shape:
+            return True
     if type(t1) != type(t2):
         return False
     if isinstance(t1, CompressedSparseMatrix):

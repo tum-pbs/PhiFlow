@@ -1042,8 +1042,11 @@ def where(condition: Union[Tensor, float, int], value_true: Union[Tensor, float,
         if vt._is_tracer or vf._is_tracer or c._is_tracer:
             return c * vt + (1 - c) * vf  # ToDo this does not take NaN into account
         if is_sparse(vt) or is_sparse(vf):
-            if same_sparsity_pattern(vt, vf) and same_sparsity_pattern(c, vt):
-                result_values = where(c._values, vt._values, vf._values)
+            if same_sparsity_pattern(vt, vf, allow_const=True) and same_sparsity_pattern(c, vt, allow_const=True):
+                c_values = c._values if is_sparse(c) else c
+                vt_values = vt._values if is_sparse(vt) else vt
+                vf_values = vf._values if is_sparse(vf) else vf
+                result_values = where(c_values, vt_values, vf_values)
                 return c._with_values(result_values)
             raise NotImplementedError
         shape, (c, vt, vf) = broadcastable_native_tensors(c, vt, vf)
