@@ -330,6 +330,9 @@ class JaxBackend(Backend):
     def mean(self, value, axis=None, keepdims=False):
         return jnp.mean(value, axis, keepdims=keepdims)
 
+    def log_gamma(self, x):
+        return jax.lax.lgamma(self.to_float(x))
+
     def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
         return jnp.tensordot(a, b, (a_axes, b_axes))
 

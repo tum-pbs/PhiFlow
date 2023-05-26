@@ -660,15 +660,17 @@ def savefig(filename: str, transparent=True):
 MATPLOTLIB = MatplotlibPlots()
 MATPLOTLIB.recipes.extend([
             LinePlot(),
+            BarChart(),
+            Histogram(),
+            # --- 2D ---
             Heatmap2D(),
             VectorField2D(),
-            VectorField3D(),
-            Heatmap3D(),
             VectorCloud2D(),
             PointCloud2D(),
-            PointCloud3D(),
-            BarChart(),
-            Mesh2D(),
-            Histogram(),
             EmbeddedPoint2D(),
+            # Mesh2D(),
+            # --- 3D ---
+            VectorField3D(),
+            Heatmap3D(),
+            PointCloud3D(),
         ])

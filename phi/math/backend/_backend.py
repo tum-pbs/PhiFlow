@@ -735,6 +735,12 @@ class Backend:
     def softplus(self, x):
         raise NotImplementedError(self)
 
+    def log_gamma(self, x):
+        raise NotImplementedError(self)
+
+    def factorial(self, x: TensorType) -> TensorType:
+        return self.exp(self.log_gamma(self.to_float(x) + 1))
+
     def conv(self, value, kernel, zero_padding=True):
         """
         Convolve value with kernel.

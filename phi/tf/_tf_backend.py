@@ -389,6 +389,10 @@ class TFBackend(Backend):
         with tf.device(x.device):
             return tf.math.softplus(x)
 
+    def log_gamma(self, x):
+        with tf.device(x.device):
+            return tf.math.lgamma(self.to_float(x))
+
     def conv(self, value, kernel, zero_padding=True):
         with self._device_for(value, kernel):
             value = self.to_float(value)
