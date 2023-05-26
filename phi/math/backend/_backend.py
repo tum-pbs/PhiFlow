@@ -1347,7 +1347,8 @@ class Backend:
             y = self.numpy(y)
             x0 = self.numpy(x0)
             tol_sq = self.numpy(tol_sq) if self.is_tensor(tol_sq, only_native=True) else tol_sq
-            return scipy_spsolve(self, method[len('scipy-'):], lin, y, x0, tol_sq, max_iter, pre)
+            result = scipy_spsolve(self, method[len('scipy-'):], lin, y, x0, tol_sq, max_iter, pre)
+            return SolveResult(result.method, self.as_tensor(result.x), self.as_tensor(result.residual), result.iterations, result.function_evaluations, result.converged, result.diverged, result.message)
         elif method == 'CG':
             return self.conjugate_gradient(lin, y, x0, tol_sq, max_iter, pre)
         elif method == 'CG-adaptive':
