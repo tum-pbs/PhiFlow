@@ -452,9 +452,7 @@ class NumPyBackend(Backend):
     #     return gradient
 
     def linear_solve(self, method: str, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
-        if method == 'CG-native':
-            method = 'CG'
-        if method in ['direct', 'CG', 'GMres', 'biCG', 'biCG-stab', 'CGS', 'lGMres', 'minres', 'QMR', 'GCrotMK']:
+        if method in ['direct', 'CG-native', 'GMres', 'biCG', 'biCG-stab', 'CGS', 'lGMres', 'minres', 'QMR', 'GCrotMK'] and max_iter.shape[0] == 1:
             from phi.math.backend._linalg import scipy_spsolve
             return scipy_spsolve(self, method, lin, y, x0, tol_sq, max_iter, pre)
         return Backend.linear_solve(self, method, lin, y, x0, tol_sq, max_iter, pre)
