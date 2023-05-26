@@ -134,6 +134,24 @@ class Field:
     def __repr__(self):
         return f"{self.__class__.__name__} {self.shape}"
 
+    @property
+    def is_grid(self):
+        """ `isinstance(self, Grid)`. Added for forward compatibility with 2.5. """
+        from ._grid import Grid
+        return isinstance(self, Grid)
+
+    @property
+    def is_point_cloud(self):
+        """ `isinstance(self, PointCloud)`. Added for forward compatibility with 2.5. """
+        from ._point_cloud import PointCloud
+        return isinstance(self, PointCloud)
+
+    @property
+    def is_staggered(self):
+        """ Whether the field values are sampled between elements. Added for forward compatibility with 2.5. """
+        from ._grid import StaggeredGrid
+        return isinstance(self, StaggeredGrid)
+
 
 class SampledField(Field):
     """

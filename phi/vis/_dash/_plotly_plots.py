@@ -68,7 +68,7 @@ class PlotlyPlots(PlottingLibrary):
 class LinePlot(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 1 and isinstance(data, Grid)
+        return data.spatial_rank == 1 and data.is_grid
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -92,7 +92,7 @@ class LinePlot(Recipe):
 class Heatmap2D(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape
+        return data.spatial_rank == 2 and data.is_grid and 'vector' not in data.shape
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -110,10 +110,10 @@ class Heatmap2D(Recipe):
 class VectorField2D(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 2 and isinstance(data, Grid)
+        return data.spatial_rank == 2 and data.is_grid
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
-        if isinstance(data, StaggeredGrid):
+        if data.is_staggered:
             data = data.at_centers()
         row, col = subplot
         dims = data.bounds.vector.item_names
@@ -139,7 +139,7 @@ class VectorField2D(Recipe):
 class Heatmap3D(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 3 and isinstance(data, Grid) and data.shape.channel.volume == 1
+        return data.spatial_rank == 3 and data.is_grid and data.shape.channel.volume == 1
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -162,14 +162,14 @@ class Heatmap3D(Recipe):
 class VectorField3D(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
-        return isinstance(data, Grid) and data.spatial_rank == 3
+        return data.is_grid and data.spatial_rank == 3
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         dims = data.bounds.vector.item_names
         vector = data.bounds.shape['vector']
         extra_channels = data.shape.channel.without('vector')
-        if isinstance(data, StaggeredGrid):
+        if data.is_staggered:
             data = data.at_centers()
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
         u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel])
@@ -182,7 +182,7 @@ class VectorField3D(Recipe):
 class VectorCloud2D(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
-        return isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data)
+        return data.is_point_cloud and data.spatial_rank == 2 and 'vector' in channel(data)
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -198,7 +198,7 @@ class VectorCloud2D(Recipe):
 class PointCloud2D(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
-        return isinstance(data, PointCloud) and data.spatial_rank == 2
+        return data.is_point_cloud and data.spatial_rank == 2
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         if isinstance(data.elements, GeometryStack):
@@ -238,7 +238,7 @@ class PointCloud2D(Recipe):
 class PointCloud3D(Recipe):
 
     def can_plot(self, data: SampledField, space: Box) -> bool:
-        return isinstance(data, PointCloud) and data.spatial_rank == 3
+        return data.is_point_cloud and data.spatial_rank == 3
 
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
