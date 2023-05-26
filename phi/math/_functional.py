@@ -110,23 +110,6 @@ def key_from_args(args: tuple, kwargs: Dict[str, Any], parameters: Tuple[str, ..
     return key, tensors, natives, kwargs
 
 
-# def key_from_args_pack_batch(args, kwargs, parameters: Tuple[str, ...], cache=False) -> Tuple[SignatureKey, List[Tensor], list, Dict[str, Any], Shape]:
-#     kwargs = {**kwargs, **{parameters[i]: v for i, v in enumerate(args)}}
-#     tree, tensors = disassemble_tree(kwargs)
-#     tracing = not math.all_available(*tensors)
-#     backend = math.choose_backend_t(*tensors)
-#     # if tracing and cache:
-#     #     cache = False
-#     #     warnings.warn("Cannot cache a tensor while tracing.", RuntimeWarning)
-#     batch_shape = merge_shapes(*[t.shape.batch for t in tensors])
-#     # tensors = [math.pack_dims(t, batch_shape, batch('batch'), pos=0) for t in tensors]
-#     natives = [math.reshaped_native(t, [batch_shape, *t.shape.non_batch], force_expand=True) for t in tensors]
-#     natives, shapes, specs = disassemble_tensors(tensors, expand=cache)
-#     shapes = tuple([math.concat_shapes(batch(batch=batch_shape.volume), *t.shape.non_batch) for t in tensors])
-#     key = SignatureKey(None, tree, shapes, specs, backend, tracing, {})
-#     return key, tensors, natives, kwargs, batch_shape
-
-
 def function_parameters(f) -> Tuple[str]:
     return tuple(get_function_parameters(f).keys())
 

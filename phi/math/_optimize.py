@@ -369,7 +369,7 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
     for t in x0_tensors:
         t._expand()
         assert t.shape.is_uniform
-        x0_natives.append(reshaped_native(t, [batch_dims, t.shape.non_batch], force_expand=True))
+        x0_natives.append(reshaped_native(t, [batch_dims, t.shape.non_batch]))
     x0_flat = backend.concat(x0_natives, -1)
 
     def unflatten_assemble(x_flat, additional_dims: Shape = EMPTY_SHAPE, convert=True):
@@ -392,13 +392,13 @@ def minimize(f: Callable[[X], Y], solve: Solve[X, Y]) -> X:
         _, y_tensors = disassemble_tree(y)
         assert not non_batch(y_tensors[0]), f"Failed to minimize '{f.__name__}' because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()"
         try:
-            loss_native = reshaped_native(y_tensors[0], [batch_dims])
+            loss_native = reshaped_native(y_tensors[0], [batch_dims], force_expand=False)
         except AssertionError:
             raise AssertionError(f"Failed to minimize '{f.__name__}' because its output loss {shape(y_tensors[0])} has more batch dimensions than the initial guess {batch_dims}.")
         return y_tensors[0].sum, (loss_native,)
 
-    atol = backend.to_float(reshaped_native(solve.abs_tol, [batch_dims], force_expand=True))
-    maxi = reshaped_numpy(solve.max_iterations, [batch_dims], force_expand=True)
+    atol = backend.to_float(reshaped_native(solve.abs_tol, [batch_dims]))
+    maxi = reshaped_numpy(solve.max_iterations, [batch_dims])
     trj = _SOLVE_TAPES and any(t.should_record_trajectory_for(solve) for t in _SOLVE_TAPES)
     t = time.perf_counter()
     ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
@@ -604,16 +604,16 @@ def _linear_solve_forward(y,
     pattern_dims_in = x0_tensor.shape.only(pattern_dims_in, reorder=True)
     pattern_dims_out = y_tensor.shape.only(pattern_dims_out, reorder=True)
     batch_dims = merge_shapes(y_tensor.shape.without(pattern_dims_out), x0_tensor.shape.without(pattern_dims_in))
-    x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch_dims, pattern_dims_in], force_expand=True))
-    y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, y_tensor.shape.only(pattern_dims_out)], force_expand=True))
-    rtol = backend.as_tensor(reshaped_native(math.to_float(solve.rel_tol), [batch_dims], force_expand=True))
-    atol = backend.as_tensor(reshaped_native(solve.abs_tol, [batch_dims], force_expand=True))
+    x0_native = backend.as_tensor(reshaped_native(x0_tensor, [batch_dims, pattern_dims_in]))
+    y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, y_tensor.shape.only(pattern_dims_out)]))
+    rtol = backend.as_tensor(reshaped_native(math.to_float(solve.rel_tol), [batch_dims]))
+    atol = backend.as_tensor(reshaped_native(solve.abs_tol, [batch_dims]))
     tol_sq = backend.maximum(rtol ** 2 * backend.sum(y_native ** 2, -1), atol ** 2)
     trj = _SOLVE_TAPES and any(t.should_record_trajectory_for(solve) for t in _SOLVE_TAPES)
     if trj:
         max_iter = np.expand_dims(np.arange(int(solve.max_iterations)+1), -1)
     else:
-        max_iter = reshaped_numpy(solve.max_iterations, [shape(solve.max_iterations).without(batch_dims), batch_dims], force_expand=True)
+        max_iter = reshaped_numpy(solve.max_iterations, [shape(solve.max_iterations).without(batch_dims), batch_dims])
     t = time.perf_counter()
     ret = backend.linear_solve(solve.method, native_lin_op, y_native, x0_native, tol_sq, max_iter, preconditioner)
     t = time.perf_counter() - t

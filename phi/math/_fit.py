@@ -63,8 +63,8 @@ def fit_hyperplane(x: Tensor, y: Tensor, point_dim: DimFilter = instance, weight
     mat = concat([x, ones(shape(x).without(vec_dim), channel(**{vec_dim.name: 'y'}))], vec_dim) * weights
     y *= weights
     # Least Squares fit
-    np_mat = reshaped_native(mat, [batch_dims, point_dim, vec_dim.name], force_expand=True)
-    np_rhs = reshaped_native(y, [batch_dims, point_dim, '_batch_per_matrix'], force_expand=True)
+    np_mat = reshaped_native(mat, [batch_dims, point_dim, vec_dim.name])
+    np_rhs = reshaped_native(y, [batch_dims, point_dim, '_batch_per_matrix'])
     from phi.math.backend import choose_backend
     backend = choose_backend(np_mat, np_rhs)
     solution, *_ = backend.matrix_solve_least_squares(np_mat, np_rhs)
