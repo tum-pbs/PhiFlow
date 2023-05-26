@@ -1155,6 +1155,7 @@ class NativeTensor(Tensor):
         order = parse_dim_order(order, check_rank=self.rank)
         order = self._shape.names if order is None else order
         assert isinstance(order, tuple)  # should not be necessary
+        assert all([n in order for n in self._native_shape.names]), f"order must list all essential dimensions but got {order} for tensor {self.shape}"
         backend = self.default_backend
         if order == self._native_shape.names:
             if self.dtype.precision in [None, get_precision()]:
