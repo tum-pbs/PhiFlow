@@ -633,7 +633,7 @@ class TestMathFunctions(TestCase):
         self.assertEqual((1, 12, 2), nat.shape)
         nat = math.reshaped_native(a, [batch(batch=10), a.shape.spatial, channel(vector=2)], force_expand=['x'])
         self.assertEqual((1, 12, 2), nat.shape)
-        nat = math.reshaped_native(a, [batch(batch=10), a.shape.spatial, channel(vector=2)], force_expand=True)
+        nat = math.reshaped_native(a, [batch(batch=10), a.shape.spatial, channel(vector=2)])
         self.assertEqual((10, 12, 2), nat.shape)
         nat = math.reshaped_native(a, [batch(batch=10), a.shape.spatial, channel(vector=2)], force_expand=['batch'])
         self.assertEqual((10, 12, 2), nat.shape)
@@ -644,7 +644,7 @@ class TestMathFunctions(TestCase):
         except AssertionError as err:
             print(err)
             pass
-        nat = math.reshaped_native(a, [spatial, non_spatial])
+        nat = math.reshaped_native(a, [spatial, non_spatial], force_expand=False)
         self.assertEqual((12, 2), nat.shape)
 
     def test_native(self):

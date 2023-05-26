@@ -119,8 +119,8 @@ class VectorField2D(Recipe):
         dims = data.bounds.vector.item_names
         vector = data.bounds.shape['vector']
         extra_channels = data.shape.channel.without('vector')
-        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel], force_expand=True)
-        u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without(vector)], force_expand=True)
+        x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
+        u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without(vector)])
         for ch in range(u.shape[0]):
             # quiver = figure_factory.create_quiver(x, y, data_x[ch], data_y[ch], scale=1.0)  # 7 points per arrow
             # fig.add_trace(quiver, row=row, col=col)
@@ -172,7 +172,7 @@ class VectorField3D(Recipe):
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-        u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel], force_expand=True)
+        u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel])
         figure.add_cone(x=x.flatten(), y=y.flatten(), z=z.flatten(), u=u.flatten(), v=v.flatten(), w=w.flatten(),
                         colorscale='Blues',
                         sizemode="absolute", sizeref=1,
@@ -188,7 +188,7 @@ class VectorCloud2D(Recipe):
         row, col = subplot
         vector = data.bounds.shape['vector']
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
-        u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
+        u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')])
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
         if (color != None).all:
             quiver.line.update(color=color.native())

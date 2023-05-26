@@ -174,7 +174,7 @@ class SparseCoordinateTensor(Tensor):
             native_indices = choose_backend(row_idx_packed, col_idx_packed).stack([row_idx_packed, col_idx_packed], -1)
             native_shape = (row_dims.volume, col_dims.volume)
         else:
-            native_indices = reshaped_native(self._indices, [ind_batch, instance, 'vector'], force_expand=True)
+            native_indices = reshaped_native(self._indices, [ind_batch, instance, 'vector'])
             native_shape = self._dense_shape.sizes
         native_values = reshaped_native(self._values, [ind_batch, instance, channels])
         return ind_batch, channels, native_indices, native_values, native_shape
@@ -545,8 +545,8 @@ class CompressedSparseMatrix(Tensor):
         from ._ops import reshaped_native
         ind_batch = batch(self._indices) & batch(self._pointers)
         channels = non_instance(self._values).without(ind_batch)
-        native_indices = reshaped_native(self._indices, [ind_batch, instance], force_expand=True)
-        native_pointers = reshaped_native(self._pointers, [ind_batch, instance], force_expand=True)
+        native_indices = reshaped_native(self._indices, [ind_batch, instance])
+        native_pointers = reshaped_native(self._pointers, [ind_batch, instance])
         native_values = reshaped_native(self._values, [ind_batch, instance, channels])
         native_shape = self._compressed_dims.volume, self._uncompressed_dims.volume
         if self._uncompressed_offset is not None:
@@ -856,7 +856,7 @@ def dot_compressed_dense(compressed: CompressedSparseMatrix, cdims: Shape, dense
     if compressed._uncompressed_dims in cdims:  # proper matrix-vector multiplication
         ind_batch, channels, native_indices, native_pointers, native_values, native_shape = compressed._native_csr_components()
         rhs_channels = shape(dense).without(ddims).without(channels)
-        dense_native = reshaped_native(dense, [ind_batch, ddims, channels, rhs_channels], force_expand=True)
+        dense_native = reshaped_native(dense, [ind_batch, ddims, channels, rhs_channels])
         result_native = backend.mul_csr_dense(native_indices, native_pointers, native_values, native_shape, dense_native)
         result = reshaped_tensor(result_native, [ind_batch, channels, compressed._compressed_dims, rhs_channels])
         return result
@@ -869,7 +869,7 @@ def dot_coordinate_dense(sparse: SparseCoordinateTensor, sdims: Shape, dense: Te
     backend = choose_backend(*sparse._natives() + dense._natives())
     ind_batch, channels, native_indices, native_values, native_shape = sparse._native_coo_components(sdims, matrix=True)
     rhs_channels = shape(dense).without(ddims).without(channels)
-    dense_native = reshaped_native(dense, [ind_batch, ddims, channels, rhs_channels], force_expand=True)
+    dense_native = reshaped_native(dense, [ind_batch, ddims, channels, rhs_channels])
     result_native = backend.mul_coo_dense(native_indices, native_values, native_shape, dense_native)
     result = reshaped_tensor(result_native, [ind_batch, channels, sparse._dense_shape.without(sdims), rhs_channels])
     return result

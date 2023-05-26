@@ -242,8 +242,8 @@ class BarChart(Recipe):
             width = x_max - x_min
         channels = channel(data.values).volume
         for i, ch in enumerate(channel(data.values).meshgrid(names=True)):
-            height = reshaped_numpy(data.values[ch], [instance(data)], force_expand=True)
-            errs = reshaped_numpy(err[ch], [instance(data)], force_expand=True)
+            height = reshaped_numpy(data.values[ch], [instance(data)])
+            errs = reshaped_numpy(err[ch], [instance(data)])
             cols = matplotlib_colors(color[ch], instance(data))
             alpha_f = float(alpha[ch].max)
             w = self.col_width / channels * width / len(x)
@@ -274,8 +274,8 @@ class Histogram(Recipe):
         bin_edges = [x[0] - (x[1]-x[0]) / 2, *((x[1:] + x[:-1]) / 2), x[-1] + (x[-1] - x[-2]) / 2]
         for i, ch in enumerate(channel(data.values).meshgrid(names=True)):
             line_width = 1.5 + .5 * (channel(data.values).volume - i - 1)
-            counts = reshaped_numpy(data.values[ch], [spatial(data)], force_expand=True)
-            # errs = reshaped_numpy(err[ch], [spatial(data)], force_expand=True)  ToDo
+            counts = reshaped_numpy(data.values[ch], [spatial(data)])
+            # errs = reshaped_numpy(err[ch], [spatial(data)])  ToDo
             histtype = 'bar' if i == 0 else 'step'
             if (color[ch] == None).all:
                 col = _default_color(i)
@@ -336,8 +336,8 @@ class VectorField2D(Recipe):
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
         x, y = reshaped_numpy(data.points.vector[dims], [vector, data.shape.without('vector')])
-        u, v = reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without('vector')], force_expand=True)
-        alphas = reshaped_numpy(alpha, [vector, data.shape.without('vector')], force_expand=True)
+        u, v = reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without('vector')])
+        alphas = reshaped_numpy(alpha, [vector, data.shape.without('vector')])
         colors = matplotlib_colors(color, data.shape.without('vector'))
         for ch in range(u.shape[0]):
             subplot.quiver(x, y, u[ch], v[ch], color=colors, alpha=alphas[ch], units='xy', scale=1)
@@ -356,8 +356,8 @@ class VectorField3D(Recipe):
         if isinstance(data, StaggeredGrid):
             data = data.at_centers()
         x, y, z = reshaped_numpy(data.points.vector[dims], [vector, data.shape.without('vector')])
-        u, v, w = reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without('vector')], force_expand=True)
-        alphas = reshaped_numpy(alpha, [vector, data.shape.without('vector')], force_expand=True)
+        u, v, w = reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without('vector')])
+        alphas = reshaped_numpy(alpha, [vector, data.shape.without('vector')])
         colors = matplotlib_colors(color, data.shape.without('vector'))
         for ch in range(u.shape[0]):
             subplot.quiver(x, y, z, u[ch], v[ch], w[ch], color=colors, alpha=alphas[ch])
@@ -386,12 +386,12 @@ class VectorCloud2D(Recipe):
     def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         vector = data.points.shape['vector']
         x, y = reshaped_numpy(data.points, [vector, data.shape.without('vector')])
-        u, v = reshaped_numpy(data.values, [vector, data.shape.without('vector')], force_expand=True)
+        u, v = reshaped_numpy(data.values, [vector, data.shape.without('vector')])
         if color.shape:
             col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
         else:
             col = _plt_col(color)
-        alphas = reshaped_numpy(alpha, [data.shape.without('vector')], force_expand=True)
+        alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
         subplot.quiver(x, y, u, v, color=col, units='xy', scale=1, alpha=alphas)
 
 
@@ -441,7 +441,7 @@ class PointCloud2D(Recipe):
             for idx in data.elements.geometries.shape[0].meshgrid():
                 PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val, label)
             return
-        x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)], force_expand=True)
+        x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)])
         if (color == None).all:
             if data.values.max == data.values.min:
                 mpl_colors = [_next_line_color(axis)] * non_channel(data).volume
@@ -450,7 +450,7 @@ class PointCloud2D(Recipe):
                 mpl_colors = add_color_bar(axis, values, min_val, max_val)
         else:
             mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
-        alphas = reshaped_numpy(alpha, [non_channel(data)], force_expand=True)
+        alphas = reshaped_numpy(alpha, [non_channel(data)])
         if isinstance(data.elements, Point):
             if spatial(data.points).is_empty:
                 axis.scatter(x, y, marker='x', color=mpl_colors, s=6 ** 2, alpha=alphas)
@@ -460,17 +460,17 @@ class PointCloud2D(Recipe):
                     axis.errorbar(x, y, y_err, x_err, fmt=' ')
         else:
             if isinstance(data.elements, Sphere):
-                rad = reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
+                rad = reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
             elif isinstance(data.elements, BaseBox):
-                w2, h2 = reshaped_numpy(data.elements.bounding_half_extent(), ['vector', data.shape.non_channel], force_expand=True)
+                w2, h2 = reshaped_numpy(data.elements.bounding_half_extent(), ['vector', data.shape.non_channel])
                 shapes = [plt.Rectangle((xi - w2i, yi - h2i), w2i * 2, h2i * 2, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for xi, yi, w2i, h2i, ci, a in zip(x, y, w2, h2, mpl_colors, alphas)]
             elif isinstance(data.elements, PolygonSurface):
-                xs, ys = reshaped_numpy(data.elements.corners(), ['vector', data.shape.non_channel, 'vertex_index'], force_expand=True)
-                counts = reshaped_numpy(data.elements._vertex_count, [data.shape.non_channel], force_expand=True)
+                xs, ys = reshaped_numpy(data.elements.corners(), ['vector', data.shape.non_channel, 'vertex_index'])
+                counts = reshaped_numpy(data.elements._vertex_count, [data.shape.non_channel])
                 shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor='white', alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
             else:
-                rad = reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel], force_expand=True)
+                rad = reshaped_numpy(data.elements.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
             c = matplotlib.collections.PatchCollection(shapes, match_original=True)
             axis.add_collection(c)
@@ -508,7 +508,7 @@ class PointCloud2D(Recipe):
         if all(dim.name in points.shape.get_item_names('vector') for dim in labelled_dims):
             return  # The point labels match one of the figure axes, so they are redundant
         if points.shape['vector'].size == 2:
-            xs, ys = reshaped_numpy(points, ['vector', points.shape.without('vector')], force_expand=True)
+            xs, ys = reshaped_numpy(points, ['vector', points.shape.without('vector')])
             x_view = axis.get_xlim()[1] - axis.get_xlim()[0]
             y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
             x_c = .95 * axis.get_xlim()[1] + .1 * axis.get_xlim()[0]
@@ -537,7 +537,7 @@ class PointCloud3D(Recipe):
         for idx in channels.meshgrid(names=True):
             x, y, z = reshaped_numpy(data[idx].points.vector[dims], [vector, non_channel(data)])
             mpl_colors = matplotlib_colors(color[idx], non_channel(data), default=0)
-            alphas = reshaped_numpy(alpha[idx], [non_channel(data)], force_expand=True)
+            alphas = reshaped_numpy(alpha[idx], [non_channel(data)])
             M = subplot.transData.get_matrix()
             x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
             if isinstance(data.elements, Sphere):
@@ -566,8 +566,8 @@ class Mesh2D(Recipe):
         point_cloud = PointCloud(data.elements, data.values, data.extrapolation, bounds=data.bounds)
         PointCloud2D().plot(point_cloud, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
         i, j = math.nonzero(data.edges).vector
-        i_x, i_y = reshaped_numpy(data.points[{instance(data).name: i}][dims], ['vector', 'nonzero'], force_expand=True)
-        j_x, j_y = reshaped_numpy(data.points[{instance(data).name: j}][dims], ['vector', 'nonzero'], force_expand=True)
+        i_x, i_y = reshaped_numpy(data.points[{instance(data).name: i}][dims], ['vector', 'nonzero'])
+        j_x, j_y = reshaped_numpy(data.points[{instance(data).name: j}][dims], ['vector', 'nonzero'])
         subplot.plot(np.stack([i_x, j_x]), np.stack([i_y, j_y]), color=_plt_col(color), alpha=float(alpha.max))
 
 

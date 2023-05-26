@@ -192,7 +192,7 @@ def numpy(value: Union[Tensor, Number, tuple, list, Any]):
 
 def reshaped_native(value: Tensor,
                     groups: Union[tuple, list],
-                    force_expand: Any = False,
+                    force_expand: Any = True,
                     to_numpy=False):
     """
     Returns a native representation of `value` where dimensions are laid out according to `groups`.
@@ -236,7 +236,7 @@ def reshaped_native(value: Tensor,
     return value.numpy(order) if to_numpy else value.native(order)
 
 
-def reshaped_numpy(value: Tensor, groups: Union[tuple, list], force_expand: Any = False):
+def reshaped_numpy(value: Tensor, groups: Union[tuple, list], force_expand: Any = True):
     """
     Returns the NumPy representation of `value` where dimensions are laid out according to `groups`.
 
@@ -349,7 +349,7 @@ def native_call(f: Callable, *inputs: Tensor, channels_last=None, channel_dim='v
     natives = []
     for i in inputs:
         groups = (batch, *i.shape.spatial.names, i.shape.channel) if channels_last else (batch, i.shape.channel, *i.shape.spatial.names)
-        natives.append(reshaped_native(i, groups))
+        natives.append(reshaped_native(i, groups, force_expand=False))
     output = f(*natives)
     if isinstance(channel_dim, str):
         channel_dim = channel(channel_dim)
@@ -2234,9 +2234,9 @@ def scatter(base_grid: Union[Tensor, Shape],
 
     def scatter_forward(base_grid, indices, values):
         indices = to_int32(round_(indices))
-        native_grid = reshaped_native(base_grid, [batches, *indexed_dims, channels], force_expand=True)
-        native_values = reshaped_native(values, [batches, lists, channels], force_expand=True)
-        native_indices = reshaped_native(indices, [batches, lists, 'vector'], force_expand=True)
+        native_grid = reshaped_native(base_grid, [batches, *indexed_dims, channels])
+        native_values = reshaped_native(values, [batches, lists, channels])
+        native_indices = reshaped_native(indices, [batches, lists, 'vector'])
         backend = choose_backend(native_indices, native_values, native_grid)
         if mode in ('add', 'update'):
             native_result = backend.scatter(native_grid, native_indices, native_values, mode=mode)
@@ -2298,9 +2298,9 @@ def histogram(values: Tensor, bins: Shape or Tensor = spatial(bins=30), weights=
     def histogram_uniform(values: Tensor, bin_edges: Tensor, weights):
         batch_dims = batch(values) & batch(bin_edges) & batch(weights)
         value_dims = non_batch(values) & non_batch(weights)
-        values_native = reshaped_native(values, [batch_dims, value_dims], force_expand=True)
-        weights_native = reshaped_native(weights, [batch_dims, value_dims], force_expand=True)
-        bin_edges_native = reshaped_native(bin_edges, [batch_dims, non_batch(bin_edges)], force_expand=True)
+        values_native = reshaped_native(values, [batch_dims, value_dims])
+        weights_native = reshaped_native(weights, [batch_dims, value_dims])
+        bin_edges_native = reshaped_native(bin_edges, [batch_dims, non_batch(bin_edges)])
         hist_native = backend.histogram1d(values_native, weights_native, bin_edges_native)
         hist = reshaped_tensor(hist_native, [batch_dims, non_batch(bin_edges).with_size(non_batch(bin_edges).size - 1)])
         return hist
@@ -2621,7 +2621,7 @@ def pairwise_distances(positions: Tensor,
         indices = []
         values = []
         for b in batch_shape.meshgrid():
-            native_positions = reshaped_native(positions[b], [primal_dims, channel(positions)], force_expand=True)
+            native_positions = reshaped_native(positions[b], [primal_dims, channel(positions)])
             native_max_dist = max_distance[b].native()
             if method == 'sparse':
                 nat_rows, nat_cols, nat_vals = find_neighbors(native_positions, native_max_dist, None, periodic=False, default=default)
@@ -2640,7 +2640,7 @@ def pairwise_distances(positions: Tensor,
         values = stack(values, batch_shape)
     elif mode == 'vectorize':
         raise NotImplementedError
-        # native_positions = reshaped_native(positions, [batch_shape, primal_dims, channel(positions)], force_expand=True)
+        # native_positions = reshaped_native(positions, [batch_shape, primal_dims, channel(positions)])
         # native_max_dist = reshaped_native(max_distance, [batch_shape, primal_dims], force_expand=False)
         # def single_search(pos, r):
         #     return find_neighbors(pos, r, None, periodic=False, pair_count=pair_count, default=default)
