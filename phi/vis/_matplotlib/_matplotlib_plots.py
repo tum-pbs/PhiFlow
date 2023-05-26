@@ -513,7 +513,7 @@ class PointCloud2D(Recipe):
             y_view = axis.get_ylim()[1] - axis.get_ylim()[0]
             x_c = .95 * axis.get_xlim()[1] + .1 * axis.get_xlim()[0]
             y_c = .95 * axis.get_ylim()[1] + .1 * axis.get_ylim()[0]
-            for x, y, idx in zip(xs, ys, labelled_dims.meshgrid(names=True)):
+            for x, y, idx in zip(xs, ys, labelled_dims.meshgrid()):
                 if axis.get_xscale() == 'log':
                     offset_x = x * (1 + .0003 * x_view) if x < x_c else x * (1 - .0003 * x_view)
                 else:
