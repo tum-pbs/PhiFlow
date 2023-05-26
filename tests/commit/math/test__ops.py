@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 import numpy as np
+import numpy.testing
 
 import phi
 from phi import math
@@ -524,6 +525,13 @@ class TestMathFunctions(TestCase):
                 value = math.tensor(1.3421)
                 results.append(math.arctan(value, divide_by=0))
         assert_close(results)
+
+    def test_factorial(self):
+        for backend in BACKENDS:
+            with backend:
+                value = math.tensor(4)
+                math.assert_close(24, math.factorial(value))
+                math.assert_close(1.791759469228055, math.log_gamma(value))
 
     def test_any(self):
         for backend in BACKENDS:

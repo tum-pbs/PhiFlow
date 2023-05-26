@@ -176,6 +176,7 @@ class TorchBackend(Backend):
     nonzero = torch.nonzero
     flip = torch.flip
     seed = staticmethod(torch.manual_seed)
+    log_gamma = torch.lgamma
 
     def softplus(self, x):
         return torch.nn.Softplus()(x)

@@ -55,7 +55,7 @@ from ._ops import (
     round_ as round, ceil, floor,
     maximum, minimum, clip,
     sqrt, exp, log, log2, log10, sigmoid, soft_plus,
-    sin, cos, tan, sinh, cosh, tanh, arcsin, arccos, arctan, arcsinh, arccosh, arctanh,
+    sin, cos, tan, sinh, cosh, tanh, arcsin, arccos, arctan, arcsinh, arccosh, arctanh, log_gamma, factorial,
     to_float, to_int32, to_int64, to_complex, imag, real, conjugate,
     degrees,
     boolean_mask,
