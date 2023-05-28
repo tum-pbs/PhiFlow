@@ -171,3 +171,8 @@ class TestBackends(TestCase):
             numpy.testing.assert_equal([(3, 0), (4, 1)], b.numpy(result))
             result = b.vectorized_call(gather1d, values, indices, output_dtypes=b.dtype(values))
             numpy.testing.assert_equal([(3, 0), (4, 1)], b.numpy(result))
+
+    def test_linspace_without_last(self):
+        for b in BACKENDS:
+            result = b.linspace_without_last(-1, 1, 4)
+            numpy.testing.assert_equal([-1, -.5, 0, .5], b.numpy(result))

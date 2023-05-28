@@ -1,17 +1,17 @@
 import numbers
 import os
 import sys
-from typing import List, Any, Callable, Union, Optional
+from typing import Union, Optional
 
 import numpy as np
 import numpy.random
 import scipy.signal
 import scipy.sparse
 from scipy.sparse import issparse
-from scipy.sparse.linalg import cg, spsolve, LinearOperator
+from scipy.sparse.linalg import cg
 
 from . import Backend, ComputeDevice
-from ._backend import combined_dim, SolveResult, TensorType, IncompleteLU, Preconditioner
+from ._backend import combined_dim, SolveResult, TensorType
 from ._dtype import from_numpy_dtype, to_numpy_dtype, DType
 
 
@@ -204,6 +204,9 @@ class NumPyBackend(Backend):
 
     def linspace(self, start, stop, number):
         return np.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type))
+
+    def linspace_without_last(self, start, stop, number):
+        return np.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type), endpoint=False)
 
     def mean(self, value, axis=None, keepdims=False):
         return np.mean(value, axis, keepdims=keepdims)

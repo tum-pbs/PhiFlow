@@ -327,6 +327,10 @@ class JaxBackend(Backend):
         self._check_float64()
         return jax.device_put(jnp.linspace(start, stop, number, dtype=to_numpy_dtype(self.float_type)), self._default_device.ref)
 
+    def linspace_without_last(self, start, stop, number):
+        self._check_float64()
+        return jax.device_put(jnp.linspace(start, stop, number, endpoint=False, dtype=to_numpy_dtype(self.float_type)), self._default_device.ref)
+
     def mean(self, value, axis=None, keepdims=False):
         return jnp.mean(value, axis, keepdims=keepdims)
 

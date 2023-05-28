@@ -643,6 +643,9 @@ class Backend:
     def linspace(self, start, stop, number):
         raise NotImplementedError(self)
 
+    def linspace_without_last(self, start, stop, number):
+        return self.linspace(start, stop, number+1)[:-1]
+
     def tensordot(self, a, a_axes: Union[tuple, list], b, b_axes: Union[tuple, list]):
         """ Multiply-sum-reduce a_axes of a with b_axes of b. """
         raise NotImplementedError(self)
