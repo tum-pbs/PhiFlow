@@ -185,13 +185,13 @@ class TorchBackend(Backend):
         tensors = self.auto_cast(*tensors, bool_to_int=True, int_to_float=True)
         return torch.einsum(equation, *tensors)
 
-    def vectorized_call(self, f, *args, output_dtypes=None):
+    def vectorized_call(self, f, *args, output_dtypes=None, **aux_args):
         if not hasattr(torch, 'vmap'):
-            return Backend.vectorized_call(self, f, *args, output_dtypes=output_dtypes)
+            return Backend.vectorized_call(self, f, *args, output_dtypes=output_dtypes, **aux_args)
         batch_size = self.determine_size(args, 0)
         args = [self.tile_to(t, 0, batch_size) for t in args]
         f_vec = torch.vmap(f, 0, 0)
-        return f_vec(*args)
+        return f_vec(*args, **aux_args)
 
     def jit_compile(self, f: Callable) -> Callable:
         return JITFunction(self, f)
