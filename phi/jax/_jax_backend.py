@@ -421,7 +421,7 @@ class JaxBackend(Backend):
     def ravel_multi_index(self, multi_index, shape, mode: Union[str, int] = 'undefined'):
         if not self.is_available(shape):
             return Backend.ravel_multi_index(self, multi_index, shape, mode)
-        mode = mode if isinstance(mode, int) else {'undefined': 'raise', 'periodic': 'wrap', 'clamp': 'clip'}[mode]
+        mode = mode if isinstance(mode, int) else {'undefined': 'clip', 'periodic': 'wrap', 'clamp': 'clip'}[mode]
         idx_first = jnp.transpose(multi_index, (self.ndims(multi_index)-1,) + tuple(range(self.ndims(multi_index)-1)))
         result = jnp.ravel_multi_index(idx_first, shape, mode='wrap' if isinstance(mode, int) else mode)
         if isinstance(mode, int):
