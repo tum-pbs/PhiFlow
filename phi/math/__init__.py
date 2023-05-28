@@ -34,7 +34,7 @@ from ._magic_ops import (
 
 from ._tensors import wrap, tensor, layout, Tensor, Dict, to_dict, from_dict, is_scalar, BROADCAST_FORMATTER as f
 
-from ._sparse import dense, get_sparsity, factor_ilu, get_format, sparse_tensor, stored_indices, stored_values, tensor_like
+from ._sparse import dense, get_sparsity, get_format, sparse_tensor, stored_indices, stored_values, tensor_like
 
 from .extrapolation import Extrapolation
 
@@ -81,7 +81,7 @@ from ._functional import (
     trace_check,
 )
 
-from ._optimize import solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape
+from ._optimize import solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape, factor_ilu
 
 from ._nd import (
     shift,
