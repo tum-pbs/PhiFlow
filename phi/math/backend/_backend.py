@@ -456,7 +456,7 @@ class Backend:
     def block_until_ready(self, values):
         pass
 
-    def vectorized_call(self, f, *args, output_dtypes=None):
+    def vectorized_call(self, f, *args, output_dtypes=None, **aux_args):
         """
         Args:
             f: Function with only positional tensor argument, returning one or multiple tensors.
