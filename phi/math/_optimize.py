@@ -7,7 +7,7 @@ import numpy
 import numpy as np
 
 from .backend import get_precision
-from ._shape import EMPTY_SHAPE, Shape, merge_shapes, batch, non_batch, shape, dual, channel, non_dual
+from ._shape import EMPTY_SHAPE, Shape, merge_shapes, batch, non_batch, shape, dual, channel, non_dual, instance
 from ._magic_ops import stack, copy_with, rename_dims, unpack_dim
 from ._sparse import native_matrix, SparseCoordinateTensor, CompressedSparseMatrix
 from ._tensors import Tensor, disassemble_tree, assemble_tree, wrap, cached, NativeTensor, layout
@@ -15,7 +15,8 @@ from . import _ops as math
 from ._ops import choose_backend_t, zeros_like, all_available, reshaped_native, reshaped_tensor, to_float, reshaped_numpy
 from ._functional import custom_gradient, LinearFunction, f_name
 from .backend import Backend
-from .backend._backend import SolveResult, PHI_LOGGER, IncompleteLU
+from .backend._backend import SolveResult, PHI_LOGGER, choose_backend, default_backend
+from .backend._linalg import IncompleteLU, incomplete_lu_dense, incomplete_lu_coo, coarse_explicit_preconditioner_coo
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -538,20 +539,12 @@ def solve_linear(f: Union[Callable[[X], Y], Tensor],
         else:
             matrix = f
             bias = 0
-        if solve.preconditioner is not None:
-            if solve.preconditioner == 'ilu':
-                from ._sparse import factor_ilu
-                lower, upper = factor_ilu(matrix)
+        preconditioner = compute_preconditioner(solve.preconditioner, matrix, safe=False) if solve.preconditioner is not None else None
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
             backend_matrix = native_matrix(matrix)
             pattern_dims_in = channel(**dual(matrix).untyped_dict).names
             pattern_dims_out = non_dual(matrix).names  # batch dims can be sparse or batched matrices
-            preconditioner = None
-            if solve.preconditioner is not None:
-                native_lower = native_matrix(lower)
-                native_upper = native_matrix(upper)
-                preconditioner = IncompleteLU(native_lower, True, native_upper, False, rank_deficiency=0)  # ToDo rank deficiency
             result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
             return result  # must return exactly `x` so gradient isn't computed w.r.t. other quantities
 
@@ -682,3 +675,93 @@ def attach_gradient_solve(forward_solve: Callable, auxiliary_args: str, matrix_a
     solve_with_grad = custom_gradient(forward_solve, implicit_gradient_solve, auxiliary_args=auxiliary_args)
     return solve_with_grad
 
+
+def compute_preconditioner(method: str, matrix: Tensor, safe=False):
+    if method == 'auto':
+        is_cpu = default_backend().get_default_device().device_type == 'CPU'
+        if is_cpu:
+            method = 'ilu'
+        else:
+            method = 'explicit-cluster'
+    if method == 'ilu':
+        lower, upper = factor_ilu(matrix, iterations=None, safe=safe)
+        native_lower = native_matrix(lower)
+        native_upper = native_matrix(upper)
+        return IncompleteLU(native_lower, True, native_upper, False, rank_deficiency=0)  # ToDo rank deficiency
+    elif method == 'explicit-cluster':
+
+        return explicit_coarse(matrix)
+    raise NotImplementedError
+
+
+def factor_ilu(matrix: Tensor, iterations=None, safe=False):
+    """
+    Incomplete LU factorization for dense or sparse matrices.
+
+    For sparse matrices, keeps the sparsity pattern of `matrix`.
+    L and U will be trimmed to the respective areas, i.e. stored upper elements in L will be dropped,
+     unless this would lead to varying numbers of stored elements along a batch dimension.
+
+    Args:
+        matrix: Dense or sparse matrix to factor.
+            Currently, compressed sparse matrices are decompressed before running the ILU algorithm.
+        iterations: (Optional) Number of fixed-point iterations to perform.
+        safe: If `False` (default), only matrices with a rank deficiency of up to 1 can be factored as all values of L and U are uniquely determined.
+            For matrices with higher rank deficiencies, the result includes `NaN` values.
+            If `True`, the algorithm runs slightly slower but can factor highly rank-deficient matrices as well.
+            However, then L is undeterdetermined and unused values of L are set to 0.
+            Rank deficiencies of 1 occur frequently in periodic settings but higher ones are rare.
+
+    Returns:
+        L: Lower-triangular matrix as `Tensor` with all diagonal elements equal to 1.
+        U: Upper-triangular matrix as `Tensor`.
+
+    Examples:
+        >>> matrix = wrap([[-2, 1, 0],
+        >>>                [1, -2, 1],
+        >>>                [0, 1, -2]], channel('row'), dual('col'))
+        >>> L, U = math.factor_ilu(matrix)
+        >>> math.print(L)
+        row=0      1.          0.          0.         along ~col
+        row=1     -0.5         1.          0.         along ~col
+        row=2      0.         -0.6666667   1.         along ~col
+        >>> math.print(L @ U, "L @ U")
+                    L @ U
+        row=0     -2.   1.   0.  along ~col
+        row=1      1.  -2.   1.  along ~col
+        row=2      0.   1.  -2.  along ~col
+    """
+    if iterations is None:
+        cols = dual(matrix).volume
+        iterations = min(20, int(round(1.6 * cols)))
+    if isinstance(matrix, CompressedSparseMatrix):
+        matrix = matrix.decompress()
+    if isinstance(matrix, SparseCoordinateTensor):
+        ind_batch, channels, indices, values, shape = matrix._native_coo_components(dual, matrix=True)
+        (l_idx_nat, l_val_nat), (u_idx_nat, u_val_nat) = incomplete_lu_coo(indices, values, shape, iterations, safe)
+        col_dims = matrix._shape.only(dual)
+        row_dims = matrix._dense_shape.without(col_dims)
+        l_indices = matrix._unpack_indices(l_idx_nat[..., 0], l_idx_nat[..., 1], row_dims, col_dims, ind_batch)
+        u_indices = matrix._unpack_indices(u_idx_nat[..., 0], u_idx_nat[..., 1], row_dims, col_dims, ind_batch)
+        from ._ops import reshaped_tensor
+        l_values = reshaped_tensor(l_val_nat, [ind_batch, instance(matrix._values), channels], convert=False)
+        u_values = reshaped_tensor(u_val_nat, [ind_batch, instance(matrix._values), channels], convert=False)
+        lower = SparseCoordinateTensor(l_indices, l_values, matrix._dense_shape, matrix._can_contain_double_entries, matrix._indices_sorted, matrix._default)
+        upper = SparseCoordinateTensor(u_indices, u_values, matrix._dense_shape, matrix._can_contain_double_entries, matrix._indices_sorted, matrix._default)
+    else:  # dense matrix
+        from ._ops import reshaped_native, reshaped_tensor
+        native_matrix = reshaped_native(matrix, [batch, non_batch(matrix).non_dual, dual, EMPTY_SHAPE])
+        l_native, u_native = incomplete_lu_dense(native_matrix, iterations, safe)
+        lower = reshaped_tensor(l_native, [batch(matrix), non_batch(matrix).non_dual, dual(matrix), EMPTY_SHAPE])
+        upper = reshaped_tensor(u_native, [batch(matrix), non_batch(matrix).non_dual, dual(matrix), EMPTY_SHAPE])
+    return lower, upper
+
+
+def explicit_coarse(matrix: Tensor, clusters=3 ** 6):
+    if isinstance(matrix, CompressedSparseMatrix):
+        matrix = matrix.decompress()
+    if isinstance(matrix, SparseCoordinateTensor):
+        ind_batch, channels, indices, values, shape = matrix._native_coo_components(dual, matrix=True)
+        return coarse_explicit_preconditioner_coo(indices, values, shape, clusters=clusters)
+    else:  # dense matrix
+        raise NotImplementedError

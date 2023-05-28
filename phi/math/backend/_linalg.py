@@ -1,17 +1,15 @@
 import warnings
-from functools import partial
+from dataclasses import dataclass
 from typing import Tuple, Callable, Union, Optional
 
+import numpy
 import numpy as np
 import scipy
 from scipy.sparse import issparse
 from scipy.sparse.linalg import spsolve, LinearOperator
 
-from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, Preconditioner, NoPreconditioner, combined_dim
+from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, combined_dim, choose_backend, TensorType, Preconditioner
 
-
-def identity(x):
-    return x
 
 
 def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged: Optional[Callable] = None):
@@ -47,12 +45,12 @@ def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional
     Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
     symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b, pre=M
     """
-    pre = pre or identity
+    pre = pre or NoPreconditioner()
     batch_size = b.staticshape(y)[0]
     y = b.to_float(y)
     x = b.copy(b.to_float(x0), only_mutable=True)
     residual = y - b.linear(lin, x)
-    dx = pre(residual)
+    dx = pre.apply(residual)
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
     residual_squared = b.sum(residual * dx, -1, keepdims=True)
@@ -68,7 +66,7 @@ def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional
         step_size *= b.expand_dims(b.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
         x += step_size * dx
         residual = residual - step_size * dy  # in-place subtraction affects convergence
-        s = pre(residual)
+        s = pre.apply(residual)
         residual_squared_old = residual_squared
         residual_squared = b.sum(residual * s, -1, keepdims=True)
         dx = s + b.divide_no_nan(residual_squared, residual_squared_old) * dx
@@ -334,11 +332,73 @@ def scipy_iterative_sparse_solve(b: Backend, lin, y, x0, tol_sq, max_iter, pre, 
     return SolveResult(f'scipy.sparse.linalg.{scipy_function.__name__}', x, residual, iterations, iterations + 1, converged, diverged, messages)
 
 
-def incomplete_lu_dense(b: 'Backend', matrix, iterations: int, safe: bool):
+class NoPreconditioner(Preconditioner):
+
+    def apply(self, vec):
+        return vec
+
+    def apply_transposed(self, vec):
+        return vec
+
+    def apply_inv_l(self, vec):
+        return vec
+
+    def apply_inv_u(self, vec):
+        return vec
+
+
+@dataclass
+class IncompleteLU(Preconditioner):
+
+    lower: TensorType  # (batch_size, rows, cols)
+    lower_unit_diagonal: bool
+    upper: TensorType  # (batch_size, rows, cols)
+    upper_unit_diagonal: bool
+    rank_deficiency: int
+
+    def __post_init__(self):  # ToDo this is temporary until backend.solve_triangular supports sparse matrices
+        # assert choose_backend(self.lower).ndims(self.lower) == 3
+        # assert choose_backend(self.upper).ndims(self.lower) == 3
+        self._np_lower = choose_backend(self.lower).numpy(self.lower)
+        self._np_upper = choose_backend(self.upper).numpy(self.upper)
+
+    def apply_inv_l(self, vec):
+        b = choose_backend(self.lower, self.upper, vec)
+        return b.solve_triangular(self.lower, vec, lower=True, unit_diagonal=self.lower_unit_diagonal)
+
+    def apply_inv_u(self, vec):
+        b = choose_backend(self.lower, self.upper, vec)
+        return b.solve_triangular(self.upper, vec, lower=False, unit_diagonal=self.upper_unit_diagonal)
+
+    def apply(self, vec):
+        b = choose_backend(vec)
+        np_vec = vec if isinstance(vec, numpy.ndarray) else b.numpy(vec)
+        from scipy.sparse.linalg import spsolve_triangular
+        np_intermediate = spsolve_triangular(self._np_lower, np_vec.T, lower=True, unit_diagonal=self.lower_unit_diagonal)
+        np_result = spsolve_triangular(self._np_upper, np_intermediate, lower=False, unit_diagonal=self.upper_unit_diagonal).T
+        return np_result if isinstance(vec, numpy.ndarray) else b.as_tensor(np_result)
+        # intermediate = b.solve_triangular(self.lower, vec, lower=True, unit_diagonal=self.lower_unit_diagonal)
+        # # ToDo if set last rank_deficiency entries to 0, then solve smaller system
+        # result = b.solve_triangular(self.upper, intermediate, lower=False, unit_diagonal=self.upper_unit_diagonal)
+        # # return result.T
+        # return result
+
+    def apply_transposed(self, vec):
+        b = choose_backend(self.lower, self.upper, vec)
+        np_vec = vec if isinstance(vec, numpy.ndarray) else b.numpy(vec)
+        from scipy.sparse.linalg import spsolve_triangular, spsolve
+        np_intermediate = spsolve_triangular(self._np_upper.T, np_vec.T, lower=True, unit_diagonal=self.upper_unit_diagonal)
+        np_result = spsolve_triangular(self._np_lower.T, np_intermediate, lower=False, unit_diagonal=self.lower_unit_diagonal).T
+        return np_result if isinstance(vec, numpy.ndarray) else b.as_tensor(np_result)
+        # intermediate = b.solve_triangular(self.upper.T, vec.T, lower=True, unit_diagonal=self.upper_unit_diagonal)
+        # result = b.solve_triangular(self.lower.T, intermediate, lower=False, unit_diagonal=self.lower_unit_diagonal).T
+        # return result
+
+
+def incomplete_lu_dense(matrix, iterations: int, safe: bool):
     """
 
     Args:
-        b: `Backend`
         matrix: Square matrix of Shape (batch_size, rows, cols, channels)
         iterations: Number of fixed-point iterations to perform.
         safe: Avoid NaN when the rank deficiency of `matrix` is 2 or higher.
@@ -350,6 +410,9 @@ def incomplete_lu_dense(b: 'Backend', matrix, iterations: int, safe: bool):
         L: lower triangular matrix with ones on the diagonal
         U: upper triangular matrix
     """
+    b = choose_backend(matrix)
+    assert b.dtype(matrix).kind in (bool, int, float)
+    values = b.to_float(matrix)
     row, col = np.indices(b.staticshape(matrix)[1:-1])
     is_lower = np.expand_dims(row > col, -1)
     is_upper = np.expand_dims(row < col, -1)
@@ -367,7 +430,7 @@ def incomplete_lu_dense(b: 'Backend', matrix, iterations: int, safe: bool):
     return lu * is_lower + is_diagonal, lu * ~is_lower
 
 
-def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], iterations: int, safe: bool):
+def incomplete_lu_coo(indices, values, shape: Tuple[int, int], iterations: int, safe: bool):
     """
     Based on *Parallel Approximate LU Factorizations for Sparse Matrices* by T.K. Huckle, https://www5.in.tum.de/persons/huckle/it_ilu.pdf.
 
@@ -375,7 +438,6 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
     There should not be any zeros on the diagonal, else the LU initialization fails.
 
     Args:
-        b: `Backend`
         indices: Row & column indices of stored entries as `numpy.ndarray` of shape (batch_size, nnz, 2).
         values: Backend-compatible values tensor of shape (batch_size, nnz, channels)
         shape: Dense shape of matrix
@@ -390,7 +452,10 @@ def incomplete_lu_coo(b: 'Backend', indices, values, shape: Tuple[int, int], ite
         U: tuple `(indices, values)` where `indices` is a NumPy array and values is backend-specific
     """
     assert isinstance(indices, np.ndarray), "incomplete_lu_coo indices must be a NumPy array"
+    b = choose_backend(indices, values)
+    assert b.dtype(values).kind in (bool, int, float)
     row, col = indices[..., 0], indices[..., 1]
+    values = b.as_tensor(values)
     batch_size, nnz, channels = b.staticshape(values)
     rows, cols = shape
     assert rows == cols, "incomplete_lu_coo only implemented for square matrices"
@@ -564,3 +629,69 @@ def parallelize_dense_triangular_solve(b: Backend, matrix, lower_triangular=True
             x /= matrix[row, row]
         xs[row] = x
     print(xs)
+
+
+@dataclass
+class ExplicitClusterSolve(Preconditioner):
+    inv_coarse_matrix: TensorType
+    clusters: TensorType
+    cluster_count: int
+    cluster_size: TensorType
+    fac: float = .95
+
+    def apply(self, vec):
+        b = choose_backend(vec)
+        non_batch = b.ndims(vec) == 1
+        coarse_vec = b.batched_bincount(self.clusters, weights=vec[None, :] if non_batch else vec, bins=self.cluster_count)
+        delta = vec - b.batched_gather_1d(coarse_vec / self.cluster_size, self.clusters)  # to make the preconditioner full-rank
+        # --- direct solve ---
+        coarse_solution = b.linear(self.inv_coarse_matrix, coarse_vec)
+        fine_solution = b.batched_gather_1d(coarse_solution, self.clusters)
+        np.set_printoptions(linewidth=np.inf)
+        # print(b.numpy(fine_solution)[0])
+        result = (fine_solution + delta) * self.fac + vec * (1 - self.fac)
+        return result[0] if non_batch else result
+
+    def apply_transposed(self, vec):
+        raise NotImplementedError
+
+    def apply_inv_l(self, vec):
+        return vec
+
+    def apply_inv_u(self, vec):
+        return self.apply(vec)
+
+
+def coarse_explicit_preconditioner_coo(indices: TensorType, values: TensorType, shape: Tuple[int, int], clusters: Union[int, TensorType] = 3 ** 6) -> ExplicitClusterSolve:
+    """
+    Args:
+        indices: (batch_size, nnz, 2)
+        values: (batch_size, nnz,)
+        shape: Sparse matrix shape, (rows, cols)
+        clusters: Either number of clusters as `int` or cluster index by element as (batch_size, rows/cols,)
+    """
+    rows, cols = shape
+    b = choose_backend(indices, values, clusters)
+    batch_size, nnz, channels = b.staticshape(values)
+    row, col = indices[..., 0], indices[..., 1]
+    assert b.staticshape(indices)[0] == 1
+    # --- cluster entries ---
+    if isinstance(clusters, int):
+        cluster_count = min(clusters, rows)
+        clusters = b.to_int32(b.linspace_without_last(0, cluster_count, rows))[None, :]
+    else:
+        cluster_count = b.max(clusters) + 1
+        assert b.staticshape(clusters) == (batch_size, rows)
+    cluster_size = b.bincount(clusters[0, :], None, cluster_count)
+    cluster_row = b.batched_gather_1d(clusters, row)
+    cluster_col = b.batched_gather_1d(clusters, col)
+    # --- compute coarse matrix ---
+    coarse_matrix = b.zeros((batch_size, cluster_count, cluster_count, 1), b.dtype(values))
+    coarse_indices = b.stack([cluster_row, cluster_col], -1)
+    coarse_matrix = b.scatter(coarse_matrix, coarse_indices, values, mode='add')[..., 0]
+    # coarse_matrix /= cluster_size[:, None]  # ToDo or cluster_size[:, None] ?
+    # inv_matrix = b.invert_matrix(coarse_matrix)
+    inv_matrix = numpy.linalg.inv(b.numpy(coarse_matrix)[0])
+    inv_matrix = b.as_tensor(inv_matrix)
+    cluster_size_f = b.cast(cluster_size, b.dtype(values))
+    return ExplicitClusterSolve(inv_matrix, clusters, cluster_count, cluster_size_f)

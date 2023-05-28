@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import List, Callable, TypeVar, Tuple, Union, Optional
 
 import numpy
+from numpy import ndarray
 
 from ._dtype import DType, combine_types
 
@@ -23,6 +24,20 @@ class SolveResult:
     converged: TensorType  # (max_iter+1, batch) or (batch,)
     diverged: TensorType  # (max_iter+1, batch) or (batch,)
     message: List[str]  # (batch,)
+
+
+class Preconditioner:
+    def apply(self, vec):
+        raise NotImplementedError
+
+    def apply_transposed(self, vec):
+        raise NotImplementedError
+
+    def apply_inv_l(self, vec):
+        raise NotImplementedError
+
+    def apply_inv_u(self, vec):
+        raise NotImplementedError
 
 
 class ComputeDevice:
@@ -61,88 +76,6 @@ class ComputeDevice:
 
     def __hash__(self):
         return hash(self.ref)
-
-
-class Preconditioner:
-    def apply(self, vec):
-        raise NotImplementedError
-
-    def apply_transposed(self, vec):
-        raise NotImplementedError
-
-    def apply_inv_l(self, vec):
-        raise NotImplementedError
-
-    def apply_inv_u(self, vec):
-        raise NotImplementedError
-
-    def __call__(self, *args, **kwargs):
-        assert len(args) == 1
-        assert not kwargs
-        return self.apply(args[0])
-
-
-class NoPreconditioner(Preconditioner):
-
-    def apply(self, vec):
-        return vec
-
-    def apply_transposed(self, vec):
-        return vec
-
-    def apply_inv_l(self, vec):
-        return vec
-
-    def apply_inv_u(self, vec):
-        return vec
-
-
-@dataclass
-class IncompleteLU(Preconditioner):
-
-    lower: TensorType  # (batch_size, rows, cols)
-    lower_unit_diagonal: bool
-    upper: TensorType  # (batch_size, rows, cols)
-    upper_unit_diagonal: bool
-    rank_deficiency: int
-
-    def __post_init__(self):  # ToDo this is temporary until backend.solve_triangular supports sparse matrices
-        # assert choose_backend(self.lower).ndims(self.lower) == 3
-        # assert choose_backend(self.upper).ndims(self.lower) == 3
-        self._np_lower = choose_backend(self.lower).numpy(self.lower)
-        self._np_upper = choose_backend(self.upper).numpy(self.upper)
-
-    def apply_inv_l(self, vec):
-        b = choose_backend(self.lower, self.upper, vec)
-        return b.solve_triangular(self.lower, vec, lower=True, unit_diagonal=self.lower_unit_diagonal)
-
-    def apply_inv_u(self, vec):
-        b = choose_backend(self.lower, self.upper, vec)
-        return b.solve_triangular(self.upper, vec, lower=False, unit_diagonal=self.upper_unit_diagonal)
-
-    def apply(self, vec):
-        b = choose_backend(vec)
-        np_vec = vec if isinstance(vec, numpy.ndarray) else b.numpy(vec)
-        from scipy.sparse.linalg import spsolve_triangular
-        np_intermediate = spsolve_triangular(self._np_lower, np_vec.T, lower=True, unit_diagonal=self.lower_unit_diagonal)
-        np_result = spsolve_triangular(self._np_upper, np_intermediate, lower=False, unit_diagonal=self.upper_unit_diagonal).T
-        return np_result if isinstance(vec, numpy.ndarray) else b.as_tensor(np_result)
-        # intermediate = b.solve_triangular(self.lower, vec, lower=True, unit_diagonal=self.lower_unit_diagonal)
-        # # ToDo if set last rank_deficiency entries to 0, then solve smaller system
-        # result = b.solve_triangular(self.upper, intermediate, lower=False, unit_diagonal=self.upper_unit_diagonal)
-        # # return result.T
-        # return result
-
-    def apply_transposed(self, vec):
-        b = choose_backend(self.lower, self.upper, vec)
-        np_vec = vec if isinstance(vec, numpy.ndarray) else b.numpy(vec)
-        from scipy.sparse.linalg import spsolve_triangular, spsolve
-        np_intermediate = spsolve_triangular(self._np_upper.T, np_vec.T, lower=True, unit_diagonal=self.upper_unit_diagonal)
-        np_result = spsolve_triangular(self._np_lower.T, np_intermediate, lower=False, unit_diagonal=self.lower_unit_diagonal).T
-        return np_result if isinstance(vec, numpy.ndarray) else b.as_tensor(np_result)
-        # intermediate = b.solve_triangular(self.upper.T, vec.T, lower=True, unit_diagonal=self.upper_unit_diagonal)
-        # result = b.solve_triangular(self.lower.T, intermediate, lower=False, unit_diagonal=self.lower_unit_diagonal).T
-        # return result
 
 
 class Backend:
@@ -467,7 +400,7 @@ class Backend:
         batch_dim = self.determine_size(args, 0)
         result = []
         for b in range(batch_dim):
-            result.append(f(*[t[min(b, self.staticshape(t)[0] - 1)] for t in args]))
+            result.append(f(*[t[min(b, self.staticshape(t)[0] - 1)] for t in args], **aux_args))
         return self.stack(result)
 
     def determine_size(self, tensors, axis):
@@ -894,9 +827,7 @@ class Backend:
         raise NotImplementedError(self)
 
     def batched_gather_1d(self, values, indices):
-        values = self.expand_dims(values, -1)
-        indices = self.expand_dims(indices, -1)
-        return self.batched_gather_nd(values, indices)[..., 0]
+        return self.batched_gather_nd(values[:, :, None], indices[:, :, None])[..., 0]
 
     def gather_1d(self, values, indices):
         return self.gather(values, indices, 0)
@@ -954,8 +885,14 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def bincount(self, x, weights, bins: int):
+    def bincount(self, x, weights: Optional[TensorType], bins: int):
         raise NotImplementedError(self)
+
+    def batched_bincount(self, x, weights: Optional[TensorType], bins: int):
+        if weights is None:
+            return self.vectorized_call(self.bincount, x, weights=None, bins=bins)
+        else:
+            return self.vectorized_call(self.bincount, x, weights, bins=bins)
 
     def any(self, boolean_tensor, axis=None, keepdims=False):
         raise NotImplementedError(self)
@@ -1184,18 +1121,6 @@ class Backend:
         result = self.scatter(base, indices, values, mode='add' if contains_duplicates else 'update')
         return result
 
-    def ilu_coo(self, indices, values, shape, iterations: int, safe: bool):
-        """ See incomplete_lu_coo() in _linalg """
-        from ._linalg import incomplete_lu_coo
-        assert self.dtype(values).kind in (bool, int, float)
-        return incomplete_lu_coo(self, indices, self.to_float(values), shape, iterations, safe)
-
-    def ilu_dense(self, matrix, iterations: int, safe: bool):
-        """ See incomplete_lu_dense() in _linalg """
-        from ._linalg import incomplete_lu_dense
-        assert self.dtype(matrix).kind in (bool, int, float)
-        return incomplete_lu_dense(self, self.to_float(matrix), iterations, safe)
-
     def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
         """
         Create a sparse matrix in compressed sparse row (CSR) format.
@@ -1320,7 +1245,14 @@ class Backend:
             from ._minimize import scipy_minimize
             return scipy_minimize(self, method, f, x0, atol, max_iter, trj)
 
-    def linear_solve(self, method: str, lin, y, x0, tol_sq, max_iter, pre: Optional[Callable]) -> SolveResult:
+    def linear_solve(self,
+                     method: str,
+                     lin: Union[Callable, TensorType],
+                     y: TensorType,
+                     x0: TensorType,
+                     tol_sq: Union[ndarray, TensorType],
+                     max_iter: ndarray,
+                     pre: Optional[Preconditioner]) -> SolveResult:
         """
         Solve the system of linear equations A · x = y.
         This method need not provide a gradient for the operation.
