@@ -37,11 +37,13 @@ def find_neighbors(positions,
         differences: (pair_count, ndims)
     """
     b = choose_backend(positions)
+    if not b.is_available(positions):
+        assert pair_count is not None, f"pair_count must be provided when tracing find_neighbors"
     positions = b.to_float(b.as_tensor(positions))
-    cutoff = b.to_float(cutoff)
     num_part, d = b.staticshape(positions)
-    cells, perm, neighbor_cells, cell_size, structure = build_cells(b, positions, cutoff, domain, periodic, cell_mode)
-    tmp_pair_count = pair_count * b.prod(3 * cell_size) / (_sphere_volume(cutoff, d)) if pair_count is not None else None  # approximate over-counting from including out-of-range particles in neighboring cells
+    cells, perm, neighbor_cells, cell_size, structure = build_cells(positions, cutoff, domain, periodic, cell_mode)
+    b_ = choose_backend(cell_size)
+    tmp_pair_count = b_.to_int32(b_.ceil(pair_count * b_.prod(3 * cell_size) / (_sphere_volume(cutoff, d)))) if pair_count is not None else None  # approximate over-counting from including out-of-range particles in neighboring cells
     linear_indices = b.range(num_part, dtype=index_dtype)
     particle_ids = b.gather(linear_indices, perm, 0)
     positions = b.gather(positions, perm, 0)
@@ -90,21 +92,22 @@ def find_neighbors(positions,
     return from_id, to_id, dx
 
 
-def build_cells(b: Backend,
-                positions,
+def build_cells(positions,
                 min_cell_size,
                 domain: Optional[Tuple[TensorType, TensorType]],
                 periodic: Union[bool, Tuple[bool, ...]],
                 mode: str) -> Tuple[TensorType, TensorType, TensorType, TensorType, 'IndexingStructure']:
     assert mode in ['grid', 'tree'], mode  # , 'hexagonal-grid'
+    b = choose_backend(positions)
+    b_ = choose_backend(min_cell_size, *domain)
     _, d = b.staticshape(positions)
     periodic = [periodic] * d if np.ndim(periodic) == 0 else tuple(periodic)
     if domain is None:
-        domain = b.min(positions, 0), b.max(positions, 0) + 1e-5
-    domain_size = b.maximum(domain[1] - domain[0], min_cell_size)
+        domain = b_.min(positions, 0), b.max(positions, 0) + 1e-5
+    domain_size = b_.maximum(domain[1] - domain[0], min_cell_size)
     if mode == 'grid':
-        resolution = b.maximum(1, b.to_int32(b.ceil(domain_size / min_cell_size)))
-        cell_count = b.prod(resolution)
+        resolution = b_.maximum(1, b_.to_int32(b_.ceil(domain_size / min_cell_size)))
+        cell_count = b_.prod(resolution)
         extent = min_cell_size * resolution
         cell_size = extent / resolution
         cell_indices = b.to_int32((positions - domain[0]) / extent * b.to_float(resolution))
