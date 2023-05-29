@@ -99,7 +99,7 @@ def build_cells(positions,
                 mode: str) -> Tuple[TensorType, TensorType, TensorType, TensorType, 'IndexingStructure']:
     assert mode in ['grid', 'tree'], mode  # , 'hexagonal-grid'
     b = choose_backend(positions)
-    b_ = choose_backend(min_cell_size, *domain)
+    b_ = choose_backend(min_cell_size, *domain or ())
     _, d = b.staticshape(positions)
     periodic = [periodic] * d if np.ndim(periodic) == 0 else tuple(periodic)
     if domain is None:
