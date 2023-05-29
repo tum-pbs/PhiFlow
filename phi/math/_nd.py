@@ -1,17 +1,14 @@
-from functools import partial
-from typing import Tuple, Optional, List, Union
+from typing import Tuple, Optional, Union
 
 import numpy as np
 
-from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order, shape, instance
-from .magic import PhiTreeNode
-from ._magic_ops import stack, rename_dims, concat, variable_values
-from ._tensors import Tensor, wrap, tensor
-from . import extrapolation as extrapolation
-from .extrapolation import Extrapolation
 from . import _ops as math
-from ._functional import jit_compile_linear
-from ._optimize import solve_linear
+from . import extrapolation as extrapolation
+from ._magic_ops import stack, rename_dims, concat, variable_values
+from ._shape import Shape, channel, batch, spatial, DimFilter, parse_dim_order, shape, instance
+from ._tensors import Tensor, wrap, tensor
+from .extrapolation import Extrapolation
+from .magic import PhiTreeNode
 
 
 def vec(name: Union[str, Shape] = 'vector', *sequence, tuple_dim=spatial('sequence'), list_dim=instance('sequence'), **components) -> Tensor:

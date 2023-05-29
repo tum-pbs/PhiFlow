@@ -2302,14 +2302,15 @@ def format_summary(self: Tensor, options: PrintOptions) -> str:
 
 def sparse_summary(value: Tensor, options: PrintOptions) -> str:
     colors = options.get_colors()
-    from ._sparse import SparseCoordinateTensor
+    from ._sparse import get_format
     tokens = []
     if is_unexpected_dtype(value.dtype) if options.include_dtype is None else options.include_dtype:
         tokens.append(f"{colors.dtype(value.dtype)}")
-    tokens.append("sparse" if isinstance(value, SparseCoordinateTensor) else "compressed sparse")
+    tokens.append("sparse " + get_format(value))
     if options.include_shape is not False:
         tokens.append(f"{colors.shape(value.shape)}")
-    tokens.append(f"with {instance(value._values).volume} entries")
+    tokens.append(f"with {instance(value._values).volume} entries:")
+    tokens.append(format_summary(value._values, options))
     return " ".join(tokens)
 
 
