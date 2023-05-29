@@ -262,20 +262,26 @@ class SparseCoordinateTensor(Tensor):
 
     def _op2(self, other, operator: Callable, native_function: Callable, op_name: str = 'unknown', op_symbol: str = '?') -> 'Tensor':
         other_shape = shape(other)
-        affects_only_values = self._dense_shape not in other_shape and non_instance(self._indices).isdisjoint(other_shape)
+        affects_only_values = self._dense_shape.isdisjoint(other_shape)
         if affects_only_values:
             return self._with_values(operator(self._values, other))
         if isinstance(other, CompressedSparseMatrix):
             other = other.decompress()
         if isinstance(other, SparseCoordinateTensor):
-            if other._indices is self._indices:
+            if same_sparsity_pattern(self, other):
                 return self._with_values(operator(self._values, other._values))
             elif op_symbol == '+':
                 raise NotImplementedError("Compressed addition not yet implemented")
             else:
                 # convert to COO, then perform operation
                 raise NotImplementedError
-        raise NotImplementedError
+        else:  # other is dense
+            if self._dense_shape in other.shape:  # all dims dense -> convert to dense
+                return dense(self)._op2(other, operator, native_function, op_name, op_symbol)
+            else:  # only some dims dense -> stay sparse
+                dense_dims = self._dense_shape.only(other.shape)
+                other_values = other[self._indices.vector[dense_dims.names]]
+                return self._with_values(self._values._op2(other_values, operator, native_function, op_name, op_symbol))
 
     def _getitem(self, selection: dict) -> 'Tensor':
         batch_selection = {dim: selection[dim] for dim in self._shape.only(tuple(selection)).names}
@@ -297,6 +303,8 @@ class SparseCoordinateTensor(Tensor):
                 start = sel.start or 0
                 stop = self._dense_shape[dim].size if sel.stop is None else sel.stop
                 keep &= (start <= dim_indices) & (dim_indices < stop)
+                from phi.math import vec
+                indices -= vec(**{d: start if d == dim else 0 for d in indices.vector.item_names})
             from ._ops import boolean_mask
             indices = boolean_mask(indices, instance(indices), keep)
             values = boolean_mask(values, instance(indices), keep)
@@ -304,6 +312,31 @@ class SparseCoordinateTensor(Tensor):
             return SparseCoordinateTensor(indices, values, dense_shape, self._can_contain_double_entries, self._indices_sorted, self._default)
         else:
             return SparseCoordinateTensor(indices, values, self._dense_shape, self._can_contain_double_entries, self._indices_sorted, self._default)
+
+    def __concat__(self, tensors: tuple, dim: str, **kwargs) -> 'SparseCoordinateTensor':
+        if not all(isinstance(t, SparseCoordinateTensor) for t in tensors):
+            return NotImplemented
+        if dim in self._dense_shape:
+            # assert all default equal
+            from phi.math import vec
+            indices = []
+            values = []
+            offset = 0
+            for t in tensors:
+                t_indices = stored_indices(t, list_dim=instance(self._indices), index_dim=channel(self._indices))
+                t_values = stored_values(t, list_dim=instance(self._values))
+                t_indices += vec(**{d: offset if d == dim else 0 for d in t_indices.vector.item_names})
+                offset += t.shape.get_size(dim)
+                indices.append(t_indices)
+                values.append(t_values)
+            indices = concat(indices, instance(self._indices))
+            values = concat(values, instance(self._values))
+            dense_shape = self._dense_shape.with_dim_size(dim, sum([t.shape.get_size(dim) for t in tensors]))
+            can_contain_double_entries = any([t._can_contain_double_entries for t in tensors])
+            indices_sorted = all([t._indices_sorted for t in tensors])
+            return SparseCoordinateTensor(indices, values, dense_shape, can_contain_double_entries, indices_sorted, self._default)
+        else:
+            raise NotImplementedError("concatenating compressed sparse tensors along non-sparse dims not yet supported")
 
 
 class CompressedSparseMatrix(Tensor):
@@ -436,7 +469,7 @@ class CompressedSparseMatrix(Tensor):
                 if batch(indices):
                     raise NotImplementedError("Slicing not yet supported for batched sparse tensors")
                 start = ptr_sel.start or 0
-                stop = uncompressed.volume if ptr_sel.stop is None else ptr_sel.stop
+                stop = compressed.volume if ptr_sel.stop is None else ptr_sel.stop
                 pointers = pointers[start:stop+1]
                 indices = indices[{instance(indices).name: slice(int(pointers[0]), int(pointers[-1]))}]
                 values = values[{instance(values).name: slice(int(pointers[0]), int(pointers[-1]))}]

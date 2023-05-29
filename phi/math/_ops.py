@@ -1172,7 +1172,19 @@ def _sum(value: Tensor, dims: Shape) -> Tensor:
             return value
             # first sum value dims that are not part of indices
         else:
-            raise NotImplementedError
+            assert isinstance(value, SparseCoordinateTensor)
+            if value._dense_shape in dims:  # sum all sparse dims
+                v_dims = dims.without(value._dense_shape) & instance(value._values)
+                return _sum(value._values, v_dims)
+            else:
+                result_base = zeros(value.shape.without(dims))
+                remaining_sparse_dims = value._dense_shape.without(dims)
+                indices = value._indices.vector[remaining_sparse_dims.names]
+                if remaining_sparse_dims.rank == 1:  # return dense result
+                    result = scatter(result_base, indices, value._values, mode='add', outside_handling='undefined')
+                    return result
+                else:  # return sparse result
+                    raise NotImplementedError
     else:
         raise ValueError(type(value))
 
@@ -1632,6 +1644,8 @@ def dot(x: Tensor,
         return dot_compressed_dense(y, y_dims, x, x_dims)
     if isinstance(x, SparseCoordinateTensor):
         if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            if x_dims.isdisjoint(sparse_dims(x)) and y_dims.isdisjoint(sparse_dims(y)):
+                return x._op2(y, lambda vx, vy: dot(vx, x_dims, vy, y_dims), None, 'dot', '@')
             raise NotImplementedError("sparse-sparse multiplication not yet supported")
         return dot_coordinate_dense(x, x_dims, y, y_dims)
     elif isinstance(y, SparseCoordinateTensor):
@@ -2218,7 +2232,7 @@ def scatter(base_grid: Union[Tensor, Shape],
         indexed_dims = grid_shape.only(indexed_dims)
     else:
         assert channel(indices).rank == 1 or (grid_shape.spatial_rank + grid_shape.instance_rank == 1 and indices.shape.channel_rank == 0)
-        indexed_dims = grid_shape.spatial
+        indexed_dims = grid_shape.spatial or grid_shape.instance
         assert channel(indices).volume == indexed_dims.rank
     values = wrap(values)
     batches = values.shape.non_channel.non_instance & indices.shape.non_channel.non_instance

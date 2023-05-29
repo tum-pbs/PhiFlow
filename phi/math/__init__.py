@@ -69,6 +69,17 @@ from ._ops import (
     pairwise_distances, map_pairs,
 )
 
+from ._nd import (
+    shift,
+    vec, const_vec, vec_abs, vec_abs as vec_length, vec_squared, vec_normalize, cross_product, rotate_vector, dim_mask,
+    normalize_to,
+    l1_loss, l2_loss, frequency_loss,
+    spatial_gradient, laplace,
+    fourier_laplace, fourier_poisson, abs_square,
+    downsample2x, upsample2x, sample_subgrid,
+    masked_fill, finite_fill
+)
+
 from ._trace import matrix_from_function
 
 from ._functional import (
@@ -82,17 +93,6 @@ from ._functional import (
 )
 
 from ._optimize import solve_linear, solve_nonlinear, minimize, Solve, SolveInfo, ConvergenceException, NotConverged, Diverged, SolveTape, factor_ilu
-
-from ._nd import (
-    shift,
-    vec, const_vec, vec_abs, vec_abs as vec_length, vec_squared, vec_normalize, cross_product, rotate_vector, dim_mask,
-    normalize_to,
-    l1_loss, l2_loss, frequency_loss,
-    spatial_gradient, laplace,
-    fourier_laplace, fourier_poisson, abs_square,
-    downsample2x, upsample2x, sample_subgrid,
-    masked_fill, finite_fill
-)
 
 PI = 3.14159265358979323846
 """Value of π to double precision """
