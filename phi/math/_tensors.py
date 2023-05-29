@@ -878,7 +878,7 @@ class TensorDim(BoundDim):
         else:
             return NotImplemented
 
-    __rmul__ = __mul__
+    __rmul__ = __matmul__ = __rmatmul__ = __mul__
 
     def sum(self):
         from ._ops import sum_
