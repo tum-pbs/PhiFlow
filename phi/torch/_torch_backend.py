@@ -727,6 +727,7 @@ class TorchBackend(Backend):
     def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
         row_pointers = self.as_tensor(row_pointers)
         column_indices = self.as_tensor(column_indices)
+        values = self.as_tensor(values)
         return torch.sparse_csr_tensor(row_pointers, column_indices, values, shape, device=values.device)
 
     # def csr_matrix_batched(self, column_indices, row_pointers, values, shape: Tuple[int, int]):

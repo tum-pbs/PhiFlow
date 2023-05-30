@@ -6,10 +6,16 @@ from typing import Tuple, Callable, Union, Optional
 import numpy
 import numpy as np
 import scipy
-from scipy.sparse import issparse
+from scipy.sparse import issparse, coo_matrix
 from scipy.sparse.linalg import spsolve, LinearOperator
 
-from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, combined_dim, choose_backend, TensorType, Preconditioner, PHI_LOGGER
+from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, combined_dim, choose_backend, TensorType, Preconditioner, PHI_LOGGER, convert
+
+
+def pre_str(pre: Optional[Preconditioner]):
+    if not pre:
+        return ""
+    return f"with preconditioner '{pre}'"
 
 
 def stop_on_l2(b: Backend, rhs_norm_sq, rtol, atol, max_iter: np.ndarray):
@@ -76,7 +82,7 @@ def cg(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditione
         return continue_, x, dx, delta, residual, iterations, function_evaluations, converged, diverged
 
     _, x, _, _, residual, iterations, function_evaluations, converged, diverged = b.while_loop(cg_loop_body, (continue_, x, dx, delta0, residual, iterations, function_evaluations, converged, diverged), _max_iter(max_iter))
-    return SolveResult(f"Φ-Flow CG ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
+    return SolveResult(f"Φ-Flow CG ({b.name}) {pre_str(pre)}", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
 def cg_adaptive(b, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]) -> Union[SolveResult, List[SolveResult]]:
@@ -114,12 +120,14 @@ def cg_adaptive(b, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditione
         return continue_, x, dx, dy, residual, iterations, function_evaluations, converged, diverged
 
     _, x, _, _, residual, iterations, function_evaluations, converged, diverged = b.while_loop(acg_loop_body, (continue_, x, dx, dy, residual, iterations, function_evaluations, converged, diverged), _max_iter(max_iter))
-    return SolveResult(f"Φ-Flow CG-adaptive ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
+    return SolveResult(f"Φ-Flow CG-adaptive ({b.name}) {pre_str(pre)}", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
 def bicg(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner], poly_order: int) -> Union[SolveResult, List[SolveResult]]:
     """ Adapted from [BiCGstab for linear equations involving unsymmetric matrices with complex spectrum](https://dspace.library.uu.nl/bitstream/handle/1874/16827/sleijpen_93_bicgstab.pdf) """
     # Based on "BiCG-stab(L) for linear equations involving asymmetric matrices with complex spectrum" by Gerard L.G. Sleijpen
+    if poly_order == 0:
+        raise NotImplementedError(f"Generic non-stabilized biCG not supported. Use 'scipy-biCG' instead")
     if poly_order == 1:
         return bicg_stab_first_order(b, lin, y, x0, rtol, atol, max_iter, pre)
     if pre:
@@ -204,7 +212,7 @@ def bicg(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditio
         return continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat
 
     _, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat = b.while_loop(loop_body, (continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_0, rho_1, omega, alpha, u, u_hat, r0_hat), _max_iter(max_iter))
-    return SolveResult(f"Φ-Flow biCG-stab({poly_order}) ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
+    return SolveResult(f"Φ-Flow biCG-stab({poly_order}) ({b.name}) {pre_str(pre)}", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
 def bicg_stab_first_order(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]) -> SolveResult or List[SolveResult]:
@@ -254,12 +262,14 @@ def bicg_stab_first_order(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Opt
         return continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_prev, rho, omega, alpha, u, p
 
     _, x, residual, iterations, function_evaluations, converged, diverged, rho_prev, rho, omega, alpha, u, p = b.while_loop(loop_body, (continue_, x, residual, iterations, function_evaluations, converged, diverged, rho_prev, rho, omega, alpha, u, p), _max_iter(max_iter))
-    return SolveResult(f"Φ-Flow BICG", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
+    return SolveResult(f"Φ-Flow biCG-stab {pre_str(pre)}", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
 def scipy_spsolve(b: Backend, method: Union[str, Callable], lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]) -> SolveResult:
     assert max_iter.shape[0] == 1, f"Trajectory recording not supported for scipy_spsolve"
     if method == 'direct':
+        if pre:
+            warnings.warn(f"Preconditioner {pre} was computed but is not used by SciPy direct solve.", RuntimeWarning)
         return scipy_direct_linear_solve(b, lin, y)
     else:
         if isinstance(method, str):
@@ -363,6 +373,7 @@ class IncompleteLU(Preconditioner):
     upper: TensorType  # (batch_size, rows, cols)
     upper_unit_diagonal: bool
     rank_deficiency: int
+    source: str
 
     def __post_init__(self):  # ToDo this is temporary until backend.solve_triangular supports sparse matrices
         # assert choose_backend(self.lower).ndims(self.lower) == 3
@@ -402,6 +413,9 @@ class IncompleteLU(Preconditioner):
         # result = b.solve_triangular(self.lower.T, intermediate, lower=False, unit_diagonal=self.lower_unit_diagonal).T
         # return result
 
+    def __repr__(self):
+        return f"ilu ({self.source})"
+
 
 def incomplete_lu_dense(matrix, iterations: int, safe: bool):
     """
@@ -420,7 +434,6 @@ def incomplete_lu_dense(matrix, iterations: int, safe: bool):
     """
     b = choose_backend(matrix)
     assert b.dtype(matrix).kind in (bool, int, float)
-    values = b.to_float(matrix)
     row, col = np.indices(b.staticshape(matrix)[1:-1])
     is_lower = np.expand_dims(row > col, -1)
     is_upper = np.expand_dims(row < col, -1)
@@ -645,23 +658,18 @@ class ExplicitClusterSolve(Preconditioner):
     clusters: TensorType
     cluster_count: int
     cluster_size: TensorType
-    fac: float = 1
 
     def apply(self, vec):
-        is_numpy = isinstance(vec, np.ndarray)
         b = choose_backend(vec, self.inv_coarse_matrix)
-        vec = b.as_tensor(vec)
         non_batch = b.ndims(vec) == 1
+        # --- Down-project / sum vec ---
         coarse_vec = b.batched_bincount(self.clusters, weights=vec[None, :] if non_batch else vec, bins=self.cluster_count)
         delta = vec - b.batched_gather_1d(coarse_vec / self.cluster_size, self.clusters)  # to make the preconditioner full-rank
         # --- direct solve ---
         coarse_solution = b.linear(self.inv_coarse_matrix, coarse_vec)
-        fine_solution = b.batched_gather_1d(coarse_solution, self.clusters)
-        np.set_printoptions(linewidth=np.inf)
-        # print(b.numpy(fine_solution)[0])
-        result = (fine_solution + delta) * self.fac + vec * (1 - self.fac)
-        result = result[0] if non_batch else result
-        return b.numpy(result) if is_numpy else result
+        fine_solution = b.batched_gather_1d(coarse_solution, self.clusters)  # np.set_printoptions(linewidth=np.inf); print(b.numpy(fine_solution)[0])
+        result = fine_solution + delta
+        return result[0] if non_batch else result
 
     def apply_transposed(self, vec):
         raise NotImplementedError
@@ -672,40 +680,71 @@ class ExplicitClusterSolve(Preconditioner):
     def apply_inv_u(self, vec):
         return self.apply(vec)
 
+    def __repr__(self):
+        return f"cluster ({self.cluster_count})"
 
-def coarse_explicit_preconditioner_coo(indices: TensorType, values: TensorType, shape: Tuple[int, int], clusters: Union[int, TensorType] = 3 ** 6) -> ExplicitClusterSolve:
+
+def coarse_explicit_preconditioner_coo(bt: Backend, indices: TensorType, values: TensorType, shape: Tuple[int, int], clusters: TensorType, cluster_count: int) -> ExplicitClusterSolve:
     """
     Args:
+        b: Target backend that performs the linear solve.
         indices: (batch_size, nnz, 2)
         values: (batch_size, nnz,)
         shape: Sparse matrix shape, (rows, cols)
-        clusters: Either number of clusters as `int` or cluster index by element as (batch_size, rows/cols,)
+        clusters: cluster index by element as (batch_size, rows/cols,)
     """
-    rows, cols = shape
-    b = choose_backend(indices, values, clusters)
-    batch_size, nnz, channels = b.staticshape(values)
-    row, col = indices[..., 0], indices[..., 1]
-    assert b.staticshape(indices)[0] == 1
-    # --- cluster entries ---
-    if isinstance(clusters, int):
-        cluster_count = min(clusters, rows)
-        clusters = b.to_int32(b.linspace_without_last(0, cluster_count, rows))[None, :]
+    b0 = choose_backend(indices, values, clusters)
+    from . import NUMPY  # we can use NumPy inversion if either b or b0 is NumPy
+    if bt is NUMPY:
+        values = b0.numpy(values)  # convert(values, b)
+        b = NUMPY
     else:
-        cluster_count = b.max(clusters) + 1
-        assert b.staticshape(clusters) == (batch_size, rows)
+        b = b0
+    batch_size, nnz, channels = b0.staticshape(values)
+    row, col = indices[..., 0], indices[..., 1]
+    assert b0.staticshape(indices)[0] == 1, f"Batched coo indices not supported"
     cluster_size = b.bincount(clusters[0, :], None, cluster_count)
     cluster_row = b.batched_gather_1d(clusters, row)
     cluster_col = b.batched_gather_1d(clusters, col)
     # --- compute coarse matrix ---
     coarse_matrix = b.zeros((batch_size, cluster_count, cluster_count, 1), b.dtype(values))
     coarse_indices = b.stack([cluster_row, cluster_col], -1)
-    coarse_matrix = b.scatter(coarse_matrix, coarse_indices, values, mode='add')[..., 0]
-    # coarse_matrix /= cluster_size[:, None]  # ToDo or cluster_size[:, None] ?
-    # inv_matrix = b.invert_matrix(coarse_matrix)
-    PHI_LOGGER.info(f"Preconditioner: inverting matrix of size {b.staticshape(coarse_matrix)} using NumPy")
+    coarse_matrix = b.scatter(coarse_matrix, coarse_indices, values, mode='add')[..., 0]  # coarse_matrix /= cluster_size
+    # --- invert matrix ---
+    PHI_LOGGER.info(f"Explicit-cluster: inverting matrix of size {b.staticshape(coarse_matrix)} using NumPy")
     t = time.perf_counter()
     inv_matrix = numpy.linalg.inv(b.numpy(coarse_matrix)[0])
-    PHI_LOGGER.info(f"Preconditioner: Matrix inverted. ({time.perf_counter() - t} seconds)")
+    PHI_LOGGER.info(f"Explicit-cluster: Matrix inverted. ({time.perf_counter() - t} seconds)")
     inv_matrix = b.as_tensor(inv_matrix)
     cluster_size_f = b.cast(cluster_size, b.dtype(values))
-    return ExplicitClusterSolve(inv_matrix, clusters, cluster_count, cluster_size_f)
+    return ExplicitClusterSolve(convert(inv_matrix, bt), convert(clusters, bt), cluster_count, convert(cluster_size_f, bt))
+
+
+def cluster_coo(indices: np.ndarray, shape: Tuple[int, int], cluster_count: int):
+    rows, cols = shape
+    b = choose_backend(indices)
+    batch_size, nnz, _ = b.staticshape(indices)
+    avg_cluster_size = rows / cluster_count
+    avg_entries_per_element = nnz / rows
+    d = (avg_entries_per_element - 1) / 2  # proxy for spatial dimension
+    PHI_LOGGER.info(f"Clustering matrix {shape} with {nnz} elements based on connections...")
+    for b in range(batch_size):
+        mask = coo_matrix((numpy.ones(nnz), indices[b].T))
+        connection_counts = np.asarray(np.sum(mask, 1))[:, 0]
+        start = np.where(connection_counts == connection_counts.min())[0]
+        if len(start) > nnz / 2:
+            start = [0]
+        clusters = np.zeros((rows,), dtype=np.int32) - 1
+        clusters[start] = np.arange(len(start))
+        while np.any(clusters < 0):
+            cluster_sizes = np.bincount(clusters + 1, minlength=len(clusters) + 1)[1:]
+            """
+            for each element:
+                check whether it neighbors a non-full cluster
+                if it connects to multiple elements (2 for d==2, 4 in 4D) of that cluster it gets priority to be added 
+            """
+
+            candidates_by_cluster = []
+            raise NotImplementedError
+    PHI_LOGGER.info(f"Clustering successful.")
+    return ...

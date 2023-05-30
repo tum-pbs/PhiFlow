@@ -77,11 +77,11 @@ class TestSparse(TestCase):
             return math.laplace(x, padding=math.extrapolation.ZERO)
         matrix, bias = math.matrix_from_function(f, math.ones(spatial(x=5)))
         # --- Sparse ILU ---
-        L, U = math.factor_ilu(matrix)
+        L, U = math.factor_ilu(matrix, 10)
         L, U = math.dense(L), math.dense(U)
         math.assert_close(L @ U, matrix)
         # --- Dense ILU ---
         matrix = math.dense(matrix)
-        L, U = math.factor_ilu(matrix)
+        L, U = math.factor_ilu(matrix, 10)
         math.assert_close(L @ U, matrix)
 

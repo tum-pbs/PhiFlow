@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from typing import List, Callable, TypeVar, Tuple, Union, Optional
 
 import numpy
+import numpy as np
 from numpy import ndarray
 
 from ._dtype import DType, combine_types
 
 
 TensorType = TypeVar('TensorType')
+TensorOrArray = Union[TensorType, np.ndarray]
 
 
 @dataclass
@@ -786,7 +788,7 @@ class Backend:
         Returns:
             Integer tensor of shape (batch...)
         """
-        strides = [self.ones((), DType(int, 32))]
+        strides = [self.ones((), self.dtype(multi_index))]
         for size in reversed(shape[1:]):
             strides.append(strides[-1] * size)
         strides = self.stack(strides[::-1])
@@ -1126,7 +1128,7 @@ class Backend:
         result = self.scatter(base, indices, values, mode='add' if contains_duplicates else 'update')
         return result
 
-    def csr_matrix(self, column_indices, row_pointers, values, shape: Tuple[int, int]):
+    def csr_matrix(self, column_indices: TensorOrArray, row_pointers: TensorOrArray, values: TensorOrArray, shape: Tuple[int, int]):
         """
         Create a sparse matrix in compressed sparse row (CSR) format.
 
@@ -1303,8 +1305,7 @@ class Backend:
         elif method == 'CG-adaptive':
             return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, pre)
         elif method in ['biCG', 'biCG-stab(0)']:
-            raise NotImplementedError("Unstabilized Bi-CG not yet supported")
-            # return self.bi_conjugate_gradient_original(lin, y, x0, rtol, atol, max_iter)
+            return self.bi_conjugate_gradient(lin, y, x0, rtol, atol, max_iter, pre, poly_order=0)
         elif method == 'biCG-stab':
             return self.bi_conjugate_gradient(lin, y, x0, rtol, atol, max_iter, pre, poly_order=1)
         elif method.startswith('biCG-stab('):
