@@ -1762,7 +1762,12 @@ def soft_plus(x) -> Union[Tensor, PhiTreeNode]:
 
 
 def factorial(x) -> Union[Tensor, PhiTreeNode]:
-    """ Computes *factorial(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. """
+    """
+    Computes *factorial(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`.
+    For floating-point numbers computes the continuous factorial using the gamma function.
+    For integer numbers computes the exact factorial and returns the same integer type.
+    However, this results in integer overflow for inputs larger than 12 (int32) or 19 (int64).
+    """
     return _backend_op1(x, Backend.factorial)
 
 

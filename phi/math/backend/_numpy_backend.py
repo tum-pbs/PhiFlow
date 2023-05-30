@@ -68,7 +68,6 @@ class NumPyBackend(Backend):
     round = staticmethod(np.round)
     ceil = np.ceil
     floor = np.floor
-    factorial = np.math.factorial
     log_gamma = np.math.lgamma
     shape = staticmethod(np.shape)
     staticshape = staticmethod(np.shape)

@@ -439,7 +439,7 @@ class TFBackend(Backend):
 
     def gather(self, values, indices, axis: int):
         with self._device_for(values, indices):
-            indices = indices % self.shape(values)[axis]
+            indices = indices % self.cast(self.shape(values)[axis], self.dtype(indices))
             return tf.gather(values, indices, axis=axis)
 
     def gather_by_component_indices(self, values, *component_indices):
