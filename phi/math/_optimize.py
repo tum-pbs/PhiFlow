@@ -601,14 +601,13 @@ def _linear_solve_forward(y,
     y_native = backend.as_tensor(reshaped_native(y_tensor, [batch_dims, y_tensor.shape.only(pattern_dims_out)]))
     rtol = backend.as_tensor(reshaped_native(math.to_float(solve.rel_tol), [batch_dims]))
     atol = backend.as_tensor(reshaped_native(solve.abs_tol, [batch_dims]))
-    tol_sq = backend.maximum(rtol ** 2 * backend.sum(y_native ** 2, -1), atol ** 2)
     trj = _SOLVE_TAPES and any(t.should_record_trajectory_for(solve) for t in _SOLVE_TAPES)
     if trj:
         max_iter = np.expand_dims(np.arange(int(solve.max_iterations)+1), -1)
     else:
         max_iter = reshaped_numpy(solve.max_iterations, [shape(solve.max_iterations).without(batch_dims), batch_dims])
     t = time.perf_counter()
-    ret = backend.linear_solve(solve.method, native_lin_op, y_native, x0_native, tol_sq, max_iter, preconditioner)
+    ret = backend.linear_solve(solve.method, native_lin_op, y_native, x0_native, rtol, atol, max_iter, preconditioner)
     t = time.perf_counter() - t
     trj_dims = [batch(trajectory=len(max_iter))] if trj else []
     assert isinstance(ret, SolveResult)

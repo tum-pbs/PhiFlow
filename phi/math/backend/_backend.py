@@ -1255,7 +1255,8 @@ class Backend:
                      lin: Union[Callable, TensorType],
                      y: TensorType,
                      x0: TensorType,
-                     tol_sq: Union[ndarray, TensorType],
+                     rtol: Union[ndarray, TensorType],
+                     atol: Union[ndarray, TensorType],
                      max_iter: ndarray,
                      pre: Optional[Preconditioner]) -> SolveResult:
         """
@@ -1277,7 +1278,8 @@ class Backend:
                 * linear function A(x), must be called on all instances in parallel
             y: target result of A * x. 2nd order tensor (batch, vector) or list of vectors.
             x0: Initial guess of size (batch, parameters)
-            tol_sq: Squared absolute tolerance of size (batch,)
+            rtol: Relative tolerance of size (batch,)
+            atol: Absolute tolerance of size (batch,)
             max_iter: Maximum number of iterations of shape (checkpoints, batch).
             pre: Preconditioner, function taking one native tensor like `y` as input and returning a native tensor like `x0`.
 
@@ -1285,54 +1287,46 @@ class Backend:
             `SolveResult`
         """
         if method == 'auto':
-            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter, pre)
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, pre)
         elif method.startswith('scipy-'):
             from ._linalg import scipy_spsolve
             if not callable(lin):
                 lin = self.numpy(lin)
             y = self.numpy(y)
             x0 = self.numpy(x0)
-            tol_sq = self.numpy(tol_sq) if self.is_tensor(tol_sq, only_native=True) else tol_sq
-            result = scipy_spsolve(self, method[len('scipy-'):], lin, y, x0, tol_sq, max_iter, pre)
+            rtol = self.numpy(rtol) if self.is_tensor(rtol, only_native=True) else rtol
+            atol = self.numpy(atol) if self.is_tensor(atol, only_native=True) else atol
+            result = scipy_spsolve(self, method[len('scipy-'):], lin, y, x0, rtol, atol, max_iter, pre)
             return SolveResult(result.method, self.as_tensor(result.x), self.as_tensor(result.residual), result.iterations, result.function_evaluations, result.converged, result.diverged, result.message)
         elif method == 'CG':
-            return self.conjugate_gradient(lin, y, x0, tol_sq, max_iter, pre)
+            return self.conjugate_gradient(lin, y, x0, rtol, atol, max_iter, pre)
         elif method == 'CG-adaptive':
-            return self.conjugate_gradient_adaptive(lin, y, x0, tol_sq, max_iter, pre)
+            return self.conjugate_gradient_adaptive(lin, y, x0, rtol, atol, max_iter, pre)
         elif method in ['biCG', 'biCG-stab(0)']:
             raise NotImplementedError("Unstabilized Bi-CG not yet supported")
-            # return self.bi_conjugate_gradient_original(lin, y, x0, tol_sq, max_iter)
+            # return self.bi_conjugate_gradient_original(lin, y, x0, rtol, atol, max_iter)
         elif method == 'biCG-stab':
-            return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, pre, poly_order=1)
+            return self.bi_conjugate_gradient(lin, y, x0, rtol, atol, max_iter, pre, poly_order=1)
         elif method.startswith('biCG-stab('):
             order = int(method[len('biCG-stab('):-1])
-            return self.bi_conjugate_gradient(lin, y, x0, tol_sq, max_iter, pre, poly_order=order)
+            return self.bi_conjugate_gradient(lin, y, x0, rtol, atol, max_iter, pre, poly_order=order)
         else:
             raise NotImplementedError(f"Method '{method}' not supported for linear solve.")
 
-    def conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
+    def conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, pre) -> SolveResult:
         """ Standard conjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. """
-        from ._linalg import cg, stop_on_l2
-        return cg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, pre)
+        from ._linalg import cg
+        return cg(self, lin, y, x0, rtol, atol, max_iter, pre)
 
-    def conjugate_gradient_adaptive(self, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
+    def conjugate_gradient_adaptive(self, lin, y, x0, rtol, atol, max_iter, pre) -> SolveResult:
         """ Conjugate gradient algorithm with adaptive step size. Signature matches to `Backend.linear_solve()`. """
-        from ._linalg import cg_adaptive, stop_on_l2
-        return cg_adaptive(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, pre)
+        from ._linalg import cg_adaptive
+        return cg_adaptive(self, lin, y, x0, rtol, atol, max_iter, pre)
 
-    def bi_conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre, poly_order=2) -> SolveResult:
+    def bi_conjugate_gradient(self, lin, y, x0, rtol, atol, max_iter, pre, poly_order=2) -> SolveResult:
         """ Generalized stabilized biconjugate gradient algorithm. Signature matches to `Backend.linear_solve()`. """
-        from ._linalg import bicg, stop_on_l2
-        # if pre and poly_order == 1:
-        #     warnings.warn("Generic biCG does not yet support preconditioners. Falling back to SciPy. This cannot be jit-compiled!", RuntimeWarning)
-        #     if not callable(lin):
-        #         lin = self.numpy(lin)
-        #     from . import NUMPY
-        #     from scipy.sparse.linalg import bicgstab
-        #     r = NUMPY.scipy_iterative_sparse_solve(lin, self.numpy(y), self.numpy(x0), self.numpy(tol_sq), max_iter, pre, scipy_function=bicgstab)
-        #     return SolveResult(r.method, self.as_tensor(r.x), self.as_tensor(r.residual), self.as_tensor(r.iterations), self.as_tensor(r.function_evaluations), self.as_tensor(r.converged), self.as_tensor(r.diverged), r.message)
-        # else:
-        return bicg(self, lin, y, x0, stop_on_l2(self, tol_sq, max_iter), max_iter, pre, poly_order)
+        from ._linalg import bicg
+        return bicg(self, lin, y, x0, rtol, atol, max_iter, pre, poly_order)
 
     def linear(self, lin, vector):
         if callable(lin):
