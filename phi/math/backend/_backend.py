@@ -675,7 +675,12 @@ class Backend:
         raise NotImplementedError(self)
 
     def factorial(self, x: TensorType) -> TensorType:
-        return self.exp(self.log_gamma(self.to_float(x) + 1))
+        if self.dtype(x).kind == int:
+            max_factorial = {32: 12, 64: 19}[self.dtype(x).bits]
+            factorial_list = [numpy.math.factorial(i) for i in range(max_factorial+1)]
+            return self.gather(self.cast(self.as_tensor(factorial_list), self.dtype(x)), x, 0)
+        else:
+            return self.exp(self.log_gamma(self.to_float(x) + 1))
 
     def conv(self, value, kernel, zero_padding=True):
         """

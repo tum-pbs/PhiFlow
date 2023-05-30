@@ -529,9 +529,18 @@ class TestMathFunctions(TestCase):
     def test_factorial(self):
         for backend in BACKENDS:
             with backend:
-                value = math.tensor(4)
+                # --- int32 ---
+                value = math.to_int32(math.tensor(4))
                 math.assert_close(24, math.factorial(value))
-                math.assert_close(1.791759469228055, math.log_gamma(value))
+                self.assertEqual(DType(int, 32), math.factorial(value).dtype)
+                # --- int64 ---
+                value = math.to_int64(math.tensor(14))
+                math.assert_close(87178291200, math.factorial(value))
+                self.assertEqual(DType(int, 64), math.factorial(value).dtype)
+                # --- gamma ---
+                math.assert_close(1.791759469228055, math.log_gamma(math.tensor(4)))
+                math.assert_close(24., math.factorial(math.tensor(4.)))
+                self.assertEqual(float, math.factorial(math.tensor(4.)).dtype.kind)
 
     def test_any(self):
         for backend in BACKENDS:
