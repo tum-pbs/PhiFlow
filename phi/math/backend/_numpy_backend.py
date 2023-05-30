@@ -8,7 +8,7 @@ import numpy.random
 import scipy.signal
 import scipy.sparse
 from scipy.sparse import issparse
-from scipy.sparse.linalg import cg
+from scipy.sparse.linalg import spsolve_triangular
 
 from . import Backend, ComputeDevice
 from ._backend import combined_dim, SolveResult, TensorType
@@ -455,19 +455,11 @@ class NumPyBackend(Backend):
     #             return grads
     #     return gradient
 
-    def linear_solve(self, method: str, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
+    def linear_solve(self, method: str, lin, y, x0, rtol, atol, max_iter, pre) -> SolveResult:
         if method in ['direct', 'CG-native', 'GMres', 'biCG', 'biCG-stab', 'CGS', 'lGMres', 'minres', 'QMR', 'GCrotMK'] and max_iter.shape[0] == 1:
             from phi.math.backend._linalg import scipy_spsolve
-            return scipy_spsolve(self, method, lin, y, x0, tol_sq, max_iter, pre)
-        return Backend.linear_solve(self, method, lin, y, x0, tol_sq, max_iter, pre)
-
-    def conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre) -> SolveResult:
-        if len(max_iter) > 1 or callable(lin):
-            return Backend.conjugate_gradient(self, lin, y, x0, tol_sq, max_iter, pre)  # generic implementation
-        else:
-            scipy_function = scipy.sparse.linalg.cg if pre else scipy.sparse.linalg.bicg  # bicg is more stable than cg
-            from phi.math.backend._linalg import scipy_iterative_sparse_solve
-            return scipy_iterative_sparse_solve(self, lin, y, x0, tol_sq, max_iter, pre, scipy_function=scipy_function)
+            return scipy_spsolve(self, method, lin, y, x0, rtol, atol, max_iter, pre)
+        return Backend.linear_solve(self, method, lin, y, x0, rtol, atol, max_iter, pre)
 
     def matrix_solve_least_squares(self, matrix: TensorType, rhs: TensorType) -> TensorType:
         solution, residuals, rank, singular_values = [], [], [], []
@@ -486,3 +478,6 @@ class NumPyBackend(Backend):
             x = scipy.linalg.solve_triangular(matrix[b, :, :], rhs[b, :], lower=lower, unit_diagonal=unit_diagonal)
             result.append(x)
         return np.stack(result)
+
+    def solve_triangular_sparse(self, matrix, rhs, lower: bool, unit_diagonal: bool):  # needs to be overridden to indicate this is natively implemented
+        return spsolve_triangular(matrix, rhs.T, lower=lower, unit_diagonal=unit_diagonal).T

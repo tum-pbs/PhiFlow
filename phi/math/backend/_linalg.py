@@ -1,3 +1,4 @@
+import time
 import warnings
 from dataclasses import dataclass
 from typing import Tuple, Callable, Union, Optional
@@ -8,16 +9,16 @@ import scipy
 from scipy.sparse import issparse
 from scipy.sparse.linalg import spsolve, LinearOperator
 
-from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, combined_dim, choose_backend, TensorType, Preconditioner
+from ._backend import Backend, SolveResult, List, DType, spatial_derivative_evaluation, combined_dim, choose_backend, TensorType, Preconditioner, PHI_LOGGER
 
 
-
-def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged: Optional[Callable] = None):
+def stop_on_l2(b: Backend, rhs_norm_sq, rtol, atol, max_iter: np.ndarray):
     max_iter = b.as_tensor(max_iter[-1, :])
     rsq0 = []
+    tol_sq = b.maximum(rtol ** 2 * b.sum(rhs_norm_sq, -1), atol ** 2)
     def check_progress(iterations, residual_squared):
         residual_squared = abs(residual_squared)
-        converged = b.all(residual_squared <= tolerance_squared, axis=(1,))
+        converged = b.all(residual_squared <= tol_sq, axis=(1,))
         if not rsq0:
             diverged = b.any(~b.isfinite(residual_squared), axis=(1,))
             rsq0.append(residual_squared)
@@ -25,8 +26,8 @@ def stop_on_l2(b: Backend, tolerance_squared, max_iter: np.ndarray, on_diverged:
             diverged = b.any(residual_squared / rsq0[0] > 1e5, axis=(1,)) & (iterations >= 8)
             diverged |= b.any(~b.isfinite(residual_squared), axis=(1,))
         continue_ = ~converged & ~diverged & (iterations < max_iter)
-        if on_diverged is not None and b.any(diverged):
-            on_diverged(iterations)
+        # if on_diverged is not None and b.any(diverged):
+        #     on_diverged(iterations)
         return continue_, converged, diverged
     return check_progress
 
@@ -40,7 +41,7 @@ def _max_iter(max_iter: np.ndarray) -> Union[int, list]:
         return max_iter[:, 0].tolist()
 
 
-def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner]) -> Union[SolveResult, List[SolveResult]]:
+def cg(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]) -> Union[SolveResult, List[SolveResult]]:
     """
     Based on "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain" by Jonathan Richard Shewchuk
     symbols: dx=d, dy=q, step_size=alpha, residual_squared=delta, residual=r, y=b, pre=M
@@ -53,37 +54,38 @@ def cg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional
     dx = pre.apply(residual)
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
-    residual_squared = b.sum(residual * dx, -1, keepdims=True)
-    continue_, converged, diverged = check_progress(iterations, residual_squared)
+    delta0 = b.sum(residual * dx, -1, keepdims=True)
+    check_progress = stop_on_l2(b, abs(delta0), rtol, atol, max_iter)
+    continue_, converged, diverged = check_progress(iterations, delta0)
 
-    def cg_loop_body(continue_, x, dx, residual_squared, residual, iterations, function_evaluations, _converged, _diverged):
+    def cg_loop_body(continue_, x, dx, delta, residual, iterations, function_evaluations, _converged, _diverged):
         continue_1 = b.to_int32(continue_)
         iterations += continue_1
         with spatial_derivative_evaluation(1):
             dy = b.linear(lin, dx); function_evaluations += continue_1
         dx_dy = b.sum(dx * dy, axis=-1, keepdims=True)
-        step_size = b.divide_no_nan(residual_squared, dx_dy)
+        step_size = b.divide_no_nan(delta, dx_dy)
         step_size *= b.expand_dims(b.to_float(continue_1), -1)  # this is not really necessary but ensures batch-independence
         x += step_size * dx
         residual = residual - step_size * dy  # in-place subtraction affects convergence
         s = pre.apply(residual)
-        residual_squared_old = residual_squared
-        residual_squared = b.sum(residual * s, -1, keepdims=True)
-        dx = s + b.divide_no_nan(residual_squared, residual_squared_old) * dx
-        continue_, converged, diverged = check_progress(iterations, residual_squared)
-        return continue_, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged
+        delta_old = delta
+        delta = b.sum(residual * s, -1, keepdims=True)
+        dx = s + b.divide_no_nan(delta, delta_old) * dx
+        continue_, converged, diverged = check_progress(iterations, delta)
+        return continue_, x, dx, delta, residual, iterations, function_evaluations, converged, diverged
 
-    _, x, _, _, residual, iterations, function_evaluations, converged, diverged = b.while_loop(cg_loop_body, (continue_, x, dx, residual_squared, residual, iterations, function_evaluations, converged, diverged), _max_iter(max_iter))
+    _, x, _, _, residual, iterations, function_evaluations, converged, diverged = b.while_loop(cg_loop_body, (continue_, x, dx, delta0, residual, iterations, function_evaluations, converged, diverged), _max_iter(max_iter))
     return SolveResult(f"Φ-Flow CG ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner]) -> Union[SolveResult, List[SolveResult]]:
+def cg_adaptive(b, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]) -> Union[SolveResult, List[SolveResult]]:
     """
     Based on the variant described in "Methods of Conjugate Gradients for Solving Linear Systems" by Magnus R. Hestenes and Eduard Stiefel https://nvlpubs.nist.gov/nistpubs/jres/049/jresv49n6p409_A1b.pdf
     """
     if pre:
         warnings.warn("CG-adaptive does not yet support preconditioners. Using regular CG instead.", RuntimeWarning)
-        return cg(b, lin, y, x0, check_progress, max_iter, pre)
+        return cg(b, lin, y, x0, rtol, atol, max_iter, pre)
     y = b.to_float(y)
     x0 = b.copy(b.to_float(x0), only_mutable=True)
     batch_size = b.staticshape(y)[0]
@@ -93,6 +95,7 @@ def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter, pre: Optional
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
     residual_squared = b.sum(residual ** 2, -1, keepdims=True)
+    check_progress = stop_on_l2(b, b.sum(y ** 2, -1), rtol, atol, max_iter)
     continue_, converged, diverged = check_progress(iterations, residual_squared)
 
     def acg_loop_body(continue_, x, dx, dy, residual, iterations, function_evaluations, _converged, _diverged):
@@ -114,11 +117,11 @@ def cg_adaptive(b, lin, y, x0, check_progress: Callable, max_iter, pre: Optional
     return SolveResult(f"Φ-Flow CG-adaptive ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner], poly_order: int) -> Union[SolveResult, List[SolveResult]]:
+def bicg(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner], poly_order: int) -> Union[SolveResult, List[SolveResult]]:
     """ Adapted from [BiCGstab for linear equations involving unsymmetric matrices with complex spectrum](https://dspace.library.uu.nl/bitstream/handle/1874/16827/sleijpen_93_bicgstab.pdf) """
     # Based on "BiCG-stab(L) for linear equations involving asymmetric matrices with complex spectrum" by Gerard L.G. Sleijpen
     if poly_order == 1:
-        return bicg_stab_first_order(b, lin, y, x0, check_progress, max_iter, pre)
+        return bicg_stab_first_order(b, lin, y, x0, rtol, atol, max_iter, pre)
     if pre:
         warnings.warn(f"Φ-Flow biCG-stab({poly_order}) with preconditioner is experimental and may diverge.", RuntimeWarning)
     pre = pre or NoPreconditioner()
@@ -129,6 +132,7 @@ def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Option
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
     residual_squared = b.sum(residual ** 2, -1, keepdims=True)
+    check_progress = stop_on_l2(b, b.sum(y ** 2, -1), rtol, atol, max_iter)
     continue_, converged, diverged = check_progress(iterations, residual_squared)
     rho_0 = b.ones([batch_size, 1])
     rho_1 = b.ones([batch_size, 1])
@@ -203,7 +207,7 @@ def bicg(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Option
     return SolveResult(f"Φ-Flow biCG-stab({poly_order}) ({b.name})", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def bicg_stab_first_order(b: Backend, lin, y, x0, check_progress: Callable, max_iter, pre: Optional[Preconditioner]) -> SolveResult or List[SolveResult]:
+def bicg_stab_first_order(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]) -> SolveResult or List[SolveResult]:
     """
     https://en.wikipedia.org/wiki/Biconjugate_gradient_stabilized_method
 
@@ -217,6 +221,7 @@ def bicg_stab_first_order(b: Backend, lin, y, x0, check_progress: Callable, max_
     iterations = b.zeros([batch_size], DType(int, 32))
     function_evaluations = b.ones([batch_size], DType(int, 32))
     residual_squared = b.sum(residual ** 2, -1, keepdims=True)
+    check_progress = stop_on_l2(b, b.sum(y ** 2, -1), rtol, atol, max_iter)
     continue_, converged, diverged = check_progress(iterations, residual_squared)
     rho_prev = b.ones([batch_size, 1])
     rho = b.ones([batch_size, 1])
@@ -252,7 +257,7 @@ def bicg_stab_first_order(b: Backend, lin, y, x0, check_progress: Callable, max_
     return SolveResult(f"Φ-Flow BICG", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def scipy_spsolve(b: Backend, method: Union[str, Callable], lin, y, x0, tol_sq, max_iter, pre: Optional[Preconditioner]):
+def scipy_spsolve(b: Backend, method: Union[str, Callable], lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]):
     assert max_iter.shape[0] == 1, f"Trajectory recording not supported for scipy_spsolve"
     if method == 'direct':
         return scipy_direct_linear_solve(b, lin, y)
@@ -271,7 +276,7 @@ def scipy_spsolve(b: Backend, method: Union[str, Callable], lin, y, x0, tol_sq, 
             }[method]
         else:
             function = method
-        return scipy_iterative_sparse_solve(b, lin, y, x0, tol_sq, max_iter, pre, function)
+        return scipy_iterative_sparse_solve(b, lin, y, x0, rtol, atol, max_iter, pre, function)
 
 
 def scipy_direct_linear_solve(b: Backend, lin, y):
@@ -296,7 +301,7 @@ def scipy_direct_linear_solve(b: Backend, lin, y):
     return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, [""] * batch_size)
 
 
-def scipy_iterative_sparse_solve(b: Backend, lin, y, x0, tol_sq, max_iter, pre, scipy_function: Callable) -> SolveResult:
+def scipy_iterative_sparse_solve(b: Backend, lin, y, x0, rtol, atol, max_iter, pre, scipy_function: Callable) -> SolveResult:
     if max_iter.shape[0] > 1:
         raise RuntimeError(f"SciPy's sparse solvers (like {scipy_function.__name__}) do not record trajectories. Use a different solver instead.")
     bs_y = b.staticshape(y)[0]
@@ -317,7 +322,7 @@ def scipy_iterative_sparse_solve(b: Backend, lin, y, x0, tol_sq, max_iter, pre, 
     for b in range(batch_size):
         lin_b = lin[min(b, len(lin)-1)] if isinstance(lin, (tuple, list)) or (isinstance(lin, np.ndarray) and len(lin.shape) > 2) else lin
         pre_op = LinearOperator(shape=lin_b.shape, matvec=pre.apply, rmatvec=pre.apply_transposed) if isinstance(pre, Preconditioner) else None
-        x, ret_val = scipy_function(lin_b, y[b], x0=x0[b], tol=0, atol=np.sqrt(tol_sq[b]), maxiter=max_iter[-1, b], M=pre_op, callback=count_callback)
+        x, ret_val = scipy_function(lin_b, y[b], x0=x0[b], tol=rtol[b], atol=atol[b], maxiter=max_iter[-1, b], M=pre_op, callback=count_callback)
         # ret_val: 0=success, >0=not converged, <0=error
         messages.append(f"code {ret_val} (SciPy {scipy_function.__name__})")
         xs.append(x)
@@ -637,10 +642,12 @@ class ExplicitClusterSolve(Preconditioner):
     clusters: TensorType
     cluster_count: int
     cluster_size: TensorType
-    fac: float = .95
+    fac: float = 1
 
     def apply(self, vec):
-        b = choose_backend(vec)
+        is_numpy = isinstance(vec, np.ndarray)
+        b = choose_backend(vec, self.inv_coarse_matrix)
+        vec = b.as_tensor(vec)
         non_batch = b.ndims(vec) == 1
         coarse_vec = b.batched_bincount(self.clusters, weights=vec[None, :] if non_batch else vec, bins=self.cluster_count)
         delta = vec - b.batched_gather_1d(coarse_vec / self.cluster_size, self.clusters)  # to make the preconditioner full-rank
@@ -650,7 +657,8 @@ class ExplicitClusterSolve(Preconditioner):
         np.set_printoptions(linewidth=np.inf)
         # print(b.numpy(fine_solution)[0])
         result = (fine_solution + delta) * self.fac + vec * (1 - self.fac)
-        return result[0] if non_batch else result
+        result = result[0] if non_batch else result
+        return b.numpy(result) if is_numpy else result
 
     def apply_transposed(self, vec):
         raise NotImplementedError
@@ -691,7 +699,10 @@ def coarse_explicit_preconditioner_coo(indices: TensorType, values: TensorType, 
     coarse_matrix = b.scatter(coarse_matrix, coarse_indices, values, mode='add')[..., 0]
     # coarse_matrix /= cluster_size[:, None]  # ToDo or cluster_size[:, None] ?
     # inv_matrix = b.invert_matrix(coarse_matrix)
+    PHI_LOGGER.info(f"Preconditioner: inverting matrix of size {b.staticshape(coarse_matrix)} using NumPy")
+    t = time.perf_counter()
     inv_matrix = numpy.linalg.inv(b.numpy(coarse_matrix)[0])
+    PHI_LOGGER.info(f"Preconditioner: Matrix inverted. ({time.perf_counter() - t} seconds)")
     inv_matrix = b.as_tensor(inv_matrix)
     cluster_size_f = b.cast(cluster_size, b.dtype(values))
     return ExplicitClusterSolve(inv_matrix, clusters, cluster_count, cluster_size_f)
