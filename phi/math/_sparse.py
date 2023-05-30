@@ -9,7 +9,7 @@ from ._shape import Shape, non_batch, merge_shapes, instance, batch, non_instanc
     non_channel
 from ._magic_ops import concat, pack_dims, expand, rename_dims, stack, unpack_dim
 from ._tensors import Tensor, TensorStack, NativeTensor, cached, wrap
-from .backend import choose_backend, NUMPY
+from .backend import choose_backend, NUMPY, Backend
 from .backend._dtype import DType
 
 
@@ -193,14 +193,14 @@ class SparseCoordinateTensor(Tensor):
         return self._indices[self._dense_shape.non_dual]
 
     def _pack_indices(self, row_dims: Shape, col_dims: Shape):
-        assert self._indices.default_backend is NUMPY, "Can only compress NumPy indices as of yet"
         assert row_dims in self._dense_shape, f"Can only compress sparse dims but got {row_dims} which contains non-sparse dims"
         from ._ops import reshaped_native
+        b = self._indices.default_backend
         row_idx = self._indices[row_dims.names]
         col_idx = self._indices[self._dense_shape.without(row_dims).names]
         # ToDo if not row_dims: idx = [0]
-        row_idx_packed = np.ravel_multi_index(reshaped_native(row_idx, [channel, batch, instance]), row_dims.sizes)
-        col_idx_packed = np.ravel_multi_index(reshaped_native(col_idx, [channel, batch, instance]), col_dims.sizes)
+        row_idx_packed = b.ravel_multi_index(reshaped_native(row_idx, [batch, instance, channel]), row_dims.sizes)
+        col_idx_packed = b.ravel_multi_index(reshaped_native(col_idx, [batch, instance, channel]), col_dims.sizes)
         return row_idx_packed, col_idx_packed
 
     def _unpack_indices(self, row_idx_packed, col_idx_packed, row_dims: Shape, col_dims: Shape, ind_batch: Shape):
@@ -913,30 +913,31 @@ def dot_coordinate_dense(sparse: SparseCoordinateTensor, sdims: Shape, dense: Te
     return result
 
 
-def native_matrix(value: Tensor):
+def native_matrix(value: Tensor, target_backend: Backend):
+    target_backend = target_backend or value.default_backend
     cols = dual(value)
     rows = non_batch(value).non_dual
     if isinstance(value, SparseCoordinateTensor):
         ind_batch, channels, indices, values, shape = value._native_coo_components(dual, matrix=True)
         if ind_batch.volume > 1 or channels.volume > 1:
-            return value.default_backend.sparse_coo_tensor_batched(indices, values, shape)
+            return target_backend.sparse_coo_tensor_batched(indices, values, shape)
         else:
-            return value.default_backend.sparse_coo_tensor(indices[0], values[0, :, 0], shape)
+            return target_backend.sparse_coo_tensor(indices[0], values[0, :, 0], shape)
     elif isinstance(value, CompressedSparseMatrix):
         assert not non_instance(value._values), f"native_matrix does not support vector-valued matrices. Vector dims: {non_batch(value).without(sparse_dims(value))}"
         ind_batch, channels, indices, pointers, values, shape = value._native_csr_components()
         if dual(value._uncompressed_dims):  # CSR
             assert not dual(value._compressed_dims), "Dual dimensions on both compressed and uncompressed dimensions"
             if ind_batch.volume > 1 or channels.volume > 1:
-                return value.default_backend.csr_matrix_batched(indices, pointers, values, shape)
+                return target_backend.csr_matrix_batched(indices, pointers, values, shape)
             else:
-                return value.default_backend.csr_matrix(indices[0], pointers[0], values[0, :, 0], shape)
+                return target_backend.csr_matrix(indices[0], pointers[0], values[0, :, 0], shape)
         else:  # CSC
             assert not dual(value._uncompressed_dims)
             if ind_batch.volume > 1 or channels.volume > 1:
-                return value.default_backend.csc_matrix_batched(pointers, indices, values, shape)
+                return target_backend.csc_matrix_batched(pointers, indices, values, shape)
             else:
-                return value.default_backend.csc_matrix(pointers[0], indices[0], values[0, :, 0], shape)
+                return target_backend.csc_matrix(pointers[0], indices[0], values[0, :, 0], shape)
     else:
         if batch(value):
             raise NotImplementedError
