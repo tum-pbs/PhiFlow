@@ -160,12 +160,14 @@ class JitFunction:
 
         def jit_f_native(*natives):
             PHI_LOGGER.debug(f"Φ-jit: Tracing '{f_name(self.f)}'")
+            _TRACING_JIT.append(self)
             in_tensors = assemble_tensors(natives, in_key.specs)
             kwargs = assemble_tree(in_key.tree, in_tensors)
             result = self.f(**kwargs, **in_key.auxiliary_kwargs)  # Tensor or tuple/list of Tensors
             tree, out_tensors = disassemble_tree(result)
             result_natives, result_shapes, specs = disassemble_tensors(out_tensors, expand=True)
             self.recorded_mappings[in_key] = SignatureKey(jit_f_native, tree, result_shapes, specs, in_key.backend, in_key.tracing)
+            assert _TRACING_JIT.pop(-1) is self
             return result_natives
 
         jit_f_native.__name__ = f"native({f_name(self.f) if isinstance(self.f, types.FunctionType) else str(self.f)})"
@@ -202,6 +204,9 @@ Set forget_traces=True to avoid memory leaks when many traces are required.""", 
     @property
     def __name__(self):
         return f_name(self.f)
+
+
+_TRACING_JIT: List[JitFunction] = []
 
 
 def jit_compile(f: Callable = None, auxiliary_args: str = '', forget_traces: bool = None) -> Callable:
@@ -269,18 +274,20 @@ class LinearFunction(Generic[X, Y], Callable[[X], Y]):
         self.matrices_and_biases: Dict[SignatureKey, Tuple[SparseCoordinateTensor, Tensor]] = {}
         self.nl_jit = JitFunction(f, self.auxiliary_args, forget_traces)  # for backends that do not support sparse matrices
 
-    def _trace(self, in_key: SignatureKey, prefer_numpy: bool) -> 'ShiftLinTracer':
-        assert in_key.shapes[0].is_uniform, f"math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}"
-        with NUMPY if prefer_numpy else in_key.backend:
-            x = math.ones(in_key.shapes[0])
-            tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
-        x_kwargs = assemble_tree(in_key.tree, [tracer])
-        result = self.f(**x_kwargs, **in_key.auxiliary_kwargs)
-        _, result_tensors = disassemble_tree(result)
-        assert len(result_tensors) == 1, f"Linear function must return a single Tensor or tensor-like but got {result}"
-        result_tensor = result_tensors[0]
-        assert isinstance(result_tensor, ShiftLinTracer), f"Tracing linear function '{f_name(self.f)}' failed. Make sure only linear operations are used."
-        return result_tensor
+    # def _trace(self, in_key: SignatureKey, prefer_numpy: bool) -> 'ShiftLinTracer':
+    #     assert in_key.shapes[0].is_uniform, f"math.jit_compile_linear() only supports uniform tensors for function input and output but input shape was {in_key.shapes[0]}"
+    #     with NUMPY if prefer_numpy else in_key.backend:
+    #         x = math.ones(in_key.shapes[0])
+    #         tracer = ShiftLinTracer(x, {EMPTY_SHAPE: math.ones()}, x.shape, math.zeros(x.shape))
+    #     _TRACING_JIT.append(self)
+    #     x_kwargs = assemble_tree(in_key.tree, [tracer])
+    #     result = self.f(**x_kwargs, **in_key.auxiliary_kwargs)
+    #     _, result_tensors = disassemble_tree(result)
+    #     assert len(result_tensors) == 1, f"Linear function must return a single Tensor or tensor-like but got {result}"
+    #     result_tensor = result_tensors[0]
+    #     assert isinstance(result_tensor, ShiftLinTracer), f"Tracing linear function '{f_name(self.f)}' failed. Make sure only linear operations are used."
+    #     assert _TRACING_JIT.pop(-1) is self
+    #     return result_tensor
 
     def _get_or_trace(self, key: SignatureKey, args: tuple, f_kwargs: dict):
         if not key.tracing and key in self.matrices_and_biases:
