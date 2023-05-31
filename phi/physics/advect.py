@@ -99,10 +99,12 @@ def finite_difference(grid: Grid,
     """
     if isinstance(grid, StaggeredGrid):
         grad_list = [spatial_gradient(field_component, stack_dim=channel('gradient'), order=order, implicit=implicit) for field_component in grid.vector]
-        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel('vector')))
+        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel(velocity)))
         if order == 4:
             amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
+            grad_grid.gradient[0].elements
+            velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
             amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
         amount = sum(amounts)
     else:

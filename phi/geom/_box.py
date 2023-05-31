@@ -404,9 +404,10 @@ class GridCell(BaseBox):
     def __init__(self, resolution: math.Shape, bounds: BaseBox):
         assert resolution.spatial_rank == resolution.rank, f"resolution must be purely spatial but got {resolution}"
         assert resolution.spatial_rank == bounds.spatial_rank, f"bounds must match dimensions of resolution but got {bounds} for resolution {resolution}"
-        self._resolution = resolution
+        assert set(bounds.vector.item_names) == set(resolution.names)
+        self._resolution = resolution.only(bounds.vector.item_names, reorder=True)
         self._bounds = bounds
-        self._shape = resolution & bounds.shape.non_spatial
+        self._shape = self._resolution & bounds.shape.non_spatial
 
     @property
     def resolution(self):

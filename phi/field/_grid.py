@@ -29,7 +29,8 @@ class Grid(SampledField):
         assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
         assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
-        self._resolution = resolution
+        assert set(resolution.names) == set(bounds.vector.item_names), f"Resolution does not match bounds"
+        self._resolution = resolution.only(bounds.vector.item_names, reorder=True)
 
     def closest_values(self, points: Geometry):
         """
@@ -53,8 +54,8 @@ class Grid(SampledField):
 
     def with_values(self, values):
         if isinstance(values, math.Tensor):
-            bounds = self.bounds.project(*values.shape.spatial.names)
-            return type(self)(values, extrapolation=self.extrapolation, bounds=bounds)
+            assert set(spatial(values).names) == set(self.bounds.vector.item_names), f"StaggeredGrid.with_values() only accepts tensor with same spatial dimensiosn but got {spatial(values)} for {self}"
+            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
         else:
             return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
@@ -492,11 +493,11 @@ def unstack_staggered_tensor(data: Tensor, extrapolation: Extrapolation) -> Tens
 
 def staggered_elements(resolution: Shape, bounds: Box, extrapolation: Extrapolation):
     cells = GridCell(resolution, bounds)
-    grids = []
-    for dim in resolution.names:
+    grids = {}
+    for dim in bounds.vector.item_names:
         lower, upper = extrapolation.valid_outer_faces(dim)
-        grids.append(cells.stagger(dim, lower, upper))
-    return geom.stack(grids, channel(staggered_direction=resolution.names))
+        grids[dim] = cells.stagger(dim, lower, upper)
+    return geom.stack(grids, channel('staggered_direction'))
 
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: Extrapolation):
