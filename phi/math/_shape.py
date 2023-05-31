@@ -1776,6 +1776,8 @@ def primal(obj) -> Shape:
 def _size_equal(s1, s2):
     if s1 is None:
         return s2 is None
+    if s2 is None:
+        return False
     if isinstance(s1, int):
         return isinstance(s2, int) and s2 == s1
     else:
