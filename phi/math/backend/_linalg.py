@@ -257,7 +257,7 @@ def bicg_stab_first_order(b: Backend, lin, y, x0, rtol, atol, max_iter, pre: Opt
     return SolveResult(f"Φ-Flow BICG", x, residual, iterations, function_evaluations, converged, diverged, [""] * batch_size)
 
 
-def scipy_spsolve(b: Backend, method: Union[str, Callable], lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]):
+def scipy_spsolve(b: Backend, method: Union[str, Callable], lin, y, x0, rtol, atol, max_iter, pre: Optional[Preconditioner]) -> SolveResult:
     assert max_iter.shape[0] == 1, f"Trajectory recording not supported for scipy_spsolve"
     if method == 'direct':
         return scipy_direct_linear_solve(b, lin, y)
@@ -283,6 +283,7 @@ def scipy_direct_linear_solve(b: Backend, lin, y):
     batch_size = b.staticshape(y)[0]
     xs = []
     converged = []
+    residuals = []
     if isinstance(lin, (tuple, list)):
         assert all(issparse(l) for l in lin)
     else:
@@ -294,11 +295,13 @@ def scipy_direct_linear_solve(b: Backend, lin, y):
         x = spsolve(lin[batch], y[batch])  # returns nan when diverges
         xs.append(x)
         converged.append(np.all(np.isfinite(x)))
+        residuals.append(lin[batch] @ x - y[batch])
     x = np.stack(xs)
     converged = np.stack(converged)
+    residual = np.stack(residuals)
     diverged = ~converged
     iterations = [-1] * batch_size  # spsolve does not perform iterations
-    return SolveResult('scipy.sparse.linalg.spsolve', x, None, iterations, iterations, converged, diverged, [""] * batch_size)
+    return SolveResult('scipy.sparse.linalg.spsolve', x, residual, iterations, iterations, converged, diverged, [""] * batch_size)
 
 
 def scipy_iterative_sparse_solve(b: Backend, lin, y, x0, rtol, atol, max_iter, pre, scipy_function: Callable) -> SolveResult:
