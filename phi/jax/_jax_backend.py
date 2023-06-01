@@ -10,7 +10,6 @@ import jax.scipy as scipy
 import numpy as np
 from jax import random
 from jax.core import Tracer
-from jax.interpreters.xla import DeviceArray
 
 if version.parse(jax.__version__) >= version.parse('0.2.20'):
     from jax.experimental.sparse import BCOO, COO, CSR, CSC
@@ -203,7 +202,7 @@ class JaxBackend(Backend):
         return run_jit_f
 
     def block_until_ready(self, values):
-        if isinstance(values, DeviceArray):
+        if hasattr(values, 'block_until_ready'):
             values.block_until_ready()
         if isinstance(values, (tuple, list)):
             for v in values:
