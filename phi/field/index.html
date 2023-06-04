@@ -86,6 +86,7 @@ from ._field_math import (
     integrate,
     pack_dims,
     support, mask,
+    connect, connect_neighbors,
 )
 from ._field_io import write, read
 from ._scene import Scene
@@ -407,6 +408,99 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
 </dd>
+<dt id="phi.field.connect"><code class="name flex">
+<span>def <span class="ident">connect</span></span>(<span>obj: phi.field._field.SampledField, connections: phi.math._tensors.Tensor) ‑> phi.field._mesh.Mesh</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Build a <code>Mesh</code> by connecting elements from a field.</p>
+<p>See Also:
+<code><a title="phi.field.connect_neighbors" href="#phi.field.connect_neighbors">connect_neighbors()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd><code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a></code> or <code>Mesh</code>.</dd>
+<dt><strong><code>connections</code></strong></dt>
+<dd>Connectivity matrix. Any non-zero entry represents a connection.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Mesh</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def connect(obj: SampledField, connections: Tensor) -&gt; Mesh:
+    &#34;&#34;&#34;
+    Build a `Mesh` by connecting elements from a field.
+
+    See Also:
+        `connect_neighbors()`.
+
+    Args:
+        obj: `PointCloud` or `Mesh`.
+        connections: Connectivity matrix. Any non-zero entry represents a connection.
+
+    Returns:
+        `Mesh`
+    &#34;&#34;&#34;
+    if isinstance(obj, (PointCloud, Mesh)):
+        return Mesh(obj.elements, connections, obj.values, extrapolation=obj.extrapolation, bounds=obj.bounds)
+    else:
+        raise ValueError(f&#34;connect requires a PointCloud or Mesh but got {type(obj)}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.connect_neighbors"><code class="name flex">
+<span>def <span class="ident">connect_neighbors</span></span>(<span>obj: phi.field._field.SampledField, max_distance: float, format: str = 'dense') ‑> phi.field._mesh.Mesh</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Build
+a <code>Mesh</code> by connecting proximate elements of a <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>.</p>
+<p>See Also:
+<code><a title="phi.field.connect" href="#phi.field.connect">connect()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd><code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a></code>, <code>Mesh</code>, <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>.</dd>
+<dt><strong><code>max_distance</code></strong></dt>
+<dd>Connectivity threshold distance. Elements further apart than this will not be connected.</dd>
+<dt><strong><code>format</code></strong></dt>
+<dd>Connectivity matrix format, <code>'dense'</code>, <code>'coo'</code> or <code>'csr'</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Mesh</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def connect_neighbors(obj: SampledField, max_distance: float or Tensor, format: str = &#39;dense&#39;) -&gt; Mesh:
+    &#34;&#34;&#34;
+    Build  a `Mesh` by connecting proximate elements of a `SampledField`.
+
+    See Also:
+        `connect()`.
+
+    Args:
+        obj: `PointCloud`, `Mesh`, `CenteredGrid` or `StaggeredGrid`.
+        max_distance: Connectivity threshold distance. Elements further apart than this will not be connected.
+        format: Connectivity matrix format, `&#39;dense&#39;`, `&#39;coo&#39;` or `&#39;csr&#39;`.
+
+    Returns:
+        `Mesh`.
+    &#34;&#34;&#34;
+    if isinstance(obj, CenteredGrid):
+        elements = flatten(obj.elements, instance(&#39;elements&#39;))
+        values = math.pack_dims(obj.values, spatial, instance(&#39;elements&#39;))
+        obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
+    elif isinstance(obj, StaggeredGrid):
+        elements = flatten(obj.elements, instance(&#39;elements&#39;), flatten_batch=True)
+        values = math.pack_dims(obj.values, spatial(obj.values).names + (&#39;vector&#39;,), instance(&#39;elements&#39;))
+        obj = PointCloud(elements, values, obj.extrapolation, bounds=obj.bounds)
+    assert isinstance(obj, (PointCloud, Mesh)), f&#34;obj must be a PointCloud, Mesh or Grid but got {type(obj)}&#34;
+    points = math.rename_dims(obj.elements, spatial, instance).center
+    dx = math.pairwise_distances(points, max_distance=max_distance, format=format)
+    con = math.vec_length(dx) &gt; 0
+    return connect(obj, con)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.convert"><code class="name flex">
 <span>def <span class="ident">convert</span></span>(<span>x, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
 </code></dt>
@@ -449,7 +543,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     elif isinstance(x, PhiTreeNode):
         return copy_with(x, **{a: convert(getattr(x, a), backend, use_dlpack=use_dlpack) for a in variable_attributes(x)})
     else:
-        return choose_backend(x).as_tensor(x)</code></pre>
+        return b_convert(x, backend, use_dlpack=use_dlpack)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.cos"><code class="name flex">
@@ -494,9 +588,6 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
             return field.with_values(c)
     elif isinstance(field, StaggeredGrid) and field.spatial_rank == 2:
         if type == CenteredGrid:
-            for dim in field.resolution.names:
-                l, u = field.extrapolation.valid_outer_faces(dim)
-                assert l == u, &#34;periodic extrapolation not yet supported&#34;
             values = bake_extrapolation(field).values
             x_padded = math.pad(values.vector[&#39;x&#39;], {&#39;y&#39;: (1, 1)}, field.extrapolation)
             y_padded = math.pad(values.vector[&#39;y&#39;], {&#39;x&#39;: (1, 1)}, field.extrapolation)
@@ -1739,7 +1830,7 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
     for t in x0_tensors:
         t._expand()
         assert t.shape.is_uniform
-        x0_natives.append(reshaped_native(t, [batch_dims, t.shape.non_batch], force_expand=True))
+        x0_natives.append(reshaped_native(t, [batch_dims, t.shape.non_batch]))
     x0_flat = backend.concat(x0_natives, -1)
 
     def unflatten_assemble(x_flat, additional_dims: Shape = EMPTY_SHAPE, convert=True):
@@ -1762,14 +1853,14 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
         _, y_tensors = disassemble_tree(y)
         assert not non_batch(y_tensors[0]), f&#34;Failed to minimize &#39;{f.__name__}&#39; because it returned a non-scalar output {shape(y_tensors[0])}. Reduce all non-batch dimensions, e.g. using math.l2_loss()&#34;
         try:
-            loss_native = reshaped_native(y_tensors[0], [batch_dims])
+            loss_native = reshaped_native(y_tensors[0], [batch_dims], force_expand=False)
         except AssertionError:
             raise AssertionError(f&#34;Failed to minimize &#39;{f.__name__}&#39; because its output loss {shape(y_tensors[0])} has more batch dimensions than the initial guess {batch_dims}.&#34;)
         return y_tensors[0].sum, (loss_native,)
 
-    atol = backend.to_float(reshaped_native(solve.abs_tol, [batch_dims], force_expand=True))
-    maxi = reshaped_numpy(solve.max_iterations, [batch_dims], force_expand=True)
-    trj = _SOLVE_TAPES and any(t.record_trajectories for t in _SOLVE_TAPES)
+    atol = backend.to_float(reshaped_native(solve.abs_tol, [batch_dims]))
+    maxi = reshaped_numpy(solve.max_iterations, [batch_dims])
+    trj = _SOLVE_TAPES and any(t.should_record_trajectory_for(solve) for t in _SOLVE_TAPES)
     t = time.perf_counter()
     ret = backend.minimize(solve.method, native_function, x0_flat, atol, maxi, trj)
     t = time.perf_counter() - t
@@ -2416,10 +2507,13 @@ The following method identifiers are supported by all backends:</p>
 <li><code>'auto'</code>: Automatically choose a solver</li>
 <li><code>'CG'</code>: Conjugate gradient, only for symmetric and positive definite matrices.</li>
 <li><code>'CG-adaptive'</code>: Conjugate gradient with adaptive step size, only for symmetric and positive definite matrices.</li>
-<li><code>'biCG'</code>: Biconjugate gradient</li>
-<li><code>'biCGstab'</code>: Biconjugate gradient stabilized, first order</li>
-<li><code>'biCGstab(2)'</code>: Biconjugate gradient stabilized, second order</li>
+<li><code>'biCG'</code> or <code>'biCG-stab(0)'</code>: Biconjugate gradient</li>
+<li><code>'biCG-stab'</code> or <code>'biCG-stab(1)'</code>: Biconjugate gradient stabilized, first order</li>
+<li><code>'biCG-stab(2)'</code>, <code>'biCG-stab(4)'</code>, &hellip;: Biconjugate gradient stabilized, second or higher order</li>
+<li><code>'scipy-direct'</code>: SciPy direct solve always run oh the CPU using <code>scipy.sparse.linalg.spsolve</code>.</li>
+<li><code>'scipy-CG'</code>, <code>'scipy-GMres'</code>, <code>'scipy-biCG'</code>, <code>'scipy-biCG-stab'</code>, <code>'scipy-CGS'</code>, <code>'scipy-QMR'</code>, <code>'scipy-GCrotMK'</code>: SciPy iterative solvers always run oh the CPU.</li>
 </ul>
+<p><strong>Caution</strong>: SciPy solvers cannot be jit-compiled and should only be used for debugging purposes.</p>
 <p>For maximum performance, compile <code>f</code> using <code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear()</a></code> beforehand.
 Then, an optimized representation of <code>f</code> (such as a sparse matrix) will be used to solve the linear system.</p>
 <p>To obtain additional information about the performed solve, perform the solve within a <code>SolveTape</code> context.
@@ -2481,9 +2575,13 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
     * `&#39;auto&#39;`: Automatically choose a solver
     * `&#39;CG&#39;`: Conjugate gradient, only for symmetric and positive definite matrices.
     * `&#39;CG-adaptive&#39;`: Conjugate gradient with adaptive step size, only for symmetric and positive definite matrices.
-    * `&#39;biCG&#39;`: Biconjugate gradient
-    * `&#39;biCGstab&#39;`: Biconjugate gradient stabilized, first order
-    * `&#39;biCGstab(2)&#39;`: Biconjugate gradient stabilized, second order
+    * `&#39;biCG&#39;` or `&#39;biCG-stab(0)&#39;`: Biconjugate gradient
+    * `&#39;biCG-stab&#39;` or `&#39;biCG-stab(1)&#39;`: Biconjugate gradient stabilized, first order
+    * `&#39;biCG-stab(2)&#39;`, `&#39;biCG-stab(4)&#39;`, ...: Biconjugate gradient stabilized, second or higher order
+    * `&#39;scipy-direct&#39;`: SciPy direct solve always run oh the CPU using `scipy.sparse.linalg.spsolve`.
+    * `&#39;scipy-CG&#39;`, `&#39;scipy-GMres&#39;`, `&#39;scipy-biCG&#39;`, `&#39;scipy-biCG-stab&#39;`, `&#39;scipy-CGS&#39;`, `&#39;scipy-QMR&#39;`, `&#39;scipy-GCrotMK&#39;`: SciPy iterative solvers always run oh the CPU.
+
+    **Caution**: SciPy solvers cannot be jit-compiled and should only be used for debugging purposes.
 
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
     Then, an optimized representation of `f` (such as a sparse matrix) will be used to solve the linear system.
@@ -2536,20 +2634,22 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
         else:
             matrix = f
             bias = 0
+        preconditioner = compute_preconditioner(solve.preconditioner, matrix, safe=False, target_backend=NUMPY if solve.method.startswith(&#39;scipy-&#39;) else backend, solver=solve.method) if solve.preconditioner is not None else None
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
-            backend_matrix = native_matrix(matrix)
+            backend_matrix = native_matrix(matrix, choose_backend_t(*y_tensors, matrix))
             pattern_dims_in = channel(**dual(matrix).untyped_dict).names
             pattern_dims_out = non_dual(matrix).names  # batch dims can be sparse or batched matrices
-            result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, backend, is_backprop)
+            result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
             return result  # must return exactly `x` so gradient isn&#39;t computed w.r.t. other quantities
 
-        _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args=&#39;is_backprop,solve&#39;, matrix_adjoint=grad_for_f)
+        _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args=f&#39;is_backprop,solve{&#34;,matrix&#34; if matrix.default_backend == NUMPY else &#34;&#34;}&#39;, matrix_adjoint=grad_for_f)
         return _matrix_solve(y - bias, solve, matrix)
     else:  # Matrix-free solve
         f_args = cached(f_args)
         solve = cached(solve)
         assert not grad_for_f, f&#34;grad_for_f=True can only be used for math.jit_compile_linear functions but got &#39;{f_name(f)}&#39;. Please decorate the linear function with @jit_compile_linear&#34;
+        assert solve.preconditioner is None, f&#34;Preconditioners not currently supported for matrix-free solves. Decorate &#39;{f_name(f)}&#39; with @math.jit_compile_linear to perform a matrix solve.&#34;
 
         def _function_solve_forward(y, solve: Solve, f_args: tuple, f_kwargs: dict = None, is_backprop=False):
             y_nest, (y_tensor,) = disassemble_tree(y)
@@ -2568,7 +2668,7 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
                     y_native = y_native[batch_index]
                 return y_native
 
-            result = _linear_solve_forward(y, solve, native_lin_f, pattern_dims_in=non_batch(x0_tensor).names, pattern_dims_out=non_batch(y_tensor).names, backend=backend, is_backprop=is_backprop)
+            result = _linear_solve_forward(y, solve, native_lin_f, pattern_dims_in=non_batch(x0_tensor).names, pattern_dims_out=non_batch(y_tensor).names, preconditioner=None, backend=backend, is_backprop=is_backprop)
             return result  # must return exactly `x` so gradient isn&#39;t computed w.r.t. other quantities
 
         _function_solve = attach_gradient_solve(_function_solve_forward, auxiliary_args=&#39;is_backprop,f_kwargs,solve&#39;, matrix_adjoint=grad_for_f)
@@ -2751,7 +2851,7 @@ Otherwise, an explicit stencil is used.</dd>
     if implicit:
         gradient_extrapolation = extrapolation.map(_ex_map_f(extrap_map_rhs), gradient_extrapolation)
     spatial_dims = field.shape.only(dims).names
-    stack_dim = stack_dim._with_item_names((spatial_dims,))
+    stack_dim = stack_dim.with_size(spatial_dims)
     if type == CenteredGrid:
         # ToDo if extrapolation == math.extrapolation.NONE, extend size by 1
         # pad = 1 if extrapolation == math.extrapolation.NONE else 0
@@ -3450,7 +3550,7 @@ def shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values: Any = 0.0, extrapolation: Any = 0.0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phi.math._shape.Shape] = None, **resolution_: Union[int, phi.math._tensors.Tensor])</span>
+<span>(</span><span>values: Any = 0.0, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, dict, phi.field._field.Field] = 0.0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phi.math._shape.Shape] = None, **resolution_: Union[int, phi.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
@@ -3511,7 +3611,7 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
 
     def __init__(self,
                  values: Any = 0.,
-                 extrapolation: Any = 0.,
+                 extrapolation: Union[float, Extrapolation, dict, Field] = 0.,
                  bounds: Union[Box, float] = None,
                  resolution: Union[int, Shape] = None,
                  **resolution_: Union[int, Tensor]):
@@ -3807,7 +3907,25 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
         return BoundDim(self, name)
 
     def __repr__(self):
-        return f&#34;{self.__class__.__name__} {self.shape}&#34;</code></pre>
+        return f&#34;{self.__class__.__name__} {self.shape}&#34;
+
+    @property
+    def is_grid(self):
+        &#34;&#34;&#34; `isinstance(self, Grid)`. Added for forward compatibility with 2.5. &#34;&#34;&#34;
+        from ._grid import Grid
+        return isinstance(self, Grid)
+
+    @property
+    def is_point_cloud(self):
+        &#34;&#34;&#34; `isinstance(self, PointCloud)`. Added for forward compatibility with 2.5. &#34;&#34;&#34;
+        from ._point_cloud import PointCloud
+        return isinstance(self, PointCloud)
+
+    @property
+    def is_staggered(self):
+        &#34;&#34;&#34; Whether the field values are sampled between elements. Added for forward compatibility with 2.5. &#34;&#34;&#34;
+        from ._grid import StaggeredGrid
+        return isinstance(self, StaggeredGrid)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -3842,6 +3960,48 @@ def bounds(self) -&gt; Box:
     Fields whose spatial rank is determined only during sampling return an empty `Box`.
     &#34;&#34;&#34;
     raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.is_grid"><code class="name">var <span class="ident">is_grid</span></code></dt>
+<dd>
+<div class="desc"><p><code>isinstance(self, <a title="phi.field.Grid" href="#phi.field.Grid">Grid</a>)</code>. Added for forward compatibility with 2.5.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_grid(self):
+    &#34;&#34;&#34; `isinstance(self, Grid)`. Added for forward compatibility with 2.5. &#34;&#34;&#34;
+    from ._grid import Grid
+    return isinstance(self, Grid)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.is_point_cloud"><code class="name">var <span class="ident">is_point_cloud</span></code></dt>
+<dd>
+<div class="desc"><p><code>isinstance(self, <a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a>)</code>. Added for forward compatibility with 2.5.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_point_cloud(self):
+    &#34;&#34;&#34; `isinstance(self, PointCloud)`. Added for forward compatibility with 2.5. &#34;&#34;&#34;
+    from ._point_cloud import PointCloud
+    return isinstance(self, PointCloud)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.is_staggered"><code class="name">var <span class="ident">is_staggered</span></code></dt>
+<dd>
+<div class="desc"><p>Whether the field values are sampled between elements. Added for forward compatibility with 2.5.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_staggered(self):
+    &#34;&#34;&#34; Whether the field values are sampled between elements. Added for forward compatibility with 2.5. &#34;&#34;&#34;
+    from ._grid import StaggeredGrid
+    return isinstance(self, StaggeredGrid)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
@@ -3989,7 +4149,8 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
         assert values.shape.spatial_rank == elements.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
         assert values.shape.spatial_rank == bounds.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
         assert values.shape.instance_rank == 0, f&#34;Instance dimensions not supported for grids. Got values with shape {values.shape}&#34;
-        self._resolution = resolution
+        assert set(resolution.names) == set(bounds.vector.item_names), f&#34;Resolution does not match bounds&#34;
+        self._resolution = resolution.only(bounds.vector.item_names, reorder=True)
 
     def closest_values(self, points: Geometry):
         &#34;&#34;&#34;
@@ -4013,8 +4174,8 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 
     def with_values(self, values):
         if isinstance(values, math.Tensor):
-            bounds = self.bounds.project(*values.shape.spatial.names)
-            return type(self)(values, extrapolation=self.extrapolation, bounds=bounds)
+            assert set(spatial(values).names) == set(self.bounds.vector.item_names), f&#34;StaggeredGrid.with_values() only accepts tensor with same spatial dimensiosn but got {spatial(values)} for {self}&#34;
+            return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
         else:
             return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)
 
@@ -4057,6 +4218,8 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
                 return False
             else:  # both tracers
                 return self.values.shape == other.values.shape
+        if self.values.shape != other.values.shape:
+            return False
         return bool((self.values == other.values).all)
 
     def __getitem__(self, item) -&gt; &#39;Grid&#39;:
@@ -4278,8 +4441,8 @@ If <code>values</code> is not uniform, it is padded as in <code><a title="phi.fi
 </summary>
 <pre><code class="python">def with_values(self, values):
     if isinstance(values, math.Tensor):
-        bounds = self.bounds.project(*values.shape.spatial.names)
-        return type(self)(values, extrapolation=self.extrapolation, bounds=bounds)
+        assert set(spatial(values).names) == set(self.bounds.vector.item_names), f&#34;StaggeredGrid.with_values() only accepts tensor with same spatial dimensiosn but got {spatial(values)} for {self}&#34;
+        return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds)
     else:
         return type(self)(values, extrapolation=self.extrapolation, bounds=self.bounds, resolution=self._resolution)</code></pre>
 </details>
@@ -4577,10 +4740,12 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
         item = slicing_dict(self, item)
         if not item:
             return self
-        elements = self.elements[{dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}]
+        item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
+        elements = self.elements[item_without_vec]
         values = self._values[item]
         extrapolation = self._extrapolation[item]
-        return PointCloud(elements, values, extrapolation, self._add_overlapping, self._bounds)
+        bounds = self._bounds[item_without_vec] if self._bounds is not None else None
+        return PointCloud(elements, values, extrapolation, self._add_overlapping, bounds)
 
     def with_elements(self, elements: Geometry):
         return PointCloud(elements=elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=self._bounds)
@@ -4604,7 +4769,7 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
         return &#39;_values&#39;, &#39;_elements&#39;
 
     def __expand__(self, dims: Shape, **kwargs) -&gt; &#39;PointCloud&#39;:
-        return self.with_values(math.expand(self.values, dims, **kwargs))
+        return self.with_values(expand(self.values, dims, **kwargs))
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;PointCloud&#39;:
         elements = math.rename_dims(self.elements, dims, new_dims)
@@ -5042,6 +5207,7 @@ def shape(self):
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li>phi.field._grid.Grid</li>
+<li>phi.field._mesh.Mesh</li>
 <li>phi.field._point_cloud.PointCloud</li>
 </ul>
 <h3>Instance variables</h3>
@@ -5337,6 +5503,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         if not isdir(abs_dir):
             return ()
         names = [sim for sim in os.listdir(abs_dir) if sim.startswith(f&#34;{name}_&#34;) or (include_other and isdir(join(abs_dir, sim)))]
+        names = list(sorted(names))
         if dim is None:
             return tuple(Scene(join(parent_directory, n)) for n in names)
         else:
@@ -5364,6 +5531,11 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         if isinstance(directory, (tuple, list)):
             directory = math.wrap(directory, batch(&#39;scenes&#39;))
         directory = math.map(lambda d: expanduser(d), math.wrap(directory))
+        if isinstance(id, int) and id &lt; 0:
+            assert directory.shape.volume == 1
+            scenes = Scene.list(directory.native())
+            assert len(scenes) &gt;= -id, f&#34;Failed to get scene {id} at {directory}. {len(scenes)} scenes available in that directory.&#34;
+            return scenes[id]
         if id is None:
             paths = directory
         else:
@@ -5661,7 +5833,16 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
         for p in math.flatten(self._paths, flatten_batch=True):
             p = abspath(p)
             if isdir(p):
-                shutil.rmtree(p)</code></pre>
+                shutil.rmtree(p)
+
+    def rename(self, name: str):
+        &#34;&#34;&#34; Deletes the scene directory and all contained files. &#34;&#34;&#34;
+        for p in math.flatten(self._paths, flatten_batch=True):
+            p = abspath(p)
+            if isdir(p):
+                new_path = os.path.join(os.path.dirname(p), name)
+                print(f&#34;Renaming {p} to {new_path}&#34;)
+                shutil.move(p, new_path)</code></pre>
 </details>
 <h3>Static methods</h3>
 <dl>
@@ -5706,6 +5887,11 @@ def at(directory: Union[str, tuple, typing_list, math.Tensor, &#39;Scene&#39;], 
     if isinstance(directory, (tuple, list)):
         directory = math.wrap(directory, batch(&#39;scenes&#39;))
     directory = math.map(lambda d: expanduser(d), math.wrap(directory))
+    if isinstance(id, int) and id &lt; 0:
+        assert directory.shape.volume == 1
+        scenes = Scene.list(directory.native())
+        assert len(scenes) &gt;= -id, f&#34;Failed to get scene {id} at {directory}. {len(scenes)} scenes available in that directory.&#34;
+        return scenes[id]
     if id is None:
         paths = directory
     else:
@@ -5838,6 +6024,7 @@ def list(parent_directory: str,
     if not isdir(abs_dir):
         return ()
     names = [sim for sim in os.listdir(abs_dir) if sim.startswith(f&#34;{name}_&#34;) or (include_other and isdir(join(abs_dir, sim)))]
+    names = list(sorted(names))
     if dim is None:
         return tuple(Scene(join(parent_directory, n)) for n in names)
     else:
@@ -6298,6 +6485,25 @@ def shape(self):
             shutil.rmtree(p)</code></pre>
 </details>
 </dd>
+<dt id="phi.field.Scene.rename"><code class="name flex">
+<span>def <span class="ident">rename</span></span>(<span>self, name: str)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Deletes the scene directory and all contained files.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rename(self, name: str):
+    &#34;&#34;&#34; Deletes the scene directory and all contained files. &#34;&#34;&#34;
+    for p in math.flatten(self._paths, flatten_batch=True):
+        p = abspath(p)
+        if isdir(p):
+            new_path = os.path.join(os.path.dirname(p), name)
+            print(f&#34;Renaming {p} to {new_path}&#34;)
+            shutil.move(p, new_path)</code></pre>
+</details>
+</dd>
 <dt id="phi.field.Scene.subpath"><code class="name flex">
 <span>def <span class="ident">subpath</span></span>(<span>self, name: str, create=False, create_parent=False) ‑> Union[str, tuple]</span>
 </code></dt>
@@ -6491,7 +6697,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: Any = 0.0, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>] = 0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phi.math._shape.Shape] = None, **resolution_: Union[int, phi.math._tensors.Tensor])</span>
+<span>(</span><span>values: Any = 0.0, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, dict, phi.field._field.Field] = 0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phi.math._shape.Shape] = None, **resolution_: Union[int, phi.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -6554,7 +6760,7 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
 
     def __init__(self,
                  values: Any = 0.,
-                 extrapolation: Union[float, Extrapolation] = 0,
+                 extrapolation: Union[float, Extrapolation, dict, Field] = 0,
                  bounds: Union[Box, float] = None,
                  resolution: Union[Shape, int] = None,
                  **resolution_: Union[int, Tensor]):
@@ -6910,6 +7116,8 @@ If <code>values</code> is not uniform, it is padded as in <code><a title="phi.fi
 <li><code><a title="phi.field.ceil" href="#phi.field.ceil">ceil</a></code></li>
 <li><code><a title="phi.field.center_of_mass" href="#phi.field.center_of_mass">center_of_mass</a></code></li>
 <li><code><a title="phi.field.concat" href="#phi.field.concat">concat</a></code></li>
+<li><code><a title="phi.field.connect" href="#phi.field.connect">connect</a></code></li>
+<li><code><a title="phi.field.connect_neighbors" href="#phi.field.connect_neighbors">connect_neighbors</a></code></li>
 <li><code><a title="phi.field.convert" href="#phi.field.convert">convert</a></code></li>
 <li><code><a title="phi.field.cos" href="#phi.field.cos">cos</a></code></li>
 <li><code><a title="phi.field.curl" href="#phi.field.curl">curl</a></code></li>
@@ -6987,10 +7195,13 @@ If <code>values</code> is not uniform, it is padded as in <code><a title="phi.fi
 </li>
 <li>
 <h4><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="phi.field.Field.at" href="#phi.field.Field.at">at</a></code></li>
 <li><code><a title="phi.field.Field.bounds" href="#phi.field.Field.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.Field.dimension" href="#phi.field.Field.dimension">dimension</a></code></li>
+<li><code><a title="phi.field.Field.is_grid" href="#phi.field.Field.is_grid">is_grid</a></code></li>
+<li><code><a title="phi.field.Field.is_point_cloud" href="#phi.field.Field.is_point_cloud">is_point_cloud</a></code></li>
+<li><code><a title="phi.field.Field.is_staggered" href="#phi.field.Field.is_staggered">is_staggered</a></code></li>
 <li><code><a title="phi.field.Field.shape" href="#phi.field.Field.shape">shape</a></code></li>
 <li><code><a title="phi.field.Field.spatial_rank" href="#phi.field.Field.spatial_rank">spatial_rank</a></code></li>
 </ul>
@@ -7076,6 +7287,7 @@ If <code>values</code> is not uniform, it is padded as in <code><a title="phi.fi
 <li><code><a title="phi.field.Scene.read_array" href="#phi.field.Scene.read_array">read_array</a></code></li>
 <li><code><a title="phi.field.Scene.read_field" href="#phi.field.Scene.read_field">read_field</a></code></li>
 <li><code><a title="phi.field.Scene.remove" href="#phi.field.Scene.remove">remove</a></code></li>
+<li><code><a title="phi.field.Scene.rename" href="#phi.field.Scene.rename">rename</a></code></li>
 <li><code><a title="phi.field.Scene.shape" href="#phi.field.Scene.shape">shape</a></code></li>
 <li><code><a title="phi.field.Scene.stack" href="#phi.field.Scene.stack">stack</a></code></li>
 <li><code><a title="phi.field.Scene.subpath" href="#phi.field.Scene.subpath">subpath</a></code></li>

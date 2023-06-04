@@ -41,6 +41,8 @@ See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visual
 &#34;&#34;&#34;
 from ._viewer import Viewer
 from ._matplotlib import plot_scalars
+from ._io import load_scalars
+from ._plot_util import smooth
 from ._vis import view, control, show, close, action, plot, overlay, write_image, write_image as savefig
 
 __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]
@@ -184,6 +186,85 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
     return value</code></pre>
 </details>
 </dd>
+<dt id="phi.vis.load_scalars"><code class="name flex">
+<span>def <span class="ident">load_scalars</span></span>(<span>scene: phi.field._scene.Scene, name: str, prefix='log_', suffix='.txt', x: Optional[str] = 'steps', entries_dim=(iterationˢ=None), batch_dim=(batchᵇ=None))</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Read one or a <code>Tensor</code> of scalar logs as curves.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>scene</code></strong></dt>
+<dd><code>Scene</code> or <code>str</code>. Directory containing the log files.</dd>
+<dt><strong><code>name</code></strong></dt>
+<dd>Log file base name.</dd>
+<dt><strong><code>prefix</code></strong></dt>
+<dd>Log file prefix.</dd>
+<dt><strong><code>suffix</code></strong></dt>
+<dd>Log file suffix.</dd>
+<dt><strong><code>x</code></strong></dt>
+<dd>'steps'
+or 'time'</dd>
+<dt><strong><code>entries_dim</code></strong></dt>
+<dd>Curve dimension.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> containing <code>entries_dim</code> and <code>vector</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@math.broadcast
+def load_scalars(scene: Scene or str,
+                 name: str,
+                 prefix=&#39;log_&#39;,
+                 suffix=&#39;.txt&#39;,
+                 x: Optional[str]=&#39;steps&#39;,
+                 entries_dim=spatial(&#39;iteration&#39;),
+                 batch_dim=batch(&#39;batch&#39;)):
+    &#34;&#34;&#34;
+    Read one or a `Tensor` of scalar logs as curves.
+
+    Args:
+        scene: `Scene` or `str`. Directory containing the log files.
+        name: Log file base name.
+        prefix: Log file prefix.
+        suffix: Log file suffix.
+        x: &#39;steps&#39;  or &#39;time&#39;
+        entries_dim: Curve dimension.
+
+    Returns:
+        `Tensor` containing `entries_dim` and `vector`.
+    &#34;&#34;&#34;
+    assert x in (None, &#39;steps&#39;, &#39;time&#39;)
+    if isinstance(scene, str):
+        scene = Scene.at(scene)
+    assert isinstance(scene, Scene), f&#34;scene must be a Scene or str but got {type(scene)}&#34;
+    assert shape(scene).rank == 0, f&#34;Use math.map(load_scalars, ...) to load data from multiple scenes&#34;
+    PHI_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, f&#39;{prefix}{name}{suffix}&#39;)}&#34;)
+    curve = numpy.loadtxt(os.path.join(scene.path, f&#34;log_{name}.txt&#34;))
+    if curve.ndim == 2:
+        x_values = curve[:, 0]
+        values = curve[:, 1:]
+    elif curve.ndim == 1 and numpy.floor(curve[0]) == curve[0]:  # new format but only one entry
+        x_values = curve[None, 0]
+        values = curve[None, 1:]
+    else:
+        values = curve[:, None]
+        x_values = numpy.arange(len(values))
+    if x == &#39;time&#39;:
+        assert x == &#39;time&#39;, f&#34;x must be &#39;steps&#39; or &#39;time&#39; but got {x}&#34;
+        PHI_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, &#39;log_step_time.txt&#39;)}&#34;)
+        _, x_values, *_ = numpy.loadtxt(os.path.join(scene.path, &#34;log_step_time.txt&#34;)).T
+        values = values[:len(x_values + 1)]
+        x_values = numpy.cumsum(x_values[:len(values) - 1])
+        x_values = numpy.concatenate([[0.], x_values])
+    x_values = wrap(x_values, entries_dim)
+    values = wrap(values, entries_dim, batch_dim)
+    if x is not None:
+        return math.stack([x_values, values], channel(vector=[x, name]))
+    return values</code></pre>
+</details>
+</dd>
 <dt id="phi.vis.overlay"><code class="name flex">
 <span>def <span class="ident">overlay</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor]) ‑> phi.math._tensors.Tensor</span>
 </code></dt>
@@ -220,7 +301,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor, phi.geom._geom.Geometry], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = 'overlay', title: Union[str, phi.math._tensors.Tensor] = None, size=(12, 5), same_scale=True, log_dims: Union[phi.math._shape.Shape, tuple, list, str] = '', show_color_bar=True, color: Union[str, int, phi.math._tensors.Tensor] = None, alpha: Union[phi.math._tensors.Tensor, float] = 1.0, frame_time=100, repeat=True)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = 'overlay', title: Union[str, phi.math._tensors.Tensor, list, tuple] = None, size=(12, 5), same_scale: Union[bool, phi.math._shape.Shape, tuple, list, str] = True, log_dims: Union[phi.math._shape.Shape, tuple, list, str] = '', show_color_bar=True, color: Union[str, int, phi.math._tensors.Tensor, list, tuple] = None, alpha: Union[float, tuple, list, phi.math._tensors.Tensor] = 1.0, err: Union[float, tuple, list, phi.math._tensors.Tensor] = 0.0, frame_time=100, repeat=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
@@ -242,7 +323,9 @@ and <code>tuple</code>, <code>list</code>, <code>dict</code> are generated for c
 <dd>Batch dimensions along which sub-figures should be laid out horizontally.
 <code>Shape</code> or comma-separated names as <code>str</code>, <code>tuple</code> or <code>list</code>.</dd>
 <dt><strong><code>title</code></strong></dt>
-<dd>String <code>Tensor</code> with dimensions <code>rows</code> and <code>cols</code>.</dd>
+<dd><code>str</code> for figures with a single subplot.
+For subplots, pass a string <code>Tensor</code> matching the content dimensions, i.e. <code>row_dims</code> and <code>col_dims</code>.
+Passing a <code>tuple</code>, <code>list</code> or <code>dict</code>, will create a tensor with these names internally.</dd>
 <dt><strong><code>size</code></strong></dt>
 <dd>Figure size in inches, <code>(width, height)</code>.</dd>
 <dt><strong><code>same_scale</code></strong></dt>
@@ -261,6 +344,10 @@ The color of different lines and markers can vary.</dd>
 <dd>Opacity as <code>float</code> or <code>Tensor</code>.
 This affects all elements, not only line plots.
 Opacity can vary between lines and markers.</dd>
+<dt><strong><code>err</code></strong></dt>
+<dd>Expected deviation from the value given in <code>fields</code>.
+For supported plots, adds error bars of size <em>2·err</em>.
+If the plotted data is the mean of some distribution, a good choice for <code>err</code> is the standard deviation along the mean dims.</dd>
 <dt><strong><code>animate</code></strong></dt>
 <dd>Time dimension to animate.
 If not present in the data, will produce a regular plot instead.</dd>
@@ -281,19 +368,20 @@ Currently, only single-figure plots are supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(*fields: Union[SampledField, Tensor, Geometry],
+<pre><code class="python">def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
          lib: Union[str, PlottingLibrary] = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
          animate: DimFilter = None,
          overlay: DimFilter = &#39;overlay&#39;,
-         title: Union[str, Tensor] = None,
+         title: Union[str, Tensor, list, tuple] = None,
          size=(12, 5),
-         same_scale=True,
+         same_scale: Union[bool, Shape, tuple, list, str] = True,
          log_dims: Union[str, tuple, list, Shape] = &#39;&#39;,
          show_color_bar=True,
-         color: Union[str, int, Tensor] = None,
-         alpha: Union[float, Tensor] = 1.,
+         color: Union[str, int, Tensor, list, tuple] = None,
+         alpha: Union[float, Tensor, list, tuple] = 1.,
+         err: Union[Tensor, tuple, list, float] = 0.,
          frame_time=100,
          repeat=True):
     &#34;&#34;&#34;
@@ -313,7 +401,9 @@ Currently, only single-figure plots are supported.</p>
             `Shape` or comma-separated names as `str`, `tuple` or `list`.
         col_dims: Batch dimensions along which sub-figures should be laid out horizontally.
             `Shape` or comma-separated names as `str`, `tuple` or `list`.
-        title: String `Tensor` with dimensions `rows` and `cols`.
+        title: `str` for figures with a single subplot.
+            For subplots, pass a string `Tensor` matching the content dimensions, i.e. `row_dims` and `col_dims`.
+            Passing a `tuple`, `list` or `dict`, will create a tensor with these names internally.
         size: Figure size in inches, `(width, height)`.
         same_scale: Whether to use the same axis limits for all sub-figures.
         log_dims: Dimensions for which the plot axes should be scaled logarithmically.
@@ -326,6 +416,9 @@ Currently, only single-figure plots are supported.</p>
         alpha: Opacity as `float` or `Tensor`.
             This affects all elements, not only line plots.
             Opacity can vary between lines and markers.
+        err: Expected deviation from the value given in `fields`.
+            For supported plots, adds error bars of size *2·err*.
+            If the plotted data is the mean of some distribution, a good choice for `err` is the standard deviation along the mean dims.
         animate: Time dimension to animate.
             If not present in the data, will produce a regular plot instead.
         overlay: Dimensions along which elements should be overlaid in the same subplot.
@@ -347,7 +440,23 @@ Currently, only single-figure plots are supported.</p>
     fig_shape = fig_shape.without(animate)
     plots = default_plots() if lib is None else get_plots(lib)
     # --- Process arguments ---
-    if same_scale:
+    if title is None:
+        title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
+    elif isinstance(title, Tensor) and (&#39;rows&#39; in title.shape or &#39;cols&#39; in title.shape):
+        title_by_subplot = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
+    else:
+        title = layout_pytree_node(title, wrap_leaf=True)
+        title_by_subplot = {pos: _title(title, i[0]) for pos, i in indices.items()}
+    log_dims = parse_dim_order(log_dims) or ()
+    color = layout_pytree_node(color, wrap_leaf=True)
+    alpha = layout_pytree_node(alpha, wrap_leaf=True)
+    err = layout_pytree_node(err, wrap_leaf=True)
+    if same_scale is True:
+        same_scale = &#39;_&#39;
+    elif same_scale is False or same_scale is None:
+        same_scale = &#39;&#39;
+    same_scale = parse_dim_order(same_scale)
+    if &#39;_&#39; in same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
             max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l])
@@ -356,27 +465,22 @@ Currently, only single-figure plots are supported.</p>
             max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l])
     else:
         min_val = max_val = None
-    subplots = {pos: _space(fields, animate) for pos, fields in positioning.items()}
-    if isinstance(title, str):
-        title = {pos: title for pos in positioning}
-    elif isinstance(title, Tensor):
-        title = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
-    else:
-        assert title is None, f&#34;title must be a str or Tensor but got {title}&#34;
-        title = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
-    log_dims = parse_dim_order(log_dims) or ()
-    color = layout_pytree_node(color, wrap_leaf=True)
-    alpha = layout_pytree_node(alpha, wrap_leaf=True)
+    # --- Layout ---
+    subplots = {pos: _space(*fields, ignore_dims=animate) for pos, fields in positioning.items()}
+    subplots = {pos: _insert_value_dim(space, pos, subplots, min_val, max_val) for pos, space in subplots.items()}
+    if same_scale:
+        shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
+        subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
     # --- animate or plot ---
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title, log_dims)
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx])
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
@@ -386,7 +490,13 @@ Currently, only single-figure plots are supported.</p>
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx])
+                    err_ = err[idx]
+                    while isinstance(err_, Layout) and not err_.shape and isinstance(err_.native(), Tensor):
+                        err_ = err_.native()[idx]
+                    color_ = color[idx]
+                    while isinstance(color_, Layout) and not color_.shape and isinstance(color_.native(), Tensor):
+                        color_ = color_.native()[idx]
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color_, alpha[idx], err_)
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             return layout(figure)
@@ -395,7 +505,7 @@ Currently, only single-figure plots are supported.</p>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: Union[str, tuple, list, phi.field._scene.Scene, phi.math._tensors.Tensor], names: Union[str, tuple, list, phi.math._tensors.Tensor] = None, reduce: Union[phi.math._shape.Shape, tuple, list, str] = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: Union[str, dict] = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default', dashed: phi.math._tensors.Tensor = False)</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: Union[str, tuple, list, phi.field._scene.Scene, phi.math._tensors.Tensor], names: Union[str, phi.math._tensors.Tensor, list, tuple] = None, reduce: Union[phi.math._shape.Shape, tuple, list, str] = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: Union[str, dict] = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default', dashed: phi.math._tensors.Tensor = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -488,6 +598,7 @@ Currently, only single-figure plots are supported.</p>
     Returns:
         MatPlotLib [figure](https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure)
     &#34;&#34;&#34;
+    warnings.warn(&#34;plot_scalars is deprecated. Use load_scalars() and plot() instead.&#34;, DeprecationWarning, stacklevel=2)
     scene = Scene.at(scene)
     additional_reduce = ()
     if names is None:
@@ -601,7 +712,7 @@ Currently, only single-figure plots are supported.</p>
 </details>
 </dd>
 <dt id="phi.vis.savefig"><code class="name flex">
-<span>def <span class="ident">savefig</span></span>(<span>path: str, figure=None, dpi=120.0)</span>
+<span>def <span class="ident">savefig</span></span>(<span>path: str, figure=None, dpi=120.0, close=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Save a figure to an image file.</p>
@@ -613,12 +724,14 @@ Currently, only single-figure plots are supported.</p>
 <dd>File path.</dd>
 <dt><strong><code>dpi</code></strong></dt>
 <dd>Pixels per inch.</dd>
+<dt><strong><code>close</code></strong></dt>
+<dd>Whether to close the figure after saving it.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def write_image(path: str, figure=None, dpi=120.):
+<pre><code class="python">def write_image(path: str, figure=None, dpi=120., close=False):
     &#34;&#34;&#34;
     Save a figure to an image file.
 
@@ -626,13 +739,17 @@ Currently, only single-figure plots are supported.</p>
         figure: Matplotlib or Plotly figure or text.
         path: File path.
         dpi: Pixels per inch.
+        close: Whether to close the figure after saving it.
     &#34;&#34;&#34;
     figure = figure or LAST_FIGURE[0]
     if figure is None:
         figure = default_plots().current_figure
     assert figure is not None, &#34;No figure to save.&#34;
     lib = get_plots_by_figure(figure)
-    lib.save(figure, path, dpi)</code></pre>
+    path = os.path.expanduser(path)
+    lib.save(figure, path, dpi)
+    if close:
+        close_(figure=figure)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
@@ -730,6 +847,44 @@ For a full list of parameters, see the respective GUI documentation at <a href="
                 plots.show(fig)
         else:
             return plots.show(fig_tensor)</code></pre>
+</details>
+</dd>
+<dt id="phi.vis.smooth"><code class="name flex">
+<span>def <span class="ident">smooth</span></span>(<span>curves: phi.math._tensors.Tensor, n: int) ‑> phi.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Applies a smoothing kernel to curves, all channels independently.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>curves</code></strong></dt>
+<dd><code>Tensor</code> containing at least one spatial dimension</dd>
+<dt><strong><code>n</code></strong></dt>
+<dd>Kernel size, i.e. number of values to average.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Smoothed curves as <code>Tensor</code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@map_c2b
+def smooth(curves: Tensor, n: int) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Applies a smoothing kernel to curves, all channels independently.
+
+    Args:
+        curves: `Tensor` containing at least one spatial dimension
+        n: Kernel size, i.e. number of values to average.
+
+    Returns:
+        Smoothed curves as `Tensor`
+    &#34;&#34;&#34;
+    assert isinstance(n, int), f&#34;n must be an int but got {n}&#34;
+    assert n &gt;= 1, f&#34;n must be at least 1 but got {n}&#34;
+    if n == 1:
+        return curves
+    kernel = ones(spatial(curves).with_sizes(n)) / n ** spatial(curves).rank
+    return convolve(curves, kernel, extrapolation=extrapolation.SYMMETRIC_GRADIENT)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
@@ -857,7 +1012,7 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
 </details>
 </dd>
 <dt id="phi.vis.write_image"><code class="name flex">
-<span>def <span class="ident">write_image</span></span>(<span>path: str, figure=None, dpi=120.0)</span>
+<span>def <span class="ident">write_image</span></span>(<span>path: str, figure=None, dpi=120.0, close=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Save a figure to an image file.</p>
@@ -869,12 +1024,14 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
 <dd>File path.</dd>
 <dt><strong><code>dpi</code></strong></dt>
 <dd>Pixels per inch.</dd>
+<dt><strong><code>close</code></strong></dt>
+<dd>Whether to close the figure after saving it.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def write_image(path: str, figure=None, dpi=120.):
+<pre><code class="python">def write_image(path: str, figure=None, dpi=120., close=False):
     &#34;&#34;&#34;
     Save a figure to an image file.
 
@@ -882,13 +1039,17 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
         figure: Matplotlib or Plotly figure or text.
         path: File path.
         dpi: Pixels per inch.
+        close: Whether to close the figure after saving it.
     &#34;&#34;&#34;
     figure = figure or LAST_FIGURE[0]
     if figure is None:
         figure = default_plots().current_figure
     assert figure is not None, &#34;No figure to save.&#34;
     lib = get_plots_by_figure(figure)
-    lib.save(figure, path, dpi)</code></pre>
+    path = os.path.expanduser(path)
+    lib.save(figure, path, dpi)
+    if close:
+        close_(figure=figure)</code></pre>
 </details>
 </dd>
 </dl>
@@ -951,8 +1112,8 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
         if not custom_reset:
             self._actions[Action(&#39;reset&#39;, Viewer.reset.__doc__)] = self.reset
 
-    def log_scalars(self, **values):
-        self._log.log_scalars(self.steps, **values)
+    def log_scalars(self, reduce=math.mean, **values):
+        self._log.log_scalars(self.steps, reduce=reduce, **values)
 
     def info(self, message: str):  # may be replaced by a different solution later on
         &#34;&#34;&#34;
@@ -1082,7 +1243,7 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
                     if rec_dim:
                         self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                     if self.log_performance:
-                        self._log.log_scalars(self.steps, step_time=self._elapsed)
+                        self._log.log_scalars(self.steps, reduce=None, step_time=self._elapsed)
                 finally:
                     self._post_step()
         finally:
@@ -1250,7 +1411,7 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
                 if rec_dim:
                     self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
                 if self.log_performance:
-                    self._log.log_scalars(self.steps, step_time=self._elapsed)
+                    self._log.log_scalars(self.steps, reduce=None, step_time=self._elapsed)
             finally:
                 self._post_step()
     finally:
@@ -1279,11 +1440,13 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><code><a title="phi.vis.action" href="#phi.vis.action">action</a></code></li>
 <li><code><a title="phi.vis.close" href="#phi.vis.close">close</a></code></li>
 <li><code><a title="phi.vis.control" href="#phi.vis.control">control</a></code></li>
+<li><code><a title="phi.vis.load_scalars" href="#phi.vis.load_scalars">load_scalars</a></code></li>
 <li><code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay</a></code></li>
 <li><code><a title="phi.vis.plot" href="#phi.vis.plot">plot</a></code></li>
 <li><code><a title="phi.vis.plot_scalars" href="#phi.vis.plot_scalars">plot_scalars</a></code></li>
 <li><code><a title="phi.vis.savefig" href="#phi.vis.savefig">savefig</a></code></li>
 <li><code><a title="phi.vis.show" href="#phi.vis.show">show</a></code></li>
+<li><code><a title="phi.vis.smooth" href="#phi.vis.smooth">smooth</a></code></li>
 <li><code><a title="phi.vis.view" href="#phi.vis.view">view</a></code></li>
 <li><code><a title="phi.vis.write_image" href="#phi.vis.write_image">write_image</a></code></li>
 </ul>

@@ -120,7 +120,7 @@ def load_state(obj: Union[nn.Module, optim.Optimizer], path: str):
     obj.load_state_dict(torch.load(path))
 
 
-def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs):
+def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, check_nan=False, **loss_kwargs):
     &#34;&#34;&#34;
     Computes the gradients of `loss_function` w.r.t. the parameters of `net` and updates its weights using `optimizer`.
 
@@ -140,7 +140,18 @@ def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Ca
     output = loss_function(*loss_args, **loss_kwargs)
     loss = output[0] if isinstance(output, tuple) else output
     loss.sum.backward()
-    optimizer.step()
+    if isinstance(optimizer, optim.LBFGS):
+        def closure():
+            result = loss_function(*loss_args, **loss_kwargs)
+            loss_val = result[0] if isinstance(result, tuple) else result
+            return loss_val.sum
+        optimizer.step(closure=closure)
+    else:
+        if check_nan:
+            for p in net.parameters():
+                if not torch.all(torch.isfinite(p.grad)):
+                    raise RuntimeError(f&#34;NaN in network gradient detected. Parameter: {p}&#34;)
+        optimizer.step()
     return output
 
 
@@ -586,6 +597,7 @@ def conv_classifier(in_features: int,
                     in_spatial: Union[tuple, list],
                     num_classes: int,
                     blocks=(64, 128, 256, 256, 512, 512),
+                    block_sizes=(2, 2, 3, 3, 3),
                     dense_layers=(4096, 4096, 100),
                     batch_norm=True,
                     activation=&#39;ReLU&#39;,
@@ -596,27 +608,26 @@ def conv_classifier(in_features: int,
     &#34;&#34;&#34;
     assert isinstance(in_spatial, (tuple, list))
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-    net = ConvClassifier(in_features, in_spatial, num_classes, batch_norm, softmax, blocks, dense_layers, periodic, activation)
+    net = ConvClassifier(in_features, in_spatial, num_classes, batch_norm, softmax, blocks, block_sizes, dense_layers, periodic, activation)
     return net.to(TORCH.get_default_device().ref)
 
 
 class ConvClassifier(nn.Module):
 
-    def __init__(self, in_features, in_spatial: list, num_classes: int, batch_norm: bool, use_softmax: bool, blocks: tuple, dense_layers: tuple, periodic: bool, activation):
+    def __init__(self, in_features, in_spatial: list, num_classes: int, batch_norm: bool, use_softmax: bool, blocks: tuple, block_sizes: tuple, dense_layers: tuple, periodic: bool, activation):
         super(ConvClassifier, self).__init__()
         d = len(in_spatial)
         self.in_spatial = in_spatial
         self._blocks = blocks
         self.add_module(&#39;maxpool&#39;, MAX_POOL[d](2))
         for i, (prev, next) in enumerate(zip((in_features,) + tuple(blocks[:-1]), blocks)):
-            if i in (0, 1):
-                conv = DoubleConv(d, prev, next, next, batch_norm, activation, periodic)
-            else:
-                conv = nn.Sequential(DoubleConv(d, prev, next, next, batch_norm, activation, periodic),
-                                     CONV[d](next, next, 3, padding=1, padding_mode=&#39;circular&#39; if periodic else &#39;zeros&#39;),
-                                     NORM[d](next) if batch_norm else nn.Identity(),
-                                     activation())
-            self.add_module(f&#39;conv{i+1}&#39;, conv)
+            block_size = block_sizes[i]
+            layers = []
+            for j in range(block_size):
+                layers.append(CONV[d](prev if j == 0 else next, next, kernel_size=3, padding=1, padding_mode=&#39;circular&#39; if periodic else &#39;zeros&#39;))
+                layers.append(NORM[d](next) if batch_norm else nn.Identity())
+                layers.append(activation())
+            self.add_module(f&#39;conv{i+1}&#39;, nn.Sequential(*layers))
         flat_size = int(np.prod(in_spatial) * blocks[-1] / (2**d) ** len(blocks))
         self.dense_net = dense_net(flat_size, num_classes, dense_layers, batch_norm, activation, use_softmax)
         self.flatten = nn.Flatten()
@@ -987,7 +998,7 @@ Analogue functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.torch.nets.conv_classifier"><code class="name flex">
-<span>def <span class="ident">conv_classifier</span></span>(<span>in_features: int, in_spatial: Union[tuple, list], num_classes: int, blocks=(64, 128, 256, 256, 512, 512), dense_layers=(4096, 4096, 100), batch_norm=True, activation='ReLU', softmax=True, periodic=False)</span>
+<span>def <span class="ident">conv_classifier</span></span>(<span>in_features: int, in_spatial: Union[tuple, list], num_classes: int, blocks=(64, 128, 256, 256, 512, 512), block_sizes=(2, 2, 3, 3, 3), dense_layers=(4096, 4096, 100), batch_norm=True, activation='ReLU', softmax=True, periodic=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Based on VGG16.</p></div>
@@ -999,6 +1010,7 @@ Analogue functions exist for other learning frameworks.</p></div>
                     in_spatial: Union[tuple, list],
                     num_classes: int,
                     blocks=(64, 128, 256, 256, 512, 512),
+                    block_sizes=(2, 2, 3, 3, 3),
                     dense_layers=(4096, 4096, 100),
                     batch_norm=True,
                     activation=&#39;ReLU&#39;,
@@ -1009,7 +1021,7 @@ Analogue functions exist for other learning frameworks.</p></div>
     &#34;&#34;&#34;
     assert isinstance(in_spatial, (tuple, list))
     activation = ACTIVATIONS[activation] if isinstance(activation, str) else activation
-    net = ConvClassifier(in_features, in_spatial, num_classes, batch_norm, softmax, blocks, dense_layers, periodic, activation)
+    net = ConvClassifier(in_features, in_spatial, num_classes, batch_norm, softmax, blocks, block_sizes, dense_layers, periodic, activation)
     return net.to(TORCH.get_default_device().ref)</code></pre>
 </details>
 </dd>
@@ -1573,7 +1585,7 @@ use_res_blocks : use convolutional blocks with skip connections instead of regul
 </details>
 </dd>
 <dt id="phi.torch.nets.update_weights"><code class="name flex">
-<span>def <span class="ident">update_weights</span></span>(<span>net: torch.nn.modules.module.Module, optimizer: torch.optim.optimizer.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs)</span>
+<span>def <span class="ident">update_weights</span></span>(<span>net: torch.nn.modules.module.Module, optimizer: torch.optim.optimizer.Optimizer, loss_function: Callable, *loss_args, check_nan=False, **loss_kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the gradients of <code>loss_function</code> w.r.t. the parameters of <code>net</code> and updates its weights using <code>optimizer</code>.</p>
@@ -1597,7 +1609,7 @@ use_res_blocks : use convolutional blocks with skip connections instead of regul
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs):
+<pre><code class="python">def update_weights(net: nn.Module, optimizer: optim.Optimizer, loss_function: Callable, *loss_args, check_nan=False, **loss_kwargs):
     &#34;&#34;&#34;
     Computes the gradients of `loss_function` w.r.t. the parameters of `net` and updates its weights using `optimizer`.
 
@@ -1617,7 +1629,18 @@ use_res_blocks : use convolutional blocks with skip connections instead of regul
     output = loss_function(*loss_args, **loss_kwargs)
     loss = output[0] if isinstance(output, tuple) else output
     loss.sum.backward()
-    optimizer.step()
+    if isinstance(optimizer, optim.LBFGS):
+        def closure():
+            result = loss_function(*loss_args, **loss_kwargs)
+            loss_val = result[0] if isinstance(result, tuple) else result
+            return loss_val.sum
+        optimizer.step(closure=closure)
+    else:
+        if check_nan:
+            for p in net.parameters():
+                if not torch.all(torch.isfinite(p.grad)):
+                    raise RuntimeError(f&#34;NaN in network gradient detected. Parameter: {p}&#34;)
+        optimizer.step()
     return output</code></pre>
 </details>
 </dd>
@@ -1628,7 +1651,7 @@ use_res_blocks : use convolutional blocks with skip connections instead of regul
 <dl>
 <dt id="phi.torch.nets.ConvClassifier"><code class="flex name class">
 <span>class <span class="ident">ConvClassifier</span></span>
-<span>(</span><span>in_features, in_spatial: list, num_classes: int, batch_norm: bool, use_softmax: bool, blocks: tuple, dense_layers: tuple, periodic: bool, activation)</span>
+<span>(</span><span>in_features, in_spatial: list, num_classes: int, batch_norm: bool, use_softmax: bool, blocks: tuple, block_sizes: tuple, dense_layers: tuple, periodic: bool, activation)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all neural network modules.</p>
@@ -1665,21 +1688,20 @@ evaluation mode.
 </summary>
 <pre><code class="python">class ConvClassifier(nn.Module):
 
-    def __init__(self, in_features, in_spatial: list, num_classes: int, batch_norm: bool, use_softmax: bool, blocks: tuple, dense_layers: tuple, periodic: bool, activation):
+    def __init__(self, in_features, in_spatial: list, num_classes: int, batch_norm: bool, use_softmax: bool, blocks: tuple, block_sizes: tuple, dense_layers: tuple, periodic: bool, activation):
         super(ConvClassifier, self).__init__()
         d = len(in_spatial)
         self.in_spatial = in_spatial
         self._blocks = blocks
         self.add_module(&#39;maxpool&#39;, MAX_POOL[d](2))
         for i, (prev, next) in enumerate(zip((in_features,) + tuple(blocks[:-1]), blocks)):
-            if i in (0, 1):
-                conv = DoubleConv(d, prev, next, next, batch_norm, activation, periodic)
-            else:
-                conv = nn.Sequential(DoubleConv(d, prev, next, next, batch_norm, activation, periodic),
-                                     CONV[d](next, next, 3, padding=1, padding_mode=&#39;circular&#39; if periodic else &#39;zeros&#39;),
-                                     NORM[d](next) if batch_norm else nn.Identity(),
-                                     activation())
-            self.add_module(f&#39;conv{i+1}&#39;, conv)
+            block_size = block_sizes[i]
+            layers = []
+            for j in range(block_size):
+                layers.append(CONV[d](prev if j == 0 else next, next, kernel_size=3, padding=1, padding_mode=&#39;circular&#39; if periodic else &#39;zeros&#39;))
+                layers.append(NORM[d](next) if batch_norm else nn.Identity())
+                layers.append(activation())
+            self.add_module(f&#39;conv{i+1}&#39;, nn.Sequential(*layers))
         flat_size = int(np.prod(in_spatial) * blocks[-1] / (2**d) ** len(blocks))
         self.dense_net = dense_net(flat_size, num_classes, dense_layers, batch_norm, activation, use_softmax)
         self.flatten = nn.Flatten()

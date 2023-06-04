@@ -45,7 +45,7 @@ from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
 from ._shape import Shape, channel, spatial, EMPTY_SHAPE, merge_shapes
 from ._magic_ops import concat, stack, expand
-from ._tensors import Tensor, NativeTensor, CollapsedTensor, TensorStack, wrap
+from ._tensors import Tensor, NativeTensor, TensorStack, wrap
 from . import _ops as math  # TODO this executes _ops.py, can we avoid this?
 
 
@@ -265,44 +265,36 @@ class ConstantExtrapolation(Extrapolation):
 
     def pad(self, value: Tensor, widths: dict, **kwargs):
         &#34;&#34;&#34;
-        Pads a tensor using CONSTANT values
+        Pads a tensor using constant values.
 
         Args:
-          value: tensor to be padded
+          value: `Tensor` to be padded
           widths: name: str -&gt; (lower: int, upper: int)}
-          value: Tensor: 
-          widths: dict: 
 
         Returns:
-
+            Padded `Tensor`
         &#34;&#34;&#34;
         derivative = get_spatial_derivative_order()
-        pad_value = self.value if derivative == 0 else math.zeros()
+        pad_value = self.value if derivative == 0 else math.wrap(0)
         value = value._simplify()
         if isinstance(value, NativeTensor):
-            native = value._native
-            ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
-            backend = choose_backend(native, pad_value.native())
+            backend = choose_backend(value._native, pad_value.native())
             for dim in pad_value.shape.non_batch.names:
                 assert dim in value.shape, f&#34;Cannot pad tensor {value.shape} with extrapolation {pad_value.shape} because non-batch dimension &#39;{dim}&#39; is missing.&#34;
-            result_tensor = NotImplemented
             if pad_value.rank == 0:
-                result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, pad_value.native())
-            if result_tensor is NotImplemented:
-                return Extrapolation.pad(self, value, widths, **kwargs)
-            return NativeTensor(result_tensor, value.shape.after_pad(widths))
-        elif isinstance(value, CollapsedTensor):
-            if value._inner.shape.volume &gt; 1 or not math.all_available(pad_value, value) or not math.close(pad_value, value._inner):  # .inner should be safe after _simplify
-                return self.pad(value._cache(), widths)
-            else:  # Stays constant value, only extend shape
-                new_sizes = []
-                for size, dim, *_ in value.shape._dimensions:
-                    if dim not in widths:
-                        new_sizes.append(size)
-                    else:
-                        delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
-                        new_sizes.append(size + int(delta))
-                return expand(value._inner, value.shape.after_pad(widths))
+                equal_values = math.all_available(self.value, value) and value._native_shape in self.value.shape and (self.value == value).all
+                if not equal_values:
+                    required_dims = value._shape.only(tuple(widths.keys()))
+                    value = value._cached(required_dims)
+                should_pad_native = any(dim in value._native_shape for dim in widths)
+                if should_pad_native:
+                    ordered_pad_widths = order_by_shape(value._native_shape, widths, default=(0, 0))
+                    result_native = backend.pad(value._native, ordered_pad_widths, &#39;constant&#39;, pad_value.native())
+                else:
+                    result_native = value._native
+                if result_native is not NotImplemented:
+                    return NativeTensor(result_native, value._native_shape.after_pad(widths), value._shape.after_pad(widths))
+            return Extrapolation.pad(self, value, widths, **kwargs)
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
@@ -423,22 +415,30 @@ class _CopyExtrapolation(Extrapolation):
     def valid_outer_faces(self, dim) -&gt; Tuple[bool, bool]:
         return True, True
 
+    @property
+    def _is_dim_separable(self):
+        &#34;&#34;&#34;
+        If `True`, the extrapolation values only depend on values of the same row/column.
+        If `False`, collapsed dimensions have to be expanded during padding.
+        &#34;&#34;&#34;
+        return True
+
     def pad(self, value: Tensor, widths: dict, **kwargs) -&gt; Tensor:
         value = value._simplify()
         from phi.math._trace import ShiftLinTracer
         if isinstance(value, NativeTensor):
-            native = value._native
-            ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
-            result_tensor = choose_backend(native).pad(native, ordered_pad_widths, repr(self))
-            if result_tensor is NotImplemented:
-                return Extrapolation.pad(self, value, widths)
-            return NativeTensor(result_tensor, value.shape.after_pad(widths))
-        elif isinstance(value, CollapsedTensor):
-            inner = value._inner  # should be fine after _simplify
-            inner_widths = {dim: w for dim, w in widths.items() if dim in inner.shape}
-            if len(inner_widths) &gt; 0:
-                inner = self.pad(inner, widths)
-            return expand(inner, value.shape.after_pad(widths))
+            if not self._is_dim_separable:
+                required_dims = value._shape.only(tuple(widths.keys()))
+                value = value._cached(required_dims)
+            should_pad_native = any(dim in value._native_shape for dim in widths)
+            if should_pad_native:
+                ordered_pad_widths = order_by_shape(value._native_shape, widths, default=(0, 0))
+                result_native = value.default_backend.pad(value._native, ordered_pad_widths, repr(self))
+            else:
+                result_native = value._native
+            if result_native is not NotImplemented:
+                return NativeTensor(result_native, value._native_shape.after_pad(widths), value._shape.after_pad(widths))
+            return Extrapolation.pad(self, value, widths)
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
@@ -1437,7 +1437,7 @@ def order_by_shape(shape: Shape, sequence, default=None) -&gt; Union[tuple, list
       ordered sequence of values
     &#34;&#34;&#34;
     if isinstance(sequence, dict):
-        result = [sequence.get(name, default) for name in shape.names]
+        result = [sequence.get(dim, default) for dim in shape.names]
         return result
     elif isinstance(sequence, (tuple, list)):
         assert len(sequence) == shape.rank
@@ -1802,7 +1802,7 @@ Non-leaves are those created by <code><a title="phi.math.extrapolation.combine_s
       ordered sequence of values
     &#34;&#34;&#34;
     if isinstance(sequence, dict):
-        result = [sequence.get(name, default) for name in shape.names]
+        result = [sequence.get(dim, default) for dim in shape.names]
         return result
     elif isinstance(sequence, (tuple, list)):
         assert len(sequence) == shape.rank
@@ -1914,44 +1914,36 @@ The typical order is periodic=1, boundary=2, symmetric=3, reflect=4, constant=5.
 
     def pad(self, value: Tensor, widths: dict, **kwargs):
         &#34;&#34;&#34;
-        Pads a tensor using CONSTANT values
+        Pads a tensor using constant values.
 
         Args:
-          value: tensor to be padded
+          value: `Tensor` to be padded
           widths: name: str -&gt; (lower: int, upper: int)}
-          value: Tensor: 
-          widths: dict: 
 
         Returns:
-
+            Padded `Tensor`
         &#34;&#34;&#34;
         derivative = get_spatial_derivative_order()
-        pad_value = self.value if derivative == 0 else math.zeros()
+        pad_value = self.value if derivative == 0 else math.wrap(0)
         value = value._simplify()
         if isinstance(value, NativeTensor):
-            native = value._native
-            ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
-            backend = choose_backend(native, pad_value.native())
+            backend = choose_backend(value._native, pad_value.native())
             for dim in pad_value.shape.non_batch.names:
                 assert dim in value.shape, f&#34;Cannot pad tensor {value.shape} with extrapolation {pad_value.shape} because non-batch dimension &#39;{dim}&#39; is missing.&#34;
-            result_tensor = NotImplemented
             if pad_value.rank == 0:
-                result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, pad_value.native())
-            if result_tensor is NotImplemented:
-                return Extrapolation.pad(self, value, widths, **kwargs)
-            return NativeTensor(result_tensor, value.shape.after_pad(widths))
-        elif isinstance(value, CollapsedTensor):
-            if value._inner.shape.volume &gt; 1 or not math.all_available(pad_value, value) or not math.close(pad_value, value._inner):  # .inner should be safe after _simplify
-                return self.pad(value._cache(), widths)
-            else:  # Stays constant value, only extend shape
-                new_sizes = []
-                for size, dim, *_ in value.shape._dimensions:
-                    if dim not in widths:
-                        new_sizes.append(size)
-                    else:
-                        delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
-                        new_sizes.append(size + int(delta))
-                return expand(value._inner, value.shape.after_pad(widths))
+                equal_values = math.all_available(self.value, value) and value._native_shape in self.value.shape and (self.value == value).all
+                if not equal_values:
+                    required_dims = value._shape.only(tuple(widths.keys()))
+                    value = value._cached(required_dims)
+                should_pad_native = any(dim in value._native_shape for dim in widths)
+                if should_pad_native:
+                    ordered_pad_widths = order_by_shape(value._native_shape, widths, default=(0, 0))
+                    result_native = backend.pad(value._native, ordered_pad_widths, &#39;constant&#39;, pad_value.native())
+                else:
+                    result_native = value._native
+                if result_native is not NotImplemented:
+                    return NativeTensor(result_native, value._native_shape.after_pad(widths), value._shape.after_pad(widths))
+            return Extrapolation.pad(self, value, widths, **kwargs)
         elif isinstance(value, TensorStack):
             if not value.requires_broadcast:
                 return self.pad(value._cache(), widths)
@@ -2120,63 +2112,52 @@ def shape(self):
 <span>def <span class="ident">pad</span></span>(<span>self, value: phi.math._tensors.Tensor, widths: dict, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Pads a tensor using CONSTANT values</p>
+<div class="desc"><p>Pads a tensor using constant values.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd>tensor to be padded</dd>
+<dd><code>Tensor</code> to be padded</dd>
 <dt><strong><code>widths</code></strong></dt>
 <dd>name: str -&gt; (lower: int, upper: int)}</dd>
-<dt><strong><code>value</code></strong></dt>
-<dd>Tensor: </dd>
-<dt><strong><code>widths</code></strong></dt>
-<dd>dict: </dd>
 </dl>
-<p>Returns:</p></div>
+<h2 id="returns">Returns</h2>
+<p>Padded <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def pad(self, value: Tensor, widths: dict, **kwargs):
     &#34;&#34;&#34;
-    Pads a tensor using CONSTANT values
+    Pads a tensor using constant values.
 
     Args:
-      value: tensor to be padded
+      value: `Tensor` to be padded
       widths: name: str -&gt; (lower: int, upper: int)}
-      value: Tensor: 
-      widths: dict: 
 
     Returns:
-
+        Padded `Tensor`
     &#34;&#34;&#34;
     derivative = get_spatial_derivative_order()
-    pad_value = self.value if derivative == 0 else math.zeros()
+    pad_value = self.value if derivative == 0 else math.wrap(0)
     value = value._simplify()
     if isinstance(value, NativeTensor):
-        native = value._native
-        ordered_pad_widths = order_by_shape(value.shape, widths, default=(0, 0))
-        backend = choose_backend(native, pad_value.native())
+        backend = choose_backend(value._native, pad_value.native())
         for dim in pad_value.shape.non_batch.names:
             assert dim in value.shape, f&#34;Cannot pad tensor {value.shape} with extrapolation {pad_value.shape} because non-batch dimension &#39;{dim}&#39; is missing.&#34;
-        result_tensor = NotImplemented
         if pad_value.rank == 0:
-            result_tensor = backend.pad(native, ordered_pad_widths, &#39;constant&#39;, pad_value.native())
-        if result_tensor is NotImplemented:
-            return Extrapolation.pad(self, value, widths, **kwargs)
-        return NativeTensor(result_tensor, value.shape.after_pad(widths))
-    elif isinstance(value, CollapsedTensor):
-        if value._inner.shape.volume &gt; 1 or not math.all_available(pad_value, value) or not math.close(pad_value, value._inner):  # .inner should be safe after _simplify
-            return self.pad(value._cache(), widths)
-        else:  # Stays constant value, only extend shape
-            new_sizes = []
-            for size, dim, *_ in value.shape._dimensions:
-                if dim not in widths:
-                    new_sizes.append(size)
-                else:
-                    delta = sum(widths[dim]) if isinstance(widths[dim], (tuple, list)) else 2 * widths[dim]
-                    new_sizes.append(size + int(delta))
-            return expand(value._inner, value.shape.after_pad(widths))
+            equal_values = math.all_available(self.value, value) and value._native_shape in self.value.shape and (self.value == value).all
+            if not equal_values:
+                required_dims = value._shape.only(tuple(widths.keys()))
+                value = value._cached(required_dims)
+            should_pad_native = any(dim in value._native_shape for dim in widths)
+            if should_pad_native:
+                ordered_pad_widths = order_by_shape(value._native_shape, widths, default=(0, 0))
+                result_native = backend.pad(value._native, ordered_pad_widths, &#39;constant&#39;, pad_value.native())
+            else:
+                result_native = value._native
+            if result_native is not NotImplemented:
+                return NativeTensor(result_native, value._native_shape.after_pad(widths), value._shape.after_pad(widths))
+        return Extrapolation.pad(self, value, widths, **kwargs)
     elif isinstance(value, TensorStack):
         if not value.requires_broadcast:
             return self.pad(value._cache(), widths)

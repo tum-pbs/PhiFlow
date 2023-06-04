@@ -48,7 +48,7 @@ See the `phi.geom` module documentation at https://tum-pbs.github.io/PhiFlow/Geo
 from ..math import stack, concat, pack_dims  # for compatibility
 from ._geom import Geometry, Point, assert_same_rank, invert
 from ._union import union
-from ._box import Box, GridCell, BaseBox, Cuboid
+from ._box import Box, GridCell, GridCell as UniformGrid, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._transform import embed, infinite_cylinder
 
@@ -79,7 +79,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.geom.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>values: Union[tuple, list], dim: Union[str, phi.math._shape.Shape], **kwargs)</span>
+<span>def <span class="ident">concat</span></span>(<span>values: Union[tuple, list], dim: Union[str, phi.math._shape.Shape], expand_values=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenates a sequence of <code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code> objects, e.g. <code>Tensor</code>, along one dimension.
@@ -92,6 +92,10 @@ Batch dimensions will be added as needed.</p>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Concatenation dimension, must be present in all <code>values</code>.
 The size along <code>dim</code> is determined from <code>values</code> and can be set to undefined (<code>None</code>).</dd>
+<dt><strong><code>expand_values</code></strong></dt>
+<dd>If <code>True</code>, will first add missing dimensions to all values, not just batch dimensions.
+This allows tensors with different dimensions to be concatenated.
+The resulting tensor will have all dimensions that are present in <code>values</code>.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
 Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
@@ -110,7 +114,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat(values: Union[tuple, list], dim: Union[str, Shape], **kwargs):
+<pre><code class="python">def concat(values: Union[tuple, list], dim: Union[str, Shape], expand_values=False, **kwargs):
     &#34;&#34;&#34;
     Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
     All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
@@ -120,6 +124,9 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         values: Tuple or list of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
         dim: Concatenation dimension, must be present in all `values`.
             The size along `dim` is determined from `values` and can be set to undefined (`None`).
+        expand_values: If `True`, will first add missing dimensions to all values, not just batch dimensions.
+            This allows tensors with different dimensions to be concatenated.
+            The resulting tensor will have all dimensions that are present in `values`.
         **kwargs: Additional keyword arguments required by specific implementations.
             Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
             Adding batch dimensions must always work without keyword arguments.
@@ -138,13 +145,18 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     if isinstance(dim, Shape):
         dim = dim.name
     assert isinstance(dim, str), f&#34;dim must be a str or Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
-    for v in values:
-        assert dim in shape(v), f&#34;dim must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}&#34;
-    for v in values[1:]:
-        assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}&#34;
-    # Add missing batch dimensions
-    all_batch_dims = merge_shapes(*[batch(v) for v in values])
-    values = [expand(v, all_batch_dims) for v in values]
+    # Add missing dimensions
+    if expand_values:
+        all_dims = merge_shapes(*values, allow_varying_sizes=True)
+        all_dims = all_dims.with_dim_size(dim, 1, keep_item_names=False)
+        values = [expand(v, all_dims.without(shape(v))) for v in values]
+    else:
+        for v in values:
+            assert dim in shape(v), f&#34;dim must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}&#34;
+        for v in values[1:]:
+            assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}&#34;
+        all_batch_dims = merge_shapes(*[batch(v) for v in values])
+        values = [expand(v, all_batch_dims) for v in values]
     # --- First try __concat__ ---
     for v in values:
         if isinstance(v, Shapable):
@@ -343,7 +355,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: Union[int, None] = None, **kwargs):
+<pre><code class="python">def pack_dims(value, dims: DimFilter, packed_dim: Shape, pos: Optional[int] = None, **kwargs):
     &#34;&#34;&#34;
     Compresses multiple dimensions into a single dimension by concatenating the elements.
     Elements along the new dimensions are laid out according to the order of `dims`.
@@ -1199,7 +1211,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Box"><code class="flex name class">
 <span>class <span class="ident">Box</span></span>
-<span>(</span><span>lower: phi.math._tensors.Tensor = None, upper: phi.math._tensors.Tensor = None, **size: Union[int, phi.math._tensors.Tensor])</span>
+<span>(</span><span>lower: phi.math._tensors.Tensor = None, upper: phi.math._tensors.Tensor = None, **size: Union[int, phi.math._tensors.Tensor, tuple, list])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simple cuboid defined by location of lower and upper corner in physical space.</p>
@@ -1241,7 +1253,7 @@ Returns:</p></div>
         &gt;&gt;&gt; Box[&#39;x,y&#39;, :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     &#34;&#34;&#34;
 
-    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: Union[int, Tensor]):
+    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: Union[int, Tensor, tuple, list]):
         &#34;&#34;&#34;
         Args:
           lower: physical location of lower corner
@@ -1309,6 +1321,12 @@ Returns:</p></div>
             if dim in remaining:
                 remaining.remove(dim)
         return self.vector[remaining]
+
+    def largest(self, dim: DimFilter) -&gt; &#39;Box&#39;:
+        dim = self.shape.without(&#39;vector&#39;).only(dim)
+        if not dim:
+            return self
+        return Box(math.min(self._lower, dim), math.max(self._upper, dim))
 
     def __hash__(self):
         return hash(self._upper)
@@ -1455,6 +1473,22 @@ def upper(self):
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="phi.geom.Box.largest"><code class="name flex">
+<span>def <span class="ident">largest</span></span>(<span>self, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable]) ‑> phi.geom._box.Box</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def largest(self, dim: DimFilter) -&gt; &#39;Box&#39;:
+    dim = self.shape.without(&#39;vector&#39;).only(dim)
+    if not dim:
+        return self
+    return Box(math.min(self._lower, dim), math.max(self._upper, dim))</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Box.shifted"><code class="name flex">
 <span>def <span class="ident">shifted</span></span>(<span>self, delta, **delta_by_dim)</span>
 </code></dt>
@@ -1796,7 +1830,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     @property
     def spatial_rank(self) -&gt; int:
         &#34;&#34;&#34; Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. &#34;&#34;&#34;
-        return self.center.shape.get_size(&#39;vector&#39;)
+        return self.shape.get_size(&#39;vector&#39;)
 
     def lies_inside(self, location: Tensor) -&gt; Tensor:
         &#34;&#34;&#34;
@@ -2082,6 +2116,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 <li>phi.geom._geom.Point</li>
 <li>phi.geom._geom._InvertedGeometry</li>
 <li>phi.geom._geom._NoGeometry</li>
+<li>phi.geom._poly_surface.PolygonSurface</li>
 <li>phi.geom._sphere.Sphere</li>
 <li>phi.geom._stack.GeometryStack</li>
 <li>phi.geom._transform.RotatedGeometry</li>
@@ -2167,7 +2202,7 @@ def shape_type(self) -&gt; Tensor:
 <pre><code class="python">@property
 def spatial_rank(self) -&gt; int:
     &#34;&#34;&#34; Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc. &#34;&#34;&#34;
-    return self.center.shape.get_size(&#39;vector&#39;)</code></pre>
+    return self.shape.get_size(&#39;vector&#39;)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
@@ -2702,9 +2737,445 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
     def __init__(self, resolution: math.Shape, bounds: BaseBox):
         assert resolution.spatial_rank == resolution.rank, f&#34;resolution must be purely spatial but got {resolution}&#34;
         assert resolution.spatial_rank == bounds.spatial_rank, f&#34;bounds must match dimensions of resolution but got {bounds} for resolution {resolution}&#34;
-        self._resolution = resolution
+        assert set(bounds.vector.item_names) == set(resolution.names)
+        self._resolution = resolution.only(bounds.vector.item_names, reorder=True)
         self._bounds = bounds
-        self._shape = resolution &amp; bounds.shape.non_spatial
+        self._shape = self._resolution &amp; bounds.shape.non_spatial
+
+    @property
+    def resolution(self):
+        return self._resolution
+
+    @property
+    def bounds(self):
+        return self._bounds
+
+    @property
+    def spatial_rank(self) -&gt; int:
+        return self._resolution.spatial_rank
+
+    @property
+    def center(self):
+        local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
+        points = self.bounds.local_to_global(local_coords)
+        return points
+
+    @property
+    def grid_size(self):
+        return self._bounds.size
+
+    @property
+    def size(self):
+        return self.bounds.size / math.wrap(self.resolution.sizes)
+
+    @property
+    def dx(self):
+        return self.bounds.size / self.resolution
+
+    @property
+    def lower(self):
+        return self.center - self.half_size
+
+    @property
+    def upper(self):
+        return self.center + self.half_size
+
+    @property
+    def half_size(self):
+        return self.bounds.size / self.resolution.sizes / 2
+
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        bounds = self._bounds
+        dx = self.size
+        gather_dict = {}
+        for dim, selection in item.items():
+            if dim in self._resolution:
+                if isinstance(selection, int):
+                    start = selection
+                    stop = selection + 1
+                elif isinstance(selection, slice):
+                    start = selection.start or 0
+                    if start &lt; 0:
+                        start += self.resolution.get_size(dim)
+                    stop = selection.stop or self.resolution.get_size(dim)
+                    if stop &lt; 0:
+                        stop += self.resolution.get_size(dim)
+                    assert selection.step is None or selection.step == 1
+                else:
+                    raise ValueError(f&#34;Illegal selection: {item}&#34;)
+                dim_mask = math.wrap(self.resolution.mask(dim))
+                lower = bounds.lower + start * dim_mask * dx
+                upper = bounds.upper + (stop - self.resolution.get_size(dim)) * dim_mask * dx
+                bounds = Box(lower, upper)
+                gather_dict[dim] = slice(start, stop)
+        resolution = self._resolution.after_gather(gather_dict)
+        return GridCell(resolution, bounds[{d: s for d, s in item.items() if d != &#39;vector&#39;}])
+
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Union[int, None], **kwargs) -&gt; &#39;Cuboid&#39;:
+        return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
+
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        from ._stack import GeometryStack
+        return GeometryStack(math.layout(values, dim))
+
+    def list_cells(self, dim_name):
+        center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
+        return Cuboid(center, self.half_size)
+
+    def stagger(self, dim: str, lower: bool, upper: bool):
+        dim_mask = np.array(self.resolution.mask(dim))
+        unit = self.bounds.size / self.resolution * dim_mask
+        bounds = Box(self.bounds.lower + unit * (-0.5 if lower else 0.5), self.bounds.upper + unit * (0.5 if upper else -0.5))
+        ext_res = self.resolution.sizes + dim_mask * (int(lower) + int(upper) - 1)
+        return GridCell(self.resolution.with_sizes(ext_res), bounds)
+
+    def padded(self, widths: dict):
+        resolution, bounds = self.resolution, self.bounds
+        for dim, (lower, upper) in widths.items():
+            masked_dx = self.dx * math.dim_mask(self.resolution, dim)
+            resolution = resolution.with_dim_size(dim, self.resolution.get_size(dim) + lower + upper)
+            bounds = Box(bounds.lower - masked_dx * lower, bounds.upper + masked_dx * upper)
+        return GridCell(resolution, bounds)
+
+    # def face_centers(self, staggered_name=&#39;staggered&#39;):
+    #     face_centers = [self.extend_symmetric(dim).center for dim in self.shape.spatial.names]
+    #     return math.channel_stack(face_centers, staggered_name)
+
+    @property
+    def shape(self):
+        return self._shape
+
+    def shifted(self, delta: Tensor, **delta_by_dim) -&gt; BaseBox:
+        # delta += math.padded_stack()
+        if delta.shape.spatial_rank == 0:
+            return GridCell(self.resolution, self.bounds.shifted(delta))
+        else:
+            center = self.center + delta
+            return Cuboid(center, self.half_size)
+
+    def rotated(self, angle) -&gt; Geometry:
+        raise NotImplementedError(&#34;Grids cannot be rotated. Use center_representation() to convert it to Cuboids first.&#34;)
+
+    def __eq__(self, other):
+        return isinstance(other, GridCell) and self._bounds == other._bounds and self._resolution == other._resolution
+
+    def shallow_equals(self, other):
+        return self == other
+
+    def __hash__(self):
+        return hash(self._resolution) + hash(self._bounds)
+
+    def __repr__(self):
+        return f&#34;{self._resolution}, bounds={self._bounds}&#34;
+
+    def __variable_attrs__(self):
+        return &#39;_center&#39;, &#39;_half_size&#39;
+
+    def __with_attrs__(self, **attrs):
+        return copy_with(self.center_representation(), **attrs)
+
+    @property
+    def _center(self):
+        return self.center
+
+    @property
+    def _half_size(self):
+        return self.half_size</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.geom._box.BaseBox</li>
+<li>phi.geom._geom.Geometry</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.geom.GridCell.bounds"><code class="name">var <span class="ident">bounds</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def bounds(self):
+    return self._bounds</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.center"><code class="name">var <span class="ident">center</span></code></dt>
+<dd>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def center(self):
+    local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
+    points = self.bounds.local_to_global(local_coords)
+    return points</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.dx"><code class="name">var <span class="ident">dx</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def dx(self):
+    return self.bounds.size / self.resolution</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.grid_size"><code class="name">var <span class="ident">grid_size</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def grid_size(self):
+    return self._bounds.size</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.half_size"><code class="name">var <span class="ident">half_size</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def half_size(self):
+    return self.bounds.size / self.resolution.sizes / 2</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.lower"><code class="name">var <span class="ident">lower</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def lower(self):
+    return self.center - self.half_size</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.resolution"><code class="name">var <span class="ident">resolution</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def resolution(self):
+    return self._resolution</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.shape"><code class="name">var <span class="ident">shape</span></code></dt>
+<dd>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape(self):
+    return self._shape</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.size"><code class="name">var <span class="ident">size</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def size(self):
+    return self.bounds.size / math.wrap(self.resolution.sizes)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.spatial_rank"><code class="name">var <span class="ident">spatial_rank</span> : int</code></dt>
+<dd>
+<div class="desc"><p>Number of spatial dimensions of the geometry, 1 = 1D, 2 = 2D, 3 = 3D, etc.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def spatial_rank(self) -&gt; int:
+    return self._resolution.spatial_rank</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.upper"><code class="name">var <span class="ident">upper</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def upper(self):
+    return self.center + self.half_size</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.geom.GridCell.list_cells"><code class="name flex">
+<span>def <span class="ident">list_cells</span></span>(<span>self, dim_name)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def list_cells(self, dim_name):
+    center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
+    return Cuboid(center, self.half_size)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.padded"><code class="name flex">
+<span>def <span class="ident">padded</span></span>(<span>self, widths: dict)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def padded(self, widths: dict):
+    resolution, bounds = self.resolution, self.bounds
+    for dim, (lower, upper) in widths.items():
+        masked_dx = self.dx * math.dim_mask(self.resolution, dim)
+        resolution = resolution.with_dim_size(dim, self.resolution.get_size(dim) + lower + upper)
+        bounds = Box(bounds.lower - masked_dx * lower, bounds.upper + masked_dx * upper)
+    return GridCell(resolution, bounds)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.rotated"><code class="name flex">
+<span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a rotated version of this geometry.
+The geometry is rotated about its center point.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>angle</code></strong></dt>
+<dd>scalar (2d) or vector (3D+) representing delta angle</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rotated(self, angle) -&gt; Geometry:
+    raise NotImplementedError(&#34;Grids cannot be rotated. Use center_representation() to convert it to Cuboids first.&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.shallow_equals"><code class="name flex">
+<span>def <span class="ident">shallow_equals</span></span>(<span>self, other)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Quick equality check.
+May return <code>False</code> even if <code>other == self</code>.
+However, if <code>True</code> is returned, the geometries are guaranteed to be equal.</p>
+<p>The <code>shallow_equals()</code> check does not compare all tensor elements but merely checks whether the same tensors are referenced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shallow_equals(self, other):
+    return self == other</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.shifted"><code class="name flex">
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor, **delta_by_dim) ‑> phi.geom._box.BaseBox</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a translated version of this geometry.</p>
+<p>See Also:
+<code><a title="phi.geom.Geometry.at" href="#phi.geom.Geometry.at">Geometry.at()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>delta</code></strong></dt>
+<dd>direction vector</dd>
+<dt><strong><code>delta</code></strong></dt>
+<dd>Tensor:</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
+<dd>shifted geometry</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def shifted(self, delta: Tensor, **delta_by_dim) -&gt; BaseBox:
+    # delta += math.padded_stack()
+    if delta.shape.spatial_rank == 0:
+        return GridCell(self.resolution, self.bounds.shifted(delta))
+    else:
+        center = self.center + delta
+        return Cuboid(center, self.half_size)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.GridCell.stagger"><code class="name flex">
+<span>def <span class="ident">stagger</span></span>(<span>self, dim: str, lower: bool, upper: bool)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stagger(self, dim: str, lower: bool, upper: bool):
+    dim_mask = np.array(self.resolution.mask(dim))
+    unit = self.bounds.size / self.resolution * dim_mask
+    bounds = Box(self.bounds.lower + unit * (-0.5 if lower else 0.5), self.bounds.upper + unit * (0.5 if upper else -0.5))
+    ext_res = self.resolution.sizes + dim_mask * (int(lower) + int(upper) - 1)
+    return GridCell(self.resolution.with_sizes(ext_res), bounds)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="phi.geom.GridCell"><code class="flex name class">
+<span>class <span class="ident">UniformGrid</span></span>
+<span>(</span><span>resolution: phi.math._shape.Shape, bounds: phi.geom._box.BaseBox)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An instance of GridCell represents all cells of a regular grid as a batch of boxes.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class GridCell(BaseBox):
+    &#34;&#34;&#34;
+    An instance of GridCell represents all cells of a regular grid as a batch of boxes.
+    &#34;&#34;&#34;
+
+    def __init__(self, resolution: math.Shape, bounds: BaseBox):
+        assert resolution.spatial_rank == resolution.rank, f&#34;resolution must be purely spatial but got {resolution}&#34;
+        assert resolution.spatial_rank == bounds.spatial_rank, f&#34;bounds must match dimensions of resolution but got {bounds} for resolution {resolution}&#34;
+        assert set(bounds.vector.item_names) == set(resolution.names)
+        self._resolution = resolution.only(bounds.vector.item_names, reorder=True)
+        self._bounds = bounds
+        self._shape = self._resolution &amp; bounds.shape.non_spatial
 
     @property
     def resolution(self):
@@ -3966,6 +4437,7 @@ Returns:</p></div>
 <ul class="two-column">
 <li><code><a title="phi.geom.Box.center" href="#phi.geom.Box.center">center</a></code></li>
 <li><code><a title="phi.geom.Box.half_size" href="#phi.geom.Box.half_size">half_size</a></code></li>
+<li><code><a title="phi.geom.Box.largest" href="#phi.geom.Box.largest">largest</a></code></li>
 <li><code><a title="phi.geom.Box.lower" href="#phi.geom.Box.lower">lower</a></code></li>
 <li><code><a title="phi.geom.Box.shape" href="#phi.geom.Box.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Box.shifted" href="#phi.geom.Box.shifted">shifted</a></code></li>
@@ -4008,6 +4480,28 @@ Returns:</p></div>
 <li><code><a title="phi.geom.Geometry.spatial_rank" href="#phi.geom.Geometry.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.geom.Geometry.unstack" href="#phi.geom.Geometry.unstack">unstack</a></code></li>
 <li><code><a title="phi.geom.Geometry.volume" href="#phi.geom.Geometry.volume">volume</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="phi.geom.GridCell" href="#phi.geom.GridCell">GridCell</a></code></h4>
+<ul class="two-column">
+<li><code><a title="phi.geom.GridCell.bounds" href="#phi.geom.GridCell.bounds">bounds</a></code></li>
+<li><code><a title="phi.geom.GridCell.center" href="#phi.geom.GridCell.center">center</a></code></li>
+<li><code><a title="phi.geom.GridCell.dx" href="#phi.geom.GridCell.dx">dx</a></code></li>
+<li><code><a title="phi.geom.GridCell.grid_size" href="#phi.geom.GridCell.grid_size">grid_size</a></code></li>
+<li><code><a title="phi.geom.GridCell.half_size" href="#phi.geom.GridCell.half_size">half_size</a></code></li>
+<li><code><a title="phi.geom.GridCell.list_cells" href="#phi.geom.GridCell.list_cells">list_cells</a></code></li>
+<li><code><a title="phi.geom.GridCell.lower" href="#phi.geom.GridCell.lower">lower</a></code></li>
+<li><code><a title="phi.geom.GridCell.padded" href="#phi.geom.GridCell.padded">padded</a></code></li>
+<li><code><a title="phi.geom.GridCell.resolution" href="#phi.geom.GridCell.resolution">resolution</a></code></li>
+<li><code><a title="phi.geom.GridCell.rotated" href="#phi.geom.GridCell.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.GridCell.shallow_equals" href="#phi.geom.GridCell.shallow_equals">shallow_equals</a></code></li>
+<li><code><a title="phi.geom.GridCell.shape" href="#phi.geom.GridCell.shape">shape</a></code></li>
+<li><code><a title="phi.geom.GridCell.shifted" href="#phi.geom.GridCell.shifted">shifted</a></code></li>
+<li><code><a title="phi.geom.GridCell.size" href="#phi.geom.GridCell.size">size</a></code></li>
+<li><code><a title="phi.geom.GridCell.spatial_rank" href="#phi.geom.GridCell.spatial_rank">spatial_rank</a></code></li>
+<li><code><a title="phi.geom.GridCell.stagger" href="#phi.geom.GridCell.stagger">stagger</a></code></li>
+<li><code><a title="phi.geom.GridCell.upper" href="#phi.geom.GridCell.upper">upper</a></code></li>
 </ul>
 </li>
 <li>
