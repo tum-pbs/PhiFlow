@@ -848,6 +848,9 @@ class Backend:
     def batched_gather_1d(self, values, indices):
         return self.batched_gather_nd(values[:, :, None], indices[:, :, None])[..., 0]
 
+    def gather_nd(self, values, indices):
+        return self.batched_gather_nd(values[None, :, :], indices[None, :, :])[0, :, :]
+
     def gather_1d(self, values, indices):
         return self.gather(values, indices, 0)
 
@@ -891,6 +894,38 @@ class Backend:
             Copy of base_grid with values at `indices` updated by `values`.
         """
         raise NotImplementedError(self)
+
+    def scatter_nd(self, base_grid, indices, values, mode: str):
+        """
+        Non-batched scatter.
+
+        Args:
+            base_grid: (spatial..., channels)
+            indices: (update_count, index_vector)
+            values: (update_count or 1, channels or 1)
+            mode: One of ('update', 'add')
+        """
+        return self.scatter(base_grid[None, ...], indices[None, ...], values[None, ...], mode=mode)[0, ...]
+
+    def scatter_1d_scalar(self, base_grid, indices, values, mode: str):
+        """
+        Args:
+            base_grid: (spatial,)
+            indices: (update_count,)
+            values: (update_count or 1,)
+            mode: One of ('update', 'add')
+        """
+        return self.scatter(base_grid[None, :, None], indices[None, :, None], values[None, :, None], mode=mode)[0, :, 0]
+
+    def scatter_nd_scalar(self, base_grid, indices, values, mode: str):
+        """
+        Args:
+            base_grid: (spatial...,)
+            indices: (update_count, index_vector)
+            values: (update_count or 1,)
+            mode: One of ('update', 'add')
+        """
+        return self.scatter(base_grid[None, ..., None], indices[None, ...], values[None, :, None], mode=mode)[0, ..., 0]
 
     def histogram1d(self, values, weights, bin_edges):
         """
