@@ -179,8 +179,8 @@ class JaxBackend(Backend):
     einsum = staticmethod(jnp.einsum)
     cumsum = staticmethod(jnp.cumsum)
 
-    def nonzero(self, values):
-        result = jnp.nonzero(values)
+    def nonzero(self, values, length=None, fill_value=-1):
+        result = jnp.nonzero(values, size=length, fill_value=fill_value)
         return jnp.stack(result, -1)
 
     def vectorized_call(self, f, *args, output_dtypes=None, **aux_args):

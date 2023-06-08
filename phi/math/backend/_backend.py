@@ -524,6 +524,17 @@ class Backend:
         """
         raise NotImplementedError(self)
 
+    def pad_to(self, x, axis, new_size, fill_value):
+        shape = self.staticshape(x)
+        current = shape[axis]
+        if new_size > current:
+            pad_width = [(0, new_size - current) if i == axis else (0, 0) for i in range(len(shape))]
+            return self.pad(x, pad_width, mode='constant', constant_values=fill_value)
+        elif new_size < current:
+            return x[tuple([slice(new_size) if i == axis else slice(None) for i in range(len(shape))])]
+        else:
+            return x
+
     def reshape(self, value, shape):
         raise NotImplementedError(self)
 
@@ -544,13 +555,14 @@ class Backend:
     def where(self, condition, x=None, y=None):
         raise NotImplementedError(self)
 
-    def nonzero(self, values):
+    def nonzero(self, values, length=None, fill_value=-1):
         """
         Args:
             values: Tensor with only spatial dimensions
+            length: (Optional) Length of the resulting array. If specified, the result array will be padded with `fill_value` or trimmed.
 
         Returns:
-            non-zero multi-indices as tensor of shape (nnz, vector)
+            non-zero multi-indices as tensor of shape (nnz/length, vector)
         """
         raise NotImplementedError(self)
 

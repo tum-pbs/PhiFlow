@@ -182,3 +182,14 @@ class TestBackends(TestCase):
         for b in BACKENDS:
             result = b.linspace_without_last(-1, 1, 4)
             numpy.testing.assert_equal([-1, -.5, 0, .5], b.numpy(result))
+
+    def test_nonzero(self):
+        for b in BACKENDS:
+            data = b.as_tensor([0, 1, 0, -1])
+            result = b.nonzero(data)
+            numpy.testing.assert_equal([(1,), (3,)], b.numpy(result))
+            result = b.nonzero(data, length=4)
+            numpy.testing.assert_equal([[1], [3], [-1], [-1]], b.numpy(result))
+            result = b.nonzero(data, length=1)
+            numpy.testing.assert_equal([[1]], b.numpy(result))
+

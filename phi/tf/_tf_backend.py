@@ -234,9 +234,12 @@ class TFBackend(Backend):
             condition = tf.cast(condition, tf.bool)
             return tf.where(condition, x, y)
 
-    def nonzero(self, values):
+    def nonzero(self, values, length=None, fill_value=-1):
         with tf.device(values.device):
-            return tf.where(tf.not_equal(values, 0))
+            result = tf.where(tf.not_equal(values, 0))
+            if length is not None:
+                result = self.pad_to(result, 0, length, fill_value)
+            return result
 
     def mean(self, value, axis=None, keepdims=False):
         with tf.device(value.device):

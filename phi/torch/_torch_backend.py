@@ -173,7 +173,6 @@ class TorchBackend(Backend):
     round = torch.round
     ceil = torch.ceil
     floor = torch.floor
-    nonzero = torch.nonzero
     flip = torch.flip
     seed = staticmethod(torch.manual_seed)
     log_gamma = torch.lgamma
@@ -394,6 +393,12 @@ class TorchBackend(Backend):
         x = self.as_tensor(x)
         y = self.as_tensor(y)
         return torch.where(condition, x, y)
+
+    def nonzero(self, values, length=None, fill_value=-1):
+        result = torch.nonzero(values)  # (nnz, index)
+        if length is not None:
+            result = self.pad_to(result, 0, length, fill_value)
+        return result
 
     def mean(self, value, axis=None, keepdims=False):
         if self.dtype(value).kind not in (float, complex):
