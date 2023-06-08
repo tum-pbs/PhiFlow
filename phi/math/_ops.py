@@ -2594,7 +2594,7 @@ def stop_gradient(x):
 
 def pairwise_distances(positions: Tensor,
                        max_distance: Union[float, Tensor] = None,
-                       format: str = 'dense',
+                       format: Union[str, Tensor] = 'dense',
                        default: Optional[float] = None,
                        method: str = 'sparse') -> Tensor:
     """
@@ -2665,7 +2665,7 @@ def pairwise_distances(positions: Tensor,
             pair_count = 7
             mode = 'vectorize'
     # --- Run neighborhood search ---
-    from .backend._partition import find_neighbors, find_neighbors_matscipy, find_neighbors_sklearn
+    from .backend._partition import find_neighbors_sparse, find_neighbors_semi_sparse, find_neighbors_matscipy, find_neighbors_sklearn
     if mode == 'loop':
         indices = []
         values = []
@@ -2673,7 +2673,9 @@ def pairwise_distances(positions: Tensor,
             native_positions = reshaped_native(positions[b], [primal_dims, channel(positions)])
             native_max_dist = max_distance[b].native()
             if method == 'sparse':
-                nat_rows, nat_cols, nat_vals = find_neighbors(native_positions, native_max_dist, None, periodic=False, default=default)
+                nat_rows, nat_cols, nat_vals = find_neighbors_sparse(native_positions, native_max_dist, None, periodic=False, default=default)
+            elif method == 'semi-sparse':
+                nat_rows, nat_cols, nat_vals, req_pair_count, req_max_occupancy = find_neighbors_semi_sparse(native_positions, native_max_dist, None, periodic=False, default=default)
             elif method == 'matscipy':
                 assert positions.available, f"Cannot jit-compile matscipy neighborhood search"
                 nat_rows, nat_cols, nat_vals = find_neighbors_matscipy(native_positions, native_max_dist, None, periodic=False)
