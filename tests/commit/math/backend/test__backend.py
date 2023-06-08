@@ -160,6 +160,12 @@ class TestBackends(TestCase):
             numpy.testing.assert_equal([1, 3, 2], result)
             result = b.numpy(b.bincount(data, None, bins=5))
             numpy.testing.assert_equal([1, 3, 2, 0, 0], result)
+            # --- sorted ---
+            data = b.as_tensor([0, 1, 1, 1, 2, 2])
+            result = b.numpy(b.bincount(data, None, bins=3, x_sorted=True))
+            numpy.testing.assert_equal([1, 3, 2], result)
+            result = b.numpy(b.bincount(data, None, bins=5, x_sorted=True))
+            numpy.testing.assert_equal([1, 3, 2, 0, 0], result)
 
     def test_vectorized_call(self):
         for b in BACKENDS:

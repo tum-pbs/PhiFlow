@@ -347,7 +347,7 @@ class NumPyBackend(Backend):
             result.append(hist)
         return np.stack(result)
 
-    def bincount(self, x, weights, bins: int):
+    def bincount(self, x, weights: Optional[TensorType], bins: int, x_sorted=False):
         result = np.bincount(x, weights=weights, minlength=bins)
         assert result.shape[-1] == bins
         return result

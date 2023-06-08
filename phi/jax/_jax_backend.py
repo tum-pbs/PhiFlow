@@ -1,7 +1,7 @@
 import numbers
 import warnings
 from functools import wraps, partial
-from typing import List, Callable, Tuple, Union
+from typing import List, Callable, Tuple, Union, Optional
 from packaging import version
 
 import jax
@@ -493,8 +493,11 @@ class JaxBackend(Backend):
             return hist
         return jax.vmap(unbatched_hist)(values, weights, bin_edges)
 
-    def bincount(self, x, weights, bins: int):
-        return jnp.bincount(x, weights=weights, minlength=bins, length=bins)
+    def bincount(self, x, weights: Optional[TensorType], bins: int, x_sorted=False):
+        if x_sorted:
+            return jax.ops.segment_sum(weights or 1, x, bins, indices_are_sorted=True)
+        else:
+            return jnp.bincount(x, weights=weights, minlength=bins, length=bins)
 
     def quantile(self, x, quantiles):
         return jnp.quantile(x, quantiles, axis=-1)

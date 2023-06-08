@@ -892,7 +892,7 @@ class Backend:
         """
         raise NotImplementedError(self)
 
-    def bincount(self, x, weights: Optional[TensorType], bins: int):
+    def bincount(self, x, weights: Optional[TensorType], bins: int, x_sorted=False):
         raise NotImplementedError(self)
 
     def batched_bincount(self, x, weights: Optional[TensorType], bins: int):
