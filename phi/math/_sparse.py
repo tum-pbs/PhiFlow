@@ -947,3 +947,25 @@ def native_matrix(value: Tensor, target_backend: Backend):
         v = pack_dims(v, cols, channel('_col'))
         from ._ops import reshaped_native
         return reshaped_native(v, ['_row', '_col'])
+
+
+def sparse_dot(x: Tensor, x_dims: Shape, y: Tensor, y_dims: Shape):
+    if isinstance(x, CompressedSparseMatrix):
+        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            if x_dims.only(sparse_dims(x)) and y_dims.only(sparse_dims(y)):
+                raise NotImplementedError("sparse-sparse multiplication not yet supported")
+            raise NotImplementedError
+        return dot_compressed_dense(x, x_dims, y, y_dims)
+    elif isinstance(y, CompressedSparseMatrix):
+        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+        return dot_compressed_dense(y, y_dims, x, x_dims)
+    if isinstance(x, SparseCoordinateTensor):
+        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+        return dot_coordinate_dense(x, x_dims, y, y_dims)
+    elif isinstance(y, SparseCoordinateTensor):
+        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
+            raise NotImplementedError("sparse-sparse multiplication not yet supported")
+        return dot_coordinate_dense(y, y_dims, x, x_dims)
+    raise NotImplementedError

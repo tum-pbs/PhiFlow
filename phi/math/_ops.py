@@ -11,7 +11,7 @@ from ._magic_ops import expand, pack_dims, unpack_dim, cast, copy_with, value_at
 from ._shape import (Shape, EMPTY_SHAPE,
                      spatial, batch, channel, instance, merge_shapes, parse_dim_order, concat_shapes,
                      IncompatibleShapes, DimFilter, non_batch, dual, non_channel, shape)
-from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format, stored_indices, tensor_like, sparse_dims, same_sparsity_pattern, is_sparse
+from ._sparse import CompressedSparseMatrix, dot_compressed_dense, dense, SparseCoordinateTensor, dot_coordinate_dense, get_format, to_format, stored_indices, tensor_like, sparse_dims, same_sparsity_pattern, is_sparse, sparse_dot
 from ._tensors import (Tensor, wrap, tensor, broadcastable_native_tensors, NativeTensor, TensorStack,
                        custom_op2, compatible_tensor, variable_attributes, disassemble_tree, assemble_tree,
                        is_scalar, Layout, expand_tensor)
@@ -1647,28 +1647,14 @@ def dot(x: Tensor,
         assert x_dims.volume == 1, f"Cannot compute dot product between dimensions {x_dims} on {x.shape} and {y_dims} on {y.shape}"
         x = x[{d: 0 for d in x_dims.names}]
         return x * y
-    if isinstance(x, CompressedSparseMatrix):
-        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            if x_dims.isdisjoint(sparse_dims(x)) and y_dims.isdisjoint(sparse_dims(y)):
+    if is_sparse(x) or is_sparse(y):
+        if x_dims.isdisjoint(sparse_dims(x)) and y_dims.isdisjoint(sparse_dims(y)):
+            if is_sparse(x):
                 return x._op2(y, lambda vx, vy: dot(vx, x_dims, vy, y_dims), None, 'dot', '@')
-            if x_dims.only(sparse_dims(x)) and y_dims.only(sparse_dims(y)):
-                raise NotImplementedError("sparse-sparse multiplication not yet supported")
-            raise NotImplementedError
-        return dot_compressed_dense(x, x_dims, y, y_dims)
-    elif isinstance(y, CompressedSparseMatrix):
-        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            raise NotImplementedError("sparse-sparse multiplication not yet supported")
-        return dot_compressed_dense(y, y_dims, x, x_dims)
-    if isinstance(x, SparseCoordinateTensor):
-        if isinstance(y, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            if x_dims.isdisjoint(sparse_dims(x)) and y_dims.isdisjoint(sparse_dims(y)):
-                return x._op2(y, lambda vx, vy: dot(vx, x_dims, vy, y_dims), None, 'dot', '@')
-            raise NotImplementedError("sparse-sparse multiplication not yet supported")
-        return dot_coordinate_dense(x, x_dims, y, y_dims)
-    elif isinstance(y, SparseCoordinateTensor):
-        if isinstance(x, (CompressedSparseMatrix, SparseCoordinateTensor)):
-            raise NotImplementedError("sparse-sparse multiplication not yet supported")
-        return dot_coordinate_dense(y, y_dims, x, x_dims)
+            else:
+                return y._op2(x, lambda vy, vx: dot(vx, x_dims, vy, y_dims), None, 'dot', '@')
+        else:
+            return sparse_dot(x, x_dims, y, y_dims)
     x_native = x.native(x.shape)
     y_native = y.native(y.shape)
     backend = choose_backend(x_native, y_native)
