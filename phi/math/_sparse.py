@@ -572,7 +572,11 @@ class CompressedSparseMatrix(Tensor):
 
     def _with_shape_replaced(self, new_shape: Shape):
         assert self._shape.rank == new_shape.rank
-        raise NotImplementedError
+        values = self._values._with_shape_replaced(self._values.shape.replace(self._shape, new_shape))
+        indices = self._indices._with_shape_replaced(self._indices.shape.replace(self._shape, new_shape))
+        pointers = self._pointers._with_shape_replaced(self._pointers.shape.replace(self._shape, new_shape))
+        uncompressed_indices = self._uncompressed_indices._with_shape_replaced(self._uncompressed_indices.shape.replace(self._shape, new_shape)) if self._uncompressed_indices is not None else None
+        return CompressedSparseMatrix(indices, pointers, values, self._uncompressed_dims.replace(self._shape, new_shape), self._compressed_dims.replace(self._shape, new_shape), self._default, self._uncompressed_offset, uncompressed_indices, self._uncompressed_indices_perm)
 
     def _native_csr_components(self, invalid='clamp'):
         assert invalid in ['clamp', 'discard', 'keep']

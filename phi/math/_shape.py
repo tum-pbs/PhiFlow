@@ -958,7 +958,7 @@ class Shape:
                     names[self.index(old_name)] = new_dim
         return Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
 
-    def replace(self, dims: Union['Shape', str, tuple, list], new: 'Shape') -> 'Shape':
+    def replace(self, dims: Union['Shape', str, tuple, list], new: 'Shape', keep_item_names=True) -> 'Shape':
         """
         Returns a copy of `self` with `dims` replaced by `new`.
         Dimensions that are not present in `self` are ignored.
@@ -969,6 +969,7 @@ class Shape:
             dims: Dimensions to replace.
             new: New dimensions, must have same length as `dims`.
                 If a `Shape` is given, replaces the dimension types and item names as well.
+            keep_item_names: Keeps existing item names for dimensions where `new` does not specify item names if the new dimension has the same size.
 
         Returns:
             `Shape` with same rank and dimension order as `self`.
@@ -987,7 +988,10 @@ class Shape:
             if old_name in self:
                 names[self.index(old_name)] = new_dim.name
                 types[self.index(old_name)] = new_dim.type
-                item_names[self.index(old_name)] = new_dim.item_names[0]
+                if new_dim.item_names[0]:
+                    item_names[self.index(old_name)] = new_dim.item_names[0]
+                elif not _size_equal(new_dim.size, self.get_size(old_name)) or not keep_item_names:
+                    item_names[self.index(old_name)] = None  # forget previous item names
                 sizes[self.index(old_name)] = new_dim.size
         replaced = Shape(tuple(sizes), tuple(names), tuple(types), tuple(item_names))
         if len(new) == len(dims):
