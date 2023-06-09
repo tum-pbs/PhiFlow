@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from numbers import Number
 from typing import Tuple, Dict, List, Sequence, Union
 
 import numpy as np
@@ -6,7 +7,7 @@ import numpy as np
 from ._geom import Geometry
 from .. import math
 from ..math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, pack_dims, wrap, sparse_tensor, vec, stack, vec_length, tensor_like, \
-    pairwise_distances
+    pairwise_distances, concat, Extrapolation
 
 
 @dataclass
@@ -57,6 +58,9 @@ class UnstructuredMesh(Geometry):
         self._relative_face_distance = math.concat([face_distances / cell_distances, math.tensor_like(self.boundary_connectivity, 1)], '~cells')
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], '~cells')
+        # --- skewness ---
+        # theta_e = math.PI * (vertex_count - 2) / vertex_count
+        # e_face =
 
     @property
     def shape(self) -> Shape:
@@ -101,6 +105,23 @@ class UnstructuredMesh(Geometry):
     @property
     def interior_faces(self) -> Dict[str, slice]:
         return {'~'+instance(self).name: slice(0, instance(self).volume)}
+
+    def pad_boundary(self, value: Tensor, ext: Extrapolation or Tensor or Number, widths: dict = None, **kwargs) -> Tensor:
+        dim = next(iter(next(iter(widths.values()))[0]))
+        slices = [slice(0, value.shape.get_size(dim))]
+        values = [value]
+        connectivity = self.connectivity
+        if widths is None:
+            widths = self.boundary_faces
+        for name, b_slices in widths.items():
+            for b_slice, is_upper in zip(b_slices, [False, True]):
+                if b_slice[dim].stop - b_slice[dim].start > 0:
+                    slices.append(b_slice[dim])
+                    b_connectivity = connectivity[b_slice]
+                    values.append(ext.sparse_pad_values(value, b_connectivity, name, is_upper, **kwargs))
+        perm = np.argsort([s.start for s in slices])
+        ordered_pieces = [values[i] for i in perm]
+        return concat(ordered_pieces, dim, expand_values=True)
 
     # def edges(self, bidirectional=False) -> Tuple[Tensor, Tensor]:
     #     last_vertex = expand(self._polygons.vertex_index[self._vertex_count-1], spatial(vertex_index=1))
