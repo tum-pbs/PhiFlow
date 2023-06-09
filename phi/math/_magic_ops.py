@@ -446,6 +446,11 @@ def si2d(value):
     return rename_dims(value, lambda s: s.non_channel.non_dual.non_batch, dual)
 
 
+def c2d(value):
+    """ Change the type of all *channel* dimensions of `value` to *dual* dimensions. See `rename_dims`. """
+    return rename_dims(value, channel, dual)
+
+
 def i2b(value):
     """ Change the type of all *instance* dimensions of `value` to *batch* dimensions. See `rename_dims`. """
     return rename_dims(value, instance, batch)
