@@ -41,8 +41,6 @@ class Field:
           values: values corresponding to elements
           extrapolation: values outside elements
         """
-        # if isinstance(elements, Tensor):
-        #     elements = Point(elements)
         assert isinstance(elements, Geometry), elements
         self._extrapolation: Extrapolation = as_extrapolation(extrapolation)
         self._elements: Geometry = elements
@@ -54,8 +52,6 @@ class Field:
         if non_batch(elements).non_channel not in values.shape:
             values = expand(wrap(values), non_batch(elements).non_channel)
         self._values: Tensor = values
-        if not self.is_staggered and dual(self._values):
-            raise AssertionError
 
     @property
     def elements(self) -> Geometry:
