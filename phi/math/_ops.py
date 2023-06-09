@@ -822,7 +822,7 @@ def concat_tensor(values: Union[tuple, list], dim: str) -> Tensor:
     return result
 
 
-def pad(value: Tensor, widths: dict, mode: Union['e_.Extrapolation', Tensor, Number], connectivity=None, **kwargs) -> Tensor:
+def pad(value: Tensor, widths: dict, mode: Union['e_.Extrapolation', Tensor, Number], **kwargs) -> Tensor:
     """
     Pads a tensor along the specified dimensions, determining the added values using the given extrapolation.
     Unlike `Extrapolation.pad()`, this function can handle negative widths which slice off outer values.
@@ -848,8 +848,6 @@ def pad(value: Tensor, widths: dict, mode: Union['e_.Extrapolation', Tensor, Num
         (xˢ=10, yˢ=10) 0.900 ± 0.300 (0e+00...1e+00)
     """
     mode = mode if isinstance(mode, e_.Extrapolation) else e_.ConstantExtrapolation(mode)
-    if connectivity is not None:
-        return _sparse_pad(value, widths, mode, connectivity, **kwargs)
     has_negative_widths = any(w0 < 0 or w1 < 0 for w0, w1 in widths.values())
     has_positive_widths = any(w0 > 0 or w1 > 0 for w0, w1 in widths.values())
     slices = None
@@ -859,21 +857,6 @@ def pad(value: Tensor, widths: dict, mode: Union['e_.Extrapolation', Tensor, Num
     result_padded = mode.pad(value, widths, **kwargs) if has_positive_widths else value
     result_sliced = result_padded[slices] if has_negative_widths else result_padded
     return result_sliced
-
-
-def _sparse_pad(value: Tensor, widths: dict, ext: 'e_.Extrapolation' or Tensor or Number, connectivity=None, **kwargs) -> Tensor:
-    dim = next(iter(next(iter(widths.values()))[0]))
-    slices = [slice(0, value.shape.get_size(dim))]
-    values = [value]
-    for name, b_slices in widths.items():
-        for b_slice, is_upper in zip(b_slices, [False, True]):
-            if b_slice[dim].stop - b_slice[dim].start > 0:
-                slices.append(b_slice[dim])
-                b_connectivity = connectivity[b_slice]
-                values.append(ext.sparse_pad_values(value, b_connectivity, name, is_upper, **kwargs))
-    perm = np.argsort([s.start for s in slices])
-    ordered_pieces = [values[i] for i in perm]
-    return concat(ordered_pieces, dim)
 
 
 def closest_grid_values(grid: Tensor,
