@@ -1,7 +1,7 @@
 import warnings
 from typing import Any, Union
 
-from phi import math
+from phi import math, geom
 from phi.geom import Geometry, Box
 from ._field import Field
 from ._resample import resample
@@ -45,6 +45,8 @@ def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolatio
         indices = math.stored_indices(values)[non_dual_name]
         values = math.stored_values(values)
         elements = elements[{non_dual_name: indices}]
+    if isinstance(elements, Tensor):
+        elements = geom.Point(elements)
     result = Field(elements, values, extrapolation)
     assert result.boundary is PERIODIC or isinstance(result.boundary, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {result._boundary}"
     return result
