@@ -6,7 +6,7 @@ Extrapolations are an important part of sampled fields such as grids.
 See the documentation at https://tum-pbs.github.io/PhiFlow/Fields.html#extrapolations .
 """
 import warnings
-from typing import Union, Dict, Callable, Tuple
+from typing import Union, Dict, Callable, Tuple, Optional
 
 from phi.math.backend._backend import get_spatial_derivative_order
 from .backend import choose_backend
@@ -382,6 +382,10 @@ class _CopyExtrapolation(Extrapolation):
     def to_dict(self) -> dict:
         return {'type': repr(self)}
 
+    @property
+    def backend_pad_mode(self) -> Optional[str]:
+        return repr(self)
+
     def __value_attrs__(self):
         return ()
 
@@ -406,7 +410,7 @@ class _CopyExtrapolation(Extrapolation):
             should_pad_native = any(dim in value._native_shape for dim in widths)
             if should_pad_native:
                 ordered_pad_widths = order_by_shape(value._native_shape, widths, default=(0, 0))
-                result_native = value.default_backend.pad(value._native, ordered_pad_widths, repr(self))
+                result_native = value.default_backend.pad(value._native, ordered_pad_widths, self.backend_pad_mode)
             else:
                 result_native = value._native
             if result_native is not NotImplemented:
@@ -482,13 +486,17 @@ class _CopyExtrapolation(Extrapolation):
         return self._op(other, ConstantExtrapolation.__lt__)
 
 
-class _BoundaryExtrapolation(_CopyExtrapolation):
+class _ZeroGradient(_CopyExtrapolation):
     """Uses the closest defined value for points lying outside the defined region."""
 
     _CACHED_LOWER_MASKS = {}
     _CACHED_UPPER_MASKS = {}
 
     def __repr__(self):
+        return 'zero-gradient'
+
+    @property
+    def backend_pad_mode(self) -> Optional[str]:
         return 'boundary'
 
     def spatial_gradient(self):
@@ -1007,7 +1015,7 @@ ONE = ConstantExtrapolation(1)
 """ Extrapolates with the constant value 1 (Dirichlet boundary condition). """
 PERIODIC = _PeriodicExtrapolation(1)
 """ Extends a grid by tiling it (Periodic boundary condition). """
-ZERO_GRADIENT = _BoundaryExtrapolation(2)
+ZERO_GRADIENT = _ZeroGradient(2)
 """ Extends a grid with its edge values (Neumann boundary condition). The value of a point lying outside the grid is determined by the closest grid value(s). """
 BOUNDARY = ZERO_GRADIENT
 # undocumented, use ZERO_GRADIENT instead
@@ -1026,7 +1034,7 @@ NONE = _NoExtrapolation(-1)
 """ Raises AssertionError when used to determine outside values. Padding operations will have no effect with this extrapolation. """
 
 
-_PRIMITIVES = {  # used by as_extrapolation() and from_dict()
+_PRIMITIVES = {  # used by as_boundary() and from_dict()
     'periodic': PERIODIC,
     'zero': ZERO,
     'one': ONE,
