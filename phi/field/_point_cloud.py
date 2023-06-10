@@ -46,7 +46,7 @@ def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolatio
         values = math.stored_values(values)
         elements = elements[{non_dual_name: indices}]
     result = Field(elements, values, extrapolation)
-    assert result._extrapolation is PERIODIC or isinstance(result._extrapolation, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {result._extrapolation}"
+    assert result.boundary is PERIODIC or isinstance(result.boundary, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {result._boundary}"
     return result
 
 

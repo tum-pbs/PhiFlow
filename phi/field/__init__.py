@@ -17,7 +17,7 @@ All fields can be sampled at physical locations or volumes using `sample()` or `
 See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 """
 
-from ._field import Field, Field as SampledField, Field as Grid, Field as PointCloud, as_extrapolation
+from ._field import Field, Field as SampledField, Field as Grid, Field as PointCloud, as_boundary
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import CenteredGrid, StaggeredGrid
 from ._point_cloud import PointCloud

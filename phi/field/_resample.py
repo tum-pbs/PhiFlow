@@ -5,7 +5,7 @@ from phi import math
 from phi.geom import Geometry, Box, Point, UniformGrid, UnstructuredMesh
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
-from ._field import Field, FieldInitializer, as_extrapolation, slice_off_constant
+from ._field import Field, FieldInitializer, as_boundary, slice_off_constant
 from ..math._tensors import may_vary_along
 
 
@@ -90,7 +90,7 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
     if at == 'face':
         assert extrapolation is not None, "boundaries must be given when sampling at faces"
     geometry = _get_geometry(geometry)
-    extrapolation = as_extrapolation(extrapolation) if extrapolation is not None else None
+    extrapolation = as_boundary(extrapolation) if extrapolation is not None else None
     if isinstance(field, Geometry):
         from ._field_math import mask
         field = mask(field)

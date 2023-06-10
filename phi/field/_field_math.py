@@ -7,7 +7,7 @@ from phi import math
 from phi.geom import Box, Geometry, UniformGrid, Point, UnstructuredMesh
 from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile, rename_dims, flatten, batch, dual
 from ._embed import FieldEmbedding
-from ._field import Field, as_extrapolation
+from ._field import Field, as_boundary
 from ._grid import CenteredGrid, StaggeredGrid, grid
 from ._point_cloud import PointCloud
 from ..geom._stack import GeometryStack
@@ -270,7 +270,7 @@ def stagger(field: Field,
         grid of type matching the `type` argument
 
     """
-    extrapolation = as_extrapolation(extrapolation)
+    extrapolation = as_boundary(extrapolation)
     all_lower = []
     all_upper = []
     if at == 'face':

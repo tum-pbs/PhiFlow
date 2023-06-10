@@ -33,7 +33,7 @@ class Field:
     def __init__(self,
                  elements: Union[Geometry, Tensor],
                  values: Union[Tensor, Number, bool, Callable, FieldInitializer, Geometry, 'Field'],
-                 extrapolation: Union[Number, Extrapolation, 'Field', dict],
+                 boundary: Union[Number, Extrapolation, 'Field', dict],
                  **sampling_kwargs):
         """
         Args:
@@ -42,13 +42,13 @@ class Field:
           extrapolation: values outside elements
         """
         assert isinstance(elements, Geometry), elements
-        self._extrapolation: Extrapolation = as_extrapolation(extrapolation)
+        self._boundary: Extrapolation = as_boundary(boundary)
         self._elements: Geometry = elements
         if isinstance(values, (Tensor, Number, bool)):
             values = wrap(values)
         else:
             from ._resample import sample
-            values = sample(values, elements, 'center', self._extrapolation, **sampling_kwargs)
+            values = sample(values, elements, 'center', self._boundary, **sampling_kwargs)
         if non_batch(elements).non_channel not in values.shape:
             values = expand(wrap(values), non_batch(elements).non_channel)
         self._values: Tensor = values
@@ -107,9 +107,19 @@ class Field:
             return self.staggered_tensor()
 
     @property
+    def boundary(self) -> Extrapolation:
+        """
+        Returns the boundary conditions set for this `Field`.
+
+        Returns:
+            Single `Extrapolation` instance that encodes the (varying) boundary conditions for all boundaries of this field's `elements`.
+        """
+        return self._boundary
+
+    @property
     def extrapolation(self) -> Extrapolation:
         """ Returns the `Extrapolation` of this `Field`. """
-        return self._extrapolation
+        return self._boundary
 
     @property
     def shape(self) -> Shape:
@@ -197,15 +207,15 @@ class Field:
         if self.is_centered:
             return self
         from ._resample import sample
-        values = sample(self, self._elements, at='center', extrapolation=self._extrapolation, **kwargs)
-        return Field(self._elements, values, self._extrapolation)
+        values = sample(self, self._elements, at='center', extrapolation=self._boundary, **kwargs)
+        return Field(self._elements, values, self._boundary)
 
     def at_faces(self, **kwargs) -> 'Field':
         if self.is_staggered:
             return self
         from ._resample import sample
-        values = sample(self, self._elements, at='face', extrapolation=self._extrapolation, **kwargs)
-        return Field(self._elements, values, self._extrapolation)
+        values = sample(self, self._elements, at='face', extrapolation=self._boundary, **kwargs)
+        return Field(self._elements, values, self._boundary)
 
     def at(self, representation: 'Field', keep_extrapolation=False, **kwargs) -> 'Field':
         """
@@ -249,11 +259,11 @@ class Field:
 
     def with_values(self, values):
         """ Returns a copy of this field with `values` replaced. """
-        return Field(self._elements, values, self._extrapolation)
+        return Field(self._elements, values, self._boundary)
 
     def with_extrapolation(self, extrapolation: Extrapolation):
         """ Returns a copy of this field with `values` replaced. """
-        extrapolation = as_extrapolation(extrapolation)
+        extrapolation = as_boundary(extrapolation)
         return Field(self._elements, self._values, extrapolation)
         # ToDo StaggeredGrid
         if all([extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names]):
@@ -270,12 +280,12 @@ class Field:
 
     def with_bounds(self, bounds: Box):
         """ Returns a copy of this field with `bounds` replaced. """
-        return Field(self._elements, self._values, self._extrapolation)
+        return Field(self._elements, self._values, self._boundary)
 
     def with_elements(self, elements: Geometry):
         """ Returns a copy of this field with `elements` replaced. """
         assert non_batch(elements) == non_batch(self._elements), f"Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self._elements.shape}"
-        return Field(elements, self._values, self._extrapolation)
+        return Field(elements, self._values, self._boundary)
 
     def shifted(self, delta):
         return self.with_elements(self.elements.shifted(delta))
@@ -364,7 +374,7 @@ class Field:
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
         elements = self.elements[item_without_vec]
         values = self._values[item]
-        extrapolation = self._extrapolation[item]
+        extrapolation = self._boundary[item]
         return Field(elements, values, extrapolation)
 
     def __getattr__(self, name: str) -> BoundDim:
@@ -401,7 +411,7 @@ class Field:
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Field':
         elements = math.rename_dims(self._elements, dims, new_dims)
         values = math.rename_dims(self._values, dims, new_dims)
-        extrapolation = math.rename_dims(self._extrapolation, dims, new_dims, **kwargs)
+        extrapolation = math.rename_dims(self._boundary, dims, new_dims, **kwargs)
         return Field(elements, values, extrapolation)
 
     def __eq__(self, other):
@@ -410,7 +420,7 @@ class Field:
         # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
         if type(self._elements) is not type(other._elements):
             return False
-        if self._extrapolation != other._extrapolation:
+        if self._boundary != other._extrapolation:
             return False
         if self._values is None:
             return other._values is None
@@ -479,7 +489,7 @@ class Field:
           Field of same type
         """
         values = operator(self.values)
-        extrapolation_ = operator(self._extrapolation)
+        extrapolation_ = operator(self._boundary)
         return self.with_values(values).with_extrapolation(extrapolation_)
 
     def _op2(self, other, operator) -> 'Field':
@@ -488,12 +498,12 @@ class Field:
         if isinstance(other, Field):
             if self._elements == other._elements:
                 values = operator(self._values, other.values)
-                extrapolation_ = operator(self._extrapolation, other.extrapolation)
+                extrapolation_ = operator(self._boundary, other.extrapolation)
                 return Field(self._elements, values, extrapolation_)
             from ._resample import sample
             other_values = sample(other, self._elements)
             values = operator(self._values, other_values)
-            extrapolation_ = operator(self._extrapolation, other.extrapolation)
+            extrapolation_ = operator(self._boundary, other.extrapolation)
             return self.with_values(values).with_extrapolation(extrapolation_)
         else:
             if isinstance(other, (tuple, list)) and len(other) == self.spatial_rank:
@@ -513,9 +523,9 @@ class Field:
         else:
             type_name = self.__class__.__name__
         if self._values is not None:
-            return f"{type_name}[{self.values}, ext={self._extrapolation}]"
+            return f"{type_name}[{self.values}, ext={self._boundary}]"
         else:
-            return f"{type_name}[{self.resolution}, ext={self._extrapolation}]"
+            return f"{type_name}[{self.resolution}, ext={self._boundary}]"
 
     def grid_scatter(self, *args, **kwargs):
         """Deprecated. Use `sample` with `scatter=True` instead."""
@@ -524,7 +534,7 @@ class Field:
         return grid_scatter(self, *args, **kwargs)
 
 
-def as_extrapolation(obj: Union[Extrapolation, float, Field, None]) -> Extrapolation:
+def as_boundary(obj: Union[Extrapolation, float, Field, None]) -> Extrapolation:
     """
     Returns an `Extrapolation` representing `obj`.
 
