@@ -2690,9 +2690,12 @@ def map_pairs(map_function: Callable, values: Tensor, connections: Tensor):
         `Tensor` with the sparse dimensions of `connections` and all non-instance dimensions returned by `map_function`.
     """
     assert dual(values).is_empty, f"values must not have a dual dimension but got {values.shape}"
-    inst_dim = non_batch(values).non_channel.non_dual.name
     indices = stored_indices(connections, invalid='clamp')
-    origin = values[{inst_dim: indices[inst_dim]}]
-    target = values[{inst_dim: indices['~' + inst_dim]}]
+    origin_dim, neighbors_dim = channel(indices).item_names[0]
+    if origin_dim not in values.shape:
+        origin_dim, neighbors_dim = neighbors_dim, origin_dim
+    assert origin_dim in values.shape, f"No dimension of connections {connections.shape} is present in values {values.shape}"
+    origin = values[{origin_dim: indices[origin_dim]}]
+    target = values[{origin_dim: indices[neighbors_dim]}]
     result = map_function(origin, target)
     return tensor_like(connections, result, value_order='as existing')
