@@ -55,9 +55,9 @@ class UnstructuredMesh(Geometry):
         cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
         cell_distances = math.vec_length(cell_deltas)
         face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
-        self._relative_face_distance = math.concat([face_distances / cell_distances, math.tensor_like(self.boundary_connectivity, 1)], '~cells')
+        self._relative_face_distance = math.concat([face_distances / cell_distances, math.tensor_like(self.boundary_connectivity, 1)], '~neighbors')
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
-        self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], '~cells')
+        self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], '~neighbors')
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
         # e_face =
@@ -100,19 +100,21 @@ class UnstructuredMesh(Geometry):
 
     @property
     def all_boundary_faces(self) -> Dict[str, slice]:
-        return {'~'+instance(self).name: slice(instance(self).volume, None)}
+        return {'~neighbors': slice(instance(self).volume, None)}
     
     @property
     def interior_faces(self) -> Dict[str, slice]:
-        return {'~'+instance(self).name: slice(0, instance(self).volume)}
+        return {'~neighbors': slice(0, instance(self).volume)}
 
     def pad_boundary(self, value: Tensor, ext: Extrapolation or Tensor or Number, widths: dict = None, **kwargs) -> Tensor:
+        if widths is None:
+            widths = self.boundary_faces
+        if '~neighbors' not in value.shape:
+            value = math.replace_dims(value, instance, dual('neighbors'))
         dim = next(iter(next(iter(widths.values()))[0]))
         slices = [slice(0, value.shape.get_size(dim))]
         values = [value]
         connectivity = self.connectivity
-        if widths is None:
-            widths = self.boundary_faces
         for name, b_slices in widths.items():
             for b_slice, is_upper in zip(b_slices, [False, True]):
                 if b_slice[dim].stop - b_slice[dim].start > 0:
@@ -355,7 +357,8 @@ def build_faces_2d(points: np.ndarray,
     poly1, poly2 = poly1 + poly2, poly2 + poly1
     points1, points2 = points1 + points2, points2 + points1
     # --- Add boundary faces ---
-    dual_poly_dim = dual(**poly_dim.untyped_dict).with_size(len(polygons) + sum([len(b) for bs in boundaries.values() for b in bs]))
+    # dual_poly_dim = dual(**poly_dim.untyped_dict).with_size(len(polygons) + sum([len(b) for bs in boundaries.values() for b in bs]))
+    dual_poly_dim = dual(neighbors=len(polygons) + sum([len(b) for bs in boundaries.values() for b in bs]))
     boundary_idx = len(polygons)
     boundary_slices = {}
     for boundary_name, pair_lists in boundaries.items():

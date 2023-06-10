@@ -317,7 +317,7 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
 
 def centroid_to_faces(field: Field, extrapolation: Extrapolation, scheme='upwind-linear', upwind_vectors: Field = None, gradient: Field = None):
     mesh: UnstructuredMesh = field.elements
-    neighbor_val = mesh.pad_boundary(si2d(field.values), extrapolation)
+    neighbor_val = mesh.pad_boundary(field.values, extrapolation)
     if scheme == 'upwind-linear':
         flows_out = (upwind_vectors or field).values.vector @ mesh.face_normals.vector >= 0
         if gradient is None:
@@ -326,6 +326,7 @@ def centroid_to_faces(field: Field, extrapolation: Extrapolation, scheme='upwind
         neighbor_grad = mesh.pad_boundary(si2d(gradient.values), gradient.extrapolation)
         interpolated_from_self = field.values + gradient.values.vector.dual @ (mesh.face_centers - mesh.center).vector
         interpolated_from_neighbor = neighbor_val + neighbor_grad.vector.dual @ (mesh.face_centers - (mesh.center + mesh.neighbor_offsets)).vector
+        # ToDo limiter
         return math.where(flows_out, interpolated_from_self, interpolated_from_neighbor)
     elif scheme == 'upwind':
         flows_out = (upwind_vectors or field).values.vector @ mesh.face_normals.vector >= 0
