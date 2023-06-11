@@ -1,8 +1,9 @@
+import warnings
 from numbers import Number
 from typing import Union, Dict, Any, Tuple
 
 from phi import math
-from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
+from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
 from phi.math._magic_ops import variable_attributes, expand
 from phi.math.magic import BoundDim, slicing_dict
 
@@ -122,6 +123,43 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)  # ToDo deprecate this
 
+    def integrate_surface(self, values: Tensor) -> Tensor:
+        """
+        Multiplies `values´ by the corresponding face area, computes the sum over all faces and divides by the cell volume.
+        ∑ values * A / V.
+
+        Args:
+            values: Values sampled at the face centers.
+
+        Returns:
+            `Tensor` of values sampled at the centroids.
+        """
+        return math.sum(values * self.face_areas, self.face_shape.dual) / self.volume
+
+    # def resample_to_faces(self, values: Tensor, boundary: Extrapolation, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def resample_to_centers(self, values: Tensor, boundary: Extrapolation, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def centered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def staggered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def divergence_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def laplace_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def centered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def staggered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+
     def unstack(self, dimension: str) -> tuple:
         """
         Unstacks this Geometry along the given dimension.
@@ -133,6 +171,7 @@ class Geometry:
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         """
+        warnings.warn(f"Geometry.unstack() is deprecated. Use math.unstack(geometry) instead.", DeprecationWarning)
         return math.unstack(self, dimension)
 
     @property

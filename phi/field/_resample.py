@@ -323,7 +323,7 @@ def centroid_to_faces(field: Field, extrapolation: Extrapolation, scheme='upwind
         if gradient is None:
             from ._field_math import spatial_gradient
             gradient = spatial_gradient(field)
-        neighbor_grad = mesh.pad_boundary(si2d(gradient.values), gradient.extrapolation)
+        neighbor_grad = mesh.pad_boundary(gradient.values, gradient.extrapolation)
         interpolated_from_self = field.values + gradient.values.vector.dual @ (mesh.face_centers - mesh.center).vector
         interpolated_from_neighbor = neighbor_val + neighbor_grad.vector.dual @ (mesh.face_centers - (mesh.center + mesh.neighbor_offsets)).vector
         # ToDo limiter
