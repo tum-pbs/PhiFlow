@@ -69,5 +69,5 @@ def set_logging_level(level='debug'):
     Args:
         level: Logging level, one of `'critical', 'fatal', 'error', 'warning', 'info', 'debug'`
     """
-    from phi.math.backend import PHI_LOGGER
-    PHI_LOGGER.setLevel(level.upper())
+    from phi.math.backend import ML_LOGGER
+    ML_LOGGER.setLevel(level.upper())

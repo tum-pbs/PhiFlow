@@ -16,7 +16,7 @@ from phi.flow import *
 from . import TORCH
 
 from . import nets
-from .nets import parameter_count, get_parameters, save_state, load_state, dense_net, u_net, update_weights, adam, conv_net, res_net, sgd, sgd as SGD, rmsprop, adagrad, conv_classifier, invertible_net, fno
+from .nets import parameter_count, get_parameters, save_state, load_state, dense_net, u_net, update_weights, adam, conv_net, res_net, sgd, sgd as SGD, rmsprop, adagrad, conv_classifier, invertible_net
 
 import torch
 import torch.nn.functional as torchf
@@ -25,5 +25,5 @@ import torch.optim as optim
 if not backend.context_backend():
     backend.set_global_default_backend(TORCH)
 else:
-    from ..math.backend import PHI_LOGGER as _LOGGER
+    from ..math.backend import ML_LOGGER as _LOGGER
     _LOGGER.warning(f"Importing '{__name__}' within a backend context will not set the default backend.")

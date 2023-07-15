@@ -157,7 +157,7 @@ def plot_solves():
         finally:
             for i, result in enumerate(solves):
                 assert isinstance(result, math.SolveInfo)
-                from phi.math._tensors import disassemble_tree
+                from phiml.math._tensors import disassemble_tree
                 _, (residual,) = disassemble_tree(result.residual)
                 residual_mse = math.mean(math.sqrt(math.sum(residual ** 2)), residual.shape.without('trajectory'))
                 residual_mse_max = math.max(math.sqrt(math.sum(residual ** 2)), residual.shape.without('trajectory'))

@@ -251,7 +251,7 @@ class Field:
         return math.closest_grid_values(self.values, local_points, self.extrapolation)
         # --- StaggeredGrid ---
         if 'staggered_direction' in points.shape:
-            points_ = points.unstack('staggered_direction')
+            points_ = math.unstack(points, 'staggered_direction')
             channels = [component.closest_values(p) for p, component in zip(points_, self.vector.unstack())]
         else:
             channels = [component.closest_values(points) for component in self.vector.unstack()]
@@ -270,7 +270,7 @@ class Field:
             return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
         else:
             values = []
-            for dim, component in zip(self.shape.spatial.names, self.values.unstack('vector')):
+            for dim, component in zip(self.shape.spatial.names, math.unstack(self.values, 'vector')):
                 old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
                 new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
                 widths = (new_lo - old_lo, new_hi - old_hi)
@@ -400,7 +400,7 @@ class Field:
         return BoundDim(self, name)
 
     def __value_attrs__(self):
-        return '_values', '_extrapolation'
+        return '_values', '_boundary'
 
     def __variable_attrs__(self):
         return '_values', '_elements'
@@ -420,7 +420,7 @@ class Field:
         # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
         if type(self._elements) is not type(other._elements):
             return False
-        if self._boundary != other._extrapolation:
+        if self._boundary != other.boundary:
             return False
         if self._values is None:
             return other._values is None
@@ -453,7 +453,14 @@ class Field:
         return self._op2(other, lambda d1, d2: d2 - d1)
 
     def __add__(self, other):
-        return self._op2(other, lambda d1, d2: d1 + d2)
+        def inner_add(d1, d2):
+            from phiml.math._tensors import TensorStack
+            if isinstance(d1, TensorStack) and isinstance(d2, TensorStack):
+                print("test")
+                pass
+            return d1 + d2
+
+        return self._op2(other, inner_add)
 
     __radd__ = __add__
 

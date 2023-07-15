@@ -6,7 +6,7 @@ from typing import Optional
 from phi import math
 from phi.field import Scene
 from phi.math import shape, wrap, channel, spatial, batch
-from phi.math.backend import PHI_LOGGER
+from phi.math.backend import ML_LOGGER
 
 
 @math.broadcast
@@ -36,7 +36,7 @@ def load_scalars(scene: Scene or str,
         scene = Scene.at(scene)
     assert isinstance(scene, Scene), f"scene must be a Scene or str but got {type(scene)}"
     assert shape(scene).rank == 0, f"Use math.map(load_scalars, ...) to load data from multiple scenes"
-    PHI_LOGGER.debug(f"Reading {os.path.join(scene.path, f'{prefix}{name}{suffix}')}")
+    ML_LOGGER.debug(f"Reading {os.path.join(scene.path, f'{prefix}{name}{suffix}')}")
     curve = numpy.loadtxt(os.path.join(scene.path, f"log_{name}.txt"))
     if curve.ndim == 2:
         x_values = curve[:, 0]
@@ -49,7 +49,7 @@ def load_scalars(scene: Scene or str,
         x_values = numpy.arange(len(values))
     if x == 'time':
         assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
-        PHI_LOGGER.debug(f"Reading {os.path.join(scene.path, 'log_step_time.txt')}")
+        ML_LOGGER.debug(f"Reading {os.path.join(scene.path, 'log_step_time.txt')}")
         _, x_values, *_ = numpy.loadtxt(os.path.join(scene.path, "log_step_time.txt")).T
         values = values[:len(x_values + 1)]
         x_values = numpy.cumsum(x_values[:len(values) - 1])

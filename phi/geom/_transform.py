@@ -6,7 +6,7 @@ from phi.math import Tensor, Shape
 from . import BaseBox, Box
 from ._geom import Geometry
 from ._sphere import Sphere
-from ..math._shape import parse_dim_order
+from phiml.math._shape import parse_dim_order
 
 
 class RotatedGeometry(Geometry):
@@ -87,7 +87,7 @@ class RotatedGeometry(Geometry):
         return RotatedGeometry(self._geometry.scaled(factor), self._angle)
 
     def unstack(self, dimension: str) -> tuple:
-        return tuple([RotatedGeometry(g, self._angle) for g in self._geometry.unstack(dimension)])
+        return tuple([RotatedGeometry(g, self._angle) for g in math.unstack(self._geometry, dimension)])
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         loc = self._geometry.sample_uniform(*shape)

@@ -11,7 +11,7 @@ from ._field import Field, as_boundary
 from ._grid import CenteredGrid, StaggeredGrid, grid
 from ._point_cloud import PointCloud
 from ..geom._stack import GeometryStack
-from ..math._tensors import may_vary_along
+from phiml.math._tensors import may_vary_along
 from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction, ConstantExtrapolation
 from ._resample import sample
 
@@ -848,7 +848,7 @@ def mask(obj: Field or Geometry) -> Field:
     elif obj.is_staggered:
         raise NotImplementedError
     else:
-        return Field(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation), obj.bounds)
+        return Field(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation))
 
 
 # def connect(obj: Field, connections: Tensor) -> Mesh:

@@ -6,8 +6,8 @@ from phi.math import rename_dims
 from ._field import Field, as_boundary, FieldInitializer
 from ._resample import sample, sample_function
 from ..math import Shape
-from ..math._shape import spatial, channel, dual
-from ..math._tensors import TensorStack, Tensor
+from phiml.math._shape import spatial, channel, dual
+from phiml.math._tensors import TensorStack, Tensor
 from ..math.extrapolation import Extrapolation
 
 
@@ -174,7 +174,7 @@ def StaggeredGrid(values: Any = 0.,
 
 def unstack_staggered_tensor(data: Tensor, extrapolation: Extrapolation) -> TensorStack:
     sliced = []
-    for dim, component in zip(data.shape.spatial.names, data.unstack('vector')):
+    for dim, component in zip(data.shape.spatial.names, data.vector):
         lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
         slices = {d: slice(0, -1) for d in data.shape.spatial.names}
         slices[dim] = slice(int(not lo_valid), - int(not up_valid) or None)
@@ -203,7 +203,7 @@ def resolution_from_staggered_tensor(values: Tensor, extrapolation: Extrapolatio
 
 
 def _sample_function(f, elements: Geometry):
-    from phi.math._functional import get_function_parameters
+    from phiml.math._functional import get_function_parameters
     try:
         params = get_function_parameters(f)
         dims = elements.shape.get_size('vector')

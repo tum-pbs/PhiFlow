@@ -14,7 +14,7 @@ from .info import build_app_details, build_description, build_phiflow_info, buil
 from .viewer import build_viewers, REFRESH_INTERVAL
 from .player_controls import build_status_bar, build_player_controls, PLAYING, STEP_COMPLETE
 from .._vis_base import Gui, VisModel
-from ...math.backend import PHI_LOGGER
+from ...math.backend import ML_LOGGER
 
 
 class DashGui(Gui):

@@ -12,7 +12,6 @@ from ._vis_base import VisModel, Control, Action
 from .. import field, math
 from ..field import Scene, Field
 from ..math import batch, Tensor
-from ..math.backend import PHI_LOGGER
 
 
 def create_viewer(namespace: UserNamespace,

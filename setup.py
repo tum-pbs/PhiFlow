@@ -141,7 +141,6 @@ setup(
               'phi.jax',
               'phi.jax.stax',
               'phi.math',
-              'phi.math.backend',
               'phi.physics',
               'phi.tf',
               'phi.torch',
@@ -163,6 +162,7 @@ setup(
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
     install_requires=[
+        'phiml',  # main math library
         'numpy',  # 1.20 causes TensorFlow tracing errors: NotImplementedError: Cannot convert a symbolic Tensor to a numpy array.
         'scipy>=1.5.4',
         'matplotlib>=3.5.0',  # also required by dash for color maps

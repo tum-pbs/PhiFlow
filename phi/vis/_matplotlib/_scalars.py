@@ -11,7 +11,7 @@ from phi import math
 from phi.field import Scene
 from phi.field._scene import _str
 from phi.math import Tensor, batch
-from phi.math.backend import PHI_LOGGER
+from phi.math.backend import ML_LOGGER
 from phi.vis._plot_util import smooth_uniform_curve
 from phi.vis._vis_base import display_name
 from ._matplotlib_plots import MATPLOTLIB
@@ -118,7 +118,7 @@ def plot_scalars(scene: Union[str, tuple, list, Scene, math.Tensor],
             curve_labels = math.map(lambda p, n: f"{os.path.basename(p)} - {n}", scene.paths[b], names[b])
 
         def single_plot(name, path, label, i, color, dashed_, smooth):
-            PHI_LOGGER.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
+            ML_LOGGER.debug(f"Reading {os.path.join(path, f'log_{name}.txt')}")
             curve = numpy.loadtxt(os.path.join(path, f"log_{name}.txt"))
             if curve.ndim == 2:
                 x_values, values, *_ = curve.T
@@ -129,7 +129,7 @@ def plot_scalars(scene: Union[str, tuple, list, Scene, math.Tensor],
                 pass
             else:
                 assert x == 'time', f"x must be 'steps' or 'time' but got {x}"
-                PHI_LOGGER.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
+                ML_LOGGER.debug(f"Reading {os.path.join(path, 'log_step_time.txt')}")
                 _, x_values, *_ = numpy.loadtxt(os.path.join(path, "log_step_time.txt")).T
                 values = values[:len(x_values+1)]
                 x_values = np.cumsum(x_values[:len(values)-1])
@@ -144,7 +144,7 @@ def plot_scalars(scene: Union[str, tuple, list, Scene, math.Tensor],
                 pass
             if isinstance(color, Number):
                 color = cycle[int(color)]
-            PHI_LOGGER.debug(f"Plotting curve {label}")
+            ML_LOGGER.debug(f"Plotting curve {label}")
             if smooth > 1:
                 axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
                 curve = np.stack([x_values, values], -1)
