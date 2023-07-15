@@ -387,7 +387,6 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
             LAST_FIGURE[0] = anim
-            plots.close(figure)
             return anim
         else:
             for pos, fields in positioning.items():
