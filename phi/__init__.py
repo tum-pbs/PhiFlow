@@ -44,21 +44,22 @@ def detect_backends() -> tuple:
     This includes only backends for which the minimal requirements are fulfilled.
 
     Returns:
-        `tuple` of `phi.math.backend.Backend`
+        `tuple` of `phiml.backend.Backend`
     """
+    from phiml.backend._backend import init_backend
     try:
-        from .jax import JAX
+        init_backend('jax')
     except ImportError:
         pass
     try:
-        from .torch import TORCH
+        init_backend('torch')
     except ImportError:
         pass
     try:
-        from .tf import TENSORFLOW
+        init_backend('tensorflow')
     except ImportError:
         pass
-    from .math.backend import BACKENDS
+    from phiml.backend import BACKENDS
     return tuple([b for b in BACKENDS if b.name != 'Python'])
 
 
@@ -69,5 +70,5 @@ def set_logging_level(level='debug'):
     Args:
         level: Logging level, one of `'critical', 'fatal', 'error', 'warning', 'info', 'debug'`
     """
-    from phi.math.backend import PHI_LOGGER
-    PHI_LOGGER.setLevel(level.upper())
+    from phiml.backend import ML_LOGGER
+    ML_LOGGER.setLevel(level.upper())

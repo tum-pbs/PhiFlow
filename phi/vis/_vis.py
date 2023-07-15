@@ -16,8 +16,8 @@ from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from ..math import Tensor, layout, batch, Shape, concat, vec
 from ..math import wrap
-from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
-from ..math._tensors import Layout
+from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
+from phiml.math._tensors import Layout
 
 
 def show(*model: Union[VisModel, Field, Tensor, Geometry, list, tuple, dict],
@@ -444,7 +444,7 @@ def layout_sub_figures(data: Union[Tensor, Field],
             data = math.stack(data.native(), dim0)
             return layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, base_index)
         else:
-            elements = data.unstack(dim0.name)
+            elements = math.unstack(data, dim0.name)
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
                 index = dict(base_index, **{dim0.name: item_name})
                 if dim0.only(row_dims):

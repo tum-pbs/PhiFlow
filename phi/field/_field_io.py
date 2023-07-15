@@ -2,7 +2,7 @@ from typing import Union
 
 import numpy as np
 
-from phi import geom
+from phi import geom, math
 from ._field import Field
 from ._grid import unstack_staggered_tensor, CenteredGrid, StaggeredGrid
 from ._field_math import stack
@@ -33,7 +33,7 @@ def write(field: Field, file: Union[str, Tensor]):
             write_single_field(field, file.native())
         else:
             dim = file.shape.names[0]
-            files = file.unstack(dim)
+            files = math.unstack(file, dim)
             fields = field.dimension(dim).unstack(file.shape.get_size(dim))
             for field_, file_ in zip(fields, files):
                 write(field_, file_)
@@ -88,7 +88,7 @@ def read(file: Union[str, Tensor], convert_to_backend=True) -> Field:
             return read_single_field(file.native(), convert_to_backend=convert_to_backend)
         else:
             dim = file.shape[0]
-            files = file.unstack(dim.name)
+            files = math.unstack(file, dim.name)
             fields = [read(file_, convert_to_backend=convert_to_backend) for file_ in files]
             return stack(fields, dim)
     else:

@@ -13,7 +13,7 @@ from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import StaggeredGrid
 from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
-from ..math._magic_ops import copy_with
+from phiml.math._magic_ops import copy_with
 from ..math.extrapolation import combine_sides, Extrapolation
 
 
@@ -219,6 +219,7 @@ def _pressure_extrapolation(vext: Extrapolation):
 
 def _accessible_extrapolation(vext: Extrapolation):
     """ Determine whether outside cells are accessible based on the velocity extrapolation. """
+    vext = extrapolation.get_normal(vext)
     if vext == extrapolation.PERIODIC:
         return extrapolation.PERIODIC
     elif vext == extrapolation.BOUNDARY:
@@ -227,12 +228,7 @@ def _accessible_extrapolation(vext: Extrapolation):
         return extrapolation.ZERO
     elif isinstance(vext, FieldEmbedding):
         return extrapolation.ONE
-    elif isinstance(vext, extrapolation._MixedExtrapolation):
-        return combine_sides(**{dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
-    elif isinstance(vext, extrapolation._NormalTangentialExtrapolation):
-        return _accessible_extrapolation(vext.normal)
-    else:
-        raise ValueError(f"Unsupported extrapolation: {type(vext)}")
+    return extrapolation.map(_accessible_extrapolation, vext)
 
 
 def incompressible_rk4(pde: Callable, velocity: Field, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve('CG'), **pde_aux_kwargs):

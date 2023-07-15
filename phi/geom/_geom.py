@@ -4,7 +4,7 @@ from typing import Union, Dict, Any, Tuple
 
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
-from phi.math._magic_ops import variable_attributes, expand
+from phiml.math._magic_ops import variable_attributes, expand
 from phi.math.magic import BoundDim, slicing_dict
 
 
@@ -513,7 +513,7 @@ class _InvertedGeometry(Geometry):
         return _InvertedGeometry(self.geometry.rotated(angle))
 
     def unstack(self, dimension):
-        return [_InvertedGeometry(g) for g in self.geometry.unstack(dimension)]
+        return [_InvertedGeometry(g) for g in math.unstack(self.geometry, dimension)]
 
     def __eq__(self, other):
         return isinstance(other, _InvertedGeometry) and self.geometry == other.geometry
@@ -633,7 +633,7 @@ class Point(Geometry):
         return self._location.shape
 
     def unstack(self, dimension: str) -> tuple:
-        return tuple(Point(loc) for loc in self._location.unstack(dimension))
+        return tuple(Point(loc) for loc in math.unstack(self._location, dimension))
 
     def lies_inside(self, location: Tensor) -> Tensor:
         return expand(math.wrap(False), shape(location).without('vector'))

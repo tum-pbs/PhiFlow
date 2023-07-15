@@ -6,7 +6,7 @@ from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
 from phi.field import Field
-from phi.math._shape import parse_dim_order
+from phiml.math._shape import parse_dim_order
 from phi.vis._dash.dash_app import DashApp
 from phi.vis._dash.player_controls import STEP_BUTTON, PAUSE_BUTTON
 from phi.vis._dash.player_controls import REFRESH_INTERVAL

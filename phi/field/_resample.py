@@ -6,7 +6,7 @@ from phi.geom import Geometry, Box, Point, UniformGrid, UnstructuredMesh
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 from ._field import Field, FieldInitializer, as_boundary, slice_off_constant
-from ..math._tensors import may_vary_along
+from phiml.math._tensors import may_vary_along
 
 
 def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to: Field, keep_extrapolation=False, **kwargs):
@@ -161,7 +161,7 @@ def scatter_to_centers(self: Field, geometry: Geometry, soft=False, scatter=Fals
         if may_vary_along(self._values, instance(self._values) & spatial(self._values)):
             raise NotImplementedError("Non-scatter resampling not yet supported for varying values")
         idx0 = (instance(self._values) & spatial(self._values)).first_index()
-        outside = self._extrapolation.value if isinstance(self._extrapolation, ConstantExtrapolation) else 0
+        outside = self.boundary.value if isinstance(self.boundary, ConstantExtrapolation) else 0
         if soft:
             frac_inside = self.elements.approximate_fraction_inside(geometry, balance)
             return frac_inside * self._values[idx0] + (1 - frac_inside) * outside
@@ -191,8 +191,8 @@ def grid_scatter(self: Field, bounds: Box, resolution: math.Shape, outside_handl
     closest_index = bounds.global_to_local(self._points) * resolution - 0.5
     mode = 'add' if add_overlapping else 'mean'
     base = math.zeros(resolution)
-    if isinstance(self._extrapolation, ConstantExtrapolation):
-        base += self._extrapolation.value
+    if isinstance(self._boundary, ConstantExtrapolation):
+        base += self._boundary.value
     scattered = math.scatter(base, closest_index, self._values, mode=mode, outside_handling=outside_handling)
     return scattered
 
@@ -241,7 +241,7 @@ def sample_staggered_grid(self: Field, geometry: Geometry, **kwargs) -> Tensor:
         c_values = self.values[{'~vector': dim}]
         c_grid = UniformGrid(self.resolution, self.bounds).stagger(dim, *self.extrapolation.valid_outer_faces(dim))
         ext = self.extrapolation[{'vector': dim}]
-        c_sampled = sample_grid_at_centers(Field(c_grid, c_values, ext, c_grid.bounds), geometry, **kwargs)
+        c_sampled = sample_grid_at_centers(Field(c_grid, c_values, ext), geometry, **kwargs)
         components.append(c_sampled)
     return math.stack(components, geometry.shape['vector'])
 
@@ -338,7 +338,7 @@ def centroid_to_faces(field: Field, extrapolation: Extrapolation, scheme='upwind
 
 
 def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:
-    from phi.math._functional import get_function_parameters
+    from phiml.math._functional import get_function_parameters
     try:
         params = get_function_parameters(f)
         dims = elements.shape.get_size('vector')

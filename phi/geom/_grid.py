@@ -6,7 +6,7 @@ from ._box import BaseBox, Box, Cuboid
 from ._geom import Geometry, GeometryException
 from .. import math
 from ..math import Shape, Tensor, Extrapolation, stack, vec
-from ..math._shape import shape_stack, dual
+from phiml.math._shape import shape_stack, dual
 from ..math.magic import slicing_dict
 
 
