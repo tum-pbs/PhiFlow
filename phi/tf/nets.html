@@ -875,7 +875,7 @@ def fno(in_channels: int,
 </details>
 </dd>
 <dt id="phi.tf.nets.adagrad"><code class="name flex">
-<span>def <span class="ident">adagrad</span></span>(<span>net: keras.engine.training.Model, learning_rate: float = 0.001, lr_decay=0, weight_decay=0, initial_accumulator_value=0, eps=1e-10)</span>
+<span>def <span class="ident">adagrad</span></span>(<span>net: keras.src.engine.training.Model, learning_rate: float = 0.001, lr_decay=0, weight_decay=0, initial_accumulator_value=0, eps=1e-10)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates an Adagrad optimizer for 'net', alias for <a href="https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adagrad">'keras.optimizers.Adagrad'</a>
@@ -893,7 +893,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.adam"><code class="name flex">
-<span>def <span class="ident">adam</span></span>(<span>net: keras.engine.training.Model, learning_rate: float = 0.001, betas=(0.9, 0.999), epsilon=1e-07)</span>
+<span>def <span class="ident">adam</span></span>(<span>net: keras.src.engine.training.Model, learning_rate: float = 0.001, betas=(0.9, 0.999), epsilon=1e-07)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates an Adam optimizer for <code>net</code>, alias for <a href="https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam"><code>keras.optimizers.Adam</code></a>.
@@ -950,7 +950,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.conv_net"><code class="name flex">
-<span>def <span class="ident">conv_net</span></span>(<span>in_channels: int, out_channels: int, layers: Sequence[int], batch_norm: bool = False, activation: Union[str, Callable] = 'ReLU', periodic=False, in_spatial: Union[int, tuple] = 2, **kwargs) ‑> keras.engine.training.Model</span>
+<span>def <span class="ident">conv_net</span></span>(<span>in_channels: int, out_channels: int, layers: Sequence[int], batch_norm: bool = False, activation: Union[str, Callable] = 'ReLU', periodic=False, in_spatial: Union[int, tuple] = 2, **kwargs) ‑> keras.src.engine.training.Model</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Built in Conv-Nets are also provided. Contrary to the classical convolutional neural networks, the feature map spatial size remains the same throughout the layers. Each layer of the network is essentially a convolutional block comprising of two conv layers. A filter size of 3 is used in the convolutional layers.</p>
@@ -1009,7 +1009,7 @@ in_spatial : spatial dimensions of the input feature map, dtype : int</p>
 </details>
 </dd>
 <dt id="phi.tf.nets.dense_net"><code class="name flex">
-<span>def <span class="ident">dense_net</span></span>(<span>in_channels: int, out_channels: int, layers: Sequence[int], batch_norm=False, activation='ReLU', softmax=False) ‑> keras.engine.training.Model</span>
+<span>def <span class="ident">dense_net</span></span>(<span>in_channels: int, out_channels: int, layers: Sequence[int], batch_norm=False, activation='ReLU', softmax=False) ‑> keras.src.engine.training.Model</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Fully-connected neural networks are available in ΦFlow via dense_net().</p>
@@ -1178,7 +1178,7 @@ in_spatial : spatial dimensions of the input feature map, dtype : int</p>
 </details>
 </dd>
 <dt id="phi.tf.nets.get_parameters"><code class="name flex">
-<span>def <span class="ident">get_parameters</span></span>(<span>model: keras.engine.training.Model, wrap=True) ‑> dict</span>
+<span>def <span class="ident">get_parameters</span></span>(<span>model: keras.src.engine.training.Model, wrap=True) ‑> dict</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1282,7 +1282,7 @@ For choosing 'dense_net' as the network block in coupling layers in_spatial must
 </details>
 </dd>
 <dt id="phi.tf.nets.load_state"><code class="name flex">
-<span>def <span class="ident">load_state</span></span>(<span>obj: Union[keras.engine.training.Model, keras.optimizers.optimizer.Optimizer], path: str)</span>
+<span>def <span class="ident">load_state</span></span>(<span>obj: Union[keras.src.engine.training.Model, keras.src.optimizers.optimizer.Optimizer], path: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Read the state of a module or optimizer from a file.</p>
@@ -1346,7 +1346,7 @@ For choosing 'dense_net' as the network block in coupling layers in_spatial must
 </details>
 </dd>
 <dt id="phi.tf.nets.parameter_count"><code class="name flex">
-<span>def <span class="ident">parameter_count</span></span>(<span>model: keras.engine.training.Model)</span>
+<span>def <span class="ident">parameter_count</span></span>(<span>model: keras.src.engine.training.Model)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Counts the number of parameters in a model.</p>
@@ -1478,7 +1478,7 @@ in_spatial : spatial dimensions of the input feature map, dtype : int</p>
 </details>
 </dd>
 <dt id="phi.tf.nets.rmsprop"><code class="name flex">
-<span>def <span class="ident">rmsprop</span></span>(<span>net: keras.engine.training.Model, learning_rate: float = 0.001, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0, centered=False)</span>
+<span>def <span class="ident">rmsprop</span></span>(<span>net: keras.src.engine.training.Model, learning_rate: float = 0.001, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0, centered=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates an RMSProp optimizer for 'net', alias for <a href="https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/RMSprop">'keras.optimizers.RMSprop'</a>
@@ -1496,7 +1496,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.save_state"><code class="name flex">
-<span>def <span class="ident">save_state</span></span>(<span>obj: Union[keras.engine.training.Model, keras.optimizers.optimizer.Optimizer], path: str)</span>
+<span>def <span class="ident">save_state</span></span>(<span>obj: Union[keras.src.engine.training.Model, keras.src.optimizers.optimizer.Optimizer], path: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Write the state of a module or optimizer to a file.</p>
@@ -1539,7 +1539,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.sgd"><code class="name flex">
-<span>def <span class="ident">sgd</span></span>(<span>net: keras.engine.training.Model, learning_rate: float = 0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False)</span>
+<span>def <span class="ident">sgd</span></span>(<span>net: keras.src.engine.training.Model, learning_rate: float = 0.001, momentum=0, dampening=0, weight_decay=0, nesterov=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates an SGD optimizer for 'net', alias for <a href="https://keras.io/api/optimizers/sgd/">'keras.optimizers.SGD'</a>
@@ -1557,7 +1557,7 @@ Analogous functions exist for other learning frameworks.</p></div>
 </details>
 </dd>
 <dt id="phi.tf.nets.u_net"><code class="name flex">
-<span>def <span class="ident">u_net</span></span>(<span>in_channels: int, out_channels: int, levels: int = 4, filters: Union[int, tuple, list] = 16, batch_norm: bool = True, activation: Union[str, Callable] = 'ReLU', in_spatial: Union[int, tuple] = 2, periodic=False, use_res_blocks: bool = False, **kwargs) ‑> keras.engine.training.Model</span>
+<span>def <span class="ident">u_net</span></span>(<span>in_channels: int, out_channels: int, levels: int = 4, filters: Union[int, tuple, list] = 16, batch_norm: bool = True, activation: Union[str, Callable] = 'ReLU', in_spatial: Union[int, tuple] = 2, periodic=False, use_res_blocks: bool = False, **kwargs) ‑> keras.src.engine.training.Model</span>
 </code></dt>
 <dd>
 <div class="desc"><p>ΦFlow provides a built-in U-net architecture, classically popular for Semantic Segmentation in Computer Vision, composed of downsampling and upsampling layers.</p>
@@ -1633,7 +1633,7 @@ use_res_blocks : use convolutional blocks with skip connections instead of regul
 </details>
 </dd>
 <dt id="phi.tf.nets.update_weights"><code class="name flex">
-<span>def <span class="ident">update_weights</span></span>(<span>net: keras.engine.training.Model, optimizer: keras.optimizers.optimizer.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs)</span>
+<span>def <span class="ident">update_weights</span></span>(<span>net: keras.src.engine.training.Model, optimizer: keras.src.optimizers.optimizer.Optimizer, loss_function: Callable, *loss_args, **loss_kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the gradients of <code>loss_function</code> w.r.t. the parameters of <code>net</code> and updates its weights using <code>optimizer</code>.</p>
@@ -1837,13 +1837,13 @@ to do prediction with <code>model.predict()</code>.</p></div>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>keras.engine.training.Model</li>
-<li>keras.engine.base_layer.Layer</li>
+<li>keras.src.engine.training.Model</li>
+<li>keras.src.engine.base_layer.Layer</li>
 <li>tensorflow.python.module.module.Module</li>
 <li>tensorflow.python.trackable.autotrackable.AutoTrackable</li>
 <li>tensorflow.python.trackable.base.Trackable</li>
-<li>keras.utils.version_utils.LayerVersionSelector</li>
-<li>keras.utils.version_utils.ModelVersionSelector</li>
+<li>keras.src.utils.version_utils.LayerVersionSelector</li>
+<li>keras.src.utils.version_utils.ModelVersionSelector</li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -2076,13 +2076,13 @@ to do prediction with <code>model.predict()</code>.</p></div>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>keras.engine.training.Model</li>
-<li>keras.engine.base_layer.Layer</li>
+<li>keras.src.engine.training.Model</li>
+<li>keras.src.engine.base_layer.Layer</li>
 <li>tensorflow.python.module.module.Module</li>
 <li>tensorflow.python.trackable.autotrackable.AutoTrackable</li>
 <li>tensorflow.python.trackable.base.Trackable</li>
-<li>keras.utils.version_utils.LayerVersionSelector</li>
-<li>keras.utils.version_utils.ModelVersionSelector</li>
+<li>keras.src.utils.version_utils.LayerVersionSelector</li>
+<li>keras.src.utils.version_utils.ModelVersionSelector</li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -2295,13 +2295,13 @@ to do prediction with <code>model.predict()</code>.</p></div>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>keras.engine.training.Model</li>
-<li>keras.engine.base_layer.Layer</li>
+<li>keras.src.engine.training.Model</li>
+<li>keras.src.engine.base_layer.Layer</li>
 <li>tensorflow.python.module.module.Module</li>
 <li>tensorflow.python.trackable.autotrackable.AutoTrackable</li>
 <li>tensorflow.python.trackable.base.Trackable</li>
-<li>keras.utils.version_utils.LayerVersionSelector</li>
-<li>keras.utils.version_utils.ModelVersionSelector</li>
+<li>keras.src.utils.version_utils.LayerVersionSelector</li>
+<li>keras.src.utils.version_utils.ModelVersionSelector</li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -2530,13 +2530,13 @@ to do prediction with <code>model.predict()</code>.</p></div>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>keras.engine.training.Model</li>
-<li>keras.engine.base_layer.Layer</li>
+<li>keras.src.engine.training.Model</li>
+<li>keras.src.engine.base_layer.Layer</li>
 <li>tensorflow.python.module.module.Module</li>
 <li>tensorflow.python.trackable.autotrackable.AutoTrackable</li>
 <li>tensorflow.python.trackable.base.Trackable</li>
-<li>keras.utils.version_utils.LayerVersionSelector</li>
-<li>keras.utils.version_utils.ModelVersionSelector</li>
+<li>keras.src.utils.version_utils.LayerVersionSelector</li>
+<li>keras.src.utils.version_utils.ModelVersionSelector</li>
 </ul>
 <h3>Methods</h3>
 <dl>
