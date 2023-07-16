@@ -386,6 +386,8 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
                         plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
+            if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+                plots.close(figure)
             LAST_FIGURE[0] = anim
             return anim
         else:
