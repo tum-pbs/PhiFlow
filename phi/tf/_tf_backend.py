@@ -48,7 +48,8 @@ class TFBackend(Backend):
         return isinstance(obj, keras.Model)
 
     def is_tensor(self, x, only_native=False):
-        is_tf_tensor = tf.is_tensor(x) is True  # tf.is_tensor() can return non-bool values which indicates not a Tensor
+        is_tf_tensor = isinstance(x, (tf.Tensor, tf.SparseTensor, tf.RaggedTensor, tf.Variable))
+        # is_tf_tensor = tf.is_tensor(x) is True  # tf.is_tensor() also returns True for CenteredGrid..., tf.is_tensor() can return non-bool values which indicates not a Tensor
         if only_native:
             return is_tf_tensor
         else:
