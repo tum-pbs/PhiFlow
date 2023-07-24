@@ -181,7 +181,10 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle 
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
         else:
-            angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
+            if obstacle.angular_velocity is not 0:  # 0 does not work in 3D
+                angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
+            else:
+                angular_velocity = 0
             velocity = (1 - obs_mask) * velocity + obs_mask * (angular_velocity + obstacle.velocity)
     return velocity
 
