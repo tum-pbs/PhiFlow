@@ -68,7 +68,17 @@ class Obstacle:
     @property
     def is_stationary(self):
         &#34;&#34;&#34; Test whether the obstacle is completely still. &#34;&#34;&#34;
-        return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
+        return not self.is_moving and not self.is_rotating
+
+    @property
+    def is_rotating(self):
+        available = self.angular_velocity.available if isinstance(self.angular_velocity, math.Tensor) else True
+        return not available or math.any(self.angular_velocity != 0).any
+
+    @property
+    def is_moving(self):
+        available = self.velocity.available if isinstance(self.velocity, math.Tensor) else True
+        return not available or math.any(self.velocity != 0).any
 
     def copied_with(self, **kwargs):
         warnings.warn(&#34;Obstacle.copied_with is deprecated. Use math.copy_with instead.&#34;, DeprecationWarning, stacklevel=2)
@@ -210,7 +220,7 @@ def apply_boundary_conditions(velocity: Union[Grid, PointCloud], obstacles: Unio
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
         else:
-            if obstacle.angular_velocity is not 0:  # 0 does not work in 3D
+            if obstacle.is_rotating:
                 angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
             else:
                 angular_velocity = 0
@@ -363,7 +373,7 @@ obstacles: <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.
         if obstacle.is_stationary:
             velocity = (1 - obs_mask) * velocity
         else:
-            if obstacle.angular_velocity is not 0:  # 0 does not work in 3D
+            if obstacle.is_rotating:
                 angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
             else:
                 angular_velocity = 0
@@ -635,7 +645,17 @@ It can also have a linear and angular velocity.</p>
     @property
     def is_stationary(self):
         &#34;&#34;&#34; Test whether the obstacle is completely still. &#34;&#34;&#34;
-        return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0
+        return not self.is_moving and not self.is_rotating
+
+    @property
+    def is_rotating(self):
+        available = self.angular_velocity.available if isinstance(self.angular_velocity, math.Tensor) else True
+        return not available or math.any(self.angular_velocity != 0).any
+
+    @property
+    def is_moving(self):
+        available = self.velocity.available if isinstance(self.velocity, math.Tensor) else True
+        return not available or math.any(self.velocity != 0).any
 
     def copied_with(self, **kwargs):
         warnings.warn(&#34;Obstacle.copied_with is deprecated. Use math.copy_with instead.&#34;, DeprecationWarning, stacklevel=2)
@@ -651,6 +671,32 @@ It can also have a linear and angular velocity.</p>
 </details>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.physics.fluid.Obstacle.is_moving"><code class="name">var <span class="ident">is_moving</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_moving(self):
+    available = self.velocity.available if isinstance(self.velocity, math.Tensor) else True
+    return not available or math.any(self.velocity != 0).any</code></pre>
+</details>
+</dd>
+<dt id="phi.physics.fluid.Obstacle.is_rotating"><code class="name">var <span class="ident">is_rotating</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_rotating(self):
+    available = self.angular_velocity.available if isinstance(self.angular_velocity, math.Tensor) else True
+    return not available or math.any(self.angular_velocity != 0).any</code></pre>
+</details>
+</dd>
 <dt id="phi.physics.fluid.Obstacle.is_stationary"><code class="name">var <span class="ident">is_stationary</span></code></dt>
 <dd>
 <div class="desc"><p>Test whether the obstacle is completely still.</p></div>
@@ -661,7 +707,7 @@ It can also have a linear and angular velocity.</p>
 <pre><code class="python">@property
 def is_stationary(self):
     &#34;&#34;&#34; Test whether the obstacle is completely still. &#34;&#34;&#34;
-    return isinstance(self.velocity, (int, float)) and self.velocity == 0 and isinstance(self.angular_velocity, (int, float)) and self.angular_velocity == 0</code></pre>
+    return not self.is_moving and not self.is_rotating</code></pre>
 </details>
 </dd>
 </dl>
@@ -711,6 +757,8 @@ def is_stationary(self):
 <h4><code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a></code></h4>
 <ul class="">
 <li><code><a title="phi.physics.fluid.Obstacle.copied_with" href="#phi.physics.fluid.Obstacle.copied_with">copied_with</a></code></li>
+<li><code><a title="phi.physics.fluid.Obstacle.is_moving" href="#phi.physics.fluid.Obstacle.is_moving">is_moving</a></code></li>
+<li><code><a title="phi.physics.fluid.Obstacle.is_rotating" href="#phi.physics.fluid.Obstacle.is_rotating">is_rotating</a></code></li>
 <li><code><a title="phi.physics.fluid.Obstacle.is_stationary" href="#phi.physics.fluid.Obstacle.is_stationary">is_stationary</a></code></li>
 </ul>
 </li>

@@ -1617,7 +1617,14 @@ Otherwise, the <code><a title="phi.math.copy" href="#phi.math.copy">copy()</a></
             v2_x, v2_y = vec2.vector
             return vec1 * math.stack_tensors([-v2_y, v2_x], channel(&#39;vector&#39;))
     elif spatial_rank == 3:  # Curl in 3D
-        raise NotImplementedError(f&#39;spatial_rank={spatial_rank} not yet implemented&#39;)
+        assert vec1.vector.exists and vec2.vector.exists, f&#34;Both vectors must have a &#39;vector&#39; dimension but got shapes {vec1.shape}, {vec2.shape}&#34;
+        v1_x, v1_y, v1_z = vec1.vector
+        v2_x, v2_y, v2_z = vec2.vector
+        return math.stack([
+            v1_y * v2_z - v1_z * v2_y,
+            v1_z * v2_x - v1_x * v2_z,
+            v1_x * v2_y - v1_y * v2_x,
+        ], vec1.shape[&#39;vector&#39;])
     else:
         raise AssertionError(f&#39;dims = {spatial_rank}. Vector product not available in &gt; 3 dimensions&#39;)</code></pre>
 </details>
