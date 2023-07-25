@@ -138,7 +138,14 @@ def cross_product(vec1: Tensor, vec2: Tensor) -> Tensor:
             v2_x, v2_y = vec2.vector
             return vec1 * math.stack_tensors([-v2_y, v2_x], channel('vector'))
     elif spatial_rank == 3:  # Curl in 3D
-        raise NotImplementedError(f'spatial_rank={spatial_rank} not yet implemented')
+        assert vec1.vector.exists and vec2.vector.exists, f"Both vectors must have a 'vector' dimension but got shapes {vec1.shape}, {vec2.shape}"
+        v1_x, v1_y, v1_z = vec1.vector
+        v2_x, v2_y, v2_z = vec2.vector
+        return math.stack([
+            v1_y * v2_z - v1_z * v2_y,
+            v1_z * v2_x - v1_x * v2_z,
+            v1_x * v2_y - v1_y * v2_x,
+        ], vec1.shape['vector'])
     else:
         raise AssertionError(f'dims = {spatial_rank}. Vector product not available in > 3 dimensions')
 
