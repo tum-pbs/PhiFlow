@@ -46,14 +46,8 @@ class RotatedGeometry(Geometry):
     def global_to_child(self, location):
         """ Inverse transform. """
         delta = location - self.center
-        if location.shape.get_size('vector') == 2:
-            rotated = math.rotate_vector(delta, self._angle)
-        elif location.shape.get_size('vector') == 3:
-            raise NotImplementedError('not yet implemented')  # ToDo apply angle
-        else:
-            raise NotImplementedError('Rotation only supported in 2D and 3D')
-        final = rotated + self.center
-        return final
+        rotated = math.rotate_vector(delta, self._angle)
+        return rotated + self.center
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0):
         rotated = self.global_to_child(positions)
