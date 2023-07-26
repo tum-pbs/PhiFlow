@@ -162,15 +162,24 @@ def rotate_vector(vector: math.Tensor, angle: Union[float, math.Tensor]) -> Tens
         Rotated vector as `Tensor`
     """
     assert 'vector' in vector.shape, "vector must have 'vector' dimension."
-    if vector.vector.size == 2:
+    if vector.vector.size == 1:
+        raise AssertionError(f"Cannot rotate a 1D vector. shape={vector.shape}")
+    elif vector.vector.size == 2:
         sin = wrap(math.sin(angle))
         cos = wrap(math.cos(angle))
         x, y = vector.vector
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
         return math.stack_tensors([rot_x, rot_y], channel(vector=vector.vector.item_names))
-    elif vector.vector.size == 1:
-        raise AssertionError(f"Cannot rotate a 1D vector. shape={vector.shape}")
+    elif vector.vector.size == 3:
+        assert 'vector' in angle.shape and angle.vector.size == 3, f"angle for 3D rotations needs to be a 3-vector but got {angle}"
+        s1, s2, s3 = math.sin(angle).vector
+        c1, c2, c3 = math.cos(angle).vector
+        matrix = wrap([[c1*c2, c1*s2*s3 - s1*c3, c1*s2*c3 + s1*s3],
+                       [s1*c2, s1*s2*s3 + c1*c3, s1*s2*c3 - c1*s3],
+                       [-s2, c2*s3, c2*c3]],
+                      vector.shape['vector'], math.dual('vector'))  # Rz * Ry * Rx
+        return matrix @ vector
     else:
         raise NotImplementedError(f"Rotation in {vector.vector.size}D not yet implemented.")
 
