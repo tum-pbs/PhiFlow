@@ -7390,15 +7390,24 @@ If False, wraps the data in a <code><a title="phi.math.Tensor" href="#phi.math.T
         Rotated vector as `Tensor`
     &#34;&#34;&#34;
     assert &#39;vector&#39; in vector.shape, &#34;vector must have &#39;vector&#39; dimension.&#34;
-    if vector.vector.size == 2:
+    if vector.vector.size == 1:
+        raise AssertionError(f&#34;Cannot rotate a 1D vector. shape={vector.shape}&#34;)
+    elif vector.vector.size == 2:
         sin = wrap(math.sin(angle))
         cos = wrap(math.cos(angle))
         x, y = vector.vector
         rot_x = cos * x - sin * y
         rot_y = sin * x + cos * y
         return math.stack_tensors([rot_x, rot_y], channel(vector=vector.vector.item_names))
-    elif vector.vector.size == 1:
-        raise AssertionError(f&#34;Cannot rotate a 1D vector. shape={vector.shape}&#34;)
+    elif vector.vector.size == 3:
+        assert &#39;vector&#39; in angle.shape and angle.vector.size == 3, f&#34;angle for 3D rotations needs to be a 3-vector but got {angle}&#34;
+        s1, s2, s3 = math.sin(angle).vector
+        c1, c2, c3 = math.cos(angle).vector
+        matrix = wrap([[c1*c2, c1*s2*s3 - s1*c3, c1*s2*c3 + s1*s3],
+                       [s1*c2, s1*s2*s3 + c1*c3, s1*s2*c3 - c1*s3],
+                       [-s2, c2*s3, c2*c3]],
+                      vector.shape[&#39;vector&#39;], math.dual(&#39;vector&#39;))  # Rz * Ry * Rx
+        return matrix @ vector
     else:
         raise NotImplementedError(f&#34;Rotation in {vector.vector.size}D not yet implemented.&#34;)</code></pre>
 </details>
