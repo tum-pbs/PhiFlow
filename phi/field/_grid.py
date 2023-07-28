@@ -1,17 +1,17 @@
 from typing import TypeVar, Any, Tuple, List, Union
 
-from phi.math import Solve
+from phiml.math import Solve
 
 from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
 from ._embed import FieldEmbedding
 from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation
 from ..geom._stack import GeometryStack
-from ..math import Shape, NUMPY
-from ..math._shape import spatial, channel, parse_dim_order
-from ..math._tensors import TensorStack, Tensor
-from ..math.extrapolation import Extrapolation
-from ..math.magic import slicing_dict
+from phiml.math import Shape, NUMPY
+from phiml.math._shape import spatial, channel, parse_dim_order
+from phiml.math._tensors import TensorStack, Tensor
+from phiml.math.extrapolation import Extrapolation
+from phiml.math.magic import slicing_dict
 
 
 class Grid(SampledField):
@@ -147,7 +147,7 @@ GridType = TypeVar('GridType', bound=Grid)
 class CenteredGrid(Grid):
     """
     N-dimensional grid with values sampled at the cell centers.
-    A centered grid is defined through its `CenteredGrid.values` `phi.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phi.math.extrapolation.Extrapolation`).
+    A centered grid is defined through its `CenteredGrid.values` `phiml.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phiml.math.extrapolation.Extrapolation`).
     
     Centered grids support batch, spatial and channel dimensions.
 
@@ -174,15 +174,15 @@ class CenteredGrid(Grid):
                 * `Field`: resamples the Field to the staggered sample points
                 * `Number`: uses the value for all sample points
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
-                * `phi.math.Tensor` compatible with grid dims: uses tensor values as grid values
-                * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                * `phiml.math.Tensor` compatible with grid dims: uses tensor values as grid values
+                * Function `values(x)` where `x` is a `phiml.math.Tensor` representing the physical location.
                     The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
-                Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
+                Allowed types: `float`, `phiml.math.Tensor`, `phiml.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid as `phi.geom.Box`.
                 If the resolution is determined through `resolution` of `values`, a `float` can be passed for `bounds` to create a unit box.
-            resolution: Grid resolution as purely spatial `phi.math.Shape`.
+            resolution: Grid resolution as purely spatial `phiml.math.Shape`.
                 If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         """
@@ -312,17 +312,17 @@ class StaggeredGrid(Grid):
                 * `Field`: resamples the Field to the staggered sample points
                 * `Number`: uses the value for all sample points
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
-                * `phi.math.Tensor` with staggered shape: uses tensor values as grid values.
+                * `phiml.math.Tensor` with staggered shape: uses tensor values as grid values.
                   Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
-                  Use `phi.math.stack()` to manually create this non-uniform tensor.
-                * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                  Use `phiml.math.stack()` to manually create this non-uniform tensor.
+                * Function `values(x)` where `x` is a `phiml.math.Tensor` representing the physical location.
                     The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
-                Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
+                Allowed types: `float`, `phiml.math.Tensor`, `phiml.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid as `phi.geom.Box`.
                 If the resolution is determined through `resolution` of `values`, a `float` can be passed for `bounds` to create a unit box.
-            resolution: Grid resolution as purely spatial `phi.math.Shape`.
+            resolution: Grid resolution as purely spatial `phiml.math.Shape`.
                 If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         """
@@ -380,7 +380,7 @@ class StaggeredGrid(Grid):
             return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
         else:
             values = []
-            for dim, component in zip(self.shape.spatial.names, self.values.unstack('vector')):
+            for dim, component in zip(self.shape.spatial.names, self.values.vector):
                 old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
                 new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
                 widths = (new_lo - old_lo, new_hi - old_hi)
@@ -455,12 +455,12 @@ class StaggeredGrid(Grid):
 
     def staggered_tensor(self) -> Tensor:
         """
-        Stacks all component grids into a single uniform `phi.math.Tensor`.
+        Stacks all component grids into a single uniform `phiml.math.Tensor`.
         The individual components are padded to a common (larger) shape before being stacked.
         The shape of the returned tensor is exactly one cell larger than the grid `resolution` in every spatial dimension.
 
         Returns:
-            Uniform `phi.math.Tensor`.
+            Uniform `phiml.math.Tensor`.
         """
         padded = []
         for dim, component in zip(self.resolution.names, math.unstack(self.values, 'vector')):
@@ -483,7 +483,7 @@ class StaggeredGrid(Grid):
 
 def unstack_staggered_tensor(data: Tensor, extrapolation: Extrapolation) -> TensorStack:
     sliced = []
-    for dim, component in zip(data.shape.spatial.names, data.unstack('vector')):
+    for dim, component in zip(data.shape.spatial.names, data.vector):
         lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
         slices = {d: slice(0, -1) for d in data.shape.spatial.names}
         slices[dim] = slice(int(not lo_valid), - int(not up_valid) or None)
@@ -521,7 +521,7 @@ def resolution_from_staggered_tensor(values: Tensor, extrapolation: Extrapolatio
 
 
 def _sample_function(f, elements: Geometry):
-    from phi.math._functional import get_function_parameters
+    from phiml.math._functional import get_function_parameters
     try:
         params = get_function_parameters(f)
         dims = elements.shape.get_size('vector')

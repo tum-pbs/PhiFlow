@@ -2,8 +2,8 @@ from unittest import TestCase
 
 from phi import math
 from phi.geom import union, Sphere
-from phi.math import stack, vec, instance, expand, rename_dims, unpack_dim, pack_dims, spatial, flatten, batch, channel
-from phi.math.magic import Shaped, Sliceable, Shapable
+from phiml.math import stack, vec, instance, expand, rename_dims, unpack_dim, pack_dims, spatial, flatten, batch, channel
+from phiml.math.magic import Shaped, Sliceable, Shapable
 
 
 class TestSphere(TestCase):

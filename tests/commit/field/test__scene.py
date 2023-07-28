@@ -6,7 +6,7 @@ import phi
 from phi import math
 from phi import field
 from phi.field import Scene, CenteredGrid, StaggeredGrid
-from phi.math import batch, extrapolation, wrap, stack, vec
+from phiml.math import batch, extrapolation, wrap, stack, vec
 
 DIR = join(dirname(dirname(dirname(dirname(abspath(__file__))))), 'test_data')
 

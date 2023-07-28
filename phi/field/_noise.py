@@ -2,7 +2,7 @@ import warnings
 
 from phi import math
 from phi.geom import GridCell, Geometry
-from phi.math import random_normal, Tensor, channel
+from phiml.math import random_normal, Tensor, channel
 from ._field import Field
 
 

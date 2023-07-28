@@ -5,7 +5,7 @@ import plotly
 from phi import geom, field, math
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, resample
 from phi.geom import Sphere, Box
-from phi.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack
+from phiml.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack
 from phi.vis import show, overlay, plot, close
 import matplotlib.pyplot as plt
 

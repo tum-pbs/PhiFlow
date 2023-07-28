@@ -3,8 +3,8 @@ from unittest import TestCase
 
 from phi import math
 from phi.geom import Box, union, Cuboid, embed
-from phi.math import batch, channel
-from phi.math.magic import Shaped, Sliceable, Shapable
+from phiml.math import batch, channel
+from phiml.math.magic import Shaped, Sliceable, Shapable
 
 
 class TestBox(TestCase):

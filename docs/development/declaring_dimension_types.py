@@ -3,8 +3,8 @@ This script is a history of various ways we considered for declaring dimension n
 """
 
 from phi.flow import *
-from phi.math import zeros
-from phi.math._shape import spatial, channel
+from phiml.math import zeros
+from phiml.math._shape import spatial, channel
 
 array = np.zeros([5, 4, 2])
 

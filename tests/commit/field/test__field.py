@@ -3,7 +3,7 @@ from unittest import TestCase
 from phi import math
 from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity
 from phi.geom import Box, Sphere
-from phi.math import batch, spatial, vec
+from phiml.math import batch, spatial, vec
 
 
 class TestField(TestCase):

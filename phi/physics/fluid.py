@@ -7,14 +7,14 @@ import warnings
 from typing import Tuple, Callable, Union
 
 from phi import math, field
-from phi.math import wrap, channel, Solve
+from phiml.math import wrap, channel, Solve
 from phi.field import AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field, resample
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType, StaggeredGrid
-from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
-from ..math._magic_ops import copy_with
-from ..math.extrapolation import combine_sides, Extrapolation
+from phiml.math import extrapolation, NUMPY, batch, shape, non_channel, expand
+from phiml.math._magic_ops import copy_with
+from phiml.math.extrapolation import combine_sides, Extrapolation
 
 
 class Obstacle:

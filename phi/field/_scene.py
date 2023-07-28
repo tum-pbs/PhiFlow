@@ -13,8 +13,8 @@ import numpy as np
 from phi import math, __version__ as phi_version
 from ._field import SampledField
 from ._field_io import read, write
-from ..math import Shape, batch, stack, unpack_dim, wrap
-from ..math.magic import BoundDim
+from phiml.math import Shape, batch, stack, unpack_dim, wrap
+from phiml.math.magic import BoundDim
 
 
 typing_list = list

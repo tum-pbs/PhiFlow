@@ -9,7 +9,7 @@ from phi import field, math
 from phi.field import SampledField, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
 from phi.geom import Box, Cuboid, Geometry, Point
-from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
+from phiml.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
 
 Control = namedtuple('Control', [
     'name',

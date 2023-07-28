@@ -9,7 +9,7 @@ Examples:
 """
 from typing import Union
 
-from phi.math import Solve, channel
+from phiml.math import Solve, channel
 
 from phi import math
 from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid

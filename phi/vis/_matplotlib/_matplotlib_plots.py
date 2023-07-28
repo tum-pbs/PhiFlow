@@ -21,7 +21,7 @@ from phi.field._mesh import Mesh
 from phi.geom import Sphere, BaseBox, Point, Box
 from phi.geom._poly_surface import PolygonSurface
 from phi.geom._stack import GeometryStack
-from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape, non_instance
+from phiml.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape, non_instance
 from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label
 
 

@@ -6,7 +6,7 @@ from phi import geom
 from ._field import SampledField
 from ._grid import Grid, CenteredGrid, StaggeredGrid, unstack_staggered_tensor
 from ._field_math import stack
-from ..math import extrapolation, wrap, tensor, Shape, channel, Tensor, spatial
+from phiml.math import extrapolation, wrap, tensor, Shape, channel, Tensor, spatial, unstack
 
 
 def write(field: SampledField, file: Union[str, Tensor]):
@@ -33,7 +33,7 @@ def write(field: SampledField, file: Union[str, Tensor]):
             write_single_field(field, file.native())
         else:
             dim = file.shape.names[0]
-            files = file.unstack(dim)
+            files = unstack(file, dim)
             fields = field.dimension(dim).unstack(file.shape.get_size(dim))
             for field_, file_ in zip(fields, files):
                 write(field_, file_)
@@ -88,7 +88,7 @@ def read(file: Union[str, Tensor], convert_to_backend=True) -> SampledField:
             return read_single_field(file.native(), convert_to_backend=convert_to_backend)
         else:
             dim = file.shape[0]
-            files = file.unstack(dim.name)
+            files = unstack(file, dim)
             fields = [read(file_, convert_to_backend=convert_to_backend) for file_ in files]
             return stack(fields, dim)
     else:

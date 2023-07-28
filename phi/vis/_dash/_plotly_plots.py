@@ -11,7 +11,7 @@ from phi import math, field
 from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
 from phi.geom import Sphere, BaseBox, Point, Box
 from phi.geom._stack import GeometryStack
-from phi.math import Tensor, spatial, channel, non_channel
+from phiml.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
 from phi.vis._vis_base import PlottingLibrary, Recipe

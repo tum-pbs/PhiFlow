@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi.flow import *
-from phi.math.backend import Backend
+from phiml.backend import Backend
 
 BACKENDS = phi.detect_backends()
 

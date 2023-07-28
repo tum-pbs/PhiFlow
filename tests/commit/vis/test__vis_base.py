@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math
 from phi.field import CenteredGrid, PointCloud
-from phi.math import spatial, channel, instance
+from phiml.math import spatial, channel, instance
 from phi.vis._vis_base import to_field
 
 

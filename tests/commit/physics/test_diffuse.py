@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math, field
 from phi.field import CenteredGrid, Noise, StaggeredGrid
-from phi.math import extrapolation, NotConverged, batch, spatial, wrap, vec
+from phiml.math import extrapolation, NotConverged, batch, spatial, wrap, vec
 from phi.physics import diffuse
 
 

@@ -14,10 +14,10 @@ from .. import math
 from ..field import SampledField, Scene, Field, PointCloud
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
-from ..math import Tensor, layout, batch, Shape, vec, stack, concat
-from ..math import wrap
-from ..math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape, non_batch
-from ..math._tensors import Layout
+from phiml.math import Tensor, layout, batch, Shape, vec, stack, concat, unstack
+from phiml.math import wrap
+from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape, non_batch
+from phiml.math._tensors import Layout
 
 
 def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
@@ -446,7 +446,7 @@ def layout_sub_figures(data: Union[Tensor, SampledField],
             data = math.stack(data.native(), dim0)
             return layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, base_index)
         else:
-            elements = data.unstack(dim0.name)
+            elements = unstack(data, dim0)
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
                 index = dict(base_index, **{dim0.name: item_name})
                 if dim0.only(row_dims):
@@ -555,7 +555,9 @@ def default_gui() -> Gui:
         try:
             return get_gui(option)
         except ImportError as import_error:
-            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.", ImportWarning)
+            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.", RuntimeWarning)
+        except BaseException as exc:
+            warnings.warn(f"{option} user interface failed with error {exc}", RuntimeWarning)
     raise RuntimeError("No user interface available.")
 
 

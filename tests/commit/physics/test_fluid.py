@@ -4,9 +4,9 @@ import phi
 from phi import math, field
 from phi.geom import Box, Sphere
 from phi.field import StaggeredGrid, CenteredGrid, divergence, Noise
-from phi.math import batch
-from phi.math.backend import Backend
-from phi.math.extrapolation import BOUNDARY, ZERO, PERIODIC, combine_sides
+from phiml.math import batch
+from phiml.backend import Backend
+from phiml.math.extrapolation import BOUNDARY, ZERO, PERIODIC, combine_sides
 from phi.physics import fluid
 
 

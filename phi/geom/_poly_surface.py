@@ -3,7 +3,7 @@ from typing import Tuple, Dict
 import numpy as np
 
 from .. import math
-from ..math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, pack_dims, wrap, sparse_tensor, vec
+from phiml.math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, pack_dims, wrap, sparse_tensor, vec
 from ._geom import Geometry
 
 

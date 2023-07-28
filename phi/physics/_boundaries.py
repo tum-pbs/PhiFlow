@@ -6,10 +6,10 @@ from phi import math, field
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, mask
 from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
 from phi.geom import Geometry
-from phi.math import Tensor, channel, instance
-from phi.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
-from phi.math import spatial
-from ..math.extrapolation import combine_sides
+from phiml.math import Tensor, channel, instance
+from phiml.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
+from phiml.math import spatial
+from phiml.math.extrapolation import combine_sides
 from .fluid import Obstacle  # for compatibility
 
 

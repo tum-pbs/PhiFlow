@@ -2,11 +2,11 @@ from numbers import Number
 from typing import Tuple, Union
 
 from phi import math
-from phi.math import Tensor, Shape
+from phiml.math import Tensor, Shape
 from . import BaseBox, Box
 from ._geom import Geometry
 from ._sphere import Sphere
-from ..math._shape import parse_dim_order
+from phiml.math._shape import parse_dim_order
 
 
 class RotatedGeometry(Geometry):
