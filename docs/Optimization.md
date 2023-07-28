@@ -19,7 +19,7 @@ The following overview table shows which Φ<sub>Flow</sub> optimization function
 These functions work with all backends but run much slower with NumPy due to the lack of analytic gradients.
 
 ### Nonlinear Optimization
-The function [`math.minimize()`](phi/math/#phi.math.minimize) and [`solve_nonlinear()`](phi/math/#phi.math.solve_nonlinear) solve unconstrained nonlinear optimization problems.
+The function [`math.minimize()`](phi/math/#phiml.math.minimize) and [`solve_nonlinear()`](phi/math/#phiml.math.solve_nonlinear) solve unconstrained nonlinear optimization problems.
 The following example uses L-BFGS-B to find a solution to a nonlinear optimization problem using the `phi.field` API:
 ```python
 def loss(x1: Grid, x2: Grid) -> math.Tensor:
@@ -31,7 +31,7 @@ solution = math.minimize(math.jit_compile(loss), math.Solve('L-BFGS-B', 0, 1e-3,
 
 
 ### Linear Equations
-For solving linear systems of equations, Φ<sub>Flow</sub> provides the function [`math.solve_linear()`](phi/math/#phi.math.solve_linear).
+For solving linear systems of equations, Φ<sub>Flow</sub> provides the function [`math.solve_linear()`](phi/math/#phiml.math.solve_linear).
 The following example uses the conjugate gradient algorithm to solve_linear `f(x) = y`:
 ```python
 @math.jit_compile_linear
@@ -56,9 +56,9 @@ Overview: Implementations
 
 ### Handling Failed Optimizations
 Both `solve_linear` and `minimize` return only the solution.
-To access further information about the optimization, run the optimization within a [`SolveTape`](phi/math/#phi.math.SolveTape) context.
+To access further information about the optimization, run the optimization within a [`SolveTape`](phi/math/#phiml.math.SolveTape) context.
 
-When a solve does not find a solution, a subclass of [`ConvergenceException`](phi/math/#phi.math.ConvergenceException) is thrown.
+When a solve does not find a solution, a subclass of [`ConvergenceException`](phi/math/#phiml.math.ConvergenceException) is thrown.
 ```python
 solve = math.Solve('CG', 1e-3, 0, max_iterations=300)
 try:
@@ -84,7 +84,7 @@ solve = math.Solve('CG', 1e-5, 1e-5, gradient_solve=gradient_solve, x0=None)
 Solves during backpropagation raise the same exceptions as in the forward pass.
 The only exception is TensorFlow where a warning message is printed instead since exceptions are not supported during backpropagation.
 Information about backpropagation solves can be obtained the same ways with the forward solves,
-using a [`SolveTape`](phi/math/#phi.math.SolveTape) context around the gradient computation.
+using a [`SolveTape`](phi/math/#phiml.math.SolveTape) context around the gradient computation.
 
 
 ## Computing Gradients
@@ -94,7 +94,7 @@ The former is the preferred way and works will all backends except for NumPy.
 
 ### Gradients of functions
 The functions
-[`math.functional_gradient()`](phi/math/#phi.math.functional_gradient) and
+[`math.functional_gradient()`](phi/math/#phiml.math.functional_gradient) and
 [`field.functional_gradient()`](phi/field/#phi.field.functional_gradient)
 compute the gradient of a Python function with respect to one or multiple arguments.
 The following example evaluates the gradient of `physics` w.r.t. two of its inputs.

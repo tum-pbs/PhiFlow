@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi import math, geom
-from phi.math import stack, vec, instance, expand, rename_dims, unpack_dim, pack_dims, spatial, flatten, batch, channel
+from phiml.math import stack, vec, instance, expand, rename_dims, unpack_dim, pack_dims, spatial, flatten, batch, channel
 from phi.geom import Box, Sphere
 
 

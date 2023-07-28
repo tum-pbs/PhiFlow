@@ -5,7 +5,7 @@ import numpy
 from phi.field import Grid, CenteredGrid
 from ._console_util import underline, get_arrow
 from .._vis_base import PlottingLibrary
-from ...math import extrapolation, Tensor
+from .phiml.math import extrapolation, Tensor
 
 
 class ConsolePlots(PlottingLibrary):

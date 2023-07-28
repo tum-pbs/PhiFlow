@@ -2,9 +2,9 @@ from numbers import Number
 from typing import Union
 
 from phi import math
-from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
-from phi.math._magic_ops import variable_attributes, expand
-from phi.math.magic import BoundDim, slicing_dict
+from phiml.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
+from phiml.math._magic_ops import variable_attributes, expand
+from phiml.math.magic import BoundDim, slicing_dict
 
 
 class Geometry:
@@ -43,7 +43,7 @@ class Geometry:
     @property
     def volume(self) -> Tensor:
         """
-        Volume of the geometry as `phi.math.Tensor`.
+        Volume of the geometry as `phiml.math.Tensor`.
         The result retains all batch dimensions while instance dimensions are summed over.
         """
         raise NotImplementedError()

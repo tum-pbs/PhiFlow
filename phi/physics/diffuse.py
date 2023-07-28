@@ -7,7 +7,7 @@ from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phi.math import copy_with, shape, Solve
+from phiml.math import copy_with, shape, Solve
 
 
 def explicit(field: FieldType,
@@ -20,7 +20,7 @@ def explicit(field: FieldType,
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
-            Can be a number, `phi.math.Tensor` or `phi.field.Field`.
+            Can be a number, `phiml.math.Tensor` or `phi.field.Field`.
             If a channel dimension is present, it will be interpreted as non-isotropic diffusion.
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         substeps: number of iterations to use (Default value = 1)

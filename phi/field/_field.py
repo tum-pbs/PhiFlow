@@ -3,10 +3,10 @@ from numbers import Number
 from typing import TypeVar, Callable, Union
 
 from phi import math
-from phi.math import Shape, Tensor, channel
-from phi.math.extrapolation import Extrapolation
+from phiml.math import Shape, Tensor, channel
+from phiml.math.extrapolation import Extrapolation
 from phi.geom import Geometry, Box, Point
-from phi.math.magic import BoundDim
+from phiml.math.magic import BoundDim
 
 
 class Field:
@@ -340,7 +340,7 @@ def sample(field: Union[Field, Geometry],
             Grids also support 6th order implicit sampling at mid-points.
 
     Returns:
-        Sampled values as a `phi.math.Tensor`
+        Sampled values as a `phiml.math.Tensor`
     """
     geometry = _get_geometry(geometry)
     if isinstance(field, Geometry):
@@ -379,7 +379,7 @@ def reduce_sample(field: Union[Field, Geometry],
             Grids also support 6th order implicit sampling at mid-points.
 
     Returns:
-        Sampled values as a `phi.math.Tensor`
+        Sampled values as a `phiml.math.Tensor`
     """
     geometry = _get_geometry(geometry)
     if isinstance(field, Geometry):

@@ -23,10 +23,10 @@ from ._grid import Grid, CenteredGrid, StaggeredGrid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
-from phi.math import (
-    abs, sign, round, ceil, floor, sqrt, exp, isfinite, is_finite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
+from phiml.math import (
+    abs, sign, round, ceil, floor, sqrt, exp, is_finite as isfinite, is_finite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
     stop_gradient,
-    jit_compile, jit_compile_linear, functional_gradient, jacobian, gradient,
+    jit_compile, jit_compile_linear, gradient as functional_gradient, jacobian, gradient,
     solve_linear, solve_nonlinear, minimize,
     l2_loss, l1_loss, frequency_loss,
     unstack, stack, concat  # expand, rename_dims, pack_dims, unpack_dims

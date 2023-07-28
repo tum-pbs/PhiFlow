@@ -1,7 +1,7 @@
 from phi.geom import GridCell, Box
-from phi.math import Tensor, spatial, Extrapolation, Shape, stack
+from phiml.math import Tensor, spatial, Extrapolation, Shape, stack
 from ._field import Field, sample
-from ..math.extrapolation import Undefined, ConstantExtrapolation
+from phiml.math.extrapolation import Undefined, ConstantExtrapolation
 
 
 class FieldEmbedding(Extrapolation):

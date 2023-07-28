@@ -7,7 +7,7 @@ import time
 from phi import math
 from phi import field
 from phi.geom import Box
-from phi.math import spatial
+from phiml.math import spatial
 from phi.physics._boundaries import Domain, PERIODIC
 from .numpy_reference import HW, Namespace
 from .phi_version import step_gradient_2d, rk4_step, get_domain_phi

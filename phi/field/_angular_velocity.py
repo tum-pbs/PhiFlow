@@ -5,7 +5,7 @@ from phi import math
 
 from ._field import Field
 from ..geom import Geometry
-from ..math import Shape, spatial, instance, Tensor, wrap
+from phiml.math import Shape, spatial, instance, Tensor, wrap
 
 
 class AngularVelocity(Field):

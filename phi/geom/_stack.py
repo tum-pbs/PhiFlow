@@ -3,10 +3,10 @@ from typing import List, Tuple
 from phi import math
 from . import GridCell
 from ._geom import Geometry
-from ..math import Tensor, expand
-from ..math._shape import shape_stack, Shape, INSTANCE_DIM, non_channel
-from ..math._magic_ops import variable_attributes, copy_with, unstack
-from ..math.magic import slicing_dict
+from phiml.math import Tensor, expand
+from phiml.math._shape import shape_stack, Shape, INSTANCE_DIM, non_channel
+from phiml.math._magic_ops import variable_attributes, copy_with, unstack
+from phiml.math.magic import slicing_dict
 
 
 class GeometryStack(Geometry):

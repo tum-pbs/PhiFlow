@@ -1,16 +1,16 @@
 import warnings
 from typing import Any, Tuple, Union
 
-from phi.math import wrap, expand, non_batch, extrapolation, spatial
+from phiml.math import wrap, expand, non_batch, extrapolation, spatial
 
 from phi import math
 from phi.geom import Geometry, GridCell, Box, Point
 from ._field import SampledField, resample
 from ..geom._stack import GeometryStack
-from ..math import Tensor, instance, Shape
-from ..math._tensors import may_vary_along
-from ..math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
-from ..math.magic import slicing_dict
+from phiml.math import Tensor, instance, Shape
+from phiml.math._tensors import may_vary_along
+from phiml.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
+from phiml.math.magic import slicing_dict
 
 
 class PointCloud(SampledField):
@@ -160,7 +160,7 @@ class PointCloud(SampledField):
         Approximately samples this field on a regular grid using math.scatter().
 
         Args:
-            outside_handling: `str` passed to `phi.math.scatter()`.
+            outside_handling: `str` passed to `phiml.math.scatter()`.
             bounds: physical dimensions of the grid
             resolution: grid resolution
 

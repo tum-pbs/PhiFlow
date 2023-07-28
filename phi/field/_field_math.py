@@ -5,12 +5,12 @@ from typing import Callable, List, Tuple, Optional, Union
 from phi import geom
 from phi import math
 from phi.geom import Box, Geometry
-from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile, rename_dims, flatten, batch
+from phiml.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile, rename_dims, flatten, batch
 from ._field import Field, SampledField, SampledFieldType, as_extrapolation
 from ._grid import CenteredGrid, Grid, StaggeredGrid, GridType
 from ._mesh import Mesh
 from ._point_cloud import PointCloud
-from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction
+from phiml.math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction
 
 
 def bake_extrapolation(grid: GridType) -> GridType:
@@ -22,12 +22,12 @@ def bake_extrapolation(grid: GridType) -> GridType:
         grid: `CenteredGrid` or `StaggeredGrid`.
 
     Returns:
-        Padded grid with extrapolation `phi.math.extrapolation.NONE`.
+        Padded grid with extrapolation `phiml.math.extrapolation.NONE`.
     """
     if grid.extrapolation == math.extrapolation.NONE:
         return grid
     if isinstance(grid, StaggeredGrid):
-        values = grid.values.unstack('vector')
+        values = tuple(grid.values.vector)
         padded = []
         for dim, value in zip(grid.shape.spatial.names, values):
             lower, upper = grid.extrapolation.valid_outer_faces(dim)
@@ -52,7 +52,7 @@ def laplace(field: GridType,
         field: n-dimensional `CenteredGrid`
         axes: The second derivative along these dimensions is summed over
         weights: (Optional) Multiply the axis terms by these factors before summation.
-            Must be a `phi.math.Tensor` or `phi.field.Field` with a single channel dimension that lists all laplace axes by name.
+            Must be a `phiml.math.Tensor` or `phi.field.Field` with a single channel dimension that lists all laplace axes by name.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
             Supported: 2 explicit, 4 explicit, 6 implicit.
@@ -394,7 +394,7 @@ def curl(field: Grid, type: type = CenteredGrid):
         if 'vector' not in field.shape and type == StaggeredGrid:
             # 2D curl of scalar field
             grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
-            result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
+            result = grad.vector[::-1] * (1, -1)  # (d/dy, -d/dx)
             bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
             return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
         if 'vector' in field.shape and type == CenteredGrid:
@@ -417,14 +417,14 @@ def curl(field: Grid, type: type = CenteredGrid):
 
 
 def fourier_laplace(grid: GridType, times=1) -> GridType:
-    """ See `phi.math.fourier_laplace()` """
+    """ See `phiml.math.fourier_laplace()` """
     assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
     values = math.fourier_laplace(grid.values, dx=grid.dx, times=times)
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
 
 
 def fourier_poisson(grid: GridType, times=1) -> GridType:
-    """ See `phi.math.fourier_poisson()` """
+    """ See `phiml.math.fourier_poisson()` """
     assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
     values = math.fourier_poisson(grid.values, dx=grid.dx, times=times)
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)
@@ -432,7 +432,7 @@ def fourier_poisson(grid: GridType, times=1) -> GridType:
 
 def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) -> Union[SampledField, Tensor]:
     """
-    Similar to `phi.math.native_call()`.
+    Similar to `phiml.math.native_call()`.
 
     Args:
         f: Function to be called on native tensors of `inputs.values`.
@@ -501,7 +501,7 @@ def pad(grid: GridType, widths: Union[int, tuple, list, dict]) -> GridType:
     """
     Pads a `Grid` using its extrapolation.
 
-    Unlike `phi.math.pad()`, this function also affects the `bounds` of the grid, changing its size and origin depending on `widths`.
+    Unlike `phiml.math.pad()`, this function also affects the `bounds` of the grid, changing its size and origin depending on `widths`.
 
     Args:
         grid: `CenteredGrid` or `StaggeredGrid`
@@ -645,7 +645,7 @@ def assert_close(*fields: Union[SampledField, Tensor, Number],
                  abs_tolerance: float = 0,
                  msg: str = "",
                  verbose: bool = True):
-    """ Raises an AssertionError if the `values` of the given fields are not close. See `phi.math.assert_close()`. """
+    """ Raises an AssertionError if the `values` of the given fields are not close. See `phiml.math.assert_close()`. """
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
     values = [(f @ f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)
@@ -715,7 +715,7 @@ def _auto_resample(*fields: Field):
 
 
 def vec_length(field: SampledField):
-    """ See `phi.math.vec_abs()` """
+    """ See `phiml.math.vec_abs()` """
     assert isinstance(field, SampledField), f"SampledField required but got {type(field).__name__}"
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
@@ -723,7 +723,7 @@ def vec_length(field: SampledField):
 
 
 def vec_squared(field: SampledField):
-    """ See `phi.math.vec_squared()` """
+    """ See `phiml.math.vec_squared()` """
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
     return field.with_values(math.vec_squared(field.values))
@@ -731,7 +731,7 @@ def vec_squared(field: SampledField):
 
 def finite_fill(grid: GridType, distance=1, diagonal=True) -> GridType:
     """
-    Extrapolates values of `grid` which are marked by nonzero values in `valid` using `phi.math.masked_fill().
+    Extrapolates values of `grid` which are marked by nonzero values in `valid` using `phiml.math.masked_fill().
     If `values` is a StaggeredGrid, its components get extrapolated independently.
 
     Args:
@@ -793,7 +793,7 @@ def pack_dims(field: SampledFieldType,
     Currently only supports grids and non-spatial dimensions.
 
     See Also:
-        `phi.math.pack_dims()`.
+        `phiml.math.pack_dims()`.
 
     Args:
         field: `SampledField`

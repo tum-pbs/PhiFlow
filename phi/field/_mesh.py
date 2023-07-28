@@ -4,8 +4,8 @@ from ._field import SampledField
 from .. import math
 from ..geom import Geometry, Box
 from ..geom._stack import GeometryStack
-from ..math import Tensor, Extrapolation, expand, wrap, non_batch, Shape, all_available, instance, spatial, dual
-from ..math.magic import slicing_dict
+from phiml.math import Tensor, Extrapolation, expand, wrap, non_batch, Shape, all_available, instance, spatial, dual
+from phiml.math.magic import slicing_dict
 
 
 class Mesh(SampledField):

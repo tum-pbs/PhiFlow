@@ -4,8 +4,8 @@ import phi
 from phi import math
 from phi.field import CenteredGrid
 from phi.geom import Box
-from phi.math import channel, tensor
-from phi.math.backend import Backend
+from phiml.math import channel, tensor
+from phiml.backend import Backend
 
 
 def simulate_hit(pos, height, vel, angle, gravity=1.):

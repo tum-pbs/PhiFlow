@@ -4,7 +4,7 @@ import warnings
 
 import numpy as np
 
-from phi.math.backend import PHI_LOGGER
+from phiml.backend import ML_LOGGER
 
 ORANGE_WHITE_BLUE = [
     [0.      ,  22.00000005,   1.00000035,  76.0000011 ],

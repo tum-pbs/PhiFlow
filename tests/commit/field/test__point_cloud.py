@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi.field import PointCloud
 from phi.geom import Sphere
-from phi.math import batch, stack, instance, expand, rename_dims, shape, vec
+from phiml.math import batch, stack, instance, expand, rename_dims, shape, vec
 
 
 class GridTest(TestCase):

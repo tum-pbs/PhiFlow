@@ -2,8 +2,8 @@ from typing import Union
 
 from phi import math
 from ._geom import Geometry, _keep_vector
-from ..math import wrap, Tensor, expand
-from ..math.magic import slicing_dict
+from phiml.math import wrap, Tensor, expand
+from phiml.math.magic import slicing_dict
 
 
 class Sphere(Geometry):

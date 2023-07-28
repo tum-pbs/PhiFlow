@@ -67,7 +67,7 @@ Also, certain checks and optimizations may be skipped in graph mode.
 There are two ways of compiling a static graph
 
 * `jit_compile()` (recommended): The function
-  [`phi.math.jit_compile()`](https://tum-pbs.github.io/PhiFlow/phi/math/#phi.math.jit_compile)
+  [`phiml.math.jit_compile()`](https://tum-pbs.github.io/PhiFlow/phi/math/#phiml.math.jit_compile)
   use the backend-specific compiler, if available, to compile a static graph for `Tensor` or `Field`-valued functions, respectively.
 * Backend compiler: You may trace or compile functions manually using PyTorch, Jax or TensorFlow.
-  This involves manually getting all native tensors since backend compilers do not support `phi.math.Tensor` or `Field` arguments.
+  This involves manually getting all native tensors since backend compilers do not support `phiml.math.Tensor` or `Field` arguments.

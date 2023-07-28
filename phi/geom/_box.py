@@ -2,13 +2,13 @@ import warnings
 from typing import Dict, Tuple, Union
 
 import numpy as np
-from phi.math import DimFilter
+from phiml.math import DimFilter
 
 from phi import math
 from ._geom import Geometry, _keep_vector
-from ..math import wrap, INF, Shape, channel, spatial, copy_with, Tensor
-from ..math._shape import parse_dim_order
-from ..math.magic import slicing_dict
+from phiml.math import wrap, INF, Shape, channel, spatial, copy_with, Tensor
+from phiml.math._shape import parse_dim_order
+from phiml.math.magic import slicing_dict
 
 
 class BaseBox(Geometry):  # not a Subwoofer

@@ -3,10 +3,10 @@ import warnings
 from phi import math
 from ._geom import Geometry, NO_GEOMETRY
 from ._box import bounding_box, Box
-from ..math import Tensor
-from ..math._shape import merge_shapes
-from ..math._magic_ops import variable_attributes, copy_with
-from ..math.magic import PhiTreeNode
+from phiml.math import Tensor
+from phiml.math._shape import merge_shapes
+from phiml.math._magic_ops import variable_attributes, copy_with
+from phiml.math.magic import PhiTreeNode
 
 
 class Union(Geometry):
