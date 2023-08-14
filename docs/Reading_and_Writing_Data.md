@@ -54,7 +54,7 @@ Properties can be set using `put_property` and read from `scene.properties`.
 
 
 ## Batches of Scenes
-As discussed in the [performance optimization guide](GPU_Execution.md), it is recommended to combine data into large tensors whenever possible.
+It is recommended to combine data into large tensors whenever possible.
 For example, multiple smoke simulations can be simulated in a data-parallel way by stacking the tensors of the different simulation, assuming all have the same resolution.
 
 To facilitate reading and writing batched data, scenes have a batch mode.
