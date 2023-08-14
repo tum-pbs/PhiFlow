@@ -44,7 +44,7 @@ Examples:
 &#34;&#34;&#34;
 from typing import Union
 
-from phi.math import Solve, channel
+from phiml.math import Solve, channel
 
 from phi import math
 from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
@@ -242,7 +242,7 @@ def mac_cormack(field: GridType,
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.advect.advect"><code class="name flex">
-<span>def <span class="ident">advect</span></span>(<span>field: phi.field._field.SampledField, velocity: phi.field._field.Field, dt: Union[phi.math._tensors.Tensor, float], integrator=&lt;function euler&gt;) ‑> ~FieldType</span>
+<span>def <span class="ident">advect</span></span>(<span>field: phi.field._field.SampledField, velocity: phi.field._field.Field, dt: Union[phiml.math._tensors.Tensor, float], integrator=&lt;function euler&gt;) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Advect <code>field</code> along the <code>velocity</code> vectors using the specified integrator.</p>
@@ -297,7 +297,7 @@ def mac_cormack(field: GridType,
 </details>
 </dd>
 <dt id="phi.physics.advect.euler"><code class="name flex">
-<span>def <span class="ident">euler</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._field.Field, dt: float, v0: phi.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">euler</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._field.Field, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Euler integrator.</p></div>
@@ -313,7 +313,7 @@ def mac_cormack(field: GridType,
 </details>
 </dd>
 <dt id="phi.physics.advect.finite_difference"><code class="name flex">
-<span>def <span class="ident">finite_difference</span></span>(<span>grid: phi.field._grid.Grid, velocity: phi.field._field.Field, order=2, implicit: phi.math._optimize.Solve = None) ‑> phi.field._field.Field</span>
+<span>def <span class="ident">finite_difference</span></span>(<span>grid: phi.field._grid.Grid, velocity: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finite difference advection using the differentiation Scheme indicated by <code>scheme</code> and a simple Euler step</p>
@@ -379,7 +379,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.physics.advect.finite_rk4"><code class="name flex">
-<span>def <span class="ident">finite_rk4</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._grid.Grid, dt: float, v0: phi.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">finite_rk4</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._grid.Grid, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN.</p></div>
@@ -506,7 +506,7 @@ Each point moves by an amount equal to the local velocity times <code>dt</code>.
 </details>
 </dd>
 <dt id="phi.physics.advect.rk4"><code class="name flex">
-<span>def <span class="ident">rk4</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._field.Field, dt: float, v0: phi.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">rk4</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._field.Field, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Runge-Kutta-4 integrator.</p></div>

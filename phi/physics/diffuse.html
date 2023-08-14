@@ -36,7 +36,7 @@ from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phi.math import copy_with, shape, Solve
+from phiml.math import copy_with, shape, Solve
 
 
 def explicit(field: FieldType,
@@ -49,7 +49,7 @@ def explicit(field: FieldType,
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
-            Can be a number, `phi.math.Tensor` or `phi.field.Field`.
+            Can be a number, `phiml.math.Tensor` or `phi.field.Field`.
             If a channel dimension is present, it will be interpreted as non-isotropic diffusion.
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         substeps: number of iterations to use (Default value = 1)
@@ -156,7 +156,7 @@ def fourier(field: GridType,
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.diffuse.explicit"><code class="name flex">
-<span>def <span class="ident">explicit</span></span>(<span>field: ~FieldType, diffusivity: Union[float, phi.math._tensors.Tensor, phi.field._field.Field], dt: Union[phi.math._tensors.Tensor, float], substeps: int = 1) ‑> ~FieldType</span>
+<span>def <span class="ident">explicit</span></span>(<span>field: ~FieldType, diffusivity: Union[float, phiml.math._tensors.Tensor, phi.field._field.Field], dt: Union[phiml.math._tensors.Tensor, float], substeps: int = 1) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given <code>Field</code> FieldType with diffusion coefficient α.</p>
@@ -166,7 +166,7 @@ def fourier(field: GridType,
 <dd>CenteredGrid, StaggeredGrid or ConstantField</dd>
 <dt><strong><code>diffusivity</code></strong></dt>
 <dd>Diffusion per time. <code>diffusion_amount = diffusivity * dt</code>
-Can be a number, <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code>.
+Can be a number, <code>phiml.math.Tensor</code> or <code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code>.
 If a channel dimension is present, it will be interpreted as non-isotropic diffusion.</dd>
 <dt><strong><code>dt</code></strong></dt>
 <dd>Time interval. <code>diffusion_amount = diffusivity * dt</code></dd>
@@ -189,7 +189,7 @@ If a channel dimension is present, it will be interpreted as non-isotropic diffu
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
-            Can be a number, `phi.math.Tensor` or `phi.field.Field`.
+            Can be a number, `phiml.math.Tensor` or `phi.field.Field`.
             If a channel dimension is present, it will be interpreted as non-isotropic diffusion.
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         substeps: number of iterations to use (Default value = 1)
@@ -208,7 +208,7 @@ If a channel dimension is present, it will be interpreted as non-isotropic diffu
 </details>
 </dd>
 <dt id="phi.physics.diffuse.finite_difference"><code class="name flex">
-<span>def <span class="ident">finite_difference</span></span>(<span>grid: phi.field._grid.Grid, diffusivity: Union[float, phi.math._tensors.Tensor, phi.field._field.Field], order: int, implicit: phi.math._optimize.Solve) ‑> ~FieldType</span>
+<span>def <span class="ident">finite_difference</span></span>(<span>grid: phi.field._grid.Grid, diffusivity: Union[float, phiml.math._tensors.Tensor, phi.field._field.Field], order: int, implicit: phiml.math._optimize.Solve) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Diffusion by using a finite difference scheme.
@@ -261,7 +261,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.physics.diffuse.fourier"><code class="name flex">
-<span>def <span class="ident">fourier</span></span>(<span>field: ~GridType, diffusivity: Union[phi.math._tensors.Tensor, float], dt: Union[phi.math._tensors.Tensor, float]) ‑> ~FieldType</span>
+<span>def <span class="ident">fourier</span></span>(<span>field: ~GridType, diffusivity: Union[phiml.math._tensors.Tensor, float], dt: Union[phiml.math._tensors.Tensor, float]) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Exact diffusion of a periodic field in frequency space.</p>
@@ -309,7 +309,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.physics.diffuse.implicit"><code class="name flex">
-<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: Union[float, phi.math._tensors.Tensor, phi.field._field.Field], dt: Union[phi.math._tensors.Tensor, float], order: int = 1, solve=CG with tolerance None (rel), None (abs), max_iterations=1000) ‑> ~FieldType</span>
+<span>def <span class="ident">implicit</span></span>(<span>field: ~FieldType, diffusivity: Union[float, phiml.math._tensors.Tensor, phi.field._field.Field], dt: Union[phiml.math._tensors.Tensor, float], order: int = 1, solve=CG with tolerance None (rel), None (abs), max_iterations=1000) ‑> ~FieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Diffusion by solving a linear system of equations.</p>

@@ -45,7 +45,7 @@ Classes:
 
 See the `phi.geom` module documentation at https://tum-pbs.github.io/PhiFlow/Geometry.html
 &#34;&#34;&#34;
-from ..math import stack, concat, pack_dims  # for compatibility
+from phiml.math import stack, concat, pack_dims  # for compatibility
 from ._geom import Geometry, Point, assert_same_rank, invert
 from ._union import union
 from ._box import Box, GridCell, GridCell as UniformGrid, BaseBox, Cuboid
@@ -79,16 +79,16 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.geom.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>values: Union[tuple, list], dim: Union[str, phi.math._shape.Shape], expand_values=False, **kwargs)</span>
+<span>def <span class="ident">concat</span></span>(<span>values: Union[tuple, list], dim: Union[str, phiml.math._shape.Shape], expand_values=False, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Concatenates a sequence of <code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code> objects, e.g. <code>Tensor</code>, along one dimension.
+<div class="desc"><p>Concatenates a sequence of <code>phiml.math.magic.Shapable</code> objects, e.g. <code>Tensor</code>, along one dimension.
 All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for <code>dim</code>.
 Batch dimensions will be added as needed.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd>Tuple or list of <code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></dd>
+<dd>Tuple or list of <code>phiml.math.magic.Shapable</code>, such as <code>phiml.math.Tensor</code></dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Concatenation dimension, must be present in all <code>values</code>.
 The size along <code>dim</code> is determined from <code>values</code> and can be set to undefined (<code>None</code>).</dd>
@@ -116,12 +116,12 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </summary>
 <pre><code class="python">def concat(values: Union[tuple, list], dim: Union[str, Shape], expand_values=False, **kwargs):
     &#34;&#34;&#34;
-    Concatenates a sequence of `phi.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
+    Concatenates a sequence of `phiml.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
     All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
     Batch dimensions will be added as needed.
 
     Args:
-        values: Tuple or list of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
+        values: Tuple or list of `phiml.math.magic.Shapable`, such as `phiml.math.Tensor`
         dim: Concatenation dimension, must be present in all `values`.
             The size along `dim` is determined from `values` and can be set to undefined (`None`).
         expand_values: If `True`, will first add missing dimensions to all values, not just batch dimensions.
@@ -192,7 +192,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.geom.embed"><code class="name flex">
-<span>def <span class="ident">embed</span></span>(<span>geometry: phi.geom._geom.Geometry, projected_dims: Union[phi.math._shape.Shape, str, tuple, list, None]) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">embed</span></span>(<span>geometry: phi.geom._geom.Geometry, projected_dims: Union[phiml.math._shape.Shape, str, tuple, list, None]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Adds fake spatial dimensions to a geometry.
@@ -241,7 +241,7 @@ The geometry value will be constant along the added dimensions, as if it had inf
 </details>
 </dd>
 <dt id="phi.geom.infinite_cylinder"><code class="name flex">
-<span>def <span class="ident">infinite_cylinder</span></span>(<span>center=None, radius=None, inf_dim: Union[phi.math._shape.Shape, tuple, list, str] = None, **center_) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">infinite_cylinder</span></span>(<span>center=None, radius=None, inf_dim: Union[phiml.math._shape.Shape, tuple, list, str] = None, **center_) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates an infinite cylinder.
@@ -318,7 +318,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 </details>
 </dd>
 <dt id="phi.geom.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable], packed_dim: phi.math._shape.Shape, pos: Optional[int] = None, **kwargs)</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable], packed_dim: phiml.math._shape.Shape, pos: Optional[int] = None, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
@@ -333,7 +333,7 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.</dd>
+<dd><code>phiml.math.magic.Shapable</code>, such as <code>phiml.math.Tensor</code>.</dd>
 <dt><strong><code>dims</code></strong></dt>
 <dd>Dimensions to be compressed in the specified order.</dd>
 <dt><strong><code>packed_dim</code></strong></dt>
@@ -371,7 +371,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         `unpack_dim()`
 
     Args:
-        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`.
+        value: `phiml.math.magic.Shapable`, such as `phiml.math.Tensor`.
         dims: Dimensions to be compressed in the specified order.
         packed_dim: Single-dimension `Shape`.
         pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
@@ -407,12 +407,12 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         return copy_with(value, **new_attributes)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume &gt; 8:
-        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phi.math.magic&#34;, RuntimeWarning, stacklevel=2)
+        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phiml.math.magic&#34;, RuntimeWarning, stacklevel=2)
     return stack(unstack(value, dims), packed_dim, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>values: Union[tuple, list, dict], dim: phi.math._shape.Shape, expand_values=False, **kwargs)</span>
+<span>def <span class="ident">stack</span></span>(<span>values: Union[tuple, list, dict], dim: phiml.math._shape.Shape, expand_values=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.
@@ -423,7 +423,7 @@ This makes repeated stacking and slicing along the same dimension very efficient
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
-<dd>Collection of <code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>
+<dd>Collection of <code>phiml.math.magic.Shapable</code>, such as <code>phiml.math.Tensor</code>
 If a <code>dict</code>, keys must be of type <code>str</code> and are used as item names along <code>dim</code>.</dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd><code>Shape</code> with a least one dimension. None of these dimensions can be present with any of the <code>values</code>.
@@ -464,7 +464,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     This makes repeated stacking and slicing along the same dimension very efficient, i.e. jit-compiled functions will not perform these operations.
 
     Args:
-        values: Collection of `phi.math.magic.Shapable`, such as `phi.math.Tensor`
+        values: Collection of `phiml.math.magic.Shapable`, such as `phiml.math.Tensor`
             If a `dict`, keys must be of type `str` and are used as item names along `dim`.
         dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
             If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
@@ -491,6 +491,9 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     &#34;&#34;&#34;
     assert len(values) &gt; 0, f&#34;stack() got empty sequence {values}&#34;
     assert isinstance(dim, Shape)
+    if not dim:
+        assert len(values) == 1, f&#34;Only one element can be passed as `values` if no dim is passed but got {values}&#34;
+        return next(iter(values.values())) if isinstance(values, dict) else values[0]
     values_ = tuple(values.values()) if isinstance(values, dict) else values
     if not expand_values:
         for v in values_[1:]:
@@ -784,7 +787,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.geom.BaseBox.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.center"><code class="name">var <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
@@ -796,7 +799,7 @@ def center(self) -&gt; Tensor:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.BaseBox.half_size"><code class="name">var <span class="ident">half_size</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.half_size"><code class="name">var <span class="ident">half_size</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -808,7 +811,7 @@ def half_size(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.BaseBox.lower"><code class="name">var <span class="ident">lower</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.lower"><code class="name">var <span class="ident">lower</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -838,7 +841,7 @@ def shape(self):
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.BaseBox.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.shape_type"><code class="name">var <span class="ident">shape_type</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
 Boxes return <code>'B'</code>, spheres return <code>'S'</code>, points return <code>'P'</code>.
@@ -855,7 +858,7 @@ def shape_type(self) -&gt; Tensor:
     return math.tensor(&#39;B&#39;)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.BaseBox.size"><code class="name">var <span class="ident">size</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.size"><code class="name">var <span class="ident">size</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -867,7 +870,7 @@ def size(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.BaseBox.upper"><code class="name">var <span class="ident">upper</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.upper"><code class="name">var <span class="ident">upper</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -879,9 +882,9 @@ def upper(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.BaseBox.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.BaseBox.volume"><code class="name">var <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+<div class="desc"><p>Volume of the geometry as <code>phiml.math.Tensor</code>.
 The result retains all batch dimensions while instance dimensions are summed over.</p></div>
 <details class="source">
 <summary>
@@ -896,7 +899,7 @@ def volume(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.BaseBox.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phi.math._tensors.Tensor, tuple])</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phiml.math._tensors.Tensor, tuple])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the signed L-infinity norm (manhattan distance) from the location to the nearest side of the box.
@@ -935,7 +938,7 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, center: phi.math._tensors.Tensor) ‑> phi.geom._box.BaseBox</span>
+<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
@@ -1047,7 +1050,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.global_to_local"><code class="name flex">
-<span>def <span class="ident">global_to_local</span></span>(<span>self, global_position: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">global_to_local</span></span>(<span>self, global_position: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1115,7 +1118,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.push"><code class="name flex">
-<span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">push</span></span>(<span>self, positions: phiml.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shifts positions either into or out of geometry.</p>
@@ -1170,7 +1173,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.sample_uniform"><code class="name flex">
-<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phiml.math._shape.Shape) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
@@ -1191,7 +1194,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
@@ -1211,7 +1214,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Box"><code class="flex name class">
 <span>class <span class="ident">Box</span></span>
-<span>(</span><span>lower: phi.math._tensors.Tensor = None, upper: phi.math._tensors.Tensor = None, **size: Union[int, phi.math._tensors.Tensor, tuple, list])</span>
+<span>(</span><span>lower: phiml.math._tensors.Tensor = None, upper: phiml.math._tensors.Tensor = None, **size: Union[int, phiml.math._tensors.Tensor, tuple, list])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simple cuboid defined by location of lower and upper corner in physical space.</p>
@@ -1474,7 +1477,7 @@ def upper(self):
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Box.largest"><code class="name flex">
-<span>def <span class="ident">largest</span></span>(<span>self, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable]) ‑> phi.geom._box.Box</span>
+<span>def <span class="ident">largest</span></span>(<span>self, dim: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable]) ‑> phi.geom._box.Box</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1537,7 +1540,7 @@ def upper(self):
 </dd>
 <dt id="phi.geom.Cuboid"><code class="flex name class">
 <span>class <span class="ident">Cuboid</span></span>
-<span>(</span><span>center: phi.math._tensors.Tensor = 0, half_size: Union[phi.math._tensors.Tensor, float] = None, **size: Union[phi.math._tensors.Tensor, float])</span>
+<span>(</span><span>center: phiml.math._tensors.Tensor = 0, half_size: Union[phiml.math._tensors.Tensor, float] = None, **size: Union[phiml.math._tensors.Tensor, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Box specified by center position and half size.</p></div>
@@ -1796,7 +1799,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
     @property
     def volume(self) -&gt; Tensor:
         &#34;&#34;&#34;
-        Volume of the geometry as `phi.math.Tensor`.
+        Volume of the geometry as `phiml.math.Tensor`.
         The result retains all batch dimensions while instance dimensions are summed over.
         &#34;&#34;&#34;
         raise NotImplementedError()
@@ -2125,7 +2128,7 @@ All batch dimensions are listed in Geometry.shape.</p></div>
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.geom.Geometry.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Geometry.center"><code class="name">var <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
@@ -2140,7 +2143,7 @@ def center(self) -&gt; Tensor:
     raise NotImplementedError(self)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Geometry.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
+<dt id="phi.geom.Geometry.shape"><code class="name">var <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
 <ul>
@@ -2166,7 +2169,7 @@ def shape(self) -&gt; Shape:
     raise NotImplementedError()</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Geometry.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Geometry.shape_type"><code class="name">var <span class="ident">shape_type</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
 Boxes return <code>'B'</code>, spheres return <code>'S'</code>, points return <code>'P'</code>.
@@ -2205,9 +2208,9 @@ def spatial_rank(self) -&gt; int:
     return self.shape.get_size(&#39;vector&#39;)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Geometry.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Geometry.volume"><code class="name">var <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+<div class="desc"><p>Volume of the geometry as <code>phiml.math.Tensor</code>.
 The result retains all batch dimensions while instance dimensions are summed over.</p></div>
 <details class="source">
 <summary>
@@ -2216,7 +2219,7 @@ The result retains all batch dimensions while instance dimensions are summed ove
 <pre><code class="python">@property
 def volume(self) -&gt; Tensor:
     &#34;&#34;&#34;
-    Volume of the geometry as `phi.math.Tensor`.
+    Volume of the geometry as `phiml.math.Tensor`.
     The result retains all batch dimensions while instance dimensions are summed over.
     &#34;&#34;&#34;
     raise NotImplementedError()</code></pre>
@@ -2226,7 +2229,7 @@ def volume(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Geometry.approximate_fraction_inside"><code class="name flex">
-<span>def <span class="ident">approximate_fraction_inside</span></span>(<span>self, other_geometry: <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a>, balance: Union[phi.math._tensors.Tensor, numbers.Number] = 0.5) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">approximate_fraction_inside</span></span>(<span>self, other_geometry: <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a>, balance: Union[phiml.math._tensors.Tensor, numbers.Number] = 0.5) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the approximate overlap between the geometry and a small other geometry.
@@ -2286,7 +2289,7 @@ This value is returned when exactly half of <code>other_geometry</code> lies ins
 </details>
 </dd>
 <dt id="phi.geom.Geometry.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phi.math._tensors.Tensor, tuple]) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phiml.math._tensors.Tensor, tuple]) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the approximate distance from location to the surface of the geometry.
@@ -2333,7 +2336,7 @@ This also holds for negative distances.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, center: phi.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
@@ -2393,7 +2396,7 @@ The center of the box may not be equal to <code>self.center</code>.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.bounding_half_extent"><code class="name flex">
-<span>def <span class="ident">bounding_half_extent</span></span>(<span>self) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">bounding_half_extent</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
@@ -2426,7 +2429,7 @@ Then, no point of the geometry lies further away from its center point than <cod
 </details>
 </dd>
 <dt id="phi.geom.Geometry.bounding_radius"><code class="name flex">
-<span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
@@ -2454,7 +2457,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.lies_inside"><code class="name flex">
-<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
@@ -2487,7 +2490,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.push"><code class="name flex">
-<span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">push</span></span>(<span>self, positions: phiml.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shifts positions either into or out of geometry.</p>
@@ -2522,7 +2525,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.rotated"><code class="name flex">
-<span>def <span class="ident">rotated</span></span>(<span>self, angle: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">rotated</span></span>(<span>self, angle: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a rotated version of this geometry.
@@ -2553,7 +2556,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.sample_uniform"><code class="name flex">
-<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phiml.math._shape.Shape) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
@@ -2582,7 +2585,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
@@ -2643,7 +2646,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </details>
 </dd>
 <dt id="phi.geom.Geometry.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phiml.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -2721,7 +2724,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 <dt id="phi.geom.GridCell"><code class="flex name class">
 <span>class <span class="ident">GridCell</span></span>
-<span>(</span><span>resolution: phi.math._shape.Shape, bounds: phi.geom._box.BaseBox)</span>
+<span>(</span><span>resolution: phiml.math._shape.Shape, bounds: phi.geom._box.BaseBox)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>An instance of GridCell represents all cells of a regular grid as a batch of boxes.</p></div>
@@ -3104,7 +3107,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </details>
 </dd>
 <dt id="phi.geom.GridCell.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor, **delta_by_dim) ‑> phi.geom._box.BaseBox</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phiml.math._tensors.Tensor, **delta_by_dim) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -3156,7 +3159,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </dd>
 <dt id="phi.geom.GridCell"><code class="flex name class">
 <span>class <span class="ident">UniformGrid</span></span>
-<span>(</span><span>resolution: phi.math._shape.Shape, bounds: phi.geom._box.BaseBox)</span>
+<span>(</span><span>resolution: phiml.math._shape.Shape, bounds: phi.geom._box.BaseBox)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>An instance of GridCell represents all cells of a regular grid as a batch of boxes.</p></div>
@@ -3539,7 +3542,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </details>
 </dd>
 <dt id="phi.geom.GridCell.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta: phi.math._tensors.Tensor, **delta_by_dim) ‑> phi.geom._box.BaseBox</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phiml.math._tensors.Tensor, **delta_by_dim) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -3591,7 +3594,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </dd>
 <dt id="phi.geom.Point"><code class="flex name class">
 <span>class <span class="ident">Point</span></span>
-<span>(</span><span>location: phi.math._tensors.Tensor)</span>
+<span>(</span><span>location: phiml.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Points have zero volume and are determined by a single location.
@@ -3672,7 +3675,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.geom.Point.center"><code class="name">var <span class="ident">center</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Point.center"><code class="name">var <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Center location in single channel dimension.</p></div>
 <details class="source">
@@ -3684,7 +3687,7 @@ def center(self) -&gt; Tensor:
     return self._location</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Point.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
+<dt id="phi.geom.Point.shape"><code class="name">var <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
 <ul>
@@ -3702,7 +3705,7 @@ def shape(self) -&gt; Shape:
     return self._location.shape</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Point.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Point.shape_type"><code class="name">var <span class="ident">shape_type</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
 Boxes return <code>'B'</code>, spheres return <code>'S'</code>, points return <code>'P'</code>.
@@ -3719,9 +3722,9 @@ def shape_type(self) -&gt; Tensor:
     return math.tensor(&#39;P&#39;)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Point.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Point.volume"><code class="name">var <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+<div class="desc"><p>Volume of the geometry as <code>phiml.math.Tensor</code>.
 The result retains all batch dimensions while instance dimensions are summed over.</p></div>
 <details class="source">
 <summary>
@@ -3736,7 +3739,7 @@ def volume(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Point.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phi.math._tensors.Tensor, tuple]) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phiml.math._tensors.Tensor, tuple]) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the approximate distance from location to the surface of the geometry.
@@ -3764,7 +3767,7 @@ This also holds for negative distances.</p>
 </details>
 </dd>
 <dt id="phi.geom.Point.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, center: phi.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
@@ -3787,7 +3790,7 @@ This is equal to calling <code>self @ center</code>.</p>
 </details>
 </dd>
 <dt id="phi.geom.Point.bounding_half_extent"><code class="name flex">
-<span>def <span class="ident">bounding_half_extent</span></span>(<span>self) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">bounding_half_extent</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
@@ -3806,7 +3809,7 @@ Then, no point of the geometry lies further away from its center point than <cod
 </details>
 </dd>
 <dt id="phi.geom.Point.bounding_radius"><code class="name flex">
-<span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
@@ -3823,7 +3826,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Point.lies_inside"><code class="name flex">
-<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phi.math._tensors.Tensor) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
@@ -3844,7 +3847,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Point.push"><code class="name flex">
-<span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">push</span></span>(<span>self, positions: phiml.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shifts positions either into or out of geometry.</p>
@@ -3889,7 +3892,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Point.sample_uniform"><code class="name flex">
-<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phi.math._shape.Shape) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phiml.math._shape.Shape) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
@@ -3909,7 +3912,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Point.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
@@ -3953,7 +3956,7 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 <dt id="phi.geom.Sphere"><code class="flex name class">
 <span>class <span class="ident">Sphere</span></span>
-<span>(</span><span>center: phi.math._tensors.Tensor = None, radius: Union[phi.math._tensors.Tensor, float] = None, **center_: Union[phi.math._tensors.Tensor, float])</span>
+<span>(</span><span>center: phiml.math._tensors.Tensor = None, radius: Union[phiml.math._tensors.Tensor, float] = None, **center_: Union[phiml.math._tensors.Tensor, float])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional sphere.
@@ -4133,7 +4136,7 @@ def shape(self):
     return self._center.shape &amp; self._radius.shape</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Sphere.shape_type"><code class="name">var <span class="ident">shape_type</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Sphere.shape_type"><code class="name">var <span class="ident">shape_type</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Returns the type (or types) of this geometry as a string <code>Tensor</code>
 Boxes return <code>'B'</code>, spheres return <code>'S'</code>, points return <code>'P'</code>.
@@ -4150,9 +4153,9 @@ def shape_type(self) -&gt; Tensor:
     return math.tensor(&#39;S&#39;)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Sphere.volume"><code class="name">var <span class="ident">volume</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Sphere.volume"><code class="name">var <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<div class="desc"><p>Volume of the geometry as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+<div class="desc"><p>Volume of the geometry as <code>phiml.math.Tensor</code>.
 The result retains all batch dimensions while instance dimensions are summed over.</p></div>
 <details class="source">
 <summary>
@@ -4176,7 +4179,7 @@ def volume(self) -&gt; math.Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Sphere.approximate_signed_distance"><code class="name flex">
-<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phi.math._tensors.Tensor, tuple])</span>
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phiml.math._tensors.Tensor, tuple])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the exact distance from location to the closest point on the sphere.
@@ -4211,7 +4214,7 @@ Very close to the sphere center, the distance takes a constant value.</p>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, center: phi.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
@@ -4292,7 +4295,7 @@ The sphere is centered at the center of this geometry.</p>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.push"><code class="name flex">
-<span>def <span class="ident">push</span></span>(<span>self, positions: phi.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">push</span></span>(<span>self, positions: phiml.math._tensors.Tensor, outward: bool = True, shift_amount: float = 0) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Shifts positions either into or out of geometry.</p>
@@ -4337,7 +4340,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.sample_uniform"><code class="name flex">
-<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phi.math._shape.Shape)</span>
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phiml.math._shape.Shape)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
@@ -4357,7 +4360,7 @@ The geometry is rotated about its center point.</p>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phi.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.

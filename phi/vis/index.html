@@ -240,7 +240,7 @@ def load_scalars(scene: Scene or str,
         scene = Scene.at(scene)
     assert isinstance(scene, Scene), f&#34;scene must be a Scene or str but got {type(scene)}&#34;
     assert shape(scene).rank == 0, f&#34;Use math.map(load_scalars, ...) to load data from multiple scenes&#34;
-    PHI_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, f&#39;{prefix}{name}{suffix}&#39;)}&#34;)
+    ML_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, f&#39;{prefix}{name}{suffix}&#39;)}&#34;)
     curve = numpy.loadtxt(os.path.join(scene.path, f&#34;log_{name}.txt&#34;))
     if curve.ndim == 2:
         x_values = curve[:, 0]
@@ -253,7 +253,7 @@ def load_scalars(scene: Scene or str,
         x_values = numpy.arange(len(values))
     if x == &#39;time&#39;:
         assert x == &#39;time&#39;, f&#34;x must be &#39;steps&#39; or &#39;time&#39; but got {x}&#34;
-        PHI_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, &#39;log_step_time.txt&#39;)}&#34;)
+        ML_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, &#39;log_step_time.txt&#39;)}&#34;)
         _, x_values, *_ = numpy.loadtxt(os.path.join(scene.path, &#34;log_step_time.txt&#34;)).T
         values = values[:len(x_values + 1)]
         x_values = numpy.cumsum(x_values[:len(values) - 1])
@@ -266,7 +266,7 @@ def load_scalars(scene: Scene or str,
 </details>
 </dd>
 <dt id="phi.vis.overlay"><code class="name flex">
-<span>def <span class="ident">overlay</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor]) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">overlay</span></span>(<span>*fields: Union[phi.field._field.SampledField, phiml.math._tensors.Tensor]) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specify that multiple fields should be drawn on top of one another in the same figure.
@@ -301,7 +301,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = 'overlay', title: Union[str, phi.math._tensors.Tensor, list, tuple] = None, size=(12, 5), same_scale: Union[bool, phi.math._shape.Shape, tuple, list, str] = True, log_dims: Union[phi.math._shape.Shape, tuple, list, str] = '', show_color_bar=True, color: Union[str, int, phi.math._tensors.Tensor, list, tuple] = None, alpha: Union[float, tuple, list, phi.math._tensors.Tensor] = 1.0, err: Union[float, tuple, list, phi.math._tensors.Tensor] = 0.0, frame_time=100, repeat=True)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.SampledField, phiml.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable] = None, col_dims: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable] = None, overlay: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable] = 'overlay', title: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, size=(12, 5), same_scale: Union[bool, phiml.math._shape.Shape, tuple, list, str] = True, log_dims: Union[phiml.math._shape.Shape, tuple, list, str] = '', show_color_bar=True, color: Union[str, int, phiml.math._tensors.Tensor, list, tuple] = None, alpha: Union[float, phiml.math._tensors.Tensor, list, tuple] = 1.0, err: Union[float, phiml.math._tensors.Tensor, list, tuple] = 0.0, frame_time=100, repeat=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
@@ -506,7 +506,7 @@ Currently, only single-figure plots are supported.</p>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: Union[str, tuple, list, phi.field._scene.Scene, phi.math._tensors.Tensor], names: Union[str, phi.math._tensors.Tensor, list, tuple] = None, reduce: Union[phi.math._shape.Shape, tuple, list, str] = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: Union[str, dict] = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phi.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phi.math._tensors.Tensor = 'default', dashed: phi.math._tensors.Tensor = False)</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: Union[str, tuple, list, phi.field._scene.Scene, phiml.math._tensors.Tensor], names: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, reduce: Union[phiml.math._shape.Shape, tuple, list, str] = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: Union[str, dict] = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phiml.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phiml.math._tensors.Tensor = 'default', dashed: phiml.math._tensors.Tensor = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -650,7 +650,7 @@ Currently, only single-figure plots are supported.</p>
             curve_labels = math.map(lambda p, n: f&#34;{os.path.basename(p)} - {n}&#34;, scene.paths[b], names[b])
 
         def single_plot(name, path, label, i, color, dashed_, smooth):
-            PHI_LOGGER.debug(f&#34;Reading {os.path.join(path, f&#39;log_{name}.txt&#39;)}&#34;)
+            ML_LOGGER.debug(f&#34;Reading {os.path.join(path, f&#39;log_{name}.txt&#39;)}&#34;)
             curve = numpy.loadtxt(os.path.join(path, f&#34;log_{name}.txt&#34;))
             if curve.ndim == 2:
                 x_values, values, *_ = curve.T
@@ -661,7 +661,7 @@ Currently, only single-figure plots are supported.</p>
                 pass
             else:
                 assert x == &#39;time&#39;, f&#34;x must be &#39;steps&#39; or &#39;time&#39; but got {x}&#34;
-                PHI_LOGGER.debug(f&#34;Reading {os.path.join(path, &#39;log_step_time.txt&#39;)}&#34;)
+                ML_LOGGER.debug(f&#34;Reading {os.path.join(path, &#39;log_step_time.txt&#39;)}&#34;)
                 _, x_values, *_ = numpy.loadtxt(os.path.join(path, &#34;log_step_time.txt&#34;)).T
                 values = values[:len(x_values+1)]
                 x_values = np.cumsum(x_values[:len(values)-1])
@@ -676,7 +676,7 @@ Currently, only single-figure plots are supported.</p>
                 pass
             if isinstance(color, Number):
                 color = cycle[int(color)]
-            PHI_LOGGER.debug(f&#34;Plotting curve {label}&#34;)
+            ML_LOGGER.debug(f&#34;Plotting curve {label}&#34;)
             if smooth &gt; 1:
                 axis.plot(x_values, values, color=color, alpha=smooth_alpha, linewidth=1)
                 curve = np.stack([x_values, values], -1)
@@ -754,7 +754,7 @@ Currently, only single-figure plots are supported.</p>
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
-<span>def <span class="ident">show</span></span>(<span>*model: Union[phi.vis._vis_base.VisModel, phi.field._field.SampledField, tuple, list, phi.math._tensors.Tensor, phi.geom._geom.Geometry], play=True, gui: Union[phi.vis._vis_base.Gui, str] = None, lib: Union[phi.vis._vis_base.Gui, str] = None, keep_alive=True, **config)</span>
+<span>def <span class="ident">show</span></span>(<span>*model: Union[phi.vis._vis_base.VisModel, phi.field._field.SampledField, tuple, list, phiml.math._tensors.Tensor, phi.geom._geom.Geometry], play=True, gui: Union[phi.vis._vis_base.Gui, str] = None, lib: Union[phi.vis._vis_base.Gui, str] = None, keep_alive=True, **config)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>If <code>model</code> is a user interface model, launches the registered user interface.
@@ -851,7 +851,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 </details>
 </dd>
 <dt id="phi.vis.smooth"><code class="name flex">
-<span>def <span class="ident">smooth</span></span>(<span>curves: phi.math._tensors.Tensor, n: int) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">smooth</span></span>(<span>curves: phiml.math._tensors.Tensor, n: int) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Applies a smoothing kernel to curves, all channels independently.</p>

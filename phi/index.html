@@ -85,21 +85,22 @@ def detect_backends() -&gt; tuple:
     This includes only backends for which the minimal requirements are fulfilled.
 
     Returns:
-        `tuple` of `phi.math.backend.Backend`
+        `tuple` of `phiml.backend.Backend`
     &#34;&#34;&#34;
+    from phiml.backend._backend import init_backend
     try:
-        from .jax import JAX
+        init_backend(&#39;jax&#39;)
     except ImportError:
         pass
     try:
-        from .torch import TORCH
+        init_backend(&#39;torch&#39;)
     except ImportError:
         pass
     try:
-        from .tf import TENSORFLOW
+        init_backend(&#39;tensorflow&#39;)
     except ImportError:
         pass
-    from .math.backend import BACKENDS
+    from phiml.backend import BACKENDS
     return tuple([b for b in BACKENDS if b.name != &#39;Python&#39;])
 
 
@@ -110,8 +111,8 @@ def set_logging_level(level=&#39;debug&#39;):
     Args:
         level: Logging level, one of `&#39;critical&#39;, &#39;fatal&#39;, &#39;error&#39;, &#39;warning&#39;, &#39;info&#39;, &#39;debug&#39;`
     &#34;&#34;&#34;
-    from phi.math.backend import PHI_LOGGER
-    PHI_LOGGER.setLevel(level.upper())</code></pre>
+    from phiml.backend import ML_LOGGER
+    ML_LOGGER.setLevel(level.upper())</code></pre>
 </details>
 </section>
 <section>
@@ -135,7 +136,7 @@ def set_logging_level(level=&#39;debug&#39;):
 </dd>
 <dt><code class="name"><a title="phi.math" href="math/index.html">phi.math</a></code></dt>
 <dd>
-<div class="desc"><p>Vectorized operations, tensors with named dimensions …</p></div>
+<div class="desc"><p>Alias for <code>phiml.math</code>.</p></div>
 </dd>
 <dt><code class="name"><a title="phi.physics" href="physics/index.html">phi.physics</a></code></dt>
 <dd>
@@ -168,7 +169,7 @@ The actual physics functions are …</p></div>
 <div class="desc"><p>Registers all available backends and returns them.
 This includes only backends for which the minimal requirements are fulfilled.</p>
 <h2 id="returns">Returns</h2>
-<p><code>tuple</code> of <code><a title="phi.math.backend.Backend" href="math/backend/index.html#phi.math.backend.Backend">Backend</a></code></p></div>
+<p><code>tuple</code> of <code>phiml.backend.Backend</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -179,21 +180,22 @@ This includes only backends for which the minimal requirements are fulfilled.</p
     This includes only backends for which the minimal requirements are fulfilled.
 
     Returns:
-        `tuple` of `phi.math.backend.Backend`
+        `tuple` of `phiml.backend.Backend`
     &#34;&#34;&#34;
+    from phiml.backend._backend import init_backend
     try:
-        from .jax import JAX
+        init_backend(&#39;jax&#39;)
     except ImportError:
         pass
     try:
-        from .torch import TORCH
+        init_backend(&#39;torch&#39;)
     except ImportError:
         pass
     try:
-        from .tf import TENSORFLOW
+        init_backend(&#39;tensorflow&#39;)
     except ImportError:
         pass
-    from .math.backend import BACKENDS
+    from phiml.backend import BACKENDS
     return tuple([b for b in BACKENDS if b.name != &#39;Python&#39;])</code></pre>
 </details>
 </dd>
@@ -218,8 +220,8 @@ This includes only backends for which the minimal requirements are fulfilled.</p
     Args:
         level: Logging level, one of `&#39;critical&#39;, &#39;fatal&#39;, &#39;error&#39;, &#39;warning&#39;, &#39;info&#39;, &#39;debug&#39;`
     &#34;&#34;&#34;
-    from phi.math.backend import PHI_LOGGER
-    PHI_LOGGER.setLevel(level.upper())</code></pre>
+    from phiml.backend import ML_LOGGER
+    ML_LOGGER.setLevel(level.upper())</code></pre>
 </details>
 </dd>
 <dt id="phi.verify"><code class="name flex">

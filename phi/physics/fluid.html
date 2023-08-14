@@ -37,14 +37,14 @@ import warnings
 from typing import Tuple, Callable, Union
 
 from phi import math, field
-from phi.math import wrap, channel, Solve
+from phiml.math import wrap, channel, Solve
 from phi.field import AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field, resample
 from phi.geom import union, Geometry
 from ..field._embed import FieldEmbedding
 from ..field._grid import GridType, StaggeredGrid
-from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
-from ..math._magic_ops import copy_with
-from ..math.extrapolation import combine_sides, Extrapolation
+from phiml.math import extrapolation, NUMPY, batch, shape, non_channel, expand
+from phiml.math._magic_ops import copy_with
+from phiml.math.extrapolation import combine_sides, Extrapolation
 
 
 class Obstacle:
@@ -507,7 +507,7 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: Union[<a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a>, phi.geom._geom.Geometry, tuple, list] = (), solve: phi.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: phi.field._grid.CenteredGrid = None, order: int = 2) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: ~GridType, obstacles: Union[<a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a>, phi.geom._geom.Geometry, tuple, list] = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: phi.field._grid.CenteredGrid = None, order: int = 2) ‑> Tuple[~GridType, phi.field._grid.CenteredGrid]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>

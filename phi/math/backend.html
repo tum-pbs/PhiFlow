@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>phi.tf.flow API documentation</title>
-<meta name="description" content="Standard import for TensorFlow mode …" />
+<title>phi.math.backend API documentation</title>
+<meta name="description" content="Alias for `phiml.backend`." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -19,51 +19,18 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>phi.tf.flow</code></h1>
+<h1 class="title">Module <code>phi.math.backend</code></h1>
 </header>
 <section id="section-intro">
-<p>Standard import for TensorFlow mode.</p>
-<p>Extends the import <code>from phi.flow import *</code> by TensorFlow-related functions and modules.</p>
-<p>The following TensorFlow modules are included: <code>tensorflow</code> / <code>tf</code>, <code>keras</code>, <code>layers</code>.</p>
-<p>Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
-New tensors created via <code>phiml.math</code> functions will be backed by TensorFlow tensors.</p>
-<p>See <code><a title="phi.flow" href="../flow.html">phi.flow</a></code>, <code><a title="phi.torch.flow" href="../torch/flow.html">phi.torch.flow</a></code>, <code><a title="phi.jax.flow" href="../jax/flow.html">phi.jax.flow</a></code>.</p>
+<p>Alias for <code>phiml.backend</code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python"># pylint: disable-msg = wildcard-import, unused-wildcard-import, unused-import
+<pre><code class="python">&#34;&#34;&#34;
+Alias for `phiml.backend`.
 &#34;&#34;&#34;
-Standard import for TensorFlow mode.
-
-Extends the import `from phi.flow import *` by TensorFlow-related functions and modules.
-
-The following TensorFlow modules are included: `tensorflow` / `tf`, `keras`, `layers`.
-
-Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
-New tensors created via `phiml.math` functions will be backed by TensorFlow tensors.
-
-See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
-&#34;&#34;&#34;
-
-from phi.flow import *
-from . import TENSORFLOW
-
-from . import nets
-from .nets import parameter_count, get_parameters, dense_net, u_net, save_state, load_state, update_weights, adam, conv_net, res_net, sgd, sgd as SGD, adagrad, rmsprop, conv_classifier, invertible_net
-
-import tensorflow
-from tensorflow import keras
-from tensorflow.keras import layers
-
-from phiml.backend import ML_LOGGER as _LOGGER
-
-tf = tensorflow
-
-if not backend.context_backend():
-    backend.set_global_default_backend(TENSORFLOW)
-else:
-    _LOGGER.warn(f&#34;Importing &#39;{__name__}&#39; within a backend context will not set the default backend.&#34;)</code></pre>
+from phiml.backend import *</code></pre>
 </details>
 </section>
 <section>
@@ -83,7 +50,7 @@ else:
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="phi.tf" href="index.html">phi.tf</a></code></li>
+<li><code><a title="phi.math" href="index.html">phi.math</a></code></li>
 </ul>
 </li>
 </ul>

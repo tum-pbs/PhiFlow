@@ -63,10 +63,10 @@ from ._grid import Grid, CenteredGrid, StaggeredGrid
 from ._point_cloud import PointCloud
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
-from phi.math import (
-    abs, sign, round, ceil, floor, sqrt, exp, isfinite, is_finite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
+from phiml.math import (
+    abs, sign, round, ceil, floor, sqrt, exp, is_finite as isfinite, is_finite, real, imag, sin, cos, cast, to_float, to_int32, to_int64, convert,
     stop_gradient,
-    jit_compile, jit_compile_linear, functional_gradient, jacobian, gradient,
+    jit_compile, jit_compile_linear, gradient as functional_gradient, jacobian, gradient,
     solve_linear, solve_nonlinear, minimize,
     l2_loss, l1_loss, frequency_loss,
     unstack, stack, concat  # expand, rename_dims, pack_dims, unpack_dims
@@ -107,7 +107,7 @@ __pdoc__ = {
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.field.abs"><code class="name flex">
-<span>def <span class="ident">abs</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">abs</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>||x||<sub>1</sub></em>.
@@ -117,7 +117,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code></dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Absolute value of <code>x</code> of same type as <code>x</code>.</p></div>
@@ -134,7 +134,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
     TensorFlow and PyTorch return 0 while Jax returns 1.
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode`
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode`
 
     Returns:
         Absolute value of `x` of same type as `x`.
@@ -143,7 +143,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 </details>
 </dd>
 <dt id="phi.field.as_extrapolation"><code class="name flex">
-<span>def <span class="ident">as_extrapolation</span></span>(<span>obj: Union[<a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, float, phi.field._field.Field, None]) ‑> <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></span>
+<span>def <span class="ident">as_extrapolation</span></span>(<span>obj: Union[phiml.math.extrapolation.Extrapolation, float, phi.field._field.Field, None]) ‑> phiml.math.extrapolation.Extrapolation</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns an <code>Extrapolation</code> representing <code>obj</code>.</p>
@@ -187,10 +187,10 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 </details>
 </dd>
 <dt id="phi.field.assert_close"><code class="name flex">
-<span>def <span class="ident">assert_close</span></span>(<span>*fields: Union[phi.field._field.SampledField, phi.math._tensors.Tensor, numbers.Number], rel_tolerance: float = 1e-05, abs_tolerance: float = 0, msg: str = '', verbose: bool = True)</span>
+<span>def <span class="ident">assert_close</span></span>(<span>*fields: Union[phi.field._field.SampledField, phiml.math._tensors.Tensor, numbers.Number], rel_tolerance: float = 1e-05, abs_tolerance: float = 0, msg: str = '', verbose: bool = True)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Raises an AssertionError if the <code>values</code> of the given fields are not close. See <code><a title="phi.math.assert_close" href="../math/index.html#phi.math.assert_close">assert_close()</a></code>.</p></div>
+<div class="desc"><p>Raises an AssertionError if the <code>values</code> of the given fields are not close. See <code>phiml.math.assert_close()</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -200,7 +200,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
                  abs_tolerance: float = 0,
                  msg: str = &#34;&#34;,
                  verbose: bool = True):
-    &#34;&#34;&#34; Raises an AssertionError if the `values` of the given fields are not close. See `phi.math.assert_close()`. &#34;&#34;&#34;
+    &#34;&#34;&#34; Raises an AssertionError if the `values` of the given fields are not close. See `phiml.math.assert_close()`. &#34;&#34;&#34;
     f0 = next(filter(lambda t: isinstance(t, SampledField), fields))
     values = [(f @ f0).values if isinstance(f, SampledField) else math.wrap(f) for f in fields]
     math.assert_close(*values, rel_tolerance=rel_tolerance, abs_tolerance=abs_tolerance, msg=msg, verbose=verbose)</code></pre>
@@ -218,7 +218,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <dd><code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid</a></code> or <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Padded grid with extrapolation <code><a title="phi.math.extrapolation.NONE" href="../math/extrapolation.html#phi.math.extrapolation.NONE">NONE</a></code>.</p></div>
+<p>Padded grid with extrapolation <code>phiml.math.extrapolation.NONE</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -232,12 +232,12 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
         grid: `CenteredGrid` or `StaggeredGrid`.
 
     Returns:
-        Padded grid with extrapolation `phi.math.extrapolation.NONE`.
+        Padded grid with extrapolation `phiml.math.extrapolation.NONE`.
     &#34;&#34;&#34;
     if grid.extrapolation == math.extrapolation.NONE:
         return grid
     if isinstance(grid, StaggeredGrid):
-        values = grid.values.unstack(&#39;vector&#39;)
+        values = tuple(grid.values.vector)
         padded = []
         for dim, value in zip(grid.shape.spatial.names, values):
             lower, upper = grid.extrapolation.valid_outer_faces(dim)
@@ -250,7 +250,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.cast"><code class="name flex">
-<span>def <span class="ident">cast</span></span>(<span>x: ~MagicType, dtype: Union[phi.math.backend._dtype.DType, type]) ‑> ~OtherMagicType</span>
+<span>def <span class="ident">cast</span></span>(<span>x: ~MagicType, dtype: Union[phiml.backend._dtype.DType, type]) ‑> ~OtherMagicType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Casts <code>x</code> to a different data type.</p>
@@ -268,7 +268,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <dt><strong><code>x</code></strong></dt>
 <dd><code>Tensor</code></dd>
 <dt><strong><code>dtype</code></strong></dt>
-<dd>New data type as <code><a title="phi.math.DType" href="../math/index.html#phi.math.DType">DType</a></code>, e.g. <code>DType(int, 16)</code>.</dd>
+<dd>New data type as <code>phiml.math.DType</code>, e.g. <code>DType(int, 16)</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code>Tensor</code> with data type <code>dtype</code></p></div>
@@ -292,7 +292,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 
     Args:
         x: `Tensor`
-        dtype: New data type as `phi.math.DType`, e.g. `DType(int, 16)`.
+        dtype: New data type as `phiml.math.DType`, e.g. `DType(int, 16)`.
 
     Returns:
         `Tensor` with data type `dtype`
@@ -317,16 +317,16 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.ceil"><code class="name flex">
-<span>def <span class="ident">ceil</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">ceil</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes <em>⌈x⌉</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
+<div class="desc"><p>Computes <em>⌈x⌉</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def ceil(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Computes *⌈x⌉* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
+    &#34;&#34;&#34; Computes *⌈x⌉* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.ceil)</code></pre>
 </details>
 </dd>
@@ -361,7 +361,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>fields: Union[List[~SampledFieldType], Tuple[~SampledFieldType, ...]], dim: Union[str, phi.math._shape.Shape]) ‑> ~SampledFieldType</span>
+<span>def <span class="ident">concat</span></span>(<span>fields: Union[List[~SampledFieldType], Tuple[~SampledFieldType, ...]], dim: Union[str, phiml.math._shape.Shape]) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Concatenates the given <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>s along <code>dim</code>.</p>
@@ -409,7 +409,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.connect"><code class="name flex">
-<span>def <span class="ident">connect</span></span>(<span>obj: phi.field._field.SampledField, connections: phi.math._tensors.Tensor) ‑> phi.field._mesh.Mesh</span>
+<span>def <span class="ident">connect</span></span>(<span>obj: phi.field._field.SampledField, connections: phiml.math._tensors.Tensor) ‑> phi.field._mesh.Mesh</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Build a <code>Mesh</code> by connecting elements from a field.</p>
@@ -502,19 +502,19 @@ a <code>Mesh</code> by connecting proximate elements of a <code><a title="phi.fi
 </details>
 </dd>
 <dt id="phi.field.convert"><code class="name flex">
-<span>def <span class="ident">convert</span></span>(<span>x, backend: phi.math.backend._backend.Backend = None, use_dlpack=True)</span>
+<span>def <span class="ident">convert</span></span>(<span>x, backend: phiml.backend._backend.Backend = None, use_dlpack=True)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Convert the native representation of a <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> to the native format of <code>backend</code>.</p>
+<div class="desc"><p>Convert the native representation of a <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> to the native format of <code>backend</code>.</p>
 <p><em>Warning</em>: This operation breaks the automatic differentiation chain.</p>
 <p>See Also:
-<code><a title="phi.math.backend.convert" href="../math/backend/index.html#phi.math.backend.convert">convert()</a></code>.</p>
+<code>phiml.math.backend.convert()</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> to convert. If <code>x</code> is a <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>, its variable attributes are converted.</dd>
+<dd><code>Tensor</code> to convert. If <code>x</code> is a <code>phiml.math.magic.PhiTreeNode</code>, its variable attributes are converted.</dd>
 <dt><strong><code>backend</code></strong></dt>
-<dd>Target backend. If <code>None</code>, uses the current default backend, see <code><a title="phi.math.backend.default_backend" href="../math/backend/index.html#phi.math.backend.default_backend">default_backend()</a></code>.</dd>
+<dd>Target backend. If <code>None</code>, uses the current default backend, see <code>phiml.math.backend.default_backend()</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code>Tensor</code> with native representation belonging to <code>backend</code>.</p></div>
@@ -524,16 +524,16 @@ a <code>Mesh</code> by connecting proximate elements of a <code><a title="phi.fi
 </summary>
 <pre><code class="python">def convert(x, backend: Backend = None, use_dlpack=True):
     &#34;&#34;&#34;
-    Convert the native representation of a `Tensor` or `phi.math.magic.PhiTreeNode` to the native format of `backend`.
+    Convert the native representation of a `Tensor` or `phiml.math.magic.PhiTreeNode` to the native format of `backend`.
 
     *Warning*: This operation breaks the automatic differentiation chain.
 
     See Also:
-        `phi.math.backend.convert()`.
+        `phiml.math.backend.convert()`.
 
     Args:
-        x: `Tensor` to convert. If `x` is a `phi.math.magic.PhiTreeNode`, its variable attributes are converted.
-        backend: Target backend. If `None`, uses the current default backend, see `phi.math.backend.default_backend()`.
+        x: `Tensor` to convert. If `x` is a `phiml.math.magic.PhiTreeNode`, its variable attributes are converted.
+        backend: Target backend. If `None`, uses the current default backend, see `phiml.math.backend.default_backend()`.
 
     Returns:
         `Tensor` with native representation belonging to `backend`.
@@ -547,16 +547,16 @@ a <code>Mesh</code> by connecting proximate elements of a <code><a title="phi.fi
 </details>
 </dd>
 <dt id="phi.field.cos"><code class="name flex">
-<span>def <span class="ident">cos</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">cos</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes <em>cos(x)</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
+<div class="desc"><p>Computes <em>cos(x)</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def cos(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Computes *cos(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
+    &#34;&#34;&#34; Computes *cos(x)* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.cos)</code></pre>
 </details>
 </dd>
@@ -576,7 +576,7 @@ a <code>Mesh</code> by connecting proximate elements of a <code><a title="phi.fi
         if &#39;vector&#39; not in field.shape and type == StaggeredGrid:
             # 2D curl of scalar field
             grad = math.spatial_gradient(field.values, dx=field.dx, difference=&#39;forward&#39;, padding=None, stack_dim=channel(&#39;vector&#39;))
-            result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
+            result = grad.vector[::-1] * (1, -1)  # (d/dy, -d/dx)
             bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
             return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
         if &#39;vector&#39; in field.shape and type == CenteredGrid:
@@ -599,7 +599,7 @@ a <code>Mesh</code> by connecting proximate elements of a <code><a title="phi.fi
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._grid.Grid, order=2, implicit: phi.math._optimize.Solve = None) ‑> phi.field._grid.CenteredGrid</span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._grid.Grid, order=2, implicit: phiml.math._optimize.Solve = None) ‑> phi.field._grid.CenteredGrid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -750,16 +750,16 @@ The new values are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.field.exp"><code class="name flex">
-<span>def <span class="ident">exp</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">exp</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes <em>exp(x)</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
+<div class="desc"><p>Computes <em>exp(x)</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def exp(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Computes *exp(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
+    &#34;&#34;&#34; Computes *exp(x)* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
 </dd>
@@ -767,7 +767,7 @@ The new values are determined via linear interpolation.</p>
 <span>def <span class="ident">finite_fill</span></span>(<span>grid: ~GridType, distance=1, diagonal=True) ‑> ~GridType</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Extrapolates values of <code>grid</code> which are marked by nonzero values in <code>valid</code> using `phi.math.masked_fill().
+<div class="desc"><p>Extrapolates values of <code>grid</code> which are marked by nonzero values in <code>valid</code> using `phiml.math.masked_fill().
 If <code>values</code> is a StaggeredGrid, its components get extrapolated independently.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -791,7 +791,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </summary>
 <pre><code class="python">def finite_fill(grid: GridType, distance=1, diagonal=True) -&gt; GridType:
     &#34;&#34;&#34;
-    Extrapolates values of `grid` which are marked by nonzero values in `valid` using `phi.math.masked_fill().
+    Extrapolates values of `grid` which are marked by nonzero values in `valid` using `phiml.math.masked_fill().
     If `values` is a StaggeredGrid, its components get extrapolated independently.
 
     Args:
@@ -814,16 +814,16 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.floor"><code class="name flex">
-<span>def <span class="ident">floor</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">floor</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes <em>⌊x⌋</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
+<div class="desc"><p>Computes <em>⌊x⌋</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def floor(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Computes *⌊x⌋* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
+    &#34;&#34;&#34; Computes *⌊x⌋* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.floor)</code></pre>
 </details>
 </dd>
@@ -831,13 +831,13 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <span>def <span class="ident">fourier_laplace</span></span>(<span>grid: ~GridType, times=1) ‑> ~GridType</span>
 </code></dt>
 <dd>
-<div class="desc"><p>See <code><a title="phi.math.fourier_laplace" href="../math/index.html#phi.math.fourier_laplace">fourier_laplace()</a></code></p></div>
+<div class="desc"><p>See <code>phiml.math.fourier_laplace()</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def fourier_laplace(grid: GridType, times=1) -&gt; GridType:
-    &#34;&#34;&#34; See `phi.math.fourier_laplace()` &#34;&#34;&#34;
+    &#34;&#34;&#34; See `phiml.math.fourier_laplace()` &#34;&#34;&#34;
     assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
     values = math.fourier_laplace(grid.values, dx=grid.dx, times=times)
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)</code></pre>
@@ -847,20 +847,20 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <span>def <span class="ident">fourier_poisson</span></span>(<span>grid: ~GridType, times=1) ‑> ~GridType</span>
 </code></dt>
 <dd>
-<div class="desc"><p>See <code><a title="phi.math.fourier_poisson" href="../math/index.html#phi.math.fourier_poisson">fourier_poisson()</a></code></p></div>
+<div class="desc"><p>See <code>phiml.math.fourier_poisson()</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def fourier_poisson(grid: GridType, times=1) -&gt; GridType:
-    &#34;&#34;&#34; See `phi.math.fourier_poisson()` &#34;&#34;&#34;
+    &#34;&#34;&#34; See `phiml.math.fourier_poisson()` &#34;&#34;&#34;
     assert grid.extrapolation.spatial_gradient() == math.extrapolation.PERIODIC
     values = math.fourier_poisson(grid.values, dx=grid.dx, times=times)
     return type(grid)(values=values, bounds=grid.bounds, extrapolation=grid.extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.frequency_loss"><code class="name flex">
-<span>def <span class="ident">frequency_loss</span></span>(<span>x, frequency_falloff: float = 100, threshold=1e-05, ignore_mean=False, n=2) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">frequency_loss</span></span>(<span>x, frequency_falloff: float = 100, threshold=1e-05, ignore_mean=False, n=2) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Penalizes the squared <code>values</code> in frequency (Fourier) space.
@@ -868,7 +868,7 @@ Lower frequencies are weighted more strongly then higher frequencies, depending 
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> Values to penalize, typically <code>actual - target</code>.</dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> Values to penalize, typically <code>actual - target</code>.</dd>
 <dt><strong><code>frequency_falloff</code></strong></dt>
 <dd>Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
 <em>Note</em>: The total loss is not normalized. Varying the value will result in losses of different magnitudes.</dd>
@@ -894,7 +894,7 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
     Lower frequencies are weighted more strongly then higher frequencies, depending on `frequency_falloff`.
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode` Values to penalize, typically `actual - target`.
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode` Values to penalize, typically `actual - target`.
         frequency_falloff: Large values put more emphasis on lower frequencies, 1.0 weights all frequencies equally.
             *Note*: The total loss is not normalized. Varying the value will result in losses of different magnitudes.
         threshold: Frequency amplitudes below this value are ignored.
@@ -932,9 +932,9 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx = functional_gradient(loss_function, 'x', get_output=False)(x, y)
+dx = gradient(loss_function, 'x', get_output=False)(x, y)
 
-(loss, prediction), (dx, dy) = functional_gradient(loss_function,
+(loss, prediction), (dx, dy) = gradient(loss_function,
                                         'x,y', get_output=True)(x, y)
 </code></pre>
 <p>Functional gradients are implemented for the following backends:</p>
@@ -964,7 +964,7 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def functional_gradient(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
+<pre><code class="python">def gradient(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the gradient of `f`.
 
@@ -975,9 +975,9 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx = functional_gradient(loss_function, &#39;x&#39;, get_output=False)(x, y)
+    dx = gradient(loss_function, &#39;x&#39;, get_output=False)(x, y)
 
-    (loss, prediction), (dx, dy) = functional_gradient(loss_function,
+    (loss, prediction), (dx, dy) = gradient(loss_function,
                                             &#39;x,y&#39;, get_output=True)(x, y)
     ```
 
@@ -1010,18 +1010,17 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 <span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates a function which computes the Jacobian matrix of <code>f</code>.
-For scalar functions, consider using <code><a title="phi.field.functional_gradient" href="#phi.field.functional_gradient">functional_gradient()</a></code> instead.</p>
+<div class="desc"><p>Creates a function which computes the gradient of <code>f</code>.</p>
 <p>Example:</p>
-<pre><code class="language-python">def f(x, y):
+<pre><code class="language-python">def loss_function(x, y):
     prediction = f(x)
     loss = math.l2_loss(prediction - y)
     return loss, prediction
 
-dx = jacobian(loss_function, wrt='x', get_output=False)(x, y)
+dx = gradient(loss_function, 'x', get_output=False)(x, y)
 
-(loss, prediction), (dx, dy) = jacobian(loss_function,
-                                    wrt='x,y', get_output=True)(x, y)
+(loss, prediction), (dx, dy) = gradient(loss_function,
+                                        'x,y', get_output=True)(x, y)
 </code></pre>
 <p>Functional gradients are implemented for the following backends:</p>
 <ul>
@@ -1045,27 +1044,26 @@ All arguments for which the gradient is computed must be of dtype float or compl
 If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and Jacobian of <code>f</code> if <code>get_output=True</code>, else just the Jacobian of <code>f</code>.</p></div>
+<p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def jacobian(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
+<pre><code class="python">def gradient(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
-    Creates a function which computes the Jacobian matrix of `f`.
-    For scalar functions, consider using `functional_gradient()` instead.
+    Creates a function which computes the gradient of `f`.
 
     Example:
     ```python
-    def f(x, y):
+    def loss_function(x, y):
         prediction = f(x)
         loss = math.l2_loss(prediction - y)
         return loss, prediction
 
-    dx = jacobian(loss_function, wrt=&#39;x&#39;, get_output=False)(x, y)
+    dx = gradient(loss_function, &#39;x&#39;, get_output=False)(x, y)
 
-    (loss, prediction), (dx, dy) = jacobian(loss_function,
-                                        wrt=&#39;x,y&#39;, get_output=True)(x, y)
+    (loss, prediction), (dx, dy) = gradient(loss_function,
+                                            &#39;x,y&#39;, get_output=True)(x, y)
     ```
 
     Functional gradients are implemented for the following backends:
@@ -1087,14 +1085,14 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
             If not specified, the gradient will be computed w.r.t. the first positional argument (highly discouraged).
 
     Returns:
-        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and Jacobian of `f` if `get_output=True`, else just the Jacobian of `f`.
+        Function with the same arguments as `f` that returns the value of `f`, auxiliary data and gradient of `f` if `get_output=True`, else just the gradient of `f`.
     &#34;&#34;&#34;
     f_params, wrt = simplify_wrt(f, wrt)
-    return GradientFunction(f, f_params, wrt, get_output, is_f_scalar=False)</code></pre>
+    return GradientFunction(f, f_params, wrt, get_output, is_f_scalar=True)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">imag</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the imaginary part of <code>x</code>.
@@ -1104,7 +1102,7 @@ If <code>x</code> does not store complex numbers, returns a zero tensor with the
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> or native tensor.</dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> or native tensor.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Imaginary component of <code>x</code> if <code>x</code> is complex, zeros otherwise.</p></div>
@@ -1121,7 +1119,7 @@ If <code>x</code> does not store complex numbers, returns a zero tensor with the
         `real()`, `conjugate()`.
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode` or native tensor.
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode` or native tensor.
 
     Returns:
         Imaginary component of `x` if `x` is complex, zeros otherwise.
@@ -1130,7 +1128,7 @@ If <code>x</code> does not store complex numbers, returns a zero tensor with the
 </details>
 </dd>
 <dt id="phi.field.integrate"><code class="name flex">
-<span>def <span class="ident">integrate</span></span>(<span>field: phi.field._field.Field, region: phi.geom._geom.Geometry, **kwargs) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">integrate</span></span>(<span>field: phi.field._field.Field, region: phi.geom._geom.Geometry, **kwargs) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>∫<sub>R</sub> f(x) dx<sup>d</sup></em> , where <em>f</em> denotes the <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>, <em>R</em> the <code>region</code> and <em>d</em> the number of spatial dimensions (<code>d=field.shape.spatial_rank</code>).
@@ -1172,30 +1170,30 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 </details>
 </dd>
 <dt id="phi.field.is_finite"><code class="name flex">
-<span>def <span class="ident">is_finite</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">is_finite</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns a <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
+<div class="desc"><p>Returns a <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def is_finite(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
+    &#34;&#34;&#34; Returns a `Tensor` or `phiml.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.isfinite"><code class="name flex">
-<span>def <span class="ident">isfinite</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">isfinite</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns a <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
+<div class="desc"><p>Returns a <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def is_finite(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Returns a `Tensor` or `phi.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
+    &#34;&#34;&#34; Returns a `Tensor` or `phiml.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
 </dd>
@@ -1204,7 +1202,7 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a function which computes the Jacobian matrix of <code>f</code>.
-For scalar functions, consider using <code><a title="phi.field.functional_gradient" href="#phi.field.functional_gradient">functional_gradient()</a></code> instead.</p>
+For scalar functions, consider using <code><a title="phi.field.gradient" href="#phi.field.gradient">gradient()</a></code> instead.</p>
 <p>Example:</p>
 <pre><code class="language-python">def f(x, y):
     prediction = f(x)
@@ -1246,7 +1244,7 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 <pre><code class="python">def jacobian(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the Jacobian matrix of `f`.
-    For scalar functions, consider using `functional_gradient()` instead.
+    For scalar functions, consider using `gradient()` instead.
 
     Example:
     ```python
@@ -1303,7 +1301,7 @@ def my_function(x: math.Tensor) -&gt; math.Tensor:
 <li>it is called with a different number of arguments,</li>
 <li>the tensor arguments have different dimension names or types (the dimension order also counts),</li>
 <li>any <code>Tensor</code> arguments require a different backend than previous invocations,</li>
-<li><code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> positional arguments do not match in non-variable properties.</li>
+<li><code>phiml.math.magic.PhiTreeNode</code> positional arguments do not match in non-variable properties.</li>
 </ul>
 <p>Compilation is implemented for the following backends:</p>
 <ul>
@@ -1319,7 +1317,7 @@ An exception to this is <code><a title="phi.field.jit_compile_linear" href="#phi
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function to be traced.
-All positional arguments must be of type <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> returning a single <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+All positional arguments must be of type <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> returning a single <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code>.</dd>
 <dt><strong><code>auxiliary_args</code></strong></dt>
 <dd>Comma-separated parameter names of arguments that are not relevant to backpropagation.</dd>
 <dt><strong><code>forget_traces</code></strong></dt>
@@ -1351,7 +1349,7 @@ Upon tracing with new instance (due to changed shapes or auxiliary args), delete
     * it is called with a different number of arguments,
     * the tensor arguments have different dimension names or types (the dimension order also counts),
     * any `Tensor` arguments require a different backend than previous invocations,
-    * `phi.math.magic.PhiTreeNode` positional arguments do not match in non-variable properties.
+    * `phiml.math.magic.PhiTreeNode` positional arguments do not match in non-variable properties.
 
     Compilation is implemented for the following backends:
 
@@ -1367,7 +1365,7 @@ Upon tracing with new instance (due to changed shapes or auxiliary args), delete
 
     Args:
         f: Function to be traced.
-            All positional arguments must be of type `Tensor` or `phi.math.magic.PhiTreeNode` returning a single `Tensor` or `phi.math.magic.PhiTreeNode`.
+            All positional arguments must be of type `Tensor` or `phiml.math.magic.PhiTreeNode` returning a single `Tensor` or `phiml.math.magic.PhiTreeNode`.
         auxiliary_args: Comma-separated parameter names of arguments that are not relevant to backpropagation.
         forget_traces: If `True`, only remembers the most recent compiled instance of this function.
             Upon tracing with new instance (due to changed shapes or auxiliary args), deletes the previous traces.
@@ -1383,7 +1381,7 @@ Upon tracing with new instance (due to changed shapes or auxiliary args), delete
 </details>
 </dd>
 <dt id="phi.field.jit_compile_linear"><code class="name flex">
-<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y] = None, auxiliary_args: str = None, forget_traces: bool = None) ‑> phi.math._functional.LinearFunction[~X, ~Y]</span>
+<span>def <span class="ident">jit_compile_linear</span></span>(<span>f: Callable[[~X], ~Y] = None, auxiliary_args: str = None, forget_traces: bool = None) ‑> phiml.math._functional.LinearFunction[~X, ~Y]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compile an optimized representation of the linear function <code>f</code>.
@@ -1453,15 +1451,15 @@ Upon tracing with new instance (due to changed shapes or auxiliary args), delete
 </details>
 </dd>
 <dt id="phi.field.l1_loss"><code class="name flex">
-<span>def <span class="ident">l1_loss</span></span>(<span>x, reduce: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l1_loss</span></span>(<span>x, reduce: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>1</sub></em>, summing over all non-batch dimensions.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> or 0D or 1D native tensor.
-For <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> objects, only value the sum over all value attributes is computed.</dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> or 0D or 1D native tensor.
+For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over all value attributes is computed.</dd>
 <dt><strong><code>reduce</code></strong></dt>
 <dd>Dimensions to reduce as <code>DimFilter</code>.</dd>
 </dl>
@@ -1479,8 +1477,8 @@ For <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.mat
     Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;1&lt;/sub&gt;*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode` or 0D or 1D native tensor.
-            For `phi.math.magic.PhiTreeNode` objects, only value the sum over all value attributes is computed.
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode` or 0D or 1D native tensor.
+            For `phiml.math.magic.PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
@@ -1499,21 +1497,21 @@ For <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.mat
             elif len(shape) == 1:
                 return backend.sum(abs(x))
             else:
-                raise ValueError(&#34;l2_loss is only defined for 0D and 1D native tensors. For higher-dimensional data, use Φ-Flow tensors.&#34;)
+                raise ValueError(&#34;l2_loss is only defined for 0D and 1D native tensors. For higher-dimensional data, use Φ-ML tensors.&#34;)
         except math.NoBackendFound:
             raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>x, reduce: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>x, reduce: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable] = &lt;function non_batch&gt;) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>∑<sub>i</sub> ||x<sub>i</sub>||<sub>2</sub><sup>2</sup> / 2</em>, summing over all non-batch dimensions.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> or 0D or 1D native tensor.
-For <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> objects, only value the sum over all value attributes is computed.</dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> or 0D or 1D native tensor.
+For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over all value attributes is computed.</dd>
 <dt><strong><code>reduce</code></strong></dt>
 <dd>Dimensions to reduce as <code>DimFilter</code>.</dd>
 </dl>
@@ -1531,8 +1529,8 @@ For <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.mat
     Computes *∑&lt;sub&gt;i&lt;/sub&gt; ||x&lt;sub&gt;i&lt;/sub&gt;||&lt;sub&gt;2&lt;/sub&gt;&lt;sup&gt;2&lt;/sup&gt; / 2*, summing over all non-batch dimensions.
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode` or 0D or 1D native tensor.
-            For `phi.math.magic.PhiTreeNode` objects, only value the sum over all value attributes is computed.
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode` or 0D or 1D native tensor.
+            For `phiml.math.magic.PhiTreeNode` objects, only value the sum over all value attributes is computed.
         reduce: Dimensions to reduce as `DimFilter`.
 
     Returns:
@@ -1553,13 +1551,13 @@ For <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.mat
             elif len(shape) == 1:
                 return backend.sum(x ** 2) * 0.5
             else:
-                raise ValueError(&#34;l2_loss is only defined for 0D and 1D native tensors. For higher-dimensional data, use Φ-Flow tensors.&#34;)
+                raise ValueError(&#34;l2_loss is only defined for 0D and 1D native tensors. For higher-dimensional data, use Φ-ML tensors.&#34;)
         except math.NoBackendFound:
             raise ValueError(x)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>field: ~GridType, axes=&lt;function spatial&gt;, order=2, implicit: phi.math._optimize.Solve = None, weights: Union[phi.math._tensors.Tensor, phi.field._field.Field] = None) ‑> ~GridType</span>
+<span>def <span class="ident">laplace</span></span>(<span>field: ~GridType, axes=&lt;function spatial&gt;, order=2, implicit: phiml.math._optimize.Solve = None, weights: Union[phiml.math._tensors.Tensor, phi.field._field.Field] = None) ‑> ~GridType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spatial Laplace operator for scalar grid.
@@ -1572,7 +1570,7 @@ If a vector grid is passed, it is assumed to be centered and the laplace is comp
 <dd>The second derivative along these dimensions is summed over</dd>
 <dt><strong><code>weights</code></strong></dt>
 <dd>(Optional) Multiply the axis terms by these factors before summation.
-Must be a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> or <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> with a single channel dimension that lists all laplace axes by name.</dd>
+Must be a <code>phiml.math.Tensor</code> or <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> with a single channel dimension that lists all laplace axes by name.</dd>
 <dt><strong><code>order</code></strong></dt>
 <dd>Spatial order of accuracy.
 Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
@@ -1600,7 +1598,7 @@ Otherwise, an explicit stencil is used.</dd>
         field: n-dimensional `CenteredGrid`
         axes: The second derivative along these dimensions is summed over
         weights: (Optional) Multiply the axis terms by these factors before summation.
-            Must be a `phi.math.Tensor` or `phi.field.Field` with a single channel dimension that lists all laplace axes by name.
+            Must be a `phiml.math.Tensor` or `phi.field.Field` with a single channel dimension that lists all laplace axes by name.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
             Supported: 2 explicit, 4 explicit, 6 implicit.
@@ -1721,7 +1719,7 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 </details>
 </dd>
 <dt id="phi.field.mean"><code class="name flex">
-<span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.SampledField) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the mean value by reducing all spatial / instance dimensions.</p>
@@ -1750,7 +1748,7 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 </details>
 </dd>
 <dt id="phi.field.minimize"><code class="name flex">
-<span>def <span class="ident">minimize</span></span>(<span>f: Callable[[~X], ~Y], solve: phi.math._optimize.Solve[~X, ~Y]) ‑> ~X</span>
+<span>def <span class="ident">minimize</span></span>(<span>f: Callable[[~X], ~Y], solve: phiml.math._optimize.Solve[~X, ~Y]) ‑> ~X</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finds a minimum of the scalar function <em>f(x)</em>.
@@ -1766,10 +1764,10 @@ Additionally a gradient descent solver with adaptive step size can be used with 
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function whose output is subject to minimization.
-All positional arguments of <code>f</code> are optimized and must be <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.
+All positional arguments of <code>f</code> are optimized and must be <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code>.
 If <code>solve.x0</code> is a <code>tuple</code> or <code>list</code>, it will be passed to <em>f</em> as varargs, <code>f(*x0)</code>.
 To minimize a subset of the positional arguments, define a new (lambda) function depending only on those.
-The first return value of <code>f</code> must be a scalar float <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+The first return value of <code>f</code> must be a scalar float <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd><code>Solve</code> object to specify method type, parameters and initial guess for <code>x</code>.</dd>
 </dl>
@@ -1806,10 +1804,10 @@ The first return value of <code>f</code> must be a scalar float <code>Tensor</co
 
     Args:
         f: Function whose output is subject to minimization.
-            All positional arguments of `f` are optimized and must be `Tensor` or `phi.math.magic.PhiTreeNode`.
+            All positional arguments of `f` are optimized and must be `Tensor` or `phiml.math.magic.PhiTreeNode`.
             If `solve.x0` is a `tuple` or `list`, it will be passed to *f* as varargs, `f(*x0)`.
             To minimize a subset of the positional arguments, define a new (lambda) function depending only on those.
-            The first return value of `f` must be a scalar float `Tensor` or `phi.math.magic.PhiTreeNode`.
+            The first return value of `f` must be a scalar float `Tensor` or `phiml.math.magic.PhiTreeNode`.
         solve: `Solve` object to specify method type, parameters and initial guess for `x`.
 
     Returns:
@@ -1927,10 +1925,10 @@ If both are <code>SampledFields</code> but have different points, <code>f1</code
 </details>
 </dd>
 <dt id="phi.field.native_call"><code class="name flex">
-<span>def <span class="ident">native_call</span></span>(<span>f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) ‑> Union[phi.field._field.SampledField, phi.math._tensors.Tensor]</span>
+<span>def <span class="ident">native_call</span></span>(<span>f, *inputs, channels_last=None, channel_dim='vector', extrapolation=None) ‑> Union[phi.field._field.SampledField, phiml.math._tensors.Tensor]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Similar to <code><a title="phi.math.native_call" href="../math/index.html#phi.math.native_call">native_call()</a></code>.</p>
+<div class="desc"><p>Similar to <code>phiml.math.native_call()</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>f</code></strong></dt>
@@ -1949,7 +1947,7 @@ The function output must have the same dimension layout as the inputs and the ba
 </summary>
 <pre><code class="python">def native_call(f, *inputs, channels_last=None, channel_dim=&#39;vector&#39;, extrapolation=None) -&gt; Union[SampledField, Tensor]:
     &#34;&#34;&#34;
-    Similar to `phi.math.native_call()`.
+    Similar to `phiml.math.native_call()`.
 
     Args:
         f: Function to be called on native tensors of `inputs.values`.
@@ -1988,12 +1986,12 @@ The function output must have the same dimension layout as the inputs and the ba
 </details>
 </dd>
 <dt id="phi.field.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>field: ~SampledFieldType, dims: Union[phi.math._shape.Shape, tuple, list, str], packed_dim: phi.math._shape.Shape, pos: Optional[int] = None) ‑> ~SampledFieldType</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>field: ~SampledFieldType, dims: Union[phiml.math._shape.Shape, tuple, list, str], packed_dim: phiml.math._shape.Shape, pos: Optional[int] = None) ‑> ~SampledFieldType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Currently only supports grids and non-spatial dimensions.</p>
 <p>See Also:
-<code><a title="phi.math.pack_dims" href="../math/index.html#phi.math.pack_dims">pack_dims()</a></code>.</p>
+<code>phiml.math.pack_dims()</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>field</code></strong></dt>
@@ -2013,7 +2011,7 @@ The function output must have the same dimension layout as the inputs and the ba
     Currently only supports grids and non-spatial dimensions.
 
     See Also:
-        `phi.math.pack_dims()`.
+        `phiml.math.pack_dims()`.
 
     Args:
         field: `SampledField`
@@ -2034,7 +2032,7 @@ The function output must have the same dimension layout as the inputs and the ba
 </code></dt>
 <dd>
 <div class="desc"><p>Pads a <code><a title="phi.field.Grid" href="#phi.field.Grid">Grid</a></code> using its extrapolation.</p>
-<p>Unlike <code><a title="phi.math.pad" href="../math/index.html#phi.math.pad">pad()</a></code>, this function also affects the <code>bounds</code> of the grid, changing its size and origin depending on <code>widths</code>.</p>
+<p>Unlike <code>phiml.math.pad()</code>, this function also affects the <code>bounds</code> of the grid, changing its size and origin depending on <code>widths</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>grid</code></strong></dt>
@@ -2053,7 +2051,7 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
     &#34;&#34;&#34;
     Pads a `Grid` using its extrapolation.
 
-    Unlike `phi.math.pad()`, this function also affects the `bounds` of the grid, changing its size and origin depending on `widths`.
+    Unlike `phiml.math.pad()`, this function also affects the `bounds` of the grid, changing its size and origin depending on `widths`.
 
     Args:
         grid: `CenteredGrid` or `StaggeredGrid`
@@ -2080,7 +2078,7 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
 </details>
 </dd>
 <dt id="phi.field.read"><code class="name flex">
-<span>def <span class="ident">read</span></span>(<span>file: Union[str, phi.math._tensors.Tensor], convert_to_backend=True) ‑> phi.field._field.SampledField</span>
+<span>def <span class="ident">read</span></span>(<span>file: Union[str, phiml.math._tensors.Tensor], convert_to_backend=True) ‑> phi.field._field.SampledField</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Loads a previously saved <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code> from disc.</p>
@@ -2122,7 +2120,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
             return read_single_field(file.native(), convert_to_backend=convert_to_backend)
         else:
             dim = file.shape[0]
-            files = file.unstack(dim.name)
+            files = unstack(file, dim)
             fields = [read(file_, convert_to_backend=convert_to_backend) for file_ in files]
             return stack(fields, dim)
     else:
@@ -2130,7 +2128,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">real</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See Also:
@@ -2138,7 +2136,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> or native tensor.</dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> or native tensor.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Real component of <code>x</code>.</p></div>
@@ -2152,7 +2150,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
         `imag()`, `conjugate()`.
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode` or native tensor.
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode` or native tensor.
 
     Returns:
         Real component of `x`.
@@ -2161,7 +2159,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.reduce_sample"><code class="name flex">
-<span>def <span class="ident">reduce_sample</span></span>(<span>field: Union[phi.field._field.Field, phi.geom._geom.Geometry], geometry: Union[phi.geom._geom.Geometry, phi.field._field.SampledField, phi.math._tensors.Tensor], dim=(vectorᶜ=None), **kwargs) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">reduce_sample</span></span>(<span>field: Union[phi.field._field.Field, phi.geom._geom.Geometry], geometry: Union[phi.geom._geom.Geometry, phi.field._field.SampledField, phiml.math._tensors.Tensor], dim=(vectorᶜ=None), **kwargs) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Similar to <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code>, but matches channel dimensions of <code>geometry</code> with channel dimensions of this field.
@@ -2184,7 +2182,7 @@ By default, linear interpolation is used.
 Grids also support 6th order implicit sampling at mid-points.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Sampled values as a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
+<p>Sampled values as a <code>phiml.math.Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2211,7 +2209,7 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
             Grids also support 6th order implicit sampling at mid-points.
 
     Returns:
-        Sampled values as a `phi.math.Tensor`
+        Sampled values as a `phiml.math.Tensor`
     &#34;&#34;&#34;
     geometry = _get_geometry(geometry)
     if isinstance(field, Geometry):
@@ -2235,7 +2233,7 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
 </details>
 </dd>
 <dt id="phi.field.resample"><code class="name flex">
-<span>def <span class="ident">resample</span></span>(<span>value: Union[phi.field._field.Field, phi.geom._geom.Geometry, phi.math._tensors.Tensor, float], to: phi.field._field.SampledField, keep_extrapolation=False, **kwargs)</span>
+<span>def <span class="ident">resample</span></span>(<span>value: Union[phi.field._field.Field, phi.geom._geom.Geometry, phiml.math._tensors.Tensor, float], to: phi.field._field.SampledField, keep_extrapolation=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Samples a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>, <code>Geometry</code> or value at the sample points of the field <code>to</code>.
@@ -2325,21 +2323,21 @@ True
 </details>
 </dd>
 <dt id="phi.field.round"><code class="name flex">
-<span>def <span class="ident">round</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">round</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Rounds the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to the closest integer.</p></div>
+<div class="desc"><p>Rounds the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to the closest integer.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def round_(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Rounds the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to the closest integer. &#34;&#34;&#34;
+    &#34;&#34;&#34; Rounds the `Tensor` or `phiml.math.magic.PhiTreeNode` `x` to the closest integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.sample"><code class="name flex">
-<span>def <span class="ident">sample</span></span>(<span>field: Union[phi.field._field.Field, phi.geom._geom.Geometry], geometry: Union[phi.geom._geom.Geometry, phi.field._field.SampledField, phi.math._tensors.Tensor], **kwargs) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">sample</span></span>(<span>field: Union[phi.field._field.Field, phi.geom._geom.Geometry], geometry: Union[phi.geom._geom.Geometry, phi.field._field.SampledField, phiml.math._tensors.Tensor], **kwargs) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the field value inside the volume of the (batched) <code>geometry</code>.</p>
@@ -2363,7 +2361,7 @@ By default, linear interpolation is used.
 Grids also support 6th order implicit sampling at mid-points.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Sampled values as a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></p></div>
+<p>Sampled values as a <code>phiml.math.Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2393,7 +2391,7 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
             Grids also support 6th order implicit sampling at mid-points.
 
     Returns:
-        Sampled values as a `phi.math.Tensor`
+        Sampled values as a `phiml.math.Tensor`
     &#34;&#34;&#34;
     geometry = _get_geometry(geometry)
     if isinstance(field, Geometry):
@@ -2411,7 +2409,7 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
 </details>
 </dd>
 <dt id="phi.field.shift"><code class="name flex">
-<span>def <span class="ident">shift</span></span>(<span>grid: phi.field._grid.CenteredGrid, offsets: tuple, stack_dim: Optional[phi.math._shape.Shape] = (shiftᶜ=None), dims=&lt;function spatial&gt;, pad=True)</span>
+<span>def <span class="ident">shift</span></span>(<span>grid: phi.field._grid.CenteredGrid, offsets: tuple, stack_dim: Optional[phiml.math._shape.Shape] = (shiftᶜ=None), dims=&lt;function spatial&gt;, pad=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Wraps :func:<code>math.shift</code> for CenteredGrid.</p>
@@ -2452,7 +2450,7 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
 </details>
 </dd>
 <dt id="phi.field.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">sign</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The sign of positive numbers is 1 and -1 for negative numbers.
@@ -2460,10 +2458,10 @@ The sign of 0 is undefined.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code></dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> matching <code>x</code>.</p></div>
+<p><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> matching <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2474,30 +2472,30 @@ The sign of 0 is undefined.</p>
     The sign of 0 is undefined.
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode`
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode`
 
     Returns:
-        `Tensor` or `phi.math.magic.PhiTreeNode` matching `x`.
+        `Tensor` or `phiml.math.magic.PhiTreeNode` matching `x`.
     &#34;&#34;&#34;
     return _backend_op1(x, Backend.sign)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.sin"><code class="name flex">
-<span>def <span class="ident">sin</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">sin</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes <em>sin(x)</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
+<div class="desc"><p>Computes <em>sin(x)</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sin(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Computes *sin(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
+    &#34;&#34;&#34; Computes *sin(x)* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.solve_linear"><code class="name flex">
-<span>def <span class="ident">solve_linear</span></span>(<span>f: Union[Callable[[~X], ~Y], phi.math._tensors.Tensor], y: ~Y, solve: phi.math._optimize.Solve[~X, ~Y], *f_args, grad_for_f=False, f_kwargs: dict = None, **f_kwargs_) ‑> ~X</span>
+<span>def <span class="ident">solve_linear</span></span>(<span>f: Union[Callable[[~X], ~Y], phiml.math._tensors.Tensor], y: ~Y, solve: phiml.math._optimize.Solve[~X, ~Y], *f_args, grad_for_f=False, f_kwargs: dict = None, **f_kwargs_) ‑> ~X</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solves the system of linear equations <em>f(x) = y</em> and returns <em>x</em>.
@@ -2527,14 +2525,14 @@ The used implementation can be obtained as <code>SolveInfo.method</code>.</p>
 <dd>
 <p>One of the following:</p>
 <ul>
-<li>Linear function with <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> first parameter and return value. <code>f</code> can have additional auxiliary arguments and return auxiliary values.</li>
+<li>Linear function with <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> first parameter and return value. <code>f</code> can have additional auxiliary arguments and return auxiliary values.</li>
 <li>Dense matrix (<code>Tensor</code> with at least one dual dimension)</li>
 <li>Sparse matrix (Sparse <code>Tensor</code> with at least one dual dimension)</li>
 <li>Native tensor (not yet supported)</li>
 </ul>
 </dd>
 <dt><strong><code>y</code></strong></dt>
-<dd>Desired output of <code>f(x)</code> as <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+<dd>Desired output of <code>f(x)</code> as <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd><code>Solve</code> object specifying optimization method, parameters and initial guess for <code>x</code>.</dd>
 <dt><strong><code>*f_args</code></strong></dt>
@@ -2547,7 +2545,7 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>x</code></dt>
-<dd>solution of the linear system of equations <code>f(x) = y</code> as <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+<dd>solution of the linear system of equations <code>f(x) = y</code> as <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code>.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>
@@ -2597,12 +2595,12 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
     Args:
         f: One of the following:
 
-            * Linear function with `Tensor` or `phi.math.magic.PhiTreeNode` first parameter and return value. `f` can have additional auxiliary arguments and return auxiliary values.
+            * Linear function with `Tensor` or `phiml.math.magic.PhiTreeNode` first parameter and return value. `f` can have additional auxiliary arguments and return auxiliary values.
             * Dense matrix (`Tensor` with at least one dual dimension)
             * Sparse matrix (Sparse `Tensor` with at least one dual dimension)
             * Native tensor (not yet supported)
 
-        y: Desired output of `f(x)` as `Tensor` or `phi.math.magic.PhiTreeNode`.
+        y: Desired output of `f(x)` as `Tensor` or `phiml.math.magic.PhiTreeNode`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
         *f_args: Positional arguments to be passed to `f` after `solve.x0`. These arguments will not be solved for.
             Supports vararg mode or pass all arguments as a `tuple`.
@@ -2610,7 +2608,7 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
             These arguments are treated as auxiliary arguments and can be of any type.
 
     Returns:
-        x: solution of the linear system of equations `f(x) = y` as `Tensor` or `phi.math.magic.PhiTreeNode`.
+        x: solution of the linear system of equations `f(x) = y` as `Tensor` or `phiml.math.magic.PhiTreeNode`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
@@ -2625,6 +2623,41 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
     x0_tree, x0_tensors = disassemble_tree(solve.x0)
     assert solve.x0 is not None, &#34;Please specify the initial guess as Solve(..., x0=initial_guess)&#34;
     assert len(x0_tensors) == len(y_tensors) == 1, &#34;Only single-tensor linear solves are currently supported&#34;
+    if y_tree == &#39;native&#39; and x0_tree == &#39;native&#39;:
+        if callable(f):  # assume batch + 1 dim
+            rank = y_tensors[0].rank
+            assert x0_tensors[0].rank == rank, f&#34;y and x0 must have the same rank but got {y_tensors[0].shape.sizes} for y and {x0_tensors[0].shape.sizes} for x0&#34;
+            y = wrap(y, *[batch(f&#39;batch{i}&#39;) for i in range(rank - 1)], channel(&#39;vector&#39;))
+            x0 = wrap(solve.x0, *[batch(f&#39;batch{i}&#39;) for i in range(rank - 1)], channel(&#39;vector&#39;))
+            solve = copy_with(solve, x0=x0)
+            solution = solve_linear(f, y, solve, *f_args, grad_for_f=grad_for_f, f_kwargs=f_kwargs, **f_kwargs_)
+            return solution.native(&#39;,&#39;.join([f&#39;batch{i}&#39; for i in range(rank - 1)]) + &#39;,vector&#39;)
+        else:
+            b = choose_backend(y, solve.x0, f)
+            f_dims = b.staticshape(f)
+            y_dims = b.staticshape(y)
+            x_dims = b.staticshape(solve.x0)
+            rank = len(f_dims) - 2
+            assert rank &gt;= 0, f&#34;f must be a matrix but got shape {f_dims}&#34;
+            f = wrap(f, *[batch(f&#39;batch{i}&#39;) for i in range(rank - 1)], channel(&#39;vector&#39;), dual(&#39;vector&#39;))
+            if len(x_dims) == len(f_dims):  # matrix solve
+                assert len(x_dims) == len(f_dims)
+                assert x_dims[-2] == f_dims[-1]
+                assert y_dims[-2] == f_dims[-2]
+                y = wrap(y, *[batch(f&#39;batch{i}&#39;) for i in range(rank - 1)], channel(&#39;vector&#39;), batch(&#39;extra_batch&#39;))
+                x0 = wrap(solve.x0, *[batch(f&#39;batch{i}&#39;) for i in range(rank - 1)], channel(&#39;vector&#39;), batch(&#39;extra_batch&#39;))
+                solve = copy_with(solve, x0=x0)
+                solution = solve_linear(f, y, solve, *f_args, grad_for_f=grad_for_f, f_kwargs=f_kwargs, **f_kwargs_)
+                return solution.native(&#39;,&#39;.join([f&#39;batch{i}&#39; for i in range(rank - 1)]) + &#39;,vector,extra_batch&#39;)
+            else:
+                assert len(x_dims) == len(f_dims) - 1
+                assert x_dims[-1] == f_dims[-1]
+                assert y_dims[-1] == f_dims[-2]
+                y = wrap(y, *[batch(f&#39;batch{i}&#39;) for i in range(rank - 1)], channel(&#39;vector&#39;))
+                x0 = wrap(solve.x0, *[batch(f&#39;batch{i}&#39;) for i in range(rank - 1)], channel(&#39;vector&#39;))
+                solve = copy_with(solve, x0=x0)
+                solution = solve_linear(f, y, solve, *f_args, grad_for_f=grad_for_f, f_kwargs=f_kwargs, **f_kwargs_)
+                return solution.native(&#39;,&#39;.join([f&#39;batch{i}&#39; for i in range(rank - 1)]) + &#39;,vector&#39;)
     backend = choose_backend_t(*y_tensors, *x0_tensors)
     prefer_explicit = backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix) or grad_for_f
 
@@ -2676,7 +2709,7 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
 </details>
 </dd>
 <dt id="phi.field.solve_nonlinear"><code class="name flex">
-<span>def <span class="ident">solve_nonlinear</span></span>(<span>f: Callable, y, solve: phi.math._optimize.Solve) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">solve_nonlinear</span></span>(<span>f: Callable, y, solve: phiml.math._optimize.Solve) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Solves the non-linear equation <em>f(x) = y</em> by minimizing the norm of the residual.</p>
@@ -2688,17 +2721,17 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
 <dl>
 <dt><strong><code>f</code></strong></dt>
 <dd>Function whose output is optimized to match <code>y</code>.
-All positional arguments of <code>f</code> are optimized and must be <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.
+All positional arguments of <code>f</code> are optimized and must be <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code>.
 The output of <code>f</code> must match <code>y</code>.</dd>
 <dt><strong><code>y</code></strong></dt>
-<dd>Desired output of <code>f(x)</code> as <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+<dd>Desired output of <code>f(x)</code> as <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code>.</dd>
 <dt><strong><code>solve</code></strong></dt>
 <dd><code>Solve</code> object specifying optimization method, parameters and initial guess for <code>x</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>x</code></dt>
-<dd>Solution fulfilling <code>f(x) = y</code> within specified tolerance as <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code>.</dd>
+<dd>Solution fulfilling <code>f(x) = y</code> within specified tolerance as <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code>.</dd>
 </dl>
 <h2 id="raises">Raises</h2>
 <dl>
@@ -2724,13 +2757,13 @@ The output of <code>f</code> must match <code>y</code>.</dd>
 
     Args:
         f: Function whose output is optimized to match `y`.
-            All positional arguments of `f` are optimized and must be `Tensor` or `phi.math.magic.PhiTreeNode`.
+            All positional arguments of `f` are optimized and must be `Tensor` or `phiml.math.magic.PhiTreeNode`.
             The output of `f` must match `y`.
-        y: Desired output of `f(x)` as `Tensor` or `phi.math.magic.PhiTreeNode`.
+        y: Desired output of `f(x)` as `Tensor` or `phiml.math.magic.PhiTreeNode`.
         solve: `Solve` object specifying optimization method, parameters and initial guess for `x`.
 
     Returns:
-        x: Solution fulfilling `f(x) = y` within specified tolerance as `Tensor` or `phi.math.magic.PhiTreeNode`.
+        x: Solution fulfilling `f(x) = y` within specified tolerance as `Tensor` or `phiml.math.magic.PhiTreeNode`.
 
     Raises:
         NotConverged: If the desired accuracy was not be reached within the maximum number of iterations.
@@ -2750,7 +2783,7 @@ The output of <code>f</code> must match <code>y</code>.</dd>
 </details>
 </dd>
 <dt id="phi.field.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, gradient_extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a> = None, type: type = phi.field._grid.CenteredGrid, dims: Union[str, tuple, list, set, phi.math._shape.Shape, Callable] = &lt;function spatial&gt;, stack_dim: phi.math._shape.Shape = (vectorᶜ=None), order=2, implicit: phi.math._optimize.Solve = None)</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._grid.CenteredGrid, gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None, type: type = phi.field._grid.CenteredGrid, dims: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable] = &lt;function spatial&gt;, stack_dim: phiml.math._shape.Shape = (vectorᶜ=None), order=2, implicit: phiml.math._optimize.Solve = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finite difference spatial_gradient.</p>
@@ -2886,21 +2919,21 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.field.sqrt"><code class="name flex">
-<span>def <span class="ident">sqrt</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">sqrt</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Computes <em>sqrt(x)</em> of the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code>.</p></div>
+<div class="desc"><p>Computes <em>sqrt(x)</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sqrt(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Computes *sqrt(x)* of the `Tensor` or `phi.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
+    &#34;&#34;&#34; Computes *sqrt(x)* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sqrt)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>fields, dim: phi.math._shape.Shape, dim_bounds: phi.geom._box.Box = None)</span>
+<span>def <span class="ident">stack</span></span>(<span>fields, dim: phiml.math._shape.Shape, dim_bounds: phi.geom._box.Box = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stacks the given <code><a title="phi.field.SampledField" href="#phi.field.SampledField">SampledField</a></code>s along <code>dim</code>.</p>
@@ -2956,7 +2989,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.field.stagger"><code class="name flex">
-<span>def <span class="ident">stagger</span></span>(<span>field: phi.field._grid.CenteredGrid, face_function: Callable, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>], type: type = phi.field._grid.StaggeredGrid)</span>
+<span>def <span class="ident">stagger</span></span>(<span>field: phi.field._grid.CenteredGrid, face_function: Callable, extrapolation: Union[float, phiml.math.extrapolation.Extrapolation], type: type = phi.field._grid.StaggeredGrid)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a new grid by evaluating <code>face_function</code> given two neighbouring cells.
@@ -3061,7 +3094,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> for which gradients should be disabled.</dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> for which gradients should be disabled.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Copy of <code>x</code>.</p></div>
@@ -3081,7 +3114,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     * Jax: [`jax.lax.stop_gradient`](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.stop_gradient.html)
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode` for which gradients should be disabled.
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode` for which gradients should be disabled.
 
     Returns:
         Copy of `x`.
@@ -3097,7 +3130,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.field.support"><code class="name flex">
-<span>def <span class="ident">support</span></span>(<span>field: phi.field._field.SampledField, list_dim: Union[str, phi.math._shape.Shape] = (nonzeroⁱ=None)) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">support</span></span>(<span>field: phi.field._field.SampledField, list_dim: Union[str, phiml.math._shape.Shape] = (nonzeroⁱ=None)) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the points at which the field values are non-zero.</p>
@@ -3129,21 +3162,21 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.field.to_float"><code class="name flex">
-<span>def <span class="ident">to_float</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">to_float</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the given tensor to floating point format with the currently specified precision.</p>
 <p>The precision can be set globally using <code>math.set_global_precision()</code> and locally using <code>with math.precision()</code>.</p>
-<p>See the <code><a title="phi.math" href="../math/index.html">phi.math</a></code> module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Math.html">https://tum-pbs.github.io/PhiFlow/Math.html</a></p>
+<p>See the <code>phiml.math</code> module documentation at <a href="https://tum-pbs.github.io/PhiML/Math.html">https://tum-pbs.github.io/PhiML/Math.html</a></p>
 <p>See Also:
 <code><a title="phi.field.cast" href="#phi.field.cast">cast()</a></code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong></dt>
-<dd><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> to convert</dd>
+<dd><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> to convert</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p><code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> matching <code>x</code>.</p></div>
+<p><code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> matching <code>x</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3154,60 +3187,60 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     
     The precision can be set globally using `math.set_global_precision()` and locally using `with math.precision()`.
     
-    See the `phi.math` module documentation at https://tum-pbs.github.io/PhiFlow/Math.html
+    See the `phiml.math` module documentation at https://tum-pbs.github.io/PhiML/Math.html
 
     See Also:
         `cast()`.
 
     Args:
-        x: `Tensor` or `phi.math.magic.PhiTreeNode` to convert
+        x: `Tensor` or `phiml.math.magic.PhiTreeNode` to convert
 
     Returns:
-        `Tensor` or `phi.math.magic.PhiTreeNode` matching `x`.
+        `Tensor` or `phiml.math.magic.PhiTreeNode` matching `x`.
     &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_float)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.to_int32"><code class="name flex">
-<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Converts the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to 32-bit integer.</p></div>
+<div class="desc"><p>Converts the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to 32-bit integer.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def to_int32(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Converts the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to 32-bit integer. &#34;&#34;&#34;
+    &#34;&#34;&#34; Converts the `Tensor` or `phiml.math.magic.PhiTreeNode` `x` to 32-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int32)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.to_int64"><code class="name flex">
-<span>def <span class="ident">to_int64</span></span>(<span>x) ‑> Union[phi.math._tensors.Tensor, <a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a>]</span>
+<span>def <span class="ident">to_int64</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Converts the <code>Tensor</code> or <code><a title="phi.math.magic.PhiTreeNode" href="../math/magic.html#phi.math.magic.PhiTreeNode">PhiTreeNode</a></code> <code>x</code> to 64-bit integer.</p></div>
+<div class="desc"><p>Converts the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to 64-bit integer.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def to_int64(x) -&gt; Union[Tensor, PhiTreeNode]:
-    &#34;&#34;&#34; Converts the `Tensor` or `phi.math.magic.PhiTreeNode` `x` to 64-bit integer. &#34;&#34;&#34;
+    &#34;&#34;&#34; Converts the `Tensor` or `phiml.math.magic.PhiTreeNode` `x` to 64-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int64)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>value, dim: Union[str, tuple, list, set, phi.math._shape.Shape, Callable])</span>
+<span>def <span class="ident">unstack</span></span>(<span>value, dim: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Un-stacks a <code>Sliceable</code> along one or multiple dimensions.</p>
 <p>If multiple dimensions are given, the order of elements will be according to the dimension order in <code>dim</code>, i.e. elements along the last dimension will be neighbors in the returned <code>tuple</code>.</p>
 <p>See Also:
-<code><a title="phi.math.slice" href="../math/index.html#phi.math.slice">slice_()</a></code>.</p>
+<code>phiml.math.slice</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>value</code></strong></dt>
-<dd><code><a title="phi.math.magic.Shapable" href="../math/magic.html#phi.math.magic.Shapable">Shapable</a></code>, such as <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code></dd>
+<dd><code>phiml.math.magic.Shapable</code>, such as <code>phiml.math.Tensor</code></dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Dimensions as <code>Shape</code> or comma-separated <code>str</code> or dimension type, i.e. <code>channel</code>, <code>spatial</code>, <code>instance</code>, <code>batch</code>.</dd>
 </dl>
@@ -3228,10 +3261,10 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     If multiple dimensions are given, the order of elements will be according to the dimension order in `dim`, i.e. elements along the last dimension will be neighbors in the returned `tuple`.
 
     See Also:
-        `phi.math.slice`.
+        `phiml.math.slice`.
 
     Args:
-        value: `phi.math.magic.Shapable`, such as `phi.math.Tensor`
+        value: `phiml.math.magic.Shapable`, such as `phiml.math.Tensor`
         dim: Dimensions as `Shape` or comma-separated `str` or dimension type, i.e. `channel`, `spatial`, `instance`, `batch`.
 
     Returns:
@@ -3241,7 +3274,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
         &gt;&gt;&gt; unstack(expand(0, spatial(x=5)), &#39;x&#39;)
         (0.0, 0.0, 0.0, 0.0, 0.0)
     &#34;&#34;&#34;
-    assert isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiFlow/phi/math/magic.html&#34;
+    assert isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiML/phiml/math/magic.html&#34;
     dims = shape(value).only(dim)
     assert dims.rank &gt; 0, &#34;unstack() requires at least one dimension&#34;
     if dims.rank == 1:
@@ -3310,13 +3343,13 @@ The new values are determined via linear interpolation.</p>
 <span>def <span class="ident">vec_abs</span></span>(<span>field: phi.field._field.SampledField)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>See <code><a title="phi.math.vec_abs" href="../math/index.html#phi.math.vec_abs">vec_abs()</a></code></p></div>
+<div class="desc"><p>See <code>phiml.math.vec_abs()</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def vec_length(field: SampledField):
-    &#34;&#34;&#34; See `phi.math.vec_abs()` &#34;&#34;&#34;
+    &#34;&#34;&#34; See `phiml.math.vec_abs()` &#34;&#34;&#34;
     assert isinstance(field, SampledField), f&#34;SampledField required but got {type(field).__name__}&#34;
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
@@ -3327,13 +3360,13 @@ The new values are determined via linear interpolation.</p>
 <span>def <span class="ident">vec_length</span></span>(<span>field: phi.field._field.SampledField)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>See <code><a title="phi.math.vec_abs" href="../math/index.html#phi.math.vec_abs">vec_abs()</a></code></p></div>
+<div class="desc"><p>See <code>phiml.math.vec_abs()</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def vec_length(field: SampledField):
-    &#34;&#34;&#34; See `phi.math.vec_abs()` &#34;&#34;&#34;
+    &#34;&#34;&#34; See `phiml.math.vec_abs()` &#34;&#34;&#34;
     assert isinstance(field, SampledField), f&#34;SampledField required but got {type(field).__name__}&#34;
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
@@ -3344,13 +3377,13 @@ The new values are determined via linear interpolation.</p>
 <span>def <span class="ident">vec_squared</span></span>(<span>field: phi.field._field.SampledField)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>See <code><a title="phi.math.vec_squared" href="../math/index.html#phi.math.vec_squared">vec_squared()</a></code></p></div>
+<div class="desc"><p>See <code>phiml.math.vec_squared()</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def vec_squared(field: SampledField):
-    &#34;&#34;&#34; See `phi.math.vec_squared()` &#34;&#34;&#34;
+    &#34;&#34;&#34; See `phiml.math.vec_squared()` &#34;&#34;&#34;
     if isinstance(field, StaggeredGrid):
         field = field.at_centers()
     return field.with_values(math.vec_squared(field.values))</code></pre>
@@ -3401,7 +3434,7 @@ At least one of the arguments must be a <code><a title="phi.field.SampledField" 
 </details>
 </dd>
 <dt id="phi.field.write"><code class="name flex">
-<span>def <span class="ident">write</span></span>(<span>field: phi.field._field.SampledField, file: Union[str, phi.math._tensors.Tensor])</span>
+<span>def <span class="ident">write</span></span>(<span>field: phi.field._field.SampledField, file: Union[str, phiml.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Writes a field to disc using a NumPy file format.
@@ -3447,7 +3480,7 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
             write_single_field(field, file.native())
         else:
             dim = file.shape.names[0]
-            files = file.unstack(dim)
+            files = unstack(file, dim)
             fields = field.dimension(dim).unstack(file.shape.get_size(dim))
             for field_, file_ in zip(fields, files):
                 write(field_, file_)
@@ -3462,7 +3495,7 @@ Dimensions of <code>field</code> that are missing in <code>file</code> result in
 <dl>
 <dt id="phi.field.AngularVelocity"><code class="flex name class">
 <span>class <span class="ident">AngularVelocity</span></span>
-<span>(</span><span>location: Union[phi.math._tensors.Tensor, tuple, list, numbers.Number], strength: Union[phi.math._tensors.Tensor, numbers.Number] = 1.0, falloff: Callable = None, component: str = None)</span>
+<span>(</span><span>location: Union[phiml.math._tensors.Tensor, tuple, list, numbers.Number], strength: Union[phiml.math._tensors.Tensor, numbers.Number] = 1.0, falloff: Callable = None, component: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Model of a single vortex or set of vortices.
@@ -3529,7 +3562,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.field.AngularVelocity.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
+<dt id="phi.field.AngularVelocity.shape"><code class="name">var <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Returns a shape with the following properties</p>
 <ul>
@@ -3550,11 +3583,11 @@ def shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.field.CenteredGrid"><code class="flex name class">
 <span>class <span class="ident">CenteredGrid</span></span>
-<span>(</span><span>values: Any = 0.0, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, dict, phi.field._field.Field] = 0.0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phi.math._shape.Shape] = None, **resolution_: Union[int, phi.math._tensors.Tensor])</span>
+<span>(</span><span>values: Any = 0.0, extrapolation: Union[float, phiml.math.extrapolation.Extrapolation, dict, phi.field._field.Field] = 0.0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phiml.math._shape.Shape] = None, **resolution_: Union[int, phiml.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid with values sampled at the cell centers.
-A centered grid is defined through its <code>CenteredGrid.values</code> <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>, its <code>CenteredGrid.bounds</code> <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code> describing the physical size, and its <code>CenteredGrid.extrapolation</code> (<code><a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></code>).</p>
+A centered grid is defined through its <code>CenteredGrid.values</code> <code>phiml.math.Tensor</code>, its <code>CenteredGrid.bounds</code> <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code> describing the physical size, and its <code>CenteredGrid.extrapolation</code> (<code>phiml.math.extrapolation.Extrapolation</code>).</p>
 <p>Centered grids support batch, spatial and channel dimensions.</p>
 <p>See Also:
 <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid</a></code>,
@@ -3573,19 +3606,19 @@ Has to be one of the following:</p>
 <li><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>: resamples the Field to the staggered sample points</li>
 <li><code>Number</code>: uses the value for all sample points</li>
 <li><code>tuple</code> or <code>list</code>: interprets the sequence as vector, used for all sample points</li>
-<li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> compatible with grid dims: uses tensor values as grid values</li>
-<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.
+<li><code>phiml.math.Tensor</code> compatible with grid dims: uses tensor values as grid values</li>
+<li>Function <code>values(x)</code> where <code>x</code> is a <code>phiml.math.Tensor</code> representing the physical location.
 The spatial dimensions of the grid will be passed as batch dimensions to the function.</li>
 </ul>
 </dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>The grid extrapolation determines the value outside the <code>values</code> tensor.
-Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>, <code><a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></code>.</dd>
+Allowed types: <code>float</code>, <code>phiml.math.Tensor</code>, <code>phiml.math.extrapolation.Extrapolation</code>.</dd>
 <dt><strong><code>bounds</code></strong></dt>
 <dd>Physical size and location of the grid as <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code>.
 If the resolution is determined through <code>resolution</code> of <code>values</code>, a <code>float</code> can be passed for <code>bounds</code> to create a unit box.</dd>
 <dt><strong><code>resolution</code></strong></dt>
-<dd>Grid resolution as purely spatial <code><a title="phi.math.Shape" href="../math/index.html#phi.math.Shape">Shape</a></code>.
+<dd>Grid resolution as purely spatial <code>phiml.math.Shape</code>.
 If <code>bounds</code> is given as a <code>Box</code>, the resolution may be specified as an <code>int</code> to be equal along all axes.</dd>
 <dt><strong><code>**resolution_</code></strong></dt>
 <dd>Spatial dimensions as keyword arguments. Typically either <code>resolution</code> or <code>spatial_dims</code> are specified.</dd>
@@ -3597,7 +3630,7 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
 <pre><code class="python">class CenteredGrid(Grid):
     &#34;&#34;&#34;
     N-dimensional grid with values sampled at the cell centers.
-    A centered grid is defined through its `CenteredGrid.values` `phi.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phi.math.extrapolation.Extrapolation`).
+    A centered grid is defined through its `CenteredGrid.values` `phiml.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phiml.math.extrapolation.Extrapolation`).
     
     Centered grids support batch, spatial and channel dimensions.
 
@@ -3624,15 +3657,15 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
                 * `Field`: resamples the Field to the staggered sample points
                 * `Number`: uses the value for all sample points
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
-                * `phi.math.Tensor` compatible with grid dims: uses tensor values as grid values
-                * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                * `phiml.math.Tensor` compatible with grid dims: uses tensor values as grid values
+                * Function `values(x)` where `x` is a `phiml.math.Tensor` representing the physical location.
                     The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
-                Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
+                Allowed types: `float`, `phiml.math.Tensor`, `phiml.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid as `phi.geom.Box`.
                 If the resolution is determined through `resolution` of `values`, a `float` can be passed for `bounds` to create a unit box.
-            resolution: Grid resolution as purely spatial `phi.math.Shape`.
+            resolution: Grid resolution as purely spatial `phiml.math.Shape`.
                 If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
@@ -4004,7 +4037,7 @@ def is_staggered(self):
     return isinstance(self, StaggeredGrid)</code></pre>
 </details>
 </dd>
-<dt id="phi.field.Field.shape"><code class="name">var <span class="ident">shape</span> : phi.math._shape.Shape</code></dt>
+<dt id="phi.field.Field.shape"><code class="name">var <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>Returns a shape with the following properties</p>
 <ul>
@@ -4300,7 +4333,7 @@ def box(self) -&gt; Box:
     return self._bounds</code></pre>
 </details>
 </dd>
-<dt id="phi.field.Grid.dx"><code class="name">var <span class="ident">dx</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.field.Grid.dx"><code class="name">var <span class="ident">dx</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -4312,7 +4345,7 @@ def dx(self) -&gt; Tensor:
     return self.bounds.size / self.resolution</code></pre>
 </details>
 </dd>
-<dt id="phi.field.Grid.resolution"><code class="name">var <span class="ident">resolution</span> : phi.math._shape.Shape</code></dt>
+<dt id="phi.field.Grid.resolution"><code class="name">var <span class="ident">resolution</span> : phiml.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -4418,7 +4451,7 @@ If <code>values</code> is not uniform, it is padded as in <code><a title="phi.fi
 </details>
 </dd>
 <dt id="phi.field.Grid.with_extrapolation"><code class="name flex">
-<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: phiml.math.extrapolation.Extrapolation)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
@@ -4510,7 +4543,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.Noise"><code class="flex name class">
 <span>class <span class="ident">Noise</span></span>
-<span>(</span><span>*shape: phi.math._shape.Shape, scale=10.0, smoothness=1.0, **channel_dims)</span>
+<span>(</span><span>*shape: phiml.math._shape.Shape, scale=10.0, smoothness=1.0, **channel_dims)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generates random noise fluctuations which can be configured in physical size and smoothness.
@@ -4615,7 +4648,7 @@ def shape(self):
 <h3>Methods</h3>
 <dl>
 <dt id="phi.field.Noise.grid_sample"><code class="name flex">
-<span>def <span class="ident">grid_sample</span></span>(<span>self, resolution: phi.math._shape.Shape, size, shape: phi.math._shape.Shape = None)</span>
+<span>def <span class="ident">grid_sample</span></span>(<span>self, resolution: phiml.math._shape.Shape, size, shape: phiml.math._shape.Shape = None)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4649,7 +4682,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.PointCloud"><code class="flex name class">
 <span>class <span class="ident">PointCloud</span></span>
-<span>(</span><span>elements: Union[phi.math._tensors.Tensor, phi.geom._geom.Geometry], values: Any = 1.0, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>] = 0.0, add_overlapping=False, bounds: phi.geom._box.Box = None)</span>
+<span>(</span><span>elements: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], values: Any = 1.0, extrapolation: Union[float, phiml.math.extrapolation.Extrapolation] = 0.0, add_overlapping=False, bounds: phi.geom._box.Box = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A <code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud</a></code> comprises:</p>
@@ -4836,7 +4869,7 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
         Approximately samples this field on a regular grid using math.scatter().
 
         Args:
-            outside_handling: `str` passed to `phi.math.scatter()`.
+            outside_handling: `str` passed to `phiml.math.scatter()`.
             bounds: physical dimensions of the grid
             resolution: grid resolution
 
@@ -4913,14 +4946,14 @@ def shape(self):
 <h3>Methods</h3>
 <dl>
 <dt id="phi.field.PointCloud.grid_scatter"><code class="name flex">
-<span>def <span class="ident">grid_scatter</span></span>(<span>self, bounds: phi.geom._box.Box, resolution: phi.math._shape.Shape, outside_handling: str)</span>
+<span>def <span class="ident">grid_scatter</span></span>(<span>self, bounds: phi.geom._box.Box, resolution: phiml.math._shape.Shape, outside_handling: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Approximately samples this field on a regular grid using math.scatter().</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>outside_handling</code></strong></dt>
-<dd><code>str</code> passed to <code><a title="phi.math.scatter" href="../math/index.html#phi.math.scatter">scatter()</a></code>.</dd>
+<dd><code>str</code> passed to <code>phiml.math.scatter()</code>.</dd>
 <dt><strong><code>bounds</code></strong></dt>
 <dd>physical dimensions of the grid</dd>
 <dt><strong><code>resolution</code></strong></dt>
@@ -4937,7 +4970,7 @@ def shape(self):
     Approximately samples this field on a regular grid using math.scatter().
 
     Args:
-        outside_handling: `str` passed to `phi.math.scatter()`.
+        outside_handling: `str` passed to `phiml.math.scatter()`.
         bounds: physical dimensions of the grid
         resolution: grid resolution
 
@@ -4993,7 +5026,7 @@ def shape(self):
 </details>
 </dd>
 <dt id="phi.field.PointCloud.with_extrapolation"><code class="name flex">
-<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: phiml.math.extrapolation.Extrapolation)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
@@ -5022,7 +5055,7 @@ def shape(self):
 </dd>
 <dt id="phi.field.SampledField"><code class="flex name class">
 <span>class <span class="ident">SampledField</span></span>
-<span>(</span><span>elements: Union[phi.math._tensors.Tensor, phi.geom._geom.Geometry], values: phi.math._tensors.Tensor, extrapolation: Union[<a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, float, phi.field._field.Field, None], bounds: Optional[phi.geom._box.Box])</span>
+<span>(</span><span>elements: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], values: phiml.math._tensors.Tensor, extrapolation: Union[phiml.math.extrapolation.Extrapolation, float, phi.field._field.Field, None], bounds: Optional[phi.geom._box.Box])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for fields that are sampled at specific locations such as grids or point clouds.</p>
@@ -5228,7 +5261,7 @@ def bounds(self) -&gt; Box:
     raise NotImplementedError(self.__class__)</code></pre>
 </details>
 </dd>
-<dt id="phi.field.SampledField.data"><code class="name">var <span class="ident">data</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.field.SampledField.data"><code class="name">var <span class="ident">data</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -5263,7 +5296,7 @@ def elements(self) -&gt; Geometry:
     return self._elements</code></pre>
 </details>
 </dd>
-<dt id="phi.field.SampledField.extrapolation"><code class="name">var <span class="ident">extrapolation</span> : <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></code></dt>
+<dt id="phi.field.SampledField.extrapolation"><code class="name">var <span class="ident">extrapolation</span> : phiml.math.extrapolation.Extrapolation</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -5275,7 +5308,7 @@ def extrapolation(self) -&gt; Extrapolation:
     return self._extrapolation</code></pre>
 </details>
 </dd>
-<dt id="phi.field.SampledField.points"><code class="name">var <span class="ident">points</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.field.SampledField.points"><code class="name">var <span class="ident">points</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -5317,7 +5350,7 @@ def spatial_rank(self) -&gt; int:
     return self._elements.spatial_rank</code></pre>
 </details>
 </dd>
-<dt id="phi.field.SampledField.values"><code class="name">var <span class="ident">values</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.field.SampledField.values"><code class="name">var <span class="ident">values</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -5333,7 +5366,7 @@ def values(self) -&gt; Tensor:
 <h3>Methods</h3>
 <dl>
 <dt id="phi.field.SampledField.with_extrapolation"><code class="name flex">
-<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: phiml.math.extrapolation.Extrapolation)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
@@ -5847,7 +5880,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
 <h3>Static methods</h3>
 <dl>
 <dt id="phi.field.Scene.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>directory: Union[str, tuple, list, phi.math._tensors.Tensor, ForwardRef('<a title="phi.field.Scene" href="#phi.field.Scene">Scene</a>')], id: Union[int, phi.math._tensors.Tensor, None] = None) ‑> phi.field._scene.Scene</span>
+<span>def <span class="ident">at</span></span>(<span>directory: Union[str, tuple, list, phiml.math._tensors.Tensor, ForwardRef('<a title="phi.field.Scene" href="#phi.field.Scene">Scene</a>')], id: Union[int, phiml.math._tensors.Tensor, None] = None) ‑> phi.field._scene.Scene</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> for an existing directory.</p>
@@ -5905,7 +5938,7 @@ def at(directory: Union[str, tuple, typing_list, math.Tensor, &#39;Scene&#39;], 
 </details>
 </dd>
 <dt id="phi.field.Scene.create"><code class="name flex">
-<span>def <span class="ident">create</span></span>(<span>parent_directory: str, shape: phi.math._shape.Shape = (), name='sim', copy_calling_script=True, **dimensions) ‑> phi.field._scene.Scene</span>
+<span>def <span class="ident">create</span></span>(<span>parent_directory: str, shape: phiml.math._shape.Shape = (), name='sim', copy_calling_script=True, **dimensions) ‑> phi.field._scene.Scene</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a new <code><a title="phi.field.Scene" href="#phi.field.Scene">Scene</a></code> or a batch of new scenes inside <code>parent_directory</code>.</p>
@@ -5976,7 +6009,7 @@ def create(parent_directory: str,
 </details>
 </dd>
 <dt id="phi.field.Scene.list"><code class="name flex">
-<span>def <span class="ident">list</span></span>(<span>parent_directory: str, name='sim', include_other: bool = False, dim: Optional[phi.math._shape.Shape] = None) ‑> Union[phi.field._scene.Scene, tuple]</span>
+<span>def <span class="ident">list</span></span>(<span>parent_directory: str, name='sim', include_other: bool = False, dim: Optional[phiml.math._shape.Shape] = None) ‑> Union[phi.field._scene.Scene, tuple]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Lists all scenes inside the given directory.</p>
@@ -6033,7 +6066,7 @@ def list(parent_directory: str,
 </details>
 </dd>
 <dt id="phi.field.Scene.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>*scenes: <a title="phi.field.Scene" href="#phi.field.Scene">Scene</a>, dim: phi.math._shape.Shape = (batchᵇ=None)) ‑> phi.field._scene.Scene</span>
+<span>def <span class="ident">stack</span></span>(<span>*scenes: <a title="phi.field.Scene" href="#phi.field.Scene">Scene</a>, dim: phiml.math._shape.Shape = (batchᵇ=None)) ‑> phi.field._scene.Scene</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -6127,7 +6160,7 @@ def path(self) -&gt; str:
     return self._paths.native()</code></pre>
 </details>
 </dd>
-<dt id="phi.field.Scene.paths"><code class="name">var <span class="ident">paths</span> : phi.math._tensors.Tensor</code></dt>
+<dt id="phi.field.Scene.paths"><code class="name">var <span class="ident">paths</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -6635,7 +6668,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
 <span>class <span class="ident">GeometryMask</span></span>
-<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: Union[phi.math._tensors.Tensor, float] = 0.5)</span>
+<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: Union[phiml.math._tensors.Tensor, float] = 0.5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Deprecated since version 1.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
@@ -6666,7 +6699,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
 <span>class <span class="ident">SoftGeometryMask</span></span>
-<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: Union[phi.math._tensors.Tensor, float] = 0.5)</span>
+<span>(</span><span>geometry: phi.geom._geom.Geometry, balance: Union[phiml.math._tensors.Tensor, float] = 0.5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Deprecated since version 1.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
@@ -6697,7 +6730,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 </dd>
 <dt id="phi.field.StaggeredGrid"><code class="flex name class">
 <span>class <span class="ident">StaggeredGrid</span></span>
-<span>(</span><span>values: Any = 0.0, extrapolation: Union[float, <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>, dict, phi.field._field.Field] = 0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phi.math._shape.Shape] = None, **resolution_: Union[int, phi.math._tensors.Tensor])</span>
+<span>(</span><span>values: Any = 0.0, extrapolation: Union[float, phiml.math.extrapolation.Extrapolation, dict, phi.field._field.Field] = 0, bounds: Union[phi.geom._box.Box, float] = None, resolution: Union[int, phiml.math._shape.Shape] = None, **resolution_: Union[int, phiml.math._tensors.Tensor])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -6720,21 +6753,21 @@ Has to be one of the following:</p>
 <li><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>: resamples the Field to the staggered sample points</li>
 <li><code>Number</code>: uses the value for all sample points</li>
 <li><code>tuple</code> or <code>list</code>: interprets the sequence as vector, used for all sample points</li>
-<li><code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> with staggered shape: uses tensor values as grid values.
+<li><code>phiml.math.Tensor</code> with staggered shape: uses tensor values as grid values.
 Must contain a <code>vector</code> dimension with each slice consisting of one more element along the dimension they describe.
-Use <code><a title="phi.math.stack" href="../math/index.html#phi.math.stack">stack()</a></code> to manually create this non-uniform tensor.</li>
-<li>Function <code>values(x)</code> where <code>x</code> is a <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code> representing the physical location.
+Use <code>phiml.math.stack()</code> to manually create this non-uniform tensor.</li>
+<li>Function <code>values(x)</code> where <code>x</code> is a <code>phiml.math.Tensor</code> representing the physical location.
 The spatial dimensions of the grid will be passed as batch dimensions to the function.</li>
 </ul>
 </dd>
 <dt><strong><code>extrapolation</code></strong></dt>
 <dd>The grid extrapolation determines the value outside the <code>values</code> tensor.
-Allowed types: <code>float</code>, <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>, <code><a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a></code>.</dd>
+Allowed types: <code>float</code>, <code>phiml.math.Tensor</code>, <code>phiml.math.extrapolation.Extrapolation</code>.</dd>
 <dt><strong><code>bounds</code></strong></dt>
 <dd>Physical size and location of the grid as <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code>.
 If the resolution is determined through <code>resolution</code> of <code>values</code>, a <code>float</code> can be passed for <code>bounds</code> to create a unit box.</dd>
 <dt><strong><code>resolution</code></strong></dt>
-<dd>Grid resolution as purely spatial <code><a title="phi.math.Shape" href="../math/index.html#phi.math.Shape">Shape</a></code>.
+<dd>Grid resolution as purely spatial <code>phiml.math.Shape</code>.
 If <code>bounds</code> is given as a <code>Box</code>, the resolution may be specified as an <code>int</code> to be equal along all axes.</dd>
 <dt><strong><code>**resolution_</code></strong></dt>
 <dd>Spatial dimensions as keyword arguments. Typically either <code>resolution</code> or <code>spatial_dims</code> are specified.</dd>
@@ -6773,17 +6806,17 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
                 * `Field`: resamples the Field to the staggered sample points
                 * `Number`: uses the value for all sample points
                 * `tuple` or `list`: interprets the sequence as vector, used for all sample points
-                * `phi.math.Tensor` with staggered shape: uses tensor values as grid values.
+                * `phiml.math.Tensor` with staggered shape: uses tensor values as grid values.
                   Must contain a `vector` dimension with each slice consisting of one more element along the dimension they describe.
-                  Use `phi.math.stack()` to manually create this non-uniform tensor.
-                * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
+                  Use `phiml.math.stack()` to manually create this non-uniform tensor.
+                * Function `values(x)` where `x` is a `phiml.math.Tensor` representing the physical location.
                     The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
             extrapolation: The grid extrapolation determines the value outside the `values` tensor.
-                Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
+                Allowed types: `float`, `phiml.math.Tensor`, `phiml.math.extrapolation.Extrapolation`.
             bounds: Physical size and location of the grid as `phi.geom.Box`.
                 If the resolution is determined through `resolution` of `values`, a `float` can be passed for `bounds` to create a unit box.
-            resolution: Grid resolution as purely spatial `phi.math.Shape`.
+            resolution: Grid resolution as purely spatial `phiml.math.Shape`.
                 If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
             **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
         &#34;&#34;&#34;
@@ -6841,7 +6874,7 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
             return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
         else:
             values = []
-            for dim, component in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
+            for dim, component in zip(self.shape.spatial.names, self.values.vector):
                 old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
                 new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
                 widths = (new_lo - old_lo, new_hi - old_hi)
@@ -6916,12 +6949,12 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
 
     def staggered_tensor(self) -&gt; Tensor:
         &#34;&#34;&#34;
-        Stacks all component grids into a single uniform `phi.math.Tensor`.
+        Stacks all component grids into a single uniform `phiml.math.Tensor`.
         The individual components are padded to a common (larger) shape before being stacked.
         The shape of the returned tensor is exactly one cell larger than the grid `resolution` in every spatial dimension.
 
         Returns:
-            Uniform `phi.math.Tensor`.
+            Uniform `phiml.math.Tensor`.
         &#34;&#34;&#34;
         padded = []
         for dim, component in zip(self.resolution.names, math.unstack(self.values, &#39;vector&#39;)):
@@ -7016,26 +7049,26 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.staggered_tensor"><code class="name flex">
-<span>def <span class="ident">staggered_tensor</span></span>(<span>self) ‑> phi.math._tensors.Tensor</span>
+<span>def <span class="ident">staggered_tensor</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Stacks all component grids into a single uniform <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.
+<div class="desc"><p>Stacks all component grids into a single uniform <code>phiml.math.Tensor</code>.
 The individual components are padded to a common (larger) shape before being stacked.
 The shape of the returned tensor is exactly one cell larger than the grid <code>resolution</code> in every spatial dimension.</p>
 <h2 id="returns">Returns</h2>
-<p>Uniform <code><a title="phi.math.Tensor" href="../math/index.html#phi.math.Tensor">Tensor</a></code>.</p></div>
+<p>Uniform <code>phiml.math.Tensor</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def staggered_tensor(self) -&gt; Tensor:
     &#34;&#34;&#34;
-    Stacks all component grids into a single uniform `phi.math.Tensor`.
+    Stacks all component grids into a single uniform `phiml.math.Tensor`.
     The individual components are padded to a common (larger) shape before being stacked.
     The shape of the returned tensor is exactly one cell larger than the grid `resolution` in every spatial dimension.
 
     Returns:
-        Uniform `phi.math.Tensor`.
+        Uniform `phiml.math.Tensor`.
     &#34;&#34;&#34;
     padded = []
     for dim, component in zip(self.resolution.names, math.unstack(self.values, &#39;vector&#39;)):
@@ -7067,7 +7100,7 @@ If <code>values</code> is not uniform, it is padded as in <code><a title="phi.fi
 </details>
 </dd>
 <dt id="phi.field.StaggeredGrid.with_extrapolation"><code class="name flex">
-<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: <a title="phi.math.extrapolation.Extrapolation" href="../math/extrapolation.html#phi.math.extrapolation.Extrapolation">Extrapolation</a>)</span>
+<span>def <span class="ident">with_extrapolation</span></span>(<span>self, extrapolation: phiml.math.extrapolation.Extrapolation)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
@@ -7081,7 +7114,7 @@ If <code>values</code> is not uniform, it is padded as in <code><a title="phi.fi
         return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
     else:
         values = []
-        for dim, component in zip(self.shape.spatial.names, self.values.unstack(&#39;vector&#39;)):
+        for dim, component in zip(self.shape.spatial.names, self.values.vector):
             old_lo, old_hi = [int(v) for v in self.extrapolation.valid_outer_faces(dim)]
             new_lo, new_hi = [int(v) for v in extrapolation.valid_outer_faces(dim)]
             widths = (new_lo - old_lo, new_hi - old_hi)
