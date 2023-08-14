@@ -3,7 +3,7 @@ name: Update Documentation
 on:
   push:
     branches:
-      - 2.4-develop
+      - develop
 
 jobs:
   build-and-deploy:
