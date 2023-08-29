@@ -1,0 +1,3 @@
+[submodule "PhiML"]
+	path = PhiML
+	url = https://github.com/tum-pbs/PhiML.git
