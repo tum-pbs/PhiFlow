@@ -71,6 +71,11 @@ class UniformGrid(BaseBox):
         return stack(centers, dual(vector=self.vector.item_names))
 
     @property
+    def faces(self) -> Geometry:
+        slices = [self.stagger(d, True, True) for d in self.resolution.names]
+        return stack(slices, dual(vector=self.vector.item_names))
+
+    @property
     def face_normals(self) -> Tensor:
         normals = [vec(**{d: float(d == dim) for d in self.vector.item_names}) for dim in self.vector.item_names]
         return stack(normals, dual(vector=self.vector.item_names))

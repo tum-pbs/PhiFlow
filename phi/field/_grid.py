@@ -77,7 +77,7 @@ def CenteredGrid(values: Any = 0.,
         values = math.to_float(values)
     assert resolution.spatial_rank == elements.bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
     assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
-    assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
+    assert values.shape.spatial_rank == elements.bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
     assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
     return Field(elements, values, extrapolation)
 
@@ -145,7 +145,7 @@ def StaggeredGrid(values: Any = 0.,
                 else:  # Keep dim order from data and check it matches resolution
                     assert set(resolution_from_staggered_tensor(values, extrapolation)) == set(resolution), f"Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html"
         elif isinstance(values, (Geometry, Field, FieldInitializer)):
-            values = sample(values, elements, at='face', extrapolation=extrapolation)
+            values = sample(values, elements, at='face', boundary=extrapolation)
         elif callable(values):
             values = sample_function(values, elements, 'face', extrapolation)
             if elements.shape.shape.rank > 1:  # Different number of X and Y faces
@@ -163,7 +163,7 @@ def StaggeredGrid(values: Any = 0.,
     if 'vector' in values.shape:
         values = rename_dims(values, 'vector', dual(vector=values.vector.item_names))
     assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
-    assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
+    assert values.shape.spatial_rank == elements.bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
     assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
     return Field(elements, values, extrapolation)
 

@@ -1,10 +1,11 @@
 from numbers import Number
-from typing import Union, List, Callable
+from typing import Union, List, Callable, Optional
 
 from phi import math
 from phi.geom import Geometry, Box, Point, UniformGrid, UnstructuredMesh
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
+from phiml.math import unstack, channel
 from ._field import Field, FieldInitializer, as_boundary, slice_off_constant
 from phiml.math._tensors import may_vary_along
 
@@ -50,14 +51,22 @@ def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to:
     if not isinstance(value, (Field, Geometry, FieldInitializer)):
         return to.with_values(value)
     extrap = value.extrapolation if isinstance(value, Field) and keep_extrapolation else to.extrapolation
-    resampled = sample(value, to.elements, at='face' if to.is_staggered else 'center', extrapolation=extrap, **kwargs)
-    return to.with_values(resampled).with_extrapolation(extrap)
+    resampled = sample(value, to, at=to.sampled_at, boundary=extrap, dot_face_normal=to.geometry, **kwargs)
+    return Field(to.geometry, resampled, extrap)
+
+
+def reduce_sample(field: Union[Field, Geometry, FieldInitializer, Callable],
+                  geometry: Geometry or Field or Tensor,
+                  **kwargs) -> math.Tensor:
+    """Alias for `sample()` with `dot_face_normal=field.geometry`."""
+    return sample(field, geometry, at=field.sampled_at, boundary=field.boundary, dot_face_normal=field.geometry, **kwargs)
 
 
 def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
            geometry: Geometry or Field or Tensor,
            at: str = 'center',
-           extrapolation: Union[Extrapolation, Tensor, Number] = None,
+           boundary: Union[Extrapolation, Tensor, Number] = None,
+           dot_face_normal: Optional[Geometry] = None,
            **kwargs) -> math.Tensor:
     """
     Computes the field value inside the volume of the (batched) `geometry`.
@@ -77,7 +86,8 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
             When passing a `Field`, its `elements` are used as sample points.
             When passing a vector-valued `Tensor`, a `Point` geometry will be created.
         at: One of 'center', 'face', 'vertex'
-        extrapolation: Target extrapolation.
+        boundary: Target extrapolation.
+        dot_face_normal: If not `None´ and , `field` is a vector field and `at=='face'`, the dot product between sampled field vectors and the face normals is returned instead.
         **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
             By default, linear interpolation is used.
             Grids also support 6th order implicit sampling at mid-points.
@@ -88,20 +98,24 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
     # --- Process args ---
     assert at in ['center', 'face', 'vertex']
     if at == 'face':
-        assert extrapolation is not None, "boundaries must be given when sampling at faces"
+        assert boundary is not None, "boundaries must be given when sampling at faces"
     geometry = _get_geometry(geometry)
-    extrapolation = as_boundary(extrapolation) if extrapolation is not None else None
+    boundary = as_boundary(boundary) if boundary is not None else None
+    if dot_face_normal is True:
+        dot_face_normal = geometry
     if isinstance(field, Geometry):
         from ._field_math import mask
         field = mask(field)
     if isinstance(field, FieldInitializer):
-        return field._sample(geometry, at, extrapolation, **kwargs)
+        values = field._sample(geometry, at, boundary, **kwargs)
+        field = Field(geometry, values, boundary)
     if callable(field):
-        return sample_function(field, geometry, at, extrapolation)
+        values = sample_function(field, geometry, at, boundary)
+        field = Field(geometry, values, boundary)
     # --- Resample ---
     assert isinstance(field, Field), f"field must be a Field, Geometry or initializer but got {type(field)}"
     if at == 'center':
-        if field.is_centered and field.elements.shallow_equals(geometry):
+        if field.is_centered and field.sampled_elements.shallow_equals(geometry):
             return field.values
         if field.is_grid and not field.is_staggered:
             return sample_grid_at_centers(field, geometry, **kwargs)
@@ -114,19 +128,26 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
         else:
             return scatter_to_centers(field, geometry, **kwargs)
     elif at == 'face':
-        if field.is_staggered and field.elements.shallow_equals(geometry) and field.elements.face_shape == geometry.face_shape:
+        if dot_face_normal is not None and channel(field):
+            normals = dot_face_normal.face_normals
+            if not spatial(normals) and not instance(normals) and math.sum(normals != 0) == geometry.spatial_rank:  # axis-aligned normals
+                components = unstack(field, field.shape.channel.name)
+                faces = math.unstack(slice_off_constant(geometry.faces, geometry.boundary_faces, boundary), dual)
+                sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
+                return math.stack(sampled, dual(dot_face_normal.face_shape))
+        if field.is_staggered and field.geometry.shallow_equals(geometry) and field.geometry.face_shape == geometry.face_shape:
             return field.values
         if field.is_grid and field.is_centered:
-            return sample_grid_at_faces(field, geometry, field.extrapolation, **kwargs)
+            return sample_grid_at_faces(field, geometry, boundary, **kwargs)
         elif field.is_grid and field.is_staggered:
             raise NotImplementedError
             # sample_staggered_grid(field, geom)
         if field.is_mesh and field.is_centered:
-            if field.elements != geometry:
+            if not field.geometry.shallow_equals(geometry):
                 raise NotImplementedError("Resampling to different mesh is not yet supported")
-            return centroid_to_faces(field, extrapolation, **kwargs)
+            return centroid_to_faces(field, boundary, **kwargs)
         else:
-            return scatter_to_faces(field, geometry, extrapolation, **kwargs)
+            return scatter_to_faces(field, geometry, boundary, **kwargs)
         raise NotImplementedError
         # geom_ch = channel(geometry).without('vector')
         # assert all(dim not in field.shape for dim in geom_ch)
@@ -139,7 +160,7 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
 
 def _get_geometry(geometry):
     if isinstance(geometry, Field):
-        return geometry.elements
+        return geometry.geometry
     elif isinstance(geometry, Tensor) and 'vector' in geometry.shape:
         return Point(geometry)
     elif isinstance(geometry, Geometry):
@@ -149,7 +170,7 @@ def _get_geometry(geometry):
 
 
 def scatter_to_centers(self: Field, geometry: Geometry, soft=False, scatter=False, outside_handling='discard', balance=0.5) -> Tensor:
-    if geometry == self.elements:
+    if geometry == self.geometry:
         return self.values
     if self.extrapolation is PERIODIC:
         raise NotImplementedError("Periodic PointClouds not yet supported")
@@ -157,16 +178,16 @@ def scatter_to_centers(self: Field, geometry: Geometry, soft=False, scatter=Fals
         assert not soft, "Cannot soft-sample when scatter=True"
         return grid_scatter(self, geometry.bounds, geometry.resolution, outside_handling)
     else:
-        assert not isinstance(self._elements, Point), "Cannot sample Point-like elements with scatter=False"
+        assert not isinstance(self._geometry, Point), "Cannot sample Point-like elements with scatter=False"
         if may_vary_along(self._values, instance(self._values) & spatial(self._values)):
             raise NotImplementedError("Non-scatter resampling not yet supported for varying values")
         idx0 = (instance(self._values) & spatial(self._values)).first_index()
         outside = self.boundary.value if isinstance(self.boundary, ConstantExtrapolation) else 0
         if soft:
-            frac_inside = self.elements.approximate_fraction_inside(geometry, balance)
+            frac_inside = self.geometry.approximate_fraction_inside(geometry, balance)
             return frac_inside * self._values[idx0] + (1 - frac_inside) * outside
         else:
-            return math.where(self.elements.lies_inside(geometry.center), self._values[idx0], outside)
+            return math.where(self.geometry.lies_inside(geometry.center), self._values[idx0], outside)
 
 
 def scatter_to_faces(field: Field, geometry: Geometry, extrapolation: Extrapolation, **kwargs) -> Tensor:
@@ -201,7 +222,7 @@ def sample_grid_at_centers(self: Field, geometry: Geometry, order=2, implicit: S
     if geometry == self.bounds:
         return math.mean(self.values, spatial(self))
     if isinstance(geometry, UniformGrid):
-        if self.elements == geometry:
+        if self.geometry == geometry:
             return self.values
         elif math.close(self.dx, geometry.size):
             if all([math.close(offset, geometry.half_size) or math.close(offset, 0) for offset in math.abs(self.bounds.lower - geometry.bounds.lower)]):
@@ -316,7 +337,7 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
 
 
 def centroid_to_faces(field: Field, extrapolation: Extrapolation, scheme='upwind-linear', upwind_vectors: Field = None, gradient: Field = None):
-    mesh: UnstructuredMesh = field.elements
+    mesh: UnstructuredMesh = field.geometry
     neighbor_val = mesh.pad_boundary(field.values, extrapolation)
     if scheme == 'upwind-linear':
         flows_out = (upwind_vectors or field).values.vector @ mesh.face_normals.vector >= 0

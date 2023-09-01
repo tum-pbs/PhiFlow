@@ -21,7 +21,7 @@ from ._field import Field, Field as SampledField, Field as Grid, Field as PointC
 from ._mask import HardGeometryMask, SoftGeometryMask as GeometryMask, SoftGeometryMask
 from ._grid import CenteredGrid, StaggeredGrid
 from ._point_cloud import PointCloud
-from ._resample import sample, sample as reduce_sample, resample
+from ._resample import sample, reduce_sample, resample
 from ._noise import Noise
 from ._angular_velocity import AngularVelocity
 from phi.math import (
