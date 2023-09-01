@@ -95,7 +95,7 @@ def make_incompressible(velocity: Field,
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
     with NUMPY:
         accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
-        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, at='face' if velocity.is_staggered else 'center')
+        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, at=velocity.sampled_at)
     all_active = active is None
     if active is None:
         active = accessible.with_extrapolation(extrapolation.NONE)
@@ -115,7 +115,7 @@ def make_incompressible(velocity: Field,
         solve = copy_with(solve, x0=expand(solve.x0, batch(math.merge_shapes(*obstacles))))
     pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at='face' if velocity.is_staggered else 'center', order=order) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at=velocity.sampled_at, order=order) * hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure
 

@@ -10,37 +10,39 @@ Examples:
 from phi.math import Solve, channel
 
 from phi import math
-from phi.field import Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
+from phi.field import Field, PointCloud, Grid, sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid, resample, reduce_sample
 from phi.geom import Geometry
 
 
-def euler(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
+def euler(data: Field, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
     """ Euler integrator. """
+    # ToDo requires extrapolation for staggered
     if v0 is None:
-        v0 = sample(velocity, elements)
-    return elements.shifted(v0 * dt)
+        v0 = sample(velocity, velocity.points)
+    return data.points + v0 * dt
 
 
-def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
+def rk4(data: Field, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
     """ Runge-Kutta-4 integrator. """
     if v0 is None:
-        v0 = sample(velocity, elements)
-    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
-    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
-    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
+        v0 = resample(velocity, to=data)
+    vel_half = sample(velocity, data.sampled_elements.shifted(0.5 * dt * v0))
+    vel_half2 = sample(velocity, data.sampled_elements.shifted(0.5 * dt * vel_half))
+    vel_full = sample(velocity, data.sampled_elements.shifted(dt * vel_half2))
     vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
-    return elements.shifted(dt * vel_rk4)
+    return data.sampled_elements.shifted(dt * vel_rk4)
 
 
-def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = None) -> Geometry:
+def finite_rk4(data: Field, velocity: Grid, dt: float, v0: math.Tensor = None) -> Geometry:
     """ Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN. """
-    v0 = sample(velocity, elements)
-    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
-    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
-    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
+    if v0 is None:
+        v0 = resample(velocity, to=data)
+    vel_half = sample(velocity, data.sampled_elements.shifted(0.5 * dt * v0))
+    vel_half2 = sample(velocity, data.sampled_elements.shifted(0.5 * dt * vel_half))
+    vel_full = sample(velocity, data.sampled_elements.shifted(dt * vel_half2))
     vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
     vel_nan = math.where(math.is_finite(vel_rk4), vel_rk4, v0)
-    return elements.shifted(dt * vel_nan)
+    return data.sampled_elements.shifted(dt * vel_nan)
 
 
 
@@ -99,7 +101,7 @@ def finite_difference(grid: Grid,
         if order == 4:
             amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
-            grad_grid.gradient[0].elements
+            grad_grid.gradient[0].sampled_elements
             velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
             amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
         amount = sum(amounts)
@@ -126,7 +128,7 @@ def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
     Returns:
         Advected point cloud
     """
-    new_elements = integrator(field.elements, velocity, dt)
+    new_elements = integrator(field.sampled_elements, velocity, dt)
     return field.with_elements(new_elements)
 
 
@@ -151,7 +153,7 @@ def semi_lagrangian(field: Field,
         Field with same sample points as `field`
 
     """
-    lookup = integrator(field.elements, velocity, -dt)
+    lookup = integrator(field, velocity, -dt)
     interpolated = reduce_sample(field, lookup)
     return field.with_values(interpolated)
 
@@ -176,18 +178,15 @@ def mac_cormack(field: Field,
 
     Returns:
         Advected field of type `type(field)`
-
     """
-    v0 = sample(velocity, field.elements)
-    points_bwd = integrator(field.elements, velocity, -dt, v0=v0)
-    points_fwd = integrator(field.elements, velocity, dt, v0=v0)
-    # Semi-Lagrangian advection
-    field_semi_la = field.with_values(reduce_sample(field, points_bwd))
-    # Inverse semi-Lagrangian advection
-    field_inv_semi_la = field.with_values(reduce_sample(field_semi_la, points_fwd))
-    # correction
-    new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
-    # Address overshoots
+    v0 = resample(velocity, to=field).values
+    points_bwd = integrator(field, velocity, -dt, v0=v0)
+    points_fwd = integrator(field, velocity, dt, v0=v0)
+    # --- forward+backward semi-Lagrangian advection ---
+    fwd_adv = field.with_values(reduce_sample(field, points_bwd))
+    bwd_adv = field.with_values(reduce_sample(fwd_adv, points_fwd))
+    new_field = fwd_adv + correction_strength * 0.5 * (field - bwd_adv)
+    # --- Clamp overshoots ---
     limits = field.closest_values(points_bwd)
     lower_limit = math.min(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])
     upper_limit = math.max(limits, [f'closest_{dim}' for dim in field.shape.spatial.names])

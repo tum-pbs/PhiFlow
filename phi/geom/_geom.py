@@ -50,6 +50,10 @@ class Geometry:
         raise NotImplementedError(self.__class__)
 
     @property
+    def faces(self) -> 'Geometry':
+        raise NotImplementedError(self.__class__)
+
+    @property
     def face_centers(self) -> Tensor:
         """
         Center of face connecting a pair of cells. Shape `(elements, ~, vector)`.
@@ -69,9 +73,10 @@ class Geometry:
     @property
     def face_normals(self) -> Tensor:
         """
-        Normal vector of face connecting a pair of cells. Shape `(elements, ~, vector)`.
-        Unconnected cells are assigned the vector 0.
-        The vector points out of cells and into ~.
+        Normal vectors of cell faces, including boundary faces. Shape `(elements, ~, vector)`.
+        For meshes, The vectors point out of the primal cells and into the dual cells.
+
+        Instance/spatial dimensions along which the normal does not vary may not be included in the result tensor's shape.
         """
         raise NotImplementedError(self.__class__)
 
@@ -632,6 +637,10 @@ class Point(Geometry):
     def shape(self) -> Shape:
         return self._location.shape
 
+    @property
+    def faces(self) -> 'Geometry':
+        return self
+
     def unstack(self, dimension: str) -> tuple:
         return tuple(Point(loc) for loc in math.unstack(self._location, dimension))
 
@@ -694,11 +703,11 @@ class Point(Geometry):
 
     @property
     def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
-        raise NotImplementedError
+        return {}
 
     @property
     def face_shape(self) -> Shape:
-        return math.EMPTY_SHAPE
+        return self.shape
 
     def __getitem__(self, item):
         return Point(self._location[_keep_vector(slicing_dict(self, item))])

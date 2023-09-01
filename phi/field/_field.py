@@ -1,11 +1,11 @@
 import warnings
 from numbers import Number
-from typing import Callable, Union, Tuple, Dict, Any
+from typing import Callable, Union, Tuple, Dict
 
 from phi import math
-from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
-from phi.math.extrapolation import Extrapolation, ConstantExtrapolation
 from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, UnstructuredMesh, Sphere
+from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
+from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
 
 
@@ -31,7 +31,7 @@ class Field:
     """
 
     def __init__(self,
-                 elements: Union[Geometry, Tensor],
+                 geometry: Union[Geometry, Tensor],
                  values: Union[Tensor, Number, bool, Callable, FieldInitializer, Geometry, 'Field'],
                  boundary: Union[Number, Extrapolation, 'Field', dict],
                  **sampling_kwargs):
@@ -41,20 +41,21 @@ class Field:
           values: values corresponding to elements
           extrapolation: values outside elements
         """
-        assert isinstance(elements, Geometry), elements
+        assert isinstance(geometry, Geometry), geometry
         self._boundary: Extrapolation = as_boundary(boundary)
-        self._elements: Geometry = elements
+        self._geometry: Geometry = geometry
         if isinstance(values, (Tensor, Number, bool)):
             values = wrap(values)
         else:
             from ._resample import sample
-            values = sample(values, elements, 'center', self._boundary, **sampling_kwargs)
-        if non_batch(elements).non_channel not in values.shape:
-            values = expand(wrap(values), non_batch(elements).non_channel)
+            values = sample(values, geometry, 'center', self._boundary, **sampling_kwargs)
+        if non_batch(geometry).non_channel not in values.shape:
+            values = expand(wrap(values), non_batch(geometry).non_channel)
         self._values: Tensor = values
+        math.merge_shapes(values, non_batch(self.sampled_elements.shape).non_channel)  # shape check
 
     @property
-    def elements(self) -> Geometry:
+    def geometry(self) -> Geometry:
         """
         Returns a geometrical representation of the discrete volume elements.
         The result is a tuple of Geometry objects, each of which can have additional spatial (but not batch) dimensions.
@@ -63,7 +64,26 @@ class Field:
         
         If this Field has no discrete points, this method returns an empty geometry.
         """
-        return self._elements
+        return self._geometry
+
+    @property
+    def faces(self):
+        return slice_off_constant(self._geometry.faces, self._geometry.boundary_faces, self.extrapolation)
+
+    @property
+    def sampled_elements(self) -> Geometry:
+        """
+        If the values represent are sampled at the element centers or represent the whole element, returns `self.geometry`.
+        If the values are sampled at the faces, returns `self.faces`.
+        """
+        if self.is_staggered:
+            return self.faces
+        else:
+            return self._geometry
+
+    @property
+    def elements(self):
+        raise SyntaxError(f"Field.elements is deprecated. Use Field.geometry or Field.sampled_elements instead.")
 
     @property
     def is_centered(self):
@@ -71,7 +91,7 @@ class Field:
 
     @property
     def is_staggered(self):
-        return bool(dual(self._values)) and dual(self._values) in self._elements.face_shape
+        return bool(dual(self._values)) and dual(self._values) in self._geometry.face_shape
 
     @property
     def points(self) -> Tensor:
@@ -81,9 +101,9 @@ class Field:
         # { particles }       for graph
         # { ~particles }      for graph edges
         if self.is_centered:
-            return slice_off_constant(self._elements.center, self._elements.boundary_elements, self.extrapolation)
+            return slice_off_constant(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
         elif self.is_staggered:
-            return slice_off_constant(self._elements.face_centers, self._elements.boundary_faces, self.extrapolation)
+            return slice_off_constant(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
         else:
             raise NotImplementedError
 
@@ -131,12 +151,12 @@ class Field:
         * The channel dimensions match the channels of this Field
         """
         if self.is_staggered:
-            return self.resolution & non_dual(self._values).without(self.resolution) & self._elements.shape['vector']
+            return self.resolution & non_dual(self._values).without(self.resolution) & self._geometry.shape['vector']
         return self.resolution & non_dual(self._values).without(self.resolution)
 
     @property
     def resolution(self):
-        return self._elements.shape.non_channel.non_dual.non_batch
+        return self._geometry.shape.non_channel.non_dual.non_batch
 
     @property
     def spatial_rank(self) -> int:
@@ -144,7 +164,7 @@ class Field:
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         This is equal to the spatial rank of the `data`.
         """
-        return self._elements.spatial_rank
+        return self._geometry.spatial_rank
 
     @property
     def bounds(self) -> BaseBox:
@@ -158,8 +178,8 @@ class Field:
 
         Fields whose spatial rank is determined only during sampling return an empty `Box`.
         """
-        if isinstance(self._elements, UniformGrid):
-            return self._elements.bounds
+        if isinstance(self._geometry, UniformGrid):
+            return self._geometry.bounds
         else:
             return None
 
@@ -167,29 +187,29 @@ class Field:
 
     @property
     def is_grid(self):
-        return isinstance(self._elements, UniformGrid)
+        return isinstance(self._geometry, UniformGrid)
 
     @property
     def is_mesh(self):
-        return isinstance(self._elements, UnstructuredMesh)
+        return isinstance(self._geometry, UnstructuredMesh)
 
     @property
     def is_point_cloud(self):
-        if isinstance(self._elements, (UniformGrid, UnstructuredMesh)):
+        if isinstance(self._geometry, (UniformGrid, UnstructuredMesh)):
             return False
-        if isinstance(self._elements, (BaseBox, Sphere, Point)):
+        if isinstance(self._geometry, (BaseBox, Sphere, Point)):
             return True
         return True
 
     @property
     def dx(self) -> Tensor:
-        assert spatial(self._elements), f"dx is only defined for elements with spatial dims but Field has elements {self._elements.shape}"
+        assert spatial(self._geometry), f"dx is only defined for elements with spatial dims but Field has elements {self._geometry.shape}"
         return self.bounds.size / self.resolution
 
     @property
     def cells(self):
-        assert isinstance(self._elements, (UniformGrid, UnstructuredMesh))
-        return self._elements
+        assert isinstance(self._geometry, (UniformGrid, UnstructuredMesh))
+        return self._geometry
 
     def at_centers(self, **kwargs) -> 'Field':
         """
@@ -207,15 +227,19 @@ class Field:
         if self.is_centered:
             return self
         from ._resample import sample
-        values = sample(self, self._elements, at='center', extrapolation=self._boundary, **kwargs)
-        return Field(self._elements, values, self._boundary)
+        values = sample(self, self._geometry, at='center', boundary=self._boundary, **kwargs)
+        return Field(self._geometry, values, self._boundary)
 
     def at_faces(self, **kwargs) -> 'Field':
         if self.is_staggered:
             return self
         from ._resample import sample
-        values = sample(self, self._elements, at='face', extrapolation=self._boundary, **kwargs)
-        return Field(self._elements, values, self._boundary)
+        values = sample(self, self._geometry, at='face', boundary=self._boundary, **kwargs)
+        return Field(self._geometry, values, self._boundary)
+
+    @property
+    def sampled_at(self):
+        return 'face' if self.is_staggered else 'center'
 
     def at(self, representation: 'Field', keep_extrapolation=False, **kwargs) -> 'Field':
         """
@@ -230,7 +254,7 @@ class Field:
         from ._resample import resample
         return resample(self, representation, keep_extrapolation, **kwargs)
 
-    def closest_values(self, points: Geometry):
+    def closest_values(self, points: Tensor):
         """
         Sample the closest grid point values of this field at the world-space locations (in physical units) given by `points`.
         Points must have a single channel dimension named `vector`.
@@ -246,25 +270,27 @@ class Field:
             These values are stacked along the new dimensions `'closest_<dim>'` where `<dim>` refers to the name of a spatial dimension.
         """
         warnings.warn("Field.closest_values() is deprecated.", DeprecationWarning, stacklevel=2)
+        if isinstance(points, Geometry):
+            points = points.center
         # --- CenteredGrid ---
-        local_points = self.box.global_to_local(points.center) * self.resolution - 0.5
+        local_points = self.box.global_to_local(points) * self.resolution - 0.5
         return math.closest_grid_values(self.values, local_points, self.extrapolation)
         # --- StaggeredGrid ---
         if 'staggered_direction' in points.shape:
-            points_ = math.unstack(points, 'staggered_direction')
+            points_ = math.unstack(points, '~vector')
             channels = [component.closest_values(p) for p, component in zip(points_, self.vector.unstack())]
         else:
             channels = [component.closest_values(points) for component in self.vector.unstack()]
-        return math.stack(channels, points.shape['vector'])
+        return math.stack(channels, points.shape['~vector'])
 
     def with_values(self, values):
         """ Returns a copy of this field with `values` replaced. """
-        return Field(self._elements, values, self._boundary)
+        return Field(self._geometry, values, self._boundary)
 
     def with_extrapolation(self, extrapolation: Extrapolation):
         """ Returns a copy of this field with `values` replaced. """
         extrapolation = as_boundary(extrapolation)
-        return Field(self._elements, self._values, extrapolation)
+        return Field(self._geometry, self._values, extrapolation)
         # ToDo StaggeredGrid
         if all([extrapolation.valid_outer_faces(dim) == self.extrapolation.valid_outer_faces(dim) for dim in self.resolution.names]):
             return StaggeredGrid(self.values, extrapolation=extrapolation, bounds=self.bounds)
@@ -280,15 +306,17 @@ class Field:
 
     def with_bounds(self, bounds: Box):
         """ Returns a copy of this field with `bounds` replaced. """
-        return Field(self._elements, self._values, self._boundary)
+        return Field(self._geometry, self._values, self._boundary)
 
-    def with_elements(self, elements: Geometry):
+    def with_geometry(self, elements: Geometry):
         """ Returns a copy of this field with `elements` replaced. """
-        assert non_batch(elements) == non_batch(self._elements), f"Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self._elements.shape}"
+        assert non_batch(elements) == non_batch(self._geometry), f"Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self._geometry.shape}"
         return Field(elements, self._values, self._boundary)
 
+    with_elements = with_geometry
+
     def shifted(self, delta):
-        return self.with_elements(self.elements.shifted(delta))
+        return self.with_elements(self._geometry.shifted(delta))
 
     def staggered_tensor(self) -> Tensor:
         """
@@ -366,13 +394,14 @@ class Field:
         item = slicing_dict(self, item)
         if not item:
             return self
-        if self.is_staggered:
-            if 'vector' in item:
-                assert isinstance(self._elements, UniformGrid), f"Vector slicing is only supported for grids"
-                item['~vector'] = item['vector']
-                del item['vector']
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
-        elements = self.elements[item_without_vec]
+        if self.is_staggered and 'vector' in item and '~vector' in self.geometry.face_shape:
+            assert isinstance(self._geometry, UniformGrid), f"Vector slicing is only supported for grids"
+            item['~vector'] = item['vector']
+            del item['vector']
+            elements = self.sampled_elements[item]
+        else:
+            elements = self._geometry[item_without_vec]
         values = self._values[item]
         extrapolation = self._boundary[item]
         return Field(elements, values, extrapolation)
@@ -403,13 +432,13 @@ class Field:
         return '_values', '_boundary'
 
     def __variable_attrs__(self):
-        return '_values', '_elements'
+        return '_values', '_geometry'
 
     def __expand__(self, dims: Shape, **kwargs) -> 'Field':
         return self.with_values(expand(self.values, dims, **kwargs))
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Field':
-        elements = math.rename_dims(self._elements, dims, new_dims)
+        elements = math.rename_dims(self._geometry, dims, new_dims)
         values = math.rename_dims(self._values, dims, new_dims)
         extrapolation = math.rename_dims(self._boundary, dims, new_dims, **kwargs)
         return Field(elements, values, extrapolation)
@@ -418,7 +447,7 @@ class Field:
         if not isinstance(other, Field):
             return False
         # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
-        if type(self._elements) is not type(other._elements):
+        if type(self._geometry) is not type(other._geometry):
             return False
         if self._boundary != other.boundary:
             return False
@@ -453,14 +482,7 @@ class Field:
         return self._op2(other, lambda d1, d2: d2 - d1)
 
     def __add__(self, other):
-        def inner_add(d1, d2):
-            from phiml.math._tensors import TensorStack
-            if isinstance(d1, TensorStack) and isinstance(d2, TensorStack):
-                print("test")
-                pass
-            return d1 + d2
-
-        return self._op2(other, inner_add)
+        return self._op2(other, lambda d1, d2: d1 - d2)
 
     __radd__ = __add__
 
@@ -503,12 +525,12 @@ class Field:
         if isinstance(other, Geometry):
             raise ValueError(f"Cannot combine {self.__class__.__name__} with a Geometry, got {type(other)}")
         if isinstance(other, Field):
-            if self._elements == other._elements:
+            if self._geometry == other._geometry:
                 values = operator(self._values, other.values)
                 extrapolation_ = operator(self._boundary, other.extrapolation)
-                return Field(self._elements, values, extrapolation_)
+                return Field(self._geometry, values, extrapolation_)
             from ._resample import sample
-            other_values = sample(other, self._elements)
+            other_values = sample(other, self._geometry)
             values = operator(self._values, other_values)
             extrapolation_ = operator(self._boundary, other.extrapolation)
             return self.with_values(values).with_extrapolation(extrapolation_)
@@ -562,26 +584,6 @@ def as_boundary(obj: Union[Extrapolation, float, Field, None]) -> Extrapolation:
         return math.extrapolation.as_extrapolation(obj)
 
 
-def slice_off_constant(values: Union[Tensor, Shape], boundary_slices: Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]], extrapolation: Extrapolation):
-    for name, (lower, upper) in boundary_slices.items():
-        lower_valid, upper_valid = extrapolation.valid_outer_faces(name)
-        if not lower_valid:
-            slice_off_(lower)
-        if not upper_valid:
-            slice_off_(upper)
-        # if len(boundary_slice) == 1:
-        #     values = values[{dim: _invert_slice(s) for dim, s in boundary_slice.items()}]
-        #     raise NotImplementedError  # ToDo this has not been tested
-        # elif len(boundary_slice) == 2:
-        #     unstack_dim = values.shape[next(iter(boundary_slice))]
-        #     val_list = list(math.unstack(values, unstack_dim))
-        #     idx = unstack_dim.item_names[0].index(boundary_slice[unstack_dim.name])
-        #     val_list[idx] = val_list[idx][{dim: _invert_slice(s) for dim, s in boundary_slice.items() if dim != unstack_dim.name}]
-        #     values = math.stack(val_list, unstack_dim)
-        # else:
-        #     raise NotImplementedError("Higher-order non-uniform slices not yet supported")
-    return values
-
-
-def _invert_slice(s: slice):
-    raise NotImplementedError
+def slice_off_constant(obj, boundary_slices: Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]], extrapolation: Extrapolation):
+    determined_slices = [s for k, s in boundary_slices.items() if extrapolation.determines_boundary_values(k)]
+    return math.slice_off(obj, *determined_slices)
