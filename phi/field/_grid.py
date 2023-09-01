@@ -59,11 +59,9 @@ def CenteredGrid(values: Any = 0.,
     if resolution is None and not resolution_:
         assert isinstance(values, math.Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
         resolution = values.shape.spatial
-        bounds = _get_bounds(bounds, resolution)
         elements = UniformGrid(resolution, bounds)
     else:
         resolution = _get_resolution(resolution, resolution_, bounds)
-        bounds = _get_bounds(bounds, resolution)
         elements = UniformGrid(resolution, bounds)
         if isinstance(values, math.Tensor):
             values = math.expand(values, resolution)
@@ -77,7 +75,7 @@ def CenteredGrid(values: Any = 0.,
             values = math.expand(math.tensor(values), resolution)
     if values.dtype.kind not in (float, complex):
         values = math.to_float(values)
-    assert resolution.spatial_rank == bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
+    assert resolution.spatial_rank == elements.bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
     assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
     assert values.shape.spatial_rank == bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
     assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
@@ -133,12 +131,10 @@ def StaggeredGrid(values: Any = 0.,
             resolution = resolution_from_staggered_tensor(values, extrapolation)
         else:
             resolution = spatial(values)
-        bounds = _get_bounds(bounds, resolution)
         bounds = bounds or Box(math.const_vec(0, resolution), math.wrap(resolution, channel('vector')))
         elements = UniformGrid(resolution, bounds)
     else:
         resolution = _get_resolution(resolution, resolution_, bounds)
-        bounds = _get_bounds(bounds, resolution)
         elements = UniformGrid(resolution, bounds)
         if isinstance(values, math.Tensor):
             if not spatial(values):
@@ -163,7 +159,7 @@ def StaggeredGrid(values: Any = 0.,
             values = expand_staggered(math.tensor(values), resolution, extrapolation)
     if values.dtype.kind not in (float, complex):
         values = math.to_float(values)
-    assert resolution.spatial_rank == bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
+    assert resolution.spatial_rank == elements.bounds.spatial_rank, f"Resolution {resolution} does not match bounds {elements.bounds}"
     if 'vector' in values.shape:
         values = rename_dims(values, 'vector', dual(vector=values.vector.item_names))
     assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
@@ -227,17 +223,6 @@ def _sample_function(f, elements: Geometry):
         values = math.map_s2b(f)(elements.center)
     assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
     return values
-
-
-def _get_bounds(bounds: Union[Box, float, None], resolution: Shape):
-    if bounds is None:
-        return Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
-    if isinstance(bounds, Box):
-        assert set(bounds.vector.item_names) == set(resolution.names), f"bounds dimensions {bounds.vector.item_names} must match resolution {resolution}"
-        return bounds
-    if isinstance(bounds, (int, float)):
-        return Box(math.const_vec(0, resolution), math.const_vec(bounds, resolution))
-    raise ValueError(f"bounds must be a Box, float or None but got {type(bounds).__name__}")
 
 
 def _get_resolution(resolution: Shape, resolution_: dict, bounds: Box):

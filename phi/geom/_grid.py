@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, Union
 
 import numpy as np
 
@@ -6,8 +6,19 @@ from ._box import BaseBox, Box, Cuboid
 from ._geom import Geometry, GeometryException
 from .. import math
 from ..math import Shape, Tensor, Extrapolation, stack, vec
-from phiml.math._shape import shape_stack, dual
+from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel
 from ..math.magic import slicing_dict
+
+
+def _get_bounds(bounds: Union[Box, float, None], resolution: Shape):
+    if bounds is None:
+        return Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
+    if isinstance(bounds, Box):
+        assert set(bounds.vector.item_names) == set(resolution.names), f"bounds dimensions {bounds.vector.item_names} must match resolution {resolution}"
+        return bounds
+    if isinstance(bounds, (int, float)):
+        return Box(math.const_vec(0, resolution), math.const_vec(bounds, resolution))
+    raise ValueError(f"bounds must be a Box, float or None but got {type(bounds).__name__}")
 
 
 class UniformGrid(BaseBox):
@@ -15,12 +26,12 @@ class UniformGrid(BaseBox):
     An instance of UniformGrid represents all cells of a regular grid as a batch of boxes.
     """
 
-    def __init__(self, resolution: Shape, bounds: BaseBox):
-        assert resolution.spatial_rank == resolution.rank, f"resolution must be purely spatial but got {resolution}"
-        assert resolution.spatial_rank == bounds.spatial_rank, f"bounds must match dimensions of resolution but got {bounds} for resolution {resolution}"
-        assert resolution.is_uniform, f"spatial dimensions must form a uniform grid but got {resolution}"
+    def __init__(self, resolution: Shape = None, bounds: BaseBox = None, **resolution_):
+        assert resolution is None or resolution.is_uniform, f"spatial dimensions must form a uniform grid but got {resolution}"
+        resolution = (resolution or EMPTY_SHAPE).spatial & spatial(**resolution_)
+        bounds = _get_bounds(bounds, resolution)
         assert set(bounds.vector.item_names) == set(resolution.names)
-        self._resolution = resolution.only(bounds.vector.item_names, reorder=True)
+        self._resolution = resolution.only(bounds.vector.item_names, reorder=True)  # reorder only
         self._bounds = bounds
         self._shape = self._resolution & bounds.shape.non_spatial
 
