@@ -521,8 +521,8 @@ def get_default_limits(f: Field) -> Box:
     # if f.bounds is not None:
     #     return f.bounds
     # --- Determine element size ---
-    if (f.elements.bounding_half_extent() > 0).any:
-        size = 2 * f.elements.bounding_half_extent()
+    if (f.geometry.bounding_half_extent() > 0).any:
+        size = 2 * f.geometry.bounding_half_extent()
     elif f.is_point_cloud and f.spatial_rank == 1:
         bounds = f.bounds
         count = non_batch(f).non_dual.non_channel.volume
@@ -532,13 +532,13 @@ def get_default_limits(f: Field) -> Box:
     #     upper = expand(equal_spacing.max + .5, vector)
     #     size =
     else:
-        size = expand(0, f.elements.shape['vector'])
+        size = expand(0, f.geometry.shape['vector'])
     if (size == 0).all:
-        size = math.const_vec(.1, f.elements.shape['vector'])
-    bounds = data_bounds(f.elements.center).largest(channel)
+        size = math.const_vec(.1, f.geometry.shape['vector'])
+    bounds = data_bounds(f.geometry.face_centers).largest(channel)
     extended_bounds = Cuboid(bounds.center, bounds.half_size + size * 0.6)
     extended_bounds = Box(math.min(extended_bounds.lower, size.shape.without('vector')), math.max(extended_bounds.upper, size.shape.without('vector')))
-    if isinstance(f.elements, Point):
+    if isinstance(f.geometry, Point):
         lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
         upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.lower * .9, extended_bounds.upper)
         extended_bounds = Box(lower, upper)
@@ -548,6 +548,6 @@ def get_default_limits(f: Field) -> Box:
 def only_stored_elements(f: Field):
     if math.get_format(f.points) == 'dense':
         return f
-    elements = f.elements.at(f.points._values)
+    elements = f.sampled_elements.at(f.points._values)
     values = f.values[f.points._indices]
     return Field(elements, values, math.extrapolation.NONE)

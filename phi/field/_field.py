@@ -83,7 +83,9 @@ class Field:
 
     @property
     def elements(self):
-        raise SyntaxError(f"Field.elements is deprecated. Use Field.geometry or Field.sampled_elements instead.")
+        # raise SyntaxError("Field.elements is deprecated. Use Field.geometry or Field.sampled_elements instead.")
+        warnings.warn("Field.elements is deprecated. Use Field.geometry or Field.sampled_elements instead. Field.elements now defaults to Field.geometry.", DeprecationWarning, stacklevel=2)
+        return self._geometry
 
     @property
     def is_centered(self):
