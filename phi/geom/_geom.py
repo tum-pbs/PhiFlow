@@ -363,7 +363,11 @@ class Geometry:
         The geometry is rotated about its center point.
 
         Args:
-          angle: scalar (2d) or vector (3D+) representing delta angle
+            angle: Delta rotation.
+                Either
+
+                * Angle(s): scalar angle in 2d or euler angles along `vector` in 3D or higher.
+                * Matrix: d⨯d rotation matrix
 
         Returns:
             Rotated `Geometry`
@@ -753,3 +757,22 @@ def _keep_vector(dim_selection: dict) -> dict:
     if isinstance(item['vector'], int) or (isinstance(item['vector'], str) and ',' not in item['vector']):
         item['vector'] = (item['vector'],)
     return item
+
+
+def rotate(geometry: Geometry, rot: Union[float, Tensor], pivot: Tensor = None) -> Geometry:
+    """
+    Rotate a `Geometry` about an axis given by `rot` and `pivot`.
+
+    Args:
+        geometry: `Geometry` to rotate
+        rot: Rotation, either as Euler angles or rotation matrix.
+        pivot: Any point lying on the rotation axis.
+            If `None`, rotates about the center point(s).
+
+    Returns:
+        Rotated `Geometry`
+    """
+    if pivot is None:
+        return geometry.rotated(rot)
+    center = pivot + math.rotate_vector(geometry.center - pivot, rot)
+    return geometry.rotated(rot).at(center)

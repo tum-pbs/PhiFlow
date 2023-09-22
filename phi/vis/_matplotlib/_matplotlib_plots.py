@@ -86,12 +86,18 @@ class MatplotlibPlots(PlottingLibrary):
                     elif bounds.spatial_rank == 3:
                         axis.remove()
                         axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
+                        # --- limits ---
                         axis.set_xlabel(display_name(bounds.vector.item_names[0]))
                         axis.set_ylabel(display_name(bounds.vector.item_names[1]))
                         axis.set_zlabel(display_name(bounds.vector.item_names[2]))
                         axis.set_xlim(_get_range(bounds, 0))
                         axis.set_ylim(_get_range(bounds, 1))
                         axis.set_zlim(_get_range(bounds, 2))
+                        # --- Equal aspect ---
+                        if hasattr(axis, 'set_box_aspect'):
+                            aspect3d = list(math.max(bounds.size, bounds.shape.without('vector')))
+                            axis.set_box_aspect(aspect3d)
+                        # --- Log axes ---
                         if bounds.vector.item_names[0] in log_dims:
                             warnings.warn("Only z axis can be log scaled in 3D plot with Matplotlib. Please reorder the dimensions.", RuntimeWarning)
                             # subplot.set_xscale('log')
@@ -461,8 +467,15 @@ class PointCloud2D(Recipe):
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
             elif isinstance(data.geometry, BaseBox):
-                w2, h2 = reshaped_numpy(data.geometry.bounding_half_extent(), ['vector', data.shape.non_channel])
-                shapes = [plt.Rectangle((xi - w2i, yi - h2i), w2i * 2, h2i * 2, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for xi, yi, w2i, h2i, ci, a in zip(x, y, w2, h2, mpl_colors, alphas)]
+                w2, h2 = reshaped_numpy(data.geometry.half_size, ['vector', data.shape.non_channel])
+                if data.geometry.rotation_matrix is None:
+                    angles = w2 * 0.
+                    lower_x = x - w2
+                    lower_y = y - h2
+                else:
+                    angles = reshaped_numpy(math.rotation_angles(data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
+                    lower_x, lower_y = reshaped_numpy(data.geometry.center - math.rotate_vector(data.geometry.half_size, data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
+                shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
             elif isinstance(data.geometry, UnstructuredMesh):
                 xs, ys = reshaped_numpy(data.geometry.vertices[data.geometry.polygons], ['vector', data.shape.non_channel, 'vertex_index'])
                 counts = reshaped_numpy(data.geometry._vertex_count, [data.shape.non_channel])
@@ -539,18 +552,29 @@ class PointCloud3D(Recipe):
             M = subplot.transData.get_matrix()
             x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
             if isinstance(data.geometry, Sphere):
-                symbol = 'o'
-                size = data.geometry.bounding_radius().numpy() * 0.4
+                rx, ry, rz = reshaped_numpy(data.geometry.radius, [vector, data.geometry.shape.without('vector')])
+                u, v = np.linspace(0, 2 * np.pi, 100), np.linspace(0, np.pi, 100)  # Set of all spherical angles
+                # --- Cartesian coordinates that correspond to the spherical angles ---
+                x = x + rx * np.outer(np.cos(u), np.sin(v))
+                y = y + ry * np.outer(np.sin(u), np.sin(v))
+                z = z + rz * np.outer(np.ones_like(u), np.cos(v))
+                subplot.plot_surface(x, y, z, rstride=4, cstride=4, color=mpl_colors[0], alpha=alphas[0])
             elif isinstance(data.geometry, BaseBox):
-                symbol = 's'
-                size = math.mean(data.geometry.bounding_half_extent(), 'vector').numpy() * 0.35
+                a = alphas[0]
+                c = mpl_colors[0]
+                cx, cy, cz = math.reshaped_numpy(data.geometry.corners(), ['vector', *dims])
+                subplot.plot_surface(cx[:, :, 1], cy[:, :, 1], cz[:, :, 1], alpha=a, color=c)
+                subplot.plot_surface(cx[:, :, 0], cy[:, :, 0], cz[:, :, 0], alpha=a, color=c)
+                subplot.plot_surface(cx[:, 1, :], cy[:, 1, :], cz[:, 1, :], alpha=a, color=c)
+                subplot.plot_surface(cx[:, 0, :], cy[:, 0, :], cz[:, 0, :], alpha=a, color=c)
+                subplot.plot_surface(cx[1, :, :], cy[1, :, :], cz[1, :, :], alpha=a, color=c)
+                subplot.plot_surface(cx[0, :, :], cy[0, :, :], cz[0, :, :], alpha=a, color=c)
             elif isinstance(data.geometry, Point):
-                symbol = 'x'
                 size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
+                subplot.scatter(x, y, z, marker='x', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
             else:
-                symbol = 'X'
                 size = data.geometry.bounding_radius().numpy()
-            subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
+                subplot.scatter(x, y, z, marker='X', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
 
 
 # class Mesh2D(Recipe):

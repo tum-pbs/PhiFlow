@@ -518,15 +518,13 @@ def to_field(obj):
 
 
 def get_default_limits(f: Field) -> Box:
-    # if f.bounds is not None:
-    #     return f.bounds
-    # --- Determine element size ---
-    if (f.geometry.bounding_half_extent() > 0).any:
-        size = 2 * f.geometry.bounding_half_extent()
-    elif f.is_point_cloud and f.spatial_rank == 1:
+    if f.is_point_cloud and f.spatial_rank == 1:  # 1D: bar chart
         bounds = f.bounds
         count = non_batch(f).non_dual.non_channel.volume
         return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
+    # --- Determine element size ---
+    if (f.geometry.bounding_half_extent() > 0).any:
+        size = 2 * f.geometry.bounding_half_extent()
     # elif instance(f) and f.spatial_rank == 1:
     #     lower = expand(-.5, vector)
     #     upper = expand(equal_spacing.max + .5, vector)
@@ -535,7 +533,10 @@ def get_default_limits(f: Field) -> Box:
         size = expand(0, f.geometry.shape['vector'])
     if (size == 0).all:
         size = math.const_vec(.1, f.geometry.shape['vector'])
-    bounds = data_bounds(f.geometry.face_centers).largest(channel)
+    if f.geometry.face_shape.volume > 0:
+        bounds = data_bounds(f.geometry.face_centers).largest(channel)
+    else:
+        bounds = data_bounds(f.geometry.center).largest(channel)
     extended_bounds = Cuboid(bounds.center, bounds.half_size + size * 0.6)
     extended_bounds = Box(math.min(extended_bounds.lower, size.shape.without('vector')), math.max(extended_bounds.upper, size.shape.without('vector')))
     if isinstance(f.geometry, Point):

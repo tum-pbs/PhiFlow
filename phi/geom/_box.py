@@ -2,12 +2,13 @@ import warnings
 from typing import Dict, Tuple, Union, Optional
 
 import numpy as np
-from phi.math import DimFilter
 
 from phi import math
+from phi.math import DimFilter
+from phiml.math import rename_dims, vec
+from phiml.math._shape import parse_dim_order, dual
 from ._geom import Geometry, _keep_vector
-from ..math import wrap, INF, Shape, channel, spatial, copy_with, Tensor
-from phiml.math._shape import parse_dim_order
+from ..math import wrap, INF, Shape, channel, Tensor
 from ..math.magic import slicing_dict
 
 
@@ -34,7 +35,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         raise NotImplementedError()
 
     def at(self, center: Tensor) -> 'BaseBox':
-        return Cuboid(center, self.half_size)
+        return Cuboid(center, self.half_size, self.rotation_matrix)
 
     @property
     def size(self) -> Tensor:
@@ -53,6 +54,10 @@ class BaseBox(Geometry):  # not a Subwoofer
         raise NotImplementedError(self)
 
     @property
+    def rotation_matrix(self) -> Optional[Tensor]:
+        raise NotImplementedError(self)
+
+    @property
     def volume(self) -> Tensor:
         return math.prod(self.size, 'vector')
 
@@ -63,20 +68,35 @@ class BaseBox(Geometry):  # not a Subwoofer
     def bounding_radius(self):
         return math.vec_length(self.half_size)
 
-    def bounding_half_extent(self):
-        return self.size * 0.5
+    def global_to_local(self, global_position: Tensor, scale=True, origin='lower') -> Tensor:
+        """
+        Transform world-space coordinates into box-space coordinates.
 
-    def global_to_local(self, global_position: Tensor) -> Tensor:
-        if math.close(self.lower, 0):
-            return global_position / self.size
-        else:
-            return (global_position - self.lower) / self.size
+        Args:
+            global_position: World-space coordinates.
+            scale: Whether to re-scale the output so that [0, 1] or [-1, 1] represent the box for `origin='lower'` or `origin='center'`, respectively.
+            origin: 'lower' or 'center'
 
-    def local_to_global(self, local_position):
-        return local_position * self.size + self.lower
+        Returns:
+            Box-space coordinate `Tensor`
+        """
+        assert origin in ['lower', 'center', 'upper']
+        origin_loc = getattr(self, origin)
+        pos = global_position if math.close(origin_loc, 0) else global_position - origin_loc
+        pos = math.rotate_vector(pos, self.rotation_matrix, invert=True)
+        if scale:
+            pos /= (self.half_size if origin == 'center' else self.size)
+        return pos
+
+    def local_to_global(self, local_position, scale=True, origin='lower'):
+        assert origin in ['lower', 'center', 'upper']
+        origin_loc = getattr(self, origin)
+        pos = local_position * (self.half_size if origin == 'center' else self.size) if scale else local_position
+        return math.rotate_vector(pos, self.rotation_matrix) + origin_loc
 
     def lies_inside(self, location):
-        bool_inside = (location >= self.lower) & (location <= self.upper)
+        location = self.global_to_local(location, scale=True, origin='lower')
+        bool_inside = (location >= 0) & (location <= 1)
         bool_inside = math.all(bool_inside, 'vector')
         bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
         return bool_inside
@@ -94,15 +114,14 @@ class BaseBox(Geometry):  # not a Subwoofer
           float tensor of shape (*location.shape[:-1], 1).
 
         """
-        center = 0.5 * (self.lower + self.upper)
-        extent = self.upper - self.lower
-        distance = math.abs(location - center) - extent * 0.5
+        location = self.global_to_local(location, scale=False, origin='center')
+        distance = math.abs(location) - self.half_size
         distance = math.max(distance, 'vector')
         distance = math.min(distance, self.shape.instance)  # union for instance dimensions
         return distance
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        loc_to_center = positions - self.center
+        loc_to_center = self.global_to_local(positions, scale=False, origin='center')
         sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
         if outward:
             # --- get negative distances (particles are inside) towards the nearest boundary and add shift_amount ---
@@ -111,6 +130,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         else:
             shift = (sgn_dist_from_surface + shift_amount) * (sgn_dist_from_surface > 0)  # get positive distances (particles are outside) and add shift_amount
             shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
+        shift = math.rotate_vector(shift, self.rotation_matrix)
         return positions + math.where(loc_to_center < 0, 1, -1) * shift
 
     def project(self, *dimensions: str):
@@ -123,6 +143,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         return self.lower + uniform * self.size
 
     def corner_representation(self) -> 'Box':
+        assert self.rotation_matrix is None, f"corner_representation does not support rotations"
         return Box(self.lower, self.upper)
 
     box = corner_representation
@@ -134,12 +155,46 @@ class BaseBox(Geometry):  # not a Subwoofer
         """ Tests if the other box lies fully inside this box. """
         return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
-    def rotated(self, angle) -> Geometry:
-        from ._transform import rotate
-        return rotate(self, angle)
-
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return Cuboid(self.center, self.half_size * factor)
+
+    @property
+    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def faces(self) -> 'Geometry':
+        return Cuboid(self.face_centers, self._half_size, self._rotation_matrix)
+
+    @property
+    def face_centers(self) -> Tensor:
+        return self.center + self.face_normals * self.half_size
+
+    @property
+    def face_normals(self) -> Tensor:
+        unit_vectors = math.to_float(math.range(self.shape['vector']) == math.range(dual(**self.shape['vector'].untyped_dict)))
+        vectors = math.rotate_vector(unit_vectors, self.rotation_matrix)
+        return vectors * math.vec(dual('side'), lower=-1, upper=1)
+
+    @property
+    def face_areas(self) -> Tensor:
+        others_mask = math.range(self.shape['vector']) != math.range(dual(**self.shape['vector'].untyped_dict))
+        result = math.exp(math.sum(math.log(self.size) * others_mask, 'vector'))
+        return result  # ~vector
+
+    @property
+    def face_shape(self) -> Shape:
+        return self.shape.without('vector') & dual(side='lower,upper') & dual(**self.shape['vector'].untyped_dict)
+
+    def corners(self):
+        to_face = self.face_normals[{'~side': 'upper'}] * math.rename_dims(self.half_size, 'vector', dual)
+        lower_upper = math.meshgrid(math.instance, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual('vector'))  # (x=2, y=2, ... vector=x,y,...)
+        to_corner = math.sum(lower_upper * to_face, '~vector')
+        return self.center + to_corner
 
 
 class BoxType(type):
@@ -235,10 +290,10 @@ class Box(BaseBox, metaclass=BoxType):
     def __eq__(self, other):
         if self._lower is None and self._upper is None:
             return isinstance(other, Box)
-        return isinstance(other, BaseBox)\
-               and set(self.shape) == set(other.shape)\
-               and self.size.shape.get_size('vector') == other.size.shape.get_size('vector')\
-               and math.close(self._lower, other.lower)\
+        return isinstance(other, BaseBox) \
+               and set(self.shape) == set(other.shape) \
+               and self.size.shape.get_size('vector') == other.size.shape.get_size('vector') \
+               and math.close(self._lower, other.lower) \
                and math.close(self._upper, other.upper)
 
     def without(self, dims: Tuple[str, ...]):
@@ -286,8 +341,15 @@ class Box(BaseBox, metaclass=BoxType):
     def half_size(self):
         return self.size * 0.5
 
+    @property
+    def rotation_matrix(self) -> Optional[Tensor]:
+        return None
+
     def shifted(self, delta, **delta_by_dim):
         return Box(self.lower + delta, self.upper + delta)
+
+    def rotated(self, angle) -> Geometry:
+        return self.center_representation().rotated(angle)
 
     def __mul__(self, other):
         if not isinstance(other, Box):
@@ -298,6 +360,9 @@ class Box(BaseBox, metaclass=BoxType):
         lower = math.stack(lower, math.channel(vector=names))
         upper = math.stack(upper, math.channel(vector=names))
         return Box(lower, upper)
+
+    def bounding_half_extent(self):
+        return self.half_size
 
     def __repr__(self):
         if self.shape.non_channel.volume == 1:
@@ -311,14 +376,20 @@ class Box(BaseBox, metaclass=BoxType):
 
 
 class Cuboid(BaseBox):
-    """
-    Box specified by center position and half size.
-    """
+    """Box specified by center position and half size."""
 
     def __init__(self,
                  center: Tensor = 0,
                  half_size: Union[float, Tensor] = None,
+                 rotation: Optional[Tensor] = None,
                  **size: Union[float, Tensor]):
+        """
+        Args:
+            center: Center position
+            half_size: Half-size of the cuboid as vector or scalar
+            rotation: Rotation angle(s) or rotation matrix.
+            **size: Alternative way of specifying the size. If used, `half_size` must not be specified.
+        """
         if half_size is not None:
             assert isinstance(half_size, Tensor), "half_size must be a Tensor"
             assert 'vector' in half_size.shape, f"Cuboid size must have a 'vector' dimension."
@@ -330,13 +401,14 @@ class Cuboid(BaseBox):
         if 'vector' not in center.shape or center.shape.get_item_names('vector') is None:
             center = math.expand(center, channel(self._half_size))
         self._center = center
+        self._rotation_matrix = None if rotation is None else math.rotation_matrix(rotation)
 
     def __eq__(self, other):
         if self._center is None and self._half_size is None:
             return isinstance(other, Cuboid)
-        return isinstance(other, BaseBox)\
-               and set(self.shape) == set(other.shape)\
-               and math.close(self._center, other.center)\
+        return isinstance(other, BaseBox) \
+               and set(self.shape) == set(other.shape) \
+               and math.close(self._center, other.center) \
                and math.close(self._half_size, other.half_size)
 
     def __hash__(self):
@@ -385,8 +457,29 @@ class Cuboid(BaseBox):
     def upper(self):
         return self.center + self.half_size
 
-    def shifted(self, delta, **delta_by_dim) -> 'Cuboid':
-        return Cuboid(self._center + delta, self._half_size)
+    @property
+    def rotation_matrix(self) -> Optional[Tensor]:
+        return self._rotation_matrix
+
+    def rotated(self, angle) -> Geometry:
+        if self._rotation_matrix is None:
+            return Cuboid(self._center, self._half_size, angle)
+        else:
+            matrix = self._rotation_matrix @ (angle if dual(angle) else math.rotation_matrix(angle))
+            return Cuboid(self._center, self._half_size, matrix)
+
+    def bounding_half_extent(self):
+        if self._rotation_matrix is not None:
+            to_face = self.face_normals[{'~side': 0}] * math.rename_dims(self._half_size, 'vector', dual)
+            return math.sum(abs(to_face), '~vector')
+        return self.half_size
+
+    def lies_inside(self, location):
+        location = self.global_to_local(location, scale=False, origin='center')  # scale can only be performed for finite sizes
+        bool_inside = abs(location) <= self._half_size
+        bool_inside = math.all(bool_inside, 'vector')
+        bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
+        return bool_inside
 
 
 def bounding_box(geometry):
