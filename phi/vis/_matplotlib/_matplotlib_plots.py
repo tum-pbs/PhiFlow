@@ -461,8 +461,15 @@ class PointCloud2D(Recipe):
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
             elif isinstance(data.geometry, BaseBox):
-                w2, h2 = reshaped_numpy(data.geometry.bounding_half_extent(), ['vector', data.shape.non_channel])
-                shapes = [plt.Rectangle((xi - w2i, yi - h2i), w2i * 2, h2i * 2, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for xi, yi, w2i, h2i, ci, a in zip(x, y, w2, h2, mpl_colors, alphas)]
+                w2, h2 = reshaped_numpy(data.geometry.half_size, ['vector', data.shape.non_channel])
+                if data.geometry.rotation_matrix is None:
+                    angles = w2 * 0.
+                    lower_x = x - w2
+                    lower_y = y - h2
+                else:
+                    angles = reshaped_numpy(math.rotation_angles(data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
+                    lower_x, lower_y = reshaped_numpy(data.geometry.center - math.rotate_vector(data.geometry.half_size, data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
+                shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
             elif isinstance(data.geometry, UnstructuredMesh):
                 xs, ys = reshaped_numpy(data.geometry.vertices[data.geometry.polygons], ['vector', data.shape.non_channel, 'vertex_index'])
                 counts = reshaped_numpy(data.geometry._vertex_count, [data.shape.non_channel])
@@ -542,15 +549,24 @@ class PointCloud3D(Recipe):
                 symbol = 'o'
                 size = data.geometry.bounding_radius().numpy() * 0.4
             elif isinstance(data.geometry, BaseBox):
-                symbol = 's'
-                size = math.mean(data.geometry.bounding_half_extent(), 'vector').numpy() * 0.35
+                symbol = None
+                a = alphas[0]
+                c = mpl_colors[0]
+                cx, cy, cz = math.reshaped_numpy(data.geometry.corners(), ['vector', *dims])
+                subplot.plot_surface(cx[:, :, 1], cy[:, :, 1], cz[:, :, 1], alpha=a, color=c)
+                subplot.plot_surface(cx[:, :, 0], cy[:, :, 0], cz[:, :, 0], alpha=a, color=c)
+                subplot.plot_surface(cx[:, 1, :], cy[:, 1, :], cz[:, 1, :], alpha=a, color=c)
+                subplot.plot_surface(cx[:, 0, :], cy[:, 0, :], cz[:, 0, :], alpha=a, color=c)
+                subplot.plot_surface(cx[1, :, :], cy[1, :, :], cz[1, :, :], alpha=a, color=c)
+                subplot.plot_surface(cx[0, :, :], cy[0, :, :], cz[0, :, :], alpha=a, color=c)
             elif isinstance(data.geometry, Point):
                 symbol = 'x'
                 size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
             else:
                 symbol = 'X'
                 size = data.geometry.bounding_radius().numpy()
-            subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
+            if symbol is not None:
+                subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
 
 
 # class Mesh2D(Recipe):
