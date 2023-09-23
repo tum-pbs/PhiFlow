@@ -86,12 +86,18 @@ class MatplotlibPlots(PlottingLibrary):
                     elif bounds.spatial_rank == 3:
                         axis.remove()
                         axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
+                        # --- limits ---
                         axis.set_xlabel(display_name(bounds.vector.item_names[0]))
                         axis.set_ylabel(display_name(bounds.vector.item_names[1]))
                         axis.set_zlabel(display_name(bounds.vector.item_names[2]))
                         axis.set_xlim(_get_range(bounds, 0))
                         axis.set_ylim(_get_range(bounds, 1))
                         axis.set_zlim(_get_range(bounds, 2))
+                        # --- Equal aspect ---
+                        if hasattr(axis, 'set_box_aspect'):
+                            aspect3d = list(math.max(bounds.size, bounds.shape.without('vector')))
+                            axis.set_box_aspect(aspect3d)
+                        # --- Log axes ---
                         if bounds.vector.item_names[0] in log_dims:
                             warnings.warn("Only z axis can be log scaled in 3D plot with Matplotlib. Please reorder the dimensions.", RuntimeWarning)
                             # subplot.set_xscale('log')
