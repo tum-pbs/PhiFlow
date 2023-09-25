@@ -552,10 +552,14 @@ class PointCloud3D(Recipe):
             M = subplot.transData.get_matrix()
             x_scale, y_scale, z_scale = M[0, 0], M[1, 1], M[2, 2]
             if isinstance(data.geometry, Sphere):
-                symbol = 'o'
-                size = data.geometry.bounding_radius().numpy() * 0.4
+                rx, ry, rz = reshaped_numpy(data.geometry.radius, [vector, data.geometry.shape.without('vector')])
+                u, v = np.linspace(0, 2 * np.pi, 100), np.linspace(0, np.pi, 100)  # Set of all spherical angles
+                # --- Cartesian coordinates that correspond to the spherical angles ---
+                x = x + rx * np.outer(np.cos(u), np.sin(v))
+                y = y + ry * np.outer(np.sin(u), np.sin(v))
+                z = z + rz * np.outer(np.ones_like(u), np.cos(v))
+                subplot.plot_surface(x, y, z, rstride=4, cstride=4, color=mpl_colors[0], alpha=alphas[0])
             elif isinstance(data.geometry, BaseBox):
-                symbol = None
                 a = alphas[0]
                 c = mpl_colors[0]
                 cx, cy, cz = math.reshaped_numpy(data.geometry.corners(), ['vector', *dims])
@@ -566,13 +570,11 @@ class PointCloud3D(Recipe):
                 subplot.plot_surface(cx[1, :, :], cy[1, :, :], cz[1, :, :], alpha=a, color=c)
                 subplot.plot_surface(cx[0, :, :], cy[0, :, :], cz[0, :, :], alpha=a, color=c)
             elif isinstance(data.geometry, Point):
-                symbol = 'x'
                 size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
+                subplot.scatter(x, y, z, marker='x', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
             else:
-                symbol = 'X'
                 size = data.geometry.bounding_radius().numpy()
-            if symbol is not None:
-                subplot.scatter(x, y, z, marker=symbol, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
+                subplot.scatter(x, y, z, marker='X', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
 
 
 # class Mesh2D(Recipe):

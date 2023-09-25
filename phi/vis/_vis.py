@@ -505,7 +505,7 @@ def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val,
         return space
 
 
-def overlay(*fields: Union[Field, Tensor]) -> Tensor:
+def overlay(*fields: Union[Field, Tensor, Geometry]) -> Tensor:
     """
     Specify that multiple fields should be drawn on top of one another in the same figure.
     The fields will be plotted in the order they are given, i.e. the last field on top.

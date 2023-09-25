@@ -1,7 +1,8 @@
-from typing import Union
+from typing import Union, Dict, Tuple
 
 from phi import math
-from ._geom import Geometry, _keep_vector
+from phiml.math import Shape, dual
+from ._geom import Geometry, _keep_vector, NO_GEOMETRY
 from ..math import wrap, Tensor, expand
 from ..math.magic import slicing_dict
 
@@ -116,3 +117,31 @@ class Sphere(Geometry):
 
     def __hash__(self):
         return hash(self._center) + hash(self._radius)
+
+    @property
+    def faces(self) -> 'Geometry':
+        raise NotImplementedError(f"Sphere.faces not implemented.")
+
+    @property
+    def face_centers(self) -> Tensor:
+        return math.zeros(self.shape & dual(shell=0))
+
+    @property
+    def face_areas(self) -> Tensor:
+        return math.zeros(self.face_shape)
+
+    @property
+    def face_normals(self) -> Tensor:
+        return math.zeros(self.shape & dual(shell=0))
+
+    @property
+    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def face_shape(self) -> Shape:
+        return self.shape.without('vector') & dual(shell=0)
