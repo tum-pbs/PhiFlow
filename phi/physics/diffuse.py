@@ -27,23 +27,21 @@ def explicit(field: Field,
     amount = diffusivity * dt / substeps
     if isinstance(amount, Field):
         amount = amount.at(field)
-    ext = field.extrapolation
     for i in range(substeps):
         delta = laplace(field, weights=amount) if 'vector' in shape(amount) else amount * laplace(field)
-        field = (field + delta.with_extrapolation(ext)).with_extrapolation(ext)
+        field = field.with_values(field.values + delta.values)
     return field
 
 
 def implicit(field: Field,
              diffusivity: float or math.Tensor or Field,
              dt: float or math.Tensor,
-             order: int = 1,
-             solve=Solve('CG')) -> Field:
+             solve=Solve('CG'),
+             **unused_args) -> Field:
     """
     Diffusion by solving a linear system of equations.
 
     Args:
-        order: Order of method, 1=first order. This translates to `substeps` for the explicit sharpening.
         field: `phi.field.Field` to diffuse.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         dt: Time interval. `diffusion_amount = diffusivity * dt`
@@ -54,7 +52,7 @@ def implicit(field: Field,
     """
     @jit_compile_linear
     def sharpen(x):
-        return explicit(x, diffusivity, -dt, substeps=order)
+        return explicit(x, diffusivity, -dt)
 
     if not solve.x0:
         solve = copy_with(solve, x0=field)
