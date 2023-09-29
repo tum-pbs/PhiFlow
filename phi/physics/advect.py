@@ -7,43 +7,41 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 """
-from phi.math import Solve, channel
-
 from phi import math
-from phi.field import Field, PointCloud, Grid, sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid, resample, reduce_sample
-from phi.geom import Geometry
+from phi.field import Field, PointCloud, Grid, spatial_gradient, unstack, stack, resample, reduce_sample
+from phi.math import Solve, channel
+from phiml.math import Tensor
 
 
-def euler(data: Field, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
+def euler(data: Field, velocity: Field, dt: float, v0: Tensor = None) -> Tensor:
     """ Euler integrator. """
     # ToDo requires extrapolation for staggered
     if v0 is None:
-        v0 = sample(velocity, velocity.points)
+        v0 = resample(velocity, to=data).values
     return data.points + v0 * dt
 
 
-def rk4(data: Field, velocity: Field, dt: float, v0: math.Tensor = None) -> Geometry:
+def rk4(data: Field, velocity: Field, dt: float, v0: Tensor = None) -> Tensor:
     """ Runge-Kutta-4 integrator. """
     if v0 is None:
-        v0 = resample(velocity, to=data)
-    vel_half = sample(velocity, data.sampled_elements.shifted(0.5 * dt * v0))
-    vel_half2 = sample(velocity, data.sampled_elements.shifted(0.5 * dt * vel_half))
-    vel_full = sample(velocity, data.sampled_elements.shifted(dt * vel_half2))
-    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
-    return data.sampled_elements.shifted(dt * vel_rk4)
+        v0 = resample(velocity, to=data).values
+    v_half = reduce_sample(velocity, data.points + 0.5 * dt * v0)
+    v_half2 = reduce_sample(velocity, data.points + 0.5 * dt * v_half)
+    v_full = reduce_sample(velocity, data.points + dt * v_half2)
+    v_rk4 = (1 / 6.) * (v0 + 2 * (v_half + v_half2) + v_full)
+    return data.points + dt * v_rk4
 
 
-def finite_rk4(data: Field, velocity: Grid, dt: float, v0: math.Tensor = None) -> Geometry:
+def finite_rk4(data: Field, velocity: Grid, dt: float, v0: math.Tensor = None) -> Tensor:
     """ Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN. """
     if v0 is None:
-        v0 = resample(velocity, to=data)
-    vel_half = sample(velocity, data.sampled_elements.shifted(0.5 * dt * v0))
-    vel_half2 = sample(velocity, data.sampled_elements.shifted(0.5 * dt * vel_half))
-    vel_full = sample(velocity, data.sampled_elements.shifted(dt * vel_half2))
-    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
-    vel_nan = math.where(math.is_finite(vel_rk4), vel_rk4, v0)
-    return data.sampled_elements.shifted(dt * vel_nan)
-
+        v0 = resample(velocity, to=data).values
+    v_half = reduce_sample(velocity, data.points + 0.5 * dt * v0)
+    v_half2 = reduce_sample(velocity, data.points + 0.5 * dt * v_half)
+    v_full = reduce_sample(velocity, data.points + dt * v_half2)
+    v_rk4 = (1 / 6.) * (v0 + 2 * (v_half + v_half2) + v_full)
+    v_nan = math.where(math.is_finite(v_rk4), v_rk4, v0)
+    return data.points + dt * v_nan
 
 
 def advect(field: Field,
@@ -67,9 +65,9 @@ def advect(field: Field,
     Returns:
         Advected field of same type as `field`
     """
-    if isinstance(field, PointCloud):
+    if field.is_point_cloud:
         return points(field, velocity, dt=dt, integrator=integrator)
-    elif isinstance(field, Grid):
+    elif field.is_grid:
         return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
     raise NotImplementedError(field)
 
@@ -95,18 +93,17 @@ def finite_difference(grid: Grid,
     Returns:
         Advected grid of same type as `grid`
     """
-    if isinstance(grid, StaggeredGrid):
+    if grid.is_grid and grid.is_staggered:
         grad_list = [spatial_gradient(field_component, stack_dim=channel('gradient'), order=order, implicit=implicit) for field_component in grid.vector]
         grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel(velocity)))
         if order == 4:
             amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
-            grad_grid.gradient[0].sampled_elements
             velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
             amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
         amount = sum(amounts)
     else:
-        assert isinstance(grid, CenteredGrid), f"grid must be CenteredGrid or StaggeredGrid but got {type(grid)}"
+        assert grid.is_grid and grid.is_centered, f"grid must be CenteredGrid or StaggeredGrid but got {type(grid)}"
         grad = spatial_gradient(grid, stack_dim=channel('gradient'), order=order, implicit=implicit)
         velocity = stack(unstack(velocity, dim='vector'), dim=channel('gradient'))
         amounts = velocity * grad
@@ -128,7 +125,7 @@ def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
     Returns:
         Advected point cloud
     """
-    new_elements = integrator(field.sampled_elements, velocity, dt)
+    new_elements = field.geometry.at(integrator(field, velocity, dt))
     return field.with_elements(new_elements)
 
 

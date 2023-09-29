@@ -145,16 +145,14 @@ def StaggeredGrid(values: Any = 0.,
                 else:  # Keep dim order from data and check it matches resolution
                     assert set(resolution_from_staggered_tensor(values, extrapolation)) == set(resolution), f"Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html"
         elif isinstance(values, (Geometry, Field, FieldInitializer)):
-            values = sample(values, elements, at='face', boundary=extrapolation)
+            values = sample(values, elements, at='face', boundary=extrapolation, dot_face_normal=elements)
         elif callable(values):
             values = sample_function(values, elements, 'face', extrapolation)
             if elements.shape.shape.rank > 1:  # Different number of X and Y faces
                 assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
-            assert 'staggered_direction' in values.shape
+            assert '~vector' in values.shape
             if 'vector' in values.shape:
-                values = math.stack([values.staggered_direction[i].vector[i] for i in range(resolution.rank)], channel(vector=resolution))
-            else:
-                values = values.staggered_direction.as_channel('vector')
+                values = math.stack([values[{'vector': i, '~vector': i}] for i in range(resolution.rank)], dual(vector=resolution))
         else:
             values = expand_staggered(math.tensor(values), resolution, extrapolation)
     if values.dtype.kind not in (float, complex):
@@ -170,6 +168,7 @@ def StaggeredGrid(values: Any = 0.,
 
 def unstack_staggered_tensor(data: Tensor, extrapolation: Extrapolation) -> TensorStack:
     sliced = []
+    assert 'vector' in data.shape
     for dim, component in zip(data.shape.spatial.names, data.vector):
         lo_valid, up_valid = extrapolation.valid_outer_faces(dim)
         slices = {d: slice(0, -1) for d in data.shape.spatial.names}

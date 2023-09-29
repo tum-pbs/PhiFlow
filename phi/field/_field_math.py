@@ -392,7 +392,7 @@ def curl(field: Field, at='center'):
         if 'vector' not in field.shape and at == 'face':
             # 2D curl of scalar field
             grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
-            result = grad.vector.flip() * (1, -1)  # (d/dy, -d/dx)
+            result = grad.vector[::-1] * (1, -1)  # (d/dy, -d/dx)
             bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
             return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
         if 'vector' in field.shape and at == 'center':
@@ -559,7 +559,7 @@ def downsample2x(grid: Field) -> Field:
             values[dim] = others_interpolated
         return StaggeredGrid(math.stack(values, channel('vector')), grid.extrapolation, grid.bounds)
     else:
-        raise ValueError(type(grid))
+        raise ValueError(grid)
 
 
 def upsample2x(grid: Field) -> Field:
@@ -576,10 +576,11 @@ def upsample2x(grid: Field) -> Field:
     Returns:
         `Grid` of same type as `grid`.
     """
-    if isinstance(grid, CenteredGrid):
+    assert grid.is_grid, f"upsample2x only supported for grids but got {grid}"
+    if grid.is_centered:
         values = math.upsample2x(grid.values, grid.extrapolation)
         return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
-    elif isinstance(grid, StaggeredGrid):
+    elif grid.is_staggered:
         raise NotImplementedError()
     else:
         raise ValueError(type(grid))
@@ -755,7 +756,7 @@ def finite_fill(grid: Field, distance=1, diagonal=True) -> Field:
         return grid.with_values(new_values)
     elif grid.is_grid and grid.is_staggered:
         new_values = [finite_fill(c, distance=distance, diagonal=diagonal).values for c in grid.vector]
-        return grid.with_values(math.stack(new_values, channel(grid)))
+        return grid.with_values(math.stack(new_values, channel(grid).as_dual()))
     else:
         raise ValueError(grid)
 

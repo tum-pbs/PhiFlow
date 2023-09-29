@@ -95,8 +95,8 @@ class BaseBox(Geometry):  # not a Subwoofer
         return math.rotate_vector(pos, self.rotation_matrix) + origin_loc
 
     def lies_inside(self, location):
-        location = self.global_to_local(location, scale=True, origin='lower')
-        bool_inside = (location >= 0) & (location <= 1)
+        assert self.rotation_matrix is None, f"Please override lies_inside() for rotated boxes"
+        bool_inside = (location >= self.lower) & (location <= self.upper)
         bool_inside = math.all(bool_inside, 'vector')
         bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
         return bool_inside

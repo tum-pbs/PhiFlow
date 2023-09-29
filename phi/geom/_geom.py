@@ -534,6 +534,9 @@ class _InvertedGeometry(Geometry):
     def normal(self) -> Tensor:
         return -self.geometry.normal
 
+    def __repr__(self):
+        return f"~{self.geometry}"
+
 
 def invert(geometry: Geometry):
     """

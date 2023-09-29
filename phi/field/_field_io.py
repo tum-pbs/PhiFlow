@@ -42,21 +42,22 @@ def write(field: Field, file: Union[str, Tensor]):
 
 
 def write_single_field(field: Field, file: str):
-    if isinstance(field, StaggeredGrid):
-        data = field.staggered_tensor().numpy(field.values.shape.names)
+    if field.is_staggered and field.is_grid:
+        data = field.staggered_tensor().numpy(field.shape.names)
     else:
-        data = field.values.numpy(field.values.shape.names)
-    dim_names = field.values.shape.names
+        data = field.values.numpy(field.shape.names)
+    dim_names = field.shape.names
     if field.is_grid:
         lower = field.bounds.lower.numpy()
         upper = field.bounds.upper.numpy()
         bounds_item_names = field.bounds.size.vector.item_names
         extrap = field.extrapolation.to_dict()
+        field_type = 'StaggeredGrid' if field.is_staggered else 'CenteredGrid'
         np.savez_compressed(file,
                             dim_names=dim_names,
-                            dim_types=field.values.shape.types,
-                            dim_item_names=np.asarray(field.values.shape.item_names, dtype=object),
-                            field_type=type(field).__name__,
+                            dim_types=field.shape.types,
+                            dim_item_names=np.asarray(field.shape.item_names, dtype=object),
+                            field_type=field_type,
                             lower=lower,
                             upper=upper,
                             bounds_item_names=bounds_item_names,
@@ -98,20 +99,19 @@ def read(file: Union[str, Tensor], convert_to_backend=True) -> Field:
 def read_single_field(file: str, convert_to_backend=True) -> Field:
     stored = np.load(file, allow_pickle=True)
     ftype = stored['field_type']
-    implemented_types = ('CenteredGrid', 'StaggeredGrid')
-    if ftype in implemented_types:
-        data_arr = stored['data']
-        dim_item_names = stored.get('dim_item_names', (None,) * len(data_arr.shape))
-        data = tensor(data_arr, Shape(data_arr.shape, tuple(stored['dim_names']), tuple(stored['dim_types']), tuple(dim_item_names)), convert=convert_to_backend)
-        bounds_item_names = stored.get('bounds_item_names', None)
-        if bounds_item_names is None or bounds_item_names.shape == ():  # None or empty array
-            bounds_item_names = spatial(data).names
-        lower = wrap(stored['lower'], channel(vector=tuple(bounds_item_names))) if stored['lower'].ndim > 0 else wrap(stored['lower'])
-        upper = wrap(stored['upper'], channel(vector=tuple(bounds_item_names)))
-        extr = extrapolation.from_dict(stored['extrapolation'][()])
-        if ftype == 'CenteredGrid':
-            return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extr)
-        elif ftype == 'StaggeredGrid':
-            data_ = unstack_staggered_tensor(data, extr)
-            return StaggeredGrid(data_, bounds=geom.Box(lower, upper), extrapolation=extr)
-    raise NotImplementedError(f"{ftype} not implemented ({implemented_types})")
+    if ftype not in ('CenteredGrid', 'StaggeredGrid'):
+        raise NotImplementedError(f"{ftype} not implemented")
+    data_arr = stored['data']
+    dim_item_names = stored.get('dim_item_names', (None,) * len(data_arr.shape))
+    data = tensor(data_arr, Shape(data_arr.shape, tuple(stored['dim_names']), tuple(stored['dim_types']), tuple(dim_item_names)), convert=convert_to_backend)
+    bounds_item_names = stored.get('bounds_item_names', None)
+    if bounds_item_names is None or bounds_item_names.shape == ():  # None or empty array
+        bounds_item_names = spatial(data).names
+    lower = wrap(stored['lower'], channel(vector=tuple(bounds_item_names))) if stored['lower'].ndim > 0 else wrap(stored['lower'])
+    upper = wrap(stored['upper'], channel(vector=tuple(bounds_item_names)))
+    extr = extrapolation.from_dict(stored['extrapolation'][()])
+    if ftype == 'CenteredGrid':
+        return CenteredGrid(data, bounds=geom.Box(lower, upper), extrapolation=extr)
+    elif ftype == 'StaggeredGrid':
+        data_ = unstack_staggered_tensor(data, extr)
+        return StaggeredGrid(data_, bounds=geom.Box(lower, upper), extrapolation=extr)

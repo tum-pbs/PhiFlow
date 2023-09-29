@@ -27,13 +27,13 @@ class GridTest(TestCase):
         for initializer in [0, Noise(vector=2), (0, 1), Sphere(x=0, y=0, radius=1)]:
             g_const = StaggeredGrid(initializer, extrapolation.ZERO, resolution=s)
             self.assertEqual(g_const.shape, spatial(x=20, y=10) & channel(vector='x,y'))
-            self.assertEqual(g_const.values.vector[0].shape, spatial(x=19, y=10))
+            self.assertEqual(spatial(x=19, y=10), g_const.vector[0].values.shape)
             g_periodic = StaggeredGrid(initializer, extrapolation.PERIODIC, resolution=s)
             self.assertEqual(g_periodic.shape, spatial(x=20, y=10) & channel(vector='x,y'))
-            self.assertEqual(g_periodic.values.vector[0].shape, spatial(x=20, y=10))
+            self.assertEqual(g_periodic.vector[0].values.shape, spatial(x=20, y=10))
             g_boundary = StaggeredGrid(initializer, extrapolation.BOUNDARY, resolution=s)
             self.assertEqual(g_boundary.shape, spatial(x=20, y=10) & channel(vector='x,y'))
-            self.assertEqual(g_boundary.values.vector[0].shape, spatial(x=21, y=10))
+            self.assertEqual(g_boundary.vector[0].values.shape, spatial(x=21, y=10))
 
     def test_slice_staggered_grid_along_vector(self):
         v = StaggeredGrid(Noise(batch(batch=10)), x=10, y=20)
@@ -41,7 +41,8 @@ class GridTest(TestCase):
         x2 = v.vector[0]
         x3 = v.vector['x']
         x4 = field.unstack(v, 'vector')[0]
-        self.assertIsInstance(x1, CenteredGrid)
+        self.assertTrue(x1.is_grid)
+        self.assertTrue(x1.is_centered)
         field.assert_close(x1, x2, x3, x4)
 
     def test_slice_staggered_grid_along_batch(self):
@@ -49,7 +50,8 @@ class GridTest(TestCase):
         b1 = v[{'batch': 1}]
         b2 = v.batch[1]
         b3 = field.unstack(v, 'batch')[1]
-        self.assertIsInstance(b1, StaggeredGrid)
+        self.assertTrue(b1.is_grid)
+        self.assertTrue(b1.is_staggered)
         field.assert_close(b1, b2, b3)
 
     # def test_slice_staggered_grid_along_spatial(self):

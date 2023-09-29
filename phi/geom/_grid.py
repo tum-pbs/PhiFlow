@@ -117,6 +117,10 @@ class UniformGrid(BaseBox):
     def half_size(self):
         return self.bounds.size / self.resolution.sizes / 2
 
+    @property
+    def rotation_matrix(self) -> Optional[Tensor]:
+        return None
+
     def __getitem__(self, item):
         item = slicing_dict(self, item)
         bounds = self._bounds
@@ -225,3 +229,6 @@ class UniformGrid(BaseBox):
     @property
     def normal(self) -> Tensor:
         raise GeometryException("UniformGrid does not have normals")
+
+    def bounding_half_extent(self) -> Tensor:
+        return self.half_size

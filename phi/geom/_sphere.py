@@ -25,7 +25,7 @@ class Sphere(Geometry):
             **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
         """
         if center is not None:
-            assert isinstance(center, Tensor), "center must be a Tensor"
+            assert isinstance(center, Tensor), f"center must be a Tensor but got {type(center).__name__}"
             assert 'vector' in center.shape, f"Sphere center must have a 'vector' dimension."
             assert center.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names."
             self._center = center

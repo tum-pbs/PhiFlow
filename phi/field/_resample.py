@@ -59,7 +59,9 @@ def reduce_sample(field: Union[Field, Geometry, FieldInitializer, Callable],
                   geometry: Geometry or Field or Tensor,
                   **kwargs) -> math.Tensor:
     """Alias for `sample()` with `dot_face_normal=field.geometry`."""
-    return sample(field, geometry, at=field.sampled_at, boundary=field.boundary, dot_face_normal=field.geometry, **kwargs)
+    can_reduce = dual(field.values) in geometry.shape
+    at = 'face' if dual(geometry) else 'center'
+    return sample(field, geometry, at, field.boundary, dot_face_normal=field.geometry if can_reduce else None, **kwargs)
 
 
 def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
@@ -87,7 +89,7 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
             When passing a vector-valued `Tensor`, a `Point` geometry will be created.
         at: One of 'center', 'face', 'vertex'
         boundary: Target extrapolation.
-        dot_face_normal: If not `None´ and , `field` is a vector field and `at=='face'`, the dot product between sampled field vectors and the face normals is returned instead.
+        dot_face_normal: If not `None` and , `field` is a vector field and `at=='face'`, the dot product between sampled field vectors and the face normals is returned instead.
         **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
             By default, linear interpolation is used.
             Grids also support 6th order implicit sampling at mid-points.
@@ -108,6 +110,11 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
         field = mask(field)
     if isinstance(field, FieldInitializer):
         values = field._sample(geometry, at, boundary, **kwargs)
+        if dot_face_normal is not None and at == 'face' and channel(values):
+            if _are_axis_aligned(dot_face_normal.face_normals):
+                values = math.stack([values[{'vector': i, '~vector': i}] for i in range(geometry.spatial_rank)], dual(**geometry.shape['vector'].untyped_dict))
+            else:
+                raise NotImplementedError
         field = Field(geometry, values, boundary)
     if callable(field):
         values = sample_function(field, geometry, at, boundary)
@@ -129,19 +136,20 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
             return scatter_to_centers(field, geometry, **kwargs)
     elif at == 'face':
         if dot_face_normal is not None and channel(field):
-            normals = dot_face_normal.face_normals
-            if not spatial(normals) and not instance(normals) and math.sum(normals != 0) == geometry.spatial_rank:  # axis-aligned normals
+            if _are_axis_aligned(dot_face_normal.face_normals):
                 components = unstack(field, field.shape.channel.name)
                 faces = math.unstack(slice_off_constant(geometry.faces, geometry.boundary_faces, boundary), dual)
                 sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
                 return math.stack(sampled, dual(dot_face_normal.face_shape))
+            else:
+                raise NotImplementedError
         if field.is_staggered and field.geometry.shallow_equals(geometry) and field.geometry.face_shape == geometry.face_shape:
             return field.values
         if field.is_grid and field.is_centered:
             return sample_grid_at_faces(field, geometry, boundary, **kwargs)
         elif field.is_grid and field.is_staggered:
+            # return sample_staggered_grid(field, geom)
             raise NotImplementedError
-            # sample_staggered_grid(field, geom)
         if field.is_mesh and field.is_centered:
             if not field.geometry.shallow_equals(geometry):
                 raise NotImplementedError("Resampling to different mesh is not yet supported")
@@ -167,6 +175,10 @@ def _get_geometry(geometry):
         return geometry
     else:
         raise ValueError(f"A Geometry, Field or location Tensor is required but got {geometry}")
+
+
+def _are_axis_aligned(normals: Tensor):
+    return not spatial(normals) and not instance(normals) and math.sum(normals != 0) == normals.vector.size
 
 
 def scatter_to_centers(self: Field, geometry: Geometry, soft=False, scatter=False, outside_handling='discard', balance=0.5) -> Tensor:
@@ -197,7 +209,7 @@ def scatter_to_faces(field: Field, geometry: Geometry, extrapolation: Extrapolat
     raise NotImplementedError
 
 
-def grid_scatter(self: Field, bounds: Box, resolution: math.Shape, outside_handling: str, add_overlapping: bool = False):
+def grid_scatter(data: Field, bounds: Box, resolution: math.Shape, outside_handling: str, add_overlapping: bool = False):
     """
     Approximately samples this field on a regular grid using math.scatter().
 
@@ -209,12 +221,12 @@ def grid_scatter(self: Field, bounds: Box, resolution: math.Shape, outside_handl
     Returns:
         `CenteredGrid`
     """
-    closest_index = bounds.global_to_local(self._points) * resolution - 0.5
+    closest_index = bounds.global_to_local(data.points) * resolution - 0.5
     mode = 'add' if add_overlapping else 'mean'
     base = math.zeros(resolution)
-    if isinstance(self._boundary, ConstantExtrapolation):
-        base += self._boundary.value
-    scattered = math.scatter(base, closest_index, self._values, mode=mode, outside_handling=outside_handling)
+    if isinstance(data.boundary, ConstantExtrapolation):
+        base += data.boundary.value
+    scattered = math.scatter(base, closest_index, data.values, mode=mode, outside_handling=outside_handling)
     return scattered
 
 
@@ -377,7 +389,10 @@ def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Ext
             assert names_match, f"Positional arguments of {f.__name__}({', '.join(tuple(params))}) should match physical space {elements.shape.get_item_names('vector')}"
     except ValueError as err:  # signature not available for all functions
         pass_varargs = False
-    pos = elements.center if at == 'center' else elements.face_centers  # ToDo only faces not determined by extrapolation
+    if at == 'center':
+        pos = slice_off_constant(elements.center, elements.boundary_elements, extrapolation)
+    else:
+        pos = slice_off_constant(elements.face_centers, elements.boundary_faces, extrapolation)
     if pass_varargs:
         values = math.map_s2b(f)(*pos.vector)
     else:
