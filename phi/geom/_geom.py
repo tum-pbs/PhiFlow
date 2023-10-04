@@ -81,7 +81,7 @@ class Geometry:
         raise NotImplementedError(self.__class__)
 
     @property
-    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+    def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
         """
         Slices on the primal dimensions to mark boundary elements.
         Grids and meshes have no boundary elements and return `{}`.
@@ -93,7 +93,7 @@ class Geometry:
         raise NotImplementedError(self.__class__)
 
     @property
-    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
         """
         Slices on the dual dimensions to mark boundary faces.
 
@@ -114,19 +114,6 @@ class Geometry:
             If this `Geometry` has no faces, returns an empty `Shape`.
         """
         raise NotImplementedError(self.__class__)
-
-    @property
-    def shape_type(self) -> Tensor:
-        """
-        Returns the type (or types) of this geometry as a string `Tensor`
-        Boxes return `'B'`, spheres return `'S'`, points return `'P'`.
-        Returns `'?'` for unknown types, e.g. a union over multiple types.
-        Custom types can return their own identifiers.
-
-        Returns:
-            String `Tensor`
-        """
-        raise NotImplementedError(self.__class__)  # ToDo deprecate this
 
     def integrate_surface(self, values: Tensor) -> Tensor:
         """
@@ -318,8 +305,12 @@ class Geometry:
         Returns:
             `Box` or `Cuboid` that fully contains this `Geometry`.
         """
-        from ._box import Cuboid
-        return Cuboid(self.center, half_size=self.bounding_half_extent())
+        center = self.center
+        half = self.bounding_half_extent()
+        min_vec = math.min(center + half, dim=center.shape.non_batch.non_channel)
+        max_vec = math.max(center - half, dim=center.shape.non_batch.non_channel)
+        from ._box import Box
+        return Box(min_vec, max_vec)
 
     def shifted(self, delta: Tensor) -> 'Geometry':
         """
@@ -476,10 +467,6 @@ class _InvertedGeometry(Geometry):
     def volume(self) -> Tensor:
         return math.wrap(math.INF)
 
-    @property
-    def shape_type(self) -> Tensor:
-        raise NotImplementedError
-
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
@@ -552,10 +539,6 @@ def invert(geometry: Geometry):
 
 
 class _NoGeometry(Geometry):
-
-    @property
-    def shape_type(self) -> Tensor:
-        raise NotImplementedError
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         return positions
@@ -682,10 +665,6 @@ class Point(Geometry):
     def volume(self) -> Tensor:
         return math.wrap(0)
 
-    @property
-    def shape_type(self) -> Tensor:
-        return math.tensor('P')
-
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
@@ -694,15 +673,15 @@ class Point(Geometry):
 
     @property
     def face_centers(self) -> Tensor:
-        raise NotImplementedError
+        return self._location
 
     @property
     def face_areas(self) -> Tensor:
-        raise NotImplementedError
+        return expand(0, self.face_shape)
 
     @property
     def face_normals(self) -> Tensor:
-        raise NotImplementedError
+        raise AssertionError(f"Points have no normals")
 
     @property
     def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:

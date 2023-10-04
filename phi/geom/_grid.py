@@ -54,11 +54,11 @@ class UniformGrid(BaseBox):
         return points
 
     @property
-    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+    def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
         return {}
 
     @property
-    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
         result = {}
         for dim in self.vector.item_names:
             result[(dim, False)] = {'~vector': dim, dim: slice(1)}

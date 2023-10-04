@@ -533,13 +533,13 @@ def get_default_limits(f: Field) -> Box:
         size = expand(0, f.geometry.shape['vector'])
     if (size == 0).all:
         size = math.const_vec(.1, f.geometry.shape['vector'])
-    if f.geometry.face_shape.volume > 0:
-        bounds = data_bounds(f.geometry.face_centers).largest(channel)
-    else:
-        bounds = data_bounds(f.geometry.center).largest(channel)
+    bounds = f.geometry.bounding_box().largest(channel)
+    bounds = data_bounds(f.geometry.center).largest(channel)
+
+
     extended_bounds = Cuboid(bounds.center, bounds.half_size + size * 0.6)
     extended_bounds = Box(math.min(extended_bounds.lower, size.shape.without('vector')), math.max(extended_bounds.upper, size.shape.without('vector')))
-    if isinstance(f.geometry, Point):
+    if isinstance(f.geometry, Point):  # don't plot negative values if all values are positive and vice-versa
         lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
         upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.lower * .9, extended_bounds.upper)
         extended_bounds = Box(lower, upper)

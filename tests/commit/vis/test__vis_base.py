@@ -12,14 +12,15 @@ class TestVisBase(TestCase):
         # --- Grid ---
         t = math.random_normal(spatial(x=4, y=3), channel(vector='x,y'))
         grid = to_field(t)
-        self.assertIsInstance(grid, CenteredGrid)
+        self.assertTrue(grid.is_grid)
+        self.assertTrue(grid.is_centered)
         math.assert_close(grid.dx, 1)
         math.assert_close(grid.points.x[0].y[0], 0)
         # --- PointCloud ---
         t = math.random_normal(instance(points=5), channel(vector='x,y'))
         points = to_field(t)
-        self.assertIsInstance(points, PointCloud)
+        self.assertTrue(points.is_point_cloud)
         # --- Arbitrary lines ---
         t = math.random_normal(spatial(points=5), channel(vector='x,y'))
         points = to_field(t)
-        self.assertIsInstance(points, PointCloud)
+        self.assertTrue(points.is_point_cloud)

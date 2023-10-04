@@ -96,10 +96,6 @@ class DynamicGraph(Geometry):
     def face_shape(self) -> Shape:
         return non_channel(self._nodes) & dual(**non_channel(self._nodes.shape).non_batch.untyped_dict)
 
-    @property
-    def shape_type(self) -> Tensor:
-        return self._nodes.shape_type
-
     def lies_inside(self, location: Tensor) -> Tensor:
         raise NotImplementedError(f"lies_inside not defined for DynamicGraph")
 

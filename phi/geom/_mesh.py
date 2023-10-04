@@ -208,10 +208,6 @@ class UnstructuredMesh(Geometry):
     def volume(self) -> Tensor:
         return self._volume
 
-    @property
-    def shape_type(self) -> Tensor:
-        raise NotImplementedError
-
     def lies_inside(self, location: Tensor) -> Tensor:
         raise NotImplementedError
 

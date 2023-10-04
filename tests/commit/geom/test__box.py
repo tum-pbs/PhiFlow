@@ -91,10 +91,6 @@ class TestBox(TestCase):
         bounds = math.stack([bounds1, bounds2], batch('batch'))
         self.assertIsInstance(bounds, Box)
 
-    def test_shape_type(self):
-        box = Box(x=1, y=2)
-        self.assertEqual(box.shape_type, 'B')
-
     def test_box_eq(self):
         self.assertNotEqual(Box(x=1, y=1), Box(x=1))
         self.assertEqual(Box(x=1, y=1), Box(x=1, y=1))

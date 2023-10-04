@@ -33,10 +33,6 @@ class _EmbeddedGeometry(Geometry):
     def volume(self) -> Tensor:
         raise NotImplementedError()
 
-    @property
-    def shape_type(self) -> Tensor:
-        return math.wrap('?')
-
     def unstack(self, dimension: str) -> tuple:
         raise NotImplementedError()
 

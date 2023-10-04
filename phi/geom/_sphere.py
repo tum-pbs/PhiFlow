@@ -62,10 +62,6 @@ class Sphere(Geometry):
             # n = self.spatial_rank
             # return math.pi ** (n // 2) / math.faculty(math.ceil(n / 2)) * self._radius ** n
 
-    @property
-    def shape_type(self) -> Tensor:
-        return math.tensor('S')
-
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
         return math.any(distance_squared <= self.radius ** 2, self.shape.instance)  # union for instance dimensions

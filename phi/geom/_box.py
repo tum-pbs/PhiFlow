@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, Tuple, Union, Optional
+from typing import Dict, Tuple, Union, Optional, Any
 
 import numpy as np
 
@@ -60,10 +60,6 @@ class BaseBox(Geometry):  # not a Subwoofer
     @property
     def volume(self) -> Tensor:
         return math.prod(self.size, 'vector')
-
-    @property
-    def shape_type(self) -> Tensor:
-        return math.tensor('B')
 
     def bounding_radius(self):
         return math.vec_length(self.half_size)
@@ -159,11 +155,11 @@ class BaseBox(Geometry):  # not a Subwoofer
         return Cuboid(self.center, self.half_size * factor)
 
     @property
-    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+    def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
         return {}
 
     @property
-    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
         return {}
 
     @property

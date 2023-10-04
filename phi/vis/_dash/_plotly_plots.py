@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 
 from phi import math, field
-from phi.field import Field, PointCloud, Grid, StaggeredGrid
+from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box
 from phi.geom._stack import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
@@ -68,7 +68,7 @@ class PlotlyPlots(PlottingLibrary):
 class LinePlot(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return data.spatial_rank == 1 and isinstance(data, Grid)
+        return spatial(data).rank == 1 and data.is_grid
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -92,7 +92,7 @@ class LinePlot(Recipe):
 class Heatmap2D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return data.spatial_rank == 2 and isinstance(data, Grid) and 'vector' not in data.shape
+        return data.spatial_rank == 2 and data.is_grid and 'vector' not in data.shape
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -110,11 +110,10 @@ class Heatmap2D(Recipe):
 class VectorField2D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return data.spatial_rank == 2 and isinstance(data, Grid)
+        return data.spatial_rank == 2 and data.is_grid
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
-        if isinstance(data, StaggeredGrid):
-            data = data.at_centers()
+        data = data.at_centers()
         row, col = subplot
         dims = data.elements.vector.item_names
         vector = data.elements.shape['vector']
@@ -139,7 +138,7 @@ class VectorField2D(Recipe):
 class Heatmap3D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return data.spatial_rank == 3 and isinstance(data, Grid) and data.shape.channel.volume == 1
+        return data.spatial_rank == 3 and data.is_grid and data.shape.channel.volume == 1
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -162,7 +161,7 @@ class Heatmap3D(Recipe):
 class VectorField3D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return isinstance(data, Grid) and data.spatial_rank == 3
+        return data.is_grid and data.spatial_rank == 3
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -182,7 +181,7 @@ class VectorField3D(Recipe):
 class VectorCloud2D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return isinstance(data, PointCloud) and data.spatial_rank == 2 and 'vector' in channel(data)
+        return data.is_point_cloud and data.spatial_rank == 2 and 'vector' in channel(data)
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
@@ -198,7 +197,7 @@ class VectorCloud2D(Recipe):
 class PointCloud2D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return isinstance(data, PointCloud) and data.spatial_rank == 2
+        return data.is_point_cloud and data.spatial_rank == 2
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         if isinstance(data.elements, GeometryStack):
@@ -238,7 +237,7 @@ class PointCloud2D(Recipe):
 class PointCloud3D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return isinstance(data, PointCloud) and data.spatial_rank == 3
+        return data.is_point_cloud and data.spatial_rank == 3
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot

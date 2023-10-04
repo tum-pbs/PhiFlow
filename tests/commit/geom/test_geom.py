@@ -36,3 +36,12 @@ class TestGeom(TestCase):
         self.assertEqual(set(batch(bat=100) & instance(particles=50) & channel(vector='x,y')), set(s.shape))
         s = flatten(s)
         self.assertEqual(set(batch(bat=100) & instance(flat=50) & channel(vector='x,y')), set(s.shape))
+
+    def test_union(self):
+        u = geom.union(Box(x=1, y=1), Sphere(x=0, y=0, radius=1))
+        print(u)
+        math.assert_close(vec(x=0, y=0), u.center)
+        self.assertEqual(2, u.spatial_rank)
+        self.assertEqual(channel(vector='x,y'), u.shape['vector'])
+        math.assert_close(1 + 3.1415927, u.volume)
+        math.assert_close(True, u.lies_inside(vec(x=0, y=0)))
