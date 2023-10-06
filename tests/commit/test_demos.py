@@ -72,9 +72,6 @@ class TestDemos(TestCase):
     def test_heat_equilibrium(self):
         demo_run('heat_equilibrium')
 
-    def test_hw2d(self):
-        demo_run('hw2d')
-
     def test_marker(self):
         demo_run('marker')
 

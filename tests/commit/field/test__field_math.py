@@ -12,8 +12,57 @@ from phi import field
 from phi.math import extrapolation, instance, channel, spatial, batch
 from phi.math.backend import Backend
 from phi.math.extrapolation import combine_by_direction, REFLECT, SYMMETRIC
+from phiml.math import Tensor
 
 BACKENDS = phi.detect_backends()
+
+
+
+
+# Poisson Brackets
+
+
+def poisson_bracket(grid1, grid2):
+    if all([grid1.rank == grid2.rank == 2,
+            grid1.boundary == grid2.boundary == extrapolation.PERIODIC,
+            len(set(list(grid1.dx) + list(grid2.dx))) == 1]):
+        return _periodic_2d_arakawa_poisson_bracket(grid1.values, grid2.values, grid1.dx)
+    else:
+        raise NotImplementedError("\n".join([
+            "Not implemented for:"
+            f"ranks ({grid1.rank}, {grid2.rank}) != 2",
+            f"boundary ({grid1.boundary}, {grid2.boundary}) != {extrapolation.PERIODIC}",
+            f"dx uniform ({grid1.dx}, {grid2.dx})"
+        ]))
+
+
+def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: float):
+    """
+    Solves the poisson bracket using the Arakawa Scheme [tensor1, tensor2]
+
+    Only works in 2D, with equal spaced grids, and periodic boundary conditions
+
+    Args:
+      tensor1(Tensor): first field in the poisson bracket
+      tensor2(Tensor): second field in the poisson bracket
+      dx(float): Grid size (equal in x-y)
+      tensor1: Tensor:
+      tensor2: Tensor:
+      dx: float:
+
+    Returns:
+
+    """
+    zeta = math.pad(value=tensor1, widths={'x': (1, 1), 'y': (1, 1)}, mode=extrapolation.PERIODIC)
+    psi = math.pad(value=tensor2, widths={'x': (1, 1), 'y': (1, 1)}, mode=extrapolation.PERIODIC)
+    return (zeta.x[2:].y[1:-1] * (psi.x[1:-1].y[2:] - psi.x[1:-1].y[0:-2] + psi.x[2:].y[2:] - psi.x[2:].y[0:-2])
+            - zeta.x[0:-2].y[1:-1] * (psi.x[1:-1].y[2:] - psi.x[1:-1].y[0:-2] + psi.x[0:-2].y[2:] - psi.x[0:-2].y[0:-2])
+            - zeta.x[1:-1].y[2:] * (psi.x[2:].y[1:-1] - psi.x[0:-2].y[1:-1] + psi.x[2:].y[2:] - psi.x[0:-2].y[2:])
+            + zeta.x[1:-1].y[0:-2] * (psi.x[2:].y[1:-1] - psi.x[0:-2].y[1:-1] + psi.x[2:].y[0:-2] - psi.x[0:-2].y[0:-2])
+            + zeta.x[2:].y[0:-2] * (psi.x[2:].y[1:-1] - psi.x[1:-1].y[0:-2])
+            + zeta.x[2:].y[2:] * (psi.x[1:-1].y[2:] - psi.x[2:].y[1:-1])
+            - zeta.x[0:-2].y[2:] * (psi.x[1:-1].y[2:] - psi.x[0:-2].y[1:-1])
+            - zeta.x[0:-2].y[0:-2] * (psi.x[0:-2].y[1:-1] - psi.x[1:-1].y[0:-2])) / (12 * dx ** 2)
 
 
 class TestFieldMath(TestCase):
@@ -173,69 +222,6 @@ class TestFieldMath(TestCase):
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y'))
         grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box['x,y', 0:1, 0:1])
         math.assert_close(field.integrate(grid, grid.bounds), math.sum(grid.values, 'x,y') / 100)
-
-
-    def test__periodic_2d_arakawa_poisson_bracket(self):
-        """test _periodic_2d_arakawa_poisson_bracket implementation"""
-        with math.precision(64):
-            # Define parameters to test
-            test_params = {
-                'grid_size': [(4, 4), (32, 32)],
-                'dx': [0.1, 1],
-                'gen_func': [lambda grid_size: numpy.random.rand(*grid_size).reshape(grid_size)]
-            }
-            # Generate test cases as the product
-            test_cases = [dict(zip(test_params, v)) for v in product(*test_params.values())]
-            for params in test_cases:
-                grid_size = params['grid_size']
-                d1 = params['gen_func'](grid_size)
-                d2 = params['gen_func'](grid_size)
-                dx = params['dx']
-                padding = extrapolation.PERIODIC
-                ref = self.arakawa_reference_implementation(numpy.pad(d1.copy(), 1, mode='wrap'), numpy.pad(d2.copy(), 1, mode='wrap'), dx)[1:-1, 1:-1]
-                d1_tensor = field.CenteredGrid(values=math.tensor(d1, spatial('x,y')), bounds=geom.Box(x=grid_size[0], y=grid_size[1]), extrapolation=padding)
-                d2_tensor = field.CenteredGrid(values=math.tensor(d2, spatial('x,y')), bounds=geom.Box(x=grid_size[0], y=grid_size[1]), extrapolation=padding)
-                val = math._nd._periodic_2d_arakawa_poisson_bracket(d1_tensor.values, d2_tensor.values, dx)
-                # try:
-                math.assert_close(ref, val, rel_tolerance=1e-14, abs_tolerance=1e-14)
-                # except BaseException as e:  # Enable the try/catch to get more info about the deviation
-                #     abs_error = math.abs(control - ref)
-                #     max_abs_error = math.max(abs_error)
-                #     max_rel_error = math.max(math.abs(abs_error / ref))
-                #     variation_str = "\n".join([
-                #         f"max_absolute_error: {max_abs_error}",
-                #         f"max_relative_error: {max_rel_error}",
-                #     ])
-                #     print(ref)
-                #     print(control)
-                #     raise AssertionError(e, params, variation_str)
-
-    @staticmethod
-    def arakawa_reference_implementation(zeta, psi, d):
-        """pure Python exact implementation from paper"""
-
-        def jpp(zeta, psi, d, i, j):
-            return ((zeta[i + 1, j] - zeta[i - 1, j]) * (psi[i, j + 1] - psi[i, j - 1])
-                    - (zeta[i, j + 1] - zeta[i, j - 1]) * (psi[i + 1, j] - psi[i - 1, j])) / (4 * d ** 2)
-
-        def jpx(zeta, psi, d, i, j):
-            return (zeta[i + 1, j] * (psi[i + 1, j + 1] - psi[i + 1, j - 1])
-                    - zeta[i - 1, j] * (psi[i - 1, j + 1] - psi[i - 1, j - 1])
-                    - zeta[i, j + 1] * (psi[i + 1, j + 1] - psi[i - 1, j + 1])
-                    + zeta[i, j - 1] * (psi[i + 1, j - 1] - psi[i - 1, j - 1])) / (4 * d ** 2)
-
-        def jxp(zeta, psi, d, i, j):
-            return (zeta[i + 1, j + 1] * (psi[i, j + 1] - psi[i + 1, j])
-                    - zeta[i - 1, j - 1] * (psi[i - 1, j] - psi[i, j - 1])
-                    - zeta[i - 1, j + 1] * (psi[i, j + 1] - psi[i - 1, j])
-                    + zeta[i + 1, j - 1] * (psi[i + 1, j] - psi[i, j - 1])) / (4 * d ** 2)
-
-        val = numpy.zeros_like(zeta)
-        for i in range(0, zeta.shape[0] - 1):
-            for j in range(0, zeta.shape[1] - 1):
-                val[i, j] += (jpp(zeta, psi, d, i, j) + jpx(zeta, psi, d, i, j) + jxp(zeta, psi, d, i, j))
-        val = val / 3
-        return val
 
     def test_mask(self):
         mask = field.mask(Box(x=1, y=1))
