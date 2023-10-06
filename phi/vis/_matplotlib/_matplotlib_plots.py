@@ -555,10 +555,11 @@ class PointCloud3D(Recipe):
                 rx, ry, rz = reshaped_numpy(data.geometry.radius, [vector, data.geometry.shape.without('vector')])
                 u, v = np.linspace(0, 2 * np.pi, 100), np.linspace(0, np.pi, 100)  # Set of all spherical angles
                 # --- Cartesian coordinates that correspond to the spherical angles ---
-                x = x + rx * np.outer(np.cos(u), np.sin(v))
-                y = y + ry * np.outer(np.sin(u), np.sin(v))
-                z = z + rz * np.outer(np.ones_like(u), np.cos(v))
-                subplot.plot_surface(x, y, z, rstride=4, cstride=4, color=mpl_colors[0], alpha=alphas[0])
+                for i in range(len(x)):
+                    x_ = x[i] + rx[i] * np.outer(np.cos(u), np.sin(v))
+                    y_ = y[i] + ry[i] * np.outer(np.sin(u), np.sin(v))
+                    z_ = z[i] + rz[i] * np.outer(np.ones_like(u), np.cos(v))
+                    subplot.plot_surface(x_, y_, z_, rstride=4, cstride=4, color=mpl_colors[0], alpha=alphas[0])
             elif isinstance(data.geometry, BaseBox):
                 a = alphas[0]
                 c = mpl_colors[0]
@@ -570,12 +571,34 @@ class PointCloud3D(Recipe):
                 subplot.plot_surface(cx[1, :, :], cy[1, :, :], cz[1, :, :], alpha=a, color=c)
                 subplot.plot_surface(cx[0, :, :], cy[0, :, :], cz[0, :, :], alpha=a, color=c)
             elif isinstance(data.geometry, Point):
-                size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
-                subplot.scatter(x, y, z, marker='x', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
+                if not spatial(data.geometry):
+                    size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
+                    subplot.scatter(x, y, z, marker='x', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
             else:
                 size = data.geometry.bounding_radius().numpy()
                 subplot.scatter(x, y, z, marker='X', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
-
+            if spatial(data.geometry):  # Connect by lines
+                for i, idx in enumerate(instance(data).meshgrid()):
+                    for sp_dim in spatial(data.geometry):
+                        other_sp = spatial(data.geometry).without(sp_dim)
+                        xs, ys, zs = reshaped_numpy(data[idx].points.vector[dims], [vector, sp_dim, other_sp])
+                        if (color == None).all:
+                            col = _next_line_color(subplot)
+                        else:
+                            col = _plt_col(color)
+                        alpha_f = float(alpha[idx].max)
+                        if ((err[idx] != 0) & (err[idx] != None)).any:
+                            x_errs = reshaped_numpy(err[idx].vector[dims[0]], [other_sp, sp_dim]) if dims[0] in err.vector.item_names else 0
+                            y_errs = reshaped_numpy(err[idx].vector[dims[1]], [other_sp, sp_dim]) if dims[1] in err.vector.item_names else 0
+                            for x, y, x_err, y_err in zip(xs.T, ys.T, x_errs, y_errs):
+                                if math.max(x_err) > math.max(y_err):
+                                    subplot.fill_betweenx(y, x - x_err, x + x_err, color=col, alpha=alpha_f * .2)
+                                else:
+                                    subplot.fill_between(x, y - y_err, y + y_err, color=col, alpha=alpha_f * .2)
+                        for i in range(xs.shape[1]):
+                            subplot.plot(xs[:, i], ys[:, i], zs[:, i], color=col, alpha=alpha_f)
+                            if isinstance(data.geometry, Point) and 2 < spatial(data.geometry).volume < 100:
+                                subplot.scatter(xs[:, i], ys[:, i], zs[:, i], s=3, marker='o', c=col, alpha=alphas)
 
 # class Mesh2D(Recipe):
 #
