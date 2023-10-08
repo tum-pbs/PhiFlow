@@ -398,6 +398,7 @@ class Field:
         item = slicing_dict(self, item)
         if not item:
             return self
+        boundary = self._boundary[item]
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
         if self.is_staggered and 'vector' in item and '~vector' in self.geometry.face_shape:
             assert isinstance(self._geometry, UniformGrid), f"Vector slicing is only supported for grids"
@@ -407,8 +408,7 @@ class Field:
         else:
             elements = self._geometry[item_without_vec]
         values = self._values[item]
-        extrapolation = self._boundary[item]
-        return Field(elements, values, extrapolation)
+        return Field(elements, values, boundary)
 
     def __getattr__(self, name: str) -> BoundDim:
         return BoundDim(self, name)
@@ -536,18 +536,21 @@ class Field:
             from ._resample import sample
             other_values = sample(other, self._geometry, self.sampled_at, self.boundary, dot_face_normal=self._geometry)
             values = operator(self._values, other_values)
-            extrapolation_ = operator(self._boundary, other.extrapolation)
-            return self.with_values(values).with_extrapolation(extrapolation_)
+            boundary = operator(self._boundary, other.extrapolation)
+            return Field(self._geometry, values, boundary)
         else:
             if isinstance(other, (tuple, list)) and len(other) == self.spatial_rank:
-                if 'vector' in self.shape and 'vector' not in self.values.shape and '~vector' in self.values.shape:
-                    other = math.wrap(other, self._values.shape['~vector'])
-                else:
-                    other = math.wrap(other, self._geometry.shape['vector'])
+                other = math.wrap(other, self._geometry.shape['vector'])
             else:
                 other = math.wrap(other)
+            try:
+                boundary = operator(self._boundary, as_boundary(other))
+            except TypeError:  # e.g. ZERO_GRADIENT + constant
+                boundary = self._boundary
+            if 'vector' in self.shape and 'vector' not in self.values.shape and '~vector' in self.values.shape:
+                other = other.vector.as_dual()
             values = operator(self._values, other)
-            return self.with_values(values)
+            return Field(self._geometry, values, boundary)
 
     def __repr__(self):
         if self.is_grid:
@@ -570,7 +573,7 @@ class Field:
         return grid_scatter(self, *args, **kwargs)
 
 
-def as_boundary(obj: Union[Extrapolation, float, Field, None]) -> Extrapolation:
+def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None]) -> Extrapolation:
     """
     Returns an `Extrapolation` representing `obj`.
 

@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi import math
-from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity
+from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity, StaggeredGrid
 from phi.geom import Box, Sphere
 from phi.math import batch, spatial, vec
 
@@ -49,3 +49,11 @@ class TestField(TestCase):
         for obj in [AngularVelocity(location=vec(x=0, y=0)), Sphere(x=0, y=0, radius=1)]:
             resampled = obj >> CenteredGrid(0, x=4, y=3)
             self.assertTrue(resampled.is_grid)
+
+    def test_boundary_slicing(self):
+        grid = StaggeredGrid(0, x=10, y=10)
+        c = vec(x=1, y=-1)
+        v = grid + c
+        self.assertIn('vector', v.boundary.shape)
+        components = math.unstack(v, 'vector')
+        self.assertNotIn('vector', components[0].boundary.shape)

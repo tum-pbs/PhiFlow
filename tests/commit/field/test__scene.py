@@ -156,6 +156,8 @@ class TestScene(TestCase):
     def test_read_legacy_centered_grid(self):
         path = join(dirname(abspath(__file__)))
         density = field.read(join(path, 'dens_001000.npz'))
-        assert isinstance(density, CenteredGrid)
+        self.assertTrue(density.is_grid)
+        self.assertTrue(density.is_centered)
         velocity = field.read(join(path, 'velo_001000.npz'))
-        assert isinstance(velocity, StaggeredGrid)
+        self.assertTrue(velocity.is_grid)
+        self.assertTrue(velocity.is_staggered)

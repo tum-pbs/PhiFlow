@@ -193,7 +193,7 @@ def spatial_gradient(field: Field,
         for dim in spatial_dims:
             lo, up = gradient_extrapolation.valid_outer_faces(dim)
             padding_widths = (lo + base_widths[0], up + base_widths[1])
-            padded_components.append(math.pad(field.values, {dim: padding_widths}, field.extrapolation))
+            padded_components.append(math.pad(field.values, {dim: padding_widths}, field.extrapolation, bounds=field.bounds))
         shifted_components = [math.shift(padded_component, needed_shifts, stack_dim=None, padding=None, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
         result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim] for shifted_component, dim in zip(shifted_components, field.shape.spatial.names)]
         assert stack_dim.name == 'vector', f"spatial_gradient with type=StaggeredGrid requires stack_dim.name == 'vector' but got '{stack_dim.name}'"
@@ -357,11 +357,11 @@ def divergence(field: Field, order=2, implicit: Solve = None) -> CenteredGrid:
         for dim, component in zip(field.shape.spatial.names, field.values.vector.dual):
             border_valid = field.extrapolation.valid_outer_faces(dim)
             padding_widths = (base_widths[0] - border_valid[0], base_widths[1] - border_valid[1])
-            padded_components.append(math.pad(component, {dim: padding_widths}, field.extrapolation))
+            padded_components.append(math.pad(component, {dim: padding_widths}, field.extrapolation[{'vector': dim}], bounds=field.bounds))
     elif field.is_grid and not field.is_staggered:
-        padded_components = [math.pad(component, {dim: base_widths}, field.extrapolation) for dim, component in zip(spatial_dims, field.values.vector)]
+        padded_components = [math.pad(component, {dim: base_widths}, field.extrapolation[{'vector': dim}], bounds=field.bounds) for dim, component in zip(spatial_dims, field.values.vector)]
         if field.extrapolation == math.extrapolation.NONE:
-            padded_components = [math.pad(component, {dim_: (0, 0) if dim_ == dim else (-1, -1) for dim_ in spatial_dims}, field.extrapolation) for dim, component in zip(spatial_dims, padded_components)]
+            padded_components = [math.pad(component, {dim_: (0, 0) if dim_ == dim else (-1, -1) for dim_ in spatial_dims}, field.extrapolation[{'vector': dim}], bounds=field.bounds) for dim, component in zip(spatial_dims, padded_components)]
     else:
         raise NotImplementedError
     shifted_components = [math.shift(c, needed_shifts, dim, padding=None, stack_dim=None) for c, dim in zip(padded_components, spatial_dims)]
@@ -405,8 +405,8 @@ def curl(field: Field, at='center'):
     elif field.is_grid and field.is_staggered and field.spatial_rank == 2:
         if at == 'center':
             values = bake_extrapolation(field).values
-            x_padded = math.pad(values.vector['x'], {'y': (1, 1)}, field.extrapolation)
-            y_padded = math.pad(values.vector['y'], {'x': (1, 1)}, field.extrapolation)
+            x_padded = math.pad(values.vector['x'], {'y': (1, 1)}, field.extrapolation[{'vector': 'x'}], bounds=field.bounds)
+            y_padded = math.pad(values.vector['y'], {'x': (1, 1)}, field.extrapolation[{'vector': 'y'}], bounds=field.bounds)
             vx_dy = math.spatial_gradient(x_padded, field.dx, 'forward', None, dims='y', stack_dim=None)
             vy_dx = math.spatial_gradient(y_padded, field.dx, 'forward', None, dims='x', stack_dim=None)
             result = vy_dx - vx_dy
@@ -517,7 +517,10 @@ def pad(grid: Field, widths: Union[int, tuple, list, dict]) -> Field:
         assert isinstance(widths, dict)
     widths_list = [widths[axis] if axis in widths.keys() else (0, 0) for axis in grid.shape.spatial.names]
     if grid.is_grid:
-        data = math.pad(grid.values, widths, grid.extrapolation, bounds=grid.bounds)
+        if grid.is_staggered:
+            data = math.pad(grid.values.vector.dual.as_channel(), widths, grid.extrapolation, bounds=grid.bounds).vector.as_dual()
+        else:
+            data = math.pad(grid.values, widths, grid.extrapolation, bounds=grid.bounds)
         w_lower = math.wrap([w[0] for w in widths_list])
         w_upper = math.wrap([w[1] for w in widths_list])
         bounds = Box(grid.bounds.lower - w_lower * grid.dx, grid.bounds.upper + w_upper * grid.dx)

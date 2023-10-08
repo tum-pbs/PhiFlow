@@ -1,3 +1,5 @@
+from typing import Union, Tuple
+
 from phi.geom import UniformGrid, Box
 from phi.math import Tensor, spatial, Extrapolation, Shape, stack
 from phi.math.extrapolation import Undefined, ConstantExtrapolation
@@ -32,8 +34,8 @@ class FieldEmbedding(Extrapolation):
         # from ._field_math import spatial_gradient
         # return FieldEmbedding(spatial_gradient(self.field))  # this is not supported for all fields
 
-    def valid_outer_faces(self, dim) -> tuple:
-        return False, False
+    def determines_boundary_values(self, boundary_key: Union[Tuple[str, bool], str]) -> bool:
+        return False
 
     def is_face_valid(self, key) -> bool:
         return False
@@ -56,6 +58,12 @@ class FieldEmbedding(Extrapolation):
     @property
     def is_flexible(self) -> bool:
         return False
+
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+        raise NotImplementedError
+
+    def __eq__(self, other):
+        return isinstance(other, FieldEmbedding) and other.field is self.field
 
     def __repr__(self):
         return repr(self.field)

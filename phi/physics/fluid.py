@@ -104,6 +104,7 @@ def make_incompressible(velocity: Field,
     # --- Linear solve ---
     velocity = apply_boundary_conditions(velocity, obstacles)
     div = divergence(velocity, order=order) * active
+    assert not channel(div), f"Divergence must not have any channel dimensions. This is likely caused by an improper velocity field v={input_velocity}"
     if not all_active:  # NaN in velocity allowed
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:

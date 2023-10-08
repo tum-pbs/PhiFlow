@@ -13,9 +13,8 @@ class HardGeometryMask(Field):
     """
 
     def __init__(self, geometry: Geometry):
+        super().__init__(geometry, 1, 0)
         warnings.warn("HardGeometryMask and SoftGeometryMask are deprecated. Use field.mask or field.resample instead.", DeprecationWarning, stacklevel=2)
-        assert isinstance(geometry, Geometry)
-        self.geometry = geometry
 
     @property
     def shape(self):
