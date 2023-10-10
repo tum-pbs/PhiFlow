@@ -12,6 +12,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from matplotlib.ticker import NullFormatter
 from matplotlib.transforms import Bbox
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from phi import math
 from phi.field import StaggeredGrid, Field
@@ -372,12 +373,42 @@ class Heatmap3D(Recipe):
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         dims = space.vector.item_names
-        x, y, z = StaggeredGrid(lambda x: x, math.extrapolation.BOUNDARY, data.geometry.bounds, data.resolution).staggered_tensor().numpy(('vector',) + dims)
-        values = data.values.numpy(dims)
-        cmap = plt.get_cmap('viridis')
-        norm = matplotlib.colors.Normalize(vmin=np.min(values), vmax=np.max(values))
-        colors = cmap(norm(values))
-        subplot.voxels(x, y, z, values, facecolors=colors, edgecolor='k')
+        xyz = StaggeredGrid(lambda x: x, math.extrapolation.BOUNDARY, data.geometry.bounds, data.resolution).staggered_tensor().numpy(dims + ('vector',))[:-1, :-1, :-1, :]
+        xyz = xyz.reshape(-1, 3)
+        values = data.values.numpy(dims).flatten()
+        col = matplotlib.colors.to_rgba(_plt_col(color))
+        colors = np.zeros_like(values)[..., None] + col
+        norm_values = (values - min_val) / (max_val - min_val)
+        size = len(values) ** .3333
+        exponent = size / 15
+        print(exponent)
+        alpha = float(alpha) * norm_values ** exponent
+        colors[..., -1] *= alpha
+        size = [data.dx.numpy()] * len(xyz)
+        cubes = plotCubeAt(xyz, size, colors)
+        subplot.add_collection3d(cubes)
+
+
+def cuboid_data(min_xyz: np.ndarray, size=(1, 1, 1)):
+    x = [[[0, 1, 0], [0, 0, 0], [1, 0, 0], [1, 1, 0]],
+         [[0, 0, 0], [0, 0, 1], [1, 0, 1], [1, 0, 0]],
+         [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]],
+         [[0, 0, 1], [0, 0, 0], [0, 1, 0], [0, 1, 1]],
+         [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]],
+         [[0, 1, 1], [0, 0, 1], [1, 0, 1], [1, 1, 1]]]
+    x = np.array(x).astype(float) * size
+    return x + min_xyz
+
+
+def plotCubeAt(positions, sizes=None, colors=None, **kwargs):
+    if not isinstance(colors, (list, np.ndarray)):
+        colors = ["C0"] * len(positions)
+    if not isinstance(sizes, (list, np.ndarray)):
+        sizes = [(1, 1, 1)] * len(positions)
+    g = []
+    for p, s, c in zip(positions, sizes, colors):
+        g.append(cuboid_data(p, size=s))
+    return Poly3DCollection(np.concatenate(g), facecolors=np.repeat(colors, 6, axis=0), **kwargs)
 
 
 class VectorCloud2D(Recipe):
